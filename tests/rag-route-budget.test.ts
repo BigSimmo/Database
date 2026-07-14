@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   AnswerRouteDeadlineExceededError,
+  answerRouteResultCanBeCached,
   answerRouteBudgetMs,
   createAnswerRouteDeadline,
 } from "../src/lib/rag-route-budget";
@@ -49,6 +50,17 @@ describe("RAG route deadlines", () => {
 
     await expect(pending).rejects.toBe(reason);
     expect(deadline.deadlineExceeded).toBe(false);
+    deadline.dispose();
+  });
+
+  it("does not allow a result to be cached after its route deadline", async () => {
+    vi.useFakeTimers();
+    const deadline = createAnswerRouteDeadline({ routeMode: "extractive" });
+
+    expect(answerRouteResultCanBeCached(deadline)).toBe(true);
+    await vi.advanceTimersByTimeAsync(answerRouteBudgetMs.extractive);
+    expect(answerRouteResultCanBeCached(deadline)).toBe(false);
+
     deadline.dispose();
   });
 });

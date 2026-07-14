@@ -285,11 +285,18 @@ function parseArgs(argv: string[]): EvalQualityArgs {
 }
 
 export function configureEvalProviderEnvironment(providerMode: EvalQualityProviderMode) {
+  process.env.RAG_PROVIDER_MODE = providerMode;
   if (providerMode !== "offline") return;
-  process.env.RAG_PROVIDER_MODE = "offline";
   delete process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_ORG_ID;
   delete process.env.OPENAI_PROJECT_ID;
+}
+
+export function retrievalCasesForProviderMode<T extends { forceEmbedding?: boolean }>(
+  cases: T[],
+  providerMode: EvalQualityProviderMode,
+) {
+  return providerMode === "offline" ? cases.filter((testCase) => !testCase.forceEmbedding) : cases;
 }
 
 export function qualityFailureCategory(message: string): QualityFailureCategory {
@@ -966,6 +973,7 @@ async function runRetrievalQualityCases(args: {
   limit?: number;
   query?: string;
   forceEmbedding?: boolean;
+  providerMode: EvalQualityProviderMode;
   supabase: Awaited<ReturnType<typeof loadAdminClient>>;
 }) {
   const [{ searchChunksWithTelemetry }, capturedCases] = await Promise.all([
@@ -976,7 +984,10 @@ async function runRetrievalQualityCases(args: {
       limit: args.limit,
     }),
   ]);
-  const allCases = [...capturedCases.map(capturedRagCaseToGoldenCase), ...loadGoldenRetrievalCases(args.fixture)];
+  const allCases = retrievalCasesForProviderMode(
+    [...capturedCases.map(capturedRagCaseToGoldenCase), ...loadGoldenRetrievalCases(args.fixture)],
+    args.providerMode,
+  );
   const filtered = args.query
     ? allCases.filter((item) => item.id === args.query || item.query.toLowerCase().includes(args.query!.toLowerCase()))
     : allCases;
@@ -1175,6 +1186,9 @@ async function loadSourceMetadataDebtAcceptance(path: string): Promise<SourceMet
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.providerMode === "offline" && args.forceEmbedding) {
+    throw new Error("--force-embedding cannot be used with --provider-mode offline.");
+  }
   configureEvalProviderEnvironment(args.providerMode);
   const [{ requireOpenAIEnv, requireServerEnv }, supabase] = await Promise.all([
     import("@/lib/env"),

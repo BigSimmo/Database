@@ -87,7 +87,15 @@ describe("registry governance reconciliation", () => {
       label(service!, { id: "generated-site", label: "fsh", label_type: "site" }),
       label(service!, { id: "wrong-intent", label: "staff-guidance" }),
       label(service!, { id: "manual-site", label: "manual-fsh", label_type: "site", source: "manual" }),
-      label(form!, { id: "stale-expected", confidence: 0.5 }),
+      label(form!, {
+        id: "stale-expected",
+        confidence: 0.5,
+        metadata: {
+          generated_by: "legacy-producer",
+          review_status: "approved",
+          reviewed_by: "clinical-reviewer",
+        },
+      }),
       label(differential!, { id: "current-expected" }),
     ];
 
@@ -98,6 +106,12 @@ describe("registry governance reconciliation", () => {
     expect(first.labelIdsToDelete).not.toContain("manual-site");
     expect(first.labelsToInsert).toHaveLength(2);
     expect(first.labelsToUpdate).toHaveLength(1);
+    expect(first.labelsToUpdate[0]?.confidence).toBe(0.5);
+    expect(first.labelsToUpdate[0]?.metadata).toMatchObject({
+      generated_by: "registry-corpus-producer",
+      review_status: "approved",
+      reviewed_by: "clinical-reviewer",
+    });
 
     const updatedDocuments = documents.map((document) => {
       const update = first.documentUpdates.find((candidate) => candidate.id === document.id);

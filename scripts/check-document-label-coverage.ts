@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { reviewDocumentTagQuality } from "@/lib/document-tags";
 import type { DocumentLabel } from "@/lib/types";
+import { isRegistryProjectionDocument } from "./lib/registry-projection-document";
 
 const loadEnvConfig =
   nextEnv.loadEnvConfig ??
@@ -209,15 +210,6 @@ function registryKindFor(document: DocumentLabelCoverageDocument) {
   return registryKinds.has(kind) ? (kind as keyof typeof registryIntentByKind) : null;
 }
 
-function isRegistryDocument(document: DocumentLabelCoverageDocument) {
-  const metadata = metadataRecord(document.metadata);
-  return (
-    metadata.source_kind === "registry_record" ||
-    document.file_type === "application/vnd.clinical-kb.registry+json" ||
-    document.source_path?.startsWith("registry://") === true
-  );
-}
-
 function countQualityIssues(issues: ReturnType<typeof reviewDocumentTagQuality>) {
   const counts = new Map<string, number>();
   for (const issue of issues) counts.set(issue.kind, (counts.get(issue.kind) ?? 0) + 1);
@@ -234,8 +226,8 @@ export function buildDocumentLabelCoverageReport(args: {
   const allowedSiteMissing = args.allowedSiteMissing ?? new Set<string>();
   const allowedDocumentTypeMissing = args.allowedDocumentTypeMissing ?? new Set<string>();
   const documentIds = new Set(documents.map((document) => document.id));
-  const physicalDocuments = documents.filter((document) => !isRegistryDocument(document));
-  const registryDocuments = documents.filter(isRegistryDocument);
+  const physicalDocuments = documents.filter((document) => !isRegistryProjectionDocument(document));
+  const registryDocuments = documents.filter(isRegistryProjectionDocument);
   const generatedDocumentIds = new Set(labels.map((label) => label.document_id));
   const siteDocumentIds = new Set(
     labels.filter((label) => label.label_type === "site").map((label) => label.document_id),

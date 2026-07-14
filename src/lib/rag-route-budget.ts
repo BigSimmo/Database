@@ -29,6 +29,10 @@ export type AnswerRouteDeadline = {
   dispose(): void;
 };
 
+export function answerRouteResultCanBeCached(deadline: Pick<AnswerRouteDeadline, "deadlineExceeded">) {
+  return !deadline.deadlineExceeded;
+}
+
 function abortReason(signal: AbortSignal) {
   return signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
 }

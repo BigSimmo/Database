@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   crossTenantDocumentIds,
   crossTenantFixtureMarker,
+  crossTenantStagingFetch,
   readCrossTenantStagingConfig,
 } from "../scripts/test-cross-tenant-staging";
 import { analyzeClinicalQuery } from "../src/lib/clinical-search";
@@ -26,6 +27,7 @@ function stubConfig(overrides: Partial<Record<keyof typeof validConfig, string>>
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 describe("cross-tenant staging configuration safety", () => {
@@ -41,6 +43,18 @@ describe("cross-tenant staging configuration safety", () => {
     expect(crossTenantDocumentIds([{ id: "chunk-id", document_id: "document-id" }], "sources")).toEqual([
       "document-id",
     ]);
+  });
+
+  it("passes a bounded abort signal to Supabase transport calls", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+
+    await crossTenantStagingFetch("https://staging.tests.invalid/rest/v1/documents", {}, 1_000);
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://staging.tests.invalid/rest/v1/documents",
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    fetchSpy.mockRestore();
   });
 
   it("accepts a dedicated, internally consistent staging configuration", () => {

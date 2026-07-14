@@ -1,6 +1,9 @@
 import * as nextEnv from "@next/env";
 import { pathToFileURL } from "node:url";
 import { documentLabelTier, normalizeDocumentLabelForStorage } from "@/lib/document-tags";
+import { isRegistryProjectionDocument } from "./lib/registry-projection-document";
+
+export { isRegistryProjectionDocument } from "./lib/registry-projection-document";
 
 const loadEnvConfig =
   nextEnv.loadEnvConfig ??
@@ -153,18 +156,6 @@ function usage() {
 
 function metadataRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
-}
-
-/** Registry projections have deterministic labels owned by the registry corpus
- * producer. Sending them through the generic classifier can replace those
- * labels with text-derived fallbacks and break the registry contract. */
-export function isRegistryProjectionDocument(document: Pick<DocumentRow, "file_name" | "source_path" | "metadata">) {
-  const metadata = metadataRecord(document.metadata);
-  return (
-    metadata.source_kind === "registry_record" ||
-    document.source_path?.startsWith("registry://") === true ||
-    document.file_name.endsWith(".registry.json")
-  );
 }
 
 type ExistingGeneratedLabelRow = {

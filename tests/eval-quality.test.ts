@@ -7,6 +7,7 @@ import {
   qualityFailureCategory,
   ragAnswerTimingDiagnostics,
   renderEvalQualityMarkdown,
+  retrievalCasesForProviderMode,
   sourceGovernanceDangerFailuresForAnswer,
   sourceWarningsForRagQualityAnswer,
   type RagQualityResult,
@@ -720,5 +721,22 @@ describe("eval quality reporting", () => {
     expect(process.env.OPENAI_API_KEY).toBeUndefined();
     expect(process.env.OPENAI_ORG_ID).toBeUndefined();
     expect(process.env.OPENAI_PROJECT_ID).toBeUndefined();
+  });
+
+  it("makes the selected provider mode authoritative over ambient configuration", () => {
+    vi.stubEnv("RAG_PROVIDER_MODE", "offline");
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+
+    configureEvalProviderEnvironment("openai");
+
+    expect(process.env.RAG_PROVIDER_MODE).toBe("openai");
+    expect(process.env.OPENAI_API_KEY).toBe("test-key");
+  });
+
+  it("omits force-embedding retrieval cases from the offline profile", () => {
+    const cases = [{ id: "lexical", forceEmbedding: false }, { id: "vector", forceEmbedding: true }, { id: "default" }];
+
+    expect(retrievalCasesForProviderMode(cases, "offline").map((item) => item.id)).toEqual(["lexical", "default"]);
+    expect(retrievalCasesForProviderMode(cases, "openai")).toEqual(cases);
   });
 });

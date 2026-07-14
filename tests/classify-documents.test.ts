@@ -7,6 +7,12 @@ describe("classify-documents registry guard", () => {
     { file_name: "service.registry.json", source_path: null, metadata: {} },
     { file_name: "service.json", source_path: "registry://service/example", metadata: {} },
     { file_name: "service.json", source_path: null, metadata: { source_kind: "registry_record" } },
+    {
+      file_name: "service.json",
+      file_type: "application/vnd.clinical-kb.registry+json",
+      source_path: null,
+      metadata: {},
+    },
   ])("keeps registry projections out of the generic classifier", (document) => {
     expect(isRegistryProjectionDocument(document)).toBe(true);
   });

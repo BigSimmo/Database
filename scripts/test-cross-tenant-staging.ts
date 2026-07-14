@@ -40,6 +40,16 @@ type Fixture = {
   storagePath: string;
 };
 
+export function crossTenantStagingFetch(
+  input: string | URL | Request,
+  init: RequestInit = {},
+  timeoutMs = REQUEST_TIMEOUT_MS,
+) {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const signal = init.signal ? AbortSignal.any([init.signal, timeoutSignal]) : timeoutSignal;
+  return fetch(input, { ...init, signal });
+}
+
 export function crossTenantFixtureMarker(runId: string, tenant: "a" | "b") {
   // Anchor the unique token to a real clinical term. A random token by itself is correctly
   // rejected by the release retrieval guard as unsupported before lexical search runs.
@@ -589,9 +599,11 @@ async function main() {
 
     clientA = createClient<Database>(config.supabaseUrl, config.publishableKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { fetch: crossTenantStagingFetch },
     });
     clientB = createClient<Database>(config.supabaseUrl, config.publishableKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { fetch: crossTenantStagingFetch },
     });
     const sessionA = await signIn(clientA, config.userAEmail, config.userAPassword, "User A");
     const sessionB = await signIn(clientB, config.userBEmail, config.userBPassword, "User B");
@@ -605,6 +617,7 @@ async function main() {
     // guards and the distinct-user assertion have passed.
     admin = createClient<Database>(config.supabaseUrl, config.serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { fetch: crossTenantStagingFetch },
     });
     const fixtureA = await createFixture(admin, config, runId, sessionA.userId, "a", (fixture) =>
       fixtures.push(fixture),

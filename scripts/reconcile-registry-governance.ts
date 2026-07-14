@@ -4,6 +4,7 @@ import { loadEnvConfig } from "@next/env";
 import type { DifferentialRecordRow } from "@/lib/differential-records";
 import type { MedicationRecordRow } from "@/lib/medication-records";
 import type { RegistryRecordRow } from "@/lib/registry-records";
+import { mergeRegistryGeneratedLabelMetadata } from "@/lib/registry-corpus";
 import type { Json, TablesInsert } from "@/lib/supabase/database.types";
 import type { RegistryCorpusKind, RegistryGovernanceProjection } from "@/lib/registry-corpus";
 
@@ -234,7 +235,6 @@ export function buildRegistryGovernancePlan(args: {
 
   for (const projection of args.projections) {
     const document = documentById.get(projection.documentId)!;
-    const intentLabel = { ...projection.intentLabel, owner_id: document.owner_id };
     const mergedMetadata = { ...metadataRecord(document.metadata), ...projection.requiredMetadata };
     if (stableJson(mergedMetadata) !== stableJson(metadataRecord(document.metadata))) {
       documentUpdates.push({ id: document.id, ownerId: document.owner_id, metadata: mergedMetadata });
@@ -251,8 +251,19 @@ export function buildRegistryGovernancePlan(args: {
 
     const expectedLabel = documentLabels.find(
       (label) =>
-        label.source === "generated" && label.label_type === "document_intent" && label.label === intentLabel.label,
+        label.source === "generated" &&
+        label.label_type === "document_intent" &&
+        label.label === projection.intentLabel.label,
     );
+    const intentLabel = {
+      ...projection.intentLabel,
+      owner_id: document.owner_id,
+      confidence: expectedLabel?.confidence ?? projection.intentLabel.confidence,
+      metadata: mergeRegistryGeneratedLabelMetadata(
+        expectedLabel?.metadata ?? null,
+        projection.intentLabel.metadata ?? null,
+      ),
+    };
     if (!expectedLabel) labelsToInsert.push(intentLabel);
     else if (!expectedLabelCurrent(expectedLabel, intentLabel)) labelsToUpdate.push(intentLabel);
   }

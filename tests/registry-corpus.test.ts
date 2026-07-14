@@ -183,7 +183,16 @@ describe("registry corpus", () => {
       metadata: { ...(stored.metadata as Record<string, unknown>), registry_detail_href: "/legacy/crisis-service" },
     });
     const [intentLabelKey] = [...labels.keys()];
-    labels.set(intentLabelKey!, { ...labels.get(intentLabelKey!)!, owner_id: null });
+    labels.set(intentLabelKey!, {
+      ...labels.get(intentLabelKey!)!,
+      owner_id: null,
+      confidence: 0.75,
+      metadata: {
+        ...((labels.get(intentLabelKey!)?.metadata as Record<string, unknown>) ?? {}),
+        review_status: "approved",
+        reviewed_by: "clinical-reviewer",
+      },
+    });
 
     await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).resolves.toEqual({
       documentCount: 1,
@@ -191,6 +200,11 @@ describe("registry corpus", () => {
     });
     expect(documents.get(documentId!)?.owner_id).toBeNull();
     expect(labels.get(intentLabelKey!)?.owner_id).toBeNull();
+    expect(labels.get(intentLabelKey!)?.confidence).toBe(0.75);
+    expect(labels.get(intentLabelKey!)?.metadata).toMatchObject({
+      review_status: "approved",
+      reviewed_by: "clinical-reviewer",
+    });
     expect(embedTextsMock).toHaveBeenCalledTimes(1);
     await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).resolves.toEqual({
       documentCount: 0,

@@ -242,6 +242,19 @@ function stableJson(value: unknown): string {
   return JSON.stringify(value) ?? "null";
 }
 
+export function mergeRegistryGeneratedLabelMetadata(existing: Json | null, required: Json | null) {
+  const existingMetadata =
+    existing && typeof existing === "object" && !Array.isArray(existing) ? (existing as Record<string, Json>) : {};
+  const requiredMetadata =
+    required && typeof required === "object" && !Array.isArray(required) ? (required as Record<string, Json>) : {};
+  const reviewStatus = existingMetadata.review_status ?? requiredMetadata.review_status;
+  return {
+    ...existingMetadata,
+    ...requiredMetadata,
+    ...(reviewStatus === undefined ? {} : { review_status: reviewStatus }),
+  } satisfies Record<string, Json>;
+}
+
 /** True when the stored document row already matches every field the registry
  *  derivation would write — content_hash alone cannot see drift in derived
  *  metadata (kind/subkind/slug/detail href), so compare the full expected row. */
@@ -312,7 +325,7 @@ async function reconcileRegistryGeneratedLabels(
   );
   const { data: existingLabels, error: existingLabelError } = await supabase
     .from("document_labels")
-    .select("id,document_id,label,label_type,source")
+    .select("id,document_id,label,label_type,source,confidence,metadata")
     .in("document_id", documentIds);
   if (existingLabelError) throw new Error(`Registry label preflight failed: ${existingLabelError.message}`);
 
@@ -331,10 +344,22 @@ async function reconcileRegistryGeneratedLabels(
 
   const expectedIntentLabels = entries.map((entry) => {
     const documentId = registryDocumentId(entry);
-    return registryDocumentIntentLabel(
+    const expected = registryDocumentIntentLabel(
       entry,
       documentOwnerById.has(documentId) ? (documentOwnerById.get(documentId) ?? null) : entry.ownerId,
     );
+    const existing = (existingLabels ?? []).find(
+      (label) =>
+        label.document_id === documentId &&
+        label.source === expected.source &&
+        label.label_type === expected.label_type &&
+        label.label === expected.label,
+    );
+    return {
+      ...expected,
+      confidence: existing?.confidence ?? expected.confidence,
+      metadata: mergeRegistryGeneratedLabelMetadata(existing?.metadata ?? null, expected.metadata ?? null),
+    };
   });
   const { error: upsertError } = await supabase
     .from("document_labels")

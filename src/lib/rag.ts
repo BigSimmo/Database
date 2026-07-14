@@ -154,7 +154,11 @@ import {
   hasDirectTitleSupport,
   shouldRetryWithStrongAfterFast,
 } from "@/lib/rag-routing";
-import { createAnswerRouteDeadline, isAnswerRouteDeadlineExceeded } from "@/lib/rag-route-budget";
+import {
+  answerRouteResultCanBeCached,
+  createAnswerRouteDeadline,
+  isAnswerRouteDeadlineExceeded,
+} from "@/lib/rag-route-budget";
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEvidence } from "@/lib/answer-ranking";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
@@ -3207,18 +3211,30 @@ async function answerQuestionWithScopeUncoalesced(
   }
 
   const searchStartedAt = Date.now();
-  const search = await searchChunksWithTelemetry({
-    query: args.query,
-    documentId: args.documentId,
-    documentIds: args.documentIds,
-    ownerId: args.ownerId,
-    allowGlobalSearch: args.allowGlobalSearch,
-    topK: 12,
-    minSimilarity: 0.12,
-    skipCache: args.skipCache,
-    queryMode: args.queryMode,
-    signal: args.signal,
+  const retrievalDeadline = createAnswerRouteDeadline({
+    routeMode: "strong",
+    callerSignal: args.signal,
+    startedAt,
   });
+  let search: Awaited<ReturnType<typeof searchChunksWithTelemetry>>;
+  try {
+    search = await retrievalDeadline.race(
+      searchChunksWithTelemetry({
+        query: args.query,
+        documentId: args.documentId,
+        documentIds: args.documentIds,
+        ownerId: args.ownerId,
+        allowGlobalSearch: args.allowGlobalSearch,
+        topK: 12,
+        minSimilarity: 0.12,
+        skipCache: args.skipCache,
+        queryMode: args.queryMode,
+        signal: retrievalDeadline.signal,
+      }),
+    );
+  } finally {
+    retrievalDeadline.dispose();
+  }
   const currentQueryClass = classifyRagQuery(answerFocusQuery).queryClass;
   const cachedQueryClass = search.telemetry.query_class ?? null;
   const queryClass =
@@ -3589,7 +3605,8 @@ async function answerQuestionWithScopeUncoalesced(
         },
       });
 
-    await setCachedAnswer(args, finalizedAnswer, { indexingVersionAtRetrievalStart });
+    if (answerRouteResultCanBeCached(routeDeadline))
+      await setCachedAnswer(args, finalizedAnswer, { indexingVersionAtRetrievalStart });
     routeDeadline.dispose();
     return finalizedAnswer;
   }
@@ -4491,7 +4508,8 @@ ${qualityRetryInstruction}`
         },
       });
 
-    await setCachedAnswer(args, answer, { indexingVersionAtRetrievalStart });
+    if (answerRouteResultCanBeCached(routeDeadline))
+      await setCachedAnswer(args, answer, { indexingVersionAtRetrievalStart });
     routeDeadline.dispose();
     return answer;
   } catch (error) {
