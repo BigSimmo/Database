@@ -38,22 +38,23 @@ function TherapyCompassFooter() {
 function TherapyCompassShell() {
   const b = useTcBindings();
   return (
-    <div className="tc-root" style={s(`background:var(--surface-chrome);color:var(--text);`)}>
-      <div style={s(`display:flex;align-items:flex-start;min-height:calc(100dvh - 4rem);`)}>
-        <TherapyCompassNav />
-        <main className="tc-main" style={s(`flex:1;min-width:0;padding:32px 40px 40px;`)}>
-          {b.isHome && <HomeScreen />}
-          {b.isSearch && <SearchScreen />}
-          {b.isDetail && <DetailScreen />}
-          {b.isCompare && <CompareScreen />}
-          {b.isRecommend && <RecommendScreen />}
-          {b.isPathways && <PathwaysScreen />}
-          {b.isBrief && <BriefScreen />}
-          {b.isSheets && <SheetsScreen />}
-          {b.isOther && <OtherScreen />}
-          <TherapyCompassFooter />
-        </main>
-      </div>
+    <div
+      className="tc-root"
+      style={s(`min-height:calc(100dvh - 4rem);background:var(--surface-chrome);color:var(--text);`)}
+    >
+      <TherapyCompassNav />
+      <main className="tc-main" style={s(`min-width:0;padding:32px 40px 40px;`)}>
+        {b.isHome && <HomeScreen />}
+        {b.isSearch && <SearchScreen />}
+        {b.isDetail && <DetailScreen />}
+        {b.isCompare && <CompareScreen />}
+        {b.isRecommend && <RecommendScreen />}
+        {b.isPathways && <PathwaysScreen />}
+        {b.isBrief && <BriefScreen />}
+        {b.isSheets && <SheetsScreen />}
+        {b.isOther && <OtherScreen />}
+        <TherapyCompassFooter />
+      </main>
     </div>
   );
 }
@@ -62,9 +63,10 @@ function TherapyCompassShell() {
  * Therapy Compass — a source-grounded therapy decision-support mockup with eight
  * screens (Home, Search, Detail, Compare, Recommend, Pathways, Brief
  * Intervention and Patient Sheet) plus a Review-Queue placeholder. It renders
- * inside the app's universal chrome (global header + rail via the mockups
- * layout) and closes with the universal clinical verification footer; its own
- * tool navigation sits between them as a secondary rail.
+ * inside the app's universal chrome (global header + sidebar via the mockups
+ * layout) and closes with the universal clinical verification footer; the
+ * design's own left rail is dropped, with its destinations kept reachable via a
+ * horizontal in-content nav under the global header.
  */
 export function TherapyCompassPage() {
   return (

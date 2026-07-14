@@ -21,6 +21,7 @@ const CSS = `
 .tc-root .tc-row:hover { background: var(--surface-subtle); }
 @media (max-width: 640px) {
   .tc-root .tc-main { padding: 20px 16px 32px !important; }
+  .tc-root .tc-topnav { padding: 12px 16px !important; gap: 12px !important; }
 }
 @media print {
   @page { size: A4 portrait; margin: 14mm; }

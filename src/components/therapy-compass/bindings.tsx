@@ -106,15 +106,18 @@ export type TcBindings = {
 const TcContext = createContext<TcBindings | null>(null);
 
 function navStyle(active: boolean): CSSProperties {
-  // Base includes button resets (border/background/font/width) so the nav items
-  // render identically whether the design used <a> or we use an accessible
-  // <button>. Active state re-declares `background` after the reset so it wins.
+  // Horizontal pill for the in-content tool nav (the mockup's own left rail was
+  // dropped in favour of the app's universal sidebar). Button resets keep the
+  // <button> chrome-free; the active pill fills with the accent-soft token.
   const base =
-    "display:flex;align-items:center;gap:12px;width:100%;padding:9px 12px;border:none;border-radius:10px;background:transparent;font-family:inherit;font-size:14px;text-align:left;cursor:pointer;text-decoration:none;transition:background .12s ease,color .12s ease;";
+    "display:inline-flex;align-items:center;gap:8px;flex:none;padding:8px 13px;border:1px solid transparent;border-radius:10px;background:transparent;font-family:inherit;font-size:13.5px;white-space:nowrap;cursor:pointer;text-decoration:none;transition:background .12s ease,color .12s ease,border-color .12s ease;";
+  // Both states set the `border` shorthand (never a mix of `border` +
+  // `borderColor`), so React does not warn about shorthand/longhand conflicts
+  // when the active pill changes.
   return s(
     active
       ? base +
-          "background:var(--clinical-accent-soft);color:var(--clinical-accent-hover);font-weight:650;box-shadow:inset 3px 0 0 var(--clinical-accent);"
+          "background:var(--clinical-accent-soft);color:var(--clinical-accent-hover);border:1px solid var(--clinical-accent-border);font-weight:650;"
       : base + "color:var(--text-muted);font-weight:500;",
   );
 }
