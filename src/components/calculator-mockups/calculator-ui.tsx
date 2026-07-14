@@ -122,9 +122,14 @@ export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): D
   const complete =
     answeredCount === optionItems.length && (optionItems.length > 0 || checkboxAnsweredCount === checkboxItems.length);
   const started = Object.values(answers).some((value) => value !== undefined);
-  // Non-zero-minimum scales (K10: 10–50) must not publish a band for partial
-  // totals below the real floor (nine "None of the time" answers sum to 9).
-  const band = calc.minScore === 0 || complete ? bandForScore(calc, score) : undefined;
+  // Only publish a severity band when the reading is trustworthy. Options scales
+  // with a zero floor (PHQ-9/GAD-7) may show a provisional band as they fill in,
+  // but checkbox-only screens (CAGE/SAD PERSONS) must wait for completion — a
+  // half-ticked screen still has undefined items and must never read "negative" —
+  // and non-zero-minimum scales (K10: 10–50) must not publish below their floor
+  // (nine "None of the time" answers sum to 9).
+  const showBand = isCheckboxOnly(calc) ? complete : calc.minScore === 0 || complete;
+  const band = showBand ? bandForScore(calc, score) : undefined;
   const flags = calc.items
     .filter((item) => item.flag && itemScore(item, answers[item.id]) > 0)
     .map((item) => item.flag as string);

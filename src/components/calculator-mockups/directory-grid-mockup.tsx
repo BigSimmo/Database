@@ -30,13 +30,20 @@ import {
 
 type DomainFilter = CalculatorDomain | "all";
 
-function ExpandedCalculator({ calc }: { calc: CalculatorFixture }) {
-  const [answers, setAnswers] = useState<AnswerMap>({});
+function ExpandedCalculator({
+  calc,
+  answers,
+  onAnswersChange,
+}: {
+  calc: CalculatorFixture;
+  answers: AnswerMap;
+  onAnswersChange: (next: AnswerMap) => void;
+}) {
   const state = deriveCalculator(calc, answers);
 
   return (
     <div className="grid gap-4 border-t border-[color:var(--border)] pt-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
-      <CalculatorItems calc={calc} answers={answers} onAnswersChange={setAnswers} dense />
+      <CalculatorItems calc={calc} answers={answers} onAnswersChange={onAnswersChange} dense />
 
       <aside className="grid h-fit content-start gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-inset)] lg:sticky lg:top-4">
         <div className="flex items-end justify-between gap-2">
@@ -70,7 +77,7 @@ function ExpandedCalculator({ calc }: { calc: CalculatorFixture }) {
           ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CopyResultButton calc={calc} state={state} />
-            <ResetButton onReset={() => setAnswers({})} disabled={!state.started} />
+            <ResetButton onReset={() => onAnswersChange({})} disabled={!state.started} />
           </div>
           <p className="font-mono text-3xs font-semibold text-[color:var(--text-soft)]">{calc.source}</p>
         </div>
@@ -79,7 +86,19 @@ function ExpandedCalculator({ calc }: { calc: CalculatorFixture }) {
   );
 }
 
-function CalculatorCard({ calc, open, onToggle }: { calc: CalculatorFixture; open: boolean; onToggle: () => void }) {
+function CalculatorCard({
+  calc,
+  open,
+  onToggle,
+  answers,
+  onAnswersChange,
+}: {
+  calc: CalculatorFixture;
+  open: boolean;
+  onToggle: () => void;
+  answers: AnswerMap;
+  onAnswersChange: (next: AnswerMap) => void;
+}) {
   const Icon = calc.icon;
 
   return (
@@ -142,7 +161,7 @@ function CalculatorCard({ calc, open, onToggle }: { calc: CalculatorFixture; ope
         <MetaPill icon={Sigma} label={`${calc.minScore}–${calc.maxScore}`} />
       </div>
 
-      {open ? <ExpandedCalculator calc={calc} /> : null}
+      {open ? <ExpandedCalculator calc={calc} answers={answers} onAnswersChange={onAnswersChange} /> : null}
     </article>
   );
 }
@@ -156,6 +175,9 @@ export function CalculatorsDirectoryGridMockup() {
   const [query, setQuery] = useState("");
   const [domain, setDomain] = useState<DomainFilter>("all");
   const [openId, setOpenId] = useState<string | null>("cage");
+  // Answers live here, keyed by calculator id, so they survive a card collapsing
+  // or another card opening (which unmounts ExpandedCalculator).
+  const [session, setSession] = useState<Record<string, AnswerMap>>({});
 
   const visible = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
@@ -236,6 +258,8 @@ export function CalculatorsDirectoryGridMockup() {
               calc={calc}
               open={openId === calc.id}
               onToggle={() => setOpenId((prev) => (prev === calc.id ? null : calc.id))}
+              answers={session[calc.id] ?? {}}
+              onAnswersChange={(next) => setSession((prev) => ({ ...prev, [calc.id]: next }))}
             />
           ))}
           {!visible.length ? (
