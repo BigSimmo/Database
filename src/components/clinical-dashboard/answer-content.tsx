@@ -1,20 +1,8 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
 import Link from "next/link";
 import { memo, useEffect, useRef, useState } from "react";
-import {
-  CircleAlert,
-  CircleCheck,
-  ChevronDown,
-  Copy,
-  ExternalLink,
-  Layers,
-  Loader2,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
+import { CircleAlert, CircleCheck, ChevronDown, Copy, ExternalLink, Layers, ShieldCheck, Sparkles } from "lucide-react";
 
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { Sheet } from "@/components/ui/sheet";
@@ -39,7 +27,7 @@ import {
 } from "@/components/clinical-dashboard/display-text";
 import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
 import { SourcePreviewPopover } from "@/components/clinical-dashboard/source-preview-popover";
-import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import { SignedImage } from "@/components/clinical-dashboard/signed-image";
 import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
 import { clinicalProseUsefulness } from "@/lib/source-text-sanitizer";
 import {
@@ -48,7 +36,6 @@ import {
   type SourceGovernanceWarning,
 } from "@/lib/source-governance";
 import { type SourceLink } from "@/lib/answer-render-policy";
-import { useAuthSession } from "@/lib/supabase/client";
 import type {
   AnswerSection,
   AnswerSectionKind,
@@ -68,108 +55,14 @@ export const SourceImage = memo(function SourceImage({
   caption: string;
   className?: string;
 }) {
-  const [url, setUrl] = useState(() => getCachedSignedUrl(endpoint)?.url ?? null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
-  const [loaded, setLoaded] = useState(false);
-  const { authorizationHeader, markSessionExpired } = useAuthSession();
-
-  useEffect(() => {
-    const cached = getCachedSignedUrl(endpoint);
-    if (cached) return () => undefined;
-
-    let active = true;
-    fetch(endpoint, { headers: authorizationHeader })
-      .then((response) => {
-        if (response.status === 401) markSessionExpired();
-        return response.ok ? response.json() : null;
-      })
-      .then((data) => {
-        if (active && data?.url) {
-          setCachedSignedUrl(endpoint, data);
-          setUrl(data.url);
-          setFailed(false);
-        } else if (active) {
-          setFailed(true);
-        }
-      })
-      .catch(() => {
-        if (active) setFailed(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, [attempt, authorizationHeader, endpoint, markSessionExpired]);
-
-  function retryImage() {
-    clearCachedSignedUrl(endpoint);
-    setUrl(null);
-    setFailed(false);
-    setLoaded(false);
-    setAttempt((current) => current + 1);
-  }
-
-  function handleImageError() {
-    clearCachedSignedUrl(endpoint);
-    setLoaded(false);
-    setFailed(true);
-  }
-
-  if (failed) {
-    return (
-      <div
-        className={cn(
-          className,
-          "grid aspect-[4/3] w-full place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-4 text-center text-xs font-semibold text-[color:var(--warning)]",
-        )}
-      >
-        <div>
-          <CircleAlert aria-hidden="true" className="mx-auto mb-2 h-5 w-5" />
-          Image preview could not load.
-          <button
-            type="button"
-            onClick={retryImage}
-            className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
-          >
-            Retry image
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // A fixed-aspect frame reserves the image's box up front so the loaded image
-  // never resizes the layout (the placeholder and the image share one box). The
-  // image object-contains within it and fades in on decode, so nothing below
-  // shifts when it arrives.
   return (
-    <div
-      className={cn(
-        className,
-        "relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-[color:var(--surface-inset)]",
-      )}
-    >
-      {url ? (
-        <img
-          src={url}
-          alt={caption?.trim() || "Clinical document image"}
-          loading="lazy"
-          decoding="async"
-          onLoad={() => setLoaded(true)}
-          onError={handleImageError}
-          className={cn(
-            "absolute inset-0 h-full w-full rounded-lg object-contain transition-opacity duration-300 motion-reduce:transition-none",
-            loaded ? "opacity-100" : "opacity-0",
-          )}
-        />
-      ) : null}
-      {!url || !loaded ? (
-        <div className="absolute inset-0 grid place-items-center gap-1 text-xs font-semibold text-[color:var(--text-muted)]">
-          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-          Loading image
-        </div>
-      ) : null}
-    </div>
+    <SignedImage
+      endpoint={endpoint}
+      alt={caption?.trim() || "Clinical document image"}
+      caption={caption}
+      className={className}
+      zoomable
+    />
   );
 });
 
