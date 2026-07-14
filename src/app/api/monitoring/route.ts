@@ -18,6 +18,30 @@ export const runtime = "nodejs";
 const MAX_ENVELOPE_BYTES = 1_000_000; // 1 MB — Sentry event envelopes are far smaller.
 const UPSTREAM_TIMEOUT_MS = 5_000;
 
+// Lightweight per-IP throttle. This is an unauthenticated public POST, so a
+// spammer with a valid envelope could otherwise burn the project's Sentry ingest
+// quota. A per-instance in-memory window is intentionally simple (unlike the
+// durable answer/upload limiters this is best-effort telemetry relay, not a paid
+// or state-changing path); Sentry's own ingest rate limits are the backstop.
+const RATE_LIMIT_MAX = 120;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+type RateWindow = { count: number; resetAt: number };
+const rateLimitByIp = new Map<string, RateWindow>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  if (rateLimitByIp.size > 5_000) {
+    for (const [key, window] of rateLimitByIp) if (now >= window.resetAt) rateLimitByIp.delete(key);
+  }
+  const existing = rateLimitByIp.get(ip);
+  if (!existing || now >= existing.resetAt) {
+    rateLimitByIp.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  existing.count += 1;
+  return existing.count > RATE_LIMIT_MAX;
+}
+
 type ParsedDsn = { host: string; projectId: string };
 
 function parseDsn(dsn: string): ParsedDsn {
@@ -55,6 +79,11 @@ async function readCappedText(request: Request, maxBytes: number): Promise<strin
 export async function POST(request: Request): Promise<Response> {
   const configuredDsn = process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN;
   if (!configuredDsn) return new Response(null, { status: 404 });
+
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (isRateLimited(ip)) {
+    return new Response("too many requests", { status: 429, headers: { "Retry-After": "60" } });
+  }
 
   let expected: ParsedDsn;
   try {

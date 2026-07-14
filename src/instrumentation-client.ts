@@ -45,5 +45,8 @@ if (typeof __SENTRY_ENABLED__ !== "undefined" && __SENTRY_ENABLED__) {
       beforeBreadcrumb: () => null,
     });
     registerSentryClient(Sentry);
-  })();
+  })().catch(() => {
+    // Loading/initializing the SDK is best-effort observability; a failed dynamic
+    // import (e.g. blocked chunk) must never surface as an unhandled rejection.
+  });
 }

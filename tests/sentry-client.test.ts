@@ -46,10 +46,16 @@ describe("captureClientException — inert until a client is registered", () => 
 
 describe("/api/monitoring tunnel — gated, relay-safe, size-capped", () => {
   const ORIGINAL_DSN = process.env.SENTRY_DSN;
+  const ORIGINAL_PUBLIC_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN;
+
+  function restoreEnv(key: "SENTRY_DSN" | "NEXT_PUBLIC_SENTRY_DSN", value: string | undefined) {
+    if (value === undefined) delete process.env[key];
+    else process.env[key] = value;
+  }
 
   afterEach(() => {
-    if (ORIGINAL_DSN === undefined) delete process.env.SENTRY_DSN;
-    else process.env.SENTRY_DSN = ORIGINAL_DSN;
+    restoreEnv("SENTRY_DSN", ORIGINAL_DSN);
+    restoreEnv("NEXT_PUBLIC_SENTRY_DSN", ORIGINAL_PUBLIC_DSN);
     vi.unstubAllGlobals();
   });
 
@@ -62,7 +68,10 @@ describe("/api/monitoring tunnel — gated, relay-safe, size-capped", () => {
   }
 
   it("returns 404 when no DSN is configured (inert)", async () => {
+    // The route reads SENTRY_DSN || NEXT_PUBLIC_SENTRY_DSN — clear both so an
+    // ambient public DSN in the environment can't make this a false pass/fail.
     delete process.env.SENTRY_DSN;
+    delete process.env.NEXT_PUBLIC_SENTRY_DSN;
     const { POST } = await loadRoute();
     const res = await POST(
       new Request("https://app.example/api/monitoring", {
