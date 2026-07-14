@@ -655,13 +655,24 @@ function CalculatorDetail({
 
 /* ---------- page ---------- */
 
+/**
+ * Reset scroll to the top on open/back. On phones the shell's #main-content is
+ * the scroll container (max-sm:overflow-y-auto), so window.scrollTo alone leaves
+ * the detail view at the prior offset — reset both the shell scroller and the
+ * window (desktop) so the header/back control is always in view.
+ */
+function resetDetailScroll() {
+  document.getElementById("main-content")?.scrollTo({ top: 0 });
+  window.scrollTo({ top: 0 });
+}
+
 export function CalculatorsSearchDetailMockup() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [session, setSession] = useState<SessionAnswers>({});
 
   const openCalculator = (calcId: string) => {
     setOpenId(calcId);
-    window.scrollTo({ top: 0 });
+    resetDetailScroll();
   };
 
   const activeCalc = openId ? calculators.find((calc) => calc.id === openId) : undefined;
@@ -675,7 +686,7 @@ export function CalculatorsSearchDetailMockup() {
           onAnswersChange={(next) => setSession((prev) => ({ ...prev, [activeCalc.id]: next }))}
           onBack={() => {
             setOpenId(null);
-            window.scrollTo({ top: 0 });
+            resetDetailScroll();
           }}
           onOpenCalculator={openCalculator}
         />
