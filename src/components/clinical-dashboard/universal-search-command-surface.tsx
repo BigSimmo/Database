@@ -864,6 +864,23 @@ export function UniversalSearchCommandSurface({
   }, [listboxId, onListboxIdReady]);
 
   useEffect(() => {
+    if (!dropdownOpen) return;
+
+    function handleScroll(event: Event) {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".universal-command-dropdown")) return;
+      onDropdownOpenChange(false);
+      setActiveIndex(-1);
+    }
+
+    // Page movement means the user has left the composer context. Closing the
+    // floating sheet also prevents it covering result-page controls that the
+    // browser scrolls into view, while preserving scrolling inside the listbox.
+    window.addEventListener("scroll", handleScroll, true);
+    return () => window.removeEventListener("scroll", handleScroll, true);
+  }, [dropdownOpen, onDropdownOpenChange]);
+
+  useEffect(() => {
     function handleSlashFocus(event: KeyboardEvent) {
       if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
       const target = event.target as HTMLElement | null;

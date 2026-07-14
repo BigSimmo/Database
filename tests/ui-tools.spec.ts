@@ -637,6 +637,9 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(1);
     await expect(page.getByRole("listbox", { name: "Services search suggestions" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
+
+    await page.evaluate(() => window.dispatchEvent(new Event("scroll")));
+    await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
   });
 
   test("phone mode homes keep the shared search in the hero, not the bottom dock", async ({ page }) => {
