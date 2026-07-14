@@ -1,5 +1,9 @@
 import { citationFromResult, documentCitationHref } from "@/lib/citations";
-import { medicationDoseQueryContext, medicationDoseQuerySubjectTokens } from "@/lib/clinical-search";
+import {
+  medicationDoseEvidenceQueryIntent,
+  medicationDoseQueryContext,
+  medicationDoseQuerySubjectTokens,
+} from "@/lib/clinical-search";
 import type {
   RagQueryClass,
   RetrievalCandidate,
@@ -350,13 +354,10 @@ function resultBoost(args: { intent: RetrievalIntent; candidate: RetrievalCandid
 
 export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): RetrievalIntent {
   const normalizedQuery = normalize(query);
+  const medicationEvidenceIntent = medicationDoseEvidenceQueryIntent(normalizedQuery);
   const asksDoseRoute =
-    /\b(?:dose|doses|dosage|dosages|dosing|route|oral|intramuscular|subcutaneous|subcut|sublingual|im|po|sc|sl|frequency|mg|mcg|prn)\b/.test(
-      normalizedQuery,
-    );
-  const asksDoseAmount = /\b(?:dose|doses|dosage|dosages|dosing|mg|mcg|microgram|maximum|minimum)\b/.test(
-    normalizedQuery,
-  );
+    medicationEvidenceIntent.asksAmount || medicationEvidenceIntent.asksRoute || medicationEvidenceIntent.asksFrequency;
+  const asksDoseAmount = medicationEvidenceIntent.asksAmount;
   const asksTable = /\b(?:table|chart|matrix|threshold|cutoff|cut off|range|criteria|row)\b/.test(normalizedQuery);
   const asksSourceImage =
     /\b(?:source|show|open|view|display|see)\b.*\b(?:image|figure|visual|table|chart|matrix)\b/.test(normalizedQuery) ||
@@ -398,8 +399,7 @@ export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): 
   }
   if (asksDoseRoute) {
     if (asksDoseAmount) requiredTermSignals.push("dose_amount");
-    if (/\b(?:route|oral|intramuscular|subcutaneous|subcut|sublingual|im|po|sc|sl)\b/.test(normalizedQuery))
-      requiredTermSignals.push("route");
+    if (medicationEvidenceIntent.asksRoute) requiredTermSignals.push("route");
     if (queryClass === "medication_dose_risk" && medicationDoseQuerySubjectTokens(query).length > 0) {
       requiredTermSignals.push("clinical_subject");
     }

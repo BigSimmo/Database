@@ -1199,6 +1199,32 @@ export function medicationDoseEvidenceQueryIntent(query: string) {
   };
 }
 
+/** Canonical text-search terms for the medication evidence attributes explicitly requested. */
+export function medicationDoseEvidenceSearchTerms(query: string) {
+  const terms: string[] = [];
+  const intent = medicationDoseEvidenceQueryIntent(query);
+  if (intent.asksAmount) terms.push("dose");
+
+  for (const match of query.matchAll(
+    /\b(\d+(?:\.\d+)?)\s*(mg|mcg|micrograms?|milligrams?|ug)\b|\b(\d+(?:\.\d+)?)\s*([µμ]g)/gi,
+  )) {
+    const amount = match[1] ?? match[3];
+    const unit = match[2] ?? match[4];
+    if (!amount || !unit) continue;
+    terms.push(amount, /^(?:mcg|microgram|ug|[µμ]g)/i.test(unit) ? "mcg" : "mg");
+  }
+
+  if (/\broutes?\b/i.test(query)) terms.push("route");
+  if (/\b(?:intramuscular|intramuscularly|im)\b/i.test(query)) terms.push("im");
+  if (/\b(?:oral|orally|po|by\s+mouth)\b/i.test(query)) terms.push("po");
+  if (/\b(?:subcutaneous|subcutaneously|subcut|sc)\b/i.test(query)) terms.push("sc");
+  if (/\b(?:sublingual|sublingually|sl)\b/i.test(query)) terms.push("sl");
+  if (/\bprn\b/i.test(query)) terms.push("prn");
+  else if (intent.asksFrequency) terms.push("frequency");
+
+  return [...new Set(terms.filter(Boolean))];
+}
+
 /** Whether the query explicitly asks for dose, route, or frequency evidence. */
 export function isMedicationDoseEvidenceQuery(query: string) {
   const intent = medicationDoseEvidenceQueryIntent(query);
@@ -1245,15 +1271,16 @@ export function buildClinicalTextSearchQuery(query: string) {
   const hasAgitationArousalContext =
     (hasAgitationArousalTypo && /\bagitation\b/i.test(correctedQueryText) && /\barousal\b/i.test(correctedQueryText)) ||
     /\bagitation\b/i.test(correctedQueryText);
-  // Dose/route alias pattern aligned with buildRetrievalIntent in retrieval-selection.ts
-  const DOSE_ROUTE_ALIAS_PATTERN =
-    /\b(?:dose|doses|dosage|dosages|dosing|route|oral|intramuscular|subcutaneous|subcut|sublingual|im|po|sc|sl|frequency|mg|mcg|prn)\b/i;
+  const agitationMedicationIntent = medicationDoseEvidenceQueryIntent(query);
+  const wantsAgitationMedicationChart =
+    hasAgitationArousalContext &&
+    (agitationMedicationIntent.asksAmount ||
+      agitationMedicationIntent.asksRoute ||
+      agitationMedicationIntent.asksFrequency);
   const wantsAgitationArousal =
     hasAgitationArousalContext &&
-    /\b(?:dose|doses|dosage|dosages|dosing|guidance|inpatient|psychiatric|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|sc|sl|frequency|mg|mcg|prn|chart|table|pharmacolog)/i.test(
-      correctedQueryText,
-    );
-  const wantsAgitationMedicationChart = wantsAgitationArousal && DOSE_ROUTE_ALIAS_PATTERN.test(correctedQueryText);
+    (wantsAgitationMedicationChart ||
+      /\b(?:guidance|inpatient|psychiatric|chart|table|pharmacolog)/i.test(correctedQueryText));
 
   if (wantsClozapineMissedDose) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "missed", "dose", "monitoring", "table");
@@ -1266,17 +1293,7 @@ export function buildClinicalTextSearchQuery(query: string) {
   } else if (wantsClozapineBloodMonitoring) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "monitoring");
   } else if (wantsAgitationMedicationChart) {
-    const requestedDoseRouteTerms = [
-      /\b(?:dose|doses|dosage|dosages|dosing)\b/i.test(correctedQueryText) ? "dose" : null,
-      /\broute\b/i.test(correctedQueryText) ? "route" : null,
-      /\b(?:intramuscular|im)\b/i.test(correctedQueryText) ? "im" : null,
-      /\b(?:oral|po)\b/i.test(correctedQueryText) ? "po" : null,
-      /\b(?:subcutaneous|subcut|sc)\b/i.test(correctedQueryText) ? "sc" : null,
-      /\b(?:sublingual|sl)\b/i.test(correctedQueryText) ? "sl" : null,
-      /\b(?:mg|mcg)\b/i.test(correctedQueryText) ? "mg" : null,
-      /\bfrequency\b/i.test(correctedQueryText) ? "frequency" : null,
-      /\bprn\b/i.test(correctedQueryText) ? "prn" : null,
-    ].filter((term): term is string => Boolean(term));
+    const requestedDoseRouteTerms = medicationDoseEvidenceSearchTerms(query);
     normalizedTokens.splice(0, normalizedTokens.length, "agitation", "arousal", ...requestedDoseRouteTerms);
   } else if (wantsAgitationArousal) {
     normalizedTokens.splice(0, normalizedTokens.length, "agitation", "arousal", "pharmacological", "management");
