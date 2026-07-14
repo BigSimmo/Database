@@ -13,6 +13,7 @@ import {
   cn,
   sourceCapsule,
   sourceCapsuleCountBadge,
+  sourceCapsuleHit,
   statusDotMuted,
   statusDotReady,
   statusDotReview,
@@ -602,23 +603,25 @@ export function NaturalLanguageAnswer({
     <button
       type="button"
       ref={sourceCapsuleRef}
-      className={cn(sourceCapsule, "w-fit")}
+      className={sourceCapsuleHit}
       aria-label="Open answer sources"
       aria-expanded={sourcePreviewOpen}
       onClick={() => {
         if (canOpenSourcePreview) setSourcePreviewOpen((current) => !current);
       }}
     >
-      <Layers className="h-3.5 w-3.5 shrink-0" aria-hidden />
-      <span className="min-w-0 truncate">{capsuleDisplay.label}</span>
-      {capsuleDisplay.showCountBadge ? <span className={sourceCapsuleCountBadge}>{sourceCount}</span> : null}
-      {canOpenSourcePreview ? (
-        <ChevronDown
-          className={cn("h-3.5 w-3.5 shrink-0 transition-transform", sourcePreviewOpen && "rotate-180")}
-          strokeWidth={2.25}
-          aria-hidden
-        />
-      ) : null}
+      <span className={sourceCapsule}>
+        <Layers className="h-3 w-3 shrink-0" aria-hidden />
+        <span className="min-w-0 truncate">{capsuleDisplay.label}</span>
+        {capsuleDisplay.showCountBadge ? <span className={sourceCapsuleCountBadge}>{sourceCount}</span> : null}
+        {canOpenSourcePreview ? (
+          <ChevronDown
+            className={cn("h-3 w-3 shrink-0 transition-transform", sourcePreviewOpen && "rotate-180")}
+            strokeWidth={2.25}
+            aria-hidden
+          />
+        ) : null}
+      </span>
     </button>
   );
 
