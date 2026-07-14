@@ -1,26 +1,4 @@
-<<<<<<< HEAD
-// Gated server-side Sentry init. SENTRY_DSN is unset by default, so this is a
-// no-op (and never imports the SDK) until Sentry is configured. Runs for both the
-// Node.js and Edge runtimes so server + proxy errors are captured. The SDK is
-// dynamically imported so a deployment without a DSN never loads it.
-async function initSentryServer() {
-  const dsn = process.env.SENTRY_DSN;
-  if (!dsn) return;
-  const [Sentry, { scrubSentryErrorEvent }] = await Promise.all([
-    import("@sentry/nextjs"),
-    import("@/lib/observability/sentry-scrub"),
-  ]);
-  Sentry.init({
-    dsn,
-    environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV,
-    tracesSampleRate: Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? 0) || 0,
-    sendDefaultPii: false,
-    beforeSend: scrubSentryErrorEvent,
-  });
-}
-=======
 import type { Instrumentation } from "next";
->>>>>>> origin/main
 
 // Next.js calls register() once when a server instance starts, before it serves
 // any requests. We use it to fail fast: a clinical production server must be fully
@@ -28,10 +6,6 @@ import type { Instrumentation } from "next";
 // unauthenticated demo content — on the first request. See production-readiness
 // plan items 0.1 and 0.3.
 export async function register() {
-  // Wire error tracking first so a misconfiguration thrown by the gates below is
-  // itself reportable. No-op unless SENTRY_DSN is set.
-  await initSentryServer();
-
   // Only the Node.js server runtime in production needs this gate. Development
   // keeps its local/demo fallbacks, and the Edge runtime doesn't use the Node-only
   // server configuration these checks validate.
@@ -88,17 +62,6 @@ export async function register() {
   }
 }
 
-<<<<<<< HEAD
-// Next.js calls onRequestError for every uncaught error thrown while rendering or
-// handling a request (App Router routes, RSC, and the proxy layer). It is a
-// separate export from register() and must NOT be gated behind register()'s
-// nodejs/production early-returns. No-op until SENTRY_DSN is set.
-export async function onRequestError(...args: Parameters<typeof import("@sentry/nextjs").captureRequestError>) {
-  if (!process.env.SENTRY_DSN) return;
-  const Sentry = await import("@sentry/nextjs");
-  Sentry.captureRequestError(...args);
-}
-=======
 // Uncaught request errors (route handlers, RSC renders, server actions). Errors the
 // answer routes catch and convert to degraded responses never reach this hook — those
 // are captured explicitly at the catch sites via error-capture.ts.
@@ -116,4 +79,3 @@ export const onRequestError: Instrumentation.onRequestError = async (error, requ
     routeType: context.routeType,
   });
 };
->>>>>>> origin/main

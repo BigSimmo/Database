@@ -194,13 +194,8 @@ jobs:
       - name: Build
         run: npm run build
 
-<<<<<<< HEAD
-      - name: Client bundle size budget
-        run: npm run check:bundle-size
-=======
       - name: Bundle budget (warn-only until a baseline is enforced)
         run: npm run check:bundle-budget
->>>>>>> origin/main
 
       - name: Deployment boot smoke
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')

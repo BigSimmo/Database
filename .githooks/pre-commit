@@ -1,0 +1,24 @@
+#!/bin/sh
+# Pre-commit hook: auto-format and lint staged files.
+# Installed by scripts/install-git-hooks.mjs via `git config core.hooksPath .githooks`.
+#
+# Set GUARD_PRECOMMIT_DISABLE=1 to bypass (e.g. for emergency commits).
+set -eu
+
+if [ "${GUARD_PRECOMMIT_DISABLE:-}" = "1" ]; then
+  exit 0
+fi
+
+# Resolve node; if unavailable, skip gracefully rather than block commits.
+if ! command -v node >/dev/null 2>&1; then
+  echo "[pre-commit] node not found on PATH — skipping lint-staged" >&2
+  exit 0
+fi
+
+# Resolve npx; likewise skip rather than block.
+if ! command -v npx >/dev/null 2>&1; then
+  echo "[pre-commit] npx not found on PATH — skipping lint-staged" >&2
+  exit 0
+fi
+
+npx lint-staged

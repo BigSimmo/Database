@@ -10,15 +10,11 @@
   "scripts": {
     "dev": "node scripts/dev-free-port.mjs",
     "preinstall": "node scripts/check-node-engine.cjs",
-<<<<<<< HEAD
-    "prepare": "husky || true",
-=======
     "postinstall": "node scripts/install-git-hooks.mjs",
     "hooks:install": "node scripts/install-git-hooks.mjs",
     "guard:push": "node scripts/guard-push.mjs",
     "guard:push:self-test": "node scripts/guard-push.mjs --self-test",
     "check:base-freshness": "node scripts/check-base-freshness.mjs",
->>>>>>> origin/main
     "ensure": "node scripts/ensure-local-server.mjs",
     "build": "node scripts/guard-next-build.mjs && node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build --webpack && node scripts/check-client-bundle-secrets.mjs",
     "build:analyze": "node scripts/build-analyze.mjs",
@@ -145,11 +141,8 @@
   },
   "dependencies": {
     "@next/env": "16.2.10",
-<<<<<<< HEAD
     "@sentry/nextjs": "^10.65.0",
-=======
     "@sentry/node": "^10.65.0",
->>>>>>> origin/main
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
     "exceljs": "^4.4.0",
@@ -189,7 +182,6 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "16.2.10",
     "fast-check": "^4.8.0",
-    "husky": "^9.1.7",
     "jsdom": "^29.1.1",
     "knip": "^6.26.0",
     "lint-staged": "^17.0.8",
