@@ -25,7 +25,6 @@ import {
 } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
-import { isAnswerStreamEventName, type AnswerStreamEventName } from "@/lib/answer-stream-contract";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { isLocalNoAuthMode, publicUploadsEnabled } from "@/lib/client-env";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
