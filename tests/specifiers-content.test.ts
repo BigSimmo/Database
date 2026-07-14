@@ -118,6 +118,29 @@ describe("specifiers content catalog", () => {
     }
   });
 
+  it("does not attach compensatory-behaviour notes to non-purging severity rows", () => {
+    // Binge-Eating and Hypersomnolence severity is frequency-based; compensatory
+    // behaviours belong to Bulimia, so those rows must not cite them.
+    const rows = specifierCatalogItems().filter(
+      (item) =>
+        /(binge-eating disorder|hypersomnolence disorder)/i.test(item.disorderName) &&
+        /episodes|days/i.test(item.label),
+    );
+    expect(rows.length).toBeGreaterThan(0);
+    for (const item of rows) {
+      expect(item.definition?.clinicalNote ?? "").not.toMatch(/compensatory behaviour/i);
+    }
+  });
+
+  it("describes with/without possession rows for both states", () => {
+    const rows = specifierCatalogItems().filter((item) => /possession/i.test(item.label));
+    expect(rows.length).toBeGreaterThan(0);
+    for (const item of rows) {
+      // Must not assert possession is present; must acknowledge both states.
+      expect(item.definition?.meaning ?? "").toMatch(/with or without|may occur|present or absent/i);
+    }
+  });
+
   it("keeps DSM Section III (AMPD) provenance DSM-specific, not ICD-11", () => {
     // The AMPD trait domains are DSM-5-TR Section III; the reference page derives the
     // source badge from sourceFamily, so it must not carry an ICD-11/WHO provenance.

@@ -2779,7 +2779,7 @@
       "group": "Features",
       "src": "source-verified",
       "def": "defined",
-      "meaning": "The dissociative presentation includes experiences of being taken over by an external identity, spirit, or power."
+      "meaning": "The dissociative presentation may occur with or without experiences of being taken over by an external identity, spirit, or power (the possession vs non-possession form)."
     },
     {
       "slug": "specifier-dis-dissociative-identity-disorder-severity-current-severity",
@@ -2878,7 +2878,7 @@
       "group": "Features",
       "src": "source-verified",
       "def": "defined",
-      "meaning": "The dissociative presentation includes experiences of being taken over by an external identity, spirit, or power."
+      "meaning": "The dissociative presentation may occur with or without experiences of being taken over by an external identity, spirit, or power (the possession vs non-possession form)."
     },
     {
       "slug": "specifier-dis-trance-disorder-icd-11-severity-current-severity",
@@ -6409,7 +6409,7 @@
       "group": "Features",
       "src": "source-verified",
       "def": "defined",
-      "meaning": "The dissociative presentation includes experiences of being taken over by an external identity, spirit, or power."
+      "meaning": "The dissociative presentation may occur with or without experiences of being taken over by an external identity, spirit, or power (the possession vs non-possession form)."
     },
     {
       "slug": "specifier-icd-olfactory-reference-disorder-insight-with-good-or-fair-insight",

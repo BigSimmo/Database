@@ -5369,7 +5369,7 @@
                 {
                   "label": "With/without possession form",
                   "definition": {
-                    "meaning": "The dissociative presentation includes experiences of being taken over by an external identity, spirit, or power.",
+                    "meaning": "The dissociative presentation may occur with or without experiences of being taken over by an external identity, spirit, or power (the possession vs non-possession form).",
                     "clinicalNote": null,
                     "sourceFamily": "WHO ICD-11 CDDR/MMS",
                     "status": "defined"
@@ -5576,7 +5576,7 @@
                 {
                   "label": "With/without possession",
                   "definition": {
-                    "meaning": "The dissociative presentation includes experiences of being taken over by an external identity, spirit, or power.",
+                    "meaning": "The dissociative presentation may occur with or without experiences of being taken over by an external identity, spirit, or power (the possession vs non-possession form).",
                     "clinicalNote": null,
                     "sourceFamily": "WHO ICD-11 CDDR/MMS",
                     "status": "defined"
@@ -6700,7 +6700,7 @@
                   "label": "Mild (1-3 episodes/week)",
                   "definition": {
                     "meaning": "For Binge-Eating Disorder, \"Mild (1-3 episodes/week)\" uses the stated threshold: 1-3 episodes/week.",
-                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, compensatory behaviours, medical risk, and safety concerns where relevant.",
+                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, medical risk, and safety concerns where relevant.",
                     "sourceFamily": "Dataset threshold",
                     "status": "defined"
                   },
@@ -6717,7 +6717,7 @@
                   "label": "Moderate (4-7 episodes/week)",
                   "definition": {
                     "meaning": "For Binge-Eating Disorder, \"Moderate (4-7 episodes/week)\" uses the stated threshold: 4-7 episodes/week.",
-                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, compensatory behaviours, medical risk, and safety concerns where relevant.",
+                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, medical risk, and safety concerns where relevant.",
                     "sourceFamily": "Dataset threshold",
                     "status": "defined"
                   },
@@ -6734,7 +6734,7 @@
                   "label": "Severe (8-13 episodes/week)",
                   "definition": {
                     "meaning": "For Binge-Eating Disorder, \"Severe (8-13 episodes/week)\" uses the stated threshold: 8-13 episodes/week.",
-                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, compensatory behaviours, medical risk, and safety concerns where relevant.",
+                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, medical risk, and safety concerns where relevant.",
                     "sourceFamily": "Dataset threshold",
                     "status": "defined"
                   },
@@ -6751,7 +6751,7 @@
                   "label": "Extreme (14 or more episodes/week)",
                   "definition": {
                     "meaning": "For Binge-Eating Disorder, \"Extreme (14 or more episodes/week)\" uses the stated threshold: 14 or more episodes/week.",
-                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, compensatory behaviours, medical risk, and safety concerns where relevant.",
+                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, medical risk, and safety concerns where relevant.",
                     "sourceFamily": "Dataset threshold",
                     "status": "defined"
                   },
@@ -7125,7 +7125,7 @@
                   "label": "Mild (1-2 days/week)",
                   "definition": {
                     "meaning": "For Hypersomnolence Disorder, \"Mild (1-2 days/week)\" uses the stated threshold: 1-2 days/week.",
-                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, compensatory behaviours, medical risk, and safety concerns where relevant.",
+                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, medical risk, and safety concerns where relevant.",
                     "sourceFamily": "Dataset threshold",
                     "status": "defined"
                   },
@@ -7142,7 +7142,7 @@
                   "label": "Moderate (3-4 days/week)",
                   "definition": {
                     "meaning": "For Hypersomnolence Disorder, \"Moderate (3-4 days/week)\" uses the stated threshold: 3-4 days/week.",
-                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, compensatory behaviours, medical risk, and safety concerns where relevant.",
+                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, medical risk, and safety concerns where relevant.",
                     "sourceFamily": "Dataset threshold",
                     "status": "defined"
                   },
@@ -7159,7 +7159,7 @@
                   "label": "Severe (5-7 days/week)",
                   "definition": {
                     "meaning": "For Hypersomnolence Disorder, \"Severe (5-7 days/week)\" uses the stated threshold: 5-7 days/week.",
-                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, compensatory behaviours, medical risk, and safety concerns where relevant.",
+                    "clinicalNote": "This is a frequency-based severity anchor; also document impairment, medical risk, and safety concerns where relevant.",
                     "sourceFamily": "Dataset threshold",
                     "status": "defined"
                   },
@@ -11979,7 +11979,7 @@
                 {
                   "label": "With/without possession",
                   "definition": {
-                    "meaning": "The dissociative presentation includes experiences of being taken over by an external identity, spirit, or power.",
+                    "meaning": "The dissociative presentation may occur with or without experiences of being taken over by an external identity, spirit, or power (the possession vs non-possession form).",
                     "clinicalNote": null,
                     "sourceFamily": "WHO ICD-11 CDDR/MMS",
                     "status": "defined"
