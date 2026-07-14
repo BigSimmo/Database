@@ -1251,8 +1251,7 @@ export function buildClinicalTextSearchQuery(query: string) {
       correctedQueryText,
     );
   const wantsAgitationMedicationChart =
-    wantsAgitationArousal &&
-    /\b(?:dose|dosing|route|oral|intramuscular|im|po|options?|listed)\b/i.test(correctedQueryText);
+    wantsAgitationArousal && /\b(?:dose|dosing|route|oral|intramuscular|im|po)\b/i.test(correctedQueryText);
 
   if (wantsClozapineMissedDose) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "missed", "dose", "monitoring", "table");
@@ -1265,20 +1264,13 @@ export function buildClinicalTextSearchQuery(query: string) {
   } else if (wantsClozapineBloodMonitoring) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "monitoring");
   } else if (wantsAgitationMedicationChart) {
-    normalizedTokens.splice(
-      0,
-      normalizedTokens.length,
-      "agitation",
-      "arousal",
-      "pharmacological",
-      "management",
-      "medication",
-      "chart",
-      "dose",
-      "route",
-      "im",
-      "po",
-    );
+    const requestedDoseRouteTerms = [
+      /\b(?:dose|dosing)\b/i.test(correctedQueryText) ? "dose" : null,
+      /\broute\b/i.test(correctedQueryText) ? "route" : null,
+      /\b(?:intramuscular|im)\b/i.test(correctedQueryText) ? "im" : null,
+      /\b(?:oral|po)\b/i.test(correctedQueryText) ? "po" : null,
+    ].filter((term): term is string => Boolean(term));
+    normalizedTokens.splice(0, normalizedTokens.length, "agitation", "arousal", ...requestedDoseRouteTerms);
   } else if (wantsAgitationArousal) {
     normalizedTokens.splice(0, normalizedTokens.length, "agitation", "arousal", "pharmacological", "management");
   } else if (/\badmission\b/i.test(query) && /\bcommunity patients?\b/i.test(query)) {
