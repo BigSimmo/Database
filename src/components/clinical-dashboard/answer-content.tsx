@@ -638,13 +638,13 @@ export function NaturalLanguageAnswer({
       >
         <ShieldCheck aria-hidden="true" className="size-icon-lg" />
       </span>
-      <div className="min-w-0 space-y-1.5">
+      <div className="min-w-0 space-y-1">
         <p className={chatAnswerText}>
           <span data-testid="plain-answer-prose">
             <SafeBoldText text={cleaned} />
           </span>
         </p>
-        <div className="space-y-1">
+        <div className="space-y-1 -mb-2">
           {sourceOnly ? (
             <section
               data-testid="source-only-disclosure"
