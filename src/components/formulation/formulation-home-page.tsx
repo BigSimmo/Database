@@ -32,19 +32,6 @@ import {
   searchFormulationMechanisms,
 } from "@/lib/formulation";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-<<<<<<< HEAD:src/components/specifiers/specifiers-home-page.tsx
-import { searchSpecifiers, specifierFamilies, specifierSearchPresets, type SpecifierFamily } from "@/lib/specifiers";
-import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
-
-const diagnosisOptions = [
-  { value: "", label: "All diagnoses" },
-  { value: "depressive", label: "Depressive" },
-  { value: "bipolar", label: "Bipolar" },
-  { value: "psychotic", label: "Psychotic" },
-  { value: "mood", label: "Mood episodes" },
-];
-=======
->>>>>>> origin/main:src/components/formulation/formulation-home-page.tsx
 
 function presetHref(query: string) {
   return appModeHomeHref("formulation", { query, run: true, focus: true });
