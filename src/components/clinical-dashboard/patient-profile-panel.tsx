@@ -77,13 +77,16 @@ function NumberField({
 
 export function PatientProfilePanel({
   variant = "full",
+  defaultOpen,
   className,
 }: {
   variant?: "full" | "compact";
+  /** Initial expanded state; falls back to `variant === "full"` when omitted. */
+  defaultOpen?: boolean;
   className?: string;
 }) {
   const { profile, updateField, toggleAllergy, clear, isEmpty } = usePatientProfile();
-  const [open, setOpen] = useState(variant === "full");
+  const [open, setOpen] = useState(defaultOpen ?? variant === "full");
   const allergies = new Set(profile.allergies ?? []);
 
   return (
