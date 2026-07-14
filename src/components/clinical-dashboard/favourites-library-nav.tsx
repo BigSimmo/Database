@@ -260,7 +260,10 @@ export function FavouritesSidebar({
           <Heart className="h-4 w-4 group-hover:hidden group-focus-visible:hidden" aria-hidden />
           <PanelLeftOpen className="hidden h-4 w-4 group-hover:block group-focus-visible:block" aria-hidden />
         </button>
-        <nav className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto px-2 pb-2">
+        <nav
+          aria-label="Favourites library"
+          className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto px-2 pb-2"
+        >
           {sections.map((section, sectionIndex) => (
             <span key={section.id} className="contents">
               {sectionIndex > 0 ? <span className="my-1 h-px w-8 bg-[color:var(--border)]" aria-hidden /> : null}
@@ -317,7 +320,7 @@ export function FavouritesSidebar({
           <PanelLeftClose className="h-4 w-4" aria-hidden />
         </button>
       </div>
-      <nav className="grid gap-5">
+      <nav aria-label="Favourites sections" className="grid gap-5">
         {sections.map((section) => (
           <section key={section.id}>
             <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">

@@ -22,6 +22,7 @@ import { useMemo, useState } from "react";
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { considerationSummaryBadge } from "@/components/clinical-dashboard/medication-considerations";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
@@ -457,6 +458,7 @@ function MedicationResults({
       <div className="hidden lg:block">
         <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} />
       </div>
+      <UniversalSearchAlsoMatches modeId="prescribing" query={query} />
       <div className="min-w-0 space-y-2 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-semibold uppercase text-[color:var(--text-soft)]">Medication search</p>
@@ -535,7 +537,7 @@ function MedicationResults({
                       <span className="block break-words text-base-minus font-semibold text-[color:var(--text-heading)]">
                         <HighlightedName text={result.name} term={query} />
                       </span>
-                      <span className="block break-words text-xs font-medium text-[color:var(--text-muted)]">
+                      <span className="line-clamp-1 break-words text-xs font-medium text-[color:var(--text-muted)]">
                         {result.indication}
                       </span>
                       {showMatchBadge || result.match !== "Exact clinical fit" || row.badges.length > 0 ? (
@@ -548,13 +550,13 @@ function MedicationResults({
                       ) : null}
                     </div>
                   </div>
-                  <span className="nums text-sm-minus font-semibold text-[color:var(--text-heading)]">
+                  <span className="nums line-clamp-2 text-sm-minus font-semibold text-[color:var(--text-heading)]">
                     {result.dose}
                   </span>
                   <DoseCeiling value={result.ceiling} />
                   <span className="flex min-w-0 items-start gap-1.5 text-sm-minus font-medium leading-[1.4] text-[color:var(--text-heading)]">
                     <ActionToneIcon tone={result.actionTone} className="mt-0.5 h-3.5 w-3.5" />
-                    <span className="min-w-0 break-words">{result.action}</span>
+                    <span className="line-clamp-2 min-w-0 break-words">{result.action}</span>
                   </span>
                   {result.href ? (
                     <ChevronRight
@@ -616,7 +618,9 @@ function MedicationResults({
                   <p className="line-clamp-2 break-words text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
                     <HighlightedName text={result.name} term={query} />
                   </p>
-                  <p className="break-words text-xs font-medium text-[color:var(--text-muted)]">{result.indication}</p>
+                  <p className="line-clamp-1 break-words text-xs font-medium text-[color:var(--text-muted)]">
+                    {result.indication}
+                  </p>
                 </div>
                 {showMatchBadge || result.match !== "Exact clinical fit" || row.badges.length > 0 ? (
                   <div className="flex max-w-full flex-wrap items-center gap-1.5">
@@ -627,10 +631,10 @@ function MedicationResults({
                   </div>
                 ) : null}
                 <div className="flex max-w-full flex-wrap items-center gap-1.5 text-sm-minus font-semibold text-[color:var(--text-heading)]">
-                  <span className="nums break-words">{result.dose}</span>
+                  <span className="nums line-clamp-2 break-words">{result.dose}</span>
                   <DoseCeiling value={result.ceiling} />
                 </div>
-                <p className="break-words text-pretty text-xs leading-[1.45] text-[color:var(--text-muted)]">
+                <p className="line-clamp-2 break-words text-pretty text-xs leading-[1.45] text-[color:var(--text-muted)]">
                   <ActionToneIcon tone={result.actionTone} className="mr-1 inline-block h-3.5 w-3.5 align-[-0.15em]" />
                   {result.action}
                 </p>

@@ -45,6 +45,7 @@ import { useSearchCommand } from "@/components/clinical-dashboard/search-command
 import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 type FavouriteType =
   "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form" | "Differential";
@@ -584,7 +585,7 @@ function FavouritesTable({
       </div>
 
       <div className="hidden overflow-x-auto sm:block">
-        <table className="min-w-[36rem] w-full border-collapse text-left">
+        <table aria-label="Saved favourites" className="min-w-[36rem] w-full border-collapse text-left">
           <thead>
             <tr className="h-10 border-b border-[color:var(--border)] bg-[color:var(--surface)] text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
               <th scope="col" className="min-w-[12rem] px-3">
@@ -1006,6 +1007,7 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
             <div className="hidden lg:block">
               <SearchResultsHeaderBand modeId="favourites" query={query} matchCount={scopedItems.length} />
             </div>
+            <UniversalSearchAlsoMatches modeId="favourites" query={query} />
 
             <ActiveFilterChips
               searchTerm={query}

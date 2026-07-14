@@ -135,6 +135,7 @@ export const CopyIcon = makeIcon(
     <path d="M4 16V6a2 2 0 0 1 2-2h10" />
   </>,
 );
+export const CheckIcon = makeIcon(<path d="m5 12 5 5 9-11" />, 2);
 export const PrinterIcon = makeIcon(
   <path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M6 14h12v7H6Z" />,
 );

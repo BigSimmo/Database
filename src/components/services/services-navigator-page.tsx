@@ -36,6 +36,7 @@ import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { rankServiceRecords, serviceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 
 const defaultQuery = "13YARN crisis support aboriginal phone";
@@ -503,26 +504,15 @@ export function ServicesNavigatorPage() {
             className="mode-home-composer-slot hidden w-full min-w-0 [&:not(:empty)]:block"
           />
           <Stepper />
-          <div className="xl:hidden">
-            <SearchResultsHeaderBand
-              modeId="services"
-              query={query}
-              matchCount={displayedMatches.length}
-              loading={registryLoading}
-              sortValue={sortValue}
-              onSortChange={setSortValue}
-            />
-          </div>
-          <div className="hidden xl:block">
-            <SearchResultsHeaderBand
-              modeId="services"
-              query={query}
-              matchCount={displayedMatches.length}
-              loading={registryLoading}
-              sortValue={sortValue}
-              onSortChange={setSortValue}
-            />
-          </div>
+          <SearchResultsHeaderBand
+            modeId="services"
+            query={query}
+            matchCount={displayedMatches.length}
+            loading={registryLoading}
+            sortValue={sortValue}
+            onSortChange={setSortValue}
+          />
+          <UniversalSearchAlsoMatches modeId="services" query={query} />
         </>
       }
       sidebar={

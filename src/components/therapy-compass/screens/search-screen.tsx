@@ -2,7 +2,7 @@
 
 import { useTcBindings } from "../bindings";
 import { outlineControl, softControl } from "../controls";
-import { SearchIcon, SearchXIcon, SlidersIcon, XIcon } from "../icons";
+import { SearchIcon, SearchXIcon, XIcon } from "../icons";
 import { s } from "../style-utils";
 import { EmptyState, LoadingState } from "../ui";
 import { ResultCard } from "../therapy-card";
@@ -39,10 +39,6 @@ export function SearchScreen() {
             )}
           />
         </label>
-        <button type="button" className="tc-btn" style={s(outlineControl + "height:52px;padding:0 18px;")}>
-          <SlidersIcon size={17} />
-          Filters
-        </button>
       </div>
 
       <div style={s(`display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px;`)}>

@@ -14,14 +14,15 @@ import {
   Gauge,
   Lock,
   Pill,
+  ShieldAlert,
   ShieldCheck,
-  Sparkles,
+  Timer,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
-import { BadgeCluster, clinicalBadgeToneClass } from "@/components/clinical-dashboard/clinical-badge";
+import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { MedicationConsiderations } from "@/components/clinical-dashboard/medication-considerations";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
 import { useMedicationDetail } from "@/components/clinical-dashboard/use-medication-catalog";
@@ -30,11 +31,27 @@ import {
   medicationAccessFields,
   medicationIdentityBadges,
   medicationRowBadges,
-  medicationStatTone,
   type MedicationGovernance,
 } from "@/lib/medication-badges";
-import { medicationDetailTiles, type MedicationRecord, type MedicationSection } from "@/lib/medications";
-import { cn, EmptyState, LoadingPanel, pageContainer, toneDanger } from "@/components/ui-primitives";
+import {
+  medicationHeroMetrics,
+  medicationIndication,
+  type MedicationHeroMetric,
+  type MedicationQuickRow,
+  type MedicationRecord,
+  type MedicationSection,
+} from "@/lib/medications";
+import type { SemanticTone } from "@/lib/semantic-tone";
+import {
+  cn,
+  EmptyState,
+  LoadingPanel,
+  pageContainer,
+  toneDanger,
+  toneInfo,
+  toneSuccess,
+  toneWarning,
+} from "@/components/ui-primitives";
 
 const sectionIcons: Record<string, LucideIcon> = {
   dose: CalendarDays,
@@ -74,83 +91,79 @@ function medicationAccentStyle(accent: string | undefined): CSSProperties {
   } as CSSProperties;
 }
 
-// Icon + categorical chip per detail tile (index-aligned with medicationDetailTiles:
-// Prescribing answer / Dosing / Dose ceiling / Avoid). The danger tile is toned
-// separately below.
-const detailTileDecor: Array<{ icon: LucideIcon; chip: string }> = [
-  {
-    icon: Sparkles,
-    chip: "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]",
+// Tone-driven hero metric tile. Colour comes only from the metric's semantic tone
+// (medicationStatTone, via medicationHeroMetrics) so it honours the #659 contract:
+// green = success, amber = caution, red = safety, teal = primary/evidence. The
+// value stays in a high-contrast heading colour on every tone so text never sits
+// on a same-hue wash (the readability lesson from #659) — the border, soft fill,
+// label and icon chip carry the colour.
+const heroToneTile: Record<SemanticTone, { card: string; chip: string; label: string; value: string }> = {
+  clinical: {
+    card: "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]",
+    chip: "border-[color:var(--clinical-accent)]/25 bg-[color:var(--surface)] text-[color:var(--clinical-accent)]",
+    label: "text-[color:var(--clinical-accent)]",
+    value: "text-[color:var(--text-heading)]",
   },
-  {
-    icon: CalendarDays,
-    chip: "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]",
+  danger: {
+    card: toneDanger,
+    chip: "border-[color:var(--danger)]/25 bg-[color:var(--surface)] text-[color:var(--danger)]",
+    label: "text-[color:var(--danger)]",
+    value: "text-[color:var(--danger-text)]",
   },
-  {
-    icon: Gauge,
-    chip: "border-[color:var(--type-service-border)] bg-[color:var(--type-service-soft)] text-[color:var(--type-service)]",
+  warning: {
+    card: toneWarning,
+    chip: "border-[color:var(--warning)]/25 bg-[color:var(--surface)] text-[color:var(--warning)]",
+    label: "text-[color:var(--warning)]",
+    value: "text-[color:var(--text-heading)]",
   },
-  { icon: Ban, chip: "border-[color:var(--danger)]/25 bg-[color:var(--danger-soft)] text-[color:var(--danger)]" },
-];
+  success: {
+    card: toneSuccess,
+    chip: "border-[color:var(--success)]/25 bg-[color:var(--surface)] text-[color:var(--success)]",
+    label: "text-[color:var(--success)]",
+    value: "text-[color:var(--text-heading)]",
+  },
+  info: {
+    card: toneInfo,
+    chip: "border-[color:var(--info-border)] bg-[color:var(--surface)] text-[color:var(--info)]",
+    label: "text-[color:var(--info)]",
+    value: "text-[color:var(--text-heading)]",
+  },
+  neutral: {
+    card: "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
+    chip: "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+    label: "text-[color:var(--text-muted)]",
+    value: "text-[color:var(--text-heading)]",
+  },
+};
 
-function DetailTile({
-  label,
-  value,
-  meta,
-  danger = false,
-  icon: Icon,
-  chip,
-}: {
-  label: string;
-  value: string;
-  meta?: string;
-  danger?: boolean;
-  icon: LucideIcon;
-  chip: string;
-}) {
+// Icon keyed to the metric's meaning: a gauge for the dose ceiling, a timer for
+// time-based metrics (half-life / onset / duration), and a tone-appropriate shield
+// or alert for everything else (risk & caution flags). Rendered directly (rather
+// than assigning the component to a local) so it stays a static component.
+function HeroMetricIcon({ metric }: { metric: MedicationHeroMetric }) {
+  const label = metric.label.toLowerCase();
+  const iconClass = "h-3.5 w-3.5";
+  if (/dose|ceiling|\bmax\b/.test(label)) return <Gauge className={iconClass} aria-hidden="true" />;
+  if (/half-life|onset|duration|timing|freq/.test(label)) return <Timer className={iconClass} aria-hidden="true" />;
+  if (metric.tone === "danger") return <ShieldAlert className={iconClass} aria-hidden="true" />;
+  if (metric.tone === "warning") return <TriangleAlert className={iconClass} aria-hidden="true" />;
+  if (metric.tone === "success") return <ShieldCheck className={iconClass} aria-hidden="true" />;
+  return <Activity className={iconClass} aria-hidden="true" />;
+}
+
+function DetailTile({ metric }: { metric: MedicationHeroMetric }) {
+  const tone = heroToneTile[metric.tone];
   return (
-    <div
-      className={cn(
-        "rounded-lg border p-3 shadow-[var(--shadow-inset)]",
-        danger ? toneDanger : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
-      )}
-    >
+    <div className={cn("rounded-lg border p-3 shadow-[var(--shadow-inset)]", tone.card)}>
       <div className="flex items-center gap-2">
-        <span
-          className={cn(
-            "grid h-6 w-6 shrink-0 place-items-center rounded-md border",
-            danger ? "border-[color:var(--danger)]/25 bg-[color:var(--surface)] text-[color:var(--danger)]" : chip,
-          )}
-        >
-          <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+        <span className={cn("grid h-6 w-6 shrink-0 place-items-center rounded-md border", tone.chip)}>
+          <HeroMetricIcon metric={metric} />
         </span>
-        <p
-          className={cn(
-            "text-2xs font-semibold uppercase tracking-[0.08em]",
-            danger ? "text-[color:var(--danger)]" : "text-[color:var(--text-muted)]",
-          )}
-        >
-          {label}
+        <p className={cn("text-2xs font-semibold uppercase leading-tight tracking-[0.08em]", tone.label)}>
+          {metric.label}
         </p>
       </div>
-      <p
-        className={cn(
-          "mt-1.5 text-sm-minus font-semibold leading-5",
-          danger ? "text-[color:var(--danger-text)]" : "text-[color:var(--text-heading)]",
-        )}
-      >
-        {value}
-      </p>
-      {meta ? (
-        <p
-          className={cn(
-            "mt-0.5 text-2xs font-semibold uppercase tracking-[0.06em]",
-            danger ? "text-[color:var(--danger-text)]" : "text-[color:var(--text-muted)]",
-          )}
-        >
-          {meta}
-        </p>
-      ) : null}
+      <p className={cn("mt-1.5 text-sm-minus font-semibold leading-5", tone.value)}>{metric.value}</p>
     </div>
   );
 }
@@ -277,6 +290,45 @@ function SidebarCard({ title, icon: Icon, children }: { title: string; icon: Luc
   );
 }
 
+// Quick-reference values are the verbose ones (≈164 chars median, up to ~560) and
+// would otherwise make the fixed-width sidebar run very tall. Long values collapse
+// to two lines with a chevron affordance and expand in place on tap — the same
+// clamp-on-collapse pattern the differential sections use (line-clamp-2 +
+// group-open:line-clamp-none inside a <details>) — so nothing is removed, just
+// tucked one tap away. Short values render as a plain row with no toggle.
+function QuickRefRow({ row }: { row: MedicationQuickRow }) {
+  const value = row.value.replace(/\*\*/g, "");
+  const label = (
+    <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">{row.label}</p>
+  );
+
+  if (value.length <= 110) {
+    return (
+      <div className="px-3 py-2.5">
+        {label}
+        <p className="mt-1 text-xs leading-5 text-[color:var(--text-heading)]">{value}</p>
+      </div>
+    );
+  }
+
+  return (
+    <details className="group">
+      <summary className="flex cursor-pointer list-none flex-col px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+        <span className="flex items-center justify-between gap-2">
+          {label}
+          <ChevronDown
+            className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)] transition group-open:rotate-180"
+            aria-hidden="true"
+          />
+        </span>
+        <span className="mt-1 line-clamp-2 text-xs leading-5 text-[color:var(--text-heading)] group-open:line-clamp-none">
+          {value}
+        </span>
+      </summary>
+    </details>
+  );
+}
+
 function MedicationAccessPanel({ record }: { record: MedicationRecord }) {
   const badges = useMemo(() => medicationAccessBadges(record), [record]);
   const fields = useMemo(() => medicationAccessFields(record), [record]);
@@ -314,8 +366,9 @@ function MedicationRecordDetail({
   record: MedicationRecord;
   governance?: MedicationGovernance;
 }) {
-  const tiles = useMemo(() => medicationDetailTiles(record), [record]);
+  const metrics = useMemo(() => medicationHeroMetrics(record), [record]);
   const badges = useMemo(() => medicationIdentityBadges(record, governance), [record, governance]);
+  const indication = useMemo(() => medicationIndication(record), [record]);
   const [activeTab, setActiveTab] = useState<MedicationTabId>("summary");
 
   const sectionsByTab = useMemo(() => {
@@ -359,26 +412,22 @@ function MedicationRecordDetail({
                     </>
                   ) : null}
                 </p>
+                {indication ? (
+                  <p className="mt-1 line-clamp-1 text-sm-minus leading-5 text-[color:var(--text-muted)]">
+                    {indication}
+                  </p>
+                ) : null}
                 <BadgeCluster items={badges} limit={5} showOverflowCount className="mt-2" />
               </div>
             </div>
           </section>
 
           <section className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-            {tiles.map((tile, index) => {
-              const decor = detailTileDecor[index] ?? detailTileDecor[detailTileDecor.length - 1];
-              return (
-                <DetailTile
-                  key={tile.label}
-                  label={tile.label}
-                  value={tile.value}
-                  meta={tile.meta}
-                  danger={tile.danger}
-                  icon={tile.danger ? Ban : decor.icon}
-                  chip={decor.chip}
-                />
-              );
-            })}
+            {metrics.map((metric, index) => (
+              // Some records repeat a stat label (e.g. adrenaline has two "Route"
+              // stats), so the label alone is not a unique key — include the index.
+              <DetailTile key={`${metric.label}-${index}`} metric={metric} />
+            ))}
           </section>
 
           <section className="space-y-2.5">
@@ -414,43 +463,12 @@ function MedicationRecordDetail({
           <SidebarCard title="Quick reference" icon={BookOpen}>
             <div className="divide-y divide-[color:var(--border)]">
               {record.quick.map((row) => (
-                <div key={row.label} className="px-3 py-2.5">
-                  <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                    {row.label}
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-[color:var(--text-heading)]">
-                    {row.value.replace(/\*\*/g, "")}
-                  </p>
-                </div>
+                <QuickRefRow key={row.label} row={row} />
               ))}
             </div>
           </SidebarCard>
 
           <MedicationAccessPanel record={record} />
-
-          {record.stats.length ? (
-            <SidebarCard title="Key stats" icon={Gauge}>
-              <div className="grid grid-cols-2 gap-2 p-3">
-                {record.stats.map((stat) => {
-                  const tone = medicationStatTone(stat);
-                  return (
-                    <div
-                      key={stat.label}
-                      className={cn(
-                        "rounded-md border bg-[color:var(--surface-subtle)] p-2",
-                        clinicalBadgeToneClass(tone),
-                      )}
-                    >
-                      <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                        {stat.label}
-                      </p>
-                      <p className="mt-1 text-sm-minus font-semibold">{stat.value}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </SidebarCard>
-          ) : null}
         </aside>
       </div>
     </div>

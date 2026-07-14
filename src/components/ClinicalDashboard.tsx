@@ -80,6 +80,7 @@ import {
 } from "@/components/clinical-dashboard/answer-progress";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
@@ -3019,6 +3020,11 @@ export function ClinicalDashboard({
     activeModeResultKind === "answer" &&
     answerProgressEvents.length > 0 &&
     (loading || (Boolean(answer) && answerProgressCompleted));
+  const universalAlsoMatchesQuery = activeModeResultKind === "answer" ? (latestAnswerQuery ?? query) : query;
+  const showUniversalAlsoMatches =
+    (modeSearchSubmitted || activeModeResultKind === "tools" || activeModeResultKind === "favourites") &&
+    Boolean(universalAlsoMatchesQuery.trim()) &&
+    (activeModeResultKind === "answer" || activeModeResultKind === "tools" || activeModeResultKind === "favourites");
   const showDesktopHomeComposer =
     !error &&
     (activeModeResultKind === "tools" ||
@@ -3586,6 +3592,10 @@ export function ClinicalDashboard({
                     </div>
                   ) : null)}
 
+                {showUniversalAlsoMatches && activeModeResultKind !== "answer" ? (
+                  <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
+                ) : null}
+
                 {activeModeResultKind === "differentials" ? (
                   <DifferentialsHome
                     query={query}
@@ -3744,6 +3754,10 @@ export function ClinicalDashboard({
                       void ask(recentQuery);
                     }}
                   />
+                ) : null}
+
+                {showUniversalAlsoMatches && activeModeResultKind === "answer" ? (
+                  <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
               </section>
 
