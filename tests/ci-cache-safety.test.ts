@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const nodeSetup = readFileSync(new URL("../.github/actions/setup-node-cached/action.yml", import.meta.url), "utf8");
+const uiSetup = readFileSync(new URL("../.github/actions/setup-ui-e2e/action.yml", import.meta.url), "utf8");
 const workflow = readFileSync(new URL("../.github/workflows/ci.yml", import.meta.url), "utf8");
 
 describe("CI cache safety", () => {
@@ -19,5 +20,10 @@ describe("CI cache safety", () => {
     expect(workflow).toContain("git grep -q '@quarantine'");
     expect(workflow).toContain("run: npm run test:e2e:quarantine");
     expect(workflow).toContain("if: steps.quarantine.outputs.present == 'true'");
+  });
+
+  it("installs Playwright system dependencies when browser caches hit", () => {
+    expect(uiSetup).toMatch(/cache-hit.*?install-deps chromium.*?install chromium/s);
+    expect(workflow).toMatch(/cache-hit.*?install-deps\n\s+npx playwright install/s);
   });
 });

@@ -1,8 +1,8 @@
 name: Setup UI e2e environment
 description: >-
-  Node + cached node_modules and Chromium, where the ~30-60s apt `--with-deps`
-  reinstall runs only on a browser-cache miss instead of every job. Playwright then
-  boots `next dev` itself (run-playwright.mjs) and warms the routes before testing.
+  Node + cached node_modules and Chromium. Browser archives are reused on cache hits,
+  while Playwright system dependencies are installed on every fresh runner. Playwright
+  then boots `next dev` itself (run-playwright.mjs) and warms the routes before testing.
 runs:
   using: composite
   steps:
@@ -16,12 +16,13 @@ runs:
         path: ~/.cache/ms-playwright
         key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
-    # On a cache hit the browser binary is already present, so skip the apt
-    # `--with-deps` reinstall and just validate the binary. Only a miss installs deps.
+    # The browser archive is cached, but apt libraries are runner-local and must be
+    # installed even on a browser-cache hit.
     - name: Install Chromium
       shell: bash
       run: |
         if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+          npx playwright install-deps chromium
           npx playwright install chromium
         else
           npx playwright install --with-deps chromium

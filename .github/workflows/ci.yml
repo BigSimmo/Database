@@ -507,6 +507,7 @@ jobs:
       - name: Install Playwright browsers
         run: |
           if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+            npx playwright install-deps
             npx playwright install
           else
             npx playwright install --with-deps
