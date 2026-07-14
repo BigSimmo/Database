@@ -512,6 +512,10 @@ export function CalculatorsSearchPageMockup() {
     scrollContainerRef.current = document.querySelector<HTMLElement>('[data-testid="calculators-search-page"]');
   }, []);
   const footerHidden = useHideOnScroll({ containerRef: scrollContainerRef });
+  // Keep the phone dock visible while focused so scroll-hide cannot slide a
+  // focused input off-screen or mark it aria-hidden while still tabbable.
+  const [dockFocused, setDockFocused] = useState(false);
+  const dockHidden = footerHidden && !dockFocused;
 
   const compact = density === "compact";
 
@@ -645,12 +649,16 @@ export function CalculatorsSearchPageMockup() {
       {activeCalc ? null : (
         <div
           data-testid="calculators-phone-dock"
+          onFocusCapture={() => setDockFocused(true)}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDockFocused(false);
+          }}
           className={cn(
             "fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--surface-glass)] px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-md transition-transform duration-200 ease-out motion-reduce:transition-none sm:hidden",
-            footerHidden ? "translate-y-full" : "translate-y-0",
+            dockHidden ? "translate-y-full" : "translate-y-0",
           )}
-          aria-hidden={footerHidden}
-          inert={footerHidden || undefined}
+          aria-hidden={dockHidden}
+          inert={dockHidden || undefined}
         >
           <CalculatorComposer
             query={query}

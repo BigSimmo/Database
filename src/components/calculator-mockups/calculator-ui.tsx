@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, Check, CheckCheck, ClipboardCopy, RotateCcw, type LucideIcon } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
 
@@ -12,8 +12,8 @@ export const focusRing =
 
 /*
  * Answers hold the raw selection, not points:
- *   checkbox items — 1 when ticked, undefined when clear
- *   options items  — the selected option index
+ *   checkbox items — 1 ("Yes"), 0 ("No"), or undefined (not yet answered)
+ *   options items  — the selected option index, or undefined
  * Points are always derived from the fixture so zero-point criterion items
  * (e.g. MDQ co-occurrence / impairment) still record their state.
  */
@@ -21,8 +21,28 @@ export type AnswerMap = Record<string, number | undefined>;
 
 export function itemScore(item: CalculatorItem, selection: number | undefined): number {
   if (selection === undefined) return 0;
-  if (item.kind === "checkbox") return selection ? (item.points ?? 0) : 0;
+  if (item.kind === "checkbox") return selection === 1 ? (item.points ?? 0) : 0;
   return item.options?.[selection]?.points ?? 0;
+}
+
+/** True for scales whose every item is a yes/no checkbox (CAGE, SAD PERSONS). */
+export function isCheckboxOnly(calc: CalculatorFixture): boolean {
+  return calc.items.length > 0 && calc.items.every((item) => item.kind === "checkbox");
+}
+
+/**
+ * Seed every unset checkbox item to an explicit 0 ("No"). Used when a
+ * checkbox-only scale is opened so an all-negative screen reads as a valid
+ * 0 result (started + complete) instead of "Not started".
+ */
+export function seedCheckboxDefaults(calc: CalculatorFixture, answers: AnswerMap): AnswerMap {
+  if (!isCheckboxOnly(calc)) return answers;
+  if (calc.items.every((item) => answers[item.id] !== undefined)) return answers;
+  const next: AnswerMap = { ...answers };
+  for (const item of calc.items) {
+    if (next[item.id] === undefined) next[item.id] = 0;
+  }
+  return next;
 }
 
 export type CalculatorResult = {
@@ -95,9 +115,15 @@ export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): D
   const answeredCount = optionItems.filter((item) => answers[item.id] !== undefined).length;
   const checkedCount = checkboxItems.filter((item) => answers[item.id] === 1).length;
   const checkboxAnsweredCount = checkboxItems.filter((item) => answers[item.id] !== undefined).length;
-  const complete = answeredCount === optionItems.length && checkboxAnsweredCount === checkboxItems.length;
+  // Checkbox-only scales complete once every yes/no item has an explicit value
+  // (seeded to 0 on open). Mixed scales (MDQ) complete on answered options;
+  // an unticked symptom checkbox is a valid "not endorsed", not a gap.
+  const complete =
+    answeredCount === optionItems.length && (optionItems.length > 0 || checkboxAnsweredCount === checkboxItems.length);
   const started = Object.values(answers).some((value) => value !== undefined);
-  const band = bandForScore(calc, score);
+  // Non-zero-minimum scales (K10: 10–50) must not publish a band for partial
+  // totals below the real floor (nine "None of the time" answers sum to 9).
+  const band = calc.minScore === 0 || complete ? bandForScore(calc, score) : undefined;
   const flags = calc.items
     .filter((item) => item.flag && itemScore(item, answers[item.id]) > 0)
     .map((item) => item.flag as string);
@@ -126,7 +152,9 @@ export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): D
 }
 
 export function toggleCheckboxAnswer(answers: AnswerMap, itemId: string): AnswerMap {
-  return { ...answers, [itemId]: answers[itemId] === 1 ? undefined : 1 };
+  // Toggle between explicit 1 ("Yes") and 0 ("No") rather than clearing to
+  // undefined, so an unticked box stays a recorded negative answer.
+  return { ...answers, [itemId]: answers[itemId] === 1 ? 0 : 1 };
 }
 
 export function selectOptionAnswer(answers: AnswerMap, itemId: string, optionIndex: number): AnswerMap {
@@ -441,10 +469,9 @@ export function ResetButton({ onReset, disabled }: { onReset: () => void; disabl
 }
 
 export function progressLabel(state: DerivedCalculator): string {
-  if (state.optionItemCount === 0 && state.checkboxItemCount > 0) {
-    return `${state.checkedCount} of ${state.checkboxItemCount} endorsed`;
-  }
-  return `${state.answeredCount} of ${state.optionItemCount} answered`;
+  if (state.optionItemCount === 0) return `${state.checkedCount} of ${state.checkboxItemCount} endorsed`;
+  const answered = `${state.answeredCount} of ${state.optionItemCount} answered`;
+  return state.checkboxItemCount > 0 ? `${answered} · ${state.checkedCount} endorsed` : answered;
 }
 
 /** Compact metadata chip: item count, time estimate, score range. */
@@ -558,6 +585,13 @@ export function CalculatorItems({
   showKey?: boolean;
 }) {
   const key = sharedOptionKey(calc);
+
+  // Opening the items view seeds checkbox-only scales to an explicit all-"No"
+  // state so an all-negative CAGE/SAD PERSONS reads as a valid 0 result.
+  useEffect(() => {
+    const seeded = seedCheckboxDefaults(calc, answers);
+    if (seeded !== answers) onAnswersChange(seeded);
+  }, [calc, answers, onAnswersChange]);
 
   return (
     <section aria-label={`${calc.abbrev} items`} className="grid min-w-0 content-start gap-2">

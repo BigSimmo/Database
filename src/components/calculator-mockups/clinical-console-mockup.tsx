@@ -41,9 +41,7 @@ function RailEntry({
       onClick={onSelect}
       className={cn(
         "grid w-full min-h-tap items-center gap-2 rounded-lg border px-3 py-2 text-left transition",
-        derived.flags.length > 0
-          ? "grid-cols-[minmax(0,1fr)_auto_auto]"
-          : "grid-cols-[minmax(0,1fr)_auto]",
+        derived.flags.length > 0 ? "grid-cols-[minmax(0,1fr)_auto_auto]" : "grid-cols-[minmax(0,1fr)_auto]",
         active
           ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
           : "border-transparent hover:bg-[color:var(--surface-subtle)]",

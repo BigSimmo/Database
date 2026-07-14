@@ -172,7 +172,7 @@ const pathways: Record<string, CalculatorPathway> = {
       {
         title: "Lithium — initiation and monitoring",
         kind: "medication",
-        href: "/medications/lithium",
+        href: "/medications/lithium-carbonate-ir-sr",
         minBandIndex: 1,
       },
       { title: "Elevated mood — differential diagnoses", kind: "differential", href: "/differentials" },

@@ -1,7 +1,7 @@
 "use client";
 
 import { Info, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { cn } from "@/components/ui-primitives";
 
@@ -48,53 +48,35 @@ export function CalculatorSheet({
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const Icon = calc.icon;
 
+  // Save the opener, move focus into the dialog, and restore on close.
   useEffect(() => {
-    // Store the element that had focus before opening
-    previousFocusRef.current = document.activeElement as HTMLElement;
-
-    // Focus the close button when dialog opens
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
     closeRef.current?.focus();
-
-    // Focus trap handler
-    const handleTab = (event: KeyboardEvent) => {
-      if (event.key !== "Tab" || !dialogRef.current) return;
-
-      const focusableSelector =
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-      const focusableElements = Array.from(
-        dialogRef.current.querySelectorAll<HTMLElement>(focusableSelector)
-      );
-
-      if (focusableElements.length === 0) return;
-
-      const firstElement = focusableElements[0];
-      const lastElement = focusableElements[focusableElements.length - 1];
-
-      if (event.shiftKey) {
-        // Shift+Tab: wrap from first to last
-        if (document.activeElement === firstElement) {
-          event.preventDefault();
-          lastElement.focus();
-        }
-      } else {
-        // Tab: wrap from last to first
-        if (document.activeElement === lastElement) {
-          event.preventDefault();
-          firstElement.focus();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleTab);
-
-    return () => {
-      window.removeEventListener("keydown", handleTab);
-      // Restore focus to the element that had it before opening
-      if (previousFocusRef.current && typeof previousFocusRef.current.focus === "function") {
-        previousFocusRef.current.focus();
-      }
-    };
+    return () => previousFocusRef.current?.focus?.();
   }, [calc.id]);
+
+  // Trap Tab / Shift+Tab within the dialog so focus can't reach the page behind.
+  const trapTab = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Tab") return;
+    const root = dialogRef.current;
+    if (!root) return;
+    const focusables = Array.from(
+      root.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((element) => element.offsetParent !== null || element === document.activeElement);
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
 
   return (
     <div
@@ -102,6 +84,7 @@ export function CalculatorSheet({
       role="dialog"
       aria-modal="true"
       aria-label={`${calc.abbrev} calculator`}
+      onKeyDown={trapTab}
       className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-6"
     >
       <button
