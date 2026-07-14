@@ -276,7 +276,8 @@ export function MasterSearchHeader({
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
     selectedSearch.kind === "favourites" ||
-    selectedSearch.kind === "formulation";
+    selectedSearch.kind === "formulation" ||
+    selectedSearch.kind === "dsm";
   const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
   const indexedDocumentTotal = documentTotal ?? documents.length;
   const hasUnloadedDocuments = indexedDocumentTotal > documents.length;
@@ -443,11 +444,15 @@ export function MasterSearchHeader({
               ? "favourites"
               : searchMode === "differentials"
                 ? "differentials"
-                : searchMode === "formulation"
-                  ? "formulation"
-                  : searchMode === "tools"
-                    ? "tools"
-                    : "answer";
+                : searchMode === "dsm"
+                  ? "dsm"
+                  : searchMode === "specifiers"
+                    ? "specifiers"
+                    : searchMode === "formulation"
+                      ? "formulation"
+                      : searchMode === "tools"
+                        ? "tools"
+                        : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
   const actionMenuSubtitle = searchMode === "answer" ? "Source-backed mode" : selectedAppMode.description;
@@ -606,6 +611,35 @@ export function MasterSearchHeader({
     }
     if (actionId === "differentials-evidence") {
       onOpenEvidence?.();
+      return;
+    }
+    if (actionId === "dsm-search") {
+      onSearchModeChange("dsm");
+      return;
+    }
+    if (actionId === "dsm-compare") {
+      window.location.assign("/dsm/compare");
+      return;
+    }
+    if (actionId === "dsm-criteria") {
+      onSearchModeChange("dsm");
+      onQueryChange(trimmedQuery || "major depressive disorder");
+      return;
+    }
+    if (actionId === "specifiers-search") {
+      onSearchModeChange("specifiers");
+      return;
+    }
+    if (actionId === "specifiers-builder") {
+      window.location.assign("/formulation/builder");
+      return;
+    }
+    if (actionId === "specifiers-compare") {
+      window.location.assign("/formulation/compare");
+      return;
+    }
+    if (actionId === "specifiers-map") {
+      window.location.assign("/formulation/map");
       return;
     }
     if (actionId === "formulation-search") {

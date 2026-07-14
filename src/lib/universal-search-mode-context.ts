@@ -8,6 +8,10 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   forms: ["forms"],
   favourites: [],
   differentials: ["differentials", "presentations"],
+  dsm: ["dsm"],
+  // Legacy Specifiers mode still exists as a redirect entry; both it and Formulation
+  // search against the shared "specifiers" domain (formulation mechanisms).
+  specifiers: ["specifiers"],
   formulation: ["specifiers"],
   prescribing: ["medications", "documents"],
   tools: ["tools"],
@@ -20,6 +24,8 @@ const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {
   forms: "forms",
   differentials: "differentials",
   presentations: "differentials",
+  dsm: "dsm",
+  // Specifier-domain hits land in Formulation (canonical workspace).
   specifiers: "formulation",
   tools: "tools",
 };
