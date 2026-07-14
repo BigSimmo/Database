@@ -36,6 +36,7 @@ import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { rankServiceRecords, serviceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/services";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 
 const defaultQuery = "13YARN crisis support aboriginal phone";
@@ -511,6 +512,7 @@ export function ServicesNavigatorPage() {
             sortValue={sortValue}
             onSortChange={setSortValue}
           />
+          <UniversalSearchAlsoMatches modeId="services" query={query} />
         </>
       }
       sidebar={

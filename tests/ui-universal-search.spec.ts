@@ -191,6 +191,15 @@ test.describe("universal search typeahead", () => {
     await expect(page.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
   });
 
+  test("shows submitted cross-mode matches on phones outside hidden desktop headers", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockUniversalSearch(page);
+    await page.goto("/forms?q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
+    await expect(page.getByTestId("universal-also-matches")).toHaveCount(1);
+  });
+
   test("shows submitted cross-mode matches once for Favourites and after a Tools search", async ({ page }) => {
     await mockUniversalSearch(page);
     await page.setViewportSize({ width: 1280, height: 900 });

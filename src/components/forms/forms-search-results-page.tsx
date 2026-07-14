@@ -39,6 +39,7 @@ import { useSearchCommand } from "@/components/clinical-dashboard/search-command
 import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
 import { sortResultItems, type ResultSortValue } from "@/lib/result-sort";
 import { useResultSort } from "@/components/use-result-sort";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 type FormsSearchResultsPageProps = {
   query: string;
@@ -659,6 +660,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                 onSortChange={setSortValue}
               />
             </div>
+            <UniversalSearchAlsoMatches modeId="forms" query={query} />
             {query.trim() && displayedMatches.length === 0 ? (
               <SearchResultsEmptyState
                 modeId="forms"

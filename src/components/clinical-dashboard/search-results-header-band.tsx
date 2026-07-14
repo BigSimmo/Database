@@ -7,7 +7,6 @@ import { cn } from "@/components/ui-primitives";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import type { AppModeId } from "@/lib/app-modes";
 import { readResultSort, type ResultSortValue } from "@/lib/result-sort";
-import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
@@ -126,7 +125,6 @@ export function SearchResultsHeaderBand({
           </button>
         ) : null}
       </div>
-      <UniversalSearchAlsoMatches modeId={modeId} query={query} />
     </div>
   );
 }

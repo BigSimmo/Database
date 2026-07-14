@@ -29,6 +29,7 @@ import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { ResultSortControl, SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import {
@@ -884,16 +885,19 @@ function DocumentSearchResultsPanelImpl({
   return (
     <div data-testid="document-search-workspace" className="w-full space-y-3">
       {trimmedQuery && !shouldShowHome ? (
-        <div className="hidden lg:block">
-          <SearchResultsHeaderBand
-            modeId="documents"
-            query={trimmedQuery}
-            matchCount={sortedMatches.length}
-            loading={loading}
-            sortValue={sortValue}
-            onSortChange={setSortValue}
-          />
-        </div>
+        <>
+          <div className="hidden lg:block">
+            <SearchResultsHeaderBand
+              modeId="documents"
+              query={trimmedQuery}
+              matchCount={sortedMatches.length}
+              loading={loading}
+              sortValue={sortValue}
+              onSortChange={setSortValue}
+            />
+          </div>
+          <UniversalSearchAlsoMatches modeId="documents" query={trimmedQuery} />
+        </>
       ) : null}
       {recordMatchCount > 0 ||
       matches.length > 0 ||
