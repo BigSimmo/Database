@@ -117,11 +117,9 @@ function CategoryFilterDropdown({
     } else if (event.key === "End") {
       event.preventDefault();
       focusOption(options.length - 1);
-    } else if (event.key === "Escape") {
-      event.preventDefault();
-      setOpen(false);
-      window.requestAnimationFrame(() => triggerRef.current?.focus());
     }
+    // Escape (dismiss + restore focus to the trigger) is owned by
+    // useDismissableLayer's document-level handler, so it isn't duplicated here.
   }
 
   // Close when focus leaves the widget entirely (e.g. Tab off the last option),
@@ -190,6 +188,10 @@ function CategoryFilterDropdown({
                 href={categoryHref(query, option.key, selected)}
                 role="menuitemradio"
                 aria-checked={isActive}
+                // Roving focus: menu items stay out of the Tab sequence (arrow keys
+                // move focus programmatically) so one Tab press leaves the whole
+                // widget instead of walking through every category link.
+                tabIndex={-1}
                 onKeyDown={(event) => handleOptionKeyDown(event, index)}
                 onClick={() => setOpen(false)}
                 className={cn(
@@ -349,9 +351,9 @@ export function DsmSearchPage({
                         )}
                       </button>
                       <Link href={`/dsm/diagnoses/${result.slug}`} className="min-w-0 focus-visible:outline-none">
-                        <h2 className="text-sm font-extrabold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)] sm:text-base-minus">
+                        <h3 className="text-sm font-extrabold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)] sm:text-base-minus">
                           {result.title}
-                        </h2>
+                        </h3>
                         <p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
                           {result.summary}
                         </p>
