@@ -157,10 +157,12 @@ function EmptySearchResults({ query }: { query: string }) {
         <Search className="h-6 w-6" aria-hidden />
       </span>
       <div className="grid gap-1">
-        <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">No strong match for “{query}”</h2>
+        <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">
+          No strong match for &ldquo;{query}&rdquo;
+        </h2>
         <p className="max-w-xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          Try the episode pattern, timing, patient language, or the base diagnosis. For example: “depressed but racing
-          thoughts” or “returns every winter”.
+          Try the episode pattern, timing, patient language, or the base diagnosis. For example: &ldquo;depressed but
+          racing thoughts&rdquo; or &ldquo;returns every winter&rdquo;.
         </p>
       </div>
       <Link
@@ -189,11 +191,11 @@ function SpecifierResults({ query }: { query: string }) {
         <div className="grid gap-1.5">
           <p className={eyebrowText}>Specifier search</p>
           <h1 className="text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
-            Matches for “{query}”
+            Matches for &ldquo;{query}&rdquo;
           </h1>
           <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            Results prioritise text matches across episode timing, patient language, and diagnostic terminology. Open a
-            result to check exclusions and wording.
+            Results ranked by text relevance: title, keywords, episode timing, and patient language. Open a result to
+            check exclusions and wording.
           </p>
         </div>
         <p className="nums text-sm font-bold text-[color:var(--text-muted)]" aria-live="polite">
@@ -310,7 +312,7 @@ function SpecifierResults({ query }: { query: string }) {
                 <div className="border-t border-[color:var(--border)] px-4 py-3 sm:border-l sm:border-t-0 sm:px-5">
                   <p className={eyebrowText}>Typical language</p>
                   <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    “{record.patientLanguage[0]}”
+                    &ldquo;{record.patientLanguage[0]}&rdquo;
                   </p>
                 </div>
               </div>

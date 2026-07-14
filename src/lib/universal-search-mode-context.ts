@@ -8,6 +8,7 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   forms: ["forms"],
   favourites: [],
   differentials: ["differentials", "presentations"],
+  dsm: ["dsm"],
   specifiers: ["specifiers"],
   formulation: ["formulation"],
   prescribing: ["medications", "documents"],
@@ -23,6 +24,7 @@ const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {
   presentations: "differentials",
   specifiers: "specifiers",
   formulation: "formulation",
+  dsm: "dsm",
   tools: "tools",
 };
 

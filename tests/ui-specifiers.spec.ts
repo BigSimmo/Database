@@ -69,6 +69,7 @@ test("searches clinical language without provenance fields and carries a result 
 
   await expect(page).toHaveURL(/\/specifiers\?.*q=depressed(?:\+|%20)but(?:\+|%20)racing(?:\+|%20)thoughts.*run=1/);
   await expect(page.getByRole("heading", { name: /Matches for “depressed but racing thoughts”/ })).toBeVisible();
+  await expect(page.getByText(/Results ranked by text relevance/i)).toBeVisible();
   await expect(page.getByText("Top match", { exact: true })).toBeVisible();
   await expect(page.getByText("Best fit", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "With mixed features", exact: true })).toBeVisible();

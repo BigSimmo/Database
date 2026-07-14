@@ -4,7 +4,8 @@ import { SpecifierMapPage } from "@/components/specifiers/specifier-map-page";
 
 export const metadata: Metadata = {
   title: "Psychiatric specifier map - Clinical KB",
-  description: "Browse psychiatric specifiers by episode features, course and onset, severity, and remission.",
+  description:
+    "Browse psychiatric specifiers by diagnostic architecture: episode features, course and onset, severity and remission.",
 };
 
 type MapRouteProps = {
