@@ -47,20 +47,6 @@ const domainsByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain[]>> =
   tools: ["tools"],
 };
 
-const modeIdByDomain: Record<UniversalSearchDomain, AppModeId> = {
-  documents: "documents",
-  medications: "prescribing",
-  services: "services",
-  forms: "forms",
-  differentials: "differentials",
-  // Presentations are the differentials mode's umbrella pages — no app mode of their own,
-  // so the group borrows the differentials icon and "View all in Differentials" target.
-  presentations: "differentials",
-  dsm: "dsm",
-  specifiers: "formulation",
-  tools: "tools",
-};
-
 const domainHeadings: Record<UniversalSearchDomain, string> = {
   documents: "Documents",
   medications: "Medications",
