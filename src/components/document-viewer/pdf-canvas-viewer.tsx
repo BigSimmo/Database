@@ -54,6 +54,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   initialPage,
   onUrlExpired,
   onLoadSuccess,
+  onPageChange,
 }: {
   url: string;
   title: string;
@@ -62,6 +63,8 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   onUrlExpired?: () => void;
   /** Called when the PDF document loads successfully (a genuine URL is valid). */
   onLoadSuccess?: () => void;
+  /** Keeps the document route in sync when the reader changes pages. */
+  onPageChange?: (page: number) => void;
 }) {
   const fullscreenRootRef = useRef<HTMLDivElement>(null);
   const holderRef = useRef<HTMLDivElement>(null);
@@ -276,6 +279,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
     const bounded = Math.min(Math.max(nextPage, 1), totalPages || nextPage);
     setPage(bounded);
     setPageInput(String(bounded));
+    if (bounded !== page) onPageChange?.(bounded);
   }
 
   function zoomBy(delta: number) {

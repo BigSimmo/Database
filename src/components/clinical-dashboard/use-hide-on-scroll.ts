@@ -121,6 +121,8 @@ interface UseHideOnScrollOptions {
   scrollContainer?: HTMLElement | null;
   /** Disables the behavior entirely (state resets to visible). */
   disabled?: boolean;
+  /** Resets hidden state when the host changes navigation context without remounting. */
+  resetKey?: unknown;
 }
 
 /**
@@ -134,9 +136,14 @@ export function useHideOnScroll({
   containerRef,
   scrollContainer = null,
   disabled = false,
+  resetKey,
 }: UseHideOnScrollOptions): boolean {
   const { hidden, reportScroll } = useScrollHideReporter(disabled);
   const active = usePhoneScrollHideActive(disabled);
+
+  useEffect(() => {
+    reportScroll(0);
+  }, [reportScroll, resetKey]);
 
   useEffect(() => {
     if (!active) return;

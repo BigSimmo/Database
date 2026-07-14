@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Suspense,
@@ -15,6 +14,7 @@ import {
 } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
+import { ClinicalDashboard } from "@/components/ClinicalDashboard";
 import {
   clearLegacyRecentQueries,
   demoRecentQueryOwnerId,
@@ -50,11 +50,6 @@ import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
-
-const ClinicalDashboard = dynamic(
-  () => import("@/components/ClinicalDashboard").then((module) => module.ClinicalDashboard),
-  { ssr: false, loading: () => <ModeHomeRouteLoading /> },
-);
 
 const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
   { value: "auto", label: "Auto" },

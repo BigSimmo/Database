@@ -33,17 +33,11 @@ those vars are unset.
    Then confirm health: `npm run check:indexing` (runs `search_schema_health()`
    over the hybrid RPCs) should report ok.
 
-3. **Seed a small corpus (~50 docs).** Use synthetic/public content only — do
-   **not** copy clinical production documents into staging.
-
-   ```bash
-   npm run samples                 # generate synthetic sample documents
-   npm run import:docs             # queue them for ingestion
-   # (run the worker — section B4 — to process the queue)
-   npm run registry:seed -- --owner-id <owner> --write --confirm
-   npm run differentials:seed
-   npm run medications:seed
-   ```
+3. **Keep the tenancy profile synthetic and worker-free.** Do **not** copy
+   clinical production documents into staging and do not start an ingestion
+   worker. The cross-tenant harness creates the minimal private documents,
+   lexical chunks, and storage objects it needs, then removes them in `finally`
+   cleanup. This keeps the release proof deterministic and provider-free.
 
 4. **Capture the keys** for the staging project (dashboard → API): the
    publishable key (`sb_publishable_…`) and the service-role secret
@@ -52,11 +46,11 @@ those vars are unset.
 ## B. Staging app host (compute tier)
 
 Host: **Railway**, same as production (see `docs/deployment-architecture.md` §2).
-Stand staging up as a **second environment** in the `clinical-kb` Railway project
-(e.g. a `staging` environment) or a separate project, with its own `app` (+
-optional `worker`) service pinned to **Southeast Asia (`asia-southeast1-eqsg3a`,
-Singapore)** — the closest region to the staging Supabase project in Sydney.
-Reuse the same images; only the environment variables differ.
+Stand staging up as a **second environment** in the `clinical-kb` Railway project,
+with one `app` service pinned to **Southeast Asia
+(`asia-southeast1-eqsg3a`, Singapore)** — the closest region to the staging
+Supabase project in Sydney. Do not create a worker for this release profile.
+Reuse the app image; only the environment variables differ.
 
 1. **Build the image** — Railway builds it remotely from the committed
    `Dockerfile` on deploy, so there is no local `docker build` and no local
@@ -72,16 +66,19 @@ Reuse the same images; only the environment variables differ.
 2. **Runtime secrets** (injected at deploy, never baked into the image) — all
    with **staging** values, distinct from production:
 
-   | Var                             | Value                                                     |
-   | ------------------------------- | --------------------------------------------------------- |
-   | `SUPABASE_SERVICE_ROLE_KEY`     | staging `sb_secret_…`                                     |
-   | `OPENAI_API_KEY`                | a staging-only OpenAI key; never reuse the production key |
-   | `SUPABASE_PROJECT_REF`          | `<staging-ref>`                                           |
-   | `SUPABASE_PROJECT_NAME`         | `Clinical KB Staging`                                     |
-   | `SUPABASE_STAGING_PROJECT_REF`  | `<staging-ref>`                                           |
-   | `SUPABASE_STAGING_PROJECT_NAME` | `Clinical KB Staging`                                     |
-   | `RAG_QUERY_HASH_SECRET`         | a staging secret                                          |
-   | `RAG_PROVIDER_MODE`             | `auto`                                                    |
+   | Var                             | Value                      |
+   | ------------------------------- | -------------------------- |
+   | `SUPABASE_SERVICE_ROLE_KEY`     | staging `sb_secret_…`      |
+   | `SUPABASE_PROJECT_REF`          | `<staging-ref>`            |
+   | `SUPABASE_PROJECT_NAME`         | `Clinical KB Staging`      |
+   | `SUPABASE_STAGING_PROJECT_REF`  | `<staging-ref>`            |
+   | `SUPABASE_STAGING_PROJECT_NAME` | `Clinical KB Staging`      |
+   | `RAG_QUERY_HASH_SECRET`         | unique staging-only secret |
+   | `RAG_PROVIDER_MODE`             | `offline`                  |
+
+   Do not set `OPENAI_API_KEY`, `OPENAI_ORG_ID`, or `OPENAI_PROJECT_ID` in the
+   staging environment. Offline mode uses lexical retrieval and deterministic,
+   cited source-only answers; it performs no embedding or generation request.
 
    The two `SUPABASE_STAGING_PROJECT_*` vars are what make the identity guard
    accept the staging project. Setting `NEXT_PUBLIC_SUPABASE_URL` +
@@ -93,14 +90,19 @@ Reuse the same images; only the environment variables differ.
    policy to `ON_FAILURE`, and one replica pinned to `southeast-asia` with no
    scale-to-zero (mirror `railway.app.json`).
 
-4. **Worker (optional, for ingestion in staging):** build `Dockerfile.worker`
-   and run one instance with the same staging secrets. Required to process the
-   seed queue from A3.
+4. **No worker:** this staging environment intentionally has no ingestion
+   service. The tenancy harness inserts and removes its synthetic lexical rows
+   directly through its dedicated staging credentials.
 
 ## C. Validate staging
 
 1. Boot check: `GET /api/health` → `{"status":"ok"}` with the staging project.
-2. Load check — the soak test is hard-guarded against production:
+2. Tenancy isolation: configure the dedicated A/B test accounts and standalone
+   workflow described in
+   [`staging-tenancy-release-evidence.md`](staging-tenancy-release-evidence.md).
+   The harness requires an app deployment with `RAG_PROVIDER_MODE=offline` and is
+   hard-guarded against the production project.
+3. Load check — the soak test is hard-guarded against production:
 
    ```bash
    npx tsx scripts/soak-test.ts --target https://<staging-host> \

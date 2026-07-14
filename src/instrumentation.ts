@@ -16,7 +16,7 @@ export async function register() {
     throw new Error("Refusing to start: local no-auth mode is enabled in a production build.");
   }
 
-  const { isDemoMode, requireOpenAIEnv, requireQueryHashSecret, requireServerEnv } = await import("@/lib/env");
+  const { env, isDemoMode, requireOpenAIEnv, requireQueryHashSecret, requireServerEnv } = await import("@/lib/env");
 
   // A clinical production server must run against real, configured backends — never
   // in demo mode, which bypasses auth and serves canned content.
@@ -26,10 +26,11 @@ export async function register() {
     );
   }
 
-  // Throw actionable errors now if Supabase project / service-role / OpenAI config
-  // is missing or points at the wrong project, instead of failing per-request.
+  // Throw actionable errors now if the configured backend is missing or points at
+  // the wrong project, instead of failing per-request. Explicit offline deployments
+  // intentionally have no OpenAI credential; auto/openai modes still fail closed.
   requireServerEnv();
-  requireOpenAIEnv();
+  if (env.RAG_PROVIDER_MODE !== "offline") requireOpenAIEnv();
 
   // A keyed HMAC secret must be present so clinical-query hashes written to the log
   // tables are not reversible (PIA-2). Fail closed rather than degrade to weak SHA-256.

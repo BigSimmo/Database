@@ -27,9 +27,13 @@ import {
   type SupabaseEvalCaseClient,
 } from "@/lib/rag-eval-cases";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
+import { answerRouteBudgetMs } from "@/lib/rag-route-budget";
+import type { AnswerRouteMode } from "@/lib/rag-routing";
 import type { RagAnswer } from "@/lib/types";
 
 loadEnvConfig(process.cwd());
+
+export type EvalQualityProviderMode = "openai" | "offline";
 
 type EvalQualityArgs = {
   fixture: string;
@@ -46,6 +50,7 @@ type EvalQualityArgs = {
   ragOnly: boolean;
   skipPreflight: boolean;
   forceEmbedding: boolean;
+  providerMode: EvalQualityProviderMode;
 };
 
 export type RagQualityResult = {
@@ -76,7 +81,23 @@ export type RagQualityResult = {
   unverifiedNumericTokenCount: number;
   hasFaithfulnessWarning: boolean;
   routingReason?: string;
+  timings?: {
+    retrievalMs: number;
+    routingMs: number;
+    generationMs: number;
+    verificationMs: number;
+    totalMs: number;
+    routeBudgetMs: number;
+    routeDeadlineExceeded: boolean;
+  };
+  routeCeilingExceeded?: boolean;
   estimatedCostUsd: number | null;
+  openAIRequestIds?: string[];
+  openAIUsage?: {
+    inputTokens: number;
+    cachedInputTokens: number;
+    outputTokens: number;
+  };
 };
 
 export type QualityFailureCategory =
@@ -128,6 +149,28 @@ export function deliveredGroundedAfterSourceGovernancePolicy(
 }
 
 const crossRegionRunnerLatencyContext = process.env.EVAL_LATENCY_CONTEXT === "cross-region-runner";
+
+export function ragAnswerTimingDiagnostics(answer: Pick<RagAnswer, "latencyTimings" | "routingMode">) {
+  const latencyTimings = answer.latencyTimings;
+  const answerRoute = answer.routingMode ?? "unsupported";
+  const defaultRouteBudgetMs = answerRouteBudgetMs[answerRoute as AnswerRouteMode] ?? 0;
+  const routeBudgetMs = latencyTimings?.route_budget_ms ?? defaultRouteBudgetMs;
+  const totalMs = latencyTimings?.total_latency_ms ?? 0;
+  const generationMs = latencyTimings?.generation_latency_ms ?? 0;
+  const routeDeadlineExceeded = latencyTimings?.route_deadline_exceeded ?? false;
+  return {
+    timings: {
+      retrievalMs: latencyTimings?.retrieval_latency_ms ?? latencyTimings?.search_latency_ms ?? 0,
+      routingMs: latencyTimings?.routing_latency_ms ?? 0,
+      generationMs,
+      verificationMs: latencyTimings?.verification_latency_ms ?? 0,
+      totalMs,
+      routeBudgetMs,
+      routeDeadlineExceeded,
+    },
+    routeCeilingExceeded: routeDeadlineExceeded || (routeBudgetMs === 0 ? generationMs > 0 : totalMs > routeBudgetMs),
+  };
+}
 
 const qualityThresholds = {
   retrievalTopKHitRate: 0.8,
@@ -181,6 +224,7 @@ function parseArgs(argv: string[]): EvalQualityArgs {
     ragOnly: false,
     skipPreflight: false,
     forceEmbedding: false,
+    providerMode: "openai",
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -224,6 +268,12 @@ function parseArgs(argv: string[]): EvalQualityArgs {
     if (token === "--question") args.question = value;
     if (token === "--output-dir") args.outputDir = value;
     if (token === "--source-metadata-debt") args.sourceMetadataDebt = value;
+    if (token === "--provider-mode") {
+      if (value !== "openai" && value !== "offline") {
+        throw new Error("--provider-mode must be openai or offline.");
+      }
+      args.providerMode = value;
+    }
   }
 
   if (args.retrievalOnly && args.ragOnly) throw new Error("Use only one of --retrieval-only or --rag-only.");
@@ -232,6 +282,21 @@ function parseArgs(argv: string[]): EvalQualityArgs {
   }
 
   return args;
+}
+
+export function configureEvalProviderEnvironment(providerMode: EvalQualityProviderMode) {
+  process.env.RAG_PROVIDER_MODE = providerMode;
+  if (providerMode !== "offline") return;
+  delete process.env.OPENAI_API_KEY;
+  delete process.env.OPENAI_ORG_ID;
+  delete process.env.OPENAI_PROJECT_ID;
+}
+
+export function retrievalCasesForProviderMode<T extends { forceEmbedding?: boolean }>(
+  cases: T[],
+  providerMode: EvalQualityProviderMode,
+) {
+  return providerMode === "offline" ? cases.filter((testCase) => !testCase.forceEmbedding) : cases;
 }
 
 export function qualityFailureCategory(message: string): QualityFailureCategory {
@@ -426,7 +491,7 @@ function topResultGovernanceCounts(results: GoldenRetrievalResult[]) {
   };
 }
 
-function summarizeRagQualityResults(results: RagQualityResult[]) {
+function summarizeRagQualityResults(results: RagQualityResult[], providerMode: EvalQualityProviderMode) {
   const supported = results.filter((result) => result.supported);
   const unsupported = results.filter((result) => !result.supported);
   // A supported case counts as grounded-supported when it grounds, OR — for
@@ -435,9 +500,12 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
   // Requiring expectedHit keeps the guard honest: a real retrieval regression that
   // stops surfacing the expected docs is NOT accepted and still drags the rate below
   // threshold, hard-failing the canary.
-  const groundedSupported = supported.filter(
-    (result) => result.grounded || (result.acceptSourceOnly && result.expectedHit && result.citations > 0),
-  ).length;
+  const groundedSupported = supported.filter((result) => {
+    if (providerMode === "offline") {
+      return result.model === null && result.expectedHit && result.citations > 0;
+    }
+    return result.grounded || (result.acceptSourceOnly && result.expectedHit && result.citations > 0);
+  }).length;
   const unsupportedCorrect = unsupported.filter((result) => !result.grounded).length;
   const citationFailures = results.filter((result) =>
     result.failures.some((failure) => qualityFailureCategory(failure) === "citation"),
@@ -455,6 +523,7 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
   const expectedDangerWarningMissing = results.filter((result) =>
     result.failures.includes("expected danger source governance warning missing"),
   ).length;
+  const routeCeilingFailures = results.filter((result) => result.routeCeilingExceeded).length;
   const latencies = results.map((result) => result.latencyMs);
   const routeLatencyP95 = Object.fromEntries(
     Array.from(
@@ -483,6 +552,7 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
     source_governance_warning_rate: rate(sourceGovernanceWarnings.length, results.length),
     source_governance_danger_failure_rate: rate(sourceGovernanceDangerFailures.length, results.length),
     expected_danger_warning_missing_count: expectedDangerWarningMissing,
+    route_ceiling_failure_count: routeCeilingFailures,
     median_latency_ms: percentile(latencies, 50),
     p95_latency_ms: percentile(latencies, 95),
     route_p95_latency_ms: routeLatencyP95,
@@ -497,11 +567,32 @@ export function buildEvalQualityReport(args: {
   retrievalResults: GoldenRetrievalResult[];
   ragResults: RagQualityResult[];
   sourceMetadataDebtAcceptance?: SourceMetadataDebtAcceptance;
+  providerMode?: EvalQualityProviderMode;
 }) {
+  const providerMode = args.providerMode ?? "openai";
   const retrievalSummary = summarizeGoldenRetrievalResults(args.retrievalResults);
-  const ragSummary = summarizeRagQualityResults(args.ragResults);
+  const ragSummary = summarizeRagQualityResults(args.ragResults, providerMode);
   const governance = topResultGovernanceCounts(args.retrievalResults);
   const thresholdFailures: string[] = [];
+  const providerEvidence = {
+    mode: providerMode,
+    model_case_count: args.ragResults.filter((result) => Boolean(result.model)).length,
+    openai_request_id_count: args.ragResults.reduce((sum, result) => sum + (result.openAIRequestIds?.length ?? 0), 0),
+    token_usage_case_count: args.ragResults.filter((result) => {
+      const usage = result.openAIUsage;
+      return Boolean(usage && usage.inputTokens + usage.cachedInputTokens + usage.outputTokens > 0);
+    }).length,
+    nonzero_cost_case_count: args.ragResults.filter((result) => (result.estimatedCostUsd ?? 0) > 0).length,
+    generation_latency_case_count: args.ragResults.filter(
+      (result) => (result.generationLatencyMs ?? result.timings?.generationMs ?? 0) > 0,
+    ).length,
+  };
+  if (providerMode === "offline") {
+    for (const [key, count] of Object.entries(providerEvidence)) {
+      if (key === "mode" || count === 0) continue;
+      thresholdFailures.push(`offline provider invariant ${key} ${count} above 0`);
+    }
+  }
 
   if (args.retrievalResults.length > 0) {
     if (retrievalSummary.top_k_hit_rate < qualityThresholds.retrievalTopKHitRate) {
@@ -569,6 +660,9 @@ export function buildEvalQualityReport(args: {
         `RAG expected_danger_warning_missing_count ${ragSummary.expected_danger_warning_missing_count} above 0`,
       );
     }
+    if (ragSummary.route_ceiling_failure_count > 0) {
+      thresholdFailures.push(`RAG route_ceiling_failure_count ${ragSummary.route_ceiling_failure_count} above 0`);
+    }
     if (ragSummary.p95_latency_ms > qualityThresholds.ragP95LatencyMs) {
       thresholdFailures.push(
         `RAG p95_latency_ms ${ragSummary.p95_latency_ms} above ${qualityThresholds.ragP95LatencyMs}`,
@@ -593,6 +687,12 @@ export function buildEvalQualityReport(args: {
 
   return {
     generated_at: args.generatedAt ?? new Date().toISOString(),
+    provider: {
+      ...providerEvidence,
+      passed:
+        providerMode !== "offline" ||
+        Object.entries(providerEvidence).every(([key, value]) => key === "mode" || value === 0),
+    },
     thresholds: qualityThresholds,
     retrieval: {
       summary: retrievalSummary,
@@ -634,11 +734,17 @@ function ragCaseDiagnosticsTable(results: RagQualityResult[]) {
         result.id,
         result.route,
         result.latencyRoute,
+        result.routingReason,
         result.latencyMs,
+        result.timings?.retrievalMs,
+        result.timings?.routingMs,
         result.searchLatencyMs,
         result.generationLatencyMs,
+        result.timings?.verificationMs,
         result.rpcLatencyMs,
         result.embeddingLatencyMs,
+        result.timings?.routeBudgetMs,
+        result.timings?.routeDeadlineExceeded ? "yes" : "no",
         result.model,
         result.failures.length > 0 ? `failed (${result.failures.length})` : "passed",
       ]
@@ -646,8 +752,8 @@ function ragCaseDiagnosticsTable(results: RagQualityResult[]) {
         .join(" | "),
     );
   return [
-    "| Case | Route | Latency SLO | Total ms | Search ms | Generation ms | RPC ms | Embedding ms | Model | Result |",
-    "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+    "| Case | Route | Latency SLO | Reason | Total ms | Retrieval ms | Routing ms | Search ms | Generation ms | Verification ms | RPC ms | Embedding ms | Budget ms | Deadline | Model | Result |",
+    "| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |",
     ...rows.map((row) => `| ${row} |`),
   ].join("\n");
 }
@@ -727,13 +833,34 @@ export function renderEvalQualityMarkdown(report: EvalQualityReport) {
           item.topFiles.join(" | ") || "none"
         }\n  route=${item.route} grounded=${item.grounded} citations=${item.citations} numericWarnings=${
           item.unverifiedNumericTokenCount
-        } faithfulnessWarning=${item.hasFaithfulnessWarning ? "yes" : "no"} sourceWarnings=${item.sourceWarningCount}`,
+        } faithfulnessWarning=${item.hasFaithfulnessWarning ? "yes" : "no"} sourceWarnings=${
+          item.sourceWarningCount
+        }\n  reason=${item.routingReason ?? "none"}\n  timings retrieval=${
+          item.timings?.retrievalMs ?? "n/a"
+        }ms routing=${item.timings?.routingMs ?? "n/a"}ms generation=${
+          item.timings?.generationMs ?? "n/a"
+        }ms verification=${item.timings?.verificationMs ?? "n/a"}ms total=${
+          item.timings?.totalMs ?? item.latencyMs
+        }ms budget=${
+          item.timings?.routeBudgetMs ?? "n/a"
+        }ms deadline=${item.timings?.routeDeadlineExceeded ? "yes" : "no"}`,
     )
     .join("\n");
-
   return `# Retrieval Quality Report
 
 Generated: ${report.generated_at}
+
+## Provider Profile
+
+${markdownTable([
+  ["Mode", report.provider.mode],
+  ["Model cases", report.provider.model_case_count],
+  ["OpenAI request IDs", report.provider.openai_request_id_count],
+  ["Token-usage cases", report.provider.token_usage_case_count],
+  ["Nonzero-cost cases", report.provider.nonzero_cost_case_count],
+  ["Generation-latency cases", report.provider.generation_latency_case_count],
+  ["Provider-free invariants", report.provider.passed ? "passed" : "failed"],
+])}
 
 ## Threshold Status
 
@@ -813,6 +940,7 @@ ${markdownTable([
   ["Numeric grounding failure rate", rag.numeric_grounding_failure_rate],
   ["Source governance warning rate", rag.source_governance_warning_rate],
   ["Source governance danger failure rate", rag.source_governance_danger_failure_rate],
+  ["Route ceiling failures", rag.route_ceiling_failure_count],
   ["P95 latency ms", rag.p95_latency_ms],
   ["Estimated cost USD", rag.estimated_cost_usd],
 ])}
@@ -845,6 +973,7 @@ async function runRetrievalQualityCases(args: {
   limit?: number;
   query?: string;
   forceEmbedding?: boolean;
+  providerMode: EvalQualityProviderMode;
   supabase: Awaited<ReturnType<typeof loadAdminClient>>;
 }) {
   const [{ searchChunksWithTelemetry }, capturedCases] = await Promise.all([
@@ -855,7 +984,10 @@ async function runRetrievalQualityCases(args: {
       limit: args.limit,
     }),
   ]);
-  const allCases = [...capturedCases.map(capturedRagCaseToGoldenCase), ...loadGoldenRetrievalCases(args.fixture)];
+  const allCases = retrievalCasesForProviderMode(
+    [...capturedCases.map(capturedRagCaseToGoldenCase), ...loadGoldenRetrievalCases(args.fixture)],
+    args.providerMode,
+  );
   const filtered = args.query
     ? allCases.filter((item) => item.id === args.query || item.query.toLowerCase().includes(args.query!.toLowerCase()))
     : allCases;
@@ -898,6 +1030,7 @@ async function runRagQualityCases(args: {
   ownerId?: string;
   limit?: number;
   question?: string;
+  providerMode: EvalQualityProviderMode;
   supabase: Awaited<ReturnType<typeof loadAdminClient>>;
 }) {
   const [{ answerQuestionWithScope }, capturedCases] = await Promise.all([
@@ -934,6 +1067,20 @@ async function runRagQualityCases(args: {
         expectsDangerWarning: testCase.expectsSourceDangerWarning,
       }),
     );
+    const { timings, routeCeilingExceeded } = ragAnswerTimingDiagnostics(answer);
+    if (routeCeilingExceeded) {
+      failures.push(
+        `route latency ceiling exceeded: ${timings.totalMs}ms total, ${timings.generationMs}ms generation, ${timings.routeBudgetMs}ms budget`,
+      );
+    }
+    const openAIUsage = {
+      inputTokens: answer.openAIUsage?.input_tokens ?? 0,
+      cachedInputTokens: answer.openAIUsage?.cached_input_tokens ?? 0,
+      outputTokens: answer.openAIUsage?.output_tokens ?? 0,
+    };
+    const hasOpenAIUsage = openAIUsage.inputTokens + openAIUsage.cachedInputTokens + openAIUsage.outputTokens > 0;
+    const openAIRequestIds = answer.openAIRequestIds?.filter(Boolean) ?? [];
+    const generationLatencyMs = answer.latencyTimings?.generation_latency_ms ?? 0;
 
     results.push({
       id: testCase.id,
@@ -949,7 +1096,7 @@ async function runRagQualityCases(args: {
       acceptSourceOnly: testCase.acceptSourceOnly,
       latencyMs: answer.latencyTimings?.total_latency_ms ?? 0,
       searchLatencyMs: answer.latencyTimings?.search_latency_ms,
-      generationLatencyMs: answer.latencyTimings?.generation_latency_ms,
+      generationLatencyMs: generationLatencyMs > 0 ? generationLatencyMs : undefined,
       rpcLatencyMs: answer.latencyTimings?.supabase_rpc_latency_ms,
       embeddingLatencyMs: answer.latencyTimings?.embedding_latency_ms,
       route: answer.routingMode ?? "none",
@@ -963,11 +1110,11 @@ async function runRagQualityCases(args: {
       unverifiedNumericTokenCount: answer.unverifiedNumericTokens?.length ?? 0,
       hasFaithfulnessWarning: Boolean(answer.faithfulnessWarning),
       routingReason: answer.routingReason,
-      estimatedCostUsd: estimateCostUsd({
-        inputTokens: answer.openAIUsage?.input_tokens ?? 0,
-        cachedInputTokens: answer.openAIUsage?.cached_input_tokens ?? 0,
-        outputTokens: answer.openAIUsage?.output_tokens ?? 0,
-      }),
+      timings,
+      routeCeilingExceeded,
+      estimatedCostUsd: hasOpenAIUsage ? estimateCostUsd(openAIUsage) : null,
+      openAIRequestIds: openAIRequestIds.length > 0 ? openAIRequestIds : undefined,
+      openAIUsage: hasOpenAIUsage ? openAIUsage : undefined,
     });
   }
 
@@ -1039,13 +1186,17 @@ async function loadSourceMetadataDebtAcceptance(path: string): Promise<SourceMet
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.providerMode === "offline" && args.forceEmbedding) {
+    throw new Error("--force-embedding cannot be used with --provider-mode offline.");
+  }
+  configureEvalProviderEnvironment(args.providerMode);
   const [{ requireOpenAIEnv, requireServerEnv }, supabase] = await Promise.all([
     import("@/lib/env"),
     loadAdminClient(),
   ]);
 
   requireServerEnv();
-  requireOpenAIEnv();
+  if (args.providerMode === "openai") requireOpenAIEnv();
   if (!args.skipPreflight) await assertSafeToRunEvals(supabase);
   const sourceMetadataDebtAcceptance = args.sourceMetadataDebt
     ? await loadSourceMetadataDebtAcceptance(args.sourceMetadataDebt)
@@ -1054,7 +1205,12 @@ async function main() {
   const ownerId = await resolveEvalOwnerId(supabase, args);
   const retrievalResults = args.ragOnly ? [] : await runRetrievalQualityCases({ ...args, ownerId, supabase });
   const ragResults = args.retrievalOnly ? [] : await runRagQualityCases({ ...args, ownerId, supabase });
-  const report = buildEvalQualityReport({ retrievalResults, ragResults, sourceMetadataDebtAcceptance });
+  const report = buildEvalQualityReport({
+    retrievalResults,
+    ragResults,
+    sourceMetadataDebtAcceptance,
+    providerMode: args.providerMode,
+  });
   const paths = await writeReports(report, args.outputDir);
 
   if (args.json) {

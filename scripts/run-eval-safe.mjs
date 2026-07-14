@@ -7,6 +7,9 @@ import { fileURLToPath } from "node:url";
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const isWindows = process.platform === "win32";
 const [targetScript, ...forwardArgs] = process.argv.slice(2);
+const offlineProviderRequested = forwardArgs.some(
+  (token, index) => token === "--provider-mode" && forwardArgs[index + 1] === "offline",
+);
 
 if (!targetScript) {
   console.error("Usage: node scripts/run-eval-safe.mjs <script> [args...]");
@@ -219,6 +222,17 @@ function runEvalScript() {
     stdio: "inherit",
     windowsHide: true,
     shell: false,
+    env: offlineProviderRequested
+      ? {
+          ...process.env,
+          RAG_PROVIDER_MODE: "offline",
+          // Empty values prevent @next/env from restoring credentials from an
+          // env file before eval-quality actively deletes them in the child.
+          OPENAI_API_KEY: "",
+          OPENAI_ORG_ID: "",
+          OPENAI_PROJECT_ID: "",
+        }
+      : process.env,
   });
 
   const stopEvalProcess = () => {
