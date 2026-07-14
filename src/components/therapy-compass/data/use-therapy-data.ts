@@ -11,11 +11,17 @@ const BASE = "/mockups/therapy-compass";
 // never ship to production.
 let cache: Promise<TherapyDataset> | null = null;
 
+async function fetchJson<T>(path: string): Promise<T> {
+  const res = await fetch(path);
+  if (!res.ok) throw new Error(`Failed to load ${path}: ${res.status}`);
+  return res.json() as Promise<T>;
+}
+
 async function loadDataset(): Promise<TherapyDataset> {
   const [therapies, pathways, reference] = await Promise.all([
-    fetch(`${BASE}/therapies.json`).then((r) => r.json() as Promise<Therapy[]>),
-    fetch(`${BASE}/pathways.json`).then((r) => r.json() as Promise<Pathway[]>),
-    fetch(`${BASE}/reference.json`).then((r) => r.json() as Promise<ReferenceData>),
+    fetchJson<Therapy[]>(`${BASE}/therapies.json`),
+    fetchJson<Pathway[]>(`${BASE}/pathways.json`),
+    fetchJson<ReferenceData>(`${BASE}/reference.json`),
   ]);
   return { therapies, pathways, reference };
 }

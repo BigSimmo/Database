@@ -198,14 +198,27 @@ export function needsReviewCount(therapies: Therapy[]): number {
   return therapies.filter((t) => t.reviewStatus !== "reviewed").length;
 }
 
-/** Pick the therapy whose time-required reads shortest, for the decision summary. */
+/**
+ * Rough duration weight (in a notional "minutes" scale) from free-form
+ * `timeRequired` prose. Uses the smallest number present (a range like
+ * "8–12 sessions" is bounded by its low end) and scales sessions/weeks up
+ * relative to minutes so a minute-based brief ranks below a multi-session course.
+ */
+function durationWeight(t: Therapy): number {
+  const s = lc(t.timeRequired);
+  const nums = (s.match(/\d+/g) ?? []).map(Number);
+  const smallest = nums.length ? Math.min(...nums) : NaN;
+  let weight: number;
+  if (/\bmin(ute)?s?\b/.test(s)) weight = Number.isFinite(smallest) ? smallest : 15;
+  else if (/session|week|month/.test(s)) weight = (Number.isFinite(smallest) ? smallest : 8) * 50;
+  else if (Number.isFinite(smallest)) weight = smallest * 10;
+  else weight = t.briefInterventionAvailable ? 60 : 200;
+  if (t.briefInterventionAvailable) weight -= 25;
+  return weight;
+}
+
+/** Pick the therapy with the shortest delivery time, for the decision summary. */
 export function shortestDelivery(therapies: Therapy[]): Therapy | null {
   if (!therapies.length) return null;
-  const weight = (t: Therapy) => {
-    const s = lc(t.timeRequired);
-    const m = s.match(/(\d+)/);
-    const base = m ? Number(m[1]) : 99;
-    return t.briefInterventionAvailable ? base - 5 : base;
-  };
-  return [...therapies].sort((a, b) => weight(a) - weight(b))[0];
+  return [...therapies].sort((a, b) => durationWeight(a) - durationWeight(b))[0];
 }

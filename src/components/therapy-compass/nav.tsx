@@ -15,7 +15,7 @@ import { s } from "./style-utils";
  */
 export function TherapyCompassNav() {
   const b = useTcBindings();
-  const reviewCount = b.therapies.filter((t) => t.reviewStatus !== "reviewed").length;
+  const reviewCount = b.reviewCount;
   return (
     <div
       className="tc-topnav tc-no-print"

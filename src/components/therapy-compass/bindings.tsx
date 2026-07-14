@@ -25,6 +25,8 @@ export type TcBindings = {
   loading: boolean;
   error: string | null;
   therapies: Therapy[];
+  unreviewedTherapies: Therapy[];
+  reviewCount: number;
   pathways: Pathway[];
   reference: ReferenceData | null;
 
@@ -223,6 +225,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const [sheetClinician, setSheetClinician] = useState(true);
 
   const bySlug = useMemo(() => new Map(therapies.map((t) => [t.slug, t])), [therapies]);
+  const unreviewedTherapies = useMemo(() => therapies.filter((t) => t.reviewStatus !== "reviewed"), [therapies]);
 
   // Default selections once data arrives so detail/brief/sheet/pathways are never empty.
   const effectiveSelectedSlug = selectedSlug ?? therapies[0]?.slug ?? null;
@@ -253,6 +256,8 @@ export function TcProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       therapies,
+      unreviewedTherapies,
+      reviewCount: unreviewedTherapies.length,
       pathways,
       reference: data?.reference ?? null,
 
@@ -410,6 +415,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
     error,
     data,
     therapies,
+    unreviewedTherapies,
     pathways,
     screen,
     effectiveSelectedSlug,

@@ -14,11 +14,8 @@ export function OtherScreen() {
 
   const queue = useMemo(
     () =>
-      b.therapies
-        .filter((t) => t.reviewStatus !== "reviewed")
-        .sort((a, c) => (a.reviewCompleteness ?? 0) - (c.reviewCompleteness ?? 0))
-        .slice(0, 24),
-    [b.therapies],
+      [...b.unreviewedTherapies].sort((a, c) => (a.reviewCompleteness ?? 0) - (c.reviewCompleteness ?? 0)).slice(0, 24),
+    [b.unreviewedTherapies],
   );
 
   if (!isReview) {
@@ -73,7 +70,7 @@ export function OtherScreen() {
           )}
         >
           <AlertIcon size={16} strokeWidth={1.8} />
-          {b.therapies.filter((t) => t.reviewStatus !== "reviewed").length} to review
+          {b.reviewCount} to review
         </span>
       </div>
 

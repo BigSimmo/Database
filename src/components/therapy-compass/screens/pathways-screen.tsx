@@ -17,6 +17,15 @@ export function PathwaysScreen() {
   if (b.loading || !pathway) return <LoadingState label="Loading pathways…" />;
 
   const reviewTone = pathway.reviewStatus === "reviewed" ? "success" : "warning";
+  const firstLinkedSlug = pathway.steps.find((st) => st.therapySlug)?.therapySlug ?? null;
+  const copyPathway = () => {
+    if (typeof navigator === "undefined" || !navigator.clipboard) return;
+    const lines = pathway.steps.map((st, i) => {
+      const name = (st.therapySlug ? bySlug.get(st.therapySlug)?.name : null) ?? st.label ?? "Step";
+      return `${i + 1}. ${name}${st.description ? ` — ${st.description}` : ""}`;
+    });
+    void navigator.clipboard.writeText(`${pathway.name}\n\n${lines.join("\n")}`);
+  };
 
   return (
     <section data-screen-label="Pathways" style={s(`max-width:1240px;margin:0 auto;`)}>
@@ -221,6 +230,7 @@ export function PathwaysScreen() {
           <button
             type="button"
             className="tc-btn"
+            onClick={copyPathway}
             style={s(
               `display:flex;align-items:center;gap:7px;height:40px;padding:0 14px;border:1px solid var(--warning-border);border-radius:10px;background:#fff;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;`,
             )}
@@ -231,8 +241,9 @@ export function PathwaysScreen() {
           <button
             type="button"
             className="tc-btn"
-            onClick={() => pathway.steps[0]?.therapySlug && b.openSheet(pathway.steps[0].therapySlug)}
-            style={s(commandControl + "height:40px;")}
+            onClick={() => firstLinkedSlug && b.openSheet(firstLinkedSlug)}
+            disabled={!firstLinkedSlug}
+            style={s(commandControl + `height:40px;${firstLinkedSlug ? "" : "opacity:0.5;cursor:not-allowed;"}`)}
           >
             <FileTextIcon size={15} />
             Patient sheet

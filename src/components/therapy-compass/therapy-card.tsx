@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import { useTcBindings } from "./bindings";
 import { summarise } from "./data/select";
 import type { Therapy } from "./data/types";
@@ -133,7 +135,7 @@ function CardCell({
   tone,
   text,
 }: {
-  icon: (p: { size?: number; strokeWidth?: number }) => React.ReactNode;
+  icon: (p: { size?: number; strokeWidth?: number }) => ReactNode;
   eyebrow: string;
   tone: "accent" | "warning" | "muted";
   text: string;
@@ -165,7 +167,7 @@ export function TherapyListItem({
   onClick: () => void;
   active?: boolean;
   subtitle?: string;
-  trailing?: React.ReactNode;
+  trailing?: ReactNode;
 }) {
   return (
     <button

@@ -107,6 +107,8 @@ export function IconTile({
 export function LoadingState({ label = "Loading therapy library…" }: { label?: string }) {
   return (
     <div
+      role="status"
+      aria-live="polite"
       style={s(
         `display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:280px;color:var(--text-soft);`,
       )}

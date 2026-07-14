@@ -126,7 +126,7 @@ export function DetailScreen() {
 
           {/* BODY */}
           <div style={s(card + "padding:6px 24px;")}>
-            <BodyRow icon={MessageIcon} title="Clinical snapshot" body={t.clinicalSummary || t.mechanism} />
+            <BodyRow icon={MessageIcon} title="Clinical snapshot" body={t.clinicalSummary} />
             {t.mechanism ? <BodyRow icon={CrosshairIcon} title="How it works" body={t.mechanism} /> : null}
             <BodyRow icon={PersonIcon} title="When to use" body={t.indications || t.bestUsedFor} />
             {steps.length ? (
