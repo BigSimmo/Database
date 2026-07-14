@@ -423,8 +423,10 @@ function MedicationRecordDetail({
           </section>
 
           <section className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-            {metrics.map((metric) => (
-              <DetailTile key={metric.label} metric={metric} />
+            {metrics.map((metric, index) => (
+              // Some records repeat a stat label (e.g. adrenaline has two "Route"
+              // stats), so the label alone is not a unique key — include the index.
+              <DetailTile key={`${metric.label}-${index}`} metric={metric} />
             ))}
           </section>
 

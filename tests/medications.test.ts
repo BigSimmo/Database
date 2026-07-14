@@ -318,6 +318,14 @@ describe("medicationHeroMetrics", () => {
     );
     expect(hepaticSafe?.value).toBe("L.O.T. DRUG");
   });
+
+  it("preserves repeated stat labels from the snapshot (adrenaline has two Route metrics)", () => {
+    // Duplicate labels mean the render must key tiles by index, not by label.
+    const record = getMedicationRecord("adrenaline-epinephrine");
+    expect(record).toBeTruthy();
+    const labels = medicationHeroMetrics(record as MedicationRecord).map((metric) => metric.label);
+    expect(labels.filter((label) => label === "Route")).toHaveLength(2);
+  });
 });
 
 describe("medicationIndication", () => {
