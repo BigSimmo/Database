@@ -2398,6 +2398,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(options.first()).toBeHidden();
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
     await expect(options).toHaveCount(0);
+
+    // Space activates the focused option (announced as a menuitemradio) even
+    // though the underlying element is an anchor, applying the category filter.
+    await trigger.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(options.first()).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(options.nth(1)).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(page).toHaveURL(/[?&]category=/);
   });
 
   test("dashboard specifiers mode param redirects to the standalone specifiers route", async ({ page }) => {

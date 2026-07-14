@@ -117,6 +117,11 @@ function CategoryFilterDropdown({
     } else if (event.key === "End") {
       event.preventDefault();
       focusOption(options.length - 1);
+    } else if (event.key === " ") {
+      // A menuitemradio announces Space as an activation key, but the option is
+      // an anchor (Space would otherwise scroll), so activate it like click/Enter.
+      event.preventDefault();
+      event.currentTarget.click();
     }
     // Escape (dismiss + restore focus to the trigger) is owned by
     // useDismissableLayer's document-level handler, so it isn't duplicated here.
