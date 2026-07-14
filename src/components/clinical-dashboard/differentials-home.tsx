@@ -25,6 +25,7 @@ import {
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { useResultSort } from "@/components/use-result-sort";
 import { cn } from "@/components/ui-primitives";
@@ -882,6 +883,7 @@ function SearchResultsView({
         sortValue={sortValue}
         onSortChange={setSortValue}
       />
+      <UniversalSearchAlsoMatches modeId="differentials" query={query} />
       <p
         data-testid="differentials-catalogue-notice"
         className="flex items-start gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/50 px-3 py-1.5 text-xs font-semibold leading-5 text-[color:var(--info)] sm:py-2 sm:text-sm"

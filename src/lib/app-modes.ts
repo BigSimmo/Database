@@ -2,16 +2,19 @@ import type { ClinicalQueryMode } from "@/lib/types";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { appendSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 
-export type AppModeId =
-  | "answer"
-  | "documents"
-  | "services"
-  | "forms"
-  | "favourites"
-  | "differentials"
-  | "formulation"
-  | "prescribing"
-  | "tools";
+export const appModeIds = [
+  "answer",
+  "documents",
+  "services",
+  "forms",
+  "favourites",
+  "differentials",
+  "formulation",
+  "prescribing",
+  "tools",
+] as const;
+
+export type AppModeId = (typeof appModeIds)[number];
 export type SearchableAppModeId = AppModeId;
 
 export type AppModeSearchKind =

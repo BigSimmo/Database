@@ -11,6 +11,7 @@ import type {
 // Value import from the leaf module only: universal-search.ts itself is server-only
 // (snapshot catalogues, rag, supabase) and must never enter the client bundle.
 import { universalSearchDomains, type UniversalSearchDomain } from "@/lib/universal-search-domains";
+import type { AppModeId } from "@/lib/app-modes";
 import { useAuthSession } from "@/lib/supabase/client";
 
 export type UniversalSearchState = {
@@ -26,6 +27,8 @@ export type UniversalSearchState = {
   topHit?: UniversalSearchTopHit;
   /** Jump into Answer mode for question-like queries. */
   answerAction?: UniversalSearchAnswerAction;
+  contextMode?: AppModeId;
+  preferredDomains?: UniversalSearchDomain[];
 };
 
 type UniversalSearchResult = {
@@ -35,6 +38,8 @@ type UniversalSearchResult = {
   domainOrder?: UniversalSearchDomain[];
   topHit?: UniversalSearchTopHit;
   answerAction?: UniversalSearchAnswerAction;
+  contextMode?: AppModeId;
+  preferredDomains?: UniversalSearchDomain[];
 };
 
 const debounceMs = 250;
@@ -47,10 +52,16 @@ const minQueryLength = 2;
 const resultCacheMax = 50;
 const resultCache = new Map<string, UniversalSearchResult>();
 
-function cacheKeyFor(query: string, excludeDomain: string | undefined, limitPerDomain: number, authSignature: string) {
+function cacheKeyFor(
+  query: string,
+  contextMode: AppModeId,
+  excludeDomain: string | undefined,
+  limitPerDomain: number,
+  authSignature: string,
+) {
   // JSON-array key so no field can collide with another via a shared delimiter (auth header
   // values and the query itself can contain spaces, commas, etc.).
-  return JSON.stringify([authSignature, excludeDomain ?? "", limitPerDomain, query]);
+  return JSON.stringify([authSignature, contextMode, excludeDomain ?? "", limitPerDomain, query]);
 }
 
 // Non-mutating read used during render (must stay pure — no recency side effect here).
@@ -86,6 +97,7 @@ function writeResultCache(key: string, value: UniversalSearchResult) {
 export function useUniversalSearch(args: {
   query: string;
   enabled: boolean;
+  contextMode: AppModeId;
   excludeDomain?: UniversalSearchDomain;
   limitPerDomain?: number;
 }): UniversalSearchState {
@@ -98,7 +110,9 @@ export function useUniversalSearch(args: {
   const limitPerDomain = args.limitPerDomain ?? 3;
   const excludeDomain = args.excludeDomain;
   const authSignature = JSON.stringify(authorizationHeader ?? {});
-  const cacheKey = active ? cacheKeyFor(trimmedQuery, excludeDomain, limitPerDomain, authSignature) : null;
+  const cacheKey = active
+    ? cacheKeyFor(trimmedQuery, args.contextMode, excludeDomain, limitPerDomain, authSignature)
+    : null;
 
   useEffect(() => {
     const authChanged = prevAuthRef.current !== authorizationHeader;
@@ -135,12 +149,13 @@ export function useUniversalSearch(args: {
         q: trimmedQuery,
         limit: String(limitPerDomain),
         domains: domains.join(","),
+        mode: args.contextMode,
       });
       fetch(`/api/search/universal?${params.toString()}`, { headers: authorizationHeader, signal: controller.signal })
         .then(async (response) => {
           if (requestId !== requestSeqRef.current) return;
           if (!response.ok) {
-            setResult({ groups: [], query: trimmedQuery });
+            setResult({ groups: [], query: trimmedQuery, contextMode: args.contextMode });
             return;
           }
           const payload = (await response.json()) as Partial<UniversalSearchResult>;
@@ -152,6 +167,8 @@ export function useUniversalSearch(args: {
             domainOrder: payload.domainOrder,
             topHit: payload.topHit,
             answerAction: payload.answerAction,
+            contextMode: payload.contextMode ?? args.contextMode,
+            preferredDomains: payload.preferredDomains,
           };
           writeResultCache(key, next);
           setResult(next);
@@ -160,7 +177,7 @@ export function useUniversalSearch(args: {
           // An aborted fetch is a superseded keystroke, not a failure — leave state to the newer request.
           if (error instanceof DOMException && error.name === "AbortError") return;
           if (requestId !== requestSeqRef.current) return;
-          setResult({ groups: [], query: trimmedQuery });
+          setResult({ groups: [], query: trimmedQuery, contextMode: args.contextMode });
         });
     }, debounceMs);
 
@@ -168,7 +185,7 @@ export function useUniversalSearch(args: {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [active, cacheKey, trimmedQuery, excludeDomain, limitPerDomain, authorizationHeader]);
+  }, [active, cacheKey, trimmedQuery, excludeDomain, limitPerDomain, authorizationHeader, args.contextMode]);
 
   if (!active) return { groups: [], loading: false, query: "" };
 
@@ -184,9 +201,11 @@ export function useUniversalSearch(args: {
       domainOrder: cached.domainOrder,
       topHit: cached.topHit,
       answerAction: cached.answerAction,
+      contextMode: cached.contextMode,
+      preferredDomains: cached.preferredDomains,
     };
   }
-  const fresh = result.query === trimmedQuery;
+  const fresh = result.query === trimmedQuery && result.contextMode === args.contextMode;
   return {
     groups: fresh ? result.groups : [],
     loading: !fresh,
@@ -195,5 +214,7 @@ export function useUniversalSearch(args: {
     domainOrder: fresh ? result.domainOrder : undefined,
     topHit: fresh ? result.topHit : undefined,
     answerAction: fresh ? result.answerAction : undefined,
+    contextMode: fresh ? result.contextMode : undefined,
+    preferredDomains: fresh ? result.preferredDomains : undefined,
   };
 }

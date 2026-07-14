@@ -32,6 +32,7 @@ import {
   searchFormulationMechanisms,
 } from "@/lib/formulation";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 function presetHref(query: string) {
   return appModeHomeHref("formulation", { query, run: true, focus: true });
@@ -200,6 +201,8 @@ function FormulationResults({ query }: { query: string }) {
           {results.length} {results.length === 1 ? "match" : "matches"}
         </p>
       </header>
+
+      <UniversalSearchAlsoMatches modeId="formulation" query={query} />
 
       <section
         aria-label="Filter mechanism results"

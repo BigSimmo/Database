@@ -4,7 +4,7 @@
 // browser bundle. universal-search.ts re-exports both names for server consumers.
 
 export type UniversalSearchDomain =
-  "documents" | "medications" | "services" | "forms" | "differentials" | "presentations" | "tools";
+  "documents" | "medications" | "services" | "forms" | "differentials" | "presentations" | "specifiers" | "tools";
 
 // Canonical order: the default group order in responses AND the topHit tiebreak when
 // several domains hold a confident (whole-phrase title) match. "presentations" sits
@@ -19,5 +19,6 @@ export const universalSearchDomains: UniversalSearchDomain[] = [
   "forms",
   "differentials",
   "presentations",
+  "specifiers",
   "tools",
 ];

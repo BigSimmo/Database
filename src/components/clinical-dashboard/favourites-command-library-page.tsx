@@ -45,6 +45,7 @@ import { useSearchCommand } from "@/components/clinical-dashboard/search-command
 import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 type FavouriteType =
   "Medication" | "Document" | "Table" | "Saved search" | "Source" | "Service" | "Form" | "Differential";
@@ -1006,6 +1007,7 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
             <div className="hidden lg:block">
               <SearchResultsHeaderBand modeId="favourites" query={query} matchCount={scopedItems.length} />
             </div>
+            <UniversalSearchAlsoMatches modeId="favourites" query={query} />
 
             <ActiveFilterChips
               searchTerm={query}
