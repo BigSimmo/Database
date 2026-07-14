@@ -19,7 +19,9 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: node_modules
-        key: node-modules-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}
+        # Include every install-contract input. In particular, an .npmrc-only PR
+        # must not restore old modules and skip the npm ci it is meant to validate.
+        key: node-modules-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package.json', 'package-lock.json', '.npmrc') }}
 
     - name: Install dependencies (cache miss only)
       if: steps.node-modules-cache.outputs.cache-hit != 'true'

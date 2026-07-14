@@ -266,14 +266,52 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
 
+  # Keep the advisory quarantine lane available without paying the Node/browser
+  # setup cost while no specs are tagged. Stable regression excludes @quarantine,
+  # so removing this lane entirely would make a newly tagged test run nowhere.
+  ui-quarantine:
+    name: Advisory quarantined UI tests
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.ui_changed == 'true'
+    continue-on-error: true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Detect quarantined specs
+        id: quarantine
+        shell: bash
+        run: |
+          if git grep -q '@quarantine' -- ':(glob)tests/ui-*.spec.ts'; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup UI e2e environment
+        if: steps.quarantine.outputs.present == 'true'
+        uses: ./.github/actions/setup-ui-e2e
+
+      - name: Chromium quarantined tests (advisory)
+        if: steps.quarantine.outputs.present == 'true'
+        run: npm run test:e2e:quarantine
+
+      - name: Upload quarantine diagnostics
+        if: failure() && steps.quarantine.outputs.present == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: quarantine-ui-diagnostics-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+
   # Prototype /mockups specs live in their own advisory lane so a red mockup
   # can never mask (or block on) a production-journey regression (PT-05).
-  #
-  # The former `ui-quarantine` job was removed: there are currently no
-  # @quarantine-tagged specs, so it started a full runner (npm ci + browser +
-  # server) only to run nothing. `test:e2e:regression` already grep-inverts
-  # @quarantine, so a newly-tagged flake would run NOWHERE — re-add a quarantine
-  # lane (mirroring this job with test:e2e:quarantine) at that point.
   ui-mockups:
     name: Advisory mockup UI
     needs: changes
