@@ -8,10 +8,11 @@ import { DsmPageHeader } from "@/components/dsm/dsm-page-header";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
 import type { DsmCategory, DsmDiagnosisSummary } from "@/lib/dsm";
 
-function categoryHref(query: string, category?: string) {
+function categoryHref(query: string, category?: string, ids: string[] = []) {
   const params = new URLSearchParams();
   if (query) params.set("q", query);
   if (category) params.set("category", category);
+  if (ids.length) params.set("ids", ids.join(","));
   const suffix = params.toString();
   return suffix ? `/dsm/search?${suffix}` : "/dsm/search";
 }
@@ -87,7 +88,7 @@ export function DsmSearchPage({
             </h2>
             {activeCategory ? (
               <Link
-                href={categoryHref(query)}
+                href={categoryHref(query, undefined, selected)}
                 className="inline-flex min-h-tap items-center rounded-lg px-1 text-xs font-bold text-[color:var(--clinical-accent)]"
               >
                 Clear filter
@@ -96,7 +97,7 @@ export function DsmSearchPage({
           </div>
           <div className="answer-suggestion-row-scroll -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
             <Link
-              href={categoryHref(query)}
+              href={categoryHref(query, undefined, selected)}
               aria-current={!activeCategory ? "page" : undefined}
               className={cn(
                 "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-3 text-xs font-bold transition",
@@ -110,7 +111,7 @@ export function DsmSearchPage({
             {categories.map((item) => (
               <Link
                 key={item.key}
-                href={categoryHref(query, item.key)}
+                href={categoryHref(query, item.key, selected)}
                 aria-current={item.key === activeCategory?.key ? "page" : undefined}
                 className={cn(
                   "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-3 text-xs font-bold transition",

@@ -65,4 +65,8 @@ describe("DSM clinical catalogue", () => {
     expect(rankDsmDiagnoses("MDD", 1)[0]?.diagnosis.slug).toBe("major-depressive-disorder");
     expect(rankDsmDiagnoses("PDD", 1)[0]?.diagnosis.slug).toBe("persistent-depressive-disorder-dysthymia");
   });
+
+  it("ranks US DSM spellings to the matching catalogue diagnoses", () => {
+    expect(rankDsmDiagnoses("generalized anxiety disorder", 1)[0]?.diagnosis.slug).toBe("generalised-anxiety-disorder");
+  });
 });

@@ -129,6 +129,36 @@ function dsmDiagnosisAliases(diagnosis: DsmDiagnosis) {
   return [...aliases];
 }
 
+// Common AU/US DSM spelling pairs so title ranking matches both catalogue and clinician input.
+const DSM_SPELLING_PAIRS = [
+  ["generalised", "generalized"],
+  ["depersonalisation", "depersonalization"],
+  ["paedophilic", "pedophilic"],
+] as const;
+
+function dsmSpellingVariants(value: string) {
+  const base = normalizeSearchText(value);
+  const variants = new Set<string>([base]);
+  let towardUs = base;
+  let towardAu = base;
+  for (const [au, us] of DSM_SPELLING_PAIRS) {
+    towardUs = towardUs.replaceAll(au, us);
+    towardAu = towardAu.replaceAll(us, au);
+  }
+  variants.add(towardUs);
+  variants.add(towardAu);
+  return [...variants];
+}
+
+function dsmTitleSearchValues(diagnosis: DsmDiagnosis) {
+  const values = new Set<string>([
+    ...dsmSpellingVariants(diagnosis.title),
+    normalizeSearchText(diagnosis.slug),
+    ...dsmDiagnosisAliases(diagnosis),
+  ]);
+  return [...values];
+}
+
 // Lookup by normalized title with slashes collapsed to spaces, covering alternate formatting
 // such as "Persistent depressive disorder / dysthymia" matching the title
 // "Persistent depressive disorder (dysthymia)".
@@ -188,8 +218,7 @@ export function rankDsmDiagnoses(
       {
         id: "title",
         weight: 8,
-        text: (diagnosis) =>
-          normalizeSearchText(`${diagnosis.title} ${diagnosis.slug} ${dsmDiagnosisAliases(diagnosis).join(" ")}`),
+        text: (diagnosis) => dsmTitleSearchValues(diagnosis).join(" "),
       },
       {
         id: "code",
@@ -217,17 +246,9 @@ export function rankDsmDiagnoses(
     compactBonus: 4,
     compactExtraText: (diagnosis) => normalizeSearchText(diagnosis.title),
     phraseBonus: 6,
-    exactValues: (diagnosis) => [
-      normalizeSearchText(diagnosis.title),
-      normalizeSearchText(diagnosis.slug),
-      ...dsmDiagnosisAliases(diagnosis),
-    ],
+    exactValues: (diagnosis) => dsmTitleSearchValues(diagnosis),
     exactBonus: 14,
-    prefixValues: (diagnosis) => [
-      normalizeSearchText(diagnosis.title),
-      normalizeSearchText(diagnosis.slug),
-      ...dsmDiagnosisAliases(diagnosis),
-    ],
+    prefixValues: (diagnosis) => dsmTitleSearchValues(diagnosis),
     prefixBonus: 5,
     expandTokens: (terms) => [...terms, ...normalizedExpansions],
     limit,
