@@ -2365,13 +2365,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("dashboard specifiers mode param redirects to the standalone specifiers route", async ({ page }) => {
+  test("dashboard specifiers mode param redirects through legacy route to formulation", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=specifiers&q=anxious+distress&focus=1&run=1");
 
-    await expect(page).toHaveURL(/\/specifiers\?q=anxious\+distress&focus=1&run=1$/);
-    await expect(page.getByRole("heading", { level: 1, name: 'Matches for "anxious distress"' })).toBeVisible();
+    // /?mode=specifiers → /specifiers → compatibility redirect to /formulation
+    await expect(page).toHaveURL(/\/formulation\?q=anxious\+distress&focus=1&run=1$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Mechanisms matching “anxious distress”" })).toBeVisible();
   });
 
   test("dashboard formulation mode param redirects to the standalone formulation route", async ({ page }) => {
