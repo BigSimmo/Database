@@ -157,10 +157,12 @@ function EmptySearchResults({ query }: { query: string }) {
         <Search className="h-6 w-6" aria-hidden />
       </span>
       <div className="grid gap-1">
-        <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">No strong match for &ldquo;{query}&rdquo;</h2>
+        <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">
+          No strong match for &ldquo;{query}&rdquo;
+        </h2>
         <p className="max-w-xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          Try the episode pattern, timing, patient language, or the base diagnosis. For example: &ldquo;depressed but racing
-          thoughts&rdquo; or &ldquo;returns every winter&rdquo;.
+          Try the episode pattern, timing, patient language, or the base diagnosis. For example: &ldquo;depressed but
+          racing thoughts&rdquo; or &ldquo;returns every winter&rdquo;.
         </p>
       </div>
       <Link
@@ -192,8 +194,8 @@ function SpecifierResults({ query }: { query: string }) {
             Matches for &ldquo;{query}&rdquo;
           </h1>
           <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            Results ranked by text relevance: title, keywords, episode timing, and patient language. Open a result to check exclusions and
-            wording.
+            Results ranked by text relevance: title, keywords, episode timing, and patient language. Open a result to
+            check exclusions and wording.
           </p>
         </div>
         <p className="nums text-sm font-bold text-[color:var(--text-muted)]" aria-live="polite">

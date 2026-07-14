@@ -46,14 +46,15 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
   const normalizedInitial = normalizeSpecifierSelection(initialSpecifiers);
 
   // Determine the best initial diagnosis from the deep-linked specifiers
-  const inferredDiagnosis = normalizedInitial.length > 0
-    ? diagnosisPresets.find((preset) =>
-        normalizedInitial.every((slug) => {
-          const record = specifierRecords.find((candidate) => candidate.slug === slug);
-          return record ? specifierAppliesToBuilderDiagnosis(record, preset.id) : false;
-        })
-      ) ?? diagnosisPresets[0]
-    : diagnosisPresets[0];
+  const inferredDiagnosis =
+    normalizedInitial.length > 0
+      ? (diagnosisPresets.find((preset) =>
+          normalizedInitial.every((slug) => {
+            const record = specifierRecords.find((candidate) => candidate.slug === slug);
+            return record ? specifierAppliesToBuilderDiagnosis(record, preset.id) : false;
+          }),
+        ) ?? diagnosisPresets[0])
+      : diagnosisPresets[0];
 
   const validInitial = normalizedInitial.filter((slug) => {
     const record = specifierRecords.find((candidate) => candidate.slug === slug);

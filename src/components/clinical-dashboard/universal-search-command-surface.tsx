@@ -732,7 +732,11 @@ export function UniversalSearchCommandSurface({
                   ? "answer"
                   : modeId === "tools"
                     ? "tools"
-                    : null;
+                    : modeId === "specifiers"
+                      ? "specifiers"
+                      : modeId === "formulation"
+                        ? "formulation"
+                        : null;
 
     if (actionSetId) {
       const actions = modeActionItemsFor(actionSetId).slice(0, 3);

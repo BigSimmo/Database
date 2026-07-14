@@ -24,10 +24,7 @@ export function SpecifierMapPage({ initialSlug }: { initialSlug?: string }) {
   const [state, setState] = useState({ selectedSlug: validInitialSlug, lastInitialSlug: initialSlug });
 
   // Derive state: if initialSlug prop changed, reset to new initial; otherwise keep current selection
-  const selectedSlug =
-    state.lastInitialSlug !== initialSlug
-      ? validInitialSlug
-      : state.selectedSlug;
+  const selectedSlug = state.lastInitialSlug !== initialSlug ? validInitialSlug : state.selectedSlug;
 
   // Update state if derived slug differs from stored state
   if (selectedSlug !== state.selectedSlug || state.lastInitialSlug !== initialSlug) {
