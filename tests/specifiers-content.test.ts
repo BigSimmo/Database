@@ -118,6 +118,16 @@ describe("specifiers content catalog", () => {
     }
   });
 
+  it("keeps DSM Section III (AMPD) provenance DSM-specific, not ICD-11", () => {
+    // The AMPD trait domains are DSM-5-TR Section III; the reference page derives the
+    // source badge from sourceFamily, so it must not carry an ICD-11/WHO provenance.
+    const ampd = specifierCatalogItems().filter((item) => /alternative model|ampd/i.test(item.disorderName));
+    expect(ampd.length).toBeGreaterThan(0);
+    for (const item of ampd) {
+      expect(item.definition?.sourceFamily ?? "").not.toMatch(/icd-11|who/i);
+    }
+  });
+
   it("gives Gaming Disorder online/offline subtypes direction-specific definitions", () => {
     // The generator originally merged both subtypes into one "online or offline"
     // string; each subtype must describe its own direction.

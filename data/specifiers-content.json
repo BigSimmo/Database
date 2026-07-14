@@ -10743,7 +10743,7 @@
                   "definition": {
                     "meaning": "Trait pattern involving frequent, intense, or poorly regulated negative emotions such as anxiety, anger, shame, or emotional lability.",
                     "clinicalNote": null,
-                    "sourceFamily": "WHO ICD-11 CDDR/MMS",
+                    "sourceFamily": "DSM/ICD classification paraphrase",
                     "status": "defined"
                   },
                   "definitionStatus": "defined",
@@ -10760,7 +10760,7 @@
                   "definition": {
                     "meaning": "Trait pattern involving social withdrawal, emotional restriction, limited intimacy, or reduced engagement with others.",
                     "clinicalNote": null,
-                    "sourceFamily": "WHO ICD-11 CDDR/MMS",
+                    "sourceFamily": "DSM/ICD classification paraphrase",
                     "status": "defined"
                   },
                   "definitionStatus": "defined",
@@ -10794,7 +10794,7 @@
                   "definition": {
                     "meaning": "Trait pattern involving impulsivity, poor planning, distractibility, or risk-prone behaviour.",
                     "clinicalNote": null,
-                    "sourceFamily": "WHO ICD-11 CDDR/MMS",
+                    "sourceFamily": "DSM/ICD classification paraphrase",
                     "status": "defined"
                   },
                   "definitionStatus": "defined",

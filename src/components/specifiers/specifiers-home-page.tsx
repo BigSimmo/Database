@@ -184,15 +184,6 @@ function EmptySearchResults({ query }: { query: string }) {
   );
 }
 
-function normalizeCatalogueLabel(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/\([^)]*\)/g, " ")
-    .replace(/^with\s+/, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
 function SpecifierCatalogueMatches({ matches }: { matches: SpecifierCatalogMatch[] }) {
   if (!matches.length) return null;
 
@@ -248,20 +239,13 @@ function SpecifierResults({ query }: { query: string }) {
   const [family, setFamily] = useState<"all" | SpecifierFamily>("all");
   const [diagnosis, setDiagnosis] = useState("");
   const results = useMemo(() => searchSpecifiers(query, { family, diagnosis }), [diagnosis, family, query]);
-  const curatedLabels = useMemo(
-    () => new Set(results.map(({ record }) => normalizeCatalogueLabel(record.name))),
-    [results],
-  );
-  // The full-catalogue section is additive, but it must still drive the shared
-  // count and empty-state so a catalog-only query never shows "0 matches" and an
-  // empty-state banner above real results.
-  const catalogueMatches = useMemo(
-    () =>
-      searchSpecifierCatalog(query)
-        .filter(({ item }) => !curatedLabels.has(normalizeCatalogueLabel(item.label)))
-        .slice(0, CATALOGUE_RESULT_LIMIT),
-    [curatedLabels, query],
-  );
+  // The full-catalogue section is additive and diagnosis-specific, so it is NOT
+  // de-duped against the curated cards: those are generic mood-only specifiers, and
+  // a label-only match would wrongly hide the disorder-specific catalogue rows (e.g.
+  // a curated "With catatonia" card must not remove schizophrenia/autism catatonia).
+  // It still drives the shared count and empty-state so a catalog-only query never
+  // shows "0 matches" with an empty-state banner above real results.
+  const catalogueMatches = useMemo(() => searchSpecifierCatalog(query).slice(0, CATALOGUE_RESULT_LIMIT), [query]);
   const totalMatches = results.length + catalogueMatches.length;
 
   return (
