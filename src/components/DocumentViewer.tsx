@@ -44,6 +44,9 @@ import {
   documentTileTone,
 } from "@/components/clinical-dashboard/document-ui";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { AnswerProgressStepper } from "@/components/clinical-dashboard/answer-status";
+import type { TimedAnswerProgressUpdate } from "@/components/clinical-dashboard/answer-progress";
+import { readAnswerStream } from "@/components/clinical-dashboard/search-utils";
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import {
@@ -97,6 +100,7 @@ import {
   type FormattedDocumentSummary as FormattedDocumentSummaryModel,
 } from "@/lib/document-summary-formatting";
 import { buildDocumentSummaryBadges } from "@/lib/document-summary-badges";
+import { documentSummaryQuestion } from "@/lib/answer-contract";
 
 type PageRow = {
   id: string;
@@ -2022,6 +2026,9 @@ export function DocumentViewer({
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [downloadSignedUrl, setDownloadSignedUrl] = useState<string | null>(null);
   const [summary, setSummary] = useState<RagAnswer | null>(null);
+  const [summaryQuery, setSummaryQuery] = useState(documentSummaryQuestion);
+  const [summaryProgressEvents, setSummaryProgressEvents] = useState<TimedAnswerProgressUpdate[]>([]);
+  const [summaryProgressStartedAt, setSummaryProgressStartedAt] = useState<number | null>(null);
   const [loadingDocument, setLoadingDocument] = useState(true);
   const [viewerError, setViewerError] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -2065,6 +2072,13 @@ export function DocumentViewer({
   );
   const [viewerModeInitialized] = useState(true);
   const generatedSummaryRef = useRef<HTMLElement | null>(null);
+  const summaryAbortRef = useRef<AbortController | null>(null);
+  useEffect(
+    () => () => {
+      summaryAbortRef.current?.abort();
+    },
+    [],
+  );
   const {
     status: authStatus,
     isConfigured,
@@ -2404,25 +2418,84 @@ export function DocumentViewer({
       setSummaryError("Sign in before summarising private documents.");
       return;
     }
+    const summaryMode = sourceSearch.trim().length === 0;
+    const query = summaryMode ? documentSummaryQuestion : sourceSearch.trim();
+    const controller = new AbortController();
+    summaryAbortRef.current?.abort();
+    summaryAbortRef.current = controller;
+    const authRequest = registerAuthRequest(controller);
+    const startedAt = Date.now();
     setLoadingSummary(true);
+    setSummary(null);
+    setSummaryQuery(query);
     setSummaryError(null);
+    setSummaryProgressStartedAt(startedAt);
+    setSummaryProgressEvents([
+      {
+        stage: "scoping",
+        message: "Preparing the clinical search scope.",
+        receivedAt: startedAt,
+      },
+    ]);
     try {
-      const response = await fetch(`/api/documents/${documentId}/summarize`, {
+      if (!isAuthEpochCurrent(authRequest.epoch)) {
+        throw new DOMException("Stale authentication epoch", "AbortError");
+      }
+      const response = await fetch("/api/answer/stream", {
         method: "POST",
-        headers: clientDemoMode ? undefined : authorizationHeader,
+        headers: {
+          "Content-Type": "application/json",
+          ...(clientDemoMode ? {} : authorizationHeader),
+        },
+        body: JSON.stringify({ query, documentId, ...(summaryMode ? { summaryMode: true } : {}) }),
+        signal: controller.signal,
       });
-      const payload = await response.json();
       if (response.status === 401) markSessionExpired();
-      if (!response.ok) throw new Error(payload.error || "Summary could not be generated.");
-      setSummary({ ...payload, answer: cleanClinicalSummaryText(String(payload.answer ?? "")) });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: unknown } | null;
+        throw new Error(
+          typeof payload?.error === "string" && payload.error.trim()
+            ? payload.error
+            : "Answer could not be generated from this document.",
+        );
+      }
+      const payload = await readAnswerStream(response, (progress) => {
+        if (
+          controller.signal.aborted ||
+          summaryAbortRef.current !== controller ||
+          !isAuthEpochCurrent(authRequest.epoch)
+        )
+          return;
+        setSummaryProgressEvents((events) => [...events, { ...progress, receivedAt: Date.now() }].slice(-20));
+      });
+      if (controller.signal.aborted || summaryAbortRef.current !== controller || !isAuthEpochCurrent(authRequest.epoch))
+        return;
+      setSummary(payload);
       window.requestAnimationFrame(() => {
         generatedSummaryRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
       });
     } catch (error) {
-      setSummaryError(error instanceof Error ? error.message : "Summary could not be generated.");
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      if (controller.signal.aborted || summaryAbortRef.current !== controller || !isAuthEpochCurrent(authRequest.epoch))
+        return;
+      setSummaryProgressEvents([]);
+      setSummaryProgressStartedAt(null);
+      setSummaryError(error instanceof Error ? error.message : "Answer could not be generated from this document.");
     } finally {
-      setLoadingSummary(false);
+      authRequest.release();
+      if (summaryAbortRef.current === controller) {
+        summaryAbortRef.current = null;
+        setLoadingSummary(false);
+      }
     }
+  }
+
+  function stopSummary() {
+    summaryAbortRef.current?.abort();
+    summaryAbortRef.current = null;
+    setLoadingSummary(false);
+    setSummaryProgressEvents([]);
+    setSummaryProgressStartedAt(null);
   }
 
   const authViewerError =
@@ -2469,6 +2542,7 @@ export function DocumentViewer({
   const selectedChunk = chunkId ? chunks.find((chunk) => chunk.id === chunkId) : undefined;
   const { clinicalImages, auditImages } = partitionViewerImages(images);
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
+  const generatedAnswerIsSummary = summaryQuery === documentSummaryQuestion;
   const storedSummaryText = document?.summary?.summary ?? null;
   const documentLabels = document?.labels;
   const formattedStoredSummary = useMemo(() => formatDocumentSummary(storedSummaryText), [storedSummaryText]);
@@ -2710,8 +2784,16 @@ export function DocumentViewer({
       ) : null}
 
       <section className="mx-auto grid max-w-[1440px] gap-4 px-3 py-4 pb-36 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8">
-        {(summary || summaryError) && (
+        {(loadingSummary || summary || summaryError) && (
           <div className="min-w-0 space-y-3 lg:col-span-2">
+            {summaryProgressStartedAt && summaryProgressEvents.length > 0 ? (
+              <AnswerProgressStepper
+                events={summaryProgressEvents}
+                startedAt={summaryProgressStartedAt}
+                active={loadingSummary}
+                onStop={stopSummary}
+              />
+            ) : null}
             {summary && (
               <section
                 ref={generatedSummaryRef}
@@ -2720,8 +2802,12 @@ export function DocumentViewer({
               >
                 <PanelHeading
                   icon={Sparkles}
-                  title="Clinical summary"
-                  description="From indexed passages, cleaned for practical use."
+                  title={generatedAnswerIsSummary ? "Clinical summary" : "Answer from this document"}
+                  description={
+                    generatedAnswerIsSummary
+                      ? "From indexed passages, cleaned for practical use."
+                      : "Grounded in indexed passages from this source."
+                  }
                 />
                 <p className="mt-3 whitespace-pre-wrap text-base-minus leading-6 text-[color:var(--text-muted)]">
                   <SafeBoldText text={generatedSummaryText} />

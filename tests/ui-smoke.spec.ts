@@ -3,7 +3,8 @@ import { expect, test, type Locator, type Page } from "playwright/test";
 import { scrollPrimarySurface } from "./playwright-scroll";
 import { recentQueryStorageKey } from "../src/components/clinical-dashboard/dashboard-contracts";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
-import { demoAnswer, demoDocuments, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
+import { documentSummaryQuestion } from "../src/lib/answer-contract";
+import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
 import { deriveGovernanceFromSections } from "../src/lib/medication-records";
 import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
@@ -178,6 +179,8 @@ async function mockPrivateUnauthenticatedApi(page: Page) {
 function answerStreamBody(payload: unknown) {
   return [
     `event: progress\ndata: ${JSON.stringify({ stage: "retrieving", message: "Searching indexed documents." })}`,
+    `event: progress\ndata: ${JSON.stringify({ stage: "ranking", message: "Selecting governed sources." })}`,
+    `event: progress\ndata: ${JSON.stringify({ stage: "complete", message: "Answer ready.", elapsedMs: 1250 })}`,
     `event: final\ndata: ${JSON.stringify(payload)}`,
     "",
   ].join("\n\n");
@@ -201,7 +204,10 @@ type DemoAnswerOverride = (query: string, documentId?: string, documentIds?: str
 type MockDemoApiOptions = {
   answerOverride?: DemoAnswerOverride;
   answerDelayMs?: number;
-  onAnswerRequest?: (query: string) => void;
+  onAnswerRequest?: (
+    query: string,
+    scope: { documentId?: string; documentIds?: string[]; summaryMode?: boolean },
+  ) => void;
 };
 
 async function blockExternalRequests(page: Page) {
@@ -297,19 +303,26 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
       query?: string;
       documentId?: string;
       documentIds?: string[];
+      summaryMode?: boolean;
     };
     const query = typeof body.query === "string" ? body.query.trim() : "";
     if (!query || query.length > 2000) {
       await route.fulfill({ status: 400, json: { error: "A query between 1 and 2000 characters is required." } });
       return;
     }
-    options.onAnswerRequest?.(query);
+    options.onAnswerRequest?.(query, {
+      documentId: body.documentId,
+      documentIds: body.documentIds,
+      summaryMode: body.summaryMode,
+    });
     if (options.answerDelayMs) {
       await new Promise((resolve) => setTimeout(resolve, options.answerDelayMs));
     }
     const answer =
       options.answerOverride?.(query, body.documentId, body.documentIds) ??
-      demoAnswer(query, body.documentId, body.documentIds);
+      (body.summaryMode && body.documentId
+        ? demoSummary(body.documentId)
+        : demoAnswer(query, body.documentId, body.documentIds));
     await fulfillAnswerResponse(route, {
       ...answer,
       demoMode: true,
@@ -1670,13 +1683,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // is the whole point: content shorter than the viewport must not scroll.
     await page.setViewportSize({ width: 390, height: 900 });
     await mockDemoApi(page, {
-      // Strip the section/table-bearing fields so the surface is a few hundred px.
-      answerOverride: (query, documentId, documentIds) => ({
-        ...demoAnswer(query, documentId, documentIds),
-        answer: "Verify the cited passages before using any clinical numbers.",
-        answerSections: [],
-        visualEvidence: [],
-      }),
+      // Keep this a genuinely short answer as the shared answer contract grows:
+      // rich support, safety, and related-document fields are covered elsewhere.
+      answerOverride: (query, documentId, documentIds) => {
+        const base = demoAnswer(query, documentId, documentIds);
+        return {
+          ...base,
+          answer: "Verify the cited passages before using any clinical numbers.",
+          answerSections: [],
+          visualEvidence: [],
+          quoteCards: [],
+          documentBreakdown: [],
+          evidenceSummary: undefined,
+          sourceCoverage: undefined,
+          conflictsOrGaps: [],
+          bestSource: undefined,
+          smartPanel: undefined,
+          relatedDocuments: [],
+          sources: base.sources.map((source) => ({
+            ...source,
+            content: "This indexed passage directly supports the short answer.",
+          })),
+        };
+      },
     });
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
@@ -2242,6 +2271,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
   });
 
+  test("dashboard specifiers mode param redirects to the standalone specifiers route", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=specifiers&q=anxious+distress&focus=1&run=1");
+
+    await expect(page).toHaveURL(/\/specifiers\?q=anxious\+distress&focus=1&run=1$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Matches for “anxious distress”" })).toBeVisible();
+  });
+
   test("submitted differentials searches stay on the standalone differentials route", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
@@ -2388,6 +2426,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Favourites\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Differentials\b/ })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Specifiers\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
@@ -2913,21 +2953,41 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
   });
 
-  test("document summary opens at the top with cleaned bold formatting", async ({ page }) => {
+  test("document questions use the shared answer stream with progress and cleaned bold formatting", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 390, height: 820 });
-    await mockDemoApi(page);
+    const answerRequests: Array<{ query: string; documentId?: string; summaryMode?: boolean }> = [];
+    let legacySummaryRequestCount = 0;
+    page.on("request", (request) => {
+      if (/\/api\/documents\/[^/]+\/summarize$/.test(new URL(request.url()).pathname)) {
+        legacySummaryRequestCount += 1;
+      }
+    });
+    await mockDemoApi(page, {
+      onAnswerRequest: (query, scope) =>
+        answerRequests.push({ query, documentId: scope.documentId, summaryMode: scope.summaryMode }),
+      answerOverride: (query, documentId, documentIds) => ({
+        ...demoAnswer(query, documentId, documentIds),
+        answer:
+          "Key practical points: **clozapine** monitoring requires regular FBC/ANC checks and review of constipation, myocarditis symptoms, metabolic risk, and missed-dose restart rules.",
+      }),
+    });
     await gotoApp(
       page,
       "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
     );
 
-    await page
-      .getByRole("button", { name: /^Answer from this(?: document)?$/ })
-      .first()
-      .click();
+    const composer = page.locator("form.document-viewer-composer");
+    await composer
+      .getByRole("textbox", { name: "Search or answer from this document" })
+      .fill("How is clozapine monitored?");
+    await composer.getByRole("button", { name: "Answer from this document" }).click();
 
     const generatedSummary = page.getByTestId("generated-clinical-summary");
     await expect(generatedSummary).toBeVisible();
+    await expect(page.getByTestId("answer-progress-stepper")).toHaveAttribute("data-progress-state", "complete");
+    await expect(page.getByText(/Answer ready in 1s/)).toBeVisible();
     await expect(generatedSummary).toContainText("clozapine monitoring requires regular FBC/ANC checks");
     await expect(generatedSummary).not.toContainText("Key practical points:");
     await expect(generatedSummary).not.toContainText("**");
@@ -2938,6 +2998,24 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(summaryBox).not.toBeNull();
     expect(previewBox).not.toBeNull();
     expect(summaryBox!.y).toBeLessThan(previewBox!.y);
+    expect(answerRequests).toEqual([
+      {
+        query: "How is clozapine monitored?",
+        documentId: "11111111-1111-4111-8111-111111111111",
+        summaryMode: undefined,
+      },
+    ]);
+    expect(legacySummaryRequestCount).toBe(0);
+
+    await composer.getByRole("textbox", { name: "Search or answer from this document" }).fill("");
+    await composer.getByRole("button", { name: "Answer from this document" }).click();
+    await expect.poll(() => answerRequests.length).toBe(2);
+    expect(answerRequests[1]).toEqual({
+      query: documentSummaryQuestion,
+      documentId: "11111111-1111-4111-8111-111111111111",
+      summaryMode: true,
+    });
+    expect(legacySummaryRequestCount).toBe(0);
     await expectNoPageHorizontalOverflow(page);
   });
 

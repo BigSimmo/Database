@@ -1,3 +1,7 @@
+import {
+  normalizeAnswerProgressEvent,
+  type AnswerProgressUpdate,
+} from "@/components/clinical-dashboard/answer-progress";
 import type { RagAnswer } from "@/lib/types";
 
 export { keywordQueryFromNaturalLanguage } from "@/lib/keyword-query";
@@ -34,6 +38,134 @@ export function makeSearchError(message: string, status?: number, retryable = fa
   error.status = status;
   error.retryable = retryable;
   return error;
+}
+
+function parseSseData(lines: string[]) {
+  const data = lines.join("\n").trim();
+  if (!data) return null;
+  try {
+    return JSON.parse(data);
+  } catch {
+    throw makeSearchError("Answer stream returned malformed data.", 500, true);
+  }
+}
+
+function findSseSeparator(buffer: string) {
+  const match = /\r?\n\r?\n/.exec(buffer);
+  return match ? { index: match.index, length: match[0].length } : null;
+}
+
+/** Consume the answer SSE contract shared by every browser answer surface. */
+export async function readAnswerStream(
+  response: Response,
+  onProgress: (progress: AnswerProgressUpdate) => void,
+  onToken?: (delta: string) => void,
+  onRevising?: () => void,
+  onActivity?: () => void,
+): Promise<AnswerPayload> {
+  if (!response.body) throw makeSearchError("Answer stream could not be opened.", undefined, true);
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let pendingCompletion: AnswerProgressUpdate | null = null;
+
+  function processEvent(block: string) {
+    const lines = block.split(/\r?\n/);
+    let event = "message";
+    const dataLines: string[] = [];
+
+    for (const line of lines) {
+      if (line.startsWith("event:")) event = line.slice("event:".length).trim();
+      if (line.startsWith("data:")) dataLines.push(line.slice("data:".length).trimStart());
+    }
+
+    if (dataLines.length === 0) return null;
+    const data = parseSseData(dataLines);
+    if (data === null) return null;
+    if (event === "progress") {
+      const progress = normalizeAnswerProgressEvent(data);
+      if (progress) {
+        if (progress.stage === "complete") {
+          pendingCompletion = progress;
+        } else {
+          onProgress(progress);
+          if (progress.stage === "fallback") onRevising?.();
+        }
+      }
+      return null;
+    }
+    if (event === "token") {
+      const delta = data && typeof data === "object" ? (data as { delta?: unknown }).delta : null;
+      if (typeof delta === "string" && delta) onToken?.(delta);
+      return null;
+    }
+    if (event === "revising") {
+      onRevising?.();
+      return null;
+    }
+    if (event === "error") {
+      pendingCompletion = null;
+      const message = data && typeof data === "object" ? (data as { error?: unknown }).error : null;
+      const details =
+        data && typeof data === "object" ? (data as { details?: { message?: unknown } | unknown }).details : null;
+      const detailMessage =
+        details && typeof details === "object" && "message" in details && typeof details.message === "string"
+          ? details.message
+          : null;
+      const status = data && typeof data === "object" ? (data as { status?: unknown }).status : null;
+      const statusCode = typeof status === "number" ? status : undefined;
+      const errorMessage =
+        typeof message === "string" && message.trim()
+          ? message
+          : typeof detailMessage === "string" && detailMessage.trim()
+            ? detailMessage
+            : "Answer generation failed due to a streaming error.";
+      throw makeSearchError(
+        errorMessage,
+        statusCode,
+        isRetryableStatus(statusCode ?? 0) || isRetryableMessage(errorMessage),
+      );
+    }
+    if (event === "final") {
+      if (!isAnswerPayload(data)) {
+        pendingCompletion = null;
+        throw makeSearchError("Answer stream returned an invalid final payload.", 502, true);
+      }
+      if (pendingCompletion) {
+        onProgress(pendingCompletion);
+        pendingCompletion = null;
+      }
+      return data;
+    }
+
+    return null;
+  }
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (value && value.length > 0) onActivity?.();
+    buffer += decoder.decode(value, { stream: !done });
+
+    let separator = findSseSeparator(buffer);
+    while (separator) {
+      const block = buffer.slice(0, separator.index).trim();
+      buffer = buffer.slice(separator.index + separator.length);
+      const finalPayload = block ? processEvent(block) : null;
+      if (finalPayload) {
+        await reader.cancel().catch(() => undefined);
+        return finalPayload;
+      }
+      separator = findSseSeparator(buffer);
+    }
+
+    if (done) break;
+  }
+
+  const finalPayload = buffer.trim() ? processEvent(buffer.trim()) : null;
+  if (finalPayload) return finalPayload;
+  pendingCompletion = null;
+  throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
 }
 
 export function isRetryableStatus(status: number) {

@@ -31,13 +31,37 @@ export function selectModelContextResults(args: {
   crossDocument: boolean;
   results: SearchResult[];
 }) {
-  if (args.queryClass === "medication_dose_risk" || args.queryClass === "table_threshold") {
+  const highRiskNumericQuery = args.queryClass === "medication_dose_risk" || args.queryClass === "table_threshold";
+  if (highRiskNumericQuery) {
     return selectAustralianClinicalContext(args.results);
   }
-  const results = capPerDocumentCrowding(args.results);
-  if (args.routeMode !== "fast") return results;
-  if (args.crossDocument || args.queryClass === "comparison" || args.queryClass === "broad_summary") {
-    return results;
-  }
-  return results.slice(0, fastRoutineModelContextLimit);
+
+  const fastRoutineQuery =
+    args.routeMode === "fast" &&
+    !args.crossDocument &&
+    args.queryClass !== "comparison" &&
+    args.queryClass !== "broad_summary";
+  // Preserve the retrieval-ranked fast budget before applying the order-only
+  // Australian preference. This keeps a stronger/unique supplementary result
+  // inside the four-chunk budget while still moving equally relevant local
+  // guidance ahead within that retained set. Apply the existing crowding cap
+  // first so a fourth chunk from one document cannot hide another document.
+  const preferenceCandidates = fastRoutineQuery
+    ? capPerDocumentCrowding(
+        args.results.filter((result) => result.relevance?.verdict !== "none"),
+        maxContextChunksPerDocument,
+      ).slice(0, fastRoutineModelContextLimit)
+    : args.results;
+
+  // All answer classes should prefer authoritative Australian guidance when it
+  // is equally relevant. For non-numeric questions this is an order-only
+  // preference: retain supplementary evidence so a local source cannot hide a
+  // stronger or uniquely relevant international passage. Numeric/high-risk
+  // queries keep the stricter bounded Australian-first policy above.
+  const results = selectAustralianClinicalContext(preferenceCandidates, {
+    limit: preferenceCandidates.length,
+    maxPerDocument: maxContextChunksPerDocument,
+    omitSupplementaryPadding: false,
+  });
+  return results;
 }

@@ -5785,13 +5785,15 @@ ${qualityRetryInstruction}`
   }
 }
 
-/** Summarize document. */
-export async function summarizeDocument(documentId: string, ownerId?: string) {
+/** Summarize the committed document context; the route applies the shared client-response governance contract. */
+export async function summarizeDocument(documentId: string, ownerId?: string, options?: { signal?: AbortSignal }) {
   const supabase = createAdminClient();
   let documentQuery = supabase.from("documents").select("id,title,file_name,metadata").eq("id", documentId);
 
   if (ownerId) {
     documentQuery = documentQuery.eq("owner_id", ownerId);
+  } else {
+    documentQuery = documentQuery.is("owner_id", null);
   }
 
   const { data: document, error: documentError } = await documentQuery.maybeSingle();
@@ -5833,12 +5835,13 @@ export async function summarizeDocument(documentId: string, ownerId?: string) {
   })) as SearchResult[];
 
   const summaryInstructions = `Summarize a clinical document for practical psychiatric use in Perth, Australia.
-Use only the excerpts provided. Use a layered response: make the answer field a plain high-yield clinical paragraph, usually 1-3 short sentences and 35-75 words, then use answerSections for distinct structured support when it improves scanability. Do not prefix the answer with "Summary", "Key practical points", "Direct answer", or similar labels, and do not use bullets in the answer field. Focus on high-yield actions, thresholds, medication or risk monitoring, exceptions, comparisons, source gaps, and citations. Exclude administrative document-control details unless they change clinical action.
+Use only the excerpts provided. Use a layered response: make the answer field a plain high-yield clinical paragraph,
+usually 1-3 short sentences and 35-75 words, then use answerSections for distinct structured support when it improves
+scanability. Do not prefix the answer with "Summary", "Key practical points", "Direct answer", or similar labels, and
+do not use bullets in the answer field. Focus on high-yield actions, thresholds, medication or risk monitoring,
+exceptions, comparisons, source gaps, and citations. Exclude administrative document-control details unless they
+change clinical action.
 Return data matching the supplied structured output schema.`;
-  // Threat model Vectors B/C: document.title is attacker-influenceable (upload
-  // filename/title metadata) and was reaching the prompt raw here, in the
-  // highest-trust "Document:" header position — unlike the per-result titles
-  // inside buildRagSourceBlock, which already neutralize.
   const summaryInput = `Document:
 ${neutralizeIdentityField(document.title)}
 
@@ -5853,7 +5856,11 @@ ${buildRagSourceBlock(results)}`;
     instructions: summaryInstructions,
     promptCacheKey: ragSummaryPromptVersion,
     reasoningEffort: env.OPENAI_SUMMARY_REASONING_EFFORT,
+<<<<<<< HEAD
     safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(ownerId) : undefined,
+=======
+    signal: options?.signal,
+>>>>>>> origin/main
   });
   const answer = parseAnswerJson(generated.text, results, "summary");
   answer.answer = cleanClinicalSummaryText(answer.answer);

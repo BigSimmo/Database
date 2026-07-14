@@ -76,7 +76,6 @@ import {
 } from "@/components/clinical-dashboard/answer-content";
 import { AnswerEmptyState, AnswerProgressStepper, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
 import {
-  normalizeAnswerProgressEvent,
   type AnswerProgressUpdate,
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
@@ -137,13 +136,11 @@ import {
   answerPayloadIsUsable,
   classifyAnswerError,
   createAnswerRequestWatchdog,
-  isAnswerPayload,
   isRetryableError,
-  isRetryableMessage,
-  isRetryableStatus,
   keywordQueryFromNaturalLanguage,
   makeSearchError,
   progressForRetry,
+  readAnswerStream,
   searchRetryCount,
   searchRetryDelaysMs,
   sleep,
@@ -329,21 +326,12 @@ function hasNonProductionSupabaseApiKeyFallback(checks: SetupCheck[]) {
   );
 }
 
-function parseSseData(lines: string[]) {
-  const data = lines.join("\n").trim();
-  if (!data) return null;
-  try {
-    return JSON.parse(data);
-  } catch {
-    throw makeSearchError("Answer stream returned malformed data.", 500, true);
-  }
-}
-
 /** True when an error originates from an AbortController (user pressed Stop / component unmounted). */
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
+<<<<<<< HEAD
 function findSseSeparator(buffer: string) {
   const match = /\r?\n\r?\n/.exec(buffer);
   return match ? { index: match.index, length: match[0].length } : null;
@@ -452,6 +440,34 @@ async function readAnswerStream(
   if (finalPayload) return finalPayload;
   pendingCompletion = null;
   throw makeSearchError("Answer stream ended before a final answer was received.", undefined, true);
+=======
+// Provisional view shown while an answer streams in. The prose is content-preserving (the same
+// text the final payload will carry); the caret conveys that generation is still in flight. On a
+// quality-gate escalation the pipeline sends a `revising` signal and this switches to a neutral
+// "revising for accuracy" state so a clinician never acts on soon-to-be-replaced text.
+function StreamingAnswerPreview({ text, revising }: { text: string; revising: boolean }) {
+  if (revising) {
+    return (
+      <div className={cn(answerSurface, "p-4")} data-testid="answer-streaming-revising" aria-live="polite">
+        <div className="flex items-center gap-2 text-sm font-medium text-[color:var(--text-muted)]">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+          Revising for accuracy…
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className={cn(answerSurface, "p-4")} data-testid="answer-streaming" aria-live="polite">
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-[color:var(--text)]">
+        {text}
+        <span
+          className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-[color:var(--text-muted)] align-text-bottom"
+          aria-hidden
+        />
+      </p>
+    </div>
+  );
+>>>>>>> origin/main
 }
 
 function normalizeNavigationHash(hash: string) {

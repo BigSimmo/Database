@@ -136,6 +136,22 @@ for (const requiredCheck of requiredTokenChecks) {
   }
 }
 
+// When CODEX_TRIGGER_TOKEN is unset the request job must skip gracefully with a
+// warning rather than hard-fail the check, so a merged-but-unconfigured workflow
+// never blocks unrelated PRs.
+const requiredMissingTokenHandlingChecks = [
+  "CODEX_TRIGGER_TOKEN: ${{ secrets.CODEX_TRIGGER_TOKEN }}",
+  "if: ${{ env.CODEX_TRIGGER_TOKEN == '' }}",
+  "if: ${{ env.CODEX_TRIGGER_TOKEN != '' }}",
+  "CODEX_TRIGGER_TOKEN secret is not configured",
+];
+
+for (const requiredCheck of requiredMissingTokenHandlingChecks) {
+  if (!workflow.includes(requiredCheck)) {
+    failures.push(`Codex auto-resolve workflow is missing graceful missing-token handling: ${requiredCheck}`);
+  }
+}
+
 const requiredConcurrencyChecks = [
   "    concurrency:",
   "      group: codex-autoresolve-${{ github.event.pull_request.number }}",

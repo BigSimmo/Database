@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -6,6 +7,14 @@ const documentId = "11111111-1111-4111-8111-111111111111";
 const otherDocumentId = "22222222-2222-4222-8222-222222222222";
 const imageId = "33333333-3333-4333-8333-333333333333";
 const token = "valid-token";
+
+function expectFeedbackTokenBoundToAnswer(payload: Record<string, unknown>) {
+  expect(payload.interactionId).toEqual(expect.any(String));
+  expect(payload.feedbackToken).toEqual(expect.any(String));
+  const [encodedClaims] = String(payload.feedbackToken).split(".");
+  const claims = JSON.parse(Buffer.from(encodedClaims!, "base64url").toString("utf8")) as { answerHash?: string };
+  expect(claims.answerHash).toBe(createHash("sha256").update(String(payload.answer), "utf8").digest("hex"));
+}
 
 type QueryError = { message: string };
 type QueryResult = { data: unknown; error: QueryError | null };
@@ -296,6 +305,7 @@ function mockRuntime(
   vi.doUnmock("@/lib/openai");
   vi.doUnmock("@/lib/document-enrichment");
   vi.doUnmock("@/lib/deep-memory");
+  vi.doUnmock("@/lib/demo-data");
   vi.doMock("@/lib/env", () => ({
     env: {
       MAX_UPLOAD_MB: 150,
@@ -3957,6 +3967,166 @@ describe("private document API access", () => {
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
+  it("preserves danger-governance warnings when streaming a demo refusal", async () => {
+    const answerQuestionWithScope = vi.fn();
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope }, { demoMode: true });
+    vi.doMock("@/lib/demo-data", () => ({
+      demoSummary: vi.fn(),
+      demoAnswer: vi.fn(() => ({
+        answer: "Use the outdated protocol.",
+        grounded: true,
+        confidence: "high",
+        citations: [{ chunk_id: "demo-danger", document_id: documentId, page_number: 1 }],
+        sources: [
+          {
+            id: "demo-danger",
+            document_id: documentId,
+            title: "Outdated demo guideline",
+            file_name: "outdated-demo.pdf",
+            page_number: 1,
+            chunk_index: 0,
+            section_heading: null,
+            content: "Use the outdated protocol.",
+            image_ids: [],
+            similarity: 0.95,
+            source_metadata: {
+              source_title: "Outdated demo guideline",
+              publisher: "Local WA service",
+              jurisdiction: "Australia/WA",
+              version: null,
+              publication_date: null,
+              review_date: null,
+              uploaded_at: null,
+              indexed_at: null,
+              uploaded_by: null,
+              document_status: "outdated",
+              clinical_validation_status: "approved",
+              extraction_quality: "good",
+            },
+            images: [],
+          },
+        ],
+      })),
+    }));
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      request("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({ query: "monitoring" }),
+      }),
+    );
+    const responseBody = await response.text();
+    const finalPayload = ssePayload(responseBody, "final");
+
+    expect(response.status).toBe(200);
+    expect(finalPayload).toMatchObject({
+      grounded: false,
+      confidence: "unsupported",
+      citations: [],
+      sources: [],
+      demoMode: true,
+      sourceGovernanceWarnings: expect.arrayContaining([
+        expect.objectContaining({ code: "outdated_source", severity: "danger" }),
+      ]),
+    });
+    expect(String(finalPayload.answer)).toContain("cannot provide a clinical answer");
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("streams blank-document summaries through the committed full-document summary path", async () => {
+    const answerQuestionWithScope = vi.fn();
+    const summarizeDocument = vi.fn(async () => ({
+      answer: "Full committed document summary.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope, summarizeDocument });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          summaryMode: true,
+        }),
+      }),
+    );
+    const responseBody = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(responseBody).toContain('"stage":"retrieving"');
+    expect(responseBody).toContain('"stage":"generating"');
+    expect(ssePayload(responseBody, "final")).toMatchObject({
+      answer: "Full committed document summary.",
+      interactionId: expect.any(String),
+      feedbackToken: expect.any(String),
+    });
+    expect(summarizeDocument).toHaveBeenCalledWith(documentId, userId, {
+      signal: expect.any(AbortSignal),
+    });
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_api_rate_limit",
+      expect.objectContaining({ p_owner_id: userId, p_bucket: "document_summarize" }),
+    );
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
+  it("rate limits streamed document summaries before provider work", async () => {
+    const summarizeDocument = vi.fn(async () => ({
+      answer: "Expensive streamed summary.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) =>
+      name === "consume_api_rate_limit" && args?.p_bucket === "document_summarize"
+        ? { data: [rateLimitRow({ limited: true, limit_value: 12, remaining: 0 })], error: null }
+        : name === "consume_api_rate_limit"
+          ? { data: [rateLimitRow()], error: null }
+          : ok([]),
+    );
+    mockRuntime(client, { summarizeDocument });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          summaryMode: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("60");
+    expect(await payload(response)).toMatchObject({
+      error: "Too many document summary requests. Retry shortly.",
+      details: { retryAfterSeconds: 60 },
+    });
+    expect(client.rpc).toHaveBeenNthCalledWith(
+      1,
+      "consume_api_rate_limit",
+      expect.objectContaining({ p_owner_id: userId, p_bucket: "answer" }),
+    );
+    expect(client.rpc).toHaveBeenNthCalledWith(
+      2,
+      "consume_api_rate_limit",
+      expect.objectContaining({ p_owner_id: userId, p_bucket: "document_summarize" }),
+    );
+    expect(summarizeDocument).not.toHaveBeenCalled();
+  });
+
   it("completes cached answers after safe cached progress and before final", async () => {
     const answerQuestionWithScope = vi.fn(async (args: { onProgress?: (event: unknown) => void | Promise<void> }) => {
       await args.onProgress?.({
@@ -4166,6 +4336,7 @@ describe("private document API access", () => {
     expect(finalPayload.sourceGovernanceWarnings).toEqual([
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),
     ]);
+    expectFeedbackTokenBoundToAnswer(finalPayload);
   });
 
   it("refuses answer responses backed by danger-class source governance warnings", async () => {
@@ -4230,6 +4401,7 @@ describe("private document API access", () => {
     expect(body.sourceGovernanceWarnings).toEqual([
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),
     ]);
+    expectFeedbackTokenBoundToAnswer(body);
   });
 
   it("rate limits document summarization before OpenAI work", async () => {
@@ -4313,6 +4485,65 @@ describe("private document API access", () => {
     expect(response.status).toBe(404);
     expect(await payload(response)).toMatchObject({ error: "Document not found." });
     expect(summarizeDocument).toHaveBeenCalledWith(otherDocumentId, userId);
+  });
+
+  it("applies the shared danger-governance refusal to the legacy document summary endpoint", async () => {
+    const summarizeDocument = vi.fn(async () => ({
+      answer: "Use the old pathway.",
+      grounded: true,
+      confidence: "high",
+      citations: [{ chunk_id: "summary-chunk", document_id: documentId, page_number: 1 }],
+      smartPanel: { query: "summary" },
+      smartApiPlan: { displayMode: "direct" },
+      sources: [
+        {
+          id: "summary-chunk",
+          document_id: documentId,
+          title: "Outdated summary source",
+          file_name: "outdated-summary.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          section_heading: "Summary",
+          content: "Use the old pathway.",
+          image_ids: [],
+          images: [],
+          similarity: 0.9,
+          source_metadata: {
+            source_title: "Outdated summary source",
+            publisher: "WA Health",
+            publisher_code: "WA_HEALTH",
+            jurisdiction: "Australia/WA",
+            version: null,
+            publication_date: null,
+            review_date: null,
+            uploaded_at: null,
+            indexed_at: null,
+            uploaded_by: null,
+            document_status: "outdated",
+            clinical_validation_status: "approved",
+            extraction_quality: "good",
+          },
+        },
+      ],
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { summarizeDocument });
+    const { POST } = await import("../src/app/api/documents/[id]/summarize/route");
+
+    const response = await POST(authenticatedRequest(`/api/documents/${documentId}/summarize`, { method: "POST" }), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({ grounded: false, confidence: "unsupported", citations: [], sources: [] });
+    expect(body.smartPanel).toBeUndefined();
+    expect(body.smartApiPlan).toBeUndefined();
+    expect(body.sourceGovernanceWarnings).toEqual([
+      expect.objectContaining({ code: "outdated_source", severity: "danger" }),
+    ]);
+    expect(body.interactionId).toMatch(/^[0-9a-f-]{36}$/i);
+    expectFeedbackTokenBoundToAnswer(body);
   });
 
   it("passes owner scope into retrieval RPCs", async () => {
