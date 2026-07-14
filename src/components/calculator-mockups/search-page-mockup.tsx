@@ -504,12 +504,14 @@ export function CalculatorsSearchPageMockup() {
 
   // Hide the bottom composer dock on scroll-down in lockstep with the shell's
   // top header, using the same hook (identical thresholds, phone-only, inert on
-  // desktop). On phones this page's own <main> (searchPageShell) is the scroller
-  // — #main-content stays at 0 and only catches the descendant scroll — so point
-  // the hook at that <main> by its testid. The hook polls the ref until resolved.
+  // desktop). On phones the shell's #main-content owns vertical scroll
+  // (max-sm:overflow-y-auto) and drives the header hide; the inner
+  // searchPageShell <main> has no vertical overflow, so it never scrolls. Point
+  // the hook at #main-content so the dock reacts to the same scroll events. The
+  // hook polls the ref until the shell element resolves.
   const scrollContainerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    scrollContainerRef.current = document.querySelector<HTMLElement>('[data-testid="calculators-search-page"]');
+    scrollContainerRef.current = document.querySelector<HTMLElement>("#main-content");
   }, []);
   const footerHidden = useHideOnScroll({ containerRef: scrollContainerRef });
   // Keep the phone dock visible while focused so scroll-hide cannot slide a

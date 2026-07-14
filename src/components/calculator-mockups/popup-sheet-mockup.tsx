@@ -64,7 +64,9 @@ export function CalculatorSheet({
       root.querySelectorAll<HTMLElement>(
         'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
       ),
-    ).filter((element) => element.offsetParent !== null || element === document.activeElement);
+    ).filter(
+      (element) => element.tabIndex !== -1 && (element.offsetParent !== null || element === document.activeElement),
+    );
     if (!focusables.length) return;
     const first = focusables[0];
     const last = focusables[focusables.length - 1];
@@ -90,6 +92,7 @@ export function CalculatorSheet({
       <button
         type="button"
         aria-label="Close calculator"
+        tabIndex={-1}
         onClick={onClose}
         className="absolute inset-0 animate-overlay-in bg-[color:var(--neutral-950)]/55 backdrop-blur-[2px]"
       />
