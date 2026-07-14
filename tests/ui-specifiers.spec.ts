@@ -122,7 +122,9 @@ test("keeps the base diagnosis severity-neutral when applying a severity descrip
 });
 
 test("blocks incompatible specifiers and preserves severe psychotic-features wording", async ({ page }) => {
-  await gotoApp(page, "/specifiers/builder?specifier=with-rapid-cycling&specifier=with-psychotic-features");
+  // Psychotic features applies to MDD, so the deep link stays on the recurrent-MDD base.
+  // Rapid cycling is bipolar-only, so it must remain blocked until a bipolar base is chosen.
+  await gotoApp(page, "/specifiers/builder?specifier=with-psychotic-features");
 
   const rapidCycling = page.getByRole("checkbox", { name: /Rapid cycling/ });
   await expect(rapidCycling).toBeDisabled();
@@ -151,7 +153,7 @@ test("infers the correct diagnosis from a non-MDD deep link", async ({ page }) =
 test("labels search results using text-relevance language instead of clinical-fit language", async ({ page }) => {
   await gotoApp(page, "/specifiers?q=racing+thoughts&run=1");
 
-  await expect(page.getByRole("heading", { name: /Matches for "racing thoughts"/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Matches for “racing thoughts”/ })).toBeVisible();
   await expect(page.getByText("Top match", { exact: true })).toBeVisible();
   await expect(page.getByText(/Results ranked by text relevance/i)).toBeVisible();
   await expect(page.getByText(/clinical fit/i)).toHaveCount(0);
