@@ -94,7 +94,8 @@ export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): D
   const score = calc.items.reduce((sum, item) => sum + itemScore(item, answers[item.id]), 0);
   const answeredCount = optionItems.filter((item) => answers[item.id] !== undefined).length;
   const checkedCount = checkboxItems.filter((item) => answers[item.id] === 1).length;
-  const complete = answeredCount === optionItems.length;
+  const checkboxAnsweredCount = checkboxItems.filter((item) => answers[item.id] !== undefined).length;
+  const complete = answeredCount === optionItems.length && checkboxAnsweredCount === checkboxItems.length;
   const started = Object.values(answers).some((value) => value !== undefined);
   const band = bandForScore(calc, score);
   const flags = calc.items
@@ -440,7 +441,9 @@ export function ResetButton({ onReset, disabled }: { onReset: () => void; disabl
 }
 
 export function progressLabel(state: DerivedCalculator): string {
-  if (state.optionItemCount === 0) return `${state.checkedCount} of ${state.checkboxItemCount} endorsed`;
+  if (state.optionItemCount === 0 && state.checkboxItemCount > 0) {
+    return `${state.checkedCount} of ${state.checkboxItemCount} endorsed`;
+  }
   return `${state.answeredCount} of ${state.optionItemCount} answered`;
 }
 

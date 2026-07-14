@@ -1,6 +1,6 @@
 "use client";
 
-import { Info, Stethoscope } from "lucide-react";
+import { AlertTriangle, Info, Stethoscope } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
@@ -40,7 +40,10 @@ function RailEntry({
       aria-current={active ? "true" : undefined}
       onClick={onSelect}
       className={cn(
-        "grid w-full min-h-tap grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-3 py-2 text-left transition",
+        "grid w-full min-h-tap items-center gap-2 rounded-lg border px-3 py-2 text-left transition",
+        derived.flags.length > 0
+          ? "grid-cols-[minmax(0,1fr)_auto_auto]"
+          : "grid-cols-[minmax(0,1fr)_auto]",
         active
           ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
           : "border-transparent hover:bg-[color:var(--surface-subtle)]",
@@ -72,6 +75,11 @@ function RailEntry({
           {calc.items.length} items
         </span>
       )}
+      {derived.flags.length > 0 ? (
+        <span className="grid size-6 shrink-0 place-items-center rounded-md bg-[color:var(--danger-soft)] text-[color:var(--danger)]">
+          <AlertTriangle className="size-icon-xs" aria-hidden="true" />
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -136,6 +144,9 @@ export function CalculatorsClinicalConsoleMockup() {
                       aria-hidden="true"
                       className={cn("inline-block h-2 w-2 rounded-full", toneBar[entryDerived.result.tone])}
                     />
+                  ) : null}
+                  {entryDerived.flags.length > 0 ? (
+                    <AlertTriangle className="size-icon-xs text-[color:var(--danger)]" aria-hidden="true" />
                   ) : null}
                 </button>
               );

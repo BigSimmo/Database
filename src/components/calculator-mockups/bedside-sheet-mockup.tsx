@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCheck, ChevronDown, ClipboardCopy, ClipboardList, NotebookPen } from "lucide-react";
+import { AlertTriangle, CheckCheck, ChevronDown, ClipboardCopy, ClipboardList, NotebookPen } from "lucide-react";
 import { useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
@@ -47,7 +47,10 @@ function SheetSection({
         aria-expanded={open}
         onClick={onToggleOpen}
         className={cn(
-          "grid w-full grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 rounded-lg p-3 text-left sm:p-4",
+          "grid w-full items-center gap-3 rounded-lg p-3 text-left sm:p-4",
+          derived.flags.length > 0
+            ? "grid-cols-[auto_minmax(0,1fr)_auto_auto_auto]"
+            : "grid-cols-[auto_minmax(0,1fr)_auto_auto]",
           focusRing,
         )}
       >
@@ -82,6 +85,14 @@ function SheetSection({
         ) : (
           <span className="text-2xs font-semibold text-[color:var(--text-soft)]">{calc.items.length} items</span>
         )}
+        {derived.flags.length > 0 ? (
+          <span
+            className="grid size-8 shrink-0 place-items-center rounded-md border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
+            title="Safety flag triggered"
+          >
+            <AlertTriangle className="size-icon-sm" aria-hidden="true" />
+          </span>
+        ) : null}
         <span
           className={cn(
             "grid size-8 shrink-0 place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-soft)] transition",
@@ -229,7 +240,10 @@ export function CalculatorsBedsideSheetMockup() {
                   key={calc.id}
                   href={`#sheet-${calc.id}`}
                   className={cn(
-                    "inline-flex min-h-9 shrink-0 items-center gap-2 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-2xs font-bold text-[color:var(--text-heading)]",
+                    "inline-flex min-h-9 shrink-0 items-center gap-2 rounded-md border px-2.5 text-2xs font-bold text-[color:var(--text-heading)]",
+                    derived.flags.length > 0
+                      ? "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]"
+                      : "border-[color:var(--border)] bg-[color:var(--surface)]",
                     focusRing,
                   )}
                 >
@@ -242,6 +256,9 @@ export function CalculatorsBedsideSheetMockup() {
                     {derived.score}/{calc.maxScore}
                   </span>
                   <span className="hidden text-[color:var(--text-muted)] sm:inline">{derived.result.label}</span>
+                  {derived.flags.length > 0 ? (
+                    <AlertTriangle className="size-icon-xs text-[color:var(--danger)]" aria-hidden="true" />
+                  ) : null}
                 </a>
               ))}
             </div>

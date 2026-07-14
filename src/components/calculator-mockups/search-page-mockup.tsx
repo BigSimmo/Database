@@ -650,6 +650,7 @@ export function CalculatorsSearchPageMockup() {
             footerHidden ? "translate-y-full" : "translate-y-0",
           )}
           aria-hidden={footerHidden}
+          inert={footerHidden || undefined}
         >
           <CalculatorComposer
             query={query}
