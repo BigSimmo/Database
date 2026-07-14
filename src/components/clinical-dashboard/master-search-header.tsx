@@ -276,7 +276,8 @@ export function MasterSearchHeader({
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
     selectedSearch.kind === "favourites" ||
-    selectedSearch.kind === "formulation";
+    selectedSearch.kind === "formulation" ||
+    selectedSearch.kind === "dsm";
   const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
   const indexedDocumentTotal = documentTotal ?? documents.length;
   const hasUnloadedDocuments = indexedDocumentTotal > documents.length;
@@ -617,8 +618,7 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "dsm-compare") {
-      onSearchModeChange("dsm");
-      onQueryChange(trimmedQuery || "major depressive disorder bipolar II disorder");
+      window.location.assign("/dsm/compare");
       return;
     }
     if (actionId === "dsm-criteria") {

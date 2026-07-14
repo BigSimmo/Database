@@ -36,6 +36,7 @@ import {
   ShieldCheck,
   Sparkles,
   Table2,
+  Tags,
   UploadCloud,
   Waypoints,
   Wrench,
