@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { ClipboardCheck, ExternalLink, Layers, ShieldAlert } from "lucide-react";
 
 import { type AnswerFeedbackType } from "@/lib/answer-feedback";
@@ -121,9 +121,10 @@ function StagedAnswerResultSurfaceImpl({
   const showEvidenceDrawer = renderModel.allowedBlocks.some((block) =>
     ["sourceStatus", "reviewSources", "evidenceMap", "quoteCards", "visualEvidence", "warnings"].includes(block),
   );
-  const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
-  const [evidenceOpen, setEvidenceOpen] = useState(false);
-  const [safetyFindingsOpen, setSafetyFindingsOpen] = useState(false);
+  const [activeReviewSheet, setActiveReviewSheet] = useState<"clinical-notes" | "evidence" | "safety" | null>(null);
+  const clinicalNotesOpen = activeReviewSheet === "clinical-notes";
+  const evidenceOpen = activeReviewSheet === "evidence";
+  const safetyFindingsOpen = activeReviewSheet === "safety";
   const [evidenceInitialTab, setEvidenceInitialTab] = useState<EvidenceTabName | null>(null);
   const [copiedQuotes, setCopiedQuotes] = useState(false);
   const clinicalNotesTriggerRef = useRef<HTMLButtonElement>(null);
@@ -136,50 +137,34 @@ function StagedAnswerResultSurfaceImpl({
     };
   }, []);
   function openClinicalNotes() {
-    setEvidenceOpen(false);
-    setSafetyFindingsOpen(false);
     setEvidenceInitialTab(null);
-    setClinicalNotesOpen(true);
-  }
-  function restoreFocusToTrigger(ref: RefObject<HTMLElement | null>) {
-    window.requestAnimationFrame(() => {
-      if (ref.current?.isConnected) ref.current.focus({ preventScroll: true });
-    });
+    setActiveReviewSheet("clinical-notes");
   }
   function closeClinicalNotesReview() {
-    setClinicalNotesOpen(false);
-    restoreFocusToTrigger(clinicalNotesTriggerRef);
+    setActiveReviewSheet(null);
   }
   function openEvidence(initialTab: EvidenceTabName | null = null) {
-    setClinicalNotesOpen(false);
-    setSafetyFindingsOpen(false);
     setEvidenceInitialTab(initialTab);
-    setEvidenceOpen(true);
+    setActiveReviewSheet("evidence");
   }
   function closeEvidenceReview() {
-    setEvidenceOpen(false);
+    setActiveReviewSheet(null);
     setEvidenceInitialTab(null);
-    restoreFocusToTrigger(evidenceTriggerRef);
   }
   function handleQuoteFollowUp(quote: QuoteCard) {
-    setEvidenceOpen(false);
+    setActiveReviewSheet(null);
     setEvidenceInitialTab(null);
     onFollowUpQuote?.(quote);
   }
   function openTableEvidence() {
-    setClinicalNotesOpen(false);
-    setSafetyFindingsOpen(false);
     openEvidence("Tables");
   }
   function openSafetyFindings() {
-    setClinicalNotesOpen(false);
-    setEvidenceOpen(false);
     setEvidenceInitialTab(null);
-    setSafetyFindingsOpen(true);
+    setActiveReviewSheet("safety");
   }
   function closeSafetyFindingsReview() {
-    setSafetyFindingsOpen(false);
-    restoreFocusToTrigger(safetyTriggerRef);
+    setActiveReviewSheet(null);
   }
   const copyQuotes = useCallback(async () => {
     const quoteText = formatQuoteCardsForClipboard(renderModel.quoteCards);

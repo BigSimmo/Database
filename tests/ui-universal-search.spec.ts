@@ -85,7 +85,7 @@ async function mockUniversalSearch(page: Page) {
       forms: ["forms"],
       favourites: [],
       differentials: ["differentials", "presentations"],
-      specifiers: ["specifiers"],
+      formulation: ["specifiers"],
       tools: ["tools"],
     };
     const preferredDomains = preferredByMode[mode] ?? [];

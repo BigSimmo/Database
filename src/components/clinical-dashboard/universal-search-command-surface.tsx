@@ -42,7 +42,7 @@ const domainsByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain[]>> =
   services: ["services"],
   forms: ["forms"],
   differentials: ["differentials", "presentations"],
-  specifiers: ["specifiers"],
+  formulation: ["specifiers"],
   tools: ["tools"],
 };
 
@@ -53,7 +53,7 @@ const domainHeadings: Record<UniversalSearchDomain, string> = {
   forms: "Forms",
   differentials: "Differentials",
   presentations: "Presentations",
-  specifiers: "Specifiers",
+  specifiers: "Formulation",
   tools: "Tools",
 };
 

@@ -119,12 +119,12 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     // prescribing, services, forms, and differentials.
     crossModes: ["documents", "prescribing", "services", "forms", "differentials"],
   },
-  specifiers: {
-    examples: ["with anxious distress", "post-birth onset", "winter recurrence"],
+  formulation: {
+    examples: ["avoidance after panic", "rumination after rejection", "dissociation under threat"],
     suggestions: [
-      { text: "with anxious distress", meta: "Episode feature" },
-      { text: "with peripartum onset", meta: "Course" },
-      { text: "with seasonal pattern", meta: "Course" },
+      { text: "avoidance after panic", meta: "Mechanism" },
+      { text: "rumination after rejection", meta: "Pattern" },
+      { text: "dissociation under threat", meta: "Clinical clue" },
     ],
     scopes: [],
     crossModes: ["differentials", "documents", "answer"],

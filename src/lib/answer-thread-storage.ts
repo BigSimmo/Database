@@ -116,9 +116,15 @@ export function savePersistedAnswerThread(ownerId: string, thread: PersistedAnsw
   }
 }
 
-export function clearPersistedAnswerThread() {
+export function clearPersistedAnswerThread(ownerId?: string) {
   if (typeof window === "undefined") return;
   try {
+    if (ownerId) {
+      window.sessionStorage.removeItem(scopedStorageKey(ownerId));
+      window.sessionStorage.removeItem(answerThreadStorageKey);
+      window.localStorage.removeItem(answerThreadStorageKey);
+      return;
+    }
     window.localStorage.removeItem(answerThreadStorageKey);
     for (let index = window.sessionStorage.length - 1; index >= 0; index -= 1) {
       const key = window.sessionStorage.key(index);

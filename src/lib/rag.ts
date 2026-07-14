@@ -154,6 +154,11 @@ import {
   hasDirectTitleSupport,
   shouldRetryWithStrongAfterFast,
 } from "@/lib/rag-routing";
+import {
+  answerRouteResultCanBeCached,
+  createAnswerRouteDeadline,
+  isAnswerRouteDeadlineExceeded,
+} from "@/lib/rag-route-budget";
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEvidence } from "@/lib/answer-ranking";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
@@ -3206,18 +3211,30 @@ async function answerQuestionWithScopeUncoalesced(
   }
 
   const searchStartedAt = Date.now();
-  const search = await searchChunksWithTelemetry({
-    query: args.query,
-    documentId: args.documentId,
-    documentIds: args.documentIds,
-    ownerId: args.ownerId,
-    allowGlobalSearch: args.allowGlobalSearch,
-    topK: 12,
-    minSimilarity: 0.12,
-    skipCache: args.skipCache,
-    queryMode: args.queryMode,
-    signal: args.signal,
+  const retrievalDeadline = createAnswerRouteDeadline({
+    routeMode: "strong",
+    callerSignal: args.signal,
+    startedAt,
   });
+  let search: Awaited<ReturnType<typeof searchChunksWithTelemetry>>;
+  try {
+    search = await retrievalDeadline.race(
+      searchChunksWithTelemetry({
+        query: args.query,
+        documentId: args.documentId,
+        documentIds: args.documentIds,
+        ownerId: args.ownerId,
+        allowGlobalSearch: args.allowGlobalSearch,
+        topK: 12,
+        minSimilarity: 0.12,
+        skipCache: args.skipCache,
+        queryMode: args.queryMode,
+        signal: retrievalDeadline.signal,
+      }),
+    );
+  } finally {
+    retrievalDeadline.dispose();
+  }
   const currentQueryClass = classifyRagQuery(answerFocusQuery).queryClass;
   const cachedQueryClass = search.telemetry.query_class ?? null;
   const queryClass =
@@ -3280,6 +3297,7 @@ async function answerQuestionWithScopeUncoalesced(
     results,
     ownerId: args.ownerId,
   });
+  const routingStartedAt = Date.now();
   const routeFromRouting = chooseAnswerRoute({
     query: answerFocusQuery,
     results: answerInputResults,
@@ -3406,6 +3424,7 @@ async function answerQuestionWithScopeUncoalesced(
       retrievalStrategy: search.telemetry.retrieval_strategy,
     });
   const smartApiPlan = buildCurrentSmartApiPlan();
+  const routingLatencyMs = Date.now() - routingStartedAt;
   const smartApiLogMetadata = (plan: SmartRagApiPlan) => ({
     smart_api_intent: plan.intent,
     smart_api_response_mode: plan.responseMode,
@@ -3445,8 +3464,32 @@ async function answerQuestionWithScopeUncoalesced(
     smartApiPlan,
   });
 
+  const routeDeadline = createAnswerRouteDeadline({
+    routeMode: route.mode,
+    callerSignal: args.signal,
+    startedAt,
+  });
+  const routeTimingDiagnostics = () => ({
+    retrieval_latency_ms: searchLatencyMs,
+    routing_latency_ms: routingLatencyMs,
+    route_budget_ms: routeDeadline.budgetMs,
+    route_deadline_exceeded: routeDeadline.deadlineExceeded,
+  });
+  const finalizeAnswer = (answer: RagAnswer, numericVerificationSources?: SearchResult[]) => {
+    const verificationStartedAt = Date.now();
+    const finalized = finalizeRagAnswerQuality(answer, args.query, queryClass, numericVerificationSources);
+    finalized.latencyTimings = {
+      ...answer.latencyTimings,
+      ...finalized.latencyTimings,
+      ...routeTimingDiagnostics(),
+      verification_latency_ms: Date.now() - verificationStartedAt,
+      total_latency_ms: Date.now() - startedAt,
+    };
+    return finalized;
+  };
+
   if (route.mode === "unsupported") {
-    const relatedDocuments = await relatedDocumentsPromise;
+    const relatedDocuments = await routeDeadline.race(relatedDocumentsPromise);
     const unsupportedWithNearbySources = results.length > 0;
     const answer: RagAnswer = annotateAnswerWithDiagnostics(
       {
@@ -3486,6 +3529,7 @@ async function answerQuestionWithScopeUncoalesced(
           context_pack_latency_ms: 0,
           search_latency_ms: searchLatencyMs,
           generation_latency_ms: 0,
+          ...routeTimingDiagnostics(),
           total_latency_ms: Date.now() - startedAt,
         },
         answerSections: [],
@@ -3510,7 +3554,7 @@ async function answerQuestionWithScopeUncoalesced(
       retrievalDiagnostics,
     );
 
-    const finalizedAnswer = finalizeRagAnswerQuality(answer, args.query, queryClass);
+    const finalizedAnswer = finalizeAnswer(answer);
 
     if (args.logQuery !== false)
       await logRagQuery({
@@ -3561,12 +3605,26 @@ async function answerQuestionWithScopeUncoalesced(
         },
       });
 
-    await setCachedAnswer(args, finalizedAnswer, { indexingVersionAtRetrievalStart });
+    if (answerRouteResultCanBeCached(routeDeadline))
+      await setCachedAnswer(args, finalizedAnswer, { indexingVersionAtRetrievalStart });
+    routeDeadline.dispose();
     return finalizedAnswer;
   }
 
   if (route.mode === "extractive") {
-    const relatedDocuments = await relatedDocumentsPromise;
+    let relatedDocuments: Awaited<typeof relatedDocumentsPromise> = [];
+    try {
+      relatedDocuments = await routeDeadline.race(relatedDocumentsPromise);
+    } catch (error) {
+      if (args.signal?.aborted) {
+        routeDeadline.dispose();
+        throw args.signal.reason ?? error;
+      }
+      if (!isAnswerRouteDeadlineExceeded(error)) {
+        routeDeadline.dispose();
+        throw error;
+      }
+    }
     const extractiveTimings: RagAnswer["latencyTimings"] = {
       search_cache_hit: search.telemetry.search_cache_hit,
       shared_cache_hit: search.telemetry.shared_cache_hit,
@@ -3590,6 +3648,7 @@ async function answerQuestionWithScopeUncoalesced(
       context_pack_latency_ms: 0,
       search_latency_ms: searchLatencyMs,
       generation_latency_ms: 0,
+      ...routeTimingDiagnostics(),
       total_latency_ms: Date.now() - startedAt,
     };
     const sourceSafeExtractiveAnswer = buildExtractiveAnswer({
@@ -3643,7 +3702,7 @@ async function answerQuestionWithScopeUncoalesced(
     answer.smartPanel = answer.smartPanel ? { ...answer.smartPanel, relevance } : answer.smartPanel;
     answer.smartApiPlan = smartApiPlan;
     answer.scoreExplanations = answerScoreExplanations;
-    let finalizedAnswer = finalizeRagAnswerQuality(answer, args.query, queryClass);
+    let finalizedAnswer = finalizeAnswer(answer);
     const extractiveReviewCitations = answer.citations.length
       ? answer.citations
       : compactCitations(answerInputResults, 5, "deterministic_support");
@@ -3651,23 +3710,19 @@ async function answerQuestionWithScopeUncoalesced(
     if (extractiveNeedsReviewFallback) {
       const reviewRouteReason = `${answer.routingReason ?? route.reason}; ${SOURCE_BACKED_REVIEW_FALLBACK_REASON}`;
       const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
-      finalizedAnswer = finalizeRagAnswerQuality(
-        {
-          ...answer,
-          answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
-          grounded: true,
-          confidence: deriveConfidence(answerInputResults, extractiveReviewCitations),
-          citations: extractiveReviewCitations,
-          modelUsed: null,
-          routingMode: "extractive",
-          routingReason: reviewRouteReason,
-          responseMode: reviewPlan.displayMode,
-          smartApiPlan: reviewPlan,
-          answerSections: [],
-        },
-        args.query,
-        queryClass,
-      );
+      finalizedAnswer = finalizeAnswer({
+        ...answer,
+        answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
+        grounded: true,
+        confidence: deriveConfidence(answerInputResults, extractiveReviewCitations),
+        citations: extractiveReviewCitations,
+        modelUsed: null,
+        routingMode: "extractive",
+        routingReason: reviewRouteReason,
+        responseMode: reviewPlan.displayMode,
+        smartApiPlan: reviewPlan,
+        answerSections: [],
+      });
     }
 
     if (args.logQuery !== false)
@@ -3719,7 +3774,9 @@ async function answerQuestionWithScopeUncoalesced(
         },
       });
 
-    await setCachedAnswer(args, finalizedAnswer, { indexingVersionAtRetrievalStart });
+    if (!routeDeadline.deadlineExceeded)
+      await setCachedAnswer(args, finalizedAnswer, { indexingVersionAtRetrievalStart });
+    routeDeadline.dispose();
     return finalizedAnswer;
   }
 
@@ -3867,7 +3924,9 @@ ${buildRagSourceBlock(contextResults, { query: answerFocusQuery, queryClass })}`
     }
 
     const contextPackStartedAt = Date.now();
-    const packed = await packAdjacentSourceContext(createAdminClient(), contextResults, queryClass, contextPackOptions);
+    const packed = await routeDeadline.race(
+      packAdjacentSourceContext(createAdminClient(), contextResults, queryClass, contextPackOptions),
+    );
     contextPackLatencyMs += Date.now() - contextPackStartedAt;
     packedContextCache.set(cacheKey, packed);
     return packed;
@@ -3891,21 +3950,23 @@ ${qualityRetryInstruction}`
       : buildAnswerInput(contextResults);
     const generationStartedAt = Date.now();
     try {
-      const result = await generateStructuredTextResult(input, answerJsonOutputSchemaForResults(contextResults), {
-        model,
-        maxOutputTokens: options?.maxOutputTokensOverride ?? env.OPENAI_MAX_OUTPUT_TOKENS,
-        operation: "answer",
-        schemaName: "clinical_rag_answer",
-        instructions: answerInstructions,
-        promptCacheKey: ragAnswerPromptVersion,
-        timeoutMs: env.OPENAI_ANSWER_TIMEOUT_MS,
-        maxRetries: 0,
-        reasoningEffort: useStrongReasoning
-          ? strongReasoningEffortForQueryClass(queryClass, env.OPENAI_STRONG_REASONING_EFFORT)
-          : env.OPENAI_FAST_REASONING_EFFORT,
-        signal: args.signal,
-        safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(args.ownerId) : undefined,
-      });
+      const result = await routeDeadline.race(
+        generateStructuredTextResult(input, answerJsonOutputSchemaForResults(contextResults), {
+          model,
+          maxOutputTokens: options?.maxOutputTokensOverride ?? env.OPENAI_MAX_OUTPUT_TOKENS,
+          operation: "answer",
+          schemaName: "clinical_rag_answer",
+          instructions: answerInstructions,
+          promptCacheKey: ragAnswerPromptVersion,
+          timeoutMs: routeDeadline.requestTimeoutMs(env.OPENAI_ANSWER_TIMEOUT_MS),
+          maxRetries: 0,
+          reasoningEffort: useStrongReasoning
+            ? strongReasoningEffortForQueryClass(queryClass, env.OPENAI_STRONG_REASONING_EFFORT)
+            : env.OPENAI_FAST_REASONING_EFFORT,
+          signal: routeDeadline.signal,
+          safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(args.ownerId) : undefined,
+        }),
+      );
       openAIUsage = addOpenAIUsage(openAIUsage, result.usage);
       if (result.requestId) openAIRequestIds.push(result.requestId);
       return result;
@@ -3968,7 +4029,7 @@ ${qualityRetryInstruction}`
     if (/\bmax_output_tokens\b/.test(normalized)) return "provider_incomplete_max_output_tokens";
     if (/\bincomplete\b/.test(normalized)) return "provider_incomplete";
     if (/\brate limit|rate_limited|429\b/.test(normalized)) return "provider_rate_limited";
-    if (/\btimeout|timed out|aborted|etimedout\b/.test(normalized)) return "provider_timeout";
+    if (/\btimeout|timed out|deadline|aborted|etimedout\b/.test(normalized)) return "provider_timeout";
     if (/\bauthentication|api key|unauthori[sz]ed|401|403\b/.test(normalized)) return "provider_auth_failed";
     if (/\bvalidation|quality gate|schema|parse|json\b/.test(normalized)) return "generation_quality_failed";
     if (/\bopenai|provider|model\b/.test(normalized)) return "provider_generation_failed";
@@ -4041,6 +4102,7 @@ ${qualityRetryInstruction}`
         answer_retry_reasons: [...answerRetryReasons],
         search_latency_ms: searchLatencyMs,
         generation_latency_ms: generationLatencyMs,
+        ...routeTimingDiagnostics(),
         total_latency_ms: Date.now() - startedAt,
       },
       answerSections: [],
@@ -4268,7 +4330,7 @@ ${qualityRetryInstruction}`
     }
     await args.onProgress?.({ stage: "verifying", message: "Checking citations and source metadata." });
 
-    const relatedDocuments = await relatedDocumentsPromise;
+    const relatedDocuments = await routeDeadline.race(relatedDocumentsPromise);
     const answerTimings = {
       search_cache_hit: search.telemetry.search_cache_hit,
       shared_cache_hit: search.telemetry.shared_cache_hit,
@@ -4295,6 +4357,7 @@ ${qualityRetryInstruction}`
       answer_retry_reasons: [...answerRetryReasons],
       search_latency_ms: searchLatencyMs,
       generation_latency_ms: generationLatencyMs,
+      ...routeTimingDiagnostics(),
       total_latency_ms: Date.now() - startedAt,
     };
 
@@ -4364,7 +4427,7 @@ ${qualityRetryInstruction}`
       ...retrievalDiagnostics,
       routeMode: answer.routingMode ?? retrievalDiagnostics.routeMode,
     });
-    answer = finalizeRagAnswerQuality(answer, args.query, queryClass, numericVerificationSources);
+    answer = finalizeAnswer(answer, numericVerificationSources);
 
     // A provider response can be schema-valid yet still fail the deterministic claim/numeric
     // provenance gates after its citations are scoped to individual claims. Reuse the existing
@@ -4445,11 +4508,32 @@ ${qualityRetryInstruction}`
         },
       });
 
-    await setCachedAnswer(args, answer, { indexingVersionAtRetrievalStart });
+    if (answerRouteResultCanBeCached(routeDeadline))
+      await setCachedAnswer(args, answer, { indexingVersionAtRetrievalStart });
+    routeDeadline.dispose();
     return answer;
   } catch (error) {
-    if ((error instanceof DOMException && error.name === "AbortError") || args.signal?.aborted) throw error;
-    const relatedDocuments = await relatedDocumentsPromise;
+    if (args.signal?.aborted) {
+      routeDeadline.dispose();
+      throw args.signal.reason ?? error;
+    }
+    if (error instanceof DOMException && error.name === "AbortError" && !routeDeadline.deadlineExceeded) {
+      routeDeadline.dispose();
+      throw error;
+    }
+    let relatedDocuments: Awaited<typeof relatedDocumentsPromise> = [];
+    try {
+      relatedDocuments = await routeDeadline.race(relatedDocumentsPromise);
+    } catch (relatedDocumentsError) {
+      if (args.signal?.aborted) {
+        routeDeadline.dispose();
+        throw args.signal.reason ?? relatedDocumentsError;
+      }
+      if (!isAnswerRouteDeadlineExceeded(relatedDocumentsError)) {
+        routeDeadline.dispose();
+        throw relatedDocumentsError;
+      }
+    }
     const generationFallbackArtifacts = buildContextDerivedArtifacts(answerFocusQuery, generationFallbackResults);
     const generationFallbackSelectionSummary = summarizeAustralianSourceSelection(
       answerInputResults,
@@ -4633,7 +4717,7 @@ ${qualityRetryInstruction}`
               SOURCE_BACKED_REVIEW_FALLBACK_REASON,
               `extractive_quality_gate:${sourceBackedReviewReason}`,
             ].join("; ");
-            const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
+            const reviewPlan = buildCurrentSmartApiPlan("unsupported", reviewRouteReason);
             return {
               ...baseFallbackAnswer,
               answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
@@ -4650,11 +4734,7 @@ ${qualityRetryInstruction}`
             } satisfies RagAnswer;
           })()
         : (extractiveFallbackAnswer ?? baseFallbackAnswer);
-    let fallbackAnswer = finalizeRagAnswerQuality(
-      annotateAnswerWithDiagnostics(generationFallbackAnswer, retrievalDiagnostics),
-      args.query,
-      queryClass,
-    );
+    let fallbackAnswer = finalizeAnswer(annotateAnswerWithDiagnostics(generationFallbackAnswer, retrievalDiagnostics));
     const finalizedFallbackNeedsReview =
       fallbackAnswer.responseMode === "evidence_gap" &&
       /(?:claim_support_high_risk_gap|material_source_governance_gap)/.test(fallbackAnswer.routingReason ?? "") &&
@@ -4667,7 +4747,7 @@ ${qualityRetryInstruction}`
         "post_generation_claim_quality_gate",
       ].join("; ");
       const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
-      fallbackAnswer = finalizeRagAnswerQuality(
+      fallbackAnswer = finalizeAnswer(
         annotateAnswerWithDiagnostics(
           {
             ...baseFallbackAnswer,
@@ -4686,8 +4766,6 @@ ${qualityRetryInstruction}`
           },
           retrievalDiagnostics,
         ),
-        args.query,
-        queryClass,
       );
     }
     await args.onProgress?.({ stage: "verifying", message: "Checking citations and source metadata." });
@@ -4757,9 +4835,10 @@ ${qualityRetryInstruction}`
         },
       });
 
-    if (isCacheableGroundedGenerationFallback(fallbackAnswer)) {
+    if (isCacheableGroundedGenerationFallback(fallbackAnswer) && !routeDeadline.deadlineExceeded) {
       await setCachedAnswer(args, fallbackAnswer, { indexingVersionAtRetrievalStart });
     }
+    routeDeadline.dispose();
     return fallbackAnswer;
   }
 }

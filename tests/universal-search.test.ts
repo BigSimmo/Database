@@ -42,14 +42,14 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
     expect(tools?.items.some((item) => item.id === "forms")).toBe(true);
     expect(forms?.items.every((item) => item.href.startsWith("/forms/"))).toBe(true);
 
-    const specifierResponse = await runUniversalSearch({
-      query: "with anxious distress",
+    const formulationResponse = await runUniversalSearch({
+      query: "avoidance",
       limitPerDomain: 5,
       demo: true,
     });
-    const specifiers = specifierResponse.groups.find((group) => group.kind === "specifiers");
-    expect(specifiers?.items[0]?.title).toBe("With anxious distress");
-    expect(specifiers?.items[0]?.href).toBe("/specifiers/with-anxious-distress");
+    const formulation = formulationResponse.groups.find((group) => group.kind === "specifiers");
+    expect(formulation?.items[0]?.title).toBe("Avoidance");
+    expect(formulation?.items[0]?.href).toBe("/formulation/avoidance");
   });
 
   it("filters to requested domains only", async () => {
@@ -258,7 +258,7 @@ describe("runUniversalSearch (query intelligence & ranking)", () => {
   it("leads normal groups with the active mode but still allows an exact external Best match", async () => {
     const { runUniversalSearch } = await loadUniversalSearch();
     const response = await runUniversalSearch({
-      query: "with anxious distress",
+      query: "avoidance",
       limitPerDomain: 5,
       contextMode: "documents",
       demo: true,
@@ -268,7 +268,7 @@ describe("runUniversalSearch (query intelligence & ranking)", () => {
     expect(response.preferredDomains).toEqual(["documents"]);
     expect(response.domainOrder?.[0]).toBe("documents");
     expect(response.topHit?.kind).toBe("specifiers");
-    expect(response.topHit?.title).toBe("With anxious distress");
+    expect(response.topHit?.title).toBe("Avoidance");
   });
 
   it("typo-corrects the base query so a misspelled drug still finds the record", async () => {

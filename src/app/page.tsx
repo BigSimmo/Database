@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
 import { HomePageClient } from "@/app/home-page-client";
 import { isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
@@ -17,8 +18,14 @@ function firstSearchParam(value: string | string[] | undefined) {
 }
 
 export default async function Home({ searchParams }: HomeProps) {
+  // The dashboard reads and updates the query string throughout its client
+  // lifecycle. Render it for the incoming request so `useSearchParams()` is
+  // available during the initial server render instead of leaving the entire
+  // interactive shell behind a hydration-only Suspense fallback.
+  await connection();
   const params = searchParams ? await searchParams : {};
   const requestedMode = firstSearchParam(params.mode);
+  const legacySpecifierMode = requestedMode === "specifiers";
   const initialSearchMode: AppModeId =
     isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
 
@@ -44,14 +51,14 @@ export default async function Home({ searchParams }: HomeProps) {
     redirect(suffix ? `/differentials?${suffix}` : "/differentials");
   }
 
-  if (initialSearchMode === "specifiers") {
-    const specifierParams = new URLSearchParams();
+  if (initialSearchMode === "formulation" || legacySpecifierMode) {
+    const formulationParams = new URLSearchParams();
     const query = firstSearchParam(params.q)?.trim();
-    if (query) specifierParams.set("q", query);
-    if (firstSearchParam(params.focus) === "1") specifierParams.set("focus", "1");
-    if (firstSearchParam(params.run) === "1") specifierParams.set("run", "1");
-    const suffix = specifierParams.toString();
-    redirect(suffix ? `/specifiers?${suffix}` : "/specifiers");
+    if (query) formulationParams.set("q", query);
+    if (firstSearchParam(params.focus) === "1") formulationParams.set("focus", "1");
+    if (firstSearchParam(params.run) === "1") formulationParams.set("run", "1");
+    const suffix = formulationParams.toString();
+    redirect(suffix ? `/formulation?${suffix}` : "/formulation");
   }
 
   return <HomePageClient initialMode={initialSearchMode} />;

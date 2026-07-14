@@ -5,6 +5,7 @@ import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
 import { formRecords } from "../src/lib/forms";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
+import { scrollPrimarySurface } from "./playwright-scroll";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -971,23 +972,23 @@ test.describe("Clinical KB tools launcher", () => {
       }
     });
 
-    const scroller = page.locator("#main-content");
-    // Step scroll down so the shell's scroll reporter sees deliberate movement.
-    for (const offset of [40, 80, 120, 160, 200]) {
-      await scroller.evaluate((node, top) => {
-        node.scrollTop = top;
-        node.dispatchEvent(new Event("scroll", { bubbles: true }));
-      }, offset);
-    }
-    await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
+    // Treat the deliberate scroll and its resulting UI state as one retriable
+    // action. Firefox/WebKit can finish the focus=1 hydration effect after the
+    // first scripted blur/scroll, which legitimately keeps the dock visible.
+    await expect(async () => {
+      await input.blur();
+      await expect(input).not.toBeFocused({ timeout: 1_000 });
+      await scrollPrimarySurface(page, 0);
+      for (const offset of [40, 80, 120, 160, 200]) {
+        await scrollPrimarySurface(page, offset);
+      }
+      await expect(dock).toHaveAttribute("data-scroll-hidden", "true", { timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
     await expect
       .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform !== "none"))
       .toBe(true);
 
-    await scroller.evaluate((node) => {
-      node.scrollTop = 60;
-      node.dispatchEvent(new Event("scroll", { bubbles: true }));
-    });
+    await scrollPrimarySurface(page, 60);
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect
       .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform === "none"))

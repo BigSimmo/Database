@@ -8,58 +8,59 @@ import {
   ChevronRight,
   GitCompareArrows,
   ListChecks,
+  Network,
   Search,
   ShieldCheck,
-  Tags,
   Waypoints,
 } from "lucide-react";
 
-import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import {
-  DiagnosisChips,
-  SpecifierBreadcrumbs,
-  SpecifierFamilyBadge,
-  SpecifierPageShell,
-  SpecifierSafetyNote,
-  SpecifierSubnav,
-  specifierCard,
-} from "@/components/specifiers/specifier-ui";
+  FormulationBreadcrumbs,
+  FormulationPageShell,
+  FormulationSafetyNote,
+  FormulationSubnav,
+  MechanismDomainChips,
+  formulationCard,
+} from "@/components/formulation/formulation-ui";
+import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
+import {
+  formulationDomains,
+  formulationSearchPresets,
+  formulationTemplates,
+  searchFormulationMechanisms,
+} from "@/lib/formulation";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { searchSpecifiers, specifierFamilies, specifierSearchPresets, type SpecifierFamily } from "@/lib/specifiers";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
-const diagnosisOptions = [
-  { value: "", label: "All diagnoses" },
-  { value: "depressive", label: "Depressive" },
-  { value: "bipolar", label: "Bipolar" },
-  { value: "psychotic", label: "Psychotic" },
-  { value: "mood", label: "Mood episodes" },
-];
-
 function presetHref(query: string) {
-  return appModeHomeHref("specifiers", { query, run: true, focus: true });
+  return appModeHomeHref("formulation", { query, run: true, focus: true });
 }
 
-function SpecifierPathwayStrip() {
+function builderTemplateHref(templateId: string) {
+  const params = new URLSearchParams({ template: templateId });
+  return `/formulation/builder?${params.toString()}`;
+}
+
+function FormulationThreadStrip() {
   const steps = [
-    { label: "Diagnosis", body: "Name the disorder" },
-    { label: "Episode features", body: "Describe what is present now" },
-    { label: "Course and onset", body: "Place the episode in time" },
-    { label: "Severity or remission", body: "State current burden and recovery" },
+    { label: "Notice", body: "Presenting patterns and patient language" },
+    { label: "Hypothesise", body: "Mechanisms that may explain the pattern" },
+    { label: "Test", body: "Fit, alternatives, and disconfirming evidence" },
+    { label: "Act", body: "Treatment leverage and review points" },
   ];
 
   return (
     <section
-      aria-labelledby="specifier-pathway-title"
+      aria-labelledby="formulation-thread-title"
       className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-left shadow-[var(--shadow-inset)]"
     >
       <div className="flex items-center justify-between gap-3 border-b border-[color:var(--border)] px-4 py-2.5">
         <div>
-          <p className={eyebrowText}>Specifier pathway</p>
-          <h2 id="specifier-pathway-title" className="mt-0.5 text-sm font-extrabold text-[color:var(--text-heading)]">
-            Build diagnostic wording in clinical order
+          <p className={eyebrowText}>Formulation thread</p>
+          <h2 id="formulation-thread-title" className="mt-0.5 text-sm font-extrabold text-[color:var(--text-heading)]">
+            Carry evidence through to an actionable hypothesis
           </h2>
         </div>
         <Waypoints className="h-5 w-5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
@@ -91,58 +92,58 @@ function SpecifierPathwayStrip() {
   );
 }
 
-function SpecifiersHome() {
+function FormulationHome() {
   return (
-    <ModeHomeMain testId="specifiers-home" className="justify-start sm:justify-center">
+    <ModeHomeMain testId="formulation-home" className="justify-start sm:justify-center">
       <ModeHomeTemplate
-        testId="specifiers"
-        title="Refine the diagnosis with the right specifier"
-        subtitle="Describe the presentation in ordinary clinical language, then check fit, exclusions, and diagnostic wording."
-        icon={Tags}
-        actionsLabel="Specifier workflows"
+        testId="formulation"
+        title="How can I help with the formulation?"
+        subtitle="Search mechanisms, compare alternatives, or build a structured clinical formulation from the evidence in front of you."
+        icon={Network}
+        actionsLabel="Formulation workflows"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actions={[
           {
-            title: "Find a specifier",
-            description: "Match a presentation or diagnosis.",
+            title: "Search mechanisms",
+            description: "Translate patient language into testable hypotheses.",
             icon: Search,
-            href: "/specifiers?focus=1",
+            href: "/formulation?focus=1",
           },
           {
-            title: "Build diagnostic wording",
-            description: "Assemble a clear, ordered diagnosis.",
+            title: "Build a formulation",
+            description: "Move from mechanisms to a structured draft.",
             icon: ListChecks,
-            href: "/specifiers/builder",
+            href: "/formulation/builder",
           },
           {
-            title: "Compare close calls",
-            description: "See the deciding features side by side.",
+            title: "Compare mechanisms",
+            description: "Clarify close alternatives side by side.",
             icon: GitCompareArrows,
-            href: "/specifiers/compare",
+            href: "/formulation/compare",
           },
         ]}
-        pillsTitle="Common clinical starts"
-        pills={specifierSearchPresets.map((preset) => ({
-          label: preset.label,
-          href: presetHref(preset.query),
-          icon: Tags,
+        pillsTitle="Frameworks"
+        pills={formulationTemplates.slice(0, 5).map((template) => ({
+          label: template.label,
+          href: builderTemplateHref(template.id),
+          icon: Network,
         }))}
         pillsAction={
           <Link
-            href="/specifiers/map"
+            href="/formulation/map"
             className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-9"
           >
-            Browse map
+            Mechanism map
             <ChevronRight className="h-3.5 w-3.5" aria-hidden />
           </Link>
         }
         footer={
           <div className="grid gap-3">
-            <SpecifierPathwayStrip />
+            <FormulationThreadStrip />
             <ModeHomeVerificationFooter
               icon={ShieldCheck}
-              label="Diagnostic decision support"
-              body="Review criteria and exclusions before documenting"
+              label="Hypothesis-led decision support"
+              body="Check fit, alternatives, risk, and context before using a draft"
             />
           </div>
         }
@@ -153,19 +154,19 @@ function SpecifiersHome() {
 
 function EmptySearchResults({ query }: { query: string }) {
   return (
-    <div className={cn(specifierCard, "grid justify-items-center gap-3 px-5 py-12 text-center")}>
+    <div className={cn(formulationCard, "grid justify-items-center gap-3 px-5 py-12 text-center")}>
       <span className="grid h-12 w-12 place-items-center rounded-xl bg-[color:var(--surface-subtle)] text-[color:var(--text-soft)]">
         <Search className="h-6 w-6" aria-hidden />
       </span>
       <div className="grid gap-1">
-        <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">No strong match for “{query}”</h2>
+        <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">No mechanism matched “{query}”</h2>
         <p className="max-w-xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-          Try the episode pattern, timing, patient language, or the base diagnosis. For example: “depressed but racing
-          thoughts” or “returns every winter”.
+          Try a patient phrase, sequence, coping response, or clinical clue—for example “I keep going over it” or “I was
+          not really there”.
         </p>
       </div>
       <Link
-        href="/specifiers"
+        href="/formulation"
         className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
       >
         Clear search
@@ -174,27 +175,26 @@ function EmptySearchResults({ query }: { query: string }) {
   );
 }
 
-function SpecifierResults({ query }: { query: string }) {
-  const [family, setFamily] = useState<"all" | SpecifierFamily>("all");
-  const [diagnosis, setDiagnosis] = useState("");
-  const results = useMemo(() => searchSpecifiers(query, { family, diagnosis }), [diagnosis, family, query]);
+function FormulationResults({ query }: { query: string }) {
+  const [domain, setDomain] = useState("all");
+  const results = useMemo(() => searchFormulationMechanisms(query, { domain }), [domain, query]);
 
   return (
-    <SpecifierPageShell>
+    <FormulationPageShell>
       <div className="grid gap-3">
-        <SpecifierBreadcrumbs />
-        <SpecifierSubnav active="search" />
+        <FormulationBreadcrumbs />
+        <FormulationSubnav active="search" />
       </div>
 
       <header className="grid gap-2 border-b border-[color:var(--border)] pb-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <div className="grid gap-1.5">
-          <p className={eyebrowText}>Specifier search</p>
+          <p className={eyebrowText}>Mechanism search</p>
           <h1 className="text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
-            Matches for “{query}”
+            Mechanisms matching “{query}”
           </h1>
           <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            Results prioritise clinical fit, episode timing, and patient language. Open a result to check exclusions and
-            wording.
+            Matches use patient language, clinical clues, domains, symptoms, and formulation context. Open a mechanism
+            to test fit and competing explanations.
           </p>
         </div>
         <p className="nums text-sm font-bold text-[color:var(--text-muted)]" aria-live="polite">
@@ -202,44 +202,34 @@ function SpecifierResults({ query }: { query: string }) {
         </p>
       </header>
 
-      <UniversalSearchAlsoMatches modeId="specifiers" query={query} />
+      <UniversalSearchAlsoMatches modeId="formulation" query={query} />
 
       <section
-        aria-label="Filter specifier results"
-        className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_13rem] sm:items-center"
+        aria-label="Filter mechanism results"
+        className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_16rem] sm:items-center"
       >
-        <div className="polished-scroll flex gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]">
-          {specifierFamilies.map((option) => {
-            const active = family === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setFamily(option.id)}
-                aria-pressed={active}
-                className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center rounded-md px-3 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm",
-                  active
-                    ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
-                )}
-              >
-                <span className="sm:hidden">{option.shortLabel}</span>
-                <span className="hidden sm:inline">{option.label}</span>
-              </button>
-            );
-          })}
+        <div className="polished-scroll flex gap-2 overflow-x-auto">
+          {formulationSearchPresets.slice(0, 4).map((preset) => (
+            <Link
+              key={preset.label}
+              href={presetHref(preset.query)}
+              className="inline-flex min-h-9 shrink-0 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-muted)] hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
+            >
+              {preset.label}
+            </Link>
+          ))}
         </div>
         <label className="grid gap-1">
-          <span className="sr-only">Filter by diagnosis</span>
+          <span className="sr-only">Filter by formulation domain</span>
           <select
-            value={diagnosis}
-            onChange={(event) => setDiagnosis(event.target.value)}
+            value={domain}
+            onChange={(event) => setDomain(event.target.value)}
             className="min-h-tap rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
           >
-            {diagnosisOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            <option value="all">All formulation domains</option>
+            {formulationDomains.map((item) => (
+              <option key={item} value={item}>
+                {item}
               </option>
             ))}
           </select>
@@ -249,51 +239,50 @@ function SpecifierResults({ query }: { query: string }) {
       {results.length === 0 ? (
         <EmptySearchResults query={query} />
       ) : (
-        <section aria-label="Specifier matches" className="grid gap-3">
-          {results.map(({ record }, index) => (
+        <section aria-label="Mechanism matches" className="grid gap-3">
+          {results.map(({ mechanism }, index) => (
             <article
-              key={record.slug}
+              key={mechanism.id}
               className={cn(
-                specifierCard,
+                formulationCard,
                 "group overflow-hidden transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
                 index === 0 && "border-l-[3px] border-l-[color:var(--clinical-accent)]",
               )}
             >
-              <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,0.62fr)_auto] sm:items-center sm:p-5">
+              <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(14rem,0.58fr)_auto] sm:items-center sm:p-5">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <Link
-                      href={`/specifiers/${record.slug}`}
+                      href={`/formulation/${mechanism.id}`}
                       className="text-lg font-extrabold text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)] sm:text-xl"
                     >
-                      {record.name}
+                      {mechanism.name}
                     </Link>
                     {index === 0 ? (
                       <span className="inline-flex min-h-6 items-center gap-1 rounded-full bg-[color:var(--success-soft)] px-2 text-2xs font-extrabold text-[color:var(--success)]">
                         <CheckCircle2 className="h-3 w-3" aria-hidden />
-                        Best fit
+                        Closest text match
                       </span>
                     ) : null}
                   </div>
                   <p className="mt-1 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                    {record.summary}
+                    {mechanism.summary}
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <SpecifierFamilyBadge record={record} />
-                    <DiagnosisChips values={record.appliesTo.slice(0, 2)} />
+                  <div className="mt-3">
+                    <MechanismDomainChips values={mechanism.domains} limit={3} />
                   </div>
                 </div>
 
                 <div className="grid gap-2 border-t border-[color:var(--border)] pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
-                  <p className={eyebrowText}>Deciding signal</p>
+                  <p className={eyebrowText}>Look for</p>
                   <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
-                    {record.clinicalSignal}
+                    {mechanism.clinicalClues[0]}
                   </p>
                 </div>
 
                 <Link
-                  href={`/specifiers/${record.slug}`}
-                  aria-label={`Open ${record.name}`}
+                  href={`/formulation/${mechanism.id}`}
+                  aria-label={`Open ${mechanism.name}`}
                   className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 text-sm font-bold text-[color:var(--text)] transition hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-tap sm:px-0"
                 >
                   <span className="sm:sr-only">Open</span>
@@ -305,15 +294,15 @@ function SpecifierResults({ query }: { query: string }) {
               </div>
               <div className="grid border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)]/55 sm:grid-cols-2">
                 <div className="px-4 py-3 sm:px-5">
-                  <p className={eyebrowText}>Ask this</p>
+                  <p className={eyebrowText}>Patient language</p>
                   <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    {record.decisionQuestion}
+                    “{mechanism.patientPhrases[0]}”
                   </p>
                 </div>
                 <div className="border-t border-[color:var(--border)] px-4 py-3 sm:border-l sm:border-t-0 sm:px-5">
-                  <p className={eyebrowText}>Typical language</p>
+                  <p className={eyebrowText}>Formulation use</p>
                   <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    “{record.patientLanguage[0]}”
+                    {mechanism.formulationUse}
                   </p>
                 </div>
               </div>
@@ -322,13 +311,19 @@ function SpecifierResults({ query }: { query: string }) {
         </section>
       )}
 
-      <SpecifierSafetyNote />
-    </SpecifierPageShell>
+      <FormulationSafetyNote />
+    </FormulationPageShell>
   );
 }
 
-export function SpecifiersHomePage({ query = "", autoRunSearch = false }: { query?: string; autoRunSearch?: boolean }) {
+export function FormulationHomePage({
+  query = "",
+  autoRunSearch = false,
+}: {
+  query?: string;
+  autoRunSearch?: boolean;
+}) {
   const trimmedQuery = query.trim();
-  if (!autoRunSearch || !trimmedQuery) return <SpecifiersHome />;
-  return <SpecifierResults query={trimmedQuery} />;
+  if (!autoRunSearch || !trimmedQuery) return <FormulationHome />;
+  return <FormulationResults query={trimmedQuery} />;
 }

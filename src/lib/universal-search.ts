@@ -18,7 +18,7 @@ import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { rowToServiceRecord } from "@/lib/registry-records";
 import { fetchOwnerRegistryRowsWithSeed } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
-import { searchSpecifiers } from "@/lib/specifiers";
+import { searchFormulationMechanisms } from "@/lib/formulation";
 import { rankToolRecords } from "@/lib/tools-catalog";
 import type { ClinicalQueryAnalysis, SearchResult } from "@/lib/types";
 import { universalSearchDomains, type UniversalSearchDomain } from "@/lib/universal-search-domains";
@@ -257,17 +257,17 @@ async function searchToolsDomain(args: ResolvedSearchArgs): Promise<UniversalSea
 }
 
 async function searchSpecifiersDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  return searchSpecifiers(args.baseQuery)
+  return searchFormulationMechanisms(args.baseQuery)
     .slice(0, args.limitPerDomain)
-    .map(({ record, score }) => ({
-      id: record.slug,
+    .map(({ mechanism, score }) => ({
+      id: mechanism.id,
       kind: "specifiers" as const,
-      title: record.name,
-      subtitle: record.summary,
-      href: `/specifiers/${record.slug}`,
+      title: mechanism.name,
+      subtitle: mechanism.summary,
+      href: `/formulation/${mechanism.id}`,
       score,
-      badge: record.familyLabel,
-      meta: record.appliesTo.slice(0, 2).join(" · ") || undefined,
+      badge: mechanism.domains[0],
+      meta: mechanism.diagnosticContexts.slice(0, 2).join(" · ") || undefined,
     }));
 }
 
@@ -561,7 +561,7 @@ export function universalSearchViewAllHref(domain: UniversalSearchDomain, query:
     case "presentations":
       return `/differentials?q=${encodeURIComponent(query)}&run=1`;
     case "specifiers":
-      return `/specifiers?q=${encodeURIComponent(query)}&run=1`;
+      return `/formulation?q=${encodeURIComponent(query)}&run=1`;
     case "tools":
       return `/?mode=tools&q=${encodeURIComponent(query)}&run=1`;
   }
