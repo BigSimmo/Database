@@ -9,7 +9,7 @@
 
 import searchIndex from "../../data/specifiers-search-index.json";
 
-import { rankCatalogRecords } from "@/lib/catalog-search";
+import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 
 export type SpecifierSourceStatus = "source-verified" | "source-needs-formal-review" | "source-not-applicable";
 export type SpecifierDefinitionStatus = "defined" | "obvious-no-definition" | "needs-manual-or-clinician-verification";
@@ -109,16 +109,21 @@ export function searchSpecifierCatalog(query: string, filters: SpecifierCatalogF
       .map((item) => ({ item, score: 0 }));
   }
 
+  // The ranker compares its bonuses against a lowercased/normalized query, so the
+  // field, full-text, exact, and prefix haystacks must be normalized the same way
+  // (mirroring the other catalog callers) — otherwise a lowercase query like "mild"
+  // misses the exact/prefix/phrase bonuses on a capitalized "Mild" label.
   return rankCatalogRecords(items, trimmed, {
     fields: [
-      { id: "label", weight: 9, text: (item) => item.label },
-      { id: "disorder", weight: 5, text: (item) => item.disorder },
-      { id: "category", weight: 2, text: (item) => item.category },
-      { id: "group", weight: 2, text: (item) => item.group },
+      { id: "label", weight: 9, text: (item) => normalizeSearchText(item.label) },
+      { id: "disorder", weight: 5, text: (item) => normalizeSearchText(item.disorder) },
+      { id: "category", weight: 2, text: (item) => normalizeSearchText(item.category) },
+      { id: "group", weight: 2, text: (item) => normalizeSearchText(item.group) },
     ],
-    fullText: (item) => `${item.label} ${item.disorder} ${item.category} ${item.group} ${item.meaning}`,
-    exactValues: (item) => [item.label],
-    prefixValues: (item) => [item.label],
+    fullText: (item) =>
+      normalizeSearchText(`${item.label} ${item.disorder} ${item.category} ${item.group} ${item.meaning}`),
+    exactValues: (item) => [normalizeSearchText(item.label)],
+    prefixValues: (item) => [normalizeSearchText(item.label)],
     prefixBonus: 3,
     phraseBonus: 5,
   }).map(({ record, score }) => ({ item: record, score }));

@@ -151,4 +151,13 @@ describe("searchSpecifierCatalog", () => {
     expect(results.length).toBe(specifierVerifiedCount);
     expect(results.every((result) => result.item.src === "source-verified")).toBe(true);
   });
+
+  it("ranks an exact label match above incidental substring matches (case-insensitive)", () => {
+    // A lowercase "mild" query must reward an exact "Mild" label (via the exact /
+    // prefix / phrase bonuses) over rows that merely contain "mild" inside a
+    // parenthetical severity range — which requires normalizing the haystacks.
+    const results = searchSpecifierCatalog("mild");
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].item.label.toLowerCase()).toBe("mild");
+  });
 });
