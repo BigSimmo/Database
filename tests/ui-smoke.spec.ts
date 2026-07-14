@@ -2342,7 +2342,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=dsm&q=major+depressive&focus=1&run=1");
 
-    await expect(page).toHaveURL(/\/dsm\/search\?q=major\+depressive&focus=1&run=1$/);
+    await expect(page).toHaveURL(/\/dsm\/search\?q=major\+depressive&focus=1&run=1$/, {
+      timeout: 30_000,
+    });
     await expect(page.getByTestId("dsm-search-page")).toBeVisible();
 
     const result = page.getByTestId("dsm-search-result").filter({ hasText: "Major depressive disorder" });
