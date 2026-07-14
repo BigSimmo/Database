@@ -10,7 +10,6 @@ import { dsmDiagnoses } from "@/lib/dsm";
 import { formulationMechanisms } from "@/lib/formulation";
 import { formRecords } from "@/lib/forms";
 import { serviceRecords } from "@/lib/services";
-import { specifierRecords } from "@/lib/specifiers";
 
 const appDir = path.join(process.cwd(), "src", "app");
 const siteMapPath = path.join(process.cwd(), "docs", "site-map.md");
@@ -105,7 +104,7 @@ const routeOwnershipRows = [
   ["Favourites", "src/app/favourites, src/components/clinical-dashboard/favourites-command-library-page.tsx"],
   ["Differentials", "src/app/differentials, src/lib/differentials.ts"],
   ["DSM-5 Diagnosis", "src/app/dsm, src/components/dsm, src/lib/dsm.ts"],
-  ["Specifiers", "src/app/specifiers, src/components/specifiers, src/lib/specifiers.ts"],
+  ["Specifiers", "src/app/specifiers (compatibility redirects to Formulation)"],
   ["Formulation", "src/app/formulation, src/components/formulation, src/lib/formulation.ts"],
   ["Medications", "src/app/medications, src/components/clinical-dashboard/medication-prescribing-workspace.tsx"],
   ["Documents", "src/app/documents, src/lib/document-flow-routes.ts"],
@@ -413,12 +412,6 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "Formulation mechanism slugs",
         "/formulation/[slug]",
         formulationMechanisms.map((mechanism) => mechanism.id),
-      ),
-      "",
-      ...renderSlugInventory(
-        "Psychiatric specifier slugs",
-        "/specifiers/[slug]",
-        specifierRecords.map((record) => record.slug),
       ),
       "",
       ...renderSlugInventory("Medication slugs", "/medications/[slug]", medicationSlugs),
