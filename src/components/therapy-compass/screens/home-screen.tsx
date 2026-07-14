@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { useTcBindings } from "../bindings";
 import { commandControl, linkButton } from "../controls";
@@ -215,7 +215,7 @@ function QuickTool({
   body,
   onClick,
 }: {
-  icon: (p: { size?: number; strokeWidth?: number }) => React.ReactNode;
+  icon: (p: { size?: number; strokeWidth?: number }) => ReactNode;
   title: string;
   body: string;
   onClick: () => void;

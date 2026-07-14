@@ -16,7 +16,7 @@ import {
 import type { Pathway, ReferenceData, Therapy } from "./data/types";
 
 const KNOWN_SCREENS = ["search", "detail", "compare", "recommend", "pathways", "brief", "home", "sheets"] as const;
-const MAX_COMPARE = 4;
+export const MAX_COMPARE = 4;
 
 type SheetSectionKey = "about" | "steps" | "practice" | "coping" | "contacts";
 

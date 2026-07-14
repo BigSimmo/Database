@@ -1,17 +1,39 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl } from "../controls";
 import { RECOMMEND_CONSTRAINTS, summarise } from "../data/select";
-import { ArrowRightIcon, SaveIcon, SearchIcon, ShieldIcon, SparkleIcon } from "../icons";
+import { ArrowRightIcon, CheckIcon, CopyIcon, SearchIcon, ShieldIcon, SparkleIcon } from "../icons";
 import { s } from "../style-utils";
 import { LoadingState } from "../ui";
+import { useClipboard } from "../use-clipboard";
 
 export function RecommendScreen() {
   const b = useTcBindings();
+  const { copied, copy } = useClipboard();
   const ranked = b.recommendations;
   const top = ranked[0]?.therapy;
   const rest = ranked.slice(1, 6);
+
+  const copyShortlist = () =>
+    copy(
+      [
+        "Recommendation shortlist",
+        b.recQuery.trim() ? `Question: ${b.recQuery.trim()}` : "",
+        b.recConstraints.length
+          ? `Constraints: ${RECOMMEND_CONSTRAINTS.filter((c) => b.recConstraints.includes(c.key))
+              .map((c) => c.label)
+              .join(", ")}`
+          : "",
+        "",
+        ...ranked.map((r, i) => `${i + 1}. ${r.therapy.name}`),
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      "shortlist",
+    );
 
   return (
     <section data-screen-label="Recommend" style={s(`max-width:1180px;margin:0 auto;`)}>
@@ -85,9 +107,15 @@ export function RecommendScreen() {
             `display:flex;align-items:center;justify-content:space-between;margin-top:18px;gap:12px;flex-wrap:wrap;`,
           )}
         >
-          <button type="button" className="tc-btn" style={s(outlineControl)}>
-            <SaveIcon size={16} />
-            Save workflow
+          <button
+            type="button"
+            className="tc-btn"
+            onClick={copyShortlist}
+            disabled={!ranked.length}
+            style={s(outlineControl + (ranked.length ? "" : "opacity:0.5;cursor:not-allowed;"))}
+          >
+            {copied === "shortlist" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
+            {copied === "shortlist" ? "Copied" : "Copy shortlist"}
           </button>
           <button type="button" className="tc-btn" onClick={b.goSearch} style={s(commandControl)}>
             <SearchIcon size={16} strokeWidth={1.9} />
@@ -266,7 +294,7 @@ function MatchCell({
   eyebrow: string;
   text: string;
   tone?: "accent";
-  children?: React.ReactNode;
+  children?: ReactNode;
 }) {
   const bg = tone === "accent" ? "var(--clinical-accent-soft)" : "var(--surface)";
   const head = tone === "accent" ? "var(--clinical-accent-hover)" : "var(--clinical-accent)";

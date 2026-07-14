@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 import { useTcBindings } from "../bindings";
 import { card, heroCard, outlineControl } from "../controls";
-import { complexityLabel, parseSteps } from "../data/select";
+import { complexityLabel, parseSteps, summarise } from "../data/select";
 import type { Therapy } from "../data/types";
 import {
   AlertIcon,
@@ -16,7 +16,6 @@ import {
   DatabaseIcon,
   FileTextIcon,
   InfoIcon,
-  MessageIcon,
   PersonIcon,
   ScaleIcon,
   ShieldIcon,
@@ -99,13 +98,13 @@ export function DetailScreen() {
               icon={ShieldIcon}
               eyebrow="USE WHEN"
               tone="accent"
-              text={t.bestUsedFor || t.indications || "See clinical record."}
+              text={summarise(t.bestUsedFor || t.indications, 1) || "See clinical record."}
             />
             <Tile
               icon={AlertIcon}
               eyebrow="AVOID / MODIFY"
               tone="warning"
-              text={t.contraindicationsOrCautions || "Confirm suitability against source before use."}
+              text={summarise(t.contraindicationsOrCautions, 1) || "Confirm suitability against source before use."}
             />
             <Tile
               icon={ClockIcon}
@@ -126,7 +125,6 @@ export function DetailScreen() {
 
           {/* BODY */}
           <div style={s(card + "padding:6px 24px;")}>
-            <BodyRow icon={MessageIcon} title="Clinical snapshot" body={t.clinicalSummary} />
             {t.mechanism ? <BodyRow icon={CrosshairIcon} title="How it works" body={t.mechanism} /> : null}
             <BodyRow icon={PersonIcon} title="When to use" body={t.indications || t.bestUsedFor} />
             {steps.length ? (
@@ -204,7 +202,6 @@ export function DetailScreen() {
               At a glance
             </div>
             <div style={s(`display:flex;flex-direction:column;gap:15px;`)}>
-              <GlanceRow icon={ShieldIcon} title="Best used for" body={t.bestUsedFor || t.indications} />
               <GlanceRow icon={TargetIcon} title="Target symptoms" body={t.targetSymptoms || t.patientPopulation} />
               <GlanceRow
                 icon={ClockIcon}
@@ -375,7 +372,11 @@ function BodyRow({
 }
 
 function SafetyRow({ therapy }: { therapy: Therapy }) {
-  const text = [therapy.contraindicationsOrCautions, therapy.limitations].filter(Boolean).join(" ");
+  const contra = therapy.contraindicationsOrCautions?.trim() ?? "";
+  const lim = therapy.limitations?.trim() ?? "";
+  // `limitations` frequently repeats the tail of `contraindicationsOrCautions`;
+  // only append it when it adds something new so the box doesn't echo itself.
+  const text = lim && !contra.includes(lim) ? `${contra} ${lim}`.trim() : contra;
   if (!text) return null;
   return (
     <div

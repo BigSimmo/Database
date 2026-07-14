@@ -1,11 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { useTcBindings } from "../bindings";
-import { outlineControl } from "../controls";
 import { parseSteps, searchTherapies } from "../data/select";
-import { ChevronDownIcon, PrinterIcon, SaveIcon, ScaleIcon, SearchIcon } from "../icons";
+import { ChevronDownIcon, PrinterIcon, ScaleIcon, SearchIcon } from "../icons";
 import { s } from "../style-utils";
 import { LoadingState } from "../ui";
 
@@ -44,10 +43,6 @@ export function SheetsScreen() {
           </p>
         </div>
         <div style={s(`display:flex;gap:10px;`)}>
-          <button type="button" className="tc-btn" style={s(outlineControl + "height:44px;")}>
-            <SaveIcon size={16} />
-            Save draft
-          </button>
           <button
             type="button"
             className="tc-btn"
@@ -318,7 +313,7 @@ export function SheetsScreen() {
   );
 }
 
-function PaperSection({ title, children }: { title: string; children: React.ReactNode }) {
+function PaperSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div style={s(`margin-bottom:22px;`)}>
       <h2

@@ -5,9 +5,10 @@ import { useMemo, useState } from "react";
 import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl } from "../controls";
 import { parseSteps, summarise } from "../data/select";
-import { AlertIcon, CopyIcon, ExternalLinkIcon, FileTextIcon, SaveIcon, SearchIcon } from "../icons";
+import { AlertIcon, CheckIcon, CopyIcon, ExternalLinkIcon, FileTextIcon, SearchIcon } from "../icons";
 import { s } from "../style-utils";
 import { LoadingState } from "../ui";
+import { useClipboard } from "../use-clipboard";
 
 const CHECKLIST = [
   "Confirm the primary problem",
@@ -20,6 +21,7 @@ export function BriefScreen() {
   const b = useTcBindings();
   const t = b.selectedTherapy;
   const [filter, setFilter] = useState("");
+  const { copied, copy } = useClipboard();
 
   const briefTherapies = useMemo(
     () =>
@@ -41,6 +43,20 @@ export function BriefScreen() {
           t.briefVersion
         : t.briefVersion;
   const steps = parseSteps(durationText, 6);
+  const interventionText = [
+    `${t.name} — ${durationLabel} intervention`,
+    "",
+    ...steps.map((st, i) => `${i + 1}. ${st}`),
+    ...(t.clinicianScripts.length
+      ? [
+          "",
+          "Clinician script:",
+          ...t.clinicianScripts
+            .slice(0, 2)
+            .map((c) => (c.scriptType ? `${c.scriptType}: ${c.body ?? ""}` : (c.body ?? ""))),
+        ]
+      : []),
+  ].join("\n");
 
   return (
     <section data-screen-label="Brief" style={s(`max-width:1240px;margin:0 auto;`)}>
@@ -231,12 +247,13 @@ export function BriefScreen() {
                         <button
                           type="button"
                           className="tc-btn"
+                          onClick={() => copy(step, `step-${i}`)}
                           title="Copy step"
                           style={s(
-                            `display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-soft);flex:none;cursor:pointer;`,
+                            `display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border:1px solid ${copied === `step-${i}` ? "var(--clinical-accent-border)" : "var(--border)"};border-radius:8px;background:var(--surface);color:${copied === `step-${i}` ? "var(--clinical-accent)" : "var(--text-soft)"};flex:none;cursor:pointer;`,
                           )}
                         >
-                          <CopyIcon size={14} />
+                          {copied === `step-${i}` ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
                         </button>
                       </div>
                     </div>
@@ -315,13 +332,14 @@ export function BriefScreen() {
           </div>
 
           <div style={s(`display:flex;gap:10px;flex-wrap:wrap;`)}>
-            <button type="button" className="tc-btn" style={s(outlineControl + "height:46px;")}>
-              <CopyIcon size={16} />
-              Copy intervention
-            </button>
-            <button type="button" className="tc-btn" style={s(outlineControl + "height:46px;")}>
-              <SaveIcon size={16} />
-              Save brief
+            <button
+              type="button"
+              className="tc-btn"
+              onClick={() => copy(interventionText, "intervention")}
+              style={s(outlineControl + "height:46px;")}
+            >
+              {copied === "intervention" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
+              {copied === "intervention" ? "Copied" : "Copy intervention"}
             </button>
             <button
               type="button"
