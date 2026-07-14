@@ -2,35 +2,56 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/** Write text to the clipboard, guarded for SSR / unavailable API. Returns whether the write was attempted. */
-export function copyText(text: string): boolean {
+/**
+ * Write text to the clipboard, guarded for SSR / unavailable API. Resolves to
+ * whether the write actually succeeded: a rejected write (permission denied,
+ * lost focus, a blocked user gesture) resolves to `false` instead of throwing,
+ * so callers never signal success for a copy that didn't happen and no unhandled
+ * promise rejection escapes.
+ */
+export async function copyText(text: string): Promise<boolean> {
   if (typeof navigator === "undefined" || !navigator.clipboard || !text) return false;
-  void navigator.clipboard.writeText(text);
-  return true;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Clipboard copy with transient "copied" feedback. `copied` holds the key of the
  * most recently copied item (or null) and resets after `resetMs`, so a caller can
- * flip a single button's label/icon without tracking its own timer.
+ * flip a single button's label/icon without tracking its own timer. The key is
+ * set only once the write actually succeeds, and never after the component has
+ * unmounted.
  */
 export function useClipboard(resetMs = 1400) {
   const [copied, setCopied] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mounted = useRef(true);
+  const latestRequest = useRef(0);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
+    };
+  }, []);
 
   const copy = useCallback(
     (text: string, key = "default") => {
-      if (!copyText(text)) return;
-      setCopied(key);
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => setCopied(null), resetMs);
+      // One hook instance is shared across several controls, so tag each request
+      // and ignore stale completions: a later copy supersedes this one, and its
+      // (possibly out-of-order) success must not overwrite the newer feedback.
+      const request = ++latestRequest.current;
+      void copyText(text).then((ok) => {
+        if (!ok || !mounted.current || request !== latestRequest.current) return;
+        setCopied(key);
+        if (timer.current) clearTimeout(timer.current);
+        timer.current = setTimeout(() => setCopied(null), resetMs);
+      });
     },
     [resetMs],
   );
