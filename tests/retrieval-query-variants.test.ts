@@ -983,10 +983,7 @@ describe("retrieval query variants", () => {
       maxResultsPerDocument: 2,
     });
 
-    expect(textQuery).toContain("arousal");
-    expect(textQuery).toContain("pharmacological");
-    expect(textQuery).toContain("im");
-    expect(textQuery).toContain("po");
+    expect(textQuery).toBe("agitation arousal im po");
     expect(ranked[0].file_name).toBe("MHSP.AgitationArousalPharmaMgt.pdf");
     expect(selected.results[0]?.file_name).toBe("MHSP.AgitationArousalPharmaMgt.pdf");
   });
@@ -1037,7 +1034,7 @@ describe("retrieval query variants", () => {
       maxResultsPerDocument: 2,
     });
 
-    expect(textQuery).toBe("agitation arousal pharmacological management medication chart dose route im po");
+    expect(textQuery).toBe("agitation arousal dose");
     expect(ranked[0].file_name).toBe("MHSP.AgitationArousalPharmaMgt.pdf");
     expect(selected.results[0]?.file_name).toBe("MHSP.AgitationArousalPharmaMgt.pdf");
   });

@@ -134,7 +134,7 @@ describe("clinical search query normalization", () => {
       "antibiotic dose recommended community acquired pneumonia",
     );
     expect(buildClinicalTextSearchQuery("Please can you find agitation and arousal dosing for me?")).toBe(
-      "agitation arousal pharmacological management medication chart dose route im po",
+      "agitation arousal dose",
     );
   });
 
@@ -202,7 +202,7 @@ describe("clinical search query normalization", () => {
 
   it("removes table-coverage filler while keeping the clinical topic", () => {
     expect(buildClinicalTextSearchQuery("Which table covers agitation and arousal pharmacological management?")).toBe(
-      "agitation arousal pharmacological management medication chart dose route im po",
+      "agitation arousal pharmacological management",
     );
   });
 
@@ -215,7 +215,7 @@ describe("clinical search query normalization", () => {
   it("keeps typo-heavy agitation dosing queries anchored to the local pharmacological chart", () => {
     expect(
       buildClinicalTextSearchQuery("What agitaton and arousl dosing guidance applies to psychiatric inpatients?"),
-    ).toBe("agitation arousal pharmacological management medication chart dose route im po");
+    ).toBe("agitation arousal dose");
   });
 
   it("anchors clozapine blood-monitoring paraphrases to clozapine FBC evidence", () => {

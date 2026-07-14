@@ -2292,6 +2292,49 @@ function shouldUseMemoryBeforeFastPath(queryClass: RagQueryClass) {
   return queryClass === "table_threshold" || queryClass === "medication_dose_risk" || queryClass === "comparison";
 }
 
+/** Create the baseline telemetry shared by normal and fail-closed retrieval paths. */
+function createSearchTelemetry(query: string, queryClass: RagQueryClass): SearchTelemetry {
+  return {
+    search_cache_hit: false,
+    query_class: queryClass,
+    vector_candidate_count: 0,
+    text_candidate_count: 0,
+    embedding_field_count: 0,
+    retrieval_query_variant_count: 0,
+    rag_alias_count: 0,
+    rag_alias_expansion_count: 0,
+    text_fast_path_latency_ms: 0,
+    text_candidate_budget: 0,
+    text_fast_path_reason: null,
+    embedding_skipped: false,
+    embedding_skip_reason: null,
+    embedding_latency_ms: 0,
+    embedding_cache_hit: false,
+    supabase_rpc_latency_ms: 0,
+    rerank_latency_ms: 0,
+    memory_card_count: 0,
+    memory_top_score: 0,
+    index_unit_count: 0,
+    index_unit_top_score: 0,
+    retrieval_plan: retrievalPlanForQueryClass(queryClass),
+    retrieval_intent: buildRetrievalIntent(query, queryClass),
+    retrieval_layer_counts: {},
+    retrieval_layer_top_scores: {},
+    retrieval_layer_latencies_ms: {},
+    retrieval_provenance_counts: {},
+    coverage_gate_decision: "not_applicable",
+    coverage_gate_reason: null,
+    vector_skipped_reason: null,
+    source_image_required: false,
+    source_image_satisfied: false,
+    second_stage_rerank_used: false,
+    second_stage_rerank_latency_ms: 0,
+    visual_direct_image_count: 0,
+    weighted_top_score: 0,
+    rrf_top_score: 0,
+  };
+}
+
 /**
  * Retrieves and ranks document chunks using lexical, structured, memory, and embedding-based evidence, while recording retrieval telemetry.
  *
@@ -2302,6 +2345,19 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   args = { ...args, accessScope: retrievalAccessScopeForArgs(args) };
   assertGlobalSearchAllowed(args);
   throwIfAborted(args.signal);
+  const retrievalQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
+  if (hasAdversarialManipulationIntent(retrievalQuery)) {
+    // Refuse prompt-injection and secret-exfiltration requests before creating a
+    // provider client, consulting either cache, or issuing any Supabase query.
+    // These requests are never cached so a stale or poisoned entry cannot make
+    // a later refusal depend on shared state.
+    const telemetry = createSearchTelemetry(retrievalQuery, "unsupported_or_general");
+    telemetry.embedding_skipped = true;
+    telemetry.embedding_skip_reason = "adversarial_manipulation_refused";
+    telemetry.retrieval_strategy = "unsupported_short_circuit";
+    recordSearchScoreTelemetry(telemetry, []);
+    return { results: [] as SearchResult[], telemetry };
+  }
   const indexingVersionAtRetrievalStart = await cacheIndexingVersion(args, { forceRefresh: true });
   const supabase = createAdminClient();
   // When the provider is source-only (offline mode, or auto mode without a usable key) we must
@@ -2314,7 +2370,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   // owner/query memory cards are fetched at most once per (query, embedding-present, count).
   const memoryCardCache: MemoryCardCache = new Map();
   const documentRankingMetadataCache = createDocumentRankingMetadataCache();
-  const retrievalQuery = queryForClinicalMode(args.query, args.queryMode ?? "auto");
   const modeQueryClass = queryClassForClinicalMode(args.queryMode ?? "auto");
   const documentFilterList = args.documentIds?.length
     ? args.documentIds
@@ -2348,45 +2403,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     confidence: queryAnalysis.confidence,
     reasons: queryAnalysis.reasons,
   };
-  const telemetry: SearchTelemetry = {
-    search_cache_hit: false,
-    query_class: queryClassification.queryClass,
-    vector_candidate_count: 0,
-    text_candidate_count: 0,
-    embedding_field_count: 0,
-    retrieval_query_variant_count: 0,
-    rag_alias_count: 0,
-    rag_alias_expansion_count: 0,
-    text_fast_path_latency_ms: 0,
-    text_candidate_budget: 0,
-    text_fast_path_reason: null,
-    embedding_skipped: false,
-    embedding_skip_reason: null,
-    embedding_latency_ms: 0,
-    embedding_cache_hit: false,
-    supabase_rpc_latency_ms: 0,
-    rerank_latency_ms: 0,
-    memory_card_count: 0,
-    memory_top_score: 0,
-    index_unit_count: 0,
-    index_unit_top_score: 0,
-    retrieval_plan: retrievalPlanForQueryClass(queryClassification.queryClass),
-    retrieval_intent: buildRetrievalIntent(retrievalQuery, queryClassification.queryClass),
-    retrieval_layer_counts: {},
-    retrieval_layer_top_scores: {},
-    retrieval_layer_latencies_ms: {},
-    retrieval_provenance_counts: {},
-    coverage_gate_decision: "not_applicable",
-    coverage_gate_reason: null,
-    vector_skipped_reason: null,
-    source_image_required: false,
-    source_image_satisfied: false,
-    second_stage_rerank_used: false,
-    second_stage_rerank_latency_ms: 0,
-    visual_direct_image_count: 0,
-    weighted_top_score: 0,
-    rrf_top_score: 0,
-  };
+  const telemetry = createSearchTelemetry(retrievalQuery, queryClassification.queryClass);
   if (queryAnalysis.corpusGrounding) telemetry.corpus_grounding = queryAnalysis.corpusGrounding;
 
   const ragAliases = await fetchEnabledRagAliases(supabase, args.ownerId, args.accessScope);
