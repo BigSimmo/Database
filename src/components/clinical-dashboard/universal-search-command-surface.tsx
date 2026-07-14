@@ -1,6 +1,6 @@
 "use client";
 
-import { TriangleAlert, Clock, CornerDownLeft, Loader2, Search, Sparkles } from "lucide-react";
+import { TriangleAlert, Clock, CornerDownLeft, Heart, Loader2, Search, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 
@@ -11,6 +11,12 @@ import {
 } from "@/components/clinical-dashboard/mode-action-popup";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
+import {
+  favouriteItems,
+  favouriteSets,
+  type FavouriteItem,
+} from "@/components/clinical-dashboard/favourites-prototype-data";
+import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -21,30 +27,23 @@ import {
   searchCommandSurfaceConfig,
 } from "@/lib/search-command-surface";
 import type { UniversalSearchDomain } from "@/lib/universal-search";
+import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
 
-// Reverse of modeIdByDomain for chip counts: the domains whose live result totals a
-// cross-mode chip should sum. Answer/favourites chips have no countable domain; the
+// Domains whose live result totals a cross-mode chip should sum. Answer/favourites
+// chips have no countable domain; the
 // differentials chip counts both of its domains because the mode home search composes
 // presentations and diagnoses into one result list.
 const domainsByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain[]>> = {
   documents: ["documents"],
+  // Prescribing prefers both medication records and source documents, but its
+  // destination workspace lists medication rows; the shortcut count must match
+  // those visible rows rather than summing source-document hits.
   prescribing: ["medications"],
   services: ["services"],
   forms: ["forms"],
   differentials: ["differentials", "presentations"],
+  formulation: ["specifiers"],
   tools: ["tools"],
-};
-
-const modeIdByDomain: Record<UniversalSearchDomain, AppModeId> = {
-  documents: "documents",
-  medications: "prescribing",
-  services: "services",
-  forms: "forms",
-  differentials: "differentials",
-  // Presentations are the differentials mode's umbrella pages — no app mode of their own,
-  // so the group borrows the differentials icon and "View all in Differentials" target.
-  presentations: "differentials",
-  tools: "tools",
 };
 
 const domainHeadings: Record<UniversalSearchDomain, string> = {
@@ -54,8 +53,62 @@ const domainHeadings: Record<UniversalSearchDomain, string> = {
   forms: "Forms",
   differentials: "Differentials",
   presentations: "Presentations",
+  specifiers: "Formulation",
   tools: "Tools",
 };
+
+type LocalFavouriteMatch = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  href: string;
+  standalone: boolean;
+  score: number;
+};
+
+function rankLocalFavourites(items: FavouriteItem[], query: string): LocalFavouriteMatch[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return [];
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+  const byKey = new Map<string, LocalFavouriteMatch>();
+
+  for (const item of items) {
+    const title = item.title.toLowerCase();
+    const text = [item.title, item.meta, item.sourceMeta, item.set, item.keywords].join(" ").toLowerCase();
+    if (!tokens.every((token) => text.includes(token))) continue;
+    const score = title.includes(normalized)
+      ? 100
+      : tokens.reduce((sum, token) => sum + (title.includes(token) ? 10 : 2), 0);
+    const key = item.href || item.id;
+    const match: LocalFavouriteMatch = {
+      id: item.id,
+      title: item.title,
+      subtitle: item.meta,
+      href: item.href,
+      // Saved searches are standalone Favourites artifacts; saved canonical entities
+      // already surface through their owning universal domain outside Favourites mode.
+      standalone: item.primaryAction === "Run",
+      score,
+    };
+    if ((byKey.get(key)?.score ?? -1) < score) byKey.set(key, match);
+  }
+
+  for (const set of favouriteSets) {
+    const text = [set.title, set.meta, set.keywords].join(" ").toLowerCase();
+    if (!tokens.every((token) => text.includes(token))) continue;
+    const score = set.title.toLowerCase().includes(normalized) ? 100 : 8;
+    byKey.set(`set:${set.id}`, {
+      id: `set:${set.id}`,
+      title: set.title,
+      subtitle: `${set.count} saved ${set.count === 1 ? "item" : "items"} · ${set.meta}`,
+      href: `/favourites?q=${encodeURIComponent(set.title)}&run=1`,
+      standalone: true,
+      score,
+    });
+  }
+
+  return [...byKey.values()].sort((left, right) => right.score - left.score || left.title.localeCompare(right.title));
+}
 
 const SMART_HINT_ROTATION_MS = 3200;
 
@@ -163,9 +216,7 @@ function CommandDropdown({
         // template, so without it the section headings inherit text-center.
         "universal-command-dropdown absolute left-0 right-0 z-30 overflow-hidden rounded-2xl border border-[color:var(--border-strong)] bg-[color:var(--surface)] text-left shadow-[var(--shadow-elevated)]",
         opensUpward ? "bottom-[calc(100%+0.5rem)] top-auto" : "top-[calc(100%+0.5rem)]",
-        // Phones never get the typeahead popup — it crowds the small screen —
-        // so both placements stay hidden below their smallest useful width.
-        placement === "bottom-dock" ? "hidden sm:block" : "hidden lg:block",
+        "block max-sm:rounded-xl",
       )}
       role="presentation"
     >
@@ -190,7 +241,10 @@ function CommandDropdown({
         id={listboxId}
         role="listbox"
         aria-label={`${mode.label} search suggestions`}
-        className={cn("overflow-y-auto p-2", opensUpward ? "max-h-[min(38dvh,20rem)]" : "max-h-[min(42dvh,24rem)]")}
+        className={cn(
+          "max-h-[min(55dvh,26rem)] overflow-y-auto overscroll-contain p-2",
+          opensUpward ? "sm:max-h-[min(38dvh,20rem)]" : "sm:max-h-[min(42dvh,24rem)]",
+        )}
       >
         {sections.map((section) =>
           section.items.length ? (
@@ -322,34 +376,20 @@ export function UniversalSearchCommandSurface({
   const [activeIndex, setActiveIndex] = useState(-1);
   const trimmedQuery = query.trim();
   const mode = appModeDefinition(modeId);
-  // The dropdown is CSS-hidden below sm (bottom-dock) / lg (inline), so skip the
-  // typeahead fetches at widths where nothing could display the results.
-  const dropdownMediaQuery = placement === "bottom-dock" ? "(min-width: 640px)" : "(min-width: 1024px)";
-  // Initialise from the real viewport. The mode-home composer can be moved into
-  // its portal while the input is receiving focus; starting every fresh mount
-  // at false loses that focus event and leaves the desktop popup closed.
-  const [dropdownDisplayable, setDropdownDisplayable] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(dropdownMediaQuery).matches,
-  );
-  useEffect(() => {
-    const mediaQuery = window.matchMedia(dropdownMediaQuery);
-    const sync = () => {
-      setDropdownDisplayable(mediaQuery.matches);
-      if (!mediaQuery.matches) {
-        onDropdownOpenChange(false);
-        setActiveIndex(-1);
-      }
-    };
-    sync();
-    mediaQuery.addEventListener("change", sync);
-    return () => mediaQuery.removeEventListener("change", sync);
-  }, [dropdownMediaQuery, onDropdownOpenChange]);
   // A true "everything" view: the active mode's own domain is included (no excludeDomain) so
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
     query: trimmedQuery,
-    enabled: dropdownOpen && dropdownDisplayable && Boolean(config),
+    enabled: dropdownOpen && Boolean(config),
+    contextMode: modeId,
   });
+  const savedRegistryFavourites = useSavedRegistryFavourites();
+  const allFavouriteItems = useMemo(() => [...favouriteItems, ...savedRegistryFavourites], [savedRegistryFavourites]);
+  const favouriteMatches = useMemo(
+    () => rankLocalFavourites(allFavouriteItems, trimmedQuery),
+    [allFavouriteItems, trimmedQuery],
+  );
+  const savedHrefs = useMemo(() => new Set(allFavouriteItems.map((item) => item.href)), [allFavouriteItems]);
 
   const showSafetyBanner =
     modeId === "differentials" && differentialRedFlagTerms.some((term) => trimmedQuery.toLowerCase().includes(term));
@@ -361,6 +401,7 @@ export function UniversalSearchCommandSurface({
     domainOrder: universalDomainOrder,
     topHit: universalTopHit,
     answerAction: universalAnswerAction,
+    preferredDomains: universalPreferredDomains = [],
   } = universal;
 
   // Render the cross-entity groups in the server's intent-aware order (drug query → medications
@@ -396,8 +437,10 @@ export function UniversalSearchCommandSurface({
 
     // Best-bet: a single near-exact match pinned to the top so the strongest hit is one keystroke
     // away regardless of which domain it lives in.
-    if (trimmedQuery && universalQuery === trimmedQuery && universalTopHit) {
-      const HitIcon = appModeIcons[modeIdByDomain[universalTopHit.kind]];
+    const topHitIsSavedFavourite =
+      modeId === "favourites" && Boolean(universalTopHit && savedHrefs.has(universalTopHit.href));
+    if (trimmedQuery && universalQuery === trimmedQuery && universalTopHit && !topHitIsSavedFavourite) {
+      const HitIcon = appModeIcons[universalSearchModeForDomain(universalTopHit.kind)];
       const hit = universalTopHit;
       built.push({
         key: "top-hit",
@@ -424,6 +467,11 @@ export function UniversalSearchCommandSurface({
                       {hit.subtitle}
                     </span>
                   ) : null}
+                  <span className="block truncate text-2xs font-bold uppercase tracking-wide text-[color:var(--clinical-accent)]">
+                    {universalPreferredDomains.includes(hit.kind)
+                      ? "Current mode"
+                      : `Also in ${appModeDefinition(universalSearchModeForDomain(hit.kind)).label}`}
+                  </span>
                 </span>
                 {hit.badge ? (
                   <span className="inline-flex min-h-6 shrink-0 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 text-2xs font-bold text-[color:var(--text-muted)]">
@@ -434,6 +482,41 @@ export function UniversalSearchCommandSurface({
             ),
           },
         ],
+      });
+    }
+
+    const visibleFavouriteMatches =
+      modeId === "favourites" ? favouriteMatches : favouriteMatches.filter((match) => match.standalone);
+    if (trimmedQuery && visibleFavouriteMatches.length) {
+      built.push({
+        key: "local-favourites",
+        heading: `${modeId === "favourites" ? "Current mode" : "Also in Favourites"} · ${visibleFavouriteMatches.length}`,
+        items: visibleFavouriteMatches.slice(0, 4).map((match) => ({
+          id: nextId(),
+          label: match.title,
+          onSelect: () => {
+            onDropdownOpenChange(false);
+            router.push(match.href);
+          },
+          render: (active) => (
+            <OptionShell active={active} hint="Open">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                <Heart className="h-4 w-4" aria-hidden />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-[color:var(--text)]">{match.title}</span>
+                {match.subtitle ? (
+                  <span className="block truncate text-xs font-medium text-[color:var(--text-muted)]">
+                    {match.subtitle}
+                  </span>
+                ) : null}
+              </span>
+              <span className="inline-flex min-h-6 shrink-0 items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-bold text-[color:var(--clinical-accent)]">
+                Saved
+              </span>
+            </OptionShell>
+          ),
+        })),
       });
     }
 
@@ -561,14 +644,20 @@ export function UniversalSearchCommandSurface({
     // nothing highlighted still runs the mode-scoped search.
     if (trimmedQuery && universalQuery === trimmedQuery && orderedUniversalGroups.length) {
       for (const group of orderedUniversalGroups) {
-        const targetModeId = modeIdByDomain[group.kind];
+        const targetModeId = universalSearchModeForDomain(group.kind);
         const targetMode = appModeDefinition(targetModeId);
         const GroupIcon = appModeIcons[targetModeId];
+        const visibleItems =
+          modeId === "favourites" ? group.items.filter((item) => !savedHrefs.has(item.href)) : group.items;
+        if (!visibleItems.length) continue;
+        const isCurrentModeGroup = universalPreferredDomains.includes(group.kind);
         built.push({
           key: `universal-${group.kind}`,
-          heading: `${domainHeadings[group.kind]} · ${group.total}`,
+          heading: isCurrentModeGroup
+            ? `Current mode · ${domainHeadings[group.kind]} · ${visibleItems.length}`
+            : `Also in ${targetMode.label} · ${domainHeadings[group.kind]} · ${visibleItems.length}`,
           items: [
-            ...group.items.map((item) => ({
+            ...visibleItems.map((item) => ({
               id: nextId(),
               label: item.title,
               onSelect: () => {
@@ -591,6 +680,11 @@ export function UniversalSearchCommandSurface({
                   {item.badge ? (
                     <span className="inline-flex min-h-6 shrink-0 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1.5 text-2xs font-bold text-[color:var(--text-muted)]">
                       {item.badge}
+                    </span>
+                  ) : null}
+                  {savedHrefs.has(item.href) ? (
+                    <span className="inline-flex min-h-6 shrink-0 items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-1.5 text-2xs font-bold text-[color:var(--clinical-accent)]">
+                      Saved
                     </span>
                   ) : null}
                 </OptionShell>
@@ -707,9 +801,19 @@ export function UniversalSearchCommandSurface({
       });
     }
 
+    if (modeId === "answer") {
+      const actionsIndex = built.findIndex((section) => section.key === "actions");
+      if (actionsIndex >= 0) {
+        const [actionsSection] = built.splice(actionsIndex, 1);
+        const insertionIndex = built[0]?.key === "top-hit" ? 1 : 0;
+        built.splice(insertionIndex, 0, actionsSection);
+      }
+    }
+
     return built;
   }, [
     config,
+    favouriteMatches,
     listboxId,
     mode,
     modeId,
@@ -721,6 +825,7 @@ export function UniversalSearchCommandSurface({
     onSearch,
     recentQueries,
     router,
+    savedHrefs,
     showFormCodeHint,
     trimmedQuery,
     universalGroups,
@@ -728,20 +833,13 @@ export function UniversalSearchCommandSurface({
     universalQuery,
     universalTopHit,
     universalAnswerAction,
+    universalPreferredDomains,
   ]);
 
   const flatItems = useMemo(() => sections.flatMap((section) => section.items), [sections]);
   const activeItemId = activeIndex >= 0 && activeIndex < flatItems.length ? flatItems[activeIndex].id : null;
 
   function handleComposerKeyDown(event: ReactKeyboardEvent<HTMLInputElement>) {
-    if (!dropdownDisplayable) {
-      if (event.key === "Escape") {
-        onDropdownOpenChange(false);
-        setActiveIndex(-1);
-      }
-      onInputKeyDown?.(event);
-      return;
-    }
     if (event.key === "ArrowDown") {
       event.preventDefault();
       onDropdownOpenChange(true);
@@ -780,6 +878,23 @@ export function UniversalSearchCommandSurface({
   useEffect(() => {
     onListboxIdReady?.(listboxId);
   }, [listboxId, onListboxIdReady]);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+
+    function handleScroll(event: Event) {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".universal-command-dropdown")) return;
+      onDropdownOpenChange(false);
+      setActiveIndex(-1);
+    }
+
+    // Page movement means the user has left the composer context. Closing the
+    // floating sheet also prevents it covering result-page controls that the
+    // browser scrolls into view, while preserving scrolling inside the listbox.
+    window.addEventListener("scroll", handleScroll, true);
+    return () => window.removeEventListener("scroll", handleScroll, true);
+  }, [dropdownOpen, onDropdownOpenChange]);
 
   useEffect(() => {
     function handleSlashFocus(event: KeyboardEvent) {
@@ -821,7 +936,7 @@ export function UniversalSearchCommandSurface({
           }
         }}
         onFocusCapture={() => {
-          if (dropdownDisplayable) onDropdownOpenChange(true);
+          onDropdownOpenChange(true);
         }}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -831,7 +946,7 @@ export function UniversalSearchCommandSurface({
         }}
       >
         {children}
-        {dropdownOpen && dropdownDisplayable ? (
+        {dropdownOpen ? (
           <CommandDropdown
             modeId={modeId}
             query={trimmedQuery}
@@ -853,7 +968,7 @@ export function UniversalSearchCommandSurface({
         examples={config.examples}
         onPickExample={(example) => {
           onQueryChange(example);
-          if (dropdownDisplayable) onDropdownOpenChange(true);
+          onDropdownOpenChange(true);
           onFocusSearchInput?.();
         }}
       />

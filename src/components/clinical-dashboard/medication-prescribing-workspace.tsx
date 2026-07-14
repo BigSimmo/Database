@@ -22,6 +22,7 @@ import { useMemo, useState } from "react";
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { considerationSummaryBadge } from "@/components/clinical-dashboard/medication-considerations";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
@@ -457,6 +458,7 @@ function MedicationResults({
       <div className="hidden lg:block">
         <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} />
       </div>
+      <UniversalSearchAlsoMatches modeId="prescribing" query={query} />
       <div className="min-w-0 space-y-2 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-semibold uppercase text-[color:var(--text-soft)]">Medication search</p>
