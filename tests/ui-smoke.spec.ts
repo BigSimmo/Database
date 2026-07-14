@@ -2365,6 +2365,39 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("DSM category filter dropdown opens to the correct option by keyboard", async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 850 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/dsm/search?q=depression");
+
+    await expect(page.getByTestId("dsm-search-page")).toBeVisible();
+    const trigger = page.getByTestId("dsm-category-filter");
+    const options = page.getByRole("menuitemradio");
+
+    // ArrowDown opens the menu with focus on the active option ("All categories").
+    await trigger.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(options.first()).toBeFocused();
+    await expect(options.first()).toHaveAttribute("aria-checked", "true");
+
+    // Escape closes the menu and restores focus to the trigger.
+    await page.keyboard.press("Escape");
+    await expect(options.first()).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    // ArrowUp opens the menu with focus on the LAST option (reverse entry). This
+    // guards against a regression where a competing focus-on-open effect raced
+    // the key handler and stole focus back to the active item.
+    await page.keyboard.press("ArrowUp");
+    await expect(options.last()).toBeFocused();
+
+    // Tabbing out of the widget closes the menu instead of leaving it open over
+    // the results.
+    await page.keyboard.press("Tab");
+    await expect(options.first()).toBeHidden();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
   test("dashboard specifiers mode param redirects to the standalone specifiers route", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);

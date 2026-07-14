@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type FocusEvent as ReactFocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import {
   BookOpenCheck,
   Check,
@@ -72,28 +79,28 @@ function CategoryFilterDropdown({
     onDismiss: () => setOpen(false),
   });
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const target = Math.max(0, activeIndex);
-    const frame = window.requestAnimationFrame(() => optionRefs.current[target]?.focus());
-    return () => window.cancelAnimationFrame(frame);
-  }, [open, activeIndex]);
-
   function focusOption(index: number) {
     const total = options.length;
     const next = ((index % total) + total) % total;
     optionRefs.current[next]?.focus();
   }
 
+  // Single source of truth for initial focus: whoever opens the menu picks the
+  // option to land on and schedules the one focus call. A parallel open-effect
+  // that also focused the active item would race this and clobber ArrowUp's
+  // reverse-entry onto the last option.
+  function openMenu(focusIndex: number) {
+    setOpen(true);
+    window.requestAnimationFrame(() => focusOption(focusIndex));
+  }
+
   function handleTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      setOpen(true);
-      window.requestAnimationFrame(() => focusOption(Math.max(0, activeIndex)));
+      openMenu(Math.max(0, activeIndex));
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      setOpen(true);
-      window.requestAnimationFrame(() => focusOption(options.length - 1));
+      openMenu(options.length - 1);
     }
   }
 
@@ -117,11 +124,21 @@ function CategoryFilterDropdown({
     }
   }
 
+  // Close when focus leaves the widget entirely (e.g. Tab off the last option),
+  // so the menu never lingers open over the results. Keep it open while focus
+  // moves between the trigger and its options, and don't prevent the focus move.
+  function handleRootBlur(event: ReactFocusEvent<HTMLDivElement>) {
+    if (!open) return;
+    const nextTarget = event.relatedTarget as Node | null;
+    if (nextTarget && rootRef.current?.contains(nextTarget)) return;
+    setOpen(false);
+  }
+
   const activeLabel = activeCategory ? activeCategory.label : "All categories";
   const activeCount = activeCategory ? activeCategory.diagnosis_count : totalCount;
 
   return (
-    <div ref={rootRef} className="relative w-full sm:w-auto">
+    <div ref={rootRef} onBlur={handleRootBlur} className="relative w-full sm:w-auto">
       <button
         type="button"
         ref={triggerRef}
@@ -130,7 +147,7 @@ function CategoryFilterDropdown({
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onKeyDown={handleTriggerKeyDown}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => (open ? setOpen(false) : openMenu(Math.max(0, activeIndex)))}
         className={cn(
           "inline-flex min-h-tap w-full items-center gap-2 rounded-lg border px-3 text-xs font-bold transition sm:w-auto sm:min-w-[15rem]",
           searchFocusRing,
