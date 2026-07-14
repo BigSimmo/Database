@@ -164,6 +164,7 @@ export function SourcePreviewPopover({
   return createPortal(
     <div
       ref={surfaceRef}
+      tabIndex={-1}
       role="dialog"
       aria-modal="false"
       aria-label={title}
