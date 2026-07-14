@@ -30,14 +30,14 @@ type Args = {
 
 export type RegistryGovernanceDocument = {
   id: string;
-  owner_id: string;
+  owner_id: string | null;
   metadata: Json | null;
 };
 
 export type RegistryGovernanceLabel = {
   id: string;
   document_id: string;
-  owner_id: string;
+  owner_id: string | null;
   label: string;
   label_type: string;
   source: string;
@@ -47,7 +47,7 @@ export type RegistryGovernanceLabel = {
 
 type RegistryGovernanceDocumentUpdate = {
   id: string;
-  ownerId: string;
+  ownerId: string | null;
   metadata: Record<string, Json>;
 };
 
@@ -58,6 +58,8 @@ export type RegistryGovernancePlan = {
   labelsToInsert: TablesInsert<"document_labels">[];
   labelsToUpdate: TablesInsert<"document_labels">[];
   labelIdsToDelete: string[];
+  publicDocumentCount: number;
+  ownerScopedDocumentCount: number;
 };
 
 function parseArgs(argv: string[]): Args {
@@ -191,14 +193,31 @@ export function buildRegistryGovernancePlan(args: {
     );
   }
 
-  const ownerMismatches = args.projections.filter(
-    (projection) => documentById.get(projection.documentId)?.owner_id !== projection.ownerId,
-  );
+  // Registry source records remain owner-scoped, but production deliberately
+  // promotes the public service/form/medication projections to owner_id = null.
+  // Accept that public scope while continuing to reject any different tenant.
+  const ownerMismatches = args.projections.filter((projection) => {
+    const documentOwnerId = documentById.get(projection.documentId)?.owner_id;
+    return documentOwnerId !== null && documentOwnerId !== projection.ownerId;
+  });
   if (ownerMismatches.length > 0) {
     throw new Error(
-      `Registry document owner mismatch for ${ownerMismatches.length} projection(s): ${ownerMismatches
+      `Registry document foreign-owner mismatch for ${ownerMismatches.length} projection(s): ${ownerMismatches
         .slice(0, 10)
         .map((projection) => projection.documentId)
+        .join(", ")}.`,
+    );
+  }
+
+  const labelOwnerMismatches = args.labels.filter((label) => {
+    const document = documentById.get(label.document_id);
+    return document && label.owner_id !== document.owner_id;
+  });
+  if (labelOwnerMismatches.length > 0) {
+    throw new Error(
+      `Registry label owner mismatch for ${labelOwnerMismatches.length} label(s): ${labelOwnerMismatches
+        .slice(0, 10)
+        .map((label) => label.id)
         .join(", ")}.`,
     );
   }
@@ -215,9 +234,10 @@ export function buildRegistryGovernancePlan(args: {
 
   for (const projection of args.projections) {
     const document = documentById.get(projection.documentId)!;
+    const intentLabel = { ...projection.intentLabel, owner_id: document.owner_id };
     const mergedMetadata = { ...metadataRecord(document.metadata), ...projection.requiredMetadata };
     if (stableJson(mergedMetadata) !== stableJson(metadataRecord(document.metadata))) {
-      documentUpdates.push({ id: document.id, ownerId: projection.ownerId, metadata: mergedMetadata });
+      documentUpdates.push({ id: document.id, ownerId: document.owner_id, metadata: mergedMetadata });
     }
 
     const documentLabels = labelsByDocument.get(projection.documentId) ?? [];
@@ -231,12 +251,10 @@ export function buildRegistryGovernancePlan(args: {
 
     const expectedLabel = documentLabels.find(
       (label) =>
-        label.source === "generated" &&
-        label.label_type === "document_intent" &&
-        label.label === projection.intentLabel.label,
+        label.source === "generated" && label.label_type === "document_intent" && label.label === intentLabel.label,
     );
-    if (!expectedLabel) labelsToInsert.push(projection.intentLabel);
-    else if (!expectedLabelCurrent(expectedLabel, projection.intentLabel)) labelsToUpdate.push(projection.intentLabel);
+    if (!expectedLabel) labelsToInsert.push(intentLabel);
+    else if (!expectedLabelCurrent(expectedLabel, intentLabel)) labelsToUpdate.push(intentLabel);
   }
 
   return {
@@ -246,6 +264,8 @@ export function buildRegistryGovernancePlan(args: {
     labelsToInsert,
     labelsToUpdate,
     labelIdsToDelete: [...new Set(labelIdsToDelete)].sort(),
+    publicDocumentCount: args.documents.filter((document) => document.owner_id === null).length,
+    ownerScopedDocumentCount: args.documents.filter((document) => document.owner_id === ownerId).length,
   };
 }
 
@@ -395,12 +415,10 @@ async function runWithConcurrency<T>(items: T[], concurrency: number, worker: (i
 
 async function applyPlan(supabase: AdminClient, plan: RegistryGovernancePlan) {
   await runWithConcurrency(plan.documentUpdates, WRITE_CONCURRENCY, async (update) => {
-    const { data, error } = await supabase
-      .from("documents")
-      .update({ metadata: update.metadata })
-      .eq("id", update.id)
-      .eq("owner_id", update.ownerId)
-      .select("id");
+    const updateQuery = supabase.from("documents").update({ metadata: update.metadata }).eq("id", update.id);
+    const scopedUpdate =
+      update.ownerId === null ? updateQuery.is("owner_id", null) : updateQuery.eq("owner_id", update.ownerId);
+    const { data, error } = await scopedUpdate.select("id");
     if (error) throw new Error(`Registry metadata update failed for ${update.id}: ${error.message}`);
     if (data?.length !== 1) throw new Error(`Registry metadata update did not match exactly one row for ${update.id}.`);
   });
@@ -426,6 +444,8 @@ function reportForPlan(plan: RegistryGovernancePlan, write: boolean) {
     labels_inserted: plan.labelsToInsert.length,
     labels_updated: plan.labelsToUpdate.length,
     labels_deleted: plan.labelIdsToDelete.length,
+    public_documents: plan.publicDocumentCount,
+    owner_scoped_documents: plan.ownerScopedDocumentCount,
     chunk_rows_touched: 0,
     openai_calls: 0,
   };

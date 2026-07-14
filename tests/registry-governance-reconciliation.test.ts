@@ -160,6 +160,33 @@ describe("registry governance reconciliation", () => {
     ).toThrow(/owner mismatch/);
   });
 
+  it("preserves public projection ownership and scopes generated labels to the public document", () => {
+    const projections = (["service", "form", "medication", "differential"] as RegistryCorpusKind[]).map(projection);
+    const documents = projections.map((value) =>
+      value.kind === "differential" ? documentFor(value) : { ...documentFor(value), owner_id: null },
+    );
+
+    const plan = buildRegistryGovernancePlan({ projections, documents, labels: [], expectedCounts });
+
+    expect(plan.publicDocumentCount).toBe(3);
+    expect(plan.ownerScopedDocumentCount).toBe(1);
+    expect(plan.documentUpdates.find((update) => update.id === projections[0]!.documentId)?.ownerId).toBeNull();
+    expect(plan.labelsToInsert.find((item) => item.document_id === projections[0]!.documentId)?.owner_id).toBeNull();
+    expect(plan.labelsToInsert.find((item) => item.document_id === projections[3]!.documentId)?.owner_id).toBe(
+      projections[3]!.ownerId,
+    );
+  });
+
+  it("rejects a generated label owned by a different scope than its document", () => {
+    const projections = (["service", "form", "medication", "differential"] as RegistryCorpusKind[]).map(projection);
+    const documents = projections.map(documentFor);
+    const mismatchedLabel = label(projections[0]!, { owner_id: null });
+
+    expect(() =>
+      buildRegistryGovernancePlan({ projections, documents, labels: [mismatchedLabel], expectedCounts }),
+    ).toThrow(/label owner mismatch/);
+  });
+
   it("requires both configured identity signals to match the expected project", () => {
     expect(() =>
       assertExpectedRegistryProjectRef({
