@@ -9,7 +9,14 @@ async function goto(page: Page, path: string) {
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 }
 
-test.describe("Tools mockups collapse the primary region when filtering", () => {
+// The shell's expanded sidebar (now the desktop default) contributes its own
+// "Search recent chats" searchbox, so mockup searches must be scoped to the
+// page content instead of grabbing the first searchbox on the page.
+function mockupSearch(page: Page) {
+  return page.locator("#main-content").getByRole("searchbox").first();
+}
+
+test.describe("Tools mockups collapse the primary region when filtering @mockup", () => {
   test.describe.configure({ timeout: 60_000 });
 
   test("command center hides Start here and avoids a populated grid over an empty state", async ({ page }) => {
@@ -18,7 +25,7 @@ test.describe("Tools mockups collapse the primary region when filtering", () => 
 
     await expect(page.getByRole("heading", { name: "Start here" })).toBeVisible();
 
-    const search = page.getByRole("searchbox").first();
+    const search = mockupSearch(page);
     await search.fill("medication");
     await expect(page.getByRole("heading", { name: "Start here" })).toHaveCount(0);
     await expect(page.getByLabel("Open Medication Prescribing")).toBeVisible();
@@ -36,7 +43,7 @@ test.describe("Tools mockups collapse the primary region when filtering", () => 
     await expect(page.getByRole("heading", { name: "Resume" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Assess" })).toBeVisible();
 
-    await page.getByRole("searchbox").first().fill("medication");
+    await mockupSearch(page).fill("medication");
     await expect(page.getByRole("heading", { name: "Assess" })).toHaveCount(0);
     await expect(page.getByLabel("Open Medication Prescribing")).toBeVisible();
   });
@@ -47,9 +54,11 @@ test.describe("Tools mockups collapse the primary region when filtering", () => 
 
     await expect(page.getByRole("heading", { name: "Launcher overview" })).toBeVisible();
 
-    await page.getByRole("searchbox").first().fill("medication");
+    await mockupSearch(page).fill("medication");
     await expect(page.getByRole("heading", { name: "Launcher overview" })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Results" })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Medication Prescribing/ })).toBeVisible();
+    // The split-pane card is a button; it must expose an explicit accessible
+    // action name, not just its concatenated card text (2026-07-13 audit).
+    await expect(page.getByRole("button", { name: /^Preview Medication Prescribing/ })).toBeVisible();
   });
 });

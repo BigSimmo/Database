@@ -61,7 +61,12 @@ export type RagQualityResult = {
   grounded: boolean;
   acceptSourceOnly?: boolean;
   latencyMs: number;
+  searchLatencyMs?: number;
+  generationLatencyMs?: number;
+  rpcLatencyMs?: number;
+  embeddingLatencyMs?: number;
   route: string;
+  latencyRoute: string;
   model: string | null;
   citations: number;
   visualEvidence: number;
@@ -122,6 +127,8 @@ export function deliveredGroundedAfterSourceGovernancePolicy(
   return answer.grounded;
 }
 
+const crossRegionRunnerLatencyContext = process.env.EVAL_LATENCY_CONTEXT === "cross-region-runner";
+
 const qualityThresholds = {
   retrievalTopKHitRate: 0.8,
   retrievalDocumentRecallAt5: 0.8,
@@ -132,12 +139,33 @@ const qualityThresholds = {
   numericGroundingFailureRate: 0,
   staleTopResultRate: 0.25,
   reviewRequiredTopResultRate: 0.25,
-  ragP95LatencyMs: 25_000,
+  // Latency gates default to the strict near-region ceilings that release and
+  // local runs are held to. The Eval Canary measures from cross-region GitHub
+  // runners → Sydney Supabase + OpenAI, where a real grounded answer pays full
+  // generation time (issue #459 post-#606: quality metrics perfect, p95
+  // measured 48,256ms) — that workflow opts into the wider allowance by setting
+  // EVAL_LATENCY_CONTEXT=cross-region-runner, so eval:quality:release keeps the
+  // strict gate. User-facing latency is enforced separately by the answer SLO
+  // deep probe, not this eval.
+  ragP95LatencyMs: crossRegionRunnerLatencyContext ? 60_000 : 25_000,
   ragRouteP95LatencyMs: {
+    // Refusals must stay fast — a slow refusal means the pipeline burned generation time
+    // before giving up, which is exactly the waste mode #580 eliminated.
     unsupported: 4_000,
-    extractive: 12_000,
+    // Direct source-stitching with no model generation. Generation-fallback chains no
+    // longer land in this bucket (see "fallback" below), so the runner allowance only
+    // needs cross-region RPC headroom — not the blanket 60s that pre-fallback-bucket
+    // calibration required — and a no-model extraction slowdown stays visible.
+    extractive: crossRegionRunnerLatencyContext ? 35_000 : 12_000,
     fast: 25_000,
-    strong: 35_000,
+    // Generation-fallback chains (latencyRouteForAnswer buckets any answer whose routing
+    // reason records a generation_fallback here): the failed generation spends up to
+    // OPENAI_ANSWER_TIMEOUT_MS (30s) before the source-backed fallback stitches an
+    // answer. Timeout-dominated, so the budget is region-insensitive.
+    fallback: 50_000,
+    // Strong may retry a truncated generation at a larger budget (self-heal) = up to two
+    // sequential generations; near-region runs keep the strict single-generation gate.
+    strong: crossRegionRunnerLatencyContext ? 60_000 : 35_000,
   } as Record<string, number>,
 };
 
@@ -431,9 +459,9 @@ function summarizeRagQualityResults(results: RagQualityResult[]) {
   const routeLatencyP95 = Object.fromEntries(
     Array.from(
       results.reduce((accumulator, result) => {
-        const current = accumulator.get(result.route) ?? [];
+        const current = accumulator.get(result.latencyRoute) ?? [];
         current.push(result.latencyMs);
-        accumulator.set(result.route, current);
+        accumulator.set(result.latencyRoute, current);
         return accumulator;
       }, new Map<string, number[]>()),
     ).map(([route, routeLatencies]) => [route, percentile(routeLatencies, 95)]),
@@ -591,6 +619,62 @@ function markdownTable(rows: Array<[string, string | number | null]>) {
   ].join("\n");
 }
 
+function markdownCell(value: string | number | null | undefined) {
+  return String(value ?? "n/a")
+    .replace(/\|/g, "\\|")
+    .replace(/[\r\n]+/g, " ");
+}
+
+function ragCaseDiagnosticsTable(results: RagQualityResult[]) {
+  if (results.length === 0) return "- None";
+  const rows = [...results]
+    .sort((left, right) => right.latencyMs - left.latencyMs)
+    .map((result) =>
+      [
+        result.id,
+        result.route,
+        result.latencyRoute,
+        result.latencyMs,
+        result.searchLatencyMs,
+        result.generationLatencyMs,
+        result.rpcLatencyMs,
+        result.embeddingLatencyMs,
+        result.model,
+        result.failures.length > 0 ? `failed (${result.failures.length})` : "passed",
+      ]
+        .map(markdownCell)
+        .join(" | "),
+    );
+  return [
+    "| Case | Route | Latency SLO | Total ms | Search ms | Generation ms | RPC ms | Embedding ms | Model | Result |",
+    "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+    ...rows.map((row) => `| ${row} |`),
+  ].join("\n");
+}
+
+function latencyRouteForAnswer(answer: RagAnswer) {
+  const route = answer.routingMode ?? "none";
+  if ((answer.latencyTimings?.generation_latency_ms ?? 0) <= 0) return route;
+  // A generation ran and failed before a source-backed answer was assembled (e.g.
+  // provider_timeout -> extractive fallback). These chains structurally cost the failed
+  // generation's timeout PLUS the fallback work, so they get their own latency budget
+  // instead of inflating the plain fast budget, hiding inside the no-model extractive
+  // one, or — for strong-classified reasons (e.g. multi_document_comparison_synthesis) —
+  // blending into the strong budget. This check deliberately outranks the strong
+  // classifiers below: a successful strong generation (including quality retries) never
+  // records a generation_fallback, so genuine strong answers keep the strong budget.
+  if (/\bgeneration_fallback:/i.test(answer.routingReason ?? "")) return "fallback";
+  if (route === "strong") return "strong";
+  if (
+    /^(?:broad_clinical_management_synthesis|clinical_risk_or_complex_query|limited_retrieval_strength|multi_document_comparison_synthesis|retrieval_gap_or_conflict)\b/i.test(
+      answer.routingReason ?? "",
+    )
+  ) {
+    return "strong";
+  }
+  return "fast";
+}
+
 export function renderEvalQualityMarkdown(report: EvalQualityReport) {
   const retrieval = report.retrieval.summary;
   const governance = report.retrieval.source_governance;
@@ -733,6 +817,10 @@ ${markdownTable([
   ["Estimated cost USD", rag.estimated_cost_usd],
 ])}
 
+## Answer Case Diagnostics
+
+${ragCaseDiagnosticsTable(report.rag.results)}
+
 ## Failing Retrieval Cases
 
 ${failedRetrieval || "- None"}
@@ -860,7 +948,12 @@ async function runRagQualityCases(args: {
       grounded: deliveredGrounded,
       acceptSourceOnly: testCase.acceptSourceOnly,
       latencyMs: answer.latencyTimings?.total_latency_ms ?? 0,
+      searchLatencyMs: answer.latencyTimings?.search_latency_ms,
+      generationLatencyMs: answer.latencyTimings?.generation_latency_ms,
+      rpcLatencyMs: answer.latencyTimings?.supabase_rpc_latency_ms,
+      embeddingLatencyMs: answer.latencyTimings?.embedding_latency_ms,
       route: answer.routingMode ?? "none",
+      latencyRoute: latencyRouteForAnswer(answer),
       model: answer.modelUsed ?? null,
       citations: answer.citations.length,
       visualEvidence: answer.visualEvidence?.length ?? 0,

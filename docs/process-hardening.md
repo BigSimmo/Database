@@ -131,10 +131,11 @@ passes `p_worker_id`. Ordered apply steps, R17 manual `CONCURRENTLY` index, and 
 
 ## PR merge gate: risk-scoped CI + required aggregate (2026-07-10)
 
-- CI now has one always-reporting required aggregate: `CI / PR required`. The aggregate depends on `changes`, `static-pr`, `safety`, `coverage`, `build`, `ui-critical`, and `db-reset-verify`, then enforces only the jobs whose scopes apply.
+- CI now has one always-reporting required aggregate: `CI / PR required`. The aggregate depends on `changes`, `static-pr`, `safety`, `coverage`, `build`, `ui-critical`, `ui-regression`, and `db-reset-verify`, then enforces only the jobs whose scopes apply.
 - `static-pr` is the deterministic baseline for every PR: runtime, action pin check, CI scope self-test, format, lint, typecheck, and unit tests. Coverage, build, safety/config, critical UI, production-backed offline RAG preflight, and migration replay are independent jobs so reruns stay focused. Coverage is limited to `src`/test changes; process-only changes do not trigger builds.
 - `db-reset-verify` is path-scoped to Supabase migrations/schema/config and database-access code. Do not also require an external Supabase Preview replay unless the repo owner intentionally wants duplicate migration replay.
-- `ui-critical` is path-scoped to UI/routing/styling/browser-facing changes and runs only the `@critical` Chromium smoke subset. `ui-regression` runs the remaining Chromium cases on UI pull requests as advisory feedback and is deliberately excluded from `pr-required`. The full browser matrix remains main/release/manual/scheduled.
+- `ui-critical` is path-scoped to UI/routing/styling/browser-facing changes and runs only the `@critical` Chromium smoke subset. `ui-regression` (2026-07-13 audit, finding 8) runs the remaining stable Chromium cases via `test:e2e:regression` (`--grep-invert "@critical|@quarantine"`) and is **merge-blocking** through `pr-required` on UI changes. Genuinely flaky specs are tagged `@quarantine` and run in the advisory `ui-quarantine` job (`test:e2e:quarantine`, `--pass-with-no-tests`); fix and untag them rather than letting the quarantine grow. The full browser matrix remains main/release/manual/scheduled.
+- 2026-07-13 flip-day triage: the whole 142-test regression set was green locally except one stale `/privacy` heading assertion (fixed — the page title is "Privacy & data handling" since the footer simplification) and three cold-dev-server timing timeouts that pass on a warmed server and have no CI failure history (`ui-tools` mode-home centering `:462`, differentials comparison wiring `:1367`, `ui-universal-search` grouped-result navigation `:102`). Watch those three; if one flakes in CI, tag it `@quarantine` rather than reverting the gate.
 - Branch protection for `main` should require `CI / PR required` and `Secret Scan / Gitleaks`. Keep `SAST / Semgrep` required only if the repository owner accepts its external-rule/network dependency as part of the normal merge gate. Do not require path-filtered or scheduled/manual contexts such as `CI / Unit coverage`, `CI / Critical UI smoke`, `CI / Migration replay`, `Docker image build / app-image`, `Docker image build / worker-image`, `CI / release-browser-matrix`, `Eval Canary`, or `Live drift check`; they can be skipped on ordinary PRs and would leave branches stuck at "Expected - Waiting for status to be reported."
 
 ## CSS cascade layering (2026-07-02)
@@ -308,3 +309,46 @@ hybrid:10}`, all 10 forced-embedding vector cases passed (`force_embedding_failu
 
 - The differentials export's trap-tables appendix (`T_Focused_Diagnostic_Trap_Tables.txt`) has no title line, so the parser surfaced its first metadata row ("Urgency: urgent") as a presentation titled "Urgency: urgent" (slug `urgency-urgent`) with detail routes and search visibility. It is a legitimate comparison workflow ("Distinguishes intrusive/obsessional phenomena from psychotic or violent intent"), and 4 of its 7 option diagnoses (`gad-worry-depressive-rumination`, `overvalued-idea`, `psychotic-delusion`, `ptsd-intrusive-memories-flashbacks`) exist in no other entry — so excluding it would orphan them and break the #483 invariant (enforced by `differential-detail.test.ts`) that every diagnosis belongs to a presentation. Fixed at the root: `parseEntryTitle` now falls back to the `=== HEADER ===` text when the first line is a metadata row, retitling the entry "Focused Diagnostic Trap Tables" (slug `focused-diagnostic-trap-tables`). Snapshot stays 31 presentations; no orphans.
 - **Operator follow-up (live Supabase, confirmation-required):** the retitle changed the slug, and seeding upserts by slug and never deletes, so already-seeded owners keep the stale `differential_records` row (`kind='presentation'`, `slug='urgency-urgent'`) and — where corpus embedding ran — its registry corpus document/chunks in `documents`/`document_chunks`. `npm run differentials:seed -- --owner-id <uuid> --write` now prunes presentation rows whose slug the current snapshot no longer produces (via `staleSeededPresentations`) and their corpus documents per owner; run it for each seeded owner.
+
+## 2026-07-13 audit remediation batch (branch claude/audit-remediation-2026-07-13)
+
+- **Lexical retrieval rewrite (audit finding 1):** `20260713100000_index_friendly_lexical_retrieval.sql` splits `match_document_chunks_text`'s OR-across-relations candidate search into two GIN-index probes unioned by chunk id (same contract, same scores; the `_v2` wrapper inherits the speedup). Parity + plan + timing harness: `scripts/sql/lexical-rpc-parity-check.sql` (scratch databases only; run it against the drift-manifest container kept with `--keep`). Re-run it whenever either lexical body changes.
+- **supabase_admin default privileges (audit finding 7, operator caveat):** `20260713102000_revoke_supabase_admin_default_privileges.sql` revokes anon/authenticated future-object defaults for role `supabase_admin` and probes the lockdown with future-object creation. On hosted Supabase the migration degrades to a WARNING if `postgres` cannot act for `supabase_admin`; **operator follow-up:** watch for that warning during live apply and, if present, run the six `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin` statements once via the dashboard SQL editor, then re-run the migration's probe block.
+- **Legacy rag query text scrub (audit finding 5):** `20260713103000_scrub_legacy_rag_query_text.sql` performs four redaction/deletion operations for pre-HMAC plaintext query text: (1) scrubs `rag_queries.query` rows not matching `redacted-query:%`, replacing them with salted `redacted-query:legacy:` placeholders; (2) scrubs both `rag_query_misses.query` and `rag_query_misses.normalized_query` not matching `redacted-query:%`; (3) scrubs both `rag_retrieval_logs.query` and `rag_retrieval_logs.normalized_query` not matching `redacted-query:%` (nullable); (4) deletes `rag_response_cache` rows where `normalized_query` does not match `redacted-cache:%` (cache entries, not re-keyed). **Operator verification after live apply:** for each affected table/operation, count rows not matching the expected redacted pattern (expect 0 unless `RAG_PERSIST_RAW_QUERY_TEXT` is deliberately enabled): `select count(*) from rag_queries where query not like 'redacted-query:%';` (expect 0), `select count(*) from rag_query_misses where query not like 'redacted-query:%' or normalized_query not like 'redacted-query:%';` (expect 0), `select count(*) from rag_retrieval_logs where query not like 'redacted-query:%' or (normalized_query is not null and normalized_query not like 'redacted-query:%');` (expect 0), `select count(*) from rag_response_cache where normalized_query not like 'redacted-cache:%';` (expect 0). The migration includes a post-apply assertion block that enforces these exact checks and fails the migration if any unscrubbed/undeleted rows remain.
+- Remaining operator items from the 2026-07-13 audit (confirmation-required, not automated): apply this batch's migrations live, re-run Supabase advisors, trigger the Eval Canary and require two consecutive green scheduled runs, repair the invalid `storage.idx_objects_bucket_id_name_lower` index via dashboard/support, and dedupe response-cache purge cron jobs if `cron.job` shows duplicates.
+
+## Repo-productivity & automation tooling (2026-07-13)
+
+Machinery added to retire repeated traps and surface live-product signal proactively. This entry is
+the durable index for the tooling; `docs/operator-backlog.md` tracks the human-only enablement steps.
+
+- **Pre-push guards** (`.githooks/pre-push` → `scripts/guard-push.mjs`, auto-installed by the
+  `postinstall` → `scripts/install-git-hooks.mjs`, which sets `core.hooksPath=.githooks`): three guards,
+  each with an explicit override env var — auto-merge race sentinel (`claude/*`, blocks a push when the
+  PR's auto-merge is armed; `ALLOW_AUTOMERGE_PUSH=1`), format-before-push (closes the `verify:cheap` vs
+  CI `format:check` gap; `SKIP_FORMAT_GUARD=1`), and drift-manifest freshness (`SKIP_DRIFT_GUARD=1`).
+  `guard:push:self-test` covers the pure logic. Because the SessionStart hook is remote-gated, the
+  installer runs from `postinstall` (any new npm lifecycle script must also be COPY'd into the
+  Dockerfile npm-ci stages — see the 2026-07-13 docs-infra note).
+- **Stale-base tripwire** (`scripts/check-base-freshness.mjs`, `check:base-freshness`): advisory
+  ahead/behind-vs-`origin/main` warning wired into a second SessionStart hook; never blocks.
+- **Live-product monitoring:** `spend` block on `/api/health?deep=1` (`src/lib/observability/spend-metrics.ts`,
+  USD derived from already-persisted answer token counts; prices via `OPENAI_PRICE_*` env, placeholders
+  until set). `scripts/ops-digest.mjs` + `.github/workflows/ops-digest.yml` (**dispatch-only** until
+  `PROD_HEALTH_URL` var + `HEALTH_DEEP_PROBE_SECRET` secret exist in both Railway and GitHub).
+- **Ingestion autopilot** (`scripts/ingestion-autopilot.ts`, `ingestion:autopilot`): probes `reindex-health`
+  and recovers a stuck queue **only** with `--apply`. Workflow schedule is LIVE in **dry-run**
+  (`INGESTION_AUTOPILOT_APPLY` unset → read-only); flip that repo var to `true` after a clean dry-run to
+  allow real recovery.
+- **CI failure triage** (`.github/workflows/ci-triage.yml`): on PR CI failure, classifies each failed job
+  as main-side / possible-known-flake / needs-investigation. Inert until repo var `CI_TRIAGE_ENABLED=true`
+  (now set). Reads only job metadata + the trusted default-branch flake ledger (`tests/flake-ledger.json`,
+  `scripts/flake-ledger.mjs`); never runs PR code.
+- **Repo hygiene:** `check:env-parity` (env-var NAME reconciliation across `env.ts`, `check-ci-env.mjs`,
+  and — opt-in, names-only — `gh secret list` / Railway) and `sweep:branch-ledger` (report-only branch
+  inventory, cherry-pick-aware).
+- **Session skills** (`.claude/skills/{newtask,handoff,prlanded}`): the first repo-local skills, encoding
+  the clean-worktree, upload, and post-merge-verification rituals.
+- **CI guards (warn/advisory):** `check:bundle-budget` (warn-only client-JS size gate after Build until a
+  baseline is captured in `bundle-budget.json` and `enforce:true` is set) and `docs:check-scripts`
+  (advisory — validates `npm run` refs in docs against `package.json`).

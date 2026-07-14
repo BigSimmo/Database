@@ -143,6 +143,127 @@ const entries: ClinicalVocabularyEntry[] = [
     type: "lab",
     weight: 1.1,
   },
+  // Psychiatry vocabulary seed (OpenMRS/CIEL-informed synonym sets, AU spellings).
+  // Ordering rule: only the first 6 aliases survive expandClinicalVocabularyText
+  // (CI-14), so anything a clinician would actually type must sit within them.
+  // Screening and outcome instruments.
+  { canonical: "patient health questionnaire", aliases: ["phq 9", "phq9", "phq"], type: "clinical_term", weight: 1.1 },
+  {
+    canonical: "generalised anxiety disorder scale",
+    aliases: ["gad 7", "gad7", "generalized anxiety disorder scale"],
+    type: "clinical_term",
+    weight: 1.1,
+  },
+  {
+    canonical: "kessler psychological distress scale",
+    aliases: ["k10", "k 10", "kessler 10"],
+    type: "clinical_term",
+    weight: 1.1,
+  },
+  { canonical: "edinburgh postnatal depression scale", aliases: ["epds"], type: "clinical_term", weight: 1.1 },
+  { canonical: "mini mental state examination", aliases: ["mmse", "mini mental"], type: "clinical_term", weight: 1.1 },
+  { canonical: "montreal cognitive assessment", aliases: ["moca"], type: "clinical_term", weight: 1.1 },
+  {
+    canonical: "mental state examination",
+    aliases: ["mse", "mental state exam", "mental status examination"],
+    type: "clinical_term",
+    weight: 1.15,
+  },
+  // Psychotropic medication classes.
+  {
+    canonical: "antipsychotic",
+    aliases: ["antipsychotics", "neuroleptic", "neuroleptics"],
+    type: "medication",
+    weight: 1.1,
+  },
+  { canonical: "antidepressant", aliases: ["antidepressants"], type: "medication", weight: 1.05 },
+  {
+    canonical: "selective serotonin reuptake inhibitor",
+    aliases: ["ssri", "ssris"],
+    type: "medication",
+    weight: 1.15,
+  },
+  {
+    canonical: "serotonin noradrenaline reuptake inhibitor",
+    aliases: ["snri", "snris", "serotonin norepinephrine reuptake inhibitor"],
+    type: "medication",
+    weight: 1.1,
+  },
+  { canonical: "monoamine oxidase inhibitor", aliases: ["maoi", "maois"], type: "medication", weight: 1.15 },
+  { canonical: "benzodiazepine", aliases: ["benzodiazepines", "benzo", "bzd"], type: "medication", weight: 1.1 },
+  {
+    canonical: "mood stabiliser",
+    aliases: ["mood stabilizer", "mood stabilisers", "mood stabilizers"],
+    type: "medication",
+    weight: 1.1,
+  },
+  // Common psychotropics missing from the brand-name seed above.
+  { canonical: "sodium valproate", aliases: ["valproate", "epilim", "valproic acid"], type: "medication", weight: 1.1 },
+  { canonical: "carbamazepine", aliases: ["tegretol"], type: "medication", weight: 1.05 },
+  { canonical: "aripiprazole", aliases: ["abilify"], type: "medication", weight: 1.05 },
+  { canonical: "paliperidone", aliases: ["invega"], type: "medication", weight: 1.05 },
+  { canonical: "mirtazapine", aliases: ["avanza", "remeron"], type: "medication", weight: 1.05 },
+  { canonical: "sertraline", aliases: ["zoloft"], type: "medication", weight: 1.05 },
+  // Mental health legislation and containment workflows (AU).
+  { canonical: "community treatment order", aliases: ["cto"], type: "workflow", weight: 1.15 },
+  { canonical: "mental health act", aliases: ["mha"], type: "document_title", weight: 1.1 },
+  {
+    canonical: "involuntary patient",
+    aliases: ["involuntary admission", "involuntary treatment", "detained patient"],
+    type: "workflow",
+    weight: 1.1,
+  },
+  {
+    canonical: "seclusion and restraint",
+    aliases: ["seclusion", "restraint", "restrictive practice", "restrictive practices"],
+    type: "risk",
+    weight: 1.2,
+  },
+  {
+    canonical: "rapid tranquillisation",
+    aliases: ["rapid tranquilisation", "rapid tranquilization", "acute sedation", "parenteral sedation"],
+    type: "workflow",
+    weight: 1.2,
+  },
+  {
+    canonical: "acute behavioural disturbance",
+    aliases: ["code black", "behavioural emergency", "behavioral emergency"],
+    type: "risk",
+    weight: 1.2,
+  },
+  // Risk terminology.
+  {
+    canonical: "suicidal ideation",
+    aliases: ["suicide risk", "suicidality", "suicidal thoughts"],
+    type: "risk",
+    weight: 1.25,
+  },
+  {
+    canonical: "deliberate self harm",
+    aliases: ["self harm", "dsh", "self injury", "non suicidal self injury", "nssi"],
+    type: "risk",
+    weight: 1.2,
+  },
+  // Psychological therapies.
+  {
+    canonical: "cognitive behavioural therapy",
+    aliases: ["cbt", "cognitive behavior therapy", "cognitive behaviour therapy"],
+    type: "clinical_term",
+    weight: 1.05,
+  },
+  {
+    canonical: "dialectical behaviour therapy",
+    aliases: ["dbt", "dialectical behavior therapy"],
+    type: "clinical_term",
+    weight: 1.05,
+  },
+  // Monitoring.
+  {
+    canonical: "therapeutic drug monitoring",
+    aliases: ["tdm", "drug level", "serum level", "trough level"],
+    type: "lab",
+    weight: 1.15,
+  },
 ];
 
 function normalize(value: string) {

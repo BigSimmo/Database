@@ -83,7 +83,12 @@ function ragResult(overrides: Partial<RagQualityResult> = {}): RagQualityResult 
     expectedHit: true,
     grounded: true,
     latencyMs: 900,
+    searchLatencyMs: 200,
+    generationLatencyMs: 650,
+    rpcLatencyMs: 150,
+    embeddingLatencyMs: 25,
     route: "fast",
+    latencyRoute: "fast",
     model: "test-model",
     citations: 2,
     visualEvidence: 0,
@@ -227,6 +232,33 @@ describe("eval quality reporting", () => {
     expect(regressed.blocking_threshold_failures).toEqual(
       expect.arrayContaining([expect.stringContaining("RAG grounded_supported_rate")]),
     );
+  });
+
+  it("budgets a model-attempt extractive fallback against the fallback latency route", () => {
+    // A failed generation followed by a source-backed fallback structurally costs the
+    // generation timeout plus the fallback work, so it is budgeted in its own "fallback"
+    // bucket (50s) rather than the plain fast budget (25s) or the tight no-model
+    // extractive budget (12s). 35s here would fail both of those but must pass fallback.
+    const report = buildEvalQualityReport({
+      generatedAt: "2026-07-13T00:00:00.000Z",
+      retrievalResults: [],
+      ragResults: [
+        ragResult({
+          route: "extractive",
+          latencyRoute: "fallback",
+          latencyMs: 35_000,
+          generationLatencyMs: 30_000,
+          model: null,
+          routingReason: "strong_routine_retrieval; generation_fallback:provider_timeout",
+        }),
+      ],
+    });
+
+    expect(report.rag.summary.route_p95_latency_ms).toEqual({ fallback: 35_000 });
+    expect(report.threshold_failures).not.toEqual(
+      expect.arrayContaining([expect.stringContaining("route extractive")]),
+    );
+    expect(report.threshold_failures).not.toEqual(expect.arrayContaining([expect.stringContaining("route fallback")]));
   });
 
   it("fails forced-embedding retrieval cases that return from cache, coverage, or lexical paths", () => {
@@ -554,6 +586,8 @@ describe("eval quality reporting", () => {
     expect(markdown).toContain("## Retrieval Decision Metrics");
     expect(markdown).toContain("## Source Governance");
     expect(markdown).toContain("## Answer Metrics");
+    expect(markdown).toContain("## Answer Case Diagnostics");
+    expect(markdown).toContain("| rag-1 | fast | fast | 900 | 200 | 650 | 150 | 25 | test-model | passed |");
     expect(markdown).toContain("| Hit@K | 1 |");
     expect(markdown).toContain("Policy: unknown, unverified");
   });

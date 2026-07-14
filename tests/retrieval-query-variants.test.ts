@@ -19,7 +19,7 @@ import {
   relaxVariantToOrQuery,
   shouldRelaxWeakTextMatches,
 } from "../src/lib/rag";
-import { maxTextRpcQueryVariants } from "../src/lib/rag-retrieval-variants";
+import { firstVariantPoolIsStrong, maxTextRpcQueryVariants } from "../src/lib/rag-retrieval-variants";
 import type { SearchResult } from "../src/lib/types";
 
 function result(overrides: Partial<SearchResult> = {}): SearchResult {
@@ -1260,5 +1260,38 @@ describe("shouldRelaxWeakTextMatches (P8b weak-augment)", () => {
   it("treats a missing text_rank as no lexical evidence", () => {
     const missing = [result({ id: "a" }), result({ id: "b" }), result({ id: "c" })];
     expect(shouldRelaxWeakTextMatches(missing)).toBe(true);
+  });
+});
+
+describe("firstVariantPoolIsStrong (PT-02 sibling-variant early-exit)", () => {
+  const pool = (count: number, topRank: number) =>
+    Array.from({ length: count }, (_, index) =>
+      result({ id: `chunk-${index}`, text_rank: index === 0 ? topRank : 0.1 }),
+    );
+
+  it("skips siblings only for a deep pool anchored by a precise hit", () => {
+    expect(firstVariantPoolIsStrong(pool(24, 0.9), 48)).toBe(true);
+    expect(firstVariantPoolIsStrong(pool(6, 0.35), 12)).toBe(true);
+  });
+
+  it("keeps the fan-out when the pool is shallow, even with a strong top hit", () => {
+    expect(firstVariantPoolIsStrong(pool(3, 1.2), 48)).toBe(false);
+    expect(firstVariantPoolIsStrong([], 12)).toBe(false);
+  });
+
+  it("keeps the fan-out when the pool is deep but imprecise", () => {
+    expect(firstVariantPoolIsStrong(pool(48, 0.2), 48)).toBe(false);
+  });
+
+  it("agrees with the weak-OR bar so both paths share one notion of a precise hit", () => {
+    // A pool that early-exits must never be one the weak-OR path considers weak.
+    const strong = pool(24, 0.35);
+    expect(firstVariantPoolIsStrong(strong, 48)).toBe(true);
+    expect(shouldRelaxWeakTextMatches(strong)).toBe(false);
+  });
+
+  it("treats missing text_rank as no lexical evidence", () => {
+    const unranked = Array.from({ length: 24 }, (_, index) => result({ id: `chunk-${index}` }));
+    expect(firstVariantPoolIsStrong(unranked, 48)).toBe(false);
   });
 });

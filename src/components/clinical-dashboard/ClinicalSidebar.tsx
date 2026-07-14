@@ -18,6 +18,7 @@ import {
   Settings as SettingsIcon,
   Sparkles,
   Sun,
+  Tags,
   Wrench,
 } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -71,12 +72,18 @@ const sidebarToolItems = [
   { id: "answer", label: "Answer", icon: Sparkles, href: "/?mode=answer" },
   { id: "documents", label: "Documents", icon: FileText, href: "/?mode=documents" },
   { id: "services", label: "Services", icon: appModeIcons.services, href: "/services" },
-  { id: "forms", label: "Forms", icon: ClipboardPen, href: "/forms" },
+  // badge = catalogue-maturity pill: the Forms registry is a small starter set.
+  { id: "forms", label: "Forms", icon: ClipboardPen, href: "/forms", badge: "Early access" },
   { id: "favourites", label: "Favourites", icon: Heart, href: "/favourites" },
   { id: "differentials", label: "Differentials", icon: BrainCircuit, href: "/differentials" },
-  { id: "prescribing", label: "Medications", icon: Pill, href: "/?mode=prescribing" },
+  { id: "specifiers", label: "Specifiers", icon: Tags, href: "/specifiers" },
+  { id: "prescribing", label: "Medication", icon: Pill, href: "/?mode=prescribing" },
   { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
 ] as const;
+
+function sidebarItemBadge(item: (typeof sidebarToolItems)[number]): string | undefined {
+  return "badge" in item ? item.badge : undefined;
+}
 
 // Display-free base so callers can compose `grid` / `hidden lg:grid` without
 // conflicting display utilities (cn does not de-duplicate classes).
@@ -251,6 +258,11 @@ export function ClinicalSidebarContent({
                     )}
                   />
                   <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+                  {sidebarItemBadge(item) ? (
+                    <span className="shrink-0 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-1.5 py-0.5 text-2xs font-semibold text-[color:var(--text-soft)]">
+                      {sidebarItemBadge(item)}
+                    </span>
+                  ) : null}
                 </Link>
               );
             })}
@@ -420,8 +432,8 @@ function ClinicalCollapsedRail({
               onFocus={item.id === "tools" ? onPrefetchApplications : undefined}
               onPointerEnter={item.id === "tools" ? onPrefetchApplications : undefined}
               className={cn(collapsedSidebarButton, active && collapsedSidebarActiveButton)}
-              aria-label={item.label}
-              title={item.label}
+              aria-label={sidebarItemBadge(item) ? `${item.label} (${sidebarItemBadge(item)})` : item.label}
+              title={sidebarItemBadge(item) ? `${item.label} (${sidebarItemBadge(item)})` : item.label}
               aria-current={active ? "page" : undefined}
             >
               <Icon className="h-4 w-4" />

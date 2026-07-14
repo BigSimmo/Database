@@ -37,18 +37,37 @@ function providerRetryNumber(value: string | undefined, fallback: number) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export function isProviderRateLimitError(error: unknown) {
+function providerErrorText(error: unknown) {
   const maybeRecord = error && typeof error === "object" ? (error as Record<string, unknown>) : {};
-  const message = [
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof maybeRecord.message === "string"
+        ? maybeRecord.message
+        : String(error);
+  const maybeDetails =
+    maybeRecord.details && typeof maybeRecord.details === "object"
+      ? (maybeRecord.details as Record<string, unknown>)
+      : {};
+  return [
     error instanceof Error ? error.name : "",
-    error instanceof Error ? error.message : String(error),
+    message,
     maybeRecord.status,
     maybeRecord.code,
     maybeRecord.type,
+    maybeDetails.code,
   ]
     .filter(Boolean)
     .join(" ");
-  return /\b(?:429|rate[_\s-]?limit(?:ed)?|too many requests)\b/i.test(message);
+}
+
+export function isProviderQuotaError(error: unknown) {
+  return /\b(?:insufficient[_\s-]?quota|quota|billing)\b/i.test(providerErrorText(error));
+}
+
+export function isProviderRateLimitError(error: unknown) {
+  const message = providerErrorText(error);
+  return !isProviderQuotaError(error) && /\b(?:429|rate[_\s-]?limit(?:ed)?|too many requests)\b/i.test(message);
 }
 
 export async function withProviderBackoff<T>(
@@ -75,6 +94,25 @@ export async function withProviderBackoff<T>(
   }
 
   throw new Error(`Provider retry loop exhausted for ${label}.`);
+}
+
+export async function withProviderBackoffProgress<TProgress, TResult>(
+  label: string,
+  operation: (onProgress: (event: TProgress) => void) => Promise<TResult>,
+  options: { maxAttempts?: number; initialDelayMs?: number; maxDelayMs?: number } = {},
+) {
+  let successfulProgress: TProgress[] = [];
+  const result = await withProviderBackoff(
+    label,
+    async () => {
+      const attemptProgress: TProgress[] = [];
+      const attemptResult = await operation((event) => attemptProgress.push(event));
+      successfulProgress = attemptProgress;
+      return attemptResult;
+    },
+    options,
+  );
+  return { result, progress: successfulProgress };
 }
 
 export async function findOwnerIdByEmail(supabase: SupabaseAdmin, email: string) {
@@ -149,6 +187,11 @@ export function validateRagAnswer(testCase: RagEvalCase, answer: RagAnswer) {
     testCase.expectedFiles.length > 1 ? 5 : 3,
   );
   const expectedHit = testCase.expectedFiles.length > 1 ? expectedCoverage.allHit : expectedCoverage.anyHit;
+  const expectedCitationCoverage = expectedFileCoverage(
+    testCase.expectedFiles,
+    answer.citations,
+    answer.citations.length,
+  );
   const route = answer.routingMode ?? "unsupported";
   const visualEvidence = answer.visualEvidence ?? [];
 
@@ -167,6 +210,9 @@ export function validateRagAnswer(testCase: RagEvalCase, answer: RagAnswer) {
   }
   if (answer.citations.length < testCase.minCitations)
     failures.push(`expected at least ${testCase.minCitations} citations`);
+  if (testCase.requireExpectedFileCitation && !expectedCitationCoverage.allHit) {
+    failures.push(`expected documents missing from citations: ${expectedCitationCoverage.missingFiles.join(", ")}`);
+  }
   if (testCase.expectedFiles.length > 1 && !expectedCoverage.allHit) {
     failures.push(`expected documents missing from top 5: ${expectedCoverage.missingFiles.join(", ")}`);
   } else if (testCase.expectedFiles.length === 1 && !expectedCoverage.anyHit) {

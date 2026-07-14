@@ -5,6 +5,7 @@ import {
   classifyAnswerIntent,
   parseAnswerJson,
 } from "../src/lib/rag";
+import { buildExtractiveAnswer, finalizeRagAnswerQuality } from "../src/lib/rag-extractive-answer";
 import type { SearchResult } from "../src/lib/types";
 
 function source(overrides: Partial<SearchResult> = {}): SearchResult {
@@ -51,6 +52,144 @@ describe("RAG trust validation", () => {
       "red_result_action",
     );
     expect(classifyAnswerIntent("What are ECT referral criteria?", "document_lookup")).toBe("pathway_referral");
+    expect(classifyAnswerIntent("What should a patient safety plan include?", "document_lookup")).toBe("general");
+    expect(classifyAnswerIntent("What does the metabolic screening document require?", "document_lookup")).toBe(
+      "general",
+    );
+  });
+
+  it("selects responsive requirements instead of related-policy references for document-routed content questions", () => {
+    const results = [
+      source({
+        id: "related-policy",
+        section_heading: "Safety planning",
+        content:
+          "Related procedures and guidelines. Women's and Perinatal Mental Health Referral and Management Guideline.",
+      }),
+      source({
+        id: "direct-requirements",
+        section_heading: "Safety planning for identified risks",
+        content:
+          "The Consumer Safety Plan must be developed in collaboration with the consumer, involve carers and family where appropriate, identify actions for a crisis and who is responsible, and be reviewed when clinical status changes.",
+      }),
+    ];
+    const candidate = buildExtractiveAnswer({
+      query: "What should a patient safety plan include?",
+      queryClass: "document_lookup",
+      results,
+      quoteCards: [],
+      documentBreakdown: [],
+      evidenceSummary: undefined,
+      sourceCoverage: undefined,
+      conflictsOrGaps: [],
+      visualEvidence: [],
+      bestSource: null,
+      smartPanel: undefined,
+      relatedDocuments: [],
+      routeReason: "test_source_backed_recovery",
+      timings: undefined,
+    });
+    const finalized = finalizeRagAnswerQuality(
+      candidate,
+      "What should a patient safety plan include?",
+      "document_lookup",
+    );
+
+    expect(finalized.grounded).toBe(true);
+    expect(finalized.answer).toContain("developed in collaboration with the consumer");
+    expect(finalized.answer).not.toContain("Perinatal Mental Health Referral");
+    expect(finalized.citations.some((citation) => citation.chunk_id === "direct-requirements")).toBe(true);
+  });
+
+  it("returns a truthful source-review answer when broad pharmacological facts cannot be safely collapsed", () => {
+    const results = [
+      source({
+        id: "agitation-guideline",
+        document_id: "agitation-guideline-doc",
+        title: "Mental Health Pharmacological Management of Agitation and Arousal Guideline",
+        file_name: "EMHS.AgitationArousal.pdf",
+        section_heading: "Purpose",
+        content:
+          "To guide clinicians in the pharmacological management of agitation and arousal in inpatient settings.",
+      }),
+      source({
+        id: "agitation-chart",
+        document_id: "agitation-chart-doc",
+        title: "Agitation and Arousal Pharmacological Management",
+        file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+        section_heading: "Appendix V",
+        content: "Appendix V: Agitation and Arousal PRN Medication Chart example.",
+      }),
+    ];
+    const query = "What should be considered for agitation and arousal pharmacological management?";
+    const candidate = buildExtractiveAnswer({
+      query,
+      queryClass: "medication_dose_risk",
+      results,
+      quoteCards: [],
+      documentBreakdown: [],
+      evidenceSummary: undefined,
+      sourceCoverage: undefined,
+      conflictsOrGaps: [],
+      visualEvidence: [],
+      bestSource: null,
+      smartPanel: undefined,
+      relatedDocuments: [],
+      routeReason: "high_confidence_extractive_retrieval",
+      timings: undefined,
+    });
+    const finalized = finalizeRagAnswerQuality(candidate, query, "medication_dose_risk");
+
+    expect(finalized.grounded).toBe(true);
+    expect(finalized.confidence).not.toBe("unsupported");
+    expect(finalized.answer).toContain("indexed documents that support this query");
+    expect(finalized.answer).not.toContain("No current source");
+    expect(finalized.citations.map((citation) => citation.chunk_id)).toEqual(
+      expect.arrayContaining(["agitation-guideline", "agitation-chart"]),
+    );
+  });
+
+  it("verifies a clinical value against its claim-supporting citation in a multi-source answer", () => {
+    const doseSource = source({
+      id: "clozapine-dose",
+      document_id: "clozapine-doc",
+      title: "Clozapine prescribing guideline",
+      content: "Clozapine treatment starts at 12.5 mg daily.",
+    });
+    const monitoringSource = source({
+      id: "clozapine-monitoring",
+      document_id: "clozapine-doc",
+      title: "Clozapine prescribing guideline",
+      content: "Clozapine treatment requires regular blood monitoring and clinical review.",
+    });
+    const answer = finalizeRagAnswerQuality(
+      {
+        answer: "Clozapine treatment starts at 12.5 mg daily.",
+        grounded: true,
+        confidence: "medium",
+        citations: [
+          { ...doseSource, chunk_id: doseSource.id, provenance: "deterministic_support" },
+          { ...monitoringSource, chunk_id: monitoringSource.id, provenance: "deterministic_support" },
+        ],
+        sources: [doseSource, monitoringSource],
+        routingMode: "extractive",
+        routingReason: "test_claim_scoped_numeric_verification",
+        queryClass: "medication_dose_risk",
+        answerSections: [],
+      },
+      "What is the clozapine starting dose?",
+      "medication_dose_risk",
+    );
+
+    expect(answer.grounded).toBe(true);
+    expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+    expect(answer.supportedClaims).toContainEqual(
+      expect.objectContaining({
+        text: "clozapine treatment starts at 12.5 mg daily.",
+        supportStatus: "direct",
+        supportingChunkIds: ["clozapine-dose"],
+      }),
+    );
   });
 
   // B5: on model-JSON parse failure the fallback must fail closed — it must NOT

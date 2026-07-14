@@ -66,6 +66,27 @@ export function checkPythonPdfPrerequisites(): Promise<PrerequisiteCheck> {
     "print(json.dumps(result))",
   ].join("\n");
 
+  return probePythonJson(script, "Python PDF/OCR prerequisites ready.");
+}
+
+// Only enforced when WORKER_MEDSPACY_ASSERTION=true — medspacy is an optional
+// dependency and workers without it must keep starting cleanly while the flag is off.
+export function checkMedspacyPrerequisites(): Promise<PrerequisiteCheck> {
+  const script = [
+    "import json",
+    "result = {'ok': True, 'missing': []}",
+    "try:",
+    "    import medspacy",
+    "except Exception as exc:",
+    "    result['ok'] = False",
+    "    result['missing'].append(f'medspacy: {exc}')",
+    "print(json.dumps(result))",
+  ].join("\n");
+
+  return probePythonJson(script, "medspaCy assertion-tagging prerequisites ready.");
+}
+
+function probePythonJson(script: string, readyDetail: string): Promise<PrerequisiteCheck> {
   return new Promise((resolve) => {
     const child = spawn(env.PYTHON_BIN, ["-c", script], { stdio: ["ignore", "pipe", "pipe"] });
     let stdout = "";
@@ -89,7 +110,7 @@ export function checkPythonPdfPrerequisites(): Promise<PrerequisiteCheck> {
         const parsed = JSON.parse(stdout) as { ok: boolean; missing?: string[] };
         resolve({
           ok: parsed.ok,
-          detail: parsed.ok ? "Python PDF/OCR prerequisites ready." : `Missing ${parsed.missing?.join("; ")}`,
+          detail: parsed.ok ? readyDetail : `Missing ${parsed.missing?.join("; ")}`,
         });
       } catch {
         resolve({ ok: false, detail: "Python prerequisite check returned invalid output." });

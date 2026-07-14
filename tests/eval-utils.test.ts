@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_EVAL_OWNER_ID,
   expectedFileCoverage,
+  isProviderQuotaError,
   isProviderRateLimitError,
   pauseBetweenEvalCases,
   resolveEvalOwnerId,
   validateRagAnswer,
   withProviderBackoff,
+  withProviderBackoffProgress,
   type SupabaseAdmin,
 } from "../scripts/eval-utils";
 import type { RagEvalCase } from "../src/lib/rag-eval-cases";
@@ -159,6 +161,37 @@ describe("RAG eval source identity matching", () => {
     expect(validation.failures).toContain("expected document not in retrieved sources");
   });
 
+  it("requires an expected document citation when the canary opts in", () => {
+    const testCase: RagEvalCase = {
+      id: "patient-safety-plan",
+      question: "What should a patient safety plan include?",
+      category: "routine",
+      supported: true,
+      expectedFiles: ["CG.MHSP.PtSafetyPlan.pdf"],
+      allowedRoutes: ["extractive", "fast"],
+      minCitations: 1,
+      requireExpectedFileCitation: true,
+      latencyTargetMs: 2000,
+    };
+    const answer = {
+      answer: "Create a collaborative safety plan.",
+      grounded: true,
+      confidence: "high",
+      citations: [{ chunk_id: "other", document_id: "other", title: "Other", file_name: "Other.pdf" }],
+      sources: [
+        { title: "Patient Safety Plan", file_name: "CG.MHSP.PtSafetyPlan.pdf" },
+        { title: "Other", file_name: "Other.pdf" },
+      ],
+      routingMode: "fast",
+      visualEvidence: [],
+      latencyTimings: { total_latency_ms: 800 },
+    } as unknown as RagAnswer;
+
+    const validation = validateRagAnswer(testCase, answer);
+
+    expect(validation.failures).toContain("expected documents missing from citations: CG.MHSP.PtSafetyPlan.pdf");
+  });
+
   it("retries transient provider rate-limit errors for eval operations", async () => {
     let attempts = 0;
 
@@ -175,6 +208,70 @@ describe("RAG eval source identity matching", () => {
     expect(result).toBe("ok");
     expect(attempts).toBe(2);
     expect(isProviderRateLimitError(new Error("429 too many requests"))).toBe(true);
+  });
+
+  it("retries structured provider rate-limit errors that are not Error instances", async () => {
+    const operation = vi.fn(async () => {
+      if (operation.mock.calls.length === 1) throw { message: "rate limit exceeded" };
+      return "ok";
+    });
+
+    await expect(
+      withProviderBackoff("test-structured-rate-limit", operation, {
+        maxAttempts: 2,
+        initialDelayMs: 1,
+        maxDelayMs: 1,
+      }),
+    ).resolves.toBe("ok");
+
+    expect(operation).toHaveBeenCalledTimes(2);
+    expect(isProviderRateLimitError({ message: "rate limit exceeded" })).toBe(true);
+  });
+
+  it("fails immediately when provider quota is exhausted", async () => {
+    const operation = vi.fn(async () => {
+      throw Object.assign(new Error("OpenAI quota is exhausted. Falling back to a source-only answer."), {
+        status: 429,
+        details: { code: "insufficient_quota" },
+      });
+    });
+
+    await expect(
+      withProviderBackoff("test-quota", operation, { maxAttempts: 6, initialDelayMs: 1, maxDelayMs: 1 }),
+    ).rejects.toThrow(/quota is exhausted/i);
+
+    expect(operation).toHaveBeenCalledTimes(1);
+    expect(isProviderQuotaError(new Error("Billing hard limit reached."))).toBe(true);
+    expect(
+      isProviderRateLimitError(
+        Object.assign(new Error("429 too many requests"), { details: { code: "insufficient_quota" } }),
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps progress only from the successful provider attempt", async () => {
+    let attempts = 0;
+
+    const outcome = await withProviderBackoffProgress<string, string>(
+      "test-progress-rate-limit",
+      async (onProgress) => {
+        attempts += 1;
+        onProgress(`attempt-${attempts}:retrieved`);
+        if (attempts === 1) {
+          onProgress("attempt-1:supplementary-selected");
+          throw new Error("429 too many requests");
+        }
+        onProgress("attempt-2:finalized");
+        return "ok";
+      },
+      { maxAttempts: 2, initialDelayMs: 1, maxDelayMs: 1 },
+    );
+
+    expect(outcome).toEqual({
+      result: "ok",
+      progress: ["attempt-2:retrieved", "attempt-2:finalized"],
+    });
+    expect(attempts).toBe(2);
   });
 
   it("pauses between eval cases when configured", async () => {

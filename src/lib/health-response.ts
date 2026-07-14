@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
 import { env, isDemoMode } from "@/lib/env";
-import type { AnswerSloSnapshot } from "@/lib/observability/answer-slo";
+import type { AnswerSloSnapshot, SloProbeClient } from "@/lib/observability/answer-slo";
 import { cacheMetricsSnapshot, type CacheMetricsSnapshot } from "@/lib/observability/cache-metrics";
+import type { SpendProbeClient, SpendSnapshot } from "@/lib/observability/spend-metrics";
 
 type HealthResponseOptions = {
   forceDeep?: boolean;
   allowUnauthenticatedDeep?: boolean;
   includeSlo?: boolean;
   includeCache?: boolean;
+  includeSpend?: boolean;
 };
 
 export async function healthResponse(request: Request, options: HealthResponseOptions = {}) {
@@ -20,6 +22,7 @@ export async function healthResponse(request: Request, options: HealthResponseOp
   };
   let slo: AnswerSloSnapshot | null = null;
   let cache: CacheMetricsSnapshot | null = null;
+  let spend: SpendSnapshot | null = null;
 
   if (deep) {
     const tokenAuthorized = allowDeepHealthProbe(request);
@@ -48,9 +51,33 @@ export async function healthResponse(request: Request, options: HealthResponseOp
           checks.supabase = health.ok ? "ok" : "error";
           if (health.ok && options.includeSlo !== false) {
             try {
-              slo = await answerSloSnapshot(admin);
+              // Avoid recursively instantiating the full generated PostgREST
+              // client type against the intentionally tiny SLO query surface.
+              slo = await answerSloSnapshot(admin as unknown as SloProbeClient);
             } catch {
               slo = null;
+            }
+          }
+          // Answer-generation spend, gated like `slo` (token-authorized deep probe
+          // + healthy Supabase). Derives USD from already-recorded token counts and
+          // a configurable price; errors are swallowed to null and never flip
+          // liveness. Suppressed only when explicitly disabled.
+          if (health.ok && tokenAuthorized && options.includeSpend !== false) {
+            try {
+              const { spendSnapshot } = await import("@/lib/observability/spend-metrics");
+              // admin is structurally a SpendProbeClient; cast avoids a deep
+              // instantiation check against the full PostgREST client type (TS2589),
+              // matching how answer-slo/health treat the admin client.
+              spend = await spendSnapshot(admin as unknown as SpendProbeClient, {
+                pricing: {
+                  inputPerMTok: env.OPENAI_PRICE_INPUT_PER_MTOK,
+                  cachedInputPerMTok: env.OPENAI_PRICE_CACHED_INPUT_PER_MTOK,
+                  outputPerMTok: env.OPENAI_PRICE_OUTPUT_PER_MTOK,
+                },
+                alertDailyUsd: env.SPEND_ALERT_DAILY_USD,
+              });
+            } catch {
+              spend = null;
             }
           }
         } catch {
@@ -75,6 +102,7 @@ export async function healthResponse(request: Request, options: HealthResponseOp
       checks,
       ...(slo ? { slo } : {}),
       ...(cache ? { cache } : {}),
+      ...(spend ? { spend } : {}),
     },
     { status: ready ? 200 : 503, headers: { "Cache-Control": "no-store" } },
   );

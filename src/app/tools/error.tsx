@@ -7,9 +7,9 @@ export default function ErrorBoundary({ error, reset }: { error: Error & { diges
     <RouteErrorBoundary
       error={error}
       reset={reset}
-      title="Failed to load applications"
-      description="An unexpected error occurred while loading the applications launcher."
-      logLabel="Unhandled runtime error captured in applications segment:"
+      title="Failed to load tools"
+      description="An unexpected error occurred while loading the tools launcher."
+      logLabel="Unhandled runtime error captured in tools segment:"
     />
   );
 }

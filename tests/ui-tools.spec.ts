@@ -307,9 +307,9 @@ test.describe("Clinical KB tools launcher", () => {
     });
   }
 
-  test("standalone applications route uses the shared global search", async ({ page }) => {
+  test("standalone tools route uses the shared global search", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
-    await gotoLauncher(page, "/applications");
+    await gotoLauncher(page, "/tools");
 
     await expect(page.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
@@ -376,6 +376,9 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("mode toggle stays global on the services home route", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    // Asserts the collapsed rail affordance below; seed the remembered
+    // preference now that new users default to the labelled sidebar.
+    await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoLauncher(page, "/?mode=answer");
 
     // Re-open + re-click on each retry: a single click can be swallowed while the
@@ -469,7 +472,7 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
       { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
       { path: "/favourites", testId: "favourites-hub", heading: "Favourites command library", headingLevel: 1 },
-      { path: "/applications", testId: "tools-home", heading: "Tools", headingLevel: 1 },
+      { path: "/tools", testId: "tools-home", heading: "Tools", headingLevel: 1 },
     ] as const) {
       await gotoLauncher(page, home.path);
       await expect(page.getByTestId(home.testId)).toBeVisible();
@@ -638,7 +641,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("phone mode homes keep the shared search in the hero, not the bottom dock", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
-    for (const home of ["/services", "/forms", "/differentials", "/applications"]) {
+    for (const home of ["/services", "/forms", "/differentials", "/tools"]) {
       await gotoLauncher(page, home);
       const heroInput = page.locator(".mode-home-composer-slot").getByTestId("global-search-input");
       await expect(heroInput).toBeVisible({ timeout: 15_000 });
@@ -695,7 +698,7 @@ test.describe("Clinical KB tools launcher", () => {
         { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
         { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
         { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
-        { path: "/applications", testId: "tools-home", heading: "Tools", headingLevel: 1 },
+        { path: "/tools", testId: "tools-home", heading: "Tools", headingLevel: 1 },
       ] as const) {
         await gotoLauncher(page, home.path);
         await expect(page.getByTestId(home.testId)).toBeVisible();
@@ -1511,7 +1514,7 @@ test.describe("Responsive layout guards", () => {
   ] as const;
 
   for (const route of mockupRoutes) {
-    test(`${route.name} never overflows horizontally across sizes`, async ({ page }) => {
+    test(`${route.name} never overflows horizontally across sizes @mockup`, async ({ page }) => {
       await page.setViewportSize({ width: 1280, height: 900 });
       await gotoLauncher(page, route.path);
       await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible();

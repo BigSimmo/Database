@@ -1,5 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
+<<<<<<< HEAD
 import { expect, test, type Page } from "playwright/test";
+=======
+import { expect, test, type Page, type TestInfo } from "playwright/test";
+>>>>>>> origin/main
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -71,6 +75,7 @@ async function openScopeControl(page: Page) {
   });
 }
 
+<<<<<<< HEAD
 // Rule ids intentionally excluded from the automated axe gate, each with a
 // documented rationale. Keep this list SHORT — every entry is a known, triaged
 // issue, not a blanket silence. Prefer fixing the markup over adding an entry.
@@ -116,6 +121,31 @@ test.describe("Clinical KB automated accessibility (axe)", () => {
   });
 });
 
+=======
+const axeWcagTags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
+// Advisory gate: only fail on the impacts a clinician-facing release must not ship.
+// Lower-impact findings stay visible in the attached report without blocking the lane.
+const axeBlockingImpacts = new Set(["critical", "serious"]);
+
+async function expectNoBlockingAxeViolations(page: Page, testInfo: TestInfo, options?: { disableRules?: string[] }) {
+  const builder = new AxeBuilder({ page }).withTags(axeWcagTags);
+  if (options?.disableRules?.length) builder.disableRules(options.disableRules);
+  const results = await builder.analyze();
+
+  await testInfo.attach("axe-violations", {
+    body: JSON.stringify(results.violations, null, 2),
+    contentType: "application/json",
+  });
+
+  const blocking = results.violations.filter((violation) => axeBlockingImpacts.has(violation.impact ?? ""));
+  const summary = blocking.map(
+    (violation) =>
+      `${violation.id} (${violation.impact}): ${violation.help} — ${violation.nodes.length} node(s), see ${violation.helpUrl}`,
+  );
+  expect(summary, "axe found critical/serious WCAG A/AA violations").toEqual([]);
+}
+
+>>>>>>> origin/main
 test.describe("Clinical KB accessibility media smoke", () => {
   test.describe.configure({ timeout: 60_000 });
 
@@ -151,5 +181,28 @@ test.describe("Clinical KB accessibility media smoke", () => {
 
     await expectDashboardUsable(page);
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("dashboard passes axe WCAG A/AA scan with default colors", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+
+    // Scan only after the usability gate: the shell double-renders during hydration and a
+    // premature scan reports duplicated-landmark false positives.
+    await expectDashboardUsable(page);
+    await expectNoBlockingAxeViolations(page, testInfo);
+  });
+
+  test("dashboard passes axe WCAG A/AA scan with forced colors", async ({ page }, testInfo) => {
+    await page.emulateMedia({ forcedColors: "active" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+
+    await expectDashboardUsable(page);
+    // color-contrast is unreliable under forced-colors emulation (the OS palette overrides
+    // author colors); contrast is asserted by the default-colors scan instead.
+    await expectNoBlockingAxeViolations(page, testInfo, { disableRules: ["color-contrast"] });
   });
 });

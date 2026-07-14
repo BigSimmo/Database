@@ -44,36 +44,37 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 - **App shell:** `src/components/clinical-dashboard/global-search-shell.tsx` — canonical route-aware shell and lazy dashboard dispatch. The mockup-named module is a compatibility re-export used only below `/mockups`.
 - **Home:** `src/app/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
-- **Modes (8):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, prescribing, tools
+- **Modes (9):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, specifiers, prescribing, tools
 
 ### Product pages (`src/app/`)
 
-| Route                                                | File                                   |
-| ---------------------------------------------------- | -------------------------------------- |
-| `/`                                                  | `src/app/page.tsx`                     |
-| `/applications`                                      | `src/app/applications/page.tsx`        |
-| `/differentials`, `/diagnoses`, `/presentations`     | `src/app/differentials/`               |
-| `/documents/search`, `/source`, `/evidence`, `/[id]` | `src/app/documents/`                   |
-| `/favourites`                                        | `src/app/favourites/page.tsx`          |
-| `/forms`, `/forms/[slug]`                            | `src/app/forms/`                       |
-| `/medications`, `/medications/[slug]`                | `src/app/medications/`                 |
-| `/services`, `/services/[slug]`                      | `src/app/services/`                    |
-| `/mockups/*`                                         | `src/app/mockups/` (404 in production) |
-| `/auth/callback`                                     | `src/app/auth/callback/route.ts`       |
+| Route                                                               | File                                   |
+| ------------------------------------------------------------------- | -------------------------------------- |
+| `/`                                                                 | `src/app/page.tsx`                     |
+| `/applications`                                                     | `src/app/applications/page.tsx`        |
+| `/differentials`, `/diagnoses`, `/presentations`                    | `src/app/differentials/`               |
+| `/documents/search`, `/source`, `/evidence`, `/[id]`                | `src/app/documents/`                   |
+| `/favourites`                                                       | `src/app/favourites/page.tsx`          |
+| `/forms`, `/forms/[slug]`                                           | `src/app/forms/`                       |
+| `/medications`, `/medications/[slug]`                               | `src/app/medications/`                 |
+| `/services`, `/services/[slug]`                                     | `src/app/services/`                    |
+| `/specifiers`, `/specifiers/[slug]`, `/builder`, `/compare`, `/map` | `src/app/specifiers/`                  |
+| `/mockups/*`                                                        | `src/app/mockups/` (404 in production) |
+| `/auth/callback`                                                    | `src/app/auth/callback/route.ts`       |
 
 ### API routes (`src/app/api/`)
 
-| Area        | Routes                                                                  | Entry files                                     |
-| ----------- | ----------------------------------------------------------------------- | ----------------------------------------------- |
-| Answers     | `/api/answer`, `/api/answer/stream`                                     | `answer/route.ts`, `answer/stream/route.ts`     |
-| Search      | `/api/search`, `/api/search/interaction`                                | `search/`                                       |
-| Upload      | `/api/upload`                                                           | `upload/route.ts`                               |
-| Documents   | CRUD, bulk, reindex, labels, search, summarize, table-facts, signed-url | `documents/`                                    |
-| Ingestion   | batches, jobs, retry, quality                                           | `ingestion/`                                    |
-| Registry    | records CRUD                                                            | `registry/records/`                             |
-| Images      | signed URLs                                                             | `images/[id]/signed-url/route.ts`               |
-| Ops         | health, setup-status, local-project-id                                  | `health/`, `setup-status/`, `local-project-id/` |
-| Eval / jobs | eval cases, job state                                                   | `eval-cases/`, `jobs/`                          |
+| Area        | Routes                                                                  | Entry files                                                     |
+| ----------- | ----------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Answers     | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`             | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
+| Search      | `/api/search`, `/api/search/interaction`                                | `search/`                                                       |
+| Upload      | `/api/upload`                                                           | `upload/route.ts`                                               |
+| Documents   | CRUD, bulk, reindex, labels, search, summarize, table-facts, signed-url | `documents/`                                                    |
+| Ingestion   | batches, jobs, retry, quality                                           | `ingestion/`                                                    |
+| Registry    | records CRUD                                                            | `registry/records/`                                             |
+| Images      | signed URLs                                                             | `images/[id]/signed-url/route.ts`                               |
+| Ops         | health, setup-status, local-project-id                                  | `health/`, `setup-status/`, `local-project-id/`                 |
+| Eval / jobs | eval cases, job state                                                   | `eval-cases/`, `jobs/`                                          |
 
 ---
 
@@ -113,25 +114,27 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### Supabase, auth, env
 
-| Module                                                                               | Role                         |
-| ------------------------------------------------------------------------------------ | ---------------------------- |
-| `supabase/client.tsx`, `server.ts`, `admin.ts`, `auth.ts`, `health.ts`, `project.ts` | Clients and auth             |
-| `supabase/database.types.ts`                                                         | Generated DB types           |
-| `env.ts`                                                                             | Zod-validated environment    |
-| `owner-scope.ts`, `query-privacy.ts`, `privacy.ts`, `audit.ts`                       | Multi-user scope and privacy |
+| Module                                                                                            | Role                         |
+| ------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `src/lib/supabase/` — `client.tsx`, `server.ts`, `admin.ts`, `auth.ts`, `health.ts`, `project.ts` | Clients and auth             |
+| `src/lib/supabase/database.types.ts`                                                              | Generated DB types           |
+| `env.ts`                                                                                          | Zod-validated environment    |
+| `owner-scope.ts`, `query-privacy.ts`, `privacy.ts`, `audit.ts`                                    | Multi-user scope and privacy |
 
 ### Clinical product data
 
-| Module                                                               | Role                      |
-| -------------------------------------------------------------------- | ------------------------- |
-| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Registry-backed content   |
-| `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts`                   | Safety copy and demo mode |
+| Module                                                               | Role                                  |
+| -------------------------------------------------------------------- | ------------------------------------- |
+| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Registry-backed content               |
+| `specifiers.ts`                                                      | Local psychiatric specifier catalogue |
+| `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts`                   | Safety copy and demo mode             |
 
 ### Infra helpers
 
 | Module                                                                                           | Role                                                          |
 | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
 | `openai.ts`, `embedding-dimensions.ts`, `api-rate-limit.ts`                                      | External APIs and rate limits                                 |
+| `observability/` — `answer-slo.ts`, `cache-metrics.ts`, `spend-metrics.ts`                       | Deep-health SLO / cache-hit / answer-spend snapshots          |
 | `validation/`                                                                                    | `body.ts`, `query.ts`, `params.ts`, `http.ts`, `form-data.ts` |
 | `app-modes.ts`, `document-flow-routes.ts`, `local-project-identity.ts`, `local-server-utils.mjs` | Routing and project identity                                  |
 
@@ -246,19 +249,19 @@ Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json`
 
 ### Clinical KB surface
 
-- 8 app modes with unified search shell
+- 9 app modes with unified search shell
 - Documents mode: upload/manage private guidelines, search, cited answers
 - Answer mode: grounded Q&A with PDF-linked citations
-- Registry modes: services, forms, medications, differentials
+- Registry modes: services, forms, medications, differentials; Specifiers is a local structured decision-support catalogue
 - Demo mode: synthetic data when Supabase unavailable (`demo-data.ts`, `isDemoMode()` in `env.ts`)
 
 ### Global search composer placement rules
 
 One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
-- **Mode homes** (`/services`, `/forms`, `/favourites`, `/differentials`, `/applications`, and dashboard homes): inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike.
+- **Mode homes** (`/services`, `/forms`, `/favourites`, `/differentials`, `/specifiers`, `/applications`, and dashboard homes): inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike.
 - **Result and detail views**: fixed bottom dock on phone (compact variant on submitted searches), sticky top from `sm` up.
-- **Results routing**: standalone routes own their submitted searches via `?q=…&run=1` (`/services` → `ServicesNavigatorPage`, `/forms` → `FormsSearchResultsPage`, `/differentials` → `DifferentialsHome` results view, `/favourites` filters the command library in place). Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. `/?mode=favourites` redirects to `/favourites`; `/?mode=differentials` redirects to `/differentials`.
+- **Results routing**: standalone routes own their submitted searches via `?q=…&run=1` (`/services` → `ServicesNavigatorPage`, `/forms` → `FormsSearchResultsPage`, `/differentials` → `DifferentialsHome` results view, `/specifiers` → local structured results, `/favourites` filters the command library in place). Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. `/?mode=favourites` redirects to `/favourites`; `/?mode=differentials` redirects to `/differentials`.
 - **Intentionally composer-free routes**: `/differentials/presentations/*` (comparison workflow owns its chrome), `/documents/[id]` viewer (has its own in-document ask composer), `/documents/source/*` (document flow owns mobile chrome). Do not re-flag these in search-consistency audits.
 - **Local filter fields** (sidebar "Search chats", document drawer "Find a document"/"Find a source PDF") are scoped filters, not global search; they share the `fieldControlWithIcon`/`fieldIcon` primitives.
 
@@ -284,15 +287,16 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
 ## Related docs
 
-| Topic                   | Doc                                                              |
-| ----------------------- | ---------------------------------------------------------------- |
-| Routes and modes        | `docs/site-map.md`                                               |
-| Search/RAG roadmap      | `docs/search-rag-master-plan.md`                                 |
-| Reindex operations      | `docs/reindex-runbook.md`                                        |
-| Production readiness    | `docs/production-readiness-checklist.md`                         |
-| Capacity / scale-up     | `docs/capacity-review.md`, `docs/auth-connection-cap-runbook.md` |
-| Frontend architecture   | `docs/frontend-architecture.md`                                  |
-| Repo audit (2026-07-01) | `docs/audit/repo-audit-2026-07-01.md`                            |
+| Topic                    | Doc                                                              |
+| ------------------------ | ---------------------------------------------------------------- |
+| Full documentation index | `docs/README.md`                                                 |
+| Routes and modes         | `docs/site-map.md`                                               |
+| Search/RAG roadmap       | `docs/search-rag-master-plan.md`                                 |
+| Reindex operations       | `docs/reindex-runbook.md`                                        |
+| Production readiness     | `docs/production-readiness-checklist.md`                         |
+| Capacity / scale-up      | `docs/capacity-review.md`, `docs/auth-connection-cap-runbook.md` |
+| Frontend architecture    | `docs/frontend-architecture.md`                                  |
+| Repo audit (2026-07-01)  | `docs/audit/repo-audit-2026-07-01.md`                            |
 
 ---
 

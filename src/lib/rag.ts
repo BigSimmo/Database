@@ -26,8 +26,12 @@ import {
 } from "@/lib/rag-quote-verification";
 import { applyNumericVerification } from "@/lib/answer-verification";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
-import { capPerDocumentCrowding, selectModelContextResults } from "@/lib/rag-context-selection";
-export { capPerDocumentCrowding, selectModelContextResults } from "@/lib/rag-context-selection";
+import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag-context-selection";
+export {
+  capPerDocumentCrowding,
+  selectModelContextResults,
+  summarizeAustralianSourceSelection,
+} from "@/lib/rag-context-selection";
 import {
   buildExtractiveAnswer,
   cleanAnswerSectionHeading,
@@ -60,6 +64,7 @@ import {
   assertGlobalSearchAllowed,
   buildRetrievalQueryVariants,
   fetchEnabledRagAliases,
+  firstVariantPoolIsStrong,
   maxTextRpcQueryVariants,
   normalizeRetrievalVariant,
   ownerScopeForDocumentFilteredRetrieval,
@@ -121,6 +126,7 @@ import {
 } from "@/lib/clinical-search";
 import { env, requestedOpenAIAnswerModels } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { captureServerEvent } from "@/lib/observability/error-capture";
 import {
   answerPrivacyMetadata,
   answerTextForStorage,
@@ -146,6 +152,7 @@ import {
   deriveConfidence,
   evidenceTextForGate,
   fallbackReasonFromRouting,
+  isProviderGenerationDegraded,
   machineReadableFallbackAnswer,
   scoreValue,
 } from "@/lib/rag-answer-support";
@@ -156,6 +163,7 @@ export {
   deriveConfidence,
   evidenceTextForGate,
   fallbackReasonFromRouting,
+  isProviderGenerationDegraded,
   machineReadableFallbackAnswer,
   rankMemoryCardsForAnswer,
   scoreValue,
@@ -400,9 +408,23 @@ function throwIfAborted(signal?: AbortSignal) {
 }
 
 export type AnswerProgressEvent = {
-  stage: "retrieved" | "routing" | "generating" | "retrying" | "finalizing" | "cached";
+  stage:
+    | "retrieved"
+    | "ranking"
+    | "routing"
+    | "generating"
+    | "retrying"
+    | "fallback"
+    | "verifying"
+    | "finalizing"
+    | "cached"
+    | "complete";
   message: string;
   resultCount?: number;
+  selectedContextCount?: number;
+  australianSourceCount?: number;
+  waSourceCount?: number;
+  usedSupplementaryFallback?: boolean;
   visibleSourceCount?: number;
   directSourceCount?: number;
   weakSourceCount?: number;
@@ -578,6 +600,21 @@ function recordHybridRpcError(telemetry: SearchTelemetry | undefined, rpc: strin
       [rpc]: code,
     };
   }
+}
+
+/** Record how many variant RPCs a lexical surface actually issued (PT-02 early-exit). */
+function recordTextVariantFanout(
+  telemetry: SearchTelemetry | undefined,
+  rpc: string,
+  calls: number,
+  earlyExit: boolean,
+) {
+  if (!telemetry) return;
+  telemetry.text_variant_rpc_calls = {
+    ...(telemetry.text_variant_rpc_calls ?? {}),
+    [rpc]: calls,
+  };
+  if (earlyExit) telemetry.text_variant_early_exit = true;
 }
 
 /** Record search score telemetry. */
@@ -811,7 +848,18 @@ function buildRetrievalDiagnostics(args: {
   answerMode: "unsupported" | "extractive" | "fast" | "strong";
   fallbackReason?: string | null;
 }) {
-  const resultScores = args.results.map(scoreValue);
+  // Lexical-only retrieval rows carry a truthful score contract since migration
+  // 20260713062107_restore_text_fallback_lexical_score: similarity is 0 (no vector
+  // ran) and hybrid_score is deliberately capped at 0.48 so a keyword hit can never
+  // masquerade as a moderate/strong cosine match downstream. The honest lexical
+  // signal lives in lexical_score (0.4..0.99). This gate must therefore read
+  // max(scoreValue, lexical_score) — reading the capped hybrid_score alone makes
+  // topScore < 0.5 unconditional for every text-fast-path answer, refusing
+  // well-supported documentation lookups whose expected document is at rank 1.
+  // Ranking/selection ordering still uses scoreValue and is unchanged.
+  const resultScores = args.results.map((result) =>
+    Math.max(scoreValue(result), Math.min(1, result.lexical_score ?? 0)),
+  );
   const sortedScores = [...resultScores].sort((a, b) => b - a);
   const topScore = sortedScores[0] ?? 0;
   const secondScore = sortedScores[1] ?? 0;
@@ -875,6 +923,110 @@ function applyConfidenceGate(
     },
     fallbackReason: `low_signal_${queryClass}_${route.mode}`,
   };
+}
+
+/**
+ * Allow a score-blocked routine document-content query to use the deterministic
+ * answer only when that answer independently passes the final safety gates.
+ *
+ * This is deliberately narrower than the normal extractive router: it cannot
+ * recover medication, threshold, comparison, broad-summary, complex, or weakly
+ * related queries. The retrieval diagnostic remains blocked so the UI still
+ * presents the recovered answer with low-trust guidance.
+ */
+function hasValidatedExtractiveCandidate(args: {
+  query: string;
+  queryClass: RagQueryClass;
+  results: SearchResult[];
+  routeReason: string;
+}) {
+  const candidate = finalizeRagAnswerQuality(
+    buildExtractiveAnswer({
+      query: args.query,
+      queryClass: args.queryClass,
+      results: args.results,
+      quoteCards: [],
+      documentBreakdown: [],
+      evidenceSummary: undefined,
+      sourceCoverage: undefined,
+      conflictsOrGaps: [],
+      visualEvidence: [],
+      bestSource: null,
+      smartPanel: undefined,
+      relatedDocuments: [],
+      routeReason: args.routeReason,
+      timings: undefined,
+    }),
+    args.query,
+    args.queryClass,
+  );
+
+  return (
+    candidate.grounded &&
+    candidate.confidence !== "unsupported" &&
+    candidate.citations.length > 0 &&
+    candidate.responseMode !== "evidence_gap" &&
+    !/final_quality_gate:/.test(candidate.routingReason ?? "")
+  );
+}
+
+/** Recover only routine, source-backed document lookups whose deterministic answer passes every final gate. */
+function hasValidatedRoutineExtractiveRecovery(args: {
+  query: string;
+  queryClass: RagQueryClass;
+  results: SearchResult[];
+  route: { mode: "unsupported" | "extractive" | "fast" | "strong"; reason: string };
+  sourceBacked: boolean;
+}) {
+  if (
+    args.queryClass !== "document_lookup" ||
+    args.route.mode !== "fast" ||
+    args.route.reason !== "strong_routine_retrieval" ||
+    !args.sourceBacked
+  ) {
+    return false;
+  }
+
+  return hasValidatedExtractiveCandidate({
+    query: args.query,
+    queryClass: args.queryClass,
+    results: args.results,
+    routeReason: `${args.route.reason}; validated_routine_extractive_recovery`,
+  });
+}
+
+/**
+ * Generic LAI-management questions repeatedly time out in generation despite strong direct
+ * source support. Skip that paid tail only when the question asks no specific clinical detail
+ * and the deterministic answer independently passes the same final quality and grounding gates.
+ */
+function hasValidatedGenericLaiManagementExtractiveAnswer(args: {
+  query: string;
+  queryClass: RagQueryClass;
+  results: SearchResult[];
+  route: { mode: "unsupported" | "extractive" | "fast" | "strong"; reason: string };
+  sourceBacked: boolean;
+}) {
+  const genericLaiManagementQuery = /^\s*how (?:are|should) long[- ]acting injectables? (?:be )?managed\??\s*$/i.test(
+    args.query,
+  );
+
+  if (
+    !genericLaiManagementQuery ||
+    args.queryClass !== "medication_dose_risk" ||
+    args.route.mode !== "fast" ||
+    args.route.reason !== "clinical_fast_grounded_synthesis" ||
+    !args.sourceBacked
+  ) {
+    return false;
+  }
+
+  return hasValidatedExtractiveCandidate({
+    query: args.query,
+    queryClass: args.queryClass,
+    results: args.results,
+    routeReason: `${args.route.reason}; validated_generic_lai_management_extractive_answer`,
+  });
 }
 
 /** Clamp confidence. */
@@ -1478,11 +1630,19 @@ async function searchTextChunkCandidates(args: {
   };
 
   const variants = args.queryVariants.slice(0, maxTextRpcQueryVariants);
-  const resultSets = await Promise.all(
-    variants.map((variant, index) =>
-      runChunkText(variant, index === 0 ? args.matchCount : Math.min(args.matchCount, 32)),
-    ),
-  );
+  const [primaryVariant, ...siblingVariants] = variants;
+  const primaryResults = primaryVariant === undefined ? [] : await runChunkText(primaryVariant, args.matchCount);
+  // PT-02: skip the near-duplicate sibling variants when the primary pool is
+  // already deep and anchored by a precise hit; weak/empty pools keep the full
+  // fan-out (one extra sequential hop) so recall is unchanged where it matters.
+  const skipSiblings = siblingVariants.length > 0 && firstVariantPoolIsStrong(primaryResults, args.matchCount);
+  const resultSets = skipSiblings
+    ? [primaryResults]
+    : [
+        primaryResults,
+        ...(await Promise.all(siblingVariants.map((variant) => runChunkText(variant, Math.min(args.matchCount, 32))))),
+      ];
+  recordTextVariantFanout(args.telemetry, "match_document_chunks_text", resultSets.length, skipSiblings);
   const merged = resultSets.reduce(
     (accumulated, resultSet) => mergeSearchResults(resultSet, accumulated),
     [] as SearchResult[],
@@ -1774,23 +1934,28 @@ async function searchDocumentLookupFastPath(args: {
     0,
     maxTextRpcQueryVariants,
   );
-  const documentSets = await Promise.all(
-    variants.map(async (variant, index) => {
-      const { data, error } = await callVersionedRetrievalRpc(
-        args.supabase,
-        "match_documents_for_query_v2",
-        "match_documents_for_query",
-        {
-          query_text: variant,
-          match_count: index === 0 ? 12 : 8,
-          ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
-        },
-      );
-      if (error) recordHybridRpcError(args.telemetry, "match_documents_for_query", error);
-      if (error || !data?.length) return [] as DocumentLookupRow[];
-      return data as DocumentLookupRow[];
-    }),
-  );
+  const runDocumentLookup = async (variant: string, matchCount: number) => {
+    const { data, error } = await callVersionedRetrievalRpc(
+      args.supabase,
+      "match_documents_for_query_v2",
+      "match_documents_for_query",
+      {
+        query_text: variant,
+        match_count: matchCount,
+        ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
+      },
+    );
+    if (error) recordHybridRpcError(args.telemetry, "match_documents_for_query", error);
+    if (error || !data?.length) return [] as DocumentLookupRow[];
+    return data as DocumentLookupRow[];
+  };
+  const [primaryVariant, ...siblingVariants] = variants;
+  const primaryDocuments = primaryVariant === undefined ? [] : await runDocumentLookup(primaryVariant, 12);
+  const skipSiblings = siblingVariants.length > 0 && firstVariantPoolIsStrong(primaryDocuments, 12);
+  const documentSets = skipSiblings
+    ? [primaryDocuments]
+    : [primaryDocuments, ...(await Promise.all(siblingVariants.map((variant) => runDocumentLookup(variant, 8))))];
+  recordTextVariantFanout(args.telemetry, "match_documents_for_query", documentSets.length, skipSiblings);
   const titleAliasDocuments = await fetchDocumentTitleAliasRows({
     supabase: args.supabase,
     query: args.query,
@@ -2115,24 +2280,32 @@ async function searchTableFactCandidates(args: {
     0,
     maxTextRpcQueryVariants,
   );
-  const factSets = await Promise.all(
-    variants.map(async (variant, index) => {
-      const { data, error } = await callVersionedRetrievalRpc(
-        args.supabase,
-        "match_document_table_facts_text_v2",
-        "match_document_table_facts_text",
-        {
-          query_text: variant,
-          match_count: index === 0 ? args.matchCount : Math.min(args.matchCount, 24),
-          document_filters: args.documentIds ?? undefined,
-          ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
-        },
-      );
-      if (error) recordHybridRpcError(args.telemetry, "match_document_table_facts_text", error);
-      if (error || !data?.length) return [] as TableFactRpcRow[];
-      return data as TableFactRpcRow[];
-    }),
-  );
+  const runTableFacts = async (variant: string, matchCount: number) => {
+    const { data, error } = await callVersionedRetrievalRpc(
+      args.supabase,
+      "match_document_table_facts_text_v2",
+      "match_document_table_facts_text",
+      {
+        query_text: variant,
+        match_count: matchCount,
+        document_filters: args.documentIds ?? undefined,
+        ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
+      },
+    );
+    if (error) recordHybridRpcError(args.telemetry, "match_document_table_facts_text", error);
+    if (error || !data?.length) return [] as TableFactRpcRow[];
+    return data as TableFactRpcRow[];
+  };
+  const [primaryVariant, ...siblingVariants] = variants;
+  const primaryFacts = primaryVariant === undefined ? [] : await runTableFacts(primaryVariant, args.matchCount);
+  const skipSiblings = siblingVariants.length > 0 && firstVariantPoolIsStrong(primaryFacts, args.matchCount);
+  const factSets = skipSiblings
+    ? [primaryFacts]
+    : [
+        primaryFacts,
+        ...(await Promise.all(siblingVariants.map((variant) => runTableFacts(variant, Math.min(args.matchCount, 24))))),
+      ];
+  recordTextVariantFanout(args.telemetry, "match_document_table_facts_text", factSets.length, skipSiblings);
   const data = factSets.flat();
   if (!data.length) return [] as SearchResult[];
 
@@ -2355,7 +2528,7 @@ function createDocumentRankingMetadataCache(): DocumentRankingMetadataCache {
 }
 
 /** Attach document ranking metadata. */
-async function attachDocumentRankingMetadata(
+export async function attachDocumentRankingMetadata(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
   ownerId?: string,
@@ -2392,17 +2565,22 @@ async function attachDocumentRankingMetadata(
     return attachIndexQualityMetadata(supabase, enriched, ownerId, cache);
   }
 
-  try {
-    const metadataRows = await fetchRelatedDocumentMetadata({
+  const [metadataRows, indexedResults] = await Promise.all([
+    fetchRelatedDocumentMetadata({
       supabase,
       ownerId,
       documentIds: missingDocumentIds,
-    });
+    }).catch(() => null),
+    attachIndexQualityMetadata(supabase, results, ownerId, cache),
+  ]);
+  if (!metadataRows) return indexedResults;
+
+  try {
     for (const documentId of missingDocumentIds) cache.documentMetadata.set(documentId, null);
     for (const row of metadataRows) {
       cache.documentMetadata.set(row.document_id, { labels: row.labels, summary: row.summary });
     }
-    const enriched = results.map((result) => {
+    return indexedResults.map((result) => {
       const metadata = cache.documentMetadata.get(result.document_id);
       if (!metadata) return result;
       return {
@@ -2411,9 +2589,8 @@ async function attachDocumentRankingMetadata(
         document_summary: metadata.summary,
       };
     });
-    return attachIndexQualityMetadata(supabase, enriched, ownerId, cache);
   } catch {
-    return results;
+    return indexedResults;
   }
 }
 
@@ -2453,7 +2630,7 @@ async function attachIndexQualityMetadata(
 }
 
 /** Attach page visual evidence. */
-async function attachPageVisualEvidence(
+export async function attachPageVisualEvidence(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
 ): Promise<SearchResult[]> {
@@ -2475,9 +2652,9 @@ async function attachPageVisualEvidence(
 
   const selectColumns =
     "id,document_id,page_number,storage_path,caption,bbox,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata";
-  const pageData =
+  const [pageData, directData] = await Promise.all([
     pageNumbers.length > 0
-      ? await supabase
+      ? supabase
           .from("document_images")
           .select(selectColumns)
           .in("document_id", documentIds)
@@ -2486,17 +2663,17 @@ async function attachPageVisualEvidence(
           .neq("image_type", "logo_decorative")
           .order("clinical_relevance_score", { ascending: false })
           .limit(80)
-      : { data: [], error: null };
-  const directData =
+      : Promise.resolve({ data: [], error: null }),
     sourceImageIds.length > 0
-      ? await supabase
+      ? supabase
           .from("document_images")
           .select(selectColumns)
           .in("id", sourceImageIds)
           .eq("searchable", true)
           .neq("image_type", "logo_decorative")
           .limit(sourceImageIds.length)
-      : { data: [], error: null };
+      : Promise.resolve({ data: [], error: null }),
+  ]);
 
   const data = [...(pageData.data ?? []), ...(directData.data ?? [])];
   if ((pageData.error && directData.error) || data.length === 0) return results;
@@ -3891,6 +4068,42 @@ function annotateAnswerWithDiagnostics<T extends RagAnswer>(
   };
 }
 
+function buildContextDerivedArtifacts(query: string, results: SearchResult[]) {
+  const quoteCards = extractQuoteCards(results, query);
+  const memoryCardsUsed = collectMemoryCards(results);
+  return {
+    relevance: buildEvidenceRelevance(query, results),
+    quoteCards,
+    documentBreakdown: buildDocumentBreakdown(results, quoteCards),
+    smartPanel: buildSmartPanel(query, results),
+    evidenceSummary: buildEvidenceSummary(results, quoteCards),
+    sourceCoverage: buildSourceCoverage(results),
+    conflictsOrGaps: detectConflictsOrGaps(results),
+    visualEvidence: buildVisualEvidence(results),
+    bestSource: selectBestSourceRecommendation(results, quoteCards),
+    memoryCardsUsed,
+    indexingQuality: buildIndexingQuality(results, memoryCardsUsed),
+    scoreExplanations: buildAnswerScoreExplanations(results),
+  };
+}
+
+export function isCacheableGroundedGenerationFallback(
+  answer: Pick<
+    RagAnswer,
+    "routingMode" | "routingReason" | "grounded" | "confidence" | "citations" | "unverifiedNumericTokens"
+  >,
+) {
+  return (
+    answer.routingMode === "extractive" &&
+    answer.grounded &&
+    answer.confidence !== "unsupported" &&
+    answer.citations.length > 0 &&
+    (answer.unverifiedNumericTokens?.length ?? 0) === 0 &&
+    /(?:source_backed_extractive_fallback|comparison_source_safe_fallback)/.test(answer.routingReason ?? "") &&
+    !/source_backed_review_fallback/.test(answer.routingReason ?? "")
+  );
+}
+
 /** Answer question. */
 export async function answerQuestion(query: string, documentId?: string) {
   return answerQuestionWithScope({ query, documentId, allowGlobalSearch: true });
@@ -4042,7 +4255,6 @@ async function answerQuestionWithScopeUncoalesced(
   const results = annotateSearchResults(answerFocusQuery, answerRanking.rankedResults);
   const crossDocumentPlan = buildCrossDocumentSynthesisPlan(answerFocusQuery, results, queryClass);
   const answerInputResults = crossDocumentPlan.enabled ? crossDocumentPlan.results : results;
-  const relevance = buildEvidenceRelevance(answerFocusQuery, answerInputResults);
   const crossDocumentFusionBrief = crossDocumentPlan.enabled
     ? buildCrossDocumentFusionBrief(answerFocusQuery, answerInputResults)
     : null;
@@ -4060,16 +4272,20 @@ async function answerQuestionWithScopeUncoalesced(
     cross_document_fusion_source_chunk_ids: crossDocumentFusionBrief?.sourceChunkIds ?? [],
   };
   const searchLatencyMs = Date.now() - searchStartedAt;
-  const quoteCards = extractQuoteCards(answerInputResults, answerFocusQuery);
-  const documentBreakdown = buildDocumentBreakdown(answerInputResults, quoteCards);
-  const smartPanel = buildSmartPanel(answerFocusQuery, answerInputResults);
-  const evidenceSummary = buildEvidenceSummary(answerInputResults, quoteCards);
-  const sourceCoverage = buildSourceCoverage(answerInputResults);
-  const conflictsOrGaps = detectConflictsOrGaps(answerInputResults);
-  const visualEvidence = buildVisualEvidence(answerInputResults);
-  const bestSource = selectBestSourceRecommendation(answerInputResults, quoteCards);
-  const memoryCardsUsed = collectMemoryCards(answerInputResults);
-  const indexingQuality = buildIndexingQuality(answerInputResults, memoryCardsUsed);
+  const {
+    relevance,
+    quoteCards,
+    documentBreakdown,
+    smartPanel,
+    evidenceSummary,
+    sourceCoverage,
+    conflictsOrGaps,
+    visualEvidence,
+    bestSource,
+    memoryCardsUsed,
+    indexingQuality,
+    scoreExplanations: answerScoreExplanations,
+  } = buildContextDerivedArtifacts(answerFocusQuery, answerInputResults);
   const memoryLogMetadata = {
     memory_card_count: memoryCardsUsed.length,
     memory_top_score: Number(
@@ -4083,7 +4299,6 @@ async function answerQuestionWithScopeUncoalesced(
     indexing_extraction_quality: indexingQuality.extractionQuality,
     indexing_stale: indexingQuality.stale,
   };
-  const answerScoreExplanations = buildAnswerScoreExplanations(answerInputResults);
   const scoreLogMetadata = scoreExplanationLogMetadata(answerScoreExplanations);
   const emptyPanel = buildSmartPanel(answerFocusQuery, []);
   const relatedDocumentsPromise = buildRelatedDocumentsSafe({
@@ -4116,7 +4331,43 @@ async function answerQuestionWithScopeUncoalesced(
     results: answerInputResults,
     answerMode: routeFromRouting.mode,
   });
-  const gatedRoute = applyConfidenceGate(routeFromRouting, queryClass, initialRetrievalDiagnostics);
+  const validatedGenericLaiManagementExtractiveAnswer =
+    initialRetrievalDiagnostics.gateStatus === "passed" &&
+    hasValidatedGenericLaiManagementExtractiveAnswer({
+      query: args.query,
+      queryClass,
+      results: answerInputResults,
+      route: routeFromRouting,
+      sourceBacked: relevance.isSourceBacked,
+    });
+  const validatedRoutineExtractiveRecovery =
+    initialRetrievalDiagnostics.gateStatus === "blocked" &&
+    hasValidatedRoutineExtractiveRecovery({
+      query: args.query,
+      queryClass,
+      results: answerInputResults,
+      route: routeFromRouting,
+      sourceBacked: relevance.isSourceBacked,
+    });
+  const routeBeforeConfidenceGate = validatedGenericLaiManagementExtractiveAnswer
+    ? {
+        ...routeFromRouting,
+        mode: "extractive" as const,
+        model: null,
+        reason: `${routeFromRouting.reason}; validated_generic_lai_management_extractive_answer`,
+      }
+    : validatedRoutineExtractiveRecovery
+      ? {
+          ...routeFromRouting,
+          mode: "extractive" as const,
+          model: null,
+          reason: `${routeFromRouting.reason}; validated_routine_extractive_recovery`,
+        }
+      : routeFromRouting;
+  const gatedRoute =
+    validatedGenericLaiManagementExtractiveAnswer || validatedRoutineExtractiveRecovery
+      ? { route: routeBeforeConfidenceGate }
+      : applyConfidenceGate(routeBeforeConfidenceGate, queryClass, initialRetrievalDiagnostics);
   // In source-only mode (offline, or auto with no usable key) we never call the model. Route to
   // the deterministic extractive path when evidence is usable, but preserve the confidence gate's
   // "unsupported" decision so weak evidence still fails closed to a source-gap answer rather than
@@ -4303,6 +4554,8 @@ async function answerQuestionWithScopeUncoalesced(
           routing_reason: route.reason,
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(route.reason),
+          degraded: finalizedAnswer.degradedMode?.active ?? false,
+          provider_generation_degraded: isProviderGenerationDegraded(finalizedAnswer.routingReason),
           model_used: null,
           retrieved_candidate_count: results.length,
           ...smartApiLogMetadata(smartApiPlan),
@@ -4431,6 +4684,8 @@ async function answerQuestionWithScopeUncoalesced(
           routing_reason: finalizedAnswer.routingReason,
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(finalizedAnswer.routingReason),
+          degraded: finalizedAnswer.degradedMode?.active ?? false,
+          provider_generation_degraded: isProviderGenerationDegraded(finalizedAnswer.routingReason),
           model_used: null,
           retrieved_candidate_count: results.length,
           ...smartApiLogMetadata(smartApiPlan),
@@ -4733,16 +4988,21 @@ ${qualityRetryInstruction}`
   async function buildGenerationFallbackAnswer(
     error: unknown,
     relatedDocuments: RelatedDocument[],
+    fallbackResults: SearchResult[],
+    fallbackArtifacts: ReturnType<typeof buildContextDerivedArtifacts>,
   ): Promise<RagAnswer> {
-    const hasSources = answerInputResults.length > 0;
-    const fallbackCitations = compactCitations(answerInputResults);
+    const hasSources = fallbackResults.length > 0;
+    const fallbackCitations = compactCitations(fallbackResults);
     const sanitizedReason = summarizeGenerationFailureReason(error);
-    const fallbackBestSource = hasSources
-      ? (selectBestSourceRecommendation(answerInputResults, quoteCards) ?? bestSource)
-      : null;
+    const fallbackBestSource = hasSources ? fallbackArtifacts.bestSource : null;
     const fallbackSmartPanel = hasSources
-      ? { ...smartPanel, relevance, bestSource: fallbackBestSource, relatedDocuments }
-      : { ...emptyPanel, relevance, relatedDocuments };
+      ? {
+          ...fallbackArtifacts.smartPanel,
+          relevance: fallbackArtifacts.relevance,
+          bestSource: fallbackBestSource,
+          relatedDocuments,
+        }
+      : { ...emptyPanel, relevance: fallbackArtifacts.relevance, relatedDocuments };
 
     return {
       answer: boldHighYieldClinicalText(
@@ -4752,9 +5012,9 @@ ${qualityRetryInstruction}`
         args.query,
       ),
       grounded: false,
-      confidence: hasSources ? deriveConfidence(answerInputResults, fallbackCitations) : "unsupported",
+      confidence: hasSources ? deriveConfidence(fallbackResults, fallbackCitations) : "unsupported",
       citations: hasSources ? fallbackCitations : [],
-      sources: answerInputResults,
+      sources: fallbackResults,
       modelUsed: null,
       openAIRequestIds,
       openAIUsage: hasOpenAIUsage(openAIUsage) ? openAIUsage : undefined,
@@ -4762,7 +5022,8 @@ ${qualityRetryInstruction}`
       routingReason: `${route.reason}; generation_fallback:${sanitizedReason}`,
       queryClass,
       queryAnalysis,
-      responseMode: buildCurrentSmartApiPlan("unsupported", `${route.reason}; generation_fallback`).displayMode,
+      responseMode: buildCurrentSmartApiPlan("unsupported", `${route.reason}; generation_fallback`, fallbackResults)
+        .displayMode,
       latencyTimings: {
         search_cache_hit: search.telemetry.search_cache_hit,
         shared_cache_hit: search.telemetry.shared_cache_hit,
@@ -4792,21 +5053,21 @@ ${qualityRetryInstruction}`
         total_latency_ms: Date.now() - startedAt,
       },
       answerSections: [],
-      quoteCards: hasSources ? reconcileQuoteCards(quoteCards, answerInputResults, args.query) : [],
-      visualEvidence: hasSources ? visualEvidence : [],
+      quoteCards: hasSources ? reconcileQuoteCards(fallbackArtifacts.quoteCards, fallbackResults, args.query) : [],
+      visualEvidence: hasSources ? fallbackArtifacts.visualEvidence : [],
       bestSource: hasSources ? fallbackBestSource : null,
-      documentBreakdown: hasSources ? documentBreakdown : [],
-      evidenceSummary: hasSources ? evidenceSummary : emptyPanel.evidenceSummary,
-      sourceCoverage: hasSources ? sourceCoverage : emptyPanel.sourceCoverage,
-      conflictsOrGaps: hasSources ? conflictsOrGaps : [],
+      documentBreakdown: hasSources ? fallbackArtifacts.documentBreakdown : [],
+      evidenceSummary: hasSources ? fallbackArtifacts.evidenceSummary : emptyPanel.evidenceSummary,
+      sourceCoverage: hasSources ? fallbackArtifacts.sourceCoverage : emptyPanel.sourceCoverage,
+      conflictsOrGaps: hasSources ? fallbackArtifacts.conflictsOrGaps : [],
       smartPanel: fallbackSmartPanel,
       relatedDocuments,
-      relevance,
-      memoryCardsUsed: hasSources ? memoryCardsUsed : [],
+      relevance: fallbackArtifacts.relevance,
+      memoryCardsUsed: hasSources ? fallbackArtifacts.memoryCardsUsed : [],
       indexingVersion: ragDeepMemoryVersion,
-      indexingQuality,
-      smartApiPlan: buildCurrentSmartApiPlan("unsupported", `${route.reason}; generation_fallback`),
-      scoreExplanations: answerScoreExplanations,
+      indexingQuality: fallbackArtifacts.indexingQuality,
+      smartApiPlan: buildCurrentSmartApiPlan("unsupported", `${route.reason}; generation_fallback`, fallbackResults),
+      scoreExplanations: fallbackArtifacts.scoreExplanations,
     } satisfies RagAnswer;
   }
 
@@ -4815,6 +5076,22 @@ ${qualityRetryInstruction}`
     queryClass,
     crossDocument: crossDocumentPlan.enabled,
     results: answerInputResults,
+  });
+  const strongRetryContextResults = selectModelContextResults({
+    routeMode: "strong",
+    queryClass,
+    crossDocument: crossDocumentPlan.enabled,
+    results: answerInputResults,
+  });
+  const generationFallbackResults = strongRetryContextResults;
+  const modelContextSelectionSummary = summarizeAustralianSourceSelection(answerInputResults, modelContextResults);
+  await args.onProgress?.({
+    stage: "ranking",
+    message: "Selected governed source passages for answer generation.",
+    selectedContextCount: modelContextSelectionSummary.selectedCount,
+    australianSourceCount: modelContextSelectionSummary.australianSelectedCount,
+    waSourceCount: modelContextSelectionSummary.waSelectedCount,
+    usedSupplementaryFallback: modelContextSelectionSummary.usedSupplementaryFallback,
   });
   try {
     await args.onProgress?.({
@@ -4854,7 +5131,7 @@ ${qualityRetryInstruction}`
       args.onRevising?.(retryReason);
       // Widen the retry context from the trimmed fast set to the full result set, but keep the P9
       // per-document crowding cap — the strong-initial route is capped, so the retry must be too.
-      packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
+      packedContextResults = await packContextForGeneration(strongRetryContextResults);
       // Boost the cap: a max_output_tokens truncation retried on the SAME budget with MORE
       // reasoning (strong) just re-truncates. This is the truncation self-heal.
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
@@ -4936,7 +5213,7 @@ ${qualityRetryInstruction}`
       });
       args.onRevising?.(retryReason);
       // Same as the truncation retry above: widen but keep the P9 per-document crowding cap.
-      packedContextResults = await packContextForGeneration(capPerDocumentCrowding(answerInputResults));
+      packedContextResults = await packContextForGeneration(strongRetryContextResults);
       // Strong spends more reasoning tokens than the fast attempt it is replacing, so it needs
       // the boosted cap to avoid truncating (and degrading to unsupported) on the escalation.
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
@@ -4997,7 +5274,7 @@ ${qualityRetryInstruction}`
         retrievalDiagnostics,
       );
     }
-    await args.onProgress?.({ stage: "finalizing", message: "Checking citations and source metadata." });
+    await args.onProgress?.({ stage: "verifying", message: "Checking citations and source metadata." });
 
     const relatedDocuments = await relatedDocumentsPromise;
     const answerTimings = {
@@ -5113,6 +5390,8 @@ ${qualityRetryInstruction}`
           routing_reason: routingReason,
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(answer.routingReason),
+          degraded: answer.degradedMode?.active ?? false,
+          provider_generation_degraded: isProviderGenerationDegraded(answer.routingReason),
           model_used: modelUsed,
           requested_fast_model: requestedOpenAIAnswerModels.fastAnswer,
           requested_strong_model: requestedOpenAIAnswerModels.strongAnswer,
@@ -5163,72 +5442,125 @@ ${qualityRetryInstruction}`
   } catch (error) {
     if ((error instanceof DOMException && error.name === "AbortError") || args.signal?.aborted) throw error;
     const relatedDocuments = await relatedDocumentsPromise;
+    const generationFallbackArtifacts = buildContextDerivedArtifacts(answerFocusQuery, generationFallbackResults);
+    const generationFallbackSelectionSummary = summarizeAustralianSourceSelection(
+      answerInputResults,
+      generationFallbackResults,
+    );
     await args.onProgress?.({
-      stage: "finalizing",
+      stage: "fallback",
       message: "Generation failed, returning source-based fallback answer.",
       mode: "unsupported",
       reason: "generation_fallback",
+      selectedContextCount: generationFallbackSelectionSummary.selectedCount,
+      australianSourceCount: generationFallbackSelectionSummary.australianSelectedCount,
+      waSourceCount: generationFallbackSelectionSummary.waSelectedCount,
+      usedSupplementaryFallback: generationFallbackSelectionSummary.usedSupplementaryFallback,
     });
-    const baseFallbackAnswer = await buildGenerationFallbackAnswer(error, relatedDocuments);
+    const baseFallbackAnswer = await buildGenerationFallbackAnswer(
+      error,
+      relatedDocuments,
+      generationFallbackResults,
+      generationFallbackArtifacts,
+    );
     const sanitizedReason = summarizeGenerationFailureReason(error);
+    // This degradation is invisible to route-level capture (the request still
+    // succeeds with a source-only answer), so report it here. The token-starvation
+    // incident (GEN-C1) lived exclusively in this branch for weeks.
+    await captureServerEvent("answer_generation_fallback", {
+      reason: sanitizedReason,
+      queryClass,
+      routeMode: route.mode ?? "unknown",
+    });
     const comparisonFallbackAnswer =
       queryClass === "comparison"
         ? (buildComparisonAnswer({
             query: args.query,
-            results: answerInputResults,
+            results: generationFallbackResults,
             selectedDocuments: explicitlySelectedComparisonDocuments,
             routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_source_safe_fallback`,
             timings: baseFallbackAnswer.latencyTimings,
           }) ??
           buildComparisonEvidenceGapAnswer({
             query: args.query,
-            results: answerInputResults,
+            results: generationFallbackResults,
             selectedDocuments: explicitlySelectedComparisonDocuments,
             routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_evidence_gap`,
             timings: baseFallbackAnswer.latencyTimings,
           }))
         : null;
     const canRecoverGenerationErrorExtractively =
-      queryClass !== "comparison" &&
-      answerInputResults.length > 0 &&
-      baseFallbackAnswer.citations.length > 0 &&
-      !/(?:max_output_tokens|incomplete)/i.test(sanitizedReason);
-    const extractiveFallbackAnswer = canRecoverGenerationErrorExtractively
-      ? {
-          ...buildExtractiveAnswer({
-            query: args.query,
-            queryClass,
-            results: answerInputResults,
-            quoteCards,
-            documentBreakdown,
-            evidenceSummary,
-            sourceCoverage,
-            conflictsOrGaps,
-            visualEvidence,
-            bestSource,
-            smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+      queryClass !== "comparison" && generationFallbackResults.length > 0 && baseFallbackAnswer.citations.length > 0;
+    const extractiveFallbackRouteReason = `${route.reason}; generation_fallback:${sanitizedReason}; source_backed_extractive_fallback`;
+    const buildExtractiveFallbackCandidate = (candidateResults: SearchResult[]) => {
+      const candidateArtifacts =
+        candidateResults === generationFallbackResults
+          ? generationFallbackArtifacts
+          : buildContextDerivedArtifacts(answerFocusQuery, candidateResults);
+      const candidatePlan = buildCurrentSmartApiPlan("extractive", extractiveFallbackRouteReason, candidateResults);
+      return {
+        ...buildExtractiveAnswer({
+          query: args.query,
+          queryClass,
+          results: candidateResults,
+          quoteCards: candidateArtifacts.quoteCards,
+          documentBreakdown: candidateArtifacts.documentBreakdown,
+          evidenceSummary: candidateArtifacts.evidenceSummary,
+          sourceCoverage: candidateArtifacts.sourceCoverage,
+          conflictsOrGaps: candidateArtifacts.conflictsOrGaps,
+          visualEvidence: candidateArtifacts.visualEvidence,
+          bestSource: candidateArtifacts.bestSource,
+          smartPanel: {
+            ...candidateArtifacts.smartPanel,
+            relevance: candidateArtifacts.relevance,
+            bestSource: candidateArtifacts.bestSource,
             relatedDocuments,
-            routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; source_backed_extractive_fallback`,
-            timings: baseFallbackAnswer.latencyTimings,
-          }),
-          openAIRequestIds,
-          openAIUsage: hasOpenAIUsage(openAIUsage) ? openAIUsage : undefined,
-          queryAnalysis,
-          memoryCardsUsed,
-          indexingVersion: ragDeepMemoryVersion,
-          indexingQuality,
-          smartApiPlan: buildCurrentSmartApiPlan(
-            "extractive",
-            `${route.reason}; generation_fallback:${sanitizedReason}; source_backed_extractive_fallback`,
-          ),
-          responseMode: buildCurrentSmartApiPlan(
-            "extractive",
-            `${route.reason}; generation_fallback:${sanitizedReason}; source_backed_extractive_fallback`,
-          ).displayMode,
-          relevance,
-          scoreExplanations: answerScoreExplanations,
-        }
+          },
+          relatedDocuments,
+          routeReason: extractiveFallbackRouteReason,
+          timings: baseFallbackAnswer.latencyTimings,
+        }),
+        openAIRequestIds,
+        openAIUsage: hasOpenAIUsage(openAIUsage) ? openAIUsage : undefined,
+        queryAnalysis,
+        memoryCardsUsed: candidateArtifacts.memoryCardsUsed,
+        indexingVersion: ragDeepMemoryVersion,
+        indexingQuality: candidateArtifacts.indexingQuality,
+        smartApiPlan: candidatePlan,
+        responseMode: candidatePlan.displayMode,
+        relevance: candidateArtifacts.relevance,
+        scoreExplanations: candidateArtifacts.scoreExplanations,
+      } satisfies RagAnswer;
+    };
+    const isSafeExtractiveFallbackCandidate = (candidate: RagAnswer) => {
+      if (!candidate.grounded || candidate.confidence === "unsupported") return false;
+      if (generatedAnswerQualityFailureReason(candidate, args.query, queryClass)) return false;
+      const verified = applyNumericVerification(cloneAnswer(candidate));
+      return (
+        verified.grounded &&
+        verified.confidence !== "unsupported" &&
+        (verified.unverifiedNumericTokens?.length ?? 0) === 0
+      );
+    };
+    const retainCitedExtractiveFallbackEvidence = <T extends RagAnswer>(candidate: T): T => {
+      const citedChunkIds = new Set(candidate.citations.map((citation) => citation.chunk_id));
+      return {
+        ...candidate,
+        sources: candidate.sources.filter((source) => citedChunkIds.has(source.id)),
+      };
+    };
+    let extractiveFallbackAnswer = canRecoverGenerationErrorExtractively
+      ? buildExtractiveFallbackCandidate(generationFallbackResults)
       : null;
+    // Generated synthesis has already failed, so do not stitch dose or threshold figures
+    // across fallback chunks. Prefer the first individually complete candidate that passes
+    // every extractive and numeric safety gate.
+    if (extractiveFallbackAnswer && (queryClass === "medication_dose_risk" || queryClass === "table_threshold")) {
+      extractiveFallbackAnswer =
+        generationFallbackResults
+          .map((result) => retainCitedExtractiveFallbackEvidence(buildExtractiveFallbackCandidate([result])))
+          .find(isSafeExtractiveFallbackCandidate) ?? extractiveFallbackAnswer;
+    }
     const extractiveFallbackQualityReason = extractiveFallbackAnswer
       ? generatedAnswerQualityFailureReason(extractiveFallbackAnswer, args.query, queryClass)
       : null;
@@ -5240,23 +5572,28 @@ ${qualityRetryInstruction}`
     const generationFallbackAnswer = comparisonFallbackAnswer
       ? {
           ...comparisonFallbackAnswer,
-          quoteCards,
-          documentBreakdown,
-          evidenceSummary,
-          sourceCoverage,
-          conflictsOrGaps,
-          visualEvidence,
-          bestSource,
+          quoteCards: generationFallbackArtifacts.quoteCards,
+          documentBreakdown: generationFallbackArtifacts.documentBreakdown,
+          evidenceSummary: generationFallbackArtifacts.evidenceSummary,
+          sourceCoverage: generationFallbackArtifacts.sourceCoverage,
+          conflictsOrGaps: generationFallbackArtifacts.conflictsOrGaps,
+          visualEvidence: generationFallbackArtifacts.visualEvidence,
+          bestSource: generationFallbackArtifacts.bestSource,
           relatedDocuments,
-          smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+          smartPanel: {
+            ...generationFallbackArtifacts.smartPanel,
+            relevance: generationFallbackArtifacts.relevance,
+            bestSource: generationFallbackArtifacts.bestSource,
+            relatedDocuments,
+          },
           openAIRequestIds,
           openAIUsage: hasOpenAIUsage(openAIUsage) ? openAIUsage : undefined,
           queryAnalysis,
-          memoryCardsUsed,
+          memoryCardsUsed: generationFallbackArtifacts.memoryCardsUsed,
           indexingVersion: ragDeepMemoryVersion,
-          indexingQuality,
-          relevance,
-          scoreExplanations: answerScoreExplanations,
+          indexingQuality: generationFallbackArtifacts.indexingQuality,
+          relevance: generationFallbackArtifacts.relevance,
+          scoreExplanations: generationFallbackArtifacts.scoreExplanations,
         }
       : extractiveFallbackAnswer && sourceBackedReviewReason
         ? (() => {
@@ -5271,15 +5608,15 @@ ${qualityRetryInstruction}`
               ...baseFallbackAnswer,
               answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
               grounded: true,
-              confidence: deriveConfidence(answerInputResults, baseFallbackAnswer.citations),
+              confidence: deriveConfidence(generationFallbackResults, baseFallbackAnswer.citations),
               routingMode: "extractive",
               routingReason: reviewRouteReason,
               queryAnalysis,
               responseMode: reviewPlan.displayMode,
               smartApiPlan: reviewPlan,
               answerSections: [],
-              relevance,
-              scoreExplanations: answerScoreExplanations,
+              relevance: generationFallbackArtifacts.relevance,
+              scoreExplanations: generationFallbackArtifacts.scoreExplanations,
             } satisfies RagAnswer;
           })()
         : (extractiveFallbackAnswer ?? baseFallbackAnswer);
@@ -5288,12 +5625,13 @@ ${qualityRetryInstruction}`
       args.query,
       queryClass,
     );
+    await args.onProgress?.({ stage: "verifying", message: "Checking citations and source metadata." });
     if (args.logQuery !== false)
       await logRagQuery({
         owner_id: args.ownerId ?? null,
         query: args.query,
         answer: fallbackAnswer.answer,
-        source_chunk_ids: answerInputResults.map((result) => result.id),
+        source_chunk_ids: generationFallbackResults.map((result) => result.id),
         model: null,
         metadata: {
           document_id: args.documentId ?? null,
@@ -5304,6 +5642,8 @@ ${qualityRetryInstruction}`
           routing_reason: fallbackAnswer.routingReason,
           query_class: queryClass,
           fallback_reason: fallbackReasonFromRouting(fallbackAnswer.routingReason),
+          degraded: fallbackAnswer.degradedMode?.active ?? false,
+          provider_generation_degraded: isProviderGenerationDegraded(fallbackAnswer.routingReason),
           model_used: null,
           requested_fast_model: requestedOpenAIAnswerModels.fastAnswer,
           requested_strong_model: requestedOpenAIAnswerModels.strongAnswer,
@@ -5319,6 +5659,12 @@ ${qualityRetryInstruction}`
           ...memoryLogMetadata,
           ...scoreLogMetadata,
           ...searchTelemetryDecisionMetadata(),
+          source_authority_candidate_count: generationFallbackSelectionSummary.candidateCount,
+          source_authority_selected_count: generationFallbackSelectionSummary.selectedCount,
+          australian_source_count: generationFallbackSelectionSummary.australianSelectedCount,
+          wa_source_count: generationFallbackSelectionSummary.waSelectedCount,
+          source_authority_conflict_count: generationFallbackSelectionSummary.authorityConflictCount,
+          used_supplementary_fallback: generationFallbackSelectionSummary.usedSupplementaryFallback,
           cited_chunk_count: fallbackAnswer.citations.length,
           quote_count: fallbackAnswer.quoteCards?.length ?? 0,
           visual_evidence_count: fallbackAnswer.visualEvidence?.length ?? 0,
@@ -5346,18 +5692,22 @@ ${qualityRetryInstruction}`
         },
       });
 
-    await setCachedAnswer(args, fallbackAnswer, { indexingVersionAtRetrievalStart });
+    if (isCacheableGroundedGenerationFallback(fallbackAnswer)) {
+      await setCachedAnswer(args, fallbackAnswer, { indexingVersionAtRetrievalStart });
+    }
     return fallbackAnswer;
   }
 }
 
-/** Summarize document. */
-export async function summarizeDocument(documentId: string, ownerId?: string) {
+/** Summarize the committed document context; the route applies the shared client-response governance contract. */
+export async function summarizeDocument(documentId: string, ownerId?: string, options?: { signal?: AbortSignal }) {
   const supabase = createAdminClient();
   let documentQuery = supabase.from("documents").select("id,title,file_name,metadata").eq("id", documentId);
 
   if (ownerId) {
     documentQuery = documentQuery.eq("owner_id", ownerId);
+  } else {
+    documentQuery = documentQuery.is("owner_id", null);
   }
 
   const { data: document, error: documentError } = await documentQuery.maybeSingle();
@@ -5399,12 +5749,13 @@ export async function summarizeDocument(documentId: string, ownerId?: string) {
   })) as SearchResult[];
 
   const summaryInstructions = `Summarize a clinical document for practical psychiatric use in Perth, Australia.
-Use only the excerpts provided. Use a layered response: make the answer field a plain high-yield clinical paragraph, usually 1-3 short sentences and 35-75 words, then use answerSections for distinct structured support when it improves scanability. Do not prefix the answer with "Summary", "Key practical points", "Direct answer", or similar labels, and do not use bullets in the answer field. Focus on high-yield actions, thresholds, medication or risk monitoring, exceptions, comparisons, source gaps, and citations. Exclude administrative document-control details unless they change clinical action.
+Use only the excerpts provided. Use a layered response: make the answer field a plain high-yield clinical paragraph,
+usually 1-3 short sentences and 35-75 words, then use answerSections for distinct structured support when it improves
+scanability. Do not prefix the answer with "Summary", "Key practical points", "Direct answer", or similar labels, and
+do not use bullets in the answer field. Focus on high-yield actions, thresholds, medication or risk monitoring,
+exceptions, comparisons, source gaps, and citations. Exclude administrative document-control details unless they
+change clinical action.
 Return data matching the supplied structured output schema.`;
-  // Threat model Vectors B/C: document.title is attacker-influenceable (upload
-  // filename/title metadata) and was reaching the prompt raw here, in the
-  // highest-trust "Document:" header position — unlike the per-result titles
-  // inside buildRagSourceBlock, which already neutralize.
   const summaryInput = `Document:
 ${neutralizeIdentityField(document.title)}
 
@@ -5419,6 +5770,7 @@ ${buildRagSourceBlock(results)}`;
     instructions: summaryInstructions,
     promptCacheKey: "clinical-document-summary-v2",
     reasoningEffort: env.OPENAI_SUMMARY_REASONING_EFFORT,
+    signal: options?.signal,
   });
   const answer = parseAnswerJson(generated.text, results, "summary");
   answer.answer = cleanClinicalSummaryText(answer.answer);

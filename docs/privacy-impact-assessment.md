@@ -1,7 +1,7 @@
 # Privacy Impact Assessment — Clinical KB Database
 
-**Status:** Draft for review · **Date:** 2026-07-06 · **Branch:** `claude/privacy-tenancy-review`
-**Scope:** Clinical data flows through the Clinical KB app (Next.js + Supabase + OpenAI), the live Supabase project `Clinical KB Database` (`sjrfecxgysukkwxsowpy`), and the WA private-clinical deployment context.
+**Status:** Draft for review · **Date:** 2026-07-06 · **Revised:** 2026-07-14
+**Scope:** Clinical data flows through the Clinical KB app (Next.js on Railway Singapore + Supabase Sydney + OpenAI), the live Supabase project `Clinical KB Database` (`sjrfecxgysukkwxsowpy`), and the WA private-clinical deployment context.
 **Author:** Automated code-level assessment (multi-agent audit of `src/app/api/**`, `src/lib/*`, `supabase/schema.sql`, `supabase/migrations/**`), cross-checked against the live database.
 
 > **This is not legal advice.** It is a technical privacy assessment written to be handed to a
@@ -19,7 +19,10 @@ generation. It is **not** a patient record system and, by design, does not ask f
 
 The dominant privacy risk is therefore **incidental PHI**: a clinician will inevitably type patient
 details into a free-text query ("42yo F on clozapine 400mg with rising WCC, next step?"). That query
-text is (a) sent to OpenAI in the United States, and (b) written to log tables in Supabase. A secondary
+is processed by the Railway application tier in Singapore and can be sent to OpenAI in the United
+States for retrieval embedding even when the final answer is source-only. When model-backed answer
+synthesis is used, the query and selected excerpts are sent again. The query is hash-redacted before
+it is written to log tables in Supabase. A secondary
 risk is PHI inside **uploaded documents** if users upload anything other than published reference
 material.
 
@@ -42,28 +45,28 @@ material.
 
 **Top gaps (full register in §10):**
 
-| ID    | Risk      | One-line                                                                                                                                                                        |
-| ----- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PIA-1 | High      | Cross-border disclosure to OpenAI (US) has no code-visible DPA/ZDR. A draft provider disclosure now ships in-product, but its wording lacks governance approval (APP 8, APP 5). |
-| PIA-2 | High      | Production now fails closed without `RAG_QUERY_HASH_SECRET`; the operator must still place the secret in the deploy host.                                                       |
-| PIA-3 | Mitigated | Generated answer text is omitted from `rag_queries` by default. `RAG_PERSIST_ANSWER_TEXT=true` is explicit opt-in and blocked by production readiness.                          |
-| PIA-4 | Medium    | `rag_query_misses` has **no retention/purge job** (only `rag_queries` and `rag_retrieval_logs` do).                                                                             |
-| PIA-5 | Medium    | Draft point-of-entry collection notices and a `/privacy` data-processing page ship, but no governance-approved final privacy policy exists (APP 1, APP 5).                      |
-| PIA-6 | Low-Med   | OpenAI **prompt-cache retention is forced to 24h** for gpt-5.5 regardless of config — query + retrieved excerpts persist ≤24h at OpenAI.                                        |
-| PIA-7 | Low       | `RAG_PERSIST_RAW_QUERY_TEXT=true` would store raw PHI query text with no secondary safeguard beyond the 30-day purge.                                                           |
+| ID    | Risk      | One-line                                                                                                                                                   |
+| ----- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PIA-1 | High      | Overseas processing occurs in Railway Singapore and OpenAI US; the applicable processor/APP 8 basis and final notice wording require governance approval.  |
+| PIA-2 | High      | Production now fails closed without `RAG_QUERY_HASH_SECRET`; the operator must still place the secret in the deploy host.                                  |
+| PIA-3 | Mitigated | Generated answer text is omitted from `rag_queries` by default. `RAG_PERSIST_ANSWER_TEXT=true` is explicit opt-in and blocked by production readiness.     |
+| PIA-4 | Mitigated | Query-miss and bounded response-cache purges were verified active live on 2026-07-14; the duplicate unbounded cache job was removed.                       |
+| PIA-5 | Medium    | Draft point-of-entry collection notices and a `/privacy` data-processing page ship, but no governance-approved final privacy policy exists (APP 1, APP 5). |
+| PIA-6 | Low-Med   | OpenAI **prompt-cache retention is forced to 24h** for gpt-5.5 regardless of config — query + retrieved excerpts persist ≤24h at OpenAI.                   |
+| PIA-7 | Low       | `RAG_PERSIST_RAW_QUERY_TEXT=true` would store raw PHI query text with no secondary safeguard beyond the 30-day purge.                                      |
 
 ---
 
 ## 2. System overview and data classification
 
-| Data category                                                             | Where it lives                                                                                                                | Sensitivity                                | Notes                                                                                                                      |
-| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| Clinical reference corpus (documents, chunks, embeddings, images, tables) | Supabase (Sydney) + storage buckets                                                                                           | Low–Medium                                 | Published guidelines are not PHI; **uploaded** docs _could_ contain PHI.                                                   |
-| Free-text clinical queries                                                | Transient in request; hashed into `rag_queries` / `rag_query_misses` / `rag_retrieval_logs`; sent to OpenAI (US)              | **High (potential PHI)**                   | The primary incidental-PHI vector.                                                                                         |
-| Generated answers                                                         | `rag_queries.answer` (not persisted unless `RAG_PERSIST_ANSWER_TEXT`); `rag_response_cache.payload` (read-TTL, no purge cron) | **High (derived from PHI query + corpus)** | Durable answer log dropped at rest by default (PIA-3); cache row persists until same-key overwrite (TTL gates reads only). |
-| User identity                                                             | Supabase Auth (`auth.users`), `owner_id` foreign keys                                                                         | Medium (PII)                               | Email + SSO identity; managed by Supabase Auth.                                                                            |
-| Audit trail                                                               | `audit_logs`                                                                                                                  | Medium                                     | Append-only, service-role-only, retained indefinitely by design.                                                           |
-| Operational telemetry                                                     | `rag_retrieval_logs`, ingestion job tables                                                                                    | Low–Medium                                 | Redacted query text; per-owner.                                                                                            |
+| Data category                                                             | Where it lives                                                                                                                                         | Sensitivity                                | Notes                                                                                                                              |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Clinical reference corpus (documents, chunks, embeddings, images, tables) | Supabase (Sydney) + storage buckets                                                                                                                    | Low–Medium                                 | Published guidelines are not PHI; **uploaded** docs _could_ contain PHI.                                                           |
+| Free-text clinical queries                                                | Processed by Railway (Singapore); hashed into Supabase logs (Sydney); sent to OpenAI (US) for retrieval embedding and, when selected, answer synthesis | **High (potential PHI)**                   | The primary incidental-PHI vector; embedding egress can occur even when the final answer is source-only.                           |
+| Generated answers                                                         | `rag_queries.answer` (not persisted unless `RAG_PERSIST_ANSWER_TEXT`); short-lived `rag_response_cache.payload`                                        | **High (derived from PHI query + corpus)** | Durable answer log dropped at rest by default (PIA-3); expired cache rows have a bounded hourly purge when `pg_cron` is available. |
+| User identity                                                             | Supabase Auth (`auth.users`), `owner_id` foreign keys                                                                                                  | Medium (PII)                               | Email + SSO identity; managed by Supabase Auth.                                                                                    |
+| Audit trail                                                               | `audit_logs`                                                                                                                                           | Medium                                     | Append-only, service-role-only, retained indefinitely by design.                                                                   |
+| Operational telemetry                                                     | `rag_retrieval_logs`, ingestion job tables                                                                                                             | Low–Medium                                 | Redacted query text; per-owner.                                                                                                    |
 
 **Deployment context (from code):** the answer system prompt positions the assistant as _"an
 experienced psychiatrist in Perth"_ ([src/lib/rag.ts:7053](src/lib/rag.ts)) — i.e. a **WA psychiatry**
@@ -80,7 +83,7 @@ The end-to-end path for a single clinician query. **Bold** nodes are where PHI c
 Clinician browser
    │  POST /api/answer  { query: "<free text, may contain patient details>", ... }
    ▼
-[Next.js route]  src/app/api/answer/route.ts:70
+[Next.js route — Railway Singapore]  src/app/api/answer/route.ts:70
    │  • auth resolved → access.ownerId (or undefined for anon/public)   :80
    │  • rate-limit bucket "answer"                                       :83
    │  • resolveSearchScope() → owner-scoped candidate document set       :93
@@ -120,8 +123,10 @@ Clinician browser  ← answer + citations
 `rag_retrieval_logs` (all redacted via the same helpers —
 [src/app/api/search/route.ts:450-468, 556-559, 638-643](src/app/api/search/route.ts)).
 
-**The two egress points that carry PHI off-app are (A) and (C) — both to OpenAI in the US.**
-Everything in Supabase stays in Sydney.
+The browser request, answer pipeline, and ingestion worker are processed by Railway in Singapore. The
+model egress points (A) and (C) then carry query/evidence content to OpenAI in the US. Durable Supabase
+data remains in Sydney. Governance must assess both overseas processing paths rather than treating
+OpenAI as the only cross-border flow.
 
 ---
 
@@ -168,8 +173,9 @@ facts, and must be confirmed:
   retention) — this needs to be pinned to the specific contract, not assumed.
 
 Under **APP 8 (cross-border disclosure)**, the app operator remains accountable for OpenAI's handling
-of the disclosed information unless an APP 8.2 exception applies. This is the single most important
-privacy item to close before real patient use (PIA-1).
+of the disclosed information unless an APP 8.2 exception applies. The corresponding processor/legal
+assessment for Railway Singapore must also be recorded. Closing these overseas-processing terms is one
+of the most important privacy items before real patient use (PIA-1).
 
 ---
 
@@ -233,13 +239,13 @@ which is why the query-hash approach (not raw storage) is the right primary cont
 
 ## 6. Retention and purge
 
-| Data                 | Retention              | Mechanism                                                                                                          | Live status                                                       |
-| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| `rag_queries`        | 30 days                | `purge_expired_rag_queries(30)`, `pg_cron` `purge-expired-rag-queries` @ 03:30 UTC                                 | **Active** (jobid 11, verified live)                              |
-| `rag_retrieval_logs` | 90 days                | `pg_cron` `purge-rag-retrieval-logs` @ 03:00 UTC                                                                   | **Active** (jobid 12, verified live)                              |
-| `rag_query_misses`   | **None**               | —                                                                                                                  | **No purge job** — see PIA-4                                      |
-| `rag_response_cache` | ~5 min TTL (soft)      | `expires_at` filtered on read; overwritten per query                                                               | Rows expire logically; no hard purge cron (low volume, short TTL) |
-| `audit_logs`         | Indefinite (by design) | Documented in [migration 20260702120000](supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql):8-12 | Intentional; "do not add purge without compliance review"         |
+| Data                 | Retention              | Mechanism                                                                                                            | Live status                                                                     |
+| -------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `rag_queries`        | 30 days                | `purge_expired_rag_queries(30)`, `pg_cron` `purge-expired-rag-queries` @ 03:30 UTC                                   | **Active** (jobid 11, verified live)                                            |
+| `rag_retrieval_logs` | 90 days                | `pg_cron` `purge-rag-retrieval-logs` @ 03:00 UTC                                                                     | **Active** (jobid 12, verified live)                                            |
+| `rag_query_misses`   | 90 days                | `purge_expired_rag_query_misses(90)`, `pg_cron` `purge-rag-query-misses` @ 03:45 UTC                                 | **Active** (jobid 13, verified live 2026-07-14)                                 |
+| `rag_response_cache` | ~5 min read TTL        | `expires_at` filtered on read; `purge_expired_rag_response_cache(1000)`, hourly `pg_cron` `purge-rag-response-cache` | **Active** (jobid 16, verified live 2026-07-14); obsolete unbounded job removed |
+| `audit_logs`         | Indefinite (by design) | Documented in [migration 20260702120000](supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql):8-12   | Intentional; "do not add purge without compliance review"                       |
 
 **Verification (live `cron.job` query, 2026-07-06):**
 
@@ -248,11 +254,15 @@ jobid 11  purge-expired-rag-queries    30 3 * * *  active=true  select public.pu
 jobid 12  purge-rag-retrieval-logs      0 3 * * *  active=true  delete from public.rag_retrieval_logs where created_at < now() - interval '90 days';
 ```
 
-So the answer to "_is anything scheduled?_" is **yes** — the two query-log purges are live and active.
-The retention story is sound **except**:
+So the answer to "_is anything scheduled?_" is **yes** for the two jobs verified on 2026-07-06. Since
+that verification, migration `20260708120000_rag_query_misses_retention.sql` added a 90-day query-miss
+purge, and migration `20260713201542_consolidate_rag_response_cache_retention.sql` consolidated two
+cache purge jobs onto the existing bounded hourly purge. The remaining retention work is:
 
-- **PIA-4:** `rag_query_misses` (which stores the same hashed-query + metadata as `rag_queries`) has
-  **no** purge job — it accumulates indefinitely. It should get a matching 30–90 day cron.
+- **PIA-4 verification:** production was verified on 2026-07-14: migration `20260708120000` runs
+  `purge-rag-query-misses` as job 13, and migration `20260713201542` runs the bounded
+  `purge-rag-response-cache` as job 16. The obsolete `purge-expired-rag-response-cache` job is absent.
+  Repeat this check for any secondary environment that retains real data.
 - The purge functions are installed conditionally (`if to_regnamespace('cron') is null then return`,
   [migration 20260629060603](supabase/migrations/20260629060603_rag_queries_retention.sql):27-43) —
   fine on live (pg_cron present) but **preview/branch databases silently skip scheduling**. Not a
@@ -265,13 +275,19 @@ The retention story is sound **except**:
 - **Supabase project region: `ap-southeast-2` (AWS Asia Pacific, Sydney).** Confirmed via the Supabase
   management API for project `sjrfecxgysukkwxsowpy`. All Postgres data (documents, chunks, embeddings,
   logs, auth) and both storage buckets are **onshore in Australia**. This is a strong position for WA
-  clinical use and directly supports APP 8 / APP 11 expectations for health information.
+  clinical use and directly supports APP 11 expectations for health information.
+- **Railway application and worker: Singapore.** Browser questions, retrieved evidence, generated
+  answers, and ingestion material are processed by the Railway services before reads/writes reach
+  Supabase Sydney. The operator must record the applicable processor, contract, and APP 8 assessment;
+  this technical PIA does not decide the legal classification.
 - **OpenAI: United States.** Query text + retrieved excerpts are disclosed to `api.openai.com` (no
-  regional/EU endpoint or ZDR configured in code). This is the **only** cross-border flow, and it is
-  the crux of the APP 8 assessment (PIA-1).
+  regional endpoint or ZDR configured in code). This is the second overseas processing path and remains
+  a central part of the APP 8 assessment (PIA-1).
 
-**Net:** data _at rest_ is Australian; data _in transit for inference_ crosses to the US. A privacy
-notice must disclose the OpenAI disclosure and its purpose.
+**Net:** durable Supabase data is Australian; application/worker processing occurs in Singapore; and
+OpenAI retrieval embedding plus model-backed inference occur in the US. Embedding egress can happen
+even when the final answer is source-only. The approved privacy notice and contractual record must
+cover both overseas paths and their purposes.
 
 ---
 
@@ -308,38 +324,42 @@ the operative framework for a WA private clinician. (The WA _Privacy and Respons
 Act 2024_ targets WA **public-sector** entities and may apply to public-health deployments — confirm
 with counsel if this is deployed inside a WA Health service.)
 
-| APP                                       | Obligation                                                                         | Status in this app                                                                                                                                                                                                                                                      | Gap              |
-| ----------------------------------------- | ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
-| **APP 1** — open & transparent management | Have a clear, up-to-date APP privacy policy                                        | A draft `/privacy` data-processing page ships, but it is explicitly governance-review-required and is not represented as the final approved APP privacy policy                                                                                                          | PIA-5            |
-| **APP 3** — collection of sensitive info  | Collect health info only with consent + where reasonably necessary                 | App does not solicit PHI; incidental entry remains possible. “Do not enter patient-identifiable information” notices now appear beside query/upload controls, but no governance-approved consent framework is claimed                                                   | PIA-5            |
-| **APP 5** — notification of collection    | Tell individuals what's collected & disclosed (incl. overseas)                     | Draft point-of-entry notices and the `/privacy` page disclose data processing and provider use; final wording and legal/governance approval remain outstanding                                                                                                          | PIA-1, PIA-5     |
-| **APP 6** — use/disclosure                | Use only for the primary purpose or a permitted secondary purpose                  | Query used for answer generation (primary). Log retention = quality/eval (secondary) — defensible but should be documented                                                                                                                                              | PIA-5            |
-| **APP 8** — cross-border disclosure       | Discloser stays accountable for the overseas recipient unless an exception applies | Disclosure to OpenAI (US); no code-visible DPA/ZDR; accountability unclear                                                                                                                                                                                              | **PIA-1**        |
-| **APP 11** — security & destruction       | Reasonable security; destroy/de-identify when no longer needed                     | Strong: Sydney residency, RLS, private storage, query hashing, default-null answer logs, 30/90-day purge. Remaining gaps are operator secret placement, exceptional answer-persistence governance, `rag_response_cache` expiry cleanup, and PIA-4 (misses never purged) | PIA-2/4          |
-| **NDB scheme** (Pt IIIC)                  | Notify OAIC + individuals of eligible breaches of health info                      | No documented breach-response runbook tied to these tables                                                                                                                                                                                                              | Recommend adding |
+| APP                                       | Obligation                                                                         | Status in this app                                                                                                                                                                                                                                                         | Gap              |
+| ----------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **APP 1** — open & transparent management | Have a clear, up-to-date APP privacy policy                                        | A draft `/privacy` data-processing page ships, but it is explicitly governance-review-required and is not represented as the final approved APP privacy policy                                                                                                             | PIA-5            |
+| **APP 3** — collection of sensitive info  | Collect health info only with consent + where reasonably necessary                 | App does not solicit PHI; incidental entry remains possible. “Do not enter patient-identifiable information” notices now appear beside query/upload controls, but no governance-approved consent framework is claimed                                                      | PIA-5            |
+| **APP 5** — notification of collection    | Tell individuals what's collected & disclosed (incl. overseas)                     | Draft point-of-entry notices and the `/privacy` page disclose Singapore application processing and model-provider use; final wording and legal/governance approval remain outstanding                                                                                      | PIA-1, PIA-5     |
+| **APP 6** — use/disclosure                | Use only for the primary purpose or a permitted secondary purpose                  | Query used for answer generation (primary). Log retention = quality/eval (secondary) — defensible but should be documented                                                                                                                                                 | PIA-5            |
+| **APP 8** — cross-border disclosure       | Discloser stays accountable for the overseas recipient unless an exception applies | Railway processing in Singapore and OpenAI processing in the US require documented contractual/legal assessment; OpenAI has no code-visible DPA/ZDR                                                                                                                        | **PIA-1**        |
+| **APP 11** — security & destruction       | Reasonable security; destroy/de-identify when no longer needed                     | Strong: Sydney data residency, RLS, private storage, query hashing, default-null answer logs, and live-verified query/log/cache purges. Remaining gaps are operator secret placement, secondary-environment schedule parity, and exceptional answer-persistence governance | PIA-2/4          |
+| **NDB scheme** (Pt IIIC)                  | Notify OAIC + individuals of eligible breaches of health info                      | No documented breach-response runbook tied to these tables                                                                                                                                                                                                                 | Recommend adding |
 
 **Overall:** the _engineering_ controls for data-at-rest are strong and largely APP-11-aligned. The
 material shortfalls are **governance/contractual** (APP 8 cross-border terms and final approval of the
-draft APP 1/5 policy/notice wording) plus the
-**hardening** items of operator HMAC-secret placement and query-miss/cache retention. Answer prose is omitted by default;
-enabling its persistence is an exceptional, non-production mode requiring governance approval. Anonymous answer caching
-is disabled. The tenancy review found **zero** confirmed cross-tenant leaks; the remaining items are compliance-posture
-and PHI-minimisation gaps.
+draft APP 1/5 policy/notice wording) plus the **hardening** items of operator HMAC-secret placement and
+retention-schedule parity in any secondary environment that stores real data. Answer prose is omitted by
+default; enabling its persistence is an exceptional, non-production mode requiring governance approval.
+Anonymous answer caching is disabled. The tenancy review found **zero** confirmed cross-tenant leaks; the
+remaining items are compliance-posture and PHI-minimisation gaps.
 
 ---
 
 ## 10. Gap register (ranked by risk)
 
-### PIA-1 — Cross-border disclosure to OpenAI lacks visible DPA/ZDR + notice **(High)**
+### PIA-1 — Overseas Railway/OpenAI processing needs an approved contractual basis and notice **(High)**
 
-- **Risk:** Health/PHI in queries and excerpts is disclosed to OpenAI (US) with no code-visible
-  contractual data-processing terms. A draft in-product provider disclosure now exists, reducing the
+- **Risk:** Health/PHI in requests, queries, excerpts, and ingestion material is processed by Railway
+  in Singapore. Query text can reach OpenAI in the US for retrieval embedding even when the final
+  answer is source-only; model-backed synthesis additionally sends the query and selected excerpts.
+  OpenAI has no code-visible contractual data-processing terms. A draft in-product provider disclosure now exists, reducing the
   point-of-entry visibility gap, but it is not governance-approved legal wording → APP 8 accountability
   exposure and a residual APP 5 governance gap.
-- **Evidence:** plain client to `api.openai.com` ([openai.ts:69-73](src/lib/openai.ts)); raw query +
-  excerpts sent ([rag.ts:7144, 6306](src/lib/rag.ts)); no ZDR/baseURL.
-- **Fix (ranked):** (1) Execute an OpenAI DPA and, ideally, obtain **ZDR** for the org; record it in
-  `docs/`. (2) Obtain governance/legal approval for the shipped draft APP-5 collection/provider
+- **Evidence:** the live app and worker are recorded in Railway Singapore
+  ([deployment-architecture.md](deployment-architecture.md)); the OpenAI client uses
+  `api.openai.com` ([openai.ts](src/lib/openai.ts)); raw query + excerpts are sent by the RAG pipeline.
+- **Fix (ranked):** (1) Record Railway's processor/contractual basis and obtain the applicable APP 8
+  determination; execute an OpenAI DPA and, ideally, obtain **ZDR** for the org. (2) Obtain
+  governance/legal approval for the shipped draft APP-5 collection/provider
   disclosure and final privacy policy. (3) Retain the shipped on-query/upload PHI reminder.
   (4) Optionally, add a lightweight PHI-scrub / entity-strip on the outbound query as defence-in-depth.
 - **Progress (2026-07-13):** fixes (2)+(3) are **live on `main`** via PR #513
@@ -382,25 +402,28 @@ and PHI-minimisation gaps.
   [scripts/promote-query-misses.ts](scripts/promote-query-misses.ts)), so persistence-off does not
   affect eval — confirming the pipeline has no real dependency on stored answer text. The flag is
   additionally blocked in a production-like environment by `npm run check:production-readiness`.
-- **Residual (scoped out):** The answer also lands in `rag_response_cache.payload`
+- **Residual cache copy:** The answer also lands in `rag_response_cache.payload`
   ([rag-cache.ts](src/lib/rag-cache.ts)). Its `expires_at` TTL (`RAG_ANSWER_CACHE_TTL_MS`, default
   5 min) only gates **reads** — `sharedCacheSelector` filters on `expires_at`, while
-  `replaceSharedCacheRow` deletes only the _same_ cache key before inserting, and there is **no hard
-  purge cron** (see the retention table in §8). So an expired row is not destroyed: a one-off query's
-  answer can persist at rest until a same-key overwrite or a manual invalidation. Nulling the payload
-  would defeat caching, so it is intentionally not gated by this flag; bounding it properly needs a
-  scheduled purge (a PIA-4-style follow-up). This is distinct from — and not covered by — the 30-day
-  durable-log fix above.
+  `replaceSharedCacheRow` deletes only the _same_ cache key before inserting. Migration
+  `20260713201542_consolidate_rag_response_cache_retention.sql` unschedules the duplicate unbounded
+  job and keeps one hourly purge capped at 1,000 expired rows per invocation. This keeps
+  delete transactions bounded while providing hard cleanup when `pg_cron` is available. Production
+  was verified live on 2026-07-14: bounded job 16 is active and the obsolete unbounded job is absent.
 - **Historical cleanup:** a migration to null existing `rag_queries.answer` values is prepared but
   intentionally unexecuted pending deployment approval; this assessment does not claim live cleanup.
 
-### PIA-4 — `rag_query_misses` never purged **(Medium)**
+### PIA-4 — Query-miss and response-cache purges active **(Mitigated)**
 
-- **Risk:** Hashed-query rows accumulate indefinitely; retention policy is inconsistent with
-  `rag_queries`/`rag_retrieval_logs`.
-- **Evidence:** live `cron.job` has no miss-table purge; only jobids 11/12 exist.
-- **Fix:** Add a `pg_cron` purge for `rag_query_misses` (30–90 days) mirroring
-  [migration 20260702120000](supabase/migrations/20260702120000_rag_retrieval_logs_retention.sql).
+- **Risk:** A secondary environment without the retention migrations or `pg_cron` can still accumulate
+  hash-redacted misses and expired response-cache payloads.
+- **Evidence:** the original 2026-07-06 live check showed only jobids 11/12. The repository now includes
+  [migration 20260708120000](supabase/migrations/20260708120000_rag_query_misses_retention.sql), which
+  installs a 90-day purge, and
+  [migration 20260713201542](supabase/migrations/20260713201542_consolidate_rag_response_cache_retention.sql),
+  which installs one bounded hourly response-cache purge when `pg_cron` is available. Production was
+  queried live on 2026-07-14: jobids 13 and 16 are active and the obsolete duplicate is absent.
+- **Fix:** Repeat the canonical job check for each secondary environment that retains real data.
 
 ### PIA-5 — Draft notices/page ship; final approved privacy policy remains outstanding **(Medium)**
 
@@ -430,12 +453,13 @@ and PHI-minimisation gaps.
 
 ## 11. Recommendation
 
-Before the app is used with real patients in a WA clinical setting, close **PIA-1** (execute the
-cross-border DPA/ZDR contractual basis and approve the shipped draft APP 5 wording) and **PIA-2** (place
+Before the app is used with real patients in a WA clinical setting, close **PIA-1** (record the Railway
+Singapore processor/APP 8 basis, execute the OpenAI DPA/ZDR basis, and approve the shipped draft APP 5
+wording) and **PIA-2** (place
 the mandatory HMAC secret in the deploy host's secret store; the fail-closed boot guard is now
 enforced in code) as launch-blockers. **PIA-3** is mitigated (the durable `rag_queries.answer` log is no
-longer persisted by default; gated behind `RAG_PERSIST_ANSWER_TEXT`); **PIA-4** remains as a fast
-follow-up (purge `rag_query_misses`, and add a `rag_response_cache` purge cron), and complete the
+longer persisted by default; gated behind `RAG_PERSIST_ANSWER_TEXT`); **PIA-4** is mitigated by the
+committed query-miss and bounded response-cache purges, verified live on 2026-07-14. Complete the
 **PIA-5** residual data-handling documentation. The data-at-rest security posture (Sydney residency,
 RLS, private storage, query hashing, automated purge) is already strong and should be highlighted in
 the privacy policy as evidence of "reasonable steps" under APP 11.

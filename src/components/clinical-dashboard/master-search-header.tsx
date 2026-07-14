@@ -275,7 +275,8 @@ export function MasterSearchHeader({
     selectedSearch.kind === "forms" ||
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
-    selectedSearch.kind === "favourites";
+    selectedSearch.kind === "favourites" ||
+    selectedSearch.kind === "specifiers";
   const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
   const indexedDocumentTotal = documentTotal ?? documents.length;
   const hasUnloadedDocuments = indexedDocumentTotal > documents.length;
@@ -415,8 +416,9 @@ export function MasterSearchHeader({
   const activeQuickFilterCount =
     (scopeFilters.sourceStatuses?.length ? 1 : 0) + (scopeFilters.locality ? 1 : 0) + activeLabelFilterCount;
   const submitLabel = trimmedQuery ? selectedSearch.submitBusyLabel : selectedSearch.submitIdleLabel;
-  const queryPlaceholder =
-    composerPlaceholder ?? (isAnswerFooterComposer ? "Ask Clinical Guide" : selectedSearch.placeholder);
+  // One task-oriented placeholder per mode (PT-14): the follow-up composer must
+  // not swap to brand copy that hides what the input actually does.
+  const queryPlaceholder = composerPlaceholder ?? selectedSearch.placeholder;
   const SelectedAppModeIcon = appModeIcons[selectedAppMode.id];
   const actionMenuModeOptions = useMemo<ModeActionModeOption[]>(
     () =>
@@ -441,9 +443,11 @@ export function MasterSearchHeader({
               ? "favourites"
               : searchMode === "differentials"
                 ? "differentials"
-                : searchMode === "tools"
-                  ? "tools"
-                  : "answer";
+                : searchMode === "specifiers"
+                  ? "specifiers"
+                  : searchMode === "tools"
+                    ? "tools"
+                    : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
   const actionMenuSubtitle = searchMode === "answer" ? "Source-backed mode" : selectedAppMode.description;
@@ -602,6 +606,22 @@ export function MasterSearchHeader({
     }
     if (actionId === "differentials-evidence") {
       onOpenEvidence?.();
+      return;
+    }
+    if (actionId === "specifiers-search") {
+      onSearchModeChange("specifiers");
+      return;
+    }
+    if (actionId === "specifiers-builder") {
+      window.location.assign("/specifiers/builder");
+      return;
+    }
+    if (actionId === "specifiers-compare") {
+      window.location.assign("/specifiers/compare");
+      return;
+    }
+    if (actionId === "specifiers-map") {
+      window.location.assign("/specifiers/map");
       return;
     }
   }

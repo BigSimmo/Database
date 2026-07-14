@@ -1,14 +1,13 @@
 import { readFile } from "node:fs/promises";
+import { pathToFileURL } from "node:url";
 
 import * as nextEnv from "@next/env";
+import { auditSourceAuthorityDocuments, isRegistryRecordSource } from "@/lib/source-authority-metadata";
 import type { DocumentLabel } from "@/lib/types";
 
 const loadEnvConfig =
   nextEnv.loadEnvConfig ??
   (nextEnv as unknown as { default?: { loadEnvConfig?: typeof nextEnv.loadEnvConfig } }).default?.loadEnvConfig;
-
-if (!loadEnvConfig) throw new Error("Unable to load @next/env loadEnvConfig.");
-loadEnvConfig(process.cwd());
 
 type AuditArgs = {
   json: boolean;
@@ -43,6 +42,7 @@ type DocumentRow = {
   id: string;
   title: string;
   file_name: string;
+  source_path: string | null;
   status: string;
   metadata: Record<string, unknown> | null;
 };
@@ -84,7 +84,7 @@ async function loadAdminClient() {
   return createAdminClient();
 }
 
-function parseArgs(argv: string[]): AuditArgs {
+export function parseSourceGovernanceAuditArgs(argv: string[]): AuditArgs {
   const args: AuditArgs = { json: false, help: false };
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
@@ -106,6 +106,11 @@ function parseArgs(argv: string[]): AuditArgs {
     throw new Error(`Unknown option: ${token}`);
   }
   return args;
+}
+
+function loadProjectEnvironment() {
+  if (!loadEnvConfig) throw new Error("Unable to load @next/env loadEnvConfig.");
+  loadEnvConfig(process.cwd());
 }
 
 function usage() {
@@ -243,21 +248,27 @@ async function loadDebtPolicy(path: string): Promise<DebtPolicy> {
   };
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
+export async function main(argv = process.argv.slice(2)) {
+  const args = parseSourceGovernanceAuditArgs(argv);
   if (args.help) {
     console.log(usage());
     return;
   }
+  loadProjectEnvironment();
   const debtPolicy = args.debtPolicyPath ? await loadDebtPolicy(args.debtPolicyPath) : undefined;
 
   const supabase = await loadAdminClient();
-  const documents = await fetchAll<DocumentRow>(supabase, "documents", "id,title,file_name,status,metadata", (query) =>
-    query.eq("status", "indexed"),
+  const documents = await fetchAll<DocumentRow>(
+    supabase,
+    "documents",
+    "id,title,file_name,source_path,status,metadata",
+    (query) => query.eq("status", "indexed"),
   );
   const labels = await fetchAll<LabelRow>(supabase, "document_labels", "id,document_id,label_type,source", (query) =>
     query.eq("source", "generated"),
   );
+  const clinicalGovernanceDocuments = documents.filter((document) => !isRegistryRecordSource(document));
+  const registryRecordsExcludedFromClinicalMetadataGate = documents.length - clinicalGovernanceDocuments.length;
 
   const statusCounts = new Map<string, number>();
   const validationCounts = new Map<string, number>();
@@ -265,7 +276,7 @@ async function main() {
   const requiredMissingCounts = new Map<string, number>();
   const missingRequiredDocuments: Array<ReturnType<typeof compactDocument> & { missing_keys: string[] }> = [];
 
-  for (const document of documents) {
+  for (const document of clinicalGovernanceDocuments) {
     const metadata = metadataRecord(document.metadata);
     increment(statusCounts, stringValue(metadata.document_status));
     increment(validationCounts, stringValue(metadata.clinical_validation_status));
@@ -289,6 +300,7 @@ async function main() {
   const missingGeneratedLabelDocuments = documents.filter((document) => !generatedLabelDocumentIds.has(document.id));
   const missingSmartV2LabelDocuments = documents.filter((document) => !smartV2DocumentIds.has(document.id));
   const requiredMetadataMissingTotal = [...requiredMissingCounts.values()].reduce((total, count) => total + count, 0);
+  const sourceAuthorityAudit = auditSourceAuthorityDocuments(documents);
   const debtCounts = {
     review_due: statusCounts.get("review_due") ?? 0,
     unknown_status: statusCounts.get("unknown") ?? 0,
@@ -359,6 +371,8 @@ async function main() {
   const report = {
     mode: "read-only",
     indexed_documents: documents.length,
+    clinical_governance_documents: clinicalGovernanceDocuments.length,
+    registry_records_excluded_from_clinical_metadata_gate: registryRecordsExcludedFromClinicalMetadataGate,
     required_metadata_missing_total: requiredMetadataMissingTotal,
     required_metadata_missing_counts: Object.fromEntries(
       requiredMetadataKeys.map((key) => [key, requiredMissingCounts.get(key) ?? 0]),
@@ -375,15 +389,15 @@ async function main() {
       indexed_without_smart_v2_labels: missingSmartV2LabelDocuments.length,
     },
     debt_counts: debtCounts,
-    sample_review_due_documents: documents
+    sample_review_due_documents: clinicalGovernanceDocuments
       .filter((document) => metadataRecord(document.metadata).document_status === "review_due")
       .slice(0, 10)
       .map(compactDocument),
-    sample_unknown_status_documents: documents
+    sample_unknown_status_documents: clinicalGovernanceDocuments
       .filter((document) => metadataRecord(document.metadata).document_status === "unknown")
       .slice(0, 10)
       .map(compactDocument),
-    sample_unverified_documents: documents
+    sample_unverified_documents: clinicalGovernanceDocuments
       .filter((document) => metadataRecord(document.metadata).clinical_validation_status === "unverified")
       .slice(0, 10)
       .map(compactDocument),
@@ -395,6 +409,8 @@ async function main() {
     })),
     indexed_document_id_count: indexedDocumentIds.size,
     passed_required_metadata_gate: requiredMetadataMissingTotal === 0,
+    source_authority: sourceAuthorityAudit,
+    passed_source_authority_gate: sourceAuthorityAudit.passed,
     debt_policy: debtPolicy
       ? {
           path: debtPolicy.path,
@@ -415,6 +431,9 @@ async function main() {
     console.log("[Source Governance Audit]");
     console.log(`Mode: ${report.mode}`);
     console.log(`Indexed documents: ${report.indexed_documents}`);
+    console.log(
+      `Clinical governance documents: ${report.clinical_governance_documents} (registry projections excluded: ${report.registry_records_excluded_from_clinical_metadata_gate})`,
+    );
     console.log(`Required metadata missing: ${report.required_metadata_missing_total}`);
     console.log(
       `Document status: ${Object.entries(report.document_status_counts)
@@ -437,6 +456,32 @@ async function main() {
     console.log(
       `Smart-v2 labels: missing=${report.smart_v2_label_coverage.indexed_without_smart_v2_labels}, covered=${report.smart_v2_label_coverage.documents_with_smart_v2_labels}`,
     );
+    console.log(
+      `Source authority: recognised=${report.source_authority.recognized_documents}, Australian candidates=${report.source_authority.australian_authority_candidates}, conflicts=${report.source_authority.authority_conflict_count}, missing locality=${report.source_authority.missing_australian_locality_count}, safe corrections=${report.source_authority.proposed_locality_correction_count}`,
+    );
+    if (report.source_authority.authority_conflict_count) {
+      console.log(
+        `Source authority conflict reasons: ${JSON.stringify(report.source_authority.authority_conflict_reason_counts)}`,
+      );
+    }
+    if (report.source_authority.conflicts.length) {
+      console.log("Source authority conflicts:");
+      for (const document of report.source_authority.conflicts) {
+        console.log(`- ${document.title} (${document.file_name}): ${document.conflicts.join(", ")}`);
+      }
+    }
+    if (report.source_authority.missing_australian_locality.length) {
+      console.log("Australian sources missing locality metadata:");
+      for (const document of report.source_authority.missing_australian_locality) {
+        console.log(`- ${document.title} (${document.file_name}): ${document.missing_keys.join(", ")}`);
+      }
+    }
+    if (report.source_authority.proposed_locality_corrections.length) {
+      console.log("Proposed safe locality corrections:");
+      for (const document of report.source_authority.proposed_locality_corrections) {
+        console.log(`- ${document.title} (${document.file_name}): ${JSON.stringify(document.changes)}`);
+      }
+    }
     if (report.missing_smart_v2_label_documents.length) {
       console.log("Documents missing smart-v2 labels:");
       for (const document of report.missing_smart_v2_label_documents) {
@@ -447,6 +492,11 @@ async function main() {
       report.passed_required_metadata_gate
         ? "PASS: required source governance metadata is complete."
         : "FAIL: required source governance metadata has gaps.",
+    );
+    console.log(
+      report.passed_source_authority_gate
+        ? "PASS: recognised source authority metadata is complete and compatible."
+        : "FAIL: recognised source authority metadata has missing or conflicting locality fields.",
     );
     if (report.debt_policy) {
       console.log(
@@ -459,10 +509,13 @@ async function main() {
   }
 
   if (!report.passed_required_metadata_gate) process.exitCode = 1;
+  if (!report.passed_source_authority_gate) process.exitCode = 1;
   if (report.debt_policy && !report.debt_policy.passed) process.exitCode = 1;
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

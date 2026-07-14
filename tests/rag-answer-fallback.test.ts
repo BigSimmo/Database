@@ -400,6 +400,81 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).not.toMatch(/not enough source evidence|No current source/i);
   });
 
+  it("skips the model tail for a generic LAI-management question only after extractive validation", async () => {
+    const answer = await answerFromTextSources(
+      "How are long acting injectables managed?",
+      [
+        source({
+          id: "lai-management-1",
+          document_id: "lai-doc",
+          title: "Long Acting Injectable Medication",
+          file_name: "MHSP.LongActingInjectable.pdf",
+          section_heading: "Management process",
+          content:
+            "Long acting injectables are managed through a documented medication pathway covering prescribing, administration, observation, follow-up, and clinical review.",
+          match_explanation: { titleHit: true, contentHit: true, reasons: ["title", "content"] },
+        }),
+        source({
+          id: "lai-management-2",
+          document_id: "lai-doc",
+          title: "Long Acting Injectable Medication",
+          file_name: "MHSP.LongActingInjectable.pdf",
+          section_heading: "Follow-up",
+          content:
+            "The long acting injectable medication record documents the prescription and administration, with follow-up and review arranged through the treating team.",
+          match_explanation: { titleHit: true, contentHit: true, reasons: ["title", "content"] },
+        }),
+      ],
+      new Error("model generation must not run for a validated generic LAI answer"),
+    );
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("validated_generic_lai_management_extractive_answer");
+    expect(answer.routingReason).not.toContain("generation_fallback");
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.citations.length).toBeGreaterThan(0);
+    expect(answer.latencyTimings?.generation_latency_ms).toBe(0);
+  });
+
+  it("keeps special-population LAI management questions on model synthesis", async () => {
+    const answer = await answerFromTextSources(
+      "How are long acting injectables managed in adolescents?",
+      [
+        source({
+          id: "lai-management-adolescent",
+          document_id: "lai-doc",
+          title: "Long Acting Injectable Medication",
+          content: "Long acting injectables require prescribing, administration, follow-up, and clinical review.",
+          match_explanation: { titleHit: true, contentHit: true, reasons: ["title", "content"] },
+        }),
+      ],
+      new Error("model generation attempted"),
+    );
+
+    expect(answer.routingReason).not.toContain("validated_generic_lai_management_extractive_answer");
+    expect(answer.routingReason).toContain("generation_fallback");
+  });
+
+  it("keeps lactation-scoped LAI management questions on model synthesis", async () => {
+    const answer = await answerFromTextSources(
+      "How are long acting injectables managed during breastfeeding?",
+      [
+        source({
+          id: "lai-management-lactation",
+          document_id: "lai-doc",
+          title: "Long Acting Injectable Medication",
+          content: "Long acting injectables require prescribing, administration, follow-up, and clinical review.",
+          match_explanation: { titleHit: true, contentHit: true, reasons: ["title", "content"] },
+        }),
+      ],
+      new Error("model generation attempted"),
+    );
+
+    expect(answer.routingReason).not.toContain("validated_generic_lai_management_extractive_answer");
+    expect(answer.routingReason).toContain("generation_fallback");
+  });
+
   it("recovers generation timeouts with an extractive source-backed answer when sources are strong", async () => {
     const answer = await answerFromTextSources(
       "How should agitation be managed when oral medication is refused?",
@@ -435,6 +510,42 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingReason).toContain("source_backed_extractive_fallback");
     expect(answer.grounded).toBe(true);
     expect(answer.answer).toMatch(/IM medication|oral medication|agitation/i);
+  });
+
+  it("keeps source-backed agitation step numbers grounded across multiple citations", async () => {
+    const answer = await answerFromTextSources(
+      "What steps are listed for agitation and arousal pharmacological management?",
+      [
+        source({
+          id: "agitation-step-table",
+          document_id: "agitation-doc",
+          title: "Agitation and Arousal Pharmacological Management",
+          file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+          section_heading: "Stepwise management",
+          content:
+            "Step 1: agitation and arousal pharmacological management should assess severity and use oral medication when the patient is willing. Step 2: monitor the agitation response and consider intramuscular medication when oral medication is refused.",
+        }),
+        source({
+          id: "agitation-clinical-review",
+          document_id: "agitation-doc",
+          title: "Agitation and Arousal Pharmacological Management",
+          file_name: "MHSP.AgitationArousalPharmaMgt.pdf",
+          section_heading: "Clinical review",
+          content:
+            "Review physical causes, medicine-related risks, observations, and the least restrictive management option.",
+          similarity: 0.94,
+          hybrid_score: 0.94,
+          text_rank: 1,
+        }),
+      ],
+    );
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.grounded).toBe(true);
+    expect(answer.citations.length).toBeGreaterThanOrEqual(2);
+    expect(answer.answer).toMatch(/step [12]/i);
+    expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+    expect(answer.faithfulnessWarning).toBeUndefined();
   });
 
   it("returns a grounded document-support fallback for procedure queries when no clean fact can be synthesized", async () => {
@@ -881,6 +992,8 @@ describe("RAG structured-output fallback", () => {
     const loggedMetadata = loggedRow.metadata ?? {};
     expect(loggedMetadata.answer_retry_count).toBe(2);
     expect(loggedMetadata.answer_retry_reasons).toEqual(["fast_template_retry_strong", "strong_quality_retry"]);
+    expect(loggedMetadata.degraded).toBe(false);
+    expect(loggedMetadata.provider_generation_degraded).toBe(false);
     // PIA-3: the generated answer text must not be persisted to rag_queries.answer
     // unless RAG_PERSIST_ANSWER_TEXT is enabled (default off), and the row records
     // that the answer was not retained.
@@ -1516,15 +1629,96 @@ describe("RAG structured-output fallback", () => {
     expect(answer.answer).not.toMatch(/^Dosage and monitoring/i);
   });
 
-  it("treats max-output truncation as a distinct retry and fallback reason", async () => {
+  it("recovers lithium dosing from validated WA evidence when both generated drafts hit max output", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
     vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
 
-    const sources = [
+    const waSource = (overrides: Partial<SearchResult>, publisherCode: "FSH" | "EMHS") =>
       source({
-        content:
-          "Inpatient approach details for agitation and arousal management include a stepwise approach based on rating severity, route, oral options, and intramuscular options.",
+        ...overrides,
+        source_metadata: {
+          source_title: overrides.title ?? "Lithium guideline",
+          publisher:
+            publisherCode === "FSH" ? "Fiona Stanley Fremantle Hospitals Group" : "East Metropolitan Health Service",
+          publisher_code: publisherCode,
+          jurisdiction: "Australia/WA",
+          version: "1",
+          publication_date: null,
+          review_date: null,
+          uploaded_at: null,
+          indexed_at: null,
+          uploaded_by: null,
+          document_status: "current",
+          clinical_validation_status: "locally_reviewed",
+          extraction_quality: "good",
+        },
+      });
+    const sources = [
+      waSource(
+        {
+          id: "fsh-lithium-1",
+          document_id: "fsh-lithium",
+          title: "Lithium Therapy - Initiation and Continuation Guideline",
+          section_heading: "Initiation",
+          content:
+            "For lithium initiation in adults, start lithium carbonate at 250 mg at night and titrate according to the serum lithium concentration.",
+        },
+        "FSH",
+      ),
+      waSource(
+        {
+          id: "emhs-lithium-1",
+          document_id: "emhs-lithium",
+          title: "Lithium Clinical Guideline",
+          section_heading: "Target range",
+          content:
+            "The usual target serum lithium concentration is 0.6 to 0.8 mmol/L for maintenance treatment in adults.",
+        },
+        "EMHS",
+      ),
+      waSource(
+        {
+          id: "fsh-lithium-2",
+          document_id: "fsh-lithium",
+          title: "Lithium Therapy - Initiation and Continuation Guideline",
+          section_heading: "Monitoring after dose changes",
+          content:
+            "Measure the serum lithium concentration 12 hours after the previous dose and repeat it 5 to 7 days after a dose change.",
+        },
+        "FSH",
+      ),
+      waSource(
+        {
+          id: "emhs-lithium-2",
+          document_id: "emhs-lithium",
+          title: "Lithium Clinical Guideline",
+          section_heading: "Dose adjustment",
+          content:
+            "Use a lower lithium starting dose in older adults and people with impaired renal function, with closer serum monitoring.",
+        },
+        "EMHS",
+      ),
+      source({
+        id: "bmj-paediatric-depression",
+        document_id: "bmj-paediatric-depression",
+        title: "Depression in children",
+        content: "Psychological therapy is considered for depression in children and young people.",
+        source_metadata: {
+          source_title: "Depression in children",
+          publisher: "BMJ Best Practice",
+          publisher_code: "BMJ",
+          jurisdiction: "International",
+          version: null,
+          publication_date: null,
+          review_date: null,
+          uploaded_at: null,
+          indexed_at: null,
+          uploaded_by: null,
+          document_status: "current",
+          clinical_validation_status: "unverified",
+          extraction_quality: "good",
+        },
       }),
     ];
     const rpc = vi.fn(async (name: string) => {
@@ -1534,7 +1728,7 @@ describe("RAG structured-output fallback", () => {
     });
     let requestIndex = 0;
     const generateStructuredTextResult = vi.fn(async () => ({
-      text: '{"answer":"Use a stepwise approach',
+      text: '{"answer":"Lithium dosing requires',
       model: "gpt-5.4-mini",
       operation: "answer",
       latencyMs: 12,
@@ -1556,23 +1750,42 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope, isCacheableGroundedGenerationFallback } = await import("../src/lib/rag");
+    const progressEvents: Array<{
+      stage: string;
+      selectedContextCount?: number;
+      australianSourceCount?: number;
+      waSourceCount?: number;
+      usedSupplementaryFallback?: boolean;
+    }> = [];
     const answer = await answerQuestionWithScope({
-      query: "Summarize inpatient approach",
+      query: "Lithium dosing",
       ownerId: undefined,
       logQuery: false,
       skipCache: true,
+      onProgress: (event) => {
+        progressEvents.push(event);
+      },
     });
 
     expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
-    expect(answer.routingMode).toBe("unsupported");
+    const generationCalls = generateStructuredTextResult.mock.calls as unknown as Array<[string]>;
+    expect(generationCalls.every((call) => call[0].includes("start lithium carbonate at 250 mg"))).toBe(true);
+    expect(generationCalls.every((call) => !call[0].includes("Psychological therapy is considered"))).toBe(true);
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.citations.length).toBeGreaterThan(0);
     expect(answer.routingReason).toContain("generation_fallback:provider_incomplete_max_output_tokens");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
     expect(answer.routingReason).not.toContain("OpenAI generation incomplete");
     expect(answer.answerQualityTier).toBe("source_only");
-    expect(answer.degradedMode).toMatchObject({
-      active: true,
-      reason: "generation_fallback:provider_incomplete_max_output_tokens",
-    });
+    expect(answer.answer.replace(/\*\*/g, "")).toMatch(/lithium|250 mg/i);
+    expect(answer.answer).not.toContain("could not generate a finalized answer");
+    expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+    // Numeric fallback intentionally narrows the returned support to one complete
+    // claim/citation when a multi-source synthesis would mix figures across chunks.
+    expect(new Set(answer.sources.map((result) => result.document_id))).toEqual(new Set(["fsh-lithium"]));
     expect(answer.latencyTimings?.answer_retry_count).toBe(2);
     expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
       "fast_max_output_tokens_retry_strong",
@@ -1580,6 +1793,92 @@ describe("RAG structured-output fallback", () => {
     ]);
     expect(answer.openAIRequestIds).toEqual(["req_truncated_1", "req_truncated_2"]);
     expect(answer.openAIUsage).toMatchObject({ output_tokens: 1300, total_tokens: 1500 });
+    expect(isCacheableGroundedGenerationFallback(answer)).toBe(true);
+    expect(progressEvents).toContainEqual(
+      expect.objectContaining({
+        stage: "ranking",
+        selectedContextCount: 4,
+        australianSourceCount: 4,
+        waSourceCount: 4,
+        usedSupplementaryFallback: false,
+      }),
+    );
+    expect(progressEvents).toContainEqual(
+      expect.objectContaining({
+        stage: "fallback",
+        selectedContextCount: 4,
+        australianSourceCount: 4,
+        waSourceCount: 4,
+        usedSupplementaryFallback: false,
+      }),
+    );
+    expect(progressEvents).toContainEqual(expect.objectContaining({ stage: "verifying" }));
+  });
+
+  it("fails closed instead of leaking another medication's numeric dose after generation failure", async () => {
+    const answer = await answerFromTextSources(
+      "What is the maximum sertraline dose?",
+      [
+        source({
+          id: "sertraline-source-gap",
+          document_id: "sertraline-source-gap-doc",
+          title: "Antidepressant Dose Overview",
+          file_name: "antidepressant-dose-overview.pdf",
+          section_heading: "Maximum doses",
+          content:
+            "The table lists fluoxetine 60 mg and citalopram 40 mg, but it does not state a maximum sertraline dose.",
+          similarity: 0.96,
+          hybrid_score: 0.96,
+          text_rank: 1.3,
+        }),
+      ],
+      new Error("OpenAI generation incomplete: max_output_tokens"),
+    );
+    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag");
+
+    expect(answer.answer).not.toMatch(/fluoxetine|citalopram|60 mg|40 mg/i);
+    expect(answer.answer).toMatch(/source|guidance|support|evidence/i);
+    expect(answer.routingReason).toContain("generation_fallback:provider_incomplete_max_output_tokens");
+    expect(answer.routingReason).toContain("source_backed_review_fallback");
+    expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+    expect(isCacheableGroundedGenerationFallback(answer)).toBe(false);
+  });
+
+  it("never marks the generic source-review fallback as cacheable", async () => {
+    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag");
+
+    expect(
+      isCacheableGroundedGenerationFallback({
+        routingMode: "unsupported",
+        routingReason: "strong_generation; generation_fallback:provider_timeout",
+        grounded: false,
+        confidence: "low",
+        citations: [],
+        unverifiedNumericTokens: [],
+      }),
+    ).toBe(false);
+    expect(
+      isCacheableGroundedGenerationFallback({
+        routingMode: "extractive",
+        routingReason:
+          "strong_generation; generation_fallback:provider_timeout; source_backed_review_fallback; extractive_quality_gate:weak",
+        grounded: true,
+        confidence: "low",
+        citations: [
+          {
+            chunk_id: "source-1",
+            document_id: "document-1",
+            title: "Source",
+            file_name: "source.pdf",
+            page_number: 1,
+            chunk_index: 0,
+            source_metadata: null,
+            provenance: "deterministic_support",
+          },
+        ],
+        unverifiedNumericTokens: [],
+      }),
+    ).toBe(false);
   });
 
   it("keeps the confidence gate active for weak ambiguous retrieval", async () => {
@@ -1655,6 +1954,119 @@ describe("RAG structured-output fallback", () => {
     expect(generateStructuredTextResult).not.toHaveBeenCalled();
   });
 
+  it("recovers a directly supported routine document-content answer without model generation", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = [
+      source({
+        id: "safety-plan-reference",
+        document_id: "safety-plan-doc",
+        title: "Patient Safety Planning Guideline",
+        file_name: "patient-safety-planning.pdf",
+        section_heading: "Related procedures",
+        content:
+          "Related procedures and guidelines. Women's and Perinatal Mental Health Referral and Management Guideline.",
+        similarity: 0.48,
+        hybrid_score: 0.48,
+        text_rank: 0.12,
+      }),
+      source({
+        id: "safety-plan-requirements",
+        document_id: "safety-plan-doc",
+        title: "Patient Safety Planning Guideline",
+        file_name: "patient-safety-planning.pdf",
+        section_heading: "Safety planning for identified risks",
+        content:
+          "The Consumer Safety Plan must be developed in collaboration with the consumer, involve carers and family where appropriate, identify actions for a crisis and who is responsible, and be reviewed when clinical status changes.",
+        similarity: 0.48,
+        hybrid_score: 0.48,
+        text_rank: 0.11,
+      }),
+    ];
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn();
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const answer = await answerQuestionWithScope({
+      query: "What should a patient safety plan include?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("validated_routine_extractive_recovery");
+    expect(answer.retrievalDiagnostics).toMatchObject({
+      gateStatus: "blocked",
+      routeMode: "extractive",
+      topScore: 0.48,
+    });
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.answer).toContain("developed in collaboration with the consumer");
+    expect(answer.answer).not.toContain("Perinatal Mental Health Referral");
+    expect(answer.citations.some((citation) => citation.chunk_id === "safety-plan-requirements")).toBe(true);
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+  });
+
+  it("keeps gate-passed routine document-content queries on model synthesis", async () => {
+    const answer = await answerFromTextSources(
+      "How is patient safety planning handled?",
+      [
+        source({
+          id: "safety-plan-requirements",
+          document_id: "safety-plan-doc",
+          title: "Patient Safety Planning Guideline",
+          file_name: "patient-safety-planning.pdf",
+          section_heading: "Safety planning for identified risks",
+          content:
+            "Patient safety planning must be developed collaboratively with the consumer and reviewed when clinical status changes.",
+          similarity: 0.9,
+          hybrid_score: 0.9,
+          text_rank: 0.4,
+        }),
+      ],
+      {
+        answer:
+          "Patient safety planning is handled collaboratively with the consumer and reviewed when clinical status changes.",
+        grounded: true,
+        confidence: "medium",
+        answerSections: [],
+        citations: [{ chunk_id: "safety-plan-requirements" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+    );
+
+    expect(answer.retrievalDiagnostics).toMatchObject({
+      gateStatus: "passed",
+      routeMode: "fast",
+      topScore: 0.9,
+    });
+    expect(answer.routingMode).toBe("fast");
+    expect(answer.routingReason).toBe("strong_routine_retrieval");
+    expect(answer.modelUsed).not.toBeNull();
+    expect(answer.openAIRequestIds).toEqual(["req_answer_from_text_sources"]);
+    expect(answer.grounded).toBe(true);
+  });
+
   it("does not gate-block a moderate score clustered across several distinct documents", async () => {
     // Regression: a topic with rich coverage (e.g. clozapine) returns many relevant
     // documents whose scores cluster tightly at a moderate value. A tiny spread there
@@ -1710,6 +2122,127 @@ describe("RAG structured-output fallback", () => {
     expect(answer.routingReason).not.toContain("confidence_gate_blocked");
     // The gate passed, so generation is attempted rather than short-circuited to a refusal.
     expect(generateStructuredTextResult).toHaveBeenCalled();
+  });
+
+  it("does not gate-block strong lexical-only evidence under the truthful score contract", async () => {
+    // Regression (canary #459 family A): migration 20260713062107 made lexical-only
+    // retrieval honest — similarity 0, hybrid_score hard-capped at 0.48, with the real
+    // signal in lexical_score (0.4..0.99). Reading hybrid_score alone made
+    // topScore < 0.5 unconditional for every text-fast-path answer, so well-supported
+    // documentation lookups ("What does the metabolic screening document require?",
+    // expected document at rank 1) were refused as confidence_gate_blocked. The gate
+    // must read the lexical evidence.
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = [1, 2, 3].map((n) =>
+      source({
+        id: `lexical-${n}`,
+        document_id: n <= 2 ? "metabolic-doc" : `doc-${n}`,
+        title: "Metabolic Screening",
+        file_name: "metabolic-screening.pdf",
+        content: "Metabolic screening requires baseline observations and scheduled physical health monitoring.",
+        similarity: 0,
+        hybrid_score: 0.48,
+        text_rank: 1.2,
+        lexical_score: 0.99,
+      }),
+    );
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn();
+    const embedTextWithTelemetry = vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false }));
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry,
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "What does the metabolic screening document require?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.retrievalDiagnostics).toMatchObject({ gateStatus: "passed" });
+    expect(answer.routingReason).not.toContain("confidence_gate_blocked");
+  });
+
+  it("still gate-blocks weak lexical-only evidence", async () => {
+    // Control for the lexical-aware gate: a marginal keyword hit (lexical_score at its
+    // 0.4 floor) must stay below the 0.5 evidence bar and refuse, preserving
+    // unsupported_correct behaviour for junk/near-miss lexical rows.
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = [
+      source({
+        id: "weak-lexical-1",
+        document_id: "doc-1",
+        title: "Unrelated Process",
+        file_name: "unrelated.pdf",
+        content: "A passing mention of screening in an unrelated administrative document.",
+        similarity: 0,
+        hybrid_score: 0.19,
+        text_rank: 0.02,
+        lexical_score: 0.41,
+      }),
+      source({
+        id: "weak-lexical-2",
+        document_id: "doc-2",
+        title: "General Overview",
+        file_name: "overview.pdf",
+        content: "General notes without specific screening guidance.",
+        similarity: 0,
+        hybrid_score: 0.18,
+        text_rank: 0.01,
+        lexical_score: 0.4,
+      }),
+    ];
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn();
+    const embedTextWithTelemetry = vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false }));
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry,
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+
+    const answer = await answerQuestionWithScope({
+      query: "How is discharge planning handled?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(answer.retrievalDiagnostics).toMatchObject({ gateStatus: "blocked" });
+    expect(answer.routingMode).toBe("unsupported");
   });
 
   it("returns document names for source-support questions instead of clinical advice", async () => {

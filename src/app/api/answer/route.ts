@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
@@ -15,19 +16,20 @@ import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
 import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
 import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
 import { resolveRetrievalAccessScope } from "@/lib/owner-scope";
-import {
-  hasDangerSourceGovernanceWarning,
-  sourceGovernanceRefusalAnswer,
-  sourceGovernanceWarnings,
-} from "@/lib/source-governance";
+import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import { parseJsonBody } from "@/lib/validation/body";
-import { toClientAnswerPayload } from "@/lib/answer-client-payload";
+import {
+  answerDegradedModeSignal,
+  buildGovernedAnswerClientResponse,
+  buildGovernedDemoAnswerClientResponse,
+} from "@/lib/answer-response";
 import { answerServerTimingEntries, buildServerTimingHeader } from "@/lib/server-timing";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { captureServerException } from "@/lib/observability/error-capture";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import * as serverAuth from "@/lib/supabase/auth";
-import type { RagAnswer } from "@/lib/types";
+import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 
 export const runtime = "nodejs";
 
@@ -40,15 +42,8 @@ const answerSchema = z.object({
 });
 
 type AnswerRequestBody = z.infer<typeof answerSchema>;
-
-function answerDegradedModeSignal(answer?: Pick<RagAnswer, "degradedMode" | "answerQualityTier" | "fallbackReason">) {
-  if (answer?.degradedMode) return answer.degradedMode;
-  const active = answer?.answerQualityTier === "source_only";
-  return {
-    active,
-    reason: active ? (answer?.fallbackReason ?? "source_only") : null,
-  };
-}
+const emptyScopeAnswer =
+  "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.";
 
 function buildDemoAnswerPayload(body: AnswerRequestBody, fallbackReason?: string) {
   const answer = demoAnswer(body.query, body.documentId, body.documentIds);
@@ -60,24 +55,25 @@ function buildDemoAnswerPayload(body: AnswerRequestBody, fallbackReason?: string
     routeMode: answer.routingMode,
     retrievalStrategy: "hybrid",
   });
-  return {
-    ...answer,
-    responseMode: smartApiPlan.displayMode,
-    smartApiPlan,
-    demoMode: true,
-    degradedMode: fallbackReason ? { active: true, reason: fallbackReason } : answerDegradedModeSignal(answer),
-    ...(fallbackReason ? { fallbackMode: "non_production_demo", fallbackReason } : {}),
-  };
+  return buildGovernedDemoAnswerClientResponse(
+    {
+      ...answer,
+      responseMode: smartApiPlan.displayMode,
+      smartApiPlan,
+    },
+    fallbackReason,
+  );
 }
 
 export async function POST(request: Request) {
+  const interactionId = randomUUID();
   const routeStartedAt = Date.now();
   let body: AnswerRequestBody | null = null;
   try {
     const answerBody = await parseJsonBody(request, answerSchema, "Invalid answer request.");
     body = answerBody;
     if (isDemoMode()) {
-      return NextResponse.json(buildDemoAnswerPayload(answerBody));
+      return NextResponse.json({ ...buildDemoAnswerPayload(answerBody), interactionId });
     }
 
     const supabase = createAdminClient();
@@ -102,8 +98,7 @@ export async function POST(request: Request) {
     });
     if (scope.documentIds?.length === 0) {
       return NextResponse.json({
-        answer:
-          "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.",
+        answer: emptyScopeAnswer,
         grounded: false,
         confidence: "unsupported",
         citations: [],
@@ -111,6 +106,7 @@ export async function POST(request: Request) {
         degradedMode: answerDegradedModeSignal(),
         scope: { ...scope, queryMode: answerBody.queryMode },
         sourceGovernanceWarnings: sourceGovernanceWarnings({ results: [] }),
+        ...answerFeedbackMetadata(interactionId, emptyScopeAnswer),
       });
     }
 
@@ -131,44 +127,13 @@ export async function POST(request: Request) {
       queryMode: answerBody.queryMode,
       signal: request.signal,
     });
-    const warnings = sourceGovernanceWarnings({
-      results: answer.sources ?? [],
-      relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
+    const governedResponse = buildGovernedAnswerClientResponse(answer);
+    logAnswerDiagnostics({
+      supabase,
+      query: answerBody.query,
+      ownerId: access.ownerId,
+      answer: governedResponse.telemetryAnswer,
     });
-    const shouldUseSourceGovernanceRefusal =
-      answer.grounded !== false && answer.confidence !== "unsupported" && answer.responseMode !== "evidence_gap";
-    if (shouldUseSourceGovernanceRefusal && hasDangerSourceGovernanceWarning(warnings)) {
-      // Build the refusal explicitly — never spread ...answer here, or the original
-      // (refused) sources/smartPanel/smartApiPlan would still reach the client and
-      // defeat the refusal. Keep only the safe "unsupported" contract fields, matching
-      // the empty-scope branch above.
-      void logAnswerDiagnostics({
-        supabase,
-        query: answerBody.query,
-        ownerId: access.ownerId,
-        answer: {
-          ...answer,
-          grounded: false,
-          confidence: "unsupported",
-          sources: [],
-          responseMode: "evidence_gap",
-          fallbackReason: "source_governance_refusal",
-          routingReason: [answer.routingReason, "source_governance_refusal"].filter(Boolean).join("; "),
-        },
-      });
-      return NextResponse.json({
-        answer: sourceGovernanceRefusalAnswer,
-        grounded: false,
-        confidence: "unsupported",
-        citations: [],
-        sources: [],
-        degradedMode: answerDegradedModeSignal(answer),
-        scope: { ...scope, queryMode: answerBody.queryMode },
-        sourceGovernanceWarnings: warnings,
-      });
-    }
-
-    logAnswerDiagnostics({ supabase, query: answerBody.query, ownerId: access.ownerId, answer });
 
     // Durations only — see server-timing.ts for the trust-boundary constraint.
     const serverTiming = buildServerTimingHeader(
@@ -176,12 +141,9 @@ export async function POST(request: Request) {
     );
     return NextResponse.json(
       {
-        // Boundary trim only — governance warnings and diagnostics above
-        // consumed the full answer (see answer-client-payload.ts).
-        ...toClientAnswerPayload(answer),
-        degradedMode: answerDegradedModeSignal(answer),
+        ...governedResponse.payload,
         scope: { ...scope, queryMode: answerBody.queryMode },
-        sourceGovernanceWarnings: warnings,
+        ...answerFeedbackMetadata(interactionId, governedResponse.payload.answer),
       },
       serverTiming ? { headers: { "Server-Timing": serverTiming } } : undefined,
     );
@@ -192,21 +154,34 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return jsonError(error, 400);
     }
+    const clientAborted = (error instanceof DOMException && error.name === "AbortError") || request.signal.aborted;
     if (error instanceof PublicApiError) {
+      // Expected degradations (rate limits, provider quota/timeouts mapped < 500)
+      // are operational noise; only server-fault statuses are reported.
+      if (error.status >= 500 && !clientAborted) {
+        void captureServerException(error, { route: "api/answer", status: error.status });
+      }
       return jsonError(error, error.status);
     }
     if (error instanceof Error) {
       const fallbackBody = body;
       const fallbackReason = fallbackBody ? nonProductionSupabaseDemoFallbackReason(error) : null;
       if (fallbackBody && fallbackReason) {
-        return NextResponse.json(buildDemoAnswerPayload(fallbackBody, fallbackReason), {
-          headers: { "X-Clinical-KB-Fallback": fallbackReason },
-        });
+        return NextResponse.json(
+          { ...buildDemoAnswerPayload(fallbackBody, fallbackReason), interactionId },
+          { headers: { "X-Clinical-KB-Fallback": fallbackReason } },
+        );
+      }
+      if (!clientAborted) {
+        void captureServerException(error, { route: "api/answer", status: 500 });
       }
       return jsonError(
         new PublicApiError("Answer generation failed. Retry with a narrower question.", 500, { code: error.name }),
         500,
       );
+    }
+    if (!clientAborted) {
+      void captureServerException(error, { route: "api/answer", status: 500 });
     }
     return jsonError("Answer generation failed.", 500);
   }

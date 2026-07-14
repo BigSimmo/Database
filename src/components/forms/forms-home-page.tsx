@@ -114,7 +114,7 @@ export function FormsHomePage() {
       <ModeHomeTemplate
         testId="forms-home-template"
         title="Forms"
-        subtitle="Search, check, or follow a pathway."
+        subtitle="Early access: a starter set of MHA 2014 forms. Search, check, or follow a pathway."
         icon={FileText}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Forms tasks"

@@ -1,0 +1,102 @@
+# Daily ops digest. Renders the live deep health probe (SLO counters, cache
+# hit-rate, answer spend, degraded/truncation rates) into a one-screen summary
+# and keeps it in a rolling GitHub issue, commenting only when something is off.
+#
+# SHIPPED DISABLED: only workflow_dispatch is active. To enable the daily cadence:
+#   1. Add repo variable  PROD_HEALTH_URL          (e.g. https://<app-host>)
+#   2. Add repo secret     HEALTH_DEEP_PROBE_SECRET (same value as the deployment)
+#   3. Uncomment the `schedule:` block below.
+# Run one workflow_dispatch first and confirm the digest issue looks right.
+name: Ops Digest
+
+on:
+  workflow_dispatch: {}
+  # schedule:
+  #   # 20:00 UTC = 06:00 Australia/Sydney — a morning digest.
+  #   - cron: "0 20 * * *"
+
+concurrency:
+  group: ops-digest
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  ops-digest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      PROD_HEALTH_URL: ${{ vars.PROD_HEALTH_URL }}
+      HEALTH_DEEP_PROBE_SECRET: ${{ secrets.HEALTH_DEEP_PROBE_SECRET }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          persist-credentials: false
+
+      - name: Preflight config
+        run: |
+          missing=""
+          [ -z "$PROD_HEALTH_URL" ] && missing="$missing PROD_HEALTH_URL(var)"
+          [ -z "$HEALTH_DEEP_PROBE_SECRET" ] && missing="$missing HEALTH_DEEP_PROBE_SECRET(secret)"
+          if [ -n "$missing" ]; then
+            echo "::error::Ops digest cannot run — missing:$missing"
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: ".nvmrc"
+
+      - name: Render digest
+        id: digest
+        run: node scripts/ops-digest.mjs --out digest.md
+
+      - name: Publish to rolling issue
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require("fs");
+            const label = "ops-digest";
+            const body = fs.readFileSync("digest.md", "utf8");
+            const status = "${{ steps.digest.outputs.status }}" || "unknown";
+            const alerting = "${{ steps.digest.outputs.alerting }}" === "true";
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: label,
+            });
+            let issueNumber;
+            if (existing.length > 0) {
+              issueNumber = existing[0].number;
+              // Keep the issue body as the latest snapshot.
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body,
+              });
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: "Ops digest",
+                labels: [label],
+                body,
+              });
+              issueNumber = created.data.number;
+            }
+            // Comment (and therefore notify) only when something needs attention.
+            if (status !== "ok" || alerting) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                body: `⚠ Attention (status=${status}, alerting=${alerting}) — ${new Date().toISOString()}\n\n${body}`,
+              });
+            }
+            if (status !== "ok") core.warning(`Ops digest status: ${status}`);

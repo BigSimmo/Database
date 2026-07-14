@@ -131,6 +131,8 @@ const containerPatterns = [
   "next.config.ts",
   "package.json",
   "package-lock.json",
+  "railway.app.json",
+  "railway.worker.json",
   "worker/python/requirements.txt",
   /^scripts\/(check-node-engine|guard-next-build)\.(?:cjs|mjs)$/,
 ];
@@ -140,6 +142,7 @@ const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright
 const coveragePatterns = ["data", "src", "tests", "vitest.config.mts"];
 
 const buildPatterns = [
+  "bundle-budget.json",
   "data",
   "src",
   "worker",
@@ -149,6 +152,7 @@ const buildPatterns = [
   "postcss.config.mjs",
   "package.json",
   "package-lock.json",
+  "scripts/check-bundle-budget.mjs",
   /^scripts\/(check-node-engine|guard-next-build|dev-free-port|ensure-local-server)\.(?:cjs|mjs)$/,
 ];
 
@@ -428,10 +432,21 @@ function selfTest() {
     workflow_changed: false,
     build_changed: true,
   });
-  assertScope("container", ["Dockerfile.worker", "worker/python/requirements.txt"], {
-    container_changed: true,
+  assertScope("bundle-budget-config", ["bundle-budget.json"], {
     build_changed: true,
   });
+  assertScope("bundle-budget-checker", ["scripts/check-bundle-budget.mjs"], {
+    source_changed: true,
+    build_changed: true,
+  });
+  assertScope(
+    "container",
+    ["Dockerfile.worker", "railway.app.json", "railway.worker.json", "worker/python/requirements.txt"],
+    {
+      container_changed: true,
+      build_changed: true,
+    },
+  );
   assertScope("renamed-destination", parseStatusPorcelain("R  src/lib/rag-new.ts\0docs/rag-old.md\0"), {
     source_changed: true,
     rag_eval_changed: true,

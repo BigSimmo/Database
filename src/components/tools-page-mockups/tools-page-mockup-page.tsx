@@ -471,7 +471,13 @@ function WideToolTile({
 
   if (onSelect) {
     return (
-      <button type="button" aria-pressed={selected} onClick={onSelect} className={className}>
+      <button
+        type="button"
+        aria-label={`Preview ${tool.title}${suggested ? " (suggested)" : ""}`}
+        aria-pressed={selected}
+        onClick={onSelect}
+        className={className}
+      >
         {content}
       </button>
     );
@@ -731,14 +737,20 @@ function PhoneBrowserPreview({
 
                     if (interactive) {
                       return (
-                        <button key={tool.id} type="button" onClick={() => onSelectTool(tool)} className={rowClassName}>
+                        <button
+                          key={tool.id}
+                          type="button"
+                          aria-label={`Preview ${tool.title}`}
+                          onClick={() => onSelectTool(tool)}
+                          className={rowClassName}
+                        >
                           {rowContent}
                         </button>
                       );
                     }
 
                     return (
-                      <Link key={tool.id} href={tool.href} className={rowClassName}>
+                      <Link key={tool.id} href={tool.href} aria-label={`Open ${tool.title}`} className={rowClassName}>
                         {rowContent}
                       </Link>
                     );

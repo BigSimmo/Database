@@ -5,9 +5,14 @@
 runs automatically — every **⏸ PAUSE** is a provider-touching action (Supabase / Railway / OpenAI /
 GitHub) that needs your explicit go-ahead, per the AGENTS.md provider boundary.
 
+**Current-state note (2026-07-14):** production app and worker deployment is already recorded as live.
+Use this as a verification/release sequence, not evidence that staging, migrations, or first deployment
+are still pending. Confirm current provider state before repeating any historical action.
+
 Host note: production app + worker run on **Railway** (user directive 2026-07-12), not Fly. The image is
 host-agnostic. Railway has no Sydney region (closest Singapore); data at rest stays in Supabase Sydney,
-so this is a latency/SLO tradeoff only — confirm answer-p95 in the staging soak (step 4).
+so this creates both a latency/SLO tradeoff and overseas processing that must be covered by the approved
+privacy/processor record. Confirm answer-p95 in the staging soak (step 4).
 
 Legend: **⏸ PAUSE** = provider action, needs your approval · **✅ verify** = check to run after.
 
@@ -17,9 +22,9 @@ Legend: **⏸ PAUSE** = provider action, needs your approval · **✅ verify** =
 
 ```text
 0. Pre-flight identity check
-1. Apply pending live migrations  (July-8 batch + PIA-4 + drift-codify)   [Supabase]
-2. Run the full release gate                                              [live keys]
-3. Provision staging + seed                                               [Supabase + Railway]
+1. Confirm completed migrations; apply only any explicitly unresolved control [Supabase]
+2. Run the full release gate before the next release                     [live keys]
+3. Provision staging + seed, only if still absent                         [Supabase + Railway]
 4. Staging soak + rollback rehearsal                                      [Railway]
 5. Production deploy                                                       [Railway]
 6. Post-deploy: worker, registry seed, auth conn cap, observability wiring
@@ -35,26 +40,27 @@ npx supabase migration list --linked
 npm run reindex:health             # note jobs_pending / jobs_processing (needed for step 1 R17)
 ```
 
-## 1. Apply pending live migrations 🧑 Supabase
+## 1. Confirm migration state; apply only unresolved controls 🧑 Supabase
 
-Detailed runbook: [operator-apply-july8-batch.md](operator-apply-july8-batch.md). Apply **in this order**
-when the ingestion queue is quiet. **Do not redeploy the worker until step `20260708130000` is live.**
+The July-8 ingestion/tenancy batch and the retrieval drift-codification work are recorded as applied and
+verified on 2026-07-13. Their detailed procedures remain for staging/disaster recovery; do **not** reapply
+them merely because they appear below. First compare linked migration history and verify the remaining
+PIA-4 retention migrations. **Do not redeploy the worker until `20260708130000` is confirmed live.**
 
-| #   | Migration                                             | Note                                        |
-| --- | ----------------------------------------------------- | ------------------------------------------- |
-| a   | `20260708140000_drop_ingestion_job_stages_job_id_fk`  | no-op on live                               |
-| b   | `20260708130000_ingestion_concurrency_rpc_hardening`  | **worker-redeploy blocker**                 |
-| c   | `20260708150000_ensure_retrieval_owner_matches`       | helper before fail-closed                   |
-| d   | `20260708160001_retrieval_owner_matches_fail_closed`  | tenancy fail-closed (#409)                  |
-| e   | `20260708310000_r5_document_metadata_merge`           | R5 deep-merge (#408)                        |
-| f   | `20260708170000_ingestion_jobs_one_open_per_document` | R17 — approved manual `CONCURRENTLY` path   |
-| g   | `20260708120000_rag_query_misses_retention`           | **PIA-4** purge cron                        |
-| h   | `<drift-codify-forward>`                              | **only after task 1.2 lands** — see step 1b |
+| Group | Migration/control                                                                                | Recorded status                                     | Operator action                                                                                            |
+| ----- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| a–f   | July-8 ingestion/tenancy batch in [operator-apply-july8-batch.md](operator-apply-july8-batch.md) | **Verified live 2026-07-13**                        | Verify only; redeploy the worker if that recorded remaining action is still open.                          |
+| g     | `20260708120000_rag_query_misses_retention`                                                      | **Applied and verified live 2026-07-14**            | Job 13 is active with the 90-day retention window.                                                         |
+| h     | `20260713201542_consolidate_rag_response_cache_retention`                                        | **Applied and verified live 2026-07-14**            | Job 16 is active and bounded; obsolete duplicate job confirmed absent.                                     |
+| i     | Retrieval RPC forward-codification (`20260713062107`…`20260713062139`)                           | **Applied and drift/readiness verified 2026-07-13** | Verify only; see [forward-codify-retrieval-rpcs-workorder.md](forward-codify-retrieval-rpcs-workorder.md). |
 
-**⏸ PAUSE:** apply via `supabase db push` (queue quiet) or the R17 manual `CREATE UNIQUE INDEX CONCURRENTLY`
-path in the July-8 doc. R17 manual path is an approved exception to the live-change guardrail; record
-the migration history entry and reconcile schema.sql after manual execution to prevent untracked drift.
-R17 uses its own version so history/repair can't collide with `20260708160001`.
+**⏸ PAUSE:** if and only if linked history shows migration `20260708120000` or `20260713201542` absent,
+apply the reviewed committed migration through the normal guarded workflow. Do not use this status
+reconciliation as authority to replay the verified July-8 or forward-codification groups.
+
+After applying, query `cron.job` and expect exactly these active retention jobs: `purge-rag-query-misses`
+at `45 3 * * *` and `purge-rag-response-cache` at `15 * * * *`. The obsolete
+`purge-expired-rag-response-cache` name must be absent.
 
 **✅ verify:**
 
@@ -65,20 +71,17 @@ npm run check:indexing              # search_schema_health() ok
 npm run eval:retrieval:quality      # must stay 36/36 (retrieval-affecting: step d + drift-codify)
 ```
 
-### 1b. Drift-codify apply (task 1.2)
+### 1b. Drift-codify status (task 1.2) — complete
 
-The forward-codify migration (live-diverged `match_document_chunks` `hnsw.ef_search=100` wrapper + `*_text`
-multi-strategy bodies) is authored + validated with normalized fingerprint comparison vs a Docker replay
-before it reaches you, so its apply is an **idempotent no-op on live**. **This step is blocked until the
-migration artifact is committed and execution-time live fingerprint recapture is completed.** Before
-applying, recapture live fingerprints using the exact committed capture query and compare normalized md5s
-against the committed table. Abort on mismatch. Apply as step 1h only after verification, then re-run
-`check:drift` + `eval:retrieval:quality` (36/36). Background:
-[database-drift-detection.md](database-drift-detection.md).
+The reviewed forward-codify migrations were applied on 2026-07-13 after scratch replay and fingerprint
+validation. `check:drift` passed and production readiness reported READY. The authoritative evidence and
+historical replay procedure are in
+[forward-codify-retrieval-rpcs-workorder.md](forward-codify-retrieval-rpcs-workorder.md). No further apply
+is pending unless a new drift check identifies a new, separately reviewed difference.
 
 ## 2. Full release gate 🧑 live keys
 
-Clears the accumulated verification debt (universal search, cross-mode links, rag.ts decomp).
+Run before the next release when provider-backed verification is explicitly approved.
 
 **⏸ PAUSE** (bounded OpenAI spend):
 
@@ -161,6 +164,6 @@ no scale-to-zero, health `/api/health`. I'll prep the Railway service config via
 ## Standing guardrails
 
 - Never raw-SQL against live — committed migration + `schema.sql` reconciliation only.
-- Worker redeploy is blocked until `20260708130000` is live.
+- Never redeploy a worker image that expects the hardened completion RPC until `20260708130000` is confirmed live.
 - Any retrieval/ranking change re-runs `eval:retrieval:quality` 36/36 before it ships.
 - Each environment gets separate service-role + OpenAI keys (per-env blast radius).
