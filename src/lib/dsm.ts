@@ -90,6 +90,39 @@ const diagnosisByNormalizedTitle = new Map(
   dsmDiagnoses.map((diagnosis) => [normalizeSearchText(diagnosis.title), diagnosis] as const),
 );
 
+// Lookup by parenthetical abbreviation in title (e.g., "PMDD" from "Premenstrual dysphoric disorder (PMDD)").
+const PARENTHETICAL_ABBREV_RE = /\(([A-Z][A-Z0-9-]+)\)/;
+const diagnosisByAbbreviation = new Map<string, DsmDiagnosis>();
+for (const diagnosis of dsmDiagnoses) {
+  const match = PARENTHETICAL_ABBREV_RE.exec(diagnosis.title);
+  if (match) diagnosisByAbbreviation.set(match[1].toLowerCase(), diagnosis);
+}
+
+// Lookup by title initialism (e.g., "MDD" from "Major depressive disorder", "OCD" from
+// "Obsessive-compulsive disorder"). Splits on spaces, hyphens, and slashes.
+const diagnosisByInitialism = new Map<string, DsmDiagnosis>();
+for (const diagnosis of dsmDiagnoses) {
+  const initialism = diagnosis.title
+    .split(/[\s\-\/]+/)
+    .map((word) => word[0])
+    .filter(Boolean)
+    .join("")
+    .toLowerCase();
+  if (initialism.length >= 2 && !diagnosisByInitialism.has(initialism)) {
+    diagnosisByInitialism.set(initialism, diagnosis);
+  }
+}
+
+// Lookup by normalized title with slashes collapsed to spaces, covering alternate formatting
+// such as "Persistent depressive disorder / dysthymia" matching the title
+// "Persistent depressive disorder (dysthymia)".
+function normalizeWithSlash(text: string) {
+  return normalizeSearchText(text.replace(/\s*\/\s*/g, " "));
+}
+const diagnosisBySlashNormalizedTitle = new Map(
+  dsmDiagnoses.map((diagnosis) => [normalizeWithSlash(diagnosis.title), diagnosis] as const),
+);
+
 export function getDsmDiagnosis(slug: string) {
   return diagnosisBySlug.get(slug.toLowerCase());
 }
@@ -203,6 +236,18 @@ export function resolveDsmDifferential(value: string) {
   const normalized = normalizeSearchText(title);
   const exact = diagnosisByNormalizedTitle.get(normalized);
   if (exact) return exact;
+
+  // Try abbreviation from parenthetical (e.g., PMDD → "Premenstrual dysphoric disorder (PMDD)").
+  const byAbbrev = diagnosisByAbbreviation.get(normalized);
+  if (byAbbrev) return byAbbrev;
+
+  // Try initialism match (e.g., MDD → "Major depressive disorder").
+  const byInitialism = diagnosisByInitialism.get(normalized);
+  if (byInitialism) return byInitialism;
+
+  // Try slash-normalized title match (e.g., "Persistent depressive disorder / dysthymia").
+  const bySlash = diagnosisBySlashNormalizedTitle.get(normalizeWithSlash(title));
+  if (bySlash) return bySlash;
 
   return dsmDiagnoses.find((diagnosis) => {
     const candidate = normalizeSearchText(diagnosis.title);

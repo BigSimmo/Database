@@ -14,6 +14,7 @@ type DsmSearchRouteProps = {
     q?: string | string[];
     query?: string | string[];
     category?: string | string[];
+    ids?: string | string[];
   }>;
 };
 
@@ -26,6 +27,13 @@ export default async function DsmSearchRoute({ searchParams }: DsmSearchRoutePro
   const query = (firstValue(params.q) ?? firstValue(params.query) ?? "").trim();
   const requestedCategory = firstValue(params.category)?.trim();
   const category = dsmCategories.some((item) => item.key === requestedCategory) ? requestedCategory : undefined;
+  const rawIds = firstValue(params.ids) ?? "";
+  const initialIds = rawIds
+    ? rawIds
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean)
+    : [];
 
   return (
     <DsmSearchPage
@@ -34,6 +42,7 @@ export default async function DsmSearchRoute({ searchParams }: DsmSearchRoutePro
       categories={dsmCategories}
       results={listDsmDiagnosisSummaries({ query, category })}
       totalCount={dsmDiagnoses.length}
+      initialIds={initialIds}
     />
   );
 }

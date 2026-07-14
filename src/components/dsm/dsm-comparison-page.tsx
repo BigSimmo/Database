@@ -129,7 +129,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
           ))}
           {diagnoses.length < 3 ? (
             <Link
-              href="/dsm/search"
+              href={`/dsm/search?ids=${encodeURIComponent(diagnoses.map((diagnosis) => diagnosis.slug).join(","))}`}
               className="grid min-h-[7.5rem] place-items-center rounded-xl border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] p-3 text-center text-sm font-bold text-[color:var(--clinical-accent)]"
             >
               <span className="grid justify-items-center gap-2">

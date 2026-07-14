@@ -27,14 +27,16 @@ export function DsmSearchPage({
   categories,
   results,
   totalCount,
+  initialIds = [],
 }: {
   query: string;
   category?: string;
   categories: DsmCategory[];
   results: DsmDiagnosisSummary[];
   totalCount: number;
+  initialIds?: string[];
 }) {
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string[]>(initialIds.slice(0, 3));
   const activeCategory = categories.find((item) => item.key === category);
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const canCompare = selected.length >= 2;
