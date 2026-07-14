@@ -276,6 +276,7 @@ export function MasterSearchHeader({
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
     selectedSearch.kind === "favourites" ||
+    selectedSearch.kind === "specifiers" ||
     selectedSearch.kind === "formulation" ||
     selectedSearch.kind === "dsm";
   const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
@@ -631,15 +632,15 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "specifiers-builder") {
-      window.location.assign("/formulation/builder");
+      window.location.assign("/specifiers/builder");
       return;
     }
     if (actionId === "specifiers-compare") {
-      window.location.assign("/formulation/compare");
+      window.location.assign("/specifiers/compare");
       return;
     }
     if (actionId === "specifiers-map") {
-      window.location.assign("/formulation/map");
+      window.location.assign("/specifiers/map");
       return;
     }
     if (actionId === "formulation-search") {
