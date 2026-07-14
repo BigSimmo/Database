@@ -2370,6 +2370,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=specifiers&q=anxious+distress&focus=1&run=1");
 
+    // /?mode=specifiers → /specifiers (Specifiers is its own mode, distinct from Formulation)
     await expect(page).toHaveURL(/\/specifiers\?q=anxious\+distress&focus=1&run=1$/);
     await expect(page.getByRole("heading", { level: 1, name: "Matches for “anxious distress”" })).toBeVisible();
   });

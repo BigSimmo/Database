@@ -78,16 +78,6 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     ],
     crossModes: ["documents", "prescribing", "forms"],
   },
-  specifiers: {
-    examples: ["depressed but racing thoughts", "returns every winter", "much better but not fully recovered"],
-    suggestions: [
-      { text: "depressed but racing thoughts", meta: "Episode features" },
-      { text: "returns every winter", meta: "Course and onset" },
-      { text: "much better but not fully recovered", meta: "Severity and remission" },
-    ],
-    scopes: [],
-    crossModes: ["differentials", "formulation", "documents"],
-  },
   dsm: {
     examples: ["major depressive disorder", "F31.81", "panic disorder criteria"],
     suggestions: [
@@ -138,6 +128,16 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     // Keep in sync with the post-answer cross-mode links strip, which covers
     // prescribing, services, forms, and differentials.
     crossModes: ["documents", "prescribing", "services", "forms", "differentials"],
+  },
+  specifiers: {
+    examples: ["depressed but racing thoughts", "returns every winter", "much better but not fully recovered"],
+    suggestions: [
+      { text: "depressed but racing thoughts", meta: "Episode features" },
+      { text: "returns every winter", meta: "Course and onset" },
+      { text: "much better but not fully recovered", meta: "Severity and remission" },
+    ],
+    scopes: [],
+    crossModes: ["dsm", "differentials", "formulation", "documents"],
   },
   formulation: {
     examples: ["avoidance after panic", "rumination after rejection", "dissociation under threat"],

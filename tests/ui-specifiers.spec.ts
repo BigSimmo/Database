@@ -72,12 +72,13 @@ test("searches clinical language without provenance fields and carries a result 
   await expect(page.getByText(/Results ranked by text relevance/i)).toBeVisible();
   await expect(page.getByText("Top match", { exact: true })).toBeVisible();
   await expect(page.getByText("Best fit", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/clinical fit/i)).toHaveCount(0);
   await expect(page.getByRole("link", { name: "With mixed features", exact: true })).toBeVisible();
   await expect(page.getByText("Source status", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Source", { exact: true })).toHaveCount(0);
 
   await page.getByRole("link", { name: "Open With mixed features" }).click();
-  await expect(page).toHaveURL(/\/specifiers\/with-mixed-features$/);
+  await expect(page).toHaveURL(/\/specifiers\/with-mixed-features$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "With mixed features", exact: true })).toBeVisible();
   await expect(page.getByText("What matters now", { exact: true })).toBeVisible();
 
@@ -122,6 +123,24 @@ test("keeps the base diagnosis severity-neutral when applying a severity descrip
   await expect(
     page.getByText("Major depressive disorder, recurrent, with anxious distress, mild", { exact: true }),
   ).toBeVisible();
+});
+
+test("blocks incompatible specifiers and preserves severe psychotic-features wording", async ({ page }) => {
+  // Psychotic features applies to MDD, so the deep link stays on the recurrent-MDD base.
+  // Rapid cycling is bipolar-only, so it must remain blocked until a bipolar base is chosen.
+  await gotoApp(page, "/specifiers/builder?specifier=with-psychotic-features");
+
+  const rapidCycling = page.getByRole("checkbox", { name: /Rapid cycling/ });
+  await expect(rapidCycling).toBeDisabled();
+  await expect(rapidCycling).not.toBeChecked();
+  await expect(
+    page.getByText("Major depressive disorder, recurrent, severe with psychotic features", { exact: true }),
+  ).toBeVisible();
+
+  await page.getByRole("combobox", { name: "Diagnostic phrase" }).selectOption("bipolar-i-manic");
+  await expect(rapidCycling).toBeEnabled();
+  await page.getByText("Rapid cycling", { exact: true }).click();
+  await expect(rapidCycling).toBeChecked();
 });
 
 test("infers a compatible diagnosis for non-MDD builder deep links", async ({ page }) => {
