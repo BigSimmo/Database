@@ -162,6 +162,16 @@ test("keeps legacy specifier detail links on a valid formulation route", async (
   await expect(page).toHaveURL(/\/formulation\?q=I\+keep\+going\+over\+it&run=1$/);
   await expect(page.getByRole("heading", { name: /Mechanisms matching “I keep going over it”/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "Rumination", exact: true })).toBeVisible();
+
+  await gotoApp(page, "/specifiers/builder?specifier=with-psychotic-features");
+  await expect(page).toHaveURL(/\/formulation\?q=with\+psychotic\+features&run=1$/);
+  await expect(page.getByRole("heading", { name: /Mechanisms matching “with psychotic features”/ })).toBeVisible();
+
+  await gotoApp(page, "/specifiers/compare?a=with-anxious-distress&b=with-mixed-features");
+  await expect(page).toHaveURL(/\/formulation\?q=with\+anxious\+distress\+versus\+with\+mixed\+features&run=1$/);
+  await expect(
+    page.getByRole("heading", { name: /Mechanisms matching “with anxious distress versus with mixed features”/ }),
+  ).toBeVisible();
 });
 
 test("compares supported alternatives and groups mechanisms without implying causation", async ({ page }) => {
