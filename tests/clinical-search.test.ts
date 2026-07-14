@@ -202,7 +202,7 @@ describe("clinical search query normalization", () => {
 
   it("removes table-coverage filler while keeping the clinical topic", () => {
     expect(buildClinicalTextSearchQuery("Which table covers agitation and arousal pharmacological management?")).toBe(
-      "agitation arousal pharmacological management medication chart dose route im po",
+      "agitation arousal pharmacological management",
     );
   });
 

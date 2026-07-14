@@ -1252,7 +1252,7 @@ export function buildClinicalTextSearchQuery(query: string) {
     );
   const wantsAgitationMedicationChart =
     wantsAgitationArousal &&
-    /\b(?:dose|dosing|route|oral|intramuscular|im|po|chart|table|options?|listed)\b/i.test(correctedQueryText);
+    /\b(?:dose|dosing|route|oral|intramuscular|im|po|options?|listed)\b/i.test(correctedQueryText);
 
   if (wantsClozapineMissedDose) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "missed", "dose", "monitoring", "table");
