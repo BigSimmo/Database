@@ -11,6 +11,7 @@ import {
   MessageSquarePlus,
   MessageSquare,
   Moon,
+  Network,
   PanelLeftClose,
   PanelLeftOpen,
   Pill,
@@ -18,7 +19,6 @@ import {
   Settings as SettingsIcon,
   Sparkles,
   Sun,
-  Tags,
   Wrench,
 } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -76,7 +76,7 @@ const sidebarToolItems = [
   { id: "forms", label: "Forms", icon: ClipboardPen, href: "/forms", badge: "Early access" },
   { id: "favourites", label: "Favourites", icon: Heart, href: "/favourites" },
   { id: "differentials", label: "Differentials", icon: BrainCircuit, href: "/differentials" },
-  { id: "specifiers", label: "Specifiers", icon: Tags, href: "/specifiers" },
+  { id: "formulation", label: "Formulation", icon: Network, href: "/formulation" },
   { id: "prescribing", label: "Medication", icon: Pill, href: "/?mode=prescribing" },
   { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
 ] as const;

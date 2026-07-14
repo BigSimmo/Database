@@ -9,15 +9,15 @@ export type AppModeId =
   | "forms"
   | "favourites"
   | "differentials"
-  | "specifiers"
+  | "formulation"
   | "prescribing"
   | "tools";
 export type SearchableAppModeId = AppModeId;
 
 export type AppModeSearchKind =
-  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "specifiers" | "tools";
+  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "formulation" | "tools";
 export type AppModeResultKind =
-  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "specifiers" | "tools";
+  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "formulation" | "tools";
 
 export type AppModeSearchConfig = {
   kind: AppModeSearchKind;
@@ -181,24 +181,24 @@ export const appModeDefinitions = [
     },
   },
   {
-    id: "specifiers",
-    label: "Specifiers",
-    description: "Refine diagnostic wording and episode patterns",
-    href: "/specifiers",
+    id: "formulation",
+    label: "Formulation",
+    description: "Build and test clinical mechanism hypotheses",
+    href: "/formulation",
     search: {
-      kind: "specifiers",
-      placeholder: "Describe the presentation or search a specifier...",
-      inputAriaLabel: "Search psychiatric specifiers by presentation or diagnosis",
+      kind: "formulation",
+      placeholder: "Describe a pattern, mechanism, or clinical clue...",
+      inputAriaLabel: "Search formulation mechanisms by pattern or patient language",
       submitIdleLabel: "Find",
       submitBusyLabel: "Find",
-      submitAriaLabel: "Find matching psychiatric specifiers",
-      emptyTitle: "Describe the presentation",
-      readyTitle: "Find the most relevant specifier",
-      progressLabel: "Matching presentation features to specifiers.",
-      resultKind: "specifiers",
-      resultHeading: "Specifier matches",
-      statusLabel: "Specifiers",
-      nextStep: "Check fit and refine the diagnostic wording",
+      submitAriaLabel: "Find matching formulation mechanisms",
+      emptyTitle: "Describe a clinical pattern",
+      readyTitle: "Find a testable mechanism hypothesis",
+      progressLabel: "Matching clinical clues to formulation mechanisms.",
+      resultKind: "formulation",
+      resultHeading: "Mechanism matches",
+      statusLabel: "Formulation",
+      nextStep: "Check fit, alternatives, and treatment leverage",
       badgeLabel: null,
     },
   },
@@ -274,7 +274,7 @@ export function appModeSearchConfig(modeId: AppModeId) {
   return appModeDefinition(modeId).search;
 }
 
-const namespaceIsolatedModes = new Set<AppModeId>(["services", "forms", "favourites", "differentials", "specifiers"]);
+const namespaceIsolatedModes = new Set<AppModeId>(["services", "forms", "favourites", "differentials", "formulation"]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
   const mode = appModeDefinition(modeId);
@@ -344,7 +344,7 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
     kind === "forms" ||
     kind === "favourites" ||
     kind === "differentials" ||
-    kind === "specifiers" ||
+    kind === "formulation" ||
     kind === "tools"
   );
 }
