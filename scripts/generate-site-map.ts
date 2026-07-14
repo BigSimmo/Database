@@ -224,6 +224,7 @@ function renderModeRoutes() {
     formulation: appModeHomeHref("formulation", { query: "I keep going over it", focus: true, run: true }),
     prescribing: appModeHomeHref("prescribing", { query: "acamprosate renal dose", focus: true, run: true }),
     tools: appModeHomeHref("tools", { query: "medications", focus: true, run: true }),
+    "therapy-compass": appModeHomeHref("therapy-compass", { query: "behavioural activation", focus: true, run: true }),
   };
 
   return appModeDefinitions.map((mode) =>
