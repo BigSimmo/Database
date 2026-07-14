@@ -55,6 +55,7 @@ export type ModeActionSetId =
   | "favourites"
   | "tools"
   | "differentials"
+  | "dsm"
   | "specifiers"
   | "prescribing";
 export type ModeActionPlacement = "up" | "down";
@@ -118,6 +119,9 @@ export type ModeActionId =
   | "differentials-criteria"
   | "differentials-documents"
   | "differentials-evidence"
+  | "dsm-search"
+  | "dsm-compare"
+  | "dsm-criteria"
   | "specifiers-search"
   | "specifiers-builder"
   | "specifiers-compare"
@@ -230,6 +234,27 @@ const modeActionSets = {
       icon: FileText,
     },
     { id: "differentials-evidence", label: "View evidence", description: "Review cited support", icon: ShieldCheck },
+  ],
+  dsm: [
+    {
+      id: "dsm-search",
+      label: "Search diagnoses",
+      description: "Find criteria and ICD codes",
+      icon: Search,
+      primary: true,
+    },
+    {
+      id: "dsm-compare",
+      label: "Compare diagnoses",
+      description: "Review distinctions side by side",
+      icon: GitBranch,
+    },
+    {
+      id: "dsm-criteria",
+      label: "Review criteria",
+      description: "Open core diagnostic criteria",
+      icon: ListChecks,
+    },
   ],
   specifiers: [
     {

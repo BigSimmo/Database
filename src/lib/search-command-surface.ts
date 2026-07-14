@@ -78,6 +78,16 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     ],
     crossModes: ["documents", "prescribing", "forms"],
   },
+  dsm: {
+    examples: ["major depressive disorder", "F31.81", "panic disorder criteria"],
+    suggestions: [
+      { text: "major depressive disorder", meta: "Diagnosis" },
+      { text: "bipolar II disorder", meta: "Compare" },
+      { text: "posttraumatic stress disorder", meta: "Criteria" },
+    ],
+    scopes: [],
+    crossModes: ["differentials", "prescribing", "documents"],
+  },
   prescribing: {
     examples: ["acamprosate renal", "naltrexone dose ceiling", "disulfiram counselling"],
     suggestions: [

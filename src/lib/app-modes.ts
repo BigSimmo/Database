@@ -9,15 +9,15 @@ export type AppModeId =
   | "forms"
   | "favourites"
   | "differentials"
+  | "dsm"
   | "specifiers"
   | "prescribing"
   | "tools";
 export type SearchableAppModeId = AppModeId;
 
 export type AppModeSearchKind =
-  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "specifiers" | "tools";
-export type AppModeResultKind =
-  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "specifiers" | "tools";
+  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "dsm" | "specifiers" | "tools";
+export type AppModeResultKind = AppModeSearchKind;
 
 export type AppModeSearchConfig = {
   kind: AppModeSearchKind;
@@ -181,6 +181,28 @@ export const appModeDefinitions = [
     },
   },
   {
+    id: "dsm",
+    label: "DSM-5 Diagnosis",
+    description: "Diagnostic criteria, specifiers, and comparisons",
+    href: "/dsm",
+    search: {
+      kind: "dsm",
+      placeholder: "Search DSM diagnoses or criteria...",
+      inputAriaLabel: "Search DSM diagnoses, ICD codes, criteria, and categories",
+      submitIdleLabel: "DSM",
+      submitBusyLabel: "DSM",
+      submitAriaLabel: "Search DSM diagnoses",
+      emptyTitle: "Search DSM diagnoses",
+      readyTitle: "Search DSM diagnosis criteria",
+      progressLabel: "Searching the local DSM diagnosis catalogue.",
+      resultKind: "dsm",
+      resultHeading: "DSM diagnoses",
+      statusLabel: "DSM",
+      nextStep: "Open a diagnosis or compare criteria",
+      badgeLabel: null,
+    },
+  },
+  {
     id: "specifiers",
     label: "Specifiers",
     description: "Refine diagnostic wording and episode patterns",
@@ -274,7 +296,14 @@ export function appModeSearchConfig(modeId: AppModeId) {
   return appModeDefinition(modeId).search;
 }
 
-const namespaceIsolatedModes = new Set<AppModeId>(["services", "forms", "favourites", "differentials", "specifiers"]);
+const namespaceIsolatedModes = new Set<AppModeId>([
+  "services",
+  "forms",
+  "favourites",
+  "differentials",
+  "dsm",
+  "specifiers",
+]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
   const mode = appModeDefinition(modeId);
@@ -292,7 +321,8 @@ export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOpti
     appendSearchNavigationContext(namespacedParams, options);
 
     const suffix = namespacedParams.toString();
-    return suffix ? `${mode.href}?${suffix}` : mode.href;
+    const namespacedHref = modeId === "dsm" && query ? "/dsm/search" : mode.href;
+    return suffix ? `${namespacedHref}?${suffix}` : namespacedHref;
   }
 
   if ("href" in mode && mode.href && !query && !options.run) {
@@ -344,6 +374,7 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
     kind === "forms" ||
     kind === "favourites" ||
     kind === "differentials" ||
+    kind === "dsm" ||
     kind === "specifiers" ||
     kind === "tools"
   );

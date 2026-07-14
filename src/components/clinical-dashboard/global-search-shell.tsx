@@ -131,6 +131,7 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
     resolvedSearchMode !== "forms" &&
     resolvedSearchMode !== "favourites" &&
     resolvedSearchMode !== "differentials" &&
+    resolvedSearchMode !== "dsm" &&
     resolvedSearchMode !== "specifiers" &&
     !isDocumentSearchMockupRoute;
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
@@ -251,6 +252,7 @@ function GlobalStandaloneSearchShellClient({
     resolvedSearchMode !== "forms" &&
     resolvedSearchMode !== "favourites" &&
     resolvedSearchMode !== "differentials" &&
+    resolvedSearchMode !== "dsm" &&
     resolvedSearchMode !== "specifiers" &&
     !isDocumentSearchMockupRoute;
   const isStandaloneModeHome =
@@ -260,6 +262,7 @@ function GlobalStandaloneSearchShellClient({
       (searchMode === "forms" && pathname === "/forms") ||
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials") ||
+      (searchMode === "dsm" && pathname === "/dsm") ||
       (searchMode === "specifiers" && pathname === "/specifiers") ||
       (searchMode === "tools" && pathname === "/tools"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
@@ -339,6 +342,7 @@ function GlobalStandaloneSearchShellClient({
     router.prefetch("/?mode=tools");
     router.prefetch("/favourites");
     router.prefetch("/differentials");
+    router.prefetch("/dsm");
     router.prefetch("/specifiers");
   }
 

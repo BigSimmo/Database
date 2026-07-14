@@ -1,4 +1,5 @@
 import {
+  BookOpenCheck,
   BrainCircuit,
   FileSignature,
   FileText,
@@ -21,6 +22,7 @@ export const appModeIcons: Record<AppModeId, LucideIcon> = {
   forms: FileSignature,
   favourites: Heart,
   differentials: BrainCircuit,
+  dsm: BookOpenCheck,
   specifiers: Tags,
   prescribing: Pill,
   tools: Wrench,
