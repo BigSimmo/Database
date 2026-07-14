@@ -397,6 +397,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         "import_batch_id",
         "error_message",
         "metadata",
+        // Summary provenance: only present on document_summaries rows (fetched with select("*")).
+        // A non-owner viewing a public document's summary must not see the owner's chunk/image
+        // source IDs or the generation model, matching the list route's PUBLIC_SUMMARY projection.
+        "source_chunk_ids",
+        "source_image_ids",
+        "model",
       ]);
       return Object.fromEntries(Object.entries(row).filter(([key]) => !internalKeys.has(key)));
     };

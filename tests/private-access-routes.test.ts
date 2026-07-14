@@ -689,6 +689,20 @@ describe("private document API access", () => {
           metadata: { index_generation_id: "generation-a", extraction_quality: "good" },
         });
       }
+      if (call.table === "document_summaries") {
+        return ok({
+          id: "summary-1",
+          document_id: documentId,
+          owner_id: null,
+          summary: "Public summary text.",
+          clinical_specifics: null,
+          source_chunk_ids: ["chunk-a", "chunk-b"],
+          source_image_ids: ["image-a"],
+          model: "gpt-internal",
+          metadata: { internal_note: "owner only" },
+          generated_at: "2026-01-01T00:00:00.000Z",
+        });
+      }
       if (call.table === "document_pages") return ok([]);
       if (call.table === "document_images") return ok([]);
       if (call.table === "document_chunks") return ok([]);
@@ -718,6 +732,15 @@ describe("private document API access", () => {
     expect(document).not.toHaveProperty("owner_id");
     expect(document).not.toHaveProperty("metadata");
     expect(body).not.toHaveProperty("indexHealth");
+    // The public document's generated summary is readable, but its owner-internal provenance
+    // (chunk/image source IDs, generation model, owner_id, metadata) must be redacted.
+    const summary = document.summary as Record<string, unknown> | null;
+    expect(summary).toMatchObject({ summary: "Public summary text." });
+    expect(summary).not.toHaveProperty("source_chunk_ids");
+    expect(summary).not.toHaveProperty("source_image_ids");
+    expect(summary).not.toHaveProperty("model");
+    expect(summary).not.toHaveProperty("owner_id");
+    expect(summary).not.toHaveProperty("metadata");
   });
 
   it("returns full owner-internal fields when the authenticated caller owns the document", async () => {
