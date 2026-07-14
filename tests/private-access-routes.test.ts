@@ -574,6 +574,72 @@ describe("private document API access", () => {
     expect(sharedRow).not.toHaveProperty("error_message");
   });
 
+  it("redacts nested metadata for non-owned public documents in an authenticated list", async () => {
+    const owned = { id: documentId, owner_id: userId, title: "Owned document", status: "indexed" };
+    const shared = { id: otherDocumentId, owner_id: null, title: "Public guideline", status: "indexed" };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents") return ok([owned, shared]);
+      const requestedIds = call.inFilters.find((filter) => filter.column === "document_id")?.values ?? [];
+      if (call.table === "document_labels") {
+        const rows = [
+          { id: "owned-label", document_id: documentId, label: "Owned", metadata: { private: true } },
+          { id: "shared-label", document_id: otherDocumentId, label: "Shared", metadata: { private: true } },
+        ];
+        return ok(rows.filter((row) => requestedIds.includes(row.document_id)));
+      }
+      if (call.table === "document_summaries") {
+        const rows = [
+          {
+            id: "owned-summary",
+            document_id: documentId,
+            summary: "Owned summary",
+            source_chunk_ids: ["owned-chunk"],
+            metadata: { private: true },
+          },
+          {
+            id: "shared-summary",
+            document_id: otherDocumentId,
+            summary: "Shared summary",
+            source_chunk_ids: ["shared-chunk"],
+            metadata: { private: true },
+          },
+        ];
+        return ok(rows.filter((row) => requestedIds.includes(row.document_id)));
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(authenticatedRequest("/api/documents?includeMeta=true"));
+    const body = await payload(response);
+    const [ownedRow, sharedRow] = body.documents as Array<Record<string, unknown>>;
+
+    expect(response.status).toBe(200);
+    const labelCalls = client.calls.filter((call) => call.table === "document_labels");
+    const summaryCalls = client.calls.filter((call) => call.table === "document_summaries");
+    expect(labelCalls).toHaveLength(2);
+    expect(summaryCalls).toHaveLength(2);
+    expect(labelCalls.map((call) => call.selected)).toEqual(
+      expect.arrayContaining([expect.stringContaining("metadata"), expect.not.stringContaining("metadata")]),
+    );
+    expect(summaryCalls.map((call) => call.selected)).toEqual(
+      expect.arrayContaining([expect.stringContaining("source_chunk_ids"), expect.not.stringContaining("metadata")]),
+    );
+    expect((ownedRow.labels as Array<Record<string, unknown>>)[0]).toHaveProperty("metadata");
+    expect(ownedRow.summary).toHaveProperty("source_chunk_ids");
+    expect((sharedRow.labels as Array<Record<string, unknown>>)[0]).toEqual({
+      id: "shared-label",
+      document_id: otherDocumentId,
+      label: "Shared",
+    });
+    expect(sharedRow.summary).toEqual({
+      id: "shared-summary",
+      document_id: otherDocumentId,
+      summary: "Shared summary",
+    });
+  });
+
   it("accepts legacy Supabase auth cookies for private document access", async () => {
     const documents = [{ id: documentId, owner_id: userId, title: "Owned document" }];
     const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));

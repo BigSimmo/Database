@@ -14,6 +14,8 @@ export type IngestionRecoveryAction =
   | { action: "supersede"; jobId: string; documentId: string }
   | { action: "retry"; jobId: string; documentId: string; resetDocument: boolean };
 
+export const INGESTION_RECOVERY_JOB_STATUSES = ["pending", "processing", "failed"] as const;
+
 function parseLockedAt(value: string | null | undefined) {
   if (!value) return null;
   const time = Date.parse(value);
@@ -50,44 +52,50 @@ export function buildIngestionRecoveryPlan(args: {
   const resetDocuments = new Set<string>();
   const actions: IngestionRecoveryAction[] = [];
 
+  const jobsByDocument = new Map<string, IngestionRecoveryJob[]>();
   for (const job of args.jobs) {
-    const documentStatus = job.documents?.status ?? null;
-    const chunkCount = Number(job.documents?.chunk_count ?? 0);
-    const isIndexedDocument = documentStatus === "indexed" && chunkCount > 0;
-    const isRecoverableStatus =
-      job.status === "failed" ||
-      job.status === "pending" ||
-      isRecoverableProcessingJob(job, now, args.staleAfterMinutes);
+    const siblings = jobsByDocument.get(job.document_id) ?? [];
+    siblings.push(job);
+    jobsByDocument.set(job.document_id, siblings);
+  }
 
-    if (isIndexedDocument && job.status !== "completed") {
-      // Audit R22: a `pending` job on an already-indexed document is a
-      // legitimately-queued reindex, not an abandoned leftover. Superseding it
-      // silently cancels the reindex ("completed / superseded by successful
-      // index"); routing it through the retry branch below would reset the live
-      // index (R19). Leave it untouched for the worker's atomic reindex path,
-      // which keeps the old generation live until the new commit swaps it.
-      if (job.status === "pending") {
-        continue;
+  for (const [documentId, jobs] of jobsByDocument) {
+    const document = jobs[0]?.documents;
+    const isIndexedDocument = document?.status === "indexed" && Number(document.chunk_count ?? 0) > 0;
+    const activeJob =
+      jobs.find((job) => job.status === "pending") ??
+      jobs.find((job) => isFreshProcessingJob(job, now, args.staleAfterMinutes));
+
+    if (activeJob) {
+      // A pending or freshly processing job is already the legitimate queue owner. Keep it intact
+      // and close only failed/stale siblings; retrying an older sibling would either collide with
+      // the open-job unique index or silently supersede valid work depending on fetch order.
+      for (const job of jobs) {
+        if (job.id === activeJob.id || job.status === "completed") continue;
+        actions.push({ action: "supersede", jobId: job.id, documentId });
       }
-      actions.push({ action: "supersede", jobId: job.id, documentId: job.document_id });
       continue;
     }
 
-    if (isRecoverableStatus) {
-      // Audit I2/E2: `ingestion_jobs_one_open_per_document_uidx` forbids two OPEN
-      // (pending/processing) rows for one document, but a document can legitimately arrive here
-      // with several recoverable jobs at once (e.g. a `failed` row beside a `pending` row).
-      // Requeue only the FIRST recoverable job per document; supersede every additional one.
-      // Without this, recovery emitted two `retry` actions and tried to set both rows to
-      // `pending`, tripping the unique index (23505) and leaving the queue in a self-perpetuating
-      // stall that re-crashed on every subsequent run.
-      if (resetDocuments.has(job.document_id)) {
-        actions.push({ action: "supersede", jobId: job.id, documentId: job.document_id });
-        continue;
+    const recoverableJobs = jobs.filter(
+      (job) => job.status === "failed" || isRecoverableProcessingJob(job, now, args.staleAfterMinutes),
+    );
+
+    if (isIndexedDocument) {
+      for (const job of recoverableJobs) {
+        actions.push({ action: "supersede", jobId: job.id, documentId });
       }
-      resetDocuments.add(job.document_id);
-      actions.push({ action: "retry", jobId: job.id, documentId: job.document_id, resetDocument: true });
+      continue;
     }
+
+    const retryJob = recoverableJobs.find((job) => job.status === "processing") ?? recoverableJobs[0];
+    if (!retryJob) continue;
+
+    for (const job of recoverableJobs) {
+      if (job.id !== retryJob.id) actions.push({ action: "supersede", jobId: job.id, documentId });
+    }
+    resetDocuments.add(documentId);
+    actions.push({ action: "retry", jobId: retryJob.id, documentId, resetDocument: true });
   }
 
   // Apply supersedes before retries. A retry flips a row to `pending`; if a redundant sibling for

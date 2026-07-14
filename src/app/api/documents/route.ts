@@ -7,6 +7,7 @@ import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import {
+  callerOwnsDocumentRow,
   enforceDocumentReadRateLimit,
   redactNonOwnedDocumentFields,
   withOwnerReadScope,
@@ -96,9 +97,17 @@ const VALID_STATUSES = new Set(["queued", "processing", "indexed", "failed"]);
 const ACTIVE_DOCUMENT_STATUSES = new Set(["queued", "processing"]);
 const ACTIVE_INDEXING_POLL_MS = 5_000;
 
-type DocumentListRow = Record<string, unknown> & { id: string; status?: string | null };
+type DocumentListRow = Record<string, unknown> & { id: string; owner_id?: unknown; status?: string | null };
 type LabelListRow = Record<string, unknown> & { document_id: string };
 type SummaryListRow = Record<string, unknown> & { document_id: string };
+
+function projectPublicFields<T extends Record<string, unknown>>(row: T, columns: string): Partial<T> {
+  const projected: Record<string, unknown> = {};
+  for (const field of columns.split(",")) {
+    if (Object.hasOwn(row, field)) projected[field] = row[field];
+  }
+  return projected as Partial<T>;
+}
 
 const documentListQuerySchema = z.object({
   limit: queryInteger({ fallback: 100, min: 1, max: 200 }),
@@ -188,9 +197,14 @@ export async function GET(request: Request) {
     // An authenticated caller reads PUBLIC (owner_id IS NULL) documents alongside their own via
     // withOwnerReadScope. Redact operator-internal storage fields on the rows they do not own so a
     // shared public document never exposes its owner's storage_path/content_hash/etc. (S1/D1).
-    const documents = ((data ?? []) as unknown as DocumentListRow[]).map((document) =>
-      redactNonOwnedDocumentFields(document, access.ownerId),
+    const rawDocuments = (data ?? []) as unknown as DocumentListRow[];
+    const ownedDocumentIds = new Set(
+      rawDocuments.filter((document) => callerOwnsDocumentRow(document, access.ownerId)).map((document) => document.id),
     );
+    const publicDocumentIds = rawDocuments
+      .filter((document) => !ownedDocumentIds.has(document.id))
+      .map((document) => document.id);
+    const documents = rawDocuments.map((document) => redactNonOwnedDocumentFields(document, access.ownerId));
     const documentIds = documents.map((document) => document.id);
     const indexing = indexingState(documents);
 
@@ -206,24 +220,49 @@ export async function GET(request: Request) {
       return documentsResponse({ documents, pagination }, indexing);
     }
 
-    const labelColumns = access.authenticated ? LABEL_LIST_COLUMNS : PUBLIC_LABEL_LIST_COLUMNS;
-    const summaryColumns = access.authenticated ? SUMMARY_LIST_COLUMNS : PUBLIC_SUMMARY_LIST_COLUMNS;
-    const [labelsResult, summariesResult] = await Promise.all([
-      supabase.from("document_labels").select(labelColumns).in("document_id", documentIds),
-      supabase.from("document_summaries").select(summaryColumns).in("document_id", documentIds),
+    const ownedIds = [...ownedDocumentIds];
+    const emptyResult = () => Promise.resolve({ data: [], error: null });
+    const [ownedLabelsResult, publicLabelsResult, ownedSummariesResult, publicSummariesResult] = await Promise.all([
+      ownedIds.length
+        ? supabase.from("document_labels").select(LABEL_LIST_COLUMNS).in("document_id", ownedIds)
+        : emptyResult(),
+      publicDocumentIds.length
+        ? supabase.from("document_labels").select(PUBLIC_LABEL_LIST_COLUMNS).in("document_id", publicDocumentIds)
+        : emptyResult(),
+      ownedIds.length
+        ? supabase.from("document_summaries").select(SUMMARY_LIST_COLUMNS).in("document_id", ownedIds)
+        : emptyResult(),
+      publicDocumentIds.length
+        ? supabase.from("document_summaries").select(PUBLIC_SUMMARY_LIST_COLUMNS).in("document_id", publicDocumentIds)
+        : emptyResult(),
     ]);
 
-    if (labelsResult.error) throw new Error(labelsResult.error.message);
-    if (summariesResult.error) throw new Error(summariesResult.error.message);
+    for (const result of [ownedLabelsResult, publicLabelsResult, ownedSummariesResult, publicSummariesResult]) {
+      if (result.error) throw new Error(result.error.message);
+    }
 
     const labelsByDocument = new Map<string, unknown[]>();
-    for (const label of (labelsResult.data ?? []) as unknown as LabelListRow[]) {
+    const labelRows = [
+      ...(ownedLabelsResult.data ?? []),
+      ...(publicLabelsResult.data ?? []),
+    ] as unknown as LabelListRow[];
+    for (const label of labelRows) {
       const existing = labelsByDocument.get(label.document_id) ?? [];
-      existing.push(label);
+      existing.push(
+        ownedDocumentIds.has(label.document_id) ? label : projectPublicFields(label, PUBLIC_LABEL_LIST_COLUMNS),
+      );
       labelsByDocument.set(label.document_id, existing);
     }
     const summariesByDocument = new Map(
-      ((summariesResult.data ?? []) as unknown as SummaryListRow[]).map((summary) => [summary.document_id, summary]),
+      [...(ownedSummariesResult.data ?? []), ...(publicSummariesResult.data ?? [])].map((value) => {
+        const summary = value as unknown as SummaryListRow;
+        return [
+          summary.document_id,
+          ownedDocumentIds.has(summary.document_id)
+            ? summary
+            : projectPublicFields(summary, PUBLIC_SUMMARY_LIST_COLUMNS),
+        ];
+      }),
     );
 
     return documentsResponse(

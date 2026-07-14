@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildIngestionRecoveryPlan,
+  INGESTION_RECOVERY_JOB_STATUSES,
   isFreshProcessingJob,
   isRecoverableProcessingJob,
   isStaleProcessingJob,
@@ -8,6 +9,10 @@ import {
 
 describe("ingestion queue recovery planning", () => {
   const now = new Date("2026-06-15T00:00:00.000Z");
+
+  it("loads pending jobs alongside failed and processing siblings", () => {
+    expect(INGESTION_RECOVERY_JOB_STATUSES).toEqual(["pending", "processing", "failed"]);
+  });
 
   it("selects stale processing and failed jobs for retry", () => {
     const plan = buildIngestionRecoveryPlan({
@@ -92,13 +97,13 @@ describe("ingestion queue recovery planning", () => {
     expect(plan.retryCount).toBe(0);
   });
 
-  it("requeues only one job and supersedes the sibling when a document has both pending and failed jobs (I2)", () => {
+  it("preserves a pending job and supersedes its failed sibling regardless of fetch order (I2)", () => {
     const plan = buildIngestionRecoveryPlan({
       now,
       staleAfterMinutes: 45,
       jobs: [
-        // The older `failed` row is iterated first; the still-open `pending` sibling must not be
-        // flipped to a second `pending` row (which would collide on the partial unique index).
+        // The older `failed` row is iterated first; recovery must still prefer the legitimate
+        // open `pending` sibling rather than replacing it based on fetch order.
         {
           id: "failed-first",
           document_id: "doc-double",
@@ -114,14 +119,36 @@ describe("ingestion queue recovery planning", () => {
       ],
     });
 
-    expect(plan.retryCount).toBe(1);
+    expect(plan.retryCount).toBe(0);
     expect(plan.supersedeCount).toBe(1);
-    expect(plan.resetDocumentIds).toEqual(["doc-double"]);
-    // Supersede must be applied before the retry so the open sibling is closed first.
-    expect(plan.actions[0]).toMatchObject({ action: "supersede", documentId: "doc-double" });
-    expect(plan.actions[1]).toMatchObject({ action: "retry", documentId: "doc-double" });
-    // Exactly one job is requeued to `pending`; the other is closed.
-    expect(plan.actions.filter((action) => action.action === "retry")).toHaveLength(1);
+    expect(plan.resetDocumentIds).toEqual([]);
+    expect(plan.actions).toEqual([{ action: "supersede", jobId: "failed-first", documentId: "doc-double" }]);
+  });
+
+  it("preserves a fresh processing job and supersedes its failed sibling", () => {
+    const plan = buildIngestionRecoveryPlan({
+      now,
+      staleAfterMinutes: 45,
+      jobs: [
+        {
+          id: "failed-first",
+          document_id: "doc-active",
+          status: "failed",
+          documents: { status: "processing", chunk_count: 0 },
+        },
+        {
+          id: "processing-second",
+          document_id: "doc-active",
+          status: "processing",
+          locked_at: "2026-06-14T23:30:00.000Z",
+          documents: { status: "processing", chunk_count: 0 },
+        },
+      ],
+    });
+
+    expect(plan.retryCount).toBe(0);
+    expect(plan.resetDocumentIds).toEqual([]);
+    expect(plan.actions).toEqual([{ action: "supersede", jobId: "failed-first", documentId: "doc-active" }]);
   });
 
   it("does not reclaim fresh processing jobs", () => {

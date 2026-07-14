@@ -73,7 +73,7 @@ async function safeCount(label: string, countPromise: PromiseLike<CountResult>) 
 async function main() {
   const [
     { env, requireServerEnv },
-    { buildIngestionRecoveryPlan, isFreshProcessingJob },
+    { buildIngestionRecoveryPlan, INGESTION_RECOVERY_JOB_STATUSES, isFreshProcessingJob },
     { hasIncompleteDocumentsWithoutOpenJobs, isReindexQueueClear },
     { createAdminClient },
     { assertSupabaseHealthy, probeSupabaseHealth },
@@ -229,7 +229,7 @@ async function main() {
       const { data, error } = await supabase
         .from("ingestion_jobs")
         .select("id,document_id,status,locked_at,documents(status,page_count,chunk_count)")
-        .in("status", ["processing", "failed"])
+        .in("status", [...INGESTION_RECOVERY_JOB_STATUSES])
         .order("created_at", { ascending: true });
 
       if (error) {
@@ -255,6 +255,9 @@ async function main() {
             : (job.documents as RecoveryDocument | undefined),
         }))
         .filter((job) => {
+          if (job.status === "pending") {
+            return true;
+          }
           if (job.status === "failed") {
             return true;
           }
