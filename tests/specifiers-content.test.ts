@@ -102,6 +102,20 @@ describe("specifiers content catalog", () => {
       expect(item.meaning).not.toMatch(/tic frequency|sexual-dysfunction context|personality change presentation/i);
     }
   });
+
+  it("gives Gaming Disorder online/offline subtypes direction-specific definitions", () => {
+    // The generator originally merged both subtypes into one "online or offline"
+    // string; each subtype must describe its own direction.
+    const gaming = specifierCatalogItems().filter(
+      (item) => /gaming disorder/i.test(item.disorderName) && /predominantly (on|off)line/i.test(item.label),
+    );
+    expect(gaming.length).toBeGreaterThanOrEqual(2);
+    for (const item of gaming) {
+      const meaning = item.definition?.meaning ?? "";
+      expect(meaning).not.toMatch(/online or offline/i);
+      expect(meaning).toMatch(/online/i.test(item.label) ? /\bonline\b/i : /\boffline\b/i);
+    }
+  });
 });
 
 describe("searchSpecifierCatalog", () => {

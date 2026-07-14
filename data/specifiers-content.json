@@ -1336,7 +1336,7 @@
                   "definition": {
                     "meaning": "Pending clinician verification — confirm this specifier against current DSM-5-TR / ICD-11 materials.",
                     "clinicalNote": "Auto-generated definition withheld pending qualified clinician review.",
-                    "sourceFamily": "Needs manual review - incorrect template removed",
+                    "sourceFamily": "Best-effort DSM-derived clinical anchor pending manual verification",
                     "status": "needs-manual-or-clinician-verification"
                   },
                   "definitionStatus": "needs-manual-or-clinician-verification",
@@ -9926,7 +9926,7 @@
                 {
                   "label": "Predominantly online",
                   "definition": {
-                    "meaning": "Gaming behaviour mainly occurs online or offline.",
+                    "meaning": "Gaming behaviour is conducted predominantly online, over the internet.",
                     "clinicalNote": null,
                     "sourceFamily": "WHO ICD-11 CDDR/MMS",
                     "status": "defined"
@@ -9943,7 +9943,7 @@
                 {
                   "label": "Predominantly offline",
                   "definition": {
-                    "meaning": "Gaming behaviour mainly occurs online or offline.",
+                    "meaning": "Gaming behaviour is conducted predominantly offline, not primarily over the internet.",
                     "clinicalNote": null,
                     "sourceFamily": "WHO ICD-11 CDDR/MMS",
                     "status": "defined"
@@ -11704,7 +11704,7 @@
                 {
                   "label": "Predominantly online",
                   "definition": {
-                    "meaning": "Gaming behaviour mainly occurs online or offline.",
+                    "meaning": "Gaming behaviour is conducted predominantly online, over the internet.",
                     "clinicalNote": null,
                     "sourceFamily": "WHO ICD-11 CDDR/MMS",
                     "status": "defined"
@@ -11721,7 +11721,7 @@
                 {
                   "label": "Predominantly offline",
                   "definition": {
-                    "meaning": "Gaming behaviour mainly occurs online or offline.",
+                    "meaning": "Gaming behaviour is conducted predominantly offline, not primarily over the internet.",
                     "clinicalNote": null,
                     "sourceFamily": "WHO ICD-11 CDDR/MMS",
                     "status": "defined"
