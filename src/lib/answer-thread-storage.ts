@@ -121,6 +121,8 @@ export function clearPersistedAnswerThread(ownerId?: string) {
   try {
     if (ownerId) {
       window.sessionStorage.removeItem(scopedStorageKey(ownerId));
+      window.sessionStorage.removeItem(answerThreadStorageKey);
+      window.localStorage.removeItem(answerThreadStorageKey);
       return;
     }
     window.localStorage.removeItem(answerThreadStorageKey);

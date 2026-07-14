@@ -197,9 +197,13 @@ export function buildRegistryGovernancePlan(args: {
   // Registry source records remain owner-scoped, but production deliberately
   // promotes the public service/form/medication projections to owner_id = null.
   // Accept that public scope while continuing to reject any different tenant.
+  const publicProjectionKinds = new Set<RegistryCorpusKind>(["service", "form", "medication"]);
   const ownerMismatches = args.projections.filter((projection) => {
     const documentOwnerId = documentById.get(projection.documentId)?.owner_id;
-    return documentOwnerId !== null && documentOwnerId !== projection.ownerId;
+    return (
+      documentOwnerId !== projection.ownerId &&
+      !(documentOwnerId === null && publicProjectionKinds.has(projection.kind))
+    );
   });
   if (ownerMismatches.length > 0) {
     throw new Error(

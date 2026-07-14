@@ -172,6 +172,16 @@ describe("registry governance reconciliation", () => {
         expectedCounts,
       }),
     ).toThrow(/owner mismatch/);
+    expect(() =>
+      buildRegistryGovernancePlan({
+        projections,
+        documents: documents.map((document) =>
+          document.id === projections[3]!.documentId ? { ...document, owner_id: null } : document,
+        ),
+        labels: [],
+        expectedCounts,
+      }),
+    ).toThrow(/owner mismatch/);
   });
 
   it("preserves public projection ownership and scopes generated labels to the public document", () => {

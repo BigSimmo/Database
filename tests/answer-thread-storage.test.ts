@@ -93,9 +93,11 @@ describe("answer thread storage", () => {
   it("clears only the active owner's thread when an owner is provided", () => {
     savePersistedAnswerThread("user-a", sampleThread);
     savePersistedAnswerThread("user-b", sampleThread);
+    storage.set(answerThreadStorageKey, JSON.stringify(sampleThread));
 
     clearPersistedAnswerThread("user-a");
 
+    expect(storage.has(answerThreadStorageKey)).toBe(false);
     expect(loadPersistedAnswerThread("user-a")).toBeNull();
     expect(loadPersistedAnswerThread("user-b")).toEqual(sampleThread);
   });
