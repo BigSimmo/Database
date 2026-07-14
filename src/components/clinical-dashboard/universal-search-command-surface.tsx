@@ -724,11 +724,15 @@ export function UniversalSearchCommandSurface({
             ? "favourites"
             : modeId === "differentials"
               ? "differentials"
-              : modeId === "answer"
-                ? "answer"
-                : modeId === "tools"
-                  ? "tools"
-                  : null;
+              : modeId === "specifiers"
+                ? "specifiers"
+                : modeId === "formulation"
+                  ? "formulation"
+                  : modeId === "answer"
+                    ? "answer"
+                    : modeId === "tools"
+                      ? "tools"
+                      : null;
 
     if (actionSetId) {
       const actions = modeActionItemsFor(actionSetId).slice(0, 3);

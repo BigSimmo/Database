@@ -43,11 +43,14 @@ function wordingSegment(record: SpecifierRecord) {
 }
 
 export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecifiers?: string[] }) {
-  const initialDiagnosis = diagnosisPresets[0];
-  const validInitial = normalizeSpecifierSelection(initialSpecifiers).filter((slug) => {
-    const record = specifierRecords.find((candidate) => candidate.slug === slug);
-    return record ? specifierAppliesToBuilderDiagnosis(record, initialDiagnosis.id) : false;
-  });
+  const validInitial = normalizeSpecifierSelection(initialSpecifiers);
+  const initialDiagnosis =
+    diagnosisPresets.find((preset) =>
+      validInitial.every((slug) => {
+        const record = specifierRecords.find((candidate) => candidate.slug === slug);
+        return record ? specifierAppliesToBuilderDiagnosis(record, preset.id) : false;
+      }),
+    ) ?? diagnosisPresets[0];
   const [diagnosisId, setDiagnosisId] = useState<SpecifierBuilderDiagnosis>(initialDiagnosis.id);
   const [selected, setSelected] = useState<string[]>(validInitial);
   const diagnosis = diagnosisPresets.find((preset) => preset.id === diagnosisId) ?? initialDiagnosis;

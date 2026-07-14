@@ -192,8 +192,8 @@ function SpecifierResults({ query }: { query: string }) {
             Matches for “{query}”
           </h1>
           <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            Results prioritise clinical fit, episode timing, and patient language. Open a result to check exclusions and
-            wording.
+            Results prioritise text matches across episode timing, patient language, and diagnostic terminology. Open a
+            result to check exclusions and wording.
           </p>
         </div>
         <p className="nums text-sm font-bold text-[color:var(--text-muted)]" aria-live="polite">
@@ -268,7 +268,7 @@ function SpecifierResults({ query }: { query: string }) {
                     {index === 0 ? (
                       <span className="inline-flex min-h-6 items-center gap-1 rounded-full bg-[color:var(--success-soft)] px-2 text-2xs font-extrabold text-[color:var(--success)]">
                         <CheckCircle2 className="h-3 w-3" aria-hidden />
-                        Best fit
+                        Top match
                       </span>
                     ) : null}
                   </div>

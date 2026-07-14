@@ -3,13 +3,26 @@ export type SpecifierFamily = "episode-features" | "course-onset" | "severity-re
 export type SpecifierBuilderDiagnosis =
   "mdd-recurrent" | "mdd-single" | "bipolar-i-depressed" | "bipolar-i-manic" | "bipolar-ii-depressed";
 
+export type SpecifierApplicability =
+  | "Depressive disorders"
+  | "Bipolar disorders"
+  | "Major depressive episodes"
+  | "Bipolar depressive episodes"
+  | "Mood disorders"
+  | "Psychotic disorders"
+  | "Medical conditions"
+  | "Recurrent depressive disorder"
+  | "Bipolar I disorder"
+  | "Bipolar II disorder"
+  | "Other specified diagnoses";
+
 export type SpecifierRecord = {
   slug: string;
   name: string;
   shortName: string;
   family: SpecifierFamily;
   familyLabel: string;
-  appliesTo: string[];
+  appliesTo: SpecifierApplicability[];
   summary: string;
   clinicalSignal: string;
   decisionQuestion: string;
@@ -632,7 +645,7 @@ function recordSearchText(record: SpecifierRecord) {
   );
 }
 
-const diagnosisFiltersByApplicability: Record<string, readonly string[]> = {
+const diagnosisFiltersByApplicability: Record<SpecifierApplicability, readonly string[]> = {
   "Depressive disorders": ["depressive", "mood"],
   "Bipolar disorders": ["bipolar", "mood"],
   "Major depressive episodes": ["depressive", "bipolar", "mood"],
@@ -646,7 +659,7 @@ const diagnosisFiltersByApplicability: Record<string, readonly string[]> = {
   "Other specified diagnoses": [],
 };
 
-const builderDiagnosesByApplicability: Record<string, readonly SpecifierBuilderDiagnosis[]> = {
+const builderDiagnosesByApplicability: Record<SpecifierApplicability, readonly SpecifierBuilderDiagnosis[]> = {
   "Depressive disorders": ["mdd-recurrent", "mdd-single"],
   "Bipolar disorders": ["bipolar-i-depressed", "bipolar-i-manic", "bipolar-ii-depressed"],
   "Major depressive episodes": ["mdd-recurrent", "mdd-single", "bipolar-i-depressed", "bipolar-ii-depressed"],

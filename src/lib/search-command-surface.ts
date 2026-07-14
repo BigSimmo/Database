@@ -78,6 +78,16 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     ],
     crossModes: ["documents", "prescribing", "forms"],
   },
+  specifiers: {
+    examples: ["depressed but racing thoughts", "returns every winter", "much better but not fully recovered"],
+    suggestions: [
+      { text: "depressed but racing thoughts", meta: "Episode features" },
+      { text: "returns every winter", meta: "Course and onset" },
+      { text: "much better but not fully recovered", meta: "Severity and remission" },
+    ],
+    scopes: [],
+    crossModes: ["differentials", "formulation", "documents"],
+  },
   prescribing: {
     examples: ["acamprosate renal", "naltrexone dose ceiling", "disulfiram counselling"],
     suggestions: [

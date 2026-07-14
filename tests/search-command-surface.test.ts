@@ -34,6 +34,7 @@ describe("search command surface", () => {
     expect(documents?.crossModes).toContain("prescribing");
 
     expect(searchCommandSurfaceConfig("tools")?.examples.length).toBeGreaterThan(0);
+    expect(searchCommandSurfaceConfig("specifiers")?.crossModes).toContain("formulation");
     expect(searchCommandSurfaceConfig("formulation")?.crossModes).toContain("differentials");
   });
 
