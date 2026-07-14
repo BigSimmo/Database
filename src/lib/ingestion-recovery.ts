@@ -74,15 +74,35 @@ export function buildIngestionRecoveryPlan(args: {
     }
 
     if (isRecoverableStatus) {
+      // Audit I2/E2: `ingestion_jobs_one_open_per_document_uidx` forbids two OPEN
+      // (pending/processing) rows for one document, but a document can legitimately arrive here
+      // with several recoverable jobs at once (e.g. a `failed` row beside a `pending` row).
+      // Requeue only the FIRST recoverable job per document; supersede every additional one.
+      // Without this, recovery emitted two `retry` actions and tried to set both rows to
+      // `pending`, tripping the unique index (23505) and leaving the queue in a self-perpetuating
+      // stall that re-crashed on every subsequent run.
+      if (resetDocuments.has(job.document_id)) {
+        actions.push({ action: "supersede", jobId: job.id, documentId: job.document_id });
+        continue;
+      }
       resetDocuments.add(job.document_id);
       actions.push({ action: "retry", jobId: job.id, documentId: job.document_id, resetDocument: true });
     }
   }
 
+  // Apply supersedes before retries. A retry flips a row to `pending`; if a redundant sibling for
+  // the same document is still open when that happens, the two rows collide on the partial unique
+  // index. Both consumers apply `actions` in array order, so closing the siblings first here keeps
+  // recovery crash-safe regardless of the order jobs were fetched in. (Audit I2/E2)
+  const orderedActions = [
+    ...actions.filter((action) => action.action === "supersede"),
+    ...actions.filter((action) => action.action === "retry"),
+  ];
+
   return {
-    actions,
+    actions: orderedActions,
     resetDocumentIds: Array.from(resetDocuments),
-    supersedeCount: actions.filter((action) => action.action === "supersede").length,
-    retryCount: actions.filter((action) => action.action === "retry").length,
+    supersedeCount: orderedActions.filter((action) => action.action === "supersede").length,
+    retryCount: orderedActions.filter((action) => action.action === "retry").length,
   };
 }

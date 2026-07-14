@@ -6,7 +6,7 @@ import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
-import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
+import { enforceDocumentReadRateLimit, redactNonOwnedDocumentFields, withOwnerReadScope } from "@/lib/public-api-access";
 import { parseRequestQuery, queryBoolean, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
@@ -181,7 +181,12 @@ export async function GET(request: Request) {
     const { data, error, count } = await query;
 
     if (error) throw new Error(error.message);
-    const documents = (data ?? []) as unknown as DocumentListRow[];
+    // An authenticated caller reads PUBLIC (owner_id IS NULL) documents alongside their own via
+    // withOwnerReadScope. Redact operator-internal storage fields on the rows they do not own so a
+    // shared public document never exposes its owner's storage_path/content_hash/etc. (S1/D1).
+    const documents = ((data ?? []) as unknown as DocumentListRow[]).map((document) =>
+      redactNonOwnedDocumentFields(document, access.ownerId),
+    );
     const documentIds = documents.map((document) => document.id);
     const indexing = indexingState(documents);
 

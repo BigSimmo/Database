@@ -96,6 +96,42 @@ export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, owne
   return query.is("owner_id", null);
 }
 
+// Owner-internal document columns that must never be exposed on a row the caller does not own.
+// `withOwnerReadScope` lets an authenticated caller read PUBLIC documents (owner_id IS NULL) that
+// belong to nobody; those rows must not leak the storage location, dedup hash, import provenance,
+// or raw stage error of the operator who ingested them. Shared governance `metadata` is preserved
+// so public-corpus badges keep rendering — only the operator-internal storage fields are stripped.
+const NON_OWNER_INTERNAL_DOCUMENT_FIELDS = [
+  "storage_path",
+  "content_hash",
+  "source_path",
+  "import_batch_id",
+  "error_message",
+] as const;
+
+/** True when `viewerOwnerId` is set and owns the row (i.e. the caller's own document). */
+export function callerOwnsDocumentRow(row: { owner_id?: unknown }, viewerOwnerId: string | undefined): boolean {
+  return Boolean(viewerOwnerId) && row.owner_id === viewerOwnerId;
+}
+
+/**
+ * Strip operator-internal storage fields from a document row unless the caller owns it.
+ *
+ * No-op for owned rows and for rows already selected without those columns (e.g. the anonymous
+ * public projection), so it is safe to map over every returned row regardless of caller identity.
+ */
+export function redactNonOwnedDocumentFields<T extends Record<string, unknown>>(
+  row: T,
+  viewerOwnerId: string | undefined,
+): T {
+  if (callerOwnsDocumentRow(row, viewerOwnerId)) return row;
+  const redacted = { ...row };
+  for (const field of NON_OWNER_INTERNAL_DOCUMENT_FIELDS) {
+    delete redacted[field];
+  }
+  return redacted;
+}
+
 export async function publicAccessContext(request: Request, supabase: AdminClient) {
   const user = await getOptionalAuthenticatedUser(request, supabase);
   if (user) {

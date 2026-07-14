@@ -213,8 +213,22 @@ describe("registry records API", () => {
     expect(payload.publicAccess).toBe(true);
     expect(payload.records.some((record) => record.slug === "13yarn")).toBe(true);
     expect(payload.matches?.[0]?.record.slug).toBe("13yarn");
+    // The full catalog is served from seed data (no table read) and no auth round-trip is
+    // needed, but anonymous list requests must still pass the registry limiter (M4/C1).
     expect(client.from).not.toHaveBeenCalled();
-    expect(client.rpc).not.toHaveBeenCalled();
+    expect(client.rpc).toHaveBeenCalled();
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it("rate-limits anonymous list requests (429) without falling back to unlimited access", async () => {
+    const client = createSupabaseMock(() => ok([]), { limited: true });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(request("/api/registry/records?kind=service"));
+
+    expect(response.status).toBe(429);
+    expect(client.from).not.toHaveBeenCalled();
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
 

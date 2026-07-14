@@ -23,7 +23,7 @@ import {
 } from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
+import { publicAccessContext } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
@@ -88,13 +88,9 @@ export async function GET(request: Request) {
       });
     }
 
-    if (!shouldResolvePublicCatalogAccess(request)) {
-      return differentialResponse({
-        ...publicDifferentialPayload(kind, q, limit),
-        publicAccess: true,
-      });
-    }
-
+    // Anonymous callers still resolve access + rate limit: publicAccessContext skips the
+    // Supabase auth round-trip for requests with no session cookie/bearer, but every caller
+    // (authenticated or not) must pass the registry limiter before we serve the full catalog.
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
 
