@@ -125,6 +125,24 @@ test.describe("universal search typeahead", () => {
     await expect(page.getByRole("option", { name: /View all in Differentials/ })).toBeVisible();
   });
 
+  test("does not count document-only hits as visible Medication rows", async ({ page }) => {
+    await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+      await route.fulfill({
+        json: {
+          query: "prescribing policy",
+          contextMode: "documents",
+          preferredDomains: ["documents"],
+          domainOrder: ["documents"],
+          groups: [universalPayload.groups[0]],
+        },
+      });
+    });
+    const input = await openComposer(page);
+    await input.fill("prescribing policy");
+
+    await expect(page.getByRole("option", { name: "Medication", exact: true })).toHaveText("Medication");
+  });
+
   test("selecting a presentation result navigates to the workflow page", async ({ page }) => {
     await mockUniversalSearch(page);
     const input = await openComposer(page);

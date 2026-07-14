@@ -35,7 +35,10 @@ import { universalSearchModeForDomain } from "@/lib/universal-search-mode-contex
 // presentations and diagnoses into one result list.
 const domainsByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain[]>> = {
   documents: ["documents"],
-  prescribing: ["medications", "documents"],
+  // Prescribing prefers both medication records and source documents, but its
+  // destination workspace lists medication rows; the shortcut count must match
+  // those visible rows rather than summing source-document hits.
+  prescribing: ["medications"],
   services: ["services"],
   forms: ["forms"],
   differentials: ["differentials", "presentations"],
