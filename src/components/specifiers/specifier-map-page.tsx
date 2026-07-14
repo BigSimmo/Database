@@ -17,8 +17,28 @@ import { cn, eyebrowText } from "@/components/ui-primitives";
 import { findSpecifier, specifierFamilies, specifierRecords } from "@/lib/specifiers";
 
 export function SpecifierMapPage({ initialSlug }: { initialSlug?: string }) {
-  const [selectedSlug, setSelectedSlug] = useState(findSpecifier(initialSlug ?? "")?.slug ?? specifierRecords[0].slug);
+  // Derive valid initial slug from props
+  const validInitialSlug = findSpecifier(initialSlug ?? "")?.slug ?? specifierRecords[0].slug;
+
+  // Track selected slug with derived initial state pattern (useState with function)
+  const [state, setState] = useState({ selectedSlug: validInitialSlug, lastInitialSlug: initialSlug });
+
+  // Derive state: if initialSlug prop changed, reset to new initial; otherwise keep current selection
+  const selectedSlug =
+    state.lastInitialSlug !== initialSlug
+      ? validInitialSlug
+      : state.selectedSlug;
+
+  // Update state if derived slug differs from stored state
+  if (selectedSlug !== state.selectedSlug || state.lastInitialSlug !== initialSlug) {
+    setState({ selectedSlug, lastInitialSlug: initialSlug });
+  }
+
   const selected = findSpecifier(selectedSlug) ?? specifierRecords[0];
+
+  const setSelectedSlug = (slug: string) => {
+    setState({ selectedSlug: slug, lastInitialSlug: initialSlug });
+  };
 
   return (
     <SpecifierPageShell>

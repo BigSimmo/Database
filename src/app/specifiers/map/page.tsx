@@ -1,7 +1,15 @@
+import type { Metadata } from "next";
+
 import { SpecifierMapPage } from "@/components/specifiers/specifier-map-page";
 
 type MapRouteProps = {
   searchParams?: Promise<{ selected?: string | string[] }>;
+};
+
+export const metadata: Metadata = {
+  title: "Specifier map",
+  description:
+    "Browse psychiatric specifiers by diagnostic architecture: episode features, course and onset, severity and remission.",
 };
 
 export default async function SpecifierMapRoute({ searchParams }: MapRouteProps) {

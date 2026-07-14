@@ -136,3 +136,23 @@ test("blocks incompatible specifiers and preserves severe psychotic-features wor
   await page.getByText("Rapid cycling", { exact: true }).click();
   await expect(rapidCycling).toBeChecked();
 });
+
+test("infers the correct diagnosis from a non-MDD deep link", async ({ page }) => {
+  await gotoApp(page, "/specifiers/builder?specifier=with-rapid-cycling");
+
+  const rapidCycling = page.getByRole("checkbox", { name: /Rapid cycling/ });
+  await expect(rapidCycling).toBeChecked();
+  await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue("bipolar-i-depressed");
+  await expect(
+    page.getByText("Bipolar I disorder, current episode depressed, with rapid cycling", { exact: true }),
+  ).toBeVisible();
+});
+
+test("labels search results using text-relevance language instead of clinical-fit language", async ({ page }) => {
+  await gotoApp(page, "/specifiers?q=racing+thoughts&run=1");
+
+  await expect(page.getByRole("heading", { name: /Matches for "racing thoughts"/ })).toBeVisible();
+  await expect(page.getByText("Top match", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Results ranked by text relevance/i)).toBeVisible();
+  await expect(page.getByText(/clinical fit/i)).toHaveCount(0);
+});
