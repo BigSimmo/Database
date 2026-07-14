@@ -1,6 +1,7 @@
 "use client";
 
 import { useTcBindings } from "./bindings";
+import { AlertIcon } from "./icons";
 import { s } from "./style-utils";
 
 /**
@@ -14,6 +15,7 @@ import { s } from "./style-utils";
  */
 export function TherapyCompassNav() {
   const b = useTcBindings();
+  const reviewCount = b.reviewCount;
   return (
     <div
       className="tc-topnav tc-no-print"
@@ -113,6 +115,21 @@ export function TherapyCompassNav() {
           Review Queue
         </button>
       </nav>
+
+      {reviewCount > 0 ? (
+        <button
+          type="button"
+          className="tc-btn"
+          onClick={b.goReview}
+          title={`${reviewCount} records need review`}
+          style={s(
+            `display:inline-flex;align-items:center;gap:7px;flex:none;height:36px;padding:0 12px;border:1px solid var(--warning-border);border-radius:10px;background:var(--warning-bg);color:var(--warning-text);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;`,
+          )}
+        >
+          <AlertIcon size={15} strokeWidth={1.8} />
+          {reviewCount} to review
+        </button>
+      ) : null}
     </div>
   );
 }

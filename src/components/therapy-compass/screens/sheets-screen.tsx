@@ -1,10 +1,30 @@
 "use client";
 
+import { useMemo, useState } from "react";
+
 import { useTcBindings } from "../bindings";
+import { outlineControl } from "../controls";
+import { parseSteps, searchTherapies } from "../data/select";
+import { ChevronDownIcon, PrinterIcon, SaveIcon, ScaleIcon, SearchIcon } from "../icons";
 import { s } from "../style-utils";
+import { LoadingState } from "../ui";
 
 export function SheetsScreen() {
   const b = useTcBindings();
+  const t = b.selectedTherapy;
+  if (b.loading || !t) return <LoadingState label="Loading patient sheet builder…" />;
+
+  const steps = parseSteps(t.deliverySteps, 5);
+  const template = t.patientSheetTemplates[0];
+  const about = t.patientExplanation || template?.body || t.clinicalSummary || "";
+  const toneWord =
+    b.sheetTone === "warm"
+      ? "gentle, encouraging"
+      : b.sheetTone === "clinical"
+        ? "precise, clinical"
+        : "plain, everyday";
+  const sheetTitle = t.name.replace(/\s*\([^)]*\)\s*$/, "");
+
   return (
     <section data-screen-label="Patient sheet" style={s(`max-width:1240px;margin:0 auto;`)}>
       <div
@@ -20,20 +40,12 @@ export function SheetsScreen() {
             Patient Sheet Builder
           </h1>
           <p style={s(`margin:0;font-size:14.5px;color:var(--text-muted);`)}>
-            Design, personalise and print a plain-language therapy handout.
+            Design, personalise and print a plain-language handout from a source-grounded record.
           </p>
         </div>
         <div style={s(`display:flex;gap:10px;`)}>
-          <button
-            type="button"
-            className="tc-btn"
-            style={s(
-              `display:flex;align-items:center;gap:8px;height:44px;padding:0 16px;border:1px solid var(--border-strong);border-radius:11px;background:var(--surface);color:var(--text);font-size:13.5px;font-weight:600;`,
-            )}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-              <path d="M6 4h12v16l-6-4-6 4Z" />
-            </svg>
+          <button type="button" className="tc-btn" style={s(outlineControl + "height:44px;")}>
+            <SaveIcon size={16} />
             Save draft
           </button>
           <button
@@ -41,20 +53,20 @@ export function SheetsScreen() {
             className="tc-btn"
             onClick={b.printSheet}
             style={s(
-              `display:flex;align-items:center;gap:8px;height:44px;padding:0 18px;border:none;border-radius:11px;background:var(--command);color:var(--command-contrast);font-size:13.5px;font-weight:600;box-shadow:var(--shadow-tight);`,
+              `display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 18px;border:none;border-radius:11px;background:var(--command);color:var(--command-contrast);font-size:13.5px;font-weight:600;box-shadow:var(--shadow-tight);cursor:pointer;font-family:inherit;`,
             )}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-              <path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M6 14h12v7H6Z" />
-            </svg>
+            <PrinterIcon size={16} />
             Print / PDF
           </button>
         </div>
       </div>
-      <div style={s(`display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start;`)}>
+
+      <div style={s(`display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;align-items:start;`)}>
+        {/* BUILDER */}
         <div
           className="tc-builder-panel"
-          style={s(`display:flex;flex-direction:column;gap:16px;position:sticky;top:96px;`)}
+          style={s(`display:flex;flex-direction:column;gap:16px;position:sticky;top:84px;`)}
         >
           <div
             style={s(
@@ -62,30 +74,7 @@ export function SheetsScreen() {
             )}
           >
             <div style={s(`font-size:13px;font-weight:650;color:var(--text-heading);margin-bottom:12px;`)}>Therapy</div>
-            <button
-              type="button"
-              className="tc-btn"
-              style={s(
-                `display:flex;align-items:center;justify-content:space-between;width:100%;height:46px;padding:0 14px;border:1px solid var(--border-strong);border-radius:11px;background:var(--surface);color:var(--text);font-size:13.5px;font-weight:600;`,
-              )}
-            >
-              <span style={s(`display:flex;align-items:center;gap:9px;`)}>
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="var(--clinical-accent)"
-                  strokeWidth="1.7"
-                >
-                  <path d="M13 4a1.5 1.5 0 1 0 0-.01M8 21l2-6 3 2 1 4" />
-                </svg>
-                Behavioural Activation
-              </span>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-soft)" strokeWidth="1.8">
-                <path d="m6 9 6 6 6-6" />
-              </svg>
-            </button>
+            <TherapyPicker />
             <div style={s(`font-size:13px;font-weight:650;color:var(--text-heading);margin:18px 0 10px;`)}>
               Reading level &amp; tone
             </div>
@@ -101,6 +90,7 @@ export function SheetsScreen() {
               </button>
             </div>
           </div>
+
           <div
             style={s(
               `background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-soft);padding:18px 20px;`,
@@ -126,12 +116,13 @@ export function SheetsScreen() {
               </button>
             </div>
           </div>
+
           <div
             style={s(
               `background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-soft);padding:18px 20px;`,
             )}
           >
-            <div style={s(`display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;`)}>
+            <div style={s(`display:flex;align-items:center;justify-content:space-between;gap:12px;`)}>
               <span>
                 <span style={s(`display:block;font-size:13px;font-weight:650;color:var(--text-heading);`)}>
                   Clinician footer
@@ -140,19 +131,28 @@ export function SheetsScreen() {
                   Name, service and review date.
                 </span>
               </span>
-              <span onClick={b.toggleClinician} style={b.clinicianTrack}>
-                <span style={b.clinicianKnob}></span>
-              </span>
+              <button
+                type="button"
+                onClick={b.toggleClinician}
+                aria-pressed={b.sheetClinician}
+                aria-label="Toggle clinician footer"
+                style={b.clinicianTrack}
+              >
+                <span style={b.clinicianKnob} />
+              </button>
             </div>
             <p
               style={s(
                 `margin:14px 0 0;font-size:11.5px;line-height:1.5;color:var(--text-soft);border-top:1px solid var(--border);padding-top:12px;`,
               )}
             >
-              Tip: every heading and paragraph on the sheet is editable — click to rewrite it before printing.
+              Tip: every heading and paragraph on the sheet is editable — click to rewrite it before printing. Wording
+              follows the {toneWord} tone.
             </p>
           </div>
         </div>
+
+        {/* PAPER */}
         <div className="tc-paper-wrap" style={s(`display:flex;justify-content:center;padding:8px 0;`)}>
           <div
             className="tc-paper"
@@ -171,11 +171,7 @@ export function SheetsScreen() {
                     `display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:var(--clinical-accent-soft);color:var(--clinical-accent);`,
                   )}
                 >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                    <circle cx="12" cy="12" r="9" />
-                    <circle cx="12" cy="12" r="5" />
-                    <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
-                  </svg>
+                  <ScaleIcon size={20} strokeWidth={1.6} />
                 </span>
                 <span style={s(`font-size:13px;font-weight:600;color:var(--text-soft);letter-spacing:0.02em;`)}>
                   Therapy Compass · Patient information
@@ -183,6 +179,7 @@ export function SheetsScreen() {
               </div>
               <span style={s(`font-size:11.5px;color:#8a94a3;`)}>Prepared for you</span>
             </div>
+
             <h1
               contentEditable
               suppressContentEditableWarning
@@ -190,210 +187,231 @@ export function SheetsScreen() {
                 `margin:0 0 6px;font-size:26px;font-weight:700;color:#0f1720;outline:none;letter-spacing:-0.01em;`,
               )}
             >
-              Getting active again
+              {sheetTitle}
             </h1>
             <p
               contentEditable
               suppressContentEditableWarning
               style={s(`margin:0 0 26px;font-size:14px;color:#5b6472;outline:none;`)}
             >
-              A simple, step-by-step plan to help you do more of what matters — even when your energy or mood is low.
+              {t.bestUsedFor && t.bestUsedFor.length < 70 && !/^(most|the|a |an )/i.test(t.bestUsedFor)
+                ? `A step-by-step plan to help with ${t.bestUsedFor.toLowerCase()}.`
+                : `A plain-language plan to help you get the most from ${sheetTitle.toLowerCase()}.`}
             </p>
 
-            {b.secAbout && (
-              <>
-                <div style={s(`margin-bottom:22px;`)}>
-                  <h2
-                    contentEditable
-                    suppressContentEditableWarning
-                    style={s(
-                      `margin:0 0 8px;font-size:16px;font-weight:680;color:var(--clinical-accent-hover);outline:none;`,
-                    )}
-                  >
-                    About this therapy
-                  </h2>
-                  <p
-                    contentEditable
-                    suppressContentEditableWarning
-                    style={s(`margin:0;font-size:13.5px;line-height:1.65;color:#2b3444;outline:none;`)}
-                  >
-                    When we feel low, we often stop doing things we used to enjoy — and that can make the low mood
-                    stronger. Behavioural activation gently reverses this by helping you plan small, doable activities
-                    that lift your mood and rebuild momentum.
-                  </p>
-                </div>
-              </>
-            )}
+            {b.secAbout && about ? <PaperSection title="About this therapy">{about}</PaperSection> : null}
 
-            {b.secSteps && (
-              <>
-                <div style={s(`margin-bottom:22px;`)}>
-                  <h2
-                    contentEditable
-                    suppressContentEditableWarning
-                    style={s(
-                      `margin:0 0 10px;font-size:16px;font-weight:680;color:var(--clinical-accent-hover);outline:none;`,
-                    )}
-                  >
-                    Your plan
-                  </h2>
-                  <div style={s(`display:flex;flex-direction:column;gap:10px;`)}>
-                    <div style={s(`display:flex;gap:12px;`)}>
+            {b.secSteps && steps.length ? (
+              <div style={s(`margin-bottom:22px;`)}>
+                <h2
+                  contentEditable
+                  suppressContentEditableWarning
+                  style={s(
+                    `margin:0 0 10px;font-size:16px;font-weight:680;color:var(--clinical-accent-hover);outline:none;`,
+                  )}
+                >
+                  Your plan
+                </h2>
+                <div style={s(`display:flex;flex-direction:column;gap:10px;`)}>
+                  {steps.map((step, i) => (
+                    <div key={i} style={s(`display:flex;gap:12px;`)}>
                       <span
                         style={s(
                           `display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--clinical-accent-soft);color:var(--clinical-accent);font-size:12px;font-weight:700;flex:none;`,
                         )}
                       >
-                        1
+                        {i + 1}
                       </span>
                       <p
                         contentEditable
                         suppressContentEditableWarning
                         style={s(`margin:0;font-size:13.5px;line-height:1.55;color:#2b3444;outline:none;flex:1;`)}
                       >
-                        <strong>Pick one small activity</strong> that matters to you — a short walk, calling a friend,
-                        or a task you’ve been putting off.
+                        {step}
                       </p>
                     </div>
-                    <div style={s(`display:flex;gap:12px;`)}>
-                      <span
-                        style={s(
-                          `display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--clinical-accent-soft);color:var(--clinical-accent);font-size:12px;font-weight:700;flex:none;`,
-                        )}
-                      >
-                        2
-                      </span>
-                      <p
-                        contentEditable
-                        suppressContentEditableWarning
-                        style={s(`margin:0;font-size:13.5px;line-height:1.55;color:#2b3444;outline:none;flex:1;`)}
-                      >
-                        <strong>Decide when and where.</strong> Being specific makes it far more likely to happen.
-                      </p>
-                    </div>
-                    <div style={s(`display:flex;gap:12px;`)}>
-                      <span
-                        style={s(
-                          `display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--clinical-accent-soft);color:var(--clinical-accent);font-size:12px;font-weight:700;flex:none;`,
-                        )}
-                      >
-                        3
-                      </span>
-                      <p
-                        contentEditable
-                        suppressContentEditableWarning
-                        style={s(`margin:0;font-size:13.5px;line-height:1.55;color:#2b3444;outline:none;flex:1;`)}
-                      >
-                        <strong>Do it, then notice how you feel.</strong> Even a small sense of achievement counts.
-                      </p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              </>
-            )}
+              </div>
+            ) : null}
 
-            {b.secPractice && (
-              <>
-                <div
+            {b.secPractice ? (
+              <div
+                style={s(
+                  `margin-bottom:22px;background:#f4f8f9;border:1px solid #d9e9ec;border-radius:10px;padding:16px 18px;`,
+                )}
+              >
+                <h2
+                  contentEditable
+                  suppressContentEditableWarning
                   style={s(
-                    `margin-bottom:22px;background:#f4f8f9;border:1px solid #d9e9ec;border-radius:10px;padding:16px 18px;`,
+                    `margin:0 0 8px;font-size:15px;font-weight:680;color:var(--clinical-accent-hover);outline:none;`,
                   )}
                 >
-                  <h2
-                    contentEditable
-                    suppressContentEditableWarning
-                    style={s(
-                      `margin:0 0 8px;font-size:15px;font-weight:680;color:var(--clinical-accent-hover);outline:none;`,
-                    )}
-                  >
-                    Practice at home
-                  </h2>
-                  <p
-                    contentEditable
-                    suppressContentEditableWarning
-                    style={s(`margin:0;font-size:13.5px;line-height:1.6;color:#2b3444;outline:none;`)}
-                  >
-                    Aim for one planned activity each day this week. Write down what you did and rate your mood before
-                    and after (0–10). Bring this to your next session.
-                  </p>
-                </div>
-              </>
-            )}
-
-            {b.secCoping && (
-              <>
-                <div style={s(`margin-bottom:22px;`)}>
-                  <h2
-                    contentEditable
-                    suppressContentEditableWarning
-                    style={s(
-                      `margin:0 0 8px;font-size:16px;font-weight:680;color:var(--clinical-accent-hover);outline:none;`,
-                    )}
-                  >
-                    If things get hard
-                  </h2>
-                  <p
-                    contentEditable
-                    suppressContentEditableWarning
-                    style={s(`margin:0;font-size:13.5px;line-height:1.6;color:#2b3444;outline:none;`)}
-                  >
-                    Some days will feel harder than others — that’s normal. Make the activity smaller rather than
-                    skipping it. If your mood drops sharply or you have thoughts of harming yourself, use the contacts
-                    below straight away.
-                  </p>
-                </div>
-              </>
-            )}
-
-            {b.secContacts && (
-              <>
-                <div
-                  style={s(
-                    `margin-bottom:8px;background:#fbf6ee;border:1px solid #f0e2c8;border-radius:10px;padding:16px 18px;`,
-                  )}
+                  Practice at home
+                </h2>
+                <p
+                  contentEditable
+                  suppressContentEditableWarning
+                  style={s(`margin:0;font-size:13.5px;line-height:1.6;color:#2b3444;outline:none;`)}
                 >
-                  <h2
-                    contentEditable
-                    suppressContentEditableWarning
-                    style={s(`margin:0 0 8px;font-size:15px;font-weight:680;color:#8a5a12;outline:none;`)}
-                  >
-                    Support contacts
-                  </h2>
-                  <div
-                    contentEditable
-                    suppressContentEditableWarning
-                    style={s(`font-size:13.5px;line-height:1.7;color:#2b3444;outline:none;`)}
-                  >
-                    Your clinician: ______________________ · Phone: ______________
-                    <br />
-                    In a crisis, call your local emergency number or a 24/7 crisis line.
-                  </div>
-                </div>
-              </>
-            )}
+                  {t.homework ||
+                    "Try the steps above between sessions. Note what you did and how it felt, and bring this to your next appointment."}
+                </p>
+              </div>
+            ) : null}
 
-            {b.sheetClinician && (
-              <>
-                <div
-                  style={s(
-                    `display:flex;justify-content:space-between;gap:16px;margin-top:26px;padding-top:16px;border-top:1px solid #e6e9ee;font-size:11.5px;color:#8a94a3;`,
-                  )}
+            {b.secCoping ? (
+              <PaperSection title="If things get hard">
+                Some days will feel harder than others — that&rsquo;s normal. Make the step smaller rather than skipping
+                it. If your distress rises sharply or you have thoughts of harming yourself, use the contacts below
+                straight away.
+              </PaperSection>
+            ) : null}
+
+            {b.secContacts ? (
+              <div
+                style={s(
+                  `margin-bottom:8px;background:#fbf6ee;border:1px solid #f0e2c8;border-radius:10px;padding:16px 18px;`,
+                )}
+              >
+                <h2
+                  contentEditable
+                  suppressContentEditableWarning
+                  style={s(`margin:0 0 8px;font-size:15px;font-weight:680;color:#8a5a12;outline:none;`)}
                 >
-                  <span contentEditable suppressContentEditableWarning style={s(`outline:none;`)}>
-                    Clinician: ____________________
-                  </span>
-                  <span contentEditable suppressContentEditableWarning style={s(`outline:none;`)}>
-                    Service: ____________________
-                  </span>
-                  <span contentEditable suppressContentEditableWarning style={s(`outline:none;`)}>
-                    Reviewed: __ / __ / ____
-                  </span>
+                  Support contacts
+                </h2>
+                <div
+                  contentEditable
+                  suppressContentEditableWarning
+                  style={s(`font-size:13.5px;line-height:1.7;color:#2b3444;outline:none;`)}
+                >
+                  Your clinician: ______________________ · Phone: ______________
+                  <br />
+                  In a crisis, call your local emergency number or a 24/7 crisis line.
                 </div>
-              </>
-            )}
+              </div>
+            ) : null}
+
+            {b.sheetClinician ? (
+              <div
+                style={s(
+                  `display:flex;justify-content:space-between;gap:16px;margin-top:26px;padding-top:16px;border-top:1px solid #e6e9ee;font-size:11.5px;color:#8a94a3;flex-wrap:wrap;`,
+                )}
+              >
+                <span contentEditable suppressContentEditableWarning style={s(`outline:none;`)}>
+                  Clinician: ____________________
+                </span>
+                <span contentEditable suppressContentEditableWarning style={s(`outline:none;`)}>
+                  Service: ____________________
+                </span>
+                <span contentEditable suppressContentEditableWarning style={s(`outline:none;`)}>
+                  Reviewed: __ / __ / ____
+                </span>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function PaperSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={s(`margin-bottom:22px;`)}>
+      <h2
+        contentEditable
+        suppressContentEditableWarning
+        style={s(`margin:0 0 8px;font-size:16px;font-weight:680;color:var(--clinical-accent-hover);outline:none;`)}
+      >
+        {title}
+      </h2>
+      <p
+        contentEditable
+        suppressContentEditableWarning
+        style={s(`margin:0;font-size:13.5px;line-height:1.65;color:#2b3444;outline:none;`)}
+      >
+        {children}
+      </p>
+    </div>
+  );
+}
+
+function TherapyPicker() {
+  const b = useTcBindings();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const matches = useMemo(() => {
+    const base = q.trim()
+      ? searchTherapies(b.therapies, { query: q, tags: [], briefOnly: false, sheetOnly: false, reviewedOnly: false })
+      : b.therapies;
+    return base.slice(0, 8);
+  }, [q, b.therapies]);
+
+  return (
+    <div style={s(`position:relative;`)}>
+      <button
+        type="button"
+        className="tc-btn"
+        onClick={() => setOpen((v) => !v)}
+        style={s(
+          `display:flex;align-items:center;justify-content:space-between;width:100%;height:46px;padding:0 14px;border:1px solid var(--border-strong);border-radius:11px;background:var(--surface);color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;`,
+        )}
+      >
+        <span style={s(`display:flex;align-items:center;gap:9px;min-width:0;`)}>
+          <ScaleIcon size={16} style={s(`color:var(--clinical-accent);flex:none;`)} />
+          <span style={s(`overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`)}>
+            {b.selectedTherapy?.name ?? "Choose a therapy"}
+          </span>
+        </span>
+        <ChevronDownIcon size={15} strokeWidth={1.8} style={s(`color:var(--text-soft);flex:none;`)} />
+      </button>
+      {open ? (
+        <div
+          style={s(
+            `position:absolute;z-index:30;top:52px;left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-hover);overflow:hidden;`,
+          )}
+        >
+          <label
+            style={s(
+              `position:relative;display:flex;align-items:center;padding:8px;border-bottom:1px solid var(--border);`,
+            )}
+          >
+            <SearchIcon size={15} strokeWidth={1.8} style={s(`position:absolute;left:18px;color:var(--text-soft);`)} />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search therapies…"
+              aria-label="Search therapies for the patient sheet"
+              autoFocus
+              style={s(
+                `width:100%;height:36px;padding:0 12px 0 34px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;outline:none;`,
+              )}
+            />
+          </label>
+          <div className="tc-scroll" style={s(`max-height:260px;overflow:auto;`)}>
+            {matches.map((t) => (
+              <button
+                key={t.slug}
+                type="button"
+                className="tc-btn tc-row"
+                onClick={() => {
+                  b.select(t.slug);
+                  setOpen(false);
+                  setQ("");
+                }}
+                style={s(
+                  `display:block;width:100%;padding:10px 14px;border:none;border-bottom:1px solid var(--border);background:transparent;text-align:left;cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;color:var(--text-heading);`,
+                )}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }

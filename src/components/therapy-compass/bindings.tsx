@@ -3,22 +3,36 @@
 import { createContext, useContext, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 
 import { s } from "./style-utils";
+import { useTherapyData } from "./data/use-therapy-data";
+import {
+  EMPTY_SEARCH,
+  RECOMMEND_CONSTRAINTS,
+  rankRecommendations,
+  relatedTherapies,
+  searchTherapies,
+  type Ranked,
+  type SearchOptions,
+} from "./data/select";
+import type { Pathway, ReferenceData, Therapy } from "./data/types";
 
-// The eight first-class Therapy Compass screens. Anything else (e.g. the
-// Review Queue) falls through to the shared "Other" placeholder, mirroring the
-// design's `isOther` branch.
 const KNOWN_SCREENS = ["search", "detail", "compare", "recommend", "pathways", "brief", "home", "sheets"] as const;
+const MAX_COMPARE = 4;
 
 type SheetSectionKey = "about" | "steps" | "practice" | "coping" | "contacts";
 
-/**
- * Every value the ported screen JSX references as `b.<name>`. The names and
- * semantics are a 1:1 mirror of the design export's `renderVals()` so the
- * converted markup binds without edits — screen navigation, comparison tabs,
- * density, brief tabs, patient-sheet tone/sections and the clinician toggle.
- */
 export type TcBindings = {
-  // navigation
+  // ---- data -----------------------------------------------------------
+  loading: boolean;
+  error: string | null;
+  therapies: Therapy[];
+  unreviewedTherapies: Therapy[];
+  reviewCount: number;
+  pathways: Pathway[];
+  reference: ReferenceData | null;
+
+  // ---- screen navigation ---------------------------------------------
+  screen: string;
+  go: (screen: string) => void;
   goHome: () => void;
   goSearch: () => void;
   goRecommend: () => void;
@@ -28,7 +42,6 @@ export type TcBindings = {
   goSheets: () => void;
   goDetail: () => void;
   goReview: () => void;
-  // active-screen flags
   isSearch: boolean;
   isDetail: boolean;
   isCompare: boolean;
@@ -39,7 +52,6 @@ export type TcBindings = {
   isSheets: boolean;
   isOther: boolean;
   otherLabel: string;
-  // sidebar nav styling
   navHome: CSSProperties;
   navSearch: CSSProperties;
   navRecommend: CSSProperties;
@@ -48,7 +60,49 @@ export type TcBindings = {
   navBrief: CSSProperties;
   navSheets: CSSProperties;
   navReview: CSSProperties;
-  // comparison tabs + density
+
+  // ---- active therapy (detail / brief / sheet) ------------------------
+  selectedSlug: string | null;
+  selectedTherapy: Therapy | null;
+  relatedForSelected: Therapy[];
+  open: (slug: string) => void; // → detail
+  openBrief: (slug: string) => void;
+  openSheet: (slug: string) => void;
+  select: (slug: string) => void; // set without navigating
+
+  // ---- search ---------------------------------------------------------
+  search: SearchOptions;
+  searchResults: Therapy[];
+  setQuery: (q: string) => void;
+  submitQuery: (q: string) => void; // set query + go search
+  toggleTag: (tag: string) => void;
+  toggleBriefOnly: () => void;
+  toggleSheetOnly: () => void;
+  toggleReviewedOnly: () => void;
+  clearSearch: () => void;
+
+  // ---- compare --------------------------------------------------------
+  compareSlugs: string[];
+  compareTherapies: Therapy[];
+  toggleCompare: (slug: string) => void; // add/remove + navigate
+  addCompare: (slug: string) => void;
+  removeCompare: (slug: string) => void;
+  clearCompare: () => void;
+  isInCompare: (slug: string) => boolean;
+
+  // ---- recommend ------------------------------------------------------
+  recQuery: string;
+  setRecQuery: (q: string) => void;
+  recConstraints: string[];
+  toggleConstraint: (key: string) => void;
+  recommendations: Ranked[];
+
+  // ---- pathways -------------------------------------------------------
+  selectedPathwaySlug: string | null;
+  selectedPathway: Pathway | null;
+  selectPathway: (slug: string) => void;
+
+  // ---- comparison tabs + density -------------------------------------
   cmpTab: string;
   tabPriorities: CSSProperties;
   tabDifferences: CSSProperties;
@@ -61,7 +115,8 @@ export type TcBindings = {
   segDense: CSSProperties;
   setComfortable: () => void;
   setDense: () => void;
-  // brief-intervention tabs
+
+  // ---- brief-intervention tabs ---------------------------------------
   briefTab: string;
   brief5: CSSProperties;
   brief15: CSSProperties;
@@ -69,14 +124,17 @@ export type TcBindings = {
   set5: () => void;
   set15: () => void;
   setGround: () => void;
-  // patient-sheet tone
+
+  // ---- patient-sheet tone --------------------------------------------
+  sheetTone: string;
   tonePlain: CSSProperties;
   toneWarm: CSSProperties;
   toneClinical: CSSProperties;
   setTonePlain: () => void;
   setToneWarm: () => void;
   setToneClinical: () => void;
-  // patient-sheet section toggles
+
+  // ---- patient-sheet sections + clinician ----------------------------
   secAbout: boolean;
   secSteps: boolean;
   secPractice: boolean;
@@ -92,28 +150,18 @@ export type TcBindings = {
   togglePractice: () => void;
   toggleCoping: () => void;
   toggleContacts: () => void;
-  // clinician footer toggle
   sheetClinician: boolean;
   toggleClinician: () => void;
   clinicianTrack: CSSProperties;
   clinicianKnob: CSSProperties;
-  // patient-sheet print
   printSheet: () => void;
-  // raw screen id (for callers that need it)
-  screen: string;
 };
 
 const TcContext = createContext<TcBindings | null>(null);
 
 function navStyle(active: boolean): CSSProperties {
-  // Horizontal pill for the in-content tool nav (the mockup's own left rail was
-  // dropped in favour of the app's universal sidebar). Button resets keep the
-  // <button> chrome-free; the active pill fills with the accent-soft token.
   const base =
     "display:inline-flex;align-items:center;gap:8px;flex:none;padding:8px 13px;border:1px solid transparent;border-radius:10px;background:transparent;font-family:inherit;font-size:13.5px;white-space:nowrap;cursor:pointer;text-decoration:none;transition:background .12s ease,color .12s ease,border-color .12s ease;";
-  // Both states set the `border` shorthand (never a mix of `border` +
-  // `borderColor`), so React does not warn about shorthand/longhand conflicts
-  // when the active pill changes.
   return s(
     active
       ? base +
@@ -121,7 +169,6 @@ function navStyle(active: boolean): CSSProperties {
       : base + "color:var(--text-muted);font-weight:500;",
   );
 }
-
 function tabStyle(active: boolean): CSSProperties {
   const base =
     "padding:10px 4px;border:none;background:transparent;font-size:14px;cursor:pointer;font-family:inherit;transition:color .12s ease;";
@@ -131,7 +178,6 @@ function tabStyle(active: boolean): CSSProperties {
       : base + "color:var(--text-muted);font-weight:500;border-bottom:2px solid transparent;",
   );
 }
-
 function segStyle(active: boolean): CSSProperties {
   const base =
     "padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .12s ease;";
@@ -141,7 +187,6 @@ function segStyle(active: boolean): CSSProperties {
       : base + "background:transparent;color:var(--text-muted);",
   );
 }
-
 function chipStyle(on: boolean): CSSProperties {
   const base =
     "padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .12s ease;";
@@ -154,7 +199,18 @@ function chipStyle(on: boolean): CSSProperties {
 }
 
 export function TcProvider({ children }: { children: ReactNode }) {
+  const { data, loading, error } = useTherapyData();
+  const therapies = useMemo(() => data?.therapies ?? [], [data]);
+  const pathways = useMemo(() => data?.pathways ?? [], [data]);
+
   const [screen, setScreen] = useState<string>("home");
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [compareSlugs, setCompareSlugs] = useState<string[]>([]);
+  const [search, setSearch] = useState<SearchOptions>(EMPTY_SEARCH);
+  const [recQuery, setRecQuery] = useState("What therapy for anxiety in outpatient care?");
+  const [recConstraints, setRecConstraints] = useState<string[]>(["outpatient"]);
+  const [selectedPathwaySlug, setSelectedPathwaySlug] = useState<string | null>(null);
+
   const [cmpTab, setCmpTab] = useState("differences");
   const [density, setDensity] = useState("comfortable");
   const [briefTab, setBriefTab] = useState("5min");
@@ -168,20 +224,54 @@ export function TcProvider({ children }: { children: ReactNode }) {
   });
   const [sheetClinician, setSheetClinician] = useState(true);
 
+  const bySlug = useMemo(() => new Map(therapies.map((t) => [t.slug, t])), [therapies]);
+  const unreviewedTherapies = useMemo(() => therapies.filter((t) => t.reviewStatus !== "reviewed"), [therapies]);
+
+  // Default selections once data arrives so detail/brief/sheet/pathways are never empty.
+  const effectiveSelectedSlug = selectedSlug ?? therapies[0]?.slug ?? null;
+  const selectedTherapy = effectiveSelectedSlug ? (bySlug.get(effectiveSelectedSlug) ?? null) : null;
+  const effectivePathwaySlug = selectedPathwaySlug ?? pathways[0]?.slug ?? null;
+  const selectedPathway = effectivePathwaySlug ? (pathways.find((p) => p.slug === effectivePathwaySlug) ?? null) : null;
+
+  const searchResults = useMemo(() => searchTherapies(therapies, search), [therapies, search]);
+  const compareTherapies = useMemo(
+    () => compareSlugs.map((sl) => bySlug.get(sl)).filter((t): t is Therapy => Boolean(t)),
+    [compareSlugs, bySlug],
+  );
+  const recommendations = useMemo(
+    () => rankRecommendations(therapies, recQuery, recConstraints),
+    [therapies, recQuery, recConstraints],
+  );
+  const relatedForSelected = useMemo(
+    () => (selectedTherapy ? relatedTherapies(therapies, selectedTherapy) : []),
+    [therapies, selectedTherapy],
+  );
+
   const value = useMemo<TcBindings>(() => {
-    const go = (next: string) => () => setScreen(next);
+    const go = (next: string) => setScreen(next);
     const toggleSection = (key: SheetSectionKey) => setSheetSections((prev) => ({ ...prev, [key]: !prev[key] }));
-    const ss = sheetSections;
+    const patchSearch = (patch: Partial<SearchOptions>) => setSearch((prev) => ({ ...prev, ...patch }));
+
     return {
-      goHome: go("home"),
-      goSearch: go("search"),
-      goRecommend: go("recommend"),
-      goCompare: go("compare"),
-      goPathways: go("pathways"),
-      goBrief: go("brief"),
-      goSheets: go("sheets"),
-      goDetail: go("detail"),
-      goReview: go("review"),
+      loading,
+      error,
+      therapies,
+      unreviewedTherapies,
+      reviewCount: unreviewedTherapies.length,
+      pathways,
+      reference: data?.reference ?? null,
+
+      screen,
+      go,
+      goHome: () => go("home"),
+      goSearch: () => go("search"),
+      goRecommend: () => go("recommend"),
+      goCompare: () => go("compare"),
+      goPathways: () => go("pathways"),
+      goBrief: () => go("brief"),
+      goSheets: () => go("sheets"),
+      goDetail: () => go("detail"),
+      goReview: () => go("review"),
       isSearch: screen === "search",
       isDetail: screen === "detail",
       isCompare: screen === "compare",
@@ -200,6 +290,66 @@ export function TcProvider({ children }: { children: ReactNode }) {
       navBrief: navStyle(screen === "brief"),
       navSheets: navStyle(screen === "sheets"),
       navReview: navStyle(screen === "review"),
+
+      selectedSlug: effectiveSelectedSlug,
+      selectedTherapy,
+      relatedForSelected,
+      open: (slug) => {
+        setSelectedSlug(slug);
+        go("detail");
+      },
+      openBrief: (slug) => {
+        setSelectedSlug(slug);
+        go("brief");
+      },
+      openSheet: (slug) => {
+        setSelectedSlug(slug);
+        go("sheets");
+      },
+      select: (slug) => setSelectedSlug(slug),
+
+      search,
+      searchResults,
+      setQuery: (q) => patchSearch({ query: q }),
+      submitQuery: (q) => {
+        patchSearch({ query: q });
+        go("search");
+      },
+      toggleTag: (tag) =>
+        setSearch((prev) => ({
+          ...prev,
+          tags: prev.tags.includes(tag) ? prev.tags.filter((x) => x !== tag) : [...prev.tags, tag],
+        })),
+      toggleBriefOnly: () => setSearch((prev) => ({ ...prev, briefOnly: !prev.briefOnly })),
+      toggleSheetOnly: () => setSearch((prev) => ({ ...prev, sheetOnly: !prev.sheetOnly })),
+      toggleReviewedOnly: () => setSearch((prev) => ({ ...prev, reviewedOnly: !prev.reviewedOnly })),
+      clearSearch: () => setSearch(EMPTY_SEARCH),
+
+      compareSlugs,
+      compareTherapies,
+      toggleCompare: (slug) => {
+        setCompareSlugs((prev) =>
+          prev.includes(slug) ? prev.filter((x) => x !== slug) : prev.length >= MAX_COMPARE ? prev : [...prev, slug],
+        );
+        go("compare");
+      },
+      addCompare: (slug) =>
+        setCompareSlugs((prev) => (prev.includes(slug) || prev.length >= MAX_COMPARE ? prev : [...prev, slug])),
+      removeCompare: (slug) => setCompareSlugs((prev) => prev.filter((x) => x !== slug)),
+      clearCompare: () => setCompareSlugs([]),
+      isInCompare: (slug) => compareSlugs.includes(slug),
+
+      recQuery,
+      setRecQuery,
+      recConstraints,
+      toggleConstraint: (key) =>
+        setRecConstraints((prev) => (prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key])),
+      recommendations,
+
+      selectedPathwaySlug: effectivePathwaySlug,
+      selectedPathway,
+      selectPathway: (slug) => setSelectedPathwaySlug(slug),
+
       cmpTab,
       tabPriorities: tabStyle(cmpTab === "priorities"),
       tabDifferences: tabStyle(cmpTab === "differences"),
@@ -212,6 +362,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
       segDense: segStyle(density === "dense"),
       setComfortable: () => setDensity("comfortable"),
       setDense: () => setDensity("dense"),
+
       briefTab,
       brief5: tabStyle(briefTab === "5min"),
       brief15: tabStyle(briefTab === "15min"),
@@ -219,22 +370,25 @@ export function TcProvider({ children }: { children: ReactNode }) {
       set5: () => setBriefTab("5min"),
       set15: () => setBriefTab("15min"),
       setGround: () => setBriefTab("ground"),
+
+      sheetTone,
       tonePlain: segStyle(sheetTone === "plain"),
       toneWarm: segStyle(sheetTone === "warm"),
       toneClinical: segStyle(sheetTone === "clinical"),
       setTonePlain: () => setSheetTone("plain"),
       setToneWarm: () => setSheetTone("warm"),
       setToneClinical: () => setSheetTone("clinical"),
-      secAbout: ss.about,
-      secSteps: ss.steps,
-      secPractice: ss.practice,
-      secCoping: ss.coping,
-      secContacts: ss.contacts,
-      chipAbout: chipStyle(ss.about),
-      chipSteps: chipStyle(ss.steps),
-      chipPractice: chipStyle(ss.practice),
-      chipCoping: chipStyle(ss.coping),
-      chipContacts: chipStyle(ss.contacts),
+
+      secAbout: sheetSections.about,
+      secSteps: sheetSections.steps,
+      secPractice: sheetSections.practice,
+      secCoping: sheetSections.coping,
+      secContacts: sheetSections.contacts,
+      chipAbout: chipStyle(sheetSections.about),
+      chipSteps: chipStyle(sheetSections.steps),
+      chipPractice: chipStyle(sheetSections.practice),
+      chipCoping: chipStyle(sheetSections.coping),
+      chipContacts: chipStyle(sheetSections.contacts),
       toggleAbout: () => toggleSection("about"),
       toggleSteps: () => toggleSection("steps"),
       togglePractice: () => toggleSection("practice"),
@@ -255,9 +409,34 @@ export function TcProvider({ children }: { children: ReactNode }) {
       printSheet: () => {
         if (typeof window !== "undefined") window.print();
       },
-      screen,
     };
-  }, [screen, cmpTab, density, briefTab, sheetTone, sheetSections, sheetClinician]);
+  }, [
+    loading,
+    error,
+    data,
+    therapies,
+    unreviewedTherapies,
+    pathways,
+    screen,
+    effectiveSelectedSlug,
+    selectedTherapy,
+    relatedForSelected,
+    search,
+    searchResults,
+    compareSlugs,
+    compareTherapies,
+    recQuery,
+    recConstraints,
+    recommendations,
+    effectivePathwaySlug,
+    selectedPathway,
+    cmpTab,
+    density,
+    briefTab,
+    sheetTone,
+    sheetSections,
+    sheetClinician,
+  ]);
 
   return <TcContext.Provider value={value}>{children}</TcContext.Provider>;
 }
@@ -267,3 +446,5 @@ export function useTcBindings(): TcBindings {
   if (!ctx) throw new Error("useTcBindings must be used within <TcProvider>");
   return ctx;
 }
+
+export { RECOMMEND_CONSTRAINTS };
