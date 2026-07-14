@@ -90,6 +90,11 @@
      by ~1033px — no breakpoint jumps. Generates the `text-hero` utility.
      clamp() font sizes are not flagged by scripts/check-type-scale.mjs. */
   --text-hero: clamp(1.45rem, 1.02rem + 1.75vw, 2.15rem);
+  /* Companion line-height marks --text-hero as a font-SIZE token (Tailwind v4
+     `--text-<name>--line-height` convention) so downstream tooling never
+     misreads the clamp() value as a font-family list. Call sites that set an
+     explicit leading-* utility still win over this default. */
+  --text-hero--line-height: 1.15;
 
   /* Font families: bind Tailwind's font-sans / font-mono to the loaded Geist
      faces (variables set on <html> by next/font). font-mono is used for

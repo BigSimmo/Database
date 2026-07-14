@@ -29,6 +29,21 @@
 - Default `guidelinesGlob` swept 46 repo process docs into `guidelines/` —
   the config pins a curated 5-file design set; keep it curated.
 
+## Known claude.ai/design validator findings (accepted, do not "fix")
+
+From the July 2026 design-side review (CLAUDE_CODE_FIXES.md): the design app's
+validator flags on our compiled-Tailwind output that are heuristic noise, not
+repo defects — re-flag to the design agent instead of restructuring CSS:
+
+- "56 unregistered component-scoped custom properties" — all `--tw-*` Tailwind
+  runtime vars + `--footer-scrim-height` (component-local by design).
+- "126 pseudo theme scopes" — Tailwind utility classes misread as themes.
+- README token count vs stylesheet count — converter/validator counting
+  difference (`317 defined` includes non-`:root` definitions).
+- `--text-hero` font-family misparse — mitigated 2026-07-14 by adding the
+  `--text-hero--line-height` companion; if the warning persists it is
+  design-app-side.
+
 ## Known render warns
 
 - None — 10/10 render clean, no thin/blank/variantsIdentical flags.
