@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { CircleAlert, Download, ExternalLink, FileText } from "lucide-react";
 
 import { cn, floatingControl } from "@/components/ui-primitives";
@@ -21,7 +21,7 @@ const placeholderSurface =
  * - other (DOCX/XLSX/…) → an honest "download to view" affordance,
  * - no signed URL yet → the original placeholder.
  */
-export function NonPdfSourcePreview({
+export const NonPdfSourcePreview = memo(function NonPdfSourcePreview({
   fileType,
   title,
   signedUrl,
@@ -87,7 +87,7 @@ export function NonPdfSourcePreview({
       </div>
     </div>
   );
-}
+});
 
 /**
  * Inline image with a failure fallback. The source is a direct signed URL owned
