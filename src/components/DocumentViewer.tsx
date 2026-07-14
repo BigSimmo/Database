@@ -26,7 +26,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { type FormEvent, memo, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibleTable, hasRenderableAccessibleTable } from "@/components/AccessibleTable";
 import { documentDisplayTitle, documentOrganizationProfile } from "@/components/DocumentOrganizationBadges";
 import { formatDocumentLabelDisplay } from "@/lib/document-tags";
@@ -2003,6 +2003,96 @@ export function DocumentViewer({
   useEffect(() => {
     signedUrlRefreshCountRef.current = 0;
   }, [documentId]);
+
+  // Fetch signed URLs without reloading document details
+  const refreshSignedUrls = useCallback(() => {
+    const signedUrlEndpoint = `/api/documents/${documentId}/signed-url`;
+    const downloadSignedUrlEndpoint = `${signedUrlEndpoint}?download=true`;
+
+    const controller = new AbortController();
+    const authRequest = registerAuthRequest(controller);
+
+    readLocalProjectIdentity()
+      .then((identity) => {
+        if (!isAuthEpochCurrent(authRequest.epoch)) {
+          throw new DOMException("Stale authentication epoch", "AbortError");
+        }
+        if (!identity?.localServer?.safeLocalOrigin) {
+          throw new Error(unsafeLocalProjectMessage(identity));
+        }
+
+        const signedUrlRequest = fetch(signedUrlEndpoint, {
+          signal: controller.signal,
+          headers: clientDemoMode ? undefined : authorizationHeader,
+        }).then(async (response) => {
+          const payload = await response.json();
+          if (response.status === 401) markSessionExpired();
+          if (!response.ok) throw new Error(payload.error || "Source preview could not be loaded.");
+          return payload;
+        });
+
+        const signedDownloadUrlRequest = fetch(downloadSignedUrlEndpoint, {
+          signal: controller.signal,
+          headers: clientDemoMode ? undefined : authorizationHeader,
+        }).then(async (response) => {
+          const payload = await response.json();
+          if (response.status === 401) markSessionExpired();
+          if (!response.ok) throw new Error(payload.error || "Download URL could not be loaded.");
+          return payload;
+        });
+
+        return Promise.allSettled([signedUrlRequest, signedDownloadUrlRequest]);
+      })
+      .then(([signedUrlResult, signedDownloadUrlResult]) => {
+        if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
+
+        if (signedUrlResult.status === "fulfilled") {
+          const payload = signedUrlResult.value;
+          if (payload?.url) setCachedSignedUrl(signedUrlEndpoint, payload);
+          setSignedUrl(payload?.url ?? null);
+          setPreviewError(null);
+        } else {
+          setSignedUrl(null);
+          setDownloadSignedUrl(null);
+          setPreviewError(
+            signedUrlResult.reason instanceof Error
+              ? signedUrlResult.reason.message
+              : "Source preview could not be loaded.",
+          );
+        }
+
+        if (signedDownloadUrlResult.status === "fulfilled") {
+          const payload = signedDownloadUrlResult.value;
+          if (payload?.url) {
+            setCachedSignedUrl(downloadSignedUrlEndpoint, payload);
+            setDownloadSignedUrl(payload.url);
+            return;
+          }
+        }
+
+        if (signedUrlResult.status === "fulfilled") {
+          const payload = signedUrlResult.value;
+          setDownloadSignedUrl(payload?.url ?? null);
+        } else {
+          setDownloadSignedUrl(null);
+        }
+      })
+      .catch((error) => {
+        if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
+        setPreviewError(error instanceof Error ? error.message : "Source preview could not be loaded.");
+      })
+      .finally(() => {
+        authRequest.release();
+      });
+  }, [
+    documentId,
+    registerAuthRequest,
+    isAuthEpochCurrent,
+    clientDemoMode,
+    authorizationHeader,
+    markSessionExpired,
+  ]);
+
   // The PDF signed URL has a 10-min TTL and pdf.js holds a dead reference once it
   // expires. When the canvas reports an expiry, drop the cached URLs and re-run
   // the fetch pipeline to mint fresh ones (bounded so a broken URL can't loop).
@@ -2012,7 +2102,7 @@ export function DocumentViewer({
     const signedUrlEndpoint = `/api/documents/${documentId}/signed-url`;
     clearCachedSignedUrl(signedUrlEndpoint);
     clearCachedSignedUrl(`${signedUrlEndpoint}?download=true`);
-    setPreviewAttempt((current) => current + 1);
+    refreshSignedUrls();
   };
   // A successful reload means the refreshed URL was accepted, so the recovery
   // worked — restore the budget for the next (unrelated) TTL expiry. A broken
