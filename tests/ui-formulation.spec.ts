@@ -157,6 +157,11 @@ test("keeps legacy specifier detail links on a valid formulation route", async (
   await expect(page).toHaveURL(/\/formulation\/compare\?a=rumination&b=worry$/);
   await expect(page.getByRole("combobox", { name: "Mechanism A" })).toHaveValue("rumination");
   await expect(page.getByRole("combobox", { name: "Mechanism B" })).toHaveValue("worry");
+
+  await gotoApp(page, "/specifiers?query=I+keep+going+over+it&run=1");
+  await expect(page).toHaveURL(/\/formulation\?q=I\+keep\+going\+over\+it&run=1$/);
+  await expect(page.getByRole("heading", { name: /Mechanisms matching “I keep going over it”/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Rumination", exact: true })).toBeVisible();
 });
 
 test("compares supported alternatives and groups mechanisms without implying causation", async ({ page }) => {

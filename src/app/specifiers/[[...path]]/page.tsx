@@ -18,7 +18,8 @@ export default async function LegacySpecifierRoute({ params, searchParams }: Leg
     if (key === "specifier" && isLegacyCompare) {
       items.slice(0, 2).forEach((item, index) => nextParams.append(index === 0 ? "a" : "b", item));
     } else {
-      items.forEach((item) => nextParams.append(key === "specifier" ? "mechanism" : key, item));
+      const destinationKey = key === "specifier" ? "mechanism" : key === "query" ? "q" : key;
+      items.forEach((item) => nextParams.append(destinationKey, item));
     }
   }
 
