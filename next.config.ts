@@ -36,12 +36,24 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: projectRoot,
   },
-  webpack(config) {
+  webpack(config, { webpack }) {
     // Avoid a Next/webpack WasmHash worker crash observed on Node 24 during local production builds.
     config.output = {
       ...config.output,
       hashFunction: "sha256",
     };
+    // Build-time flag so the browser Sentry SDK (@sentry/browser) is fully
+    // tree-shaken out unless a public DSN is set at build. Next does NOT fold an
+    // UNSET NEXT_PUBLIC_* var to a compile-time constant, so a plain
+    // `if (process.env.NEXT_PUBLIC_SENTRY_DSN)` gate leaves the dynamic import (and
+    // its chunk) on disk. This literal boolean lets webpack dead-code-eliminate the
+    // whole block, so an unconfigured build ships zero Sentry bytes. See
+    // src/instrumentation-client.ts.
+    config.plugins.push(
+      new webpack.DefinePlugin({
+        __SENTRY_ENABLED__: JSON.stringify(Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN)),
+      }),
+    );
     return config;
   },
   async headers() {
