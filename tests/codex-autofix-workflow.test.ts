@@ -337,6 +337,32 @@ describe("Codex auto-resolve workflow guard", () => {
     expect(result.output).toContain("missing trusted duplicate-marker check");
   });
 
+  it("rejects removing the missing-token warning branch", () => {
+    const workflow = originalWorkflow.replace(
+      `      - name: Warn when the trigger token is not configured
+        if: \${{ env.CODEX_TRIGGER_TOKEN == '' }}
+        run: echo "::warning title=Codex auto-resolve::CODEX_TRIGGER_TOKEN secret is not configured; skipping the Codex auto-resolve request. Codex will not be asked to resolve findings until this fine-grained PAT secret is set."
+`,
+      "",
+    );
+    expect(workflow).not.toBe(originalWorkflow);
+
+    const result = runGuard(workflow);
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("graceful missing-token handling");
+  });
+
+  it("rejects removing the graceful-skip guard on the request step", () => {
+    const workflow = originalWorkflow.replace("        if: ${{ env.CODEX_TRIGGER_TOKEN != '' }}\n", "");
+    expect(workflow).not.toBe(originalWorkflow);
+
+    const result = runGuard(workflow);
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain("graceful missing-token handling");
+  });
+
   it("rejects workflow-level concurrency that includes unrelated events", () => {
     const workflow = originalWorkflow.replace(
       `    concurrency:
