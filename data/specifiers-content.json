@@ -5004,7 +5004,7 @@
                   "label": "With delayed expression (full criteria not met until at least 6 months after the event)",
                   "definition": {
                     "meaning": "For Post-Traumatic Stress Disorder, \"With delayed expression (full criteria not met until at least 6 months after the event)\" uses the stated threshold: full criteria not met until at least 6 months after the event.",
-                    "clinicalNote": "This is a symptom-count threshold; symptom severity, impairment, and risk may still shift the clinical picture.",
+                    "clinicalNote": "This specifier is defined by the stated threshold; symptom severity, impairment, and risk may still shift the clinical picture.",
                     "sourceFamily": "Dataset threshold",
                     "status": "defined"
                   },
@@ -9256,7 +9256,7 @@
                   "label": "Adolescent-onset type (no symptoms prior to age 10)",
                   "definition": {
                     "meaning": "For Conduct Disorder, \"Adolescent-onset type (no symptoms prior to age 10)\" uses the stated threshold: no symptoms prior to age 10.",
-                    "clinicalNote": "This is a symptom-count threshold; symptom severity, impairment, and risk may still shift the clinical picture.",
+                    "clinicalNote": "This specifier is defined by the stated threshold; symptom severity, impairment, and risk may still shift the clinical picture.",
                     "sourceFamily": "Dataset threshold",
                     "status": "defined"
                   },

@@ -48,6 +48,18 @@ const sourceStatusLabel: Record<SpecifierSourceStatus, string> = {
   "source-not-applicable": "Source not applicable",
 };
 
+// The dataset spans DSM-5-TR and ICD-11/WHO material. Label the source badge from
+// the item's own provenance rather than always claiming DSM-5-TR: the "ICD-11
+// Specifics" category, an ICD-11/WHO source family, or an "(ICD-11)" disorder name
+// all indicate ICD-11 content.
+function sourceManualLabel(item: SpecifierCatalogItem): string {
+  const family = item.definition?.sourceFamily ?? item.review.sourceFamily ?? "";
+  if (item.categoryId === "icd" || /icd-11|who/i.test(family) || /\(icd-11\)/i.test(item.disorderName)) {
+    return "ICD-11";
+  }
+  return "DSM-5-TR";
+}
+
 function InfoCard({
   icon: Icon,
   eyebrow,
@@ -113,6 +125,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
   // pending clinician review (see the verification gate in the data build).
   const trusted = item.review.sourceVerificationStatus === "source-verified" && Boolean(item.definition);
   const pendingVerification = item.definitionStatus === "needs-manual-or-clinician-verification";
+  const sourceManual = sourceManualLabel(item);
   const description = trusted
     ? item.definition!.meaning
     : pendingVerification
@@ -134,7 +147,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
           </span>
           <div className="grid gap-2.5">
             <div className="flex flex-wrap items-center gap-2">
-              <DsmBadge />
+              <DsmBadge label={sourceManual} />
               <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-2 text-2xs font-bold text-[color:var(--text-muted)]">
                 {item.groupLabel}
               </span>

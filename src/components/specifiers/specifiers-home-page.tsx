@@ -30,7 +30,7 @@ import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { searchSpecifiers, specifierFamilies, specifierSearchPresets, type SpecifierFamily } from "@/lib/specifiers";
-import { searchSpecifierCatalog } from "@/lib/specifiers-search-index";
+import { searchSpecifierCatalog, type SpecifierCatalogMatch } from "@/lib/specifiers-search-index";
 
 // The curated set covers a small number of high-signal mood-episode specifiers.
 // The full DSM-5-TR catalogue (~585 items) is surfaced additively beneath the
@@ -193,13 +193,7 @@ function normalizeCatalogueLabel(value: string) {
     .trim();
 }
 
-function SpecifierCatalogueMatches({ query, excludeLabels }: { query: string; excludeLabels: Set<string> }) {
-  const matches = useMemo(() => {
-    return searchSpecifierCatalog(query)
-      .filter(({ item }) => !excludeLabels.has(normalizeCatalogueLabel(item.label)))
-      .slice(0, CATALOGUE_RESULT_LIMIT);
-  }, [excludeLabels, query]);
-
+function SpecifierCatalogueMatches({ matches }: { matches: SpecifierCatalogMatch[] }) {
   if (!matches.length) return null;
 
   return (
@@ -258,6 +252,17 @@ function SpecifierResults({ query }: { query: string }) {
     () => new Set(results.map(({ record }) => normalizeCatalogueLabel(record.name))),
     [results],
   );
+  // The full-catalogue section is additive, but it must still drive the shared
+  // count and empty-state so a catalog-only query never shows "0 matches" and an
+  // empty-state banner above real results.
+  const catalogueMatches = useMemo(
+    () =>
+      searchSpecifierCatalog(query)
+        .filter(({ item }) => !curatedLabels.has(normalizeCatalogueLabel(item.label)))
+        .slice(0, CATALOGUE_RESULT_LIMIT),
+    [curatedLabels, query],
+  );
+  const totalMatches = results.length + catalogueMatches.length;
 
   return (
     <SpecifierPageShell>
@@ -278,7 +283,7 @@ function SpecifierResults({ query }: { query: string }) {
           </p>
         </div>
         <p className="nums text-sm font-bold text-[color:var(--text-muted)]" aria-live="polite">
-          {results.length} {results.length === 1 ? "match" : "matches"}
+          {totalMatches} {totalMatches === 1 ? "match" : "matches"}
         </p>
       </header>
 
@@ -324,9 +329,9 @@ function SpecifierResults({ query }: { query: string }) {
         </label>
       </section>
 
-      {results.length === 0 ? (
+      {totalMatches === 0 ? (
         <EmptySearchResults query={query} />
-      ) : (
+      ) : results.length > 0 ? (
         <section aria-label="Specifier matches" className="grid gap-3">
           {results.map(({ record }, index) => (
             <article
@@ -398,9 +403,9 @@ function SpecifierResults({ query }: { query: string }) {
             </article>
           ))}
         </section>
-      )}
+      ) : null}
 
-      <SpecifierCatalogueMatches query={query} excludeLabels={curatedLabels} />
+      <SpecifierCatalogueMatches matches={catalogueMatches} />
 
       <SpecifierSafetyNote />
     </SpecifierPageShell>

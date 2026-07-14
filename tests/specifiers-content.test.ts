@@ -103,6 +103,21 @@ describe("specifiers content catalog", () => {
     }
   });
 
+  it("does not mislabel timing/onset specifiers as symptom-count thresholds", () => {
+    // PTSD "delayed expression" is a timing threshold and Conduct "adolescent-onset"
+    // is an age-of-onset threshold — neither is a symptom-count rule, so the
+    // source-verified clinical note must not claim otherwise.
+    const rows = specifierCatalogItems().filter(
+      (item) =>
+        (/post-traumatic stress disorder/i.test(item.disorderName) && /delayed expression/i.test(item.label)) ||
+        (/conduct disorder/i.test(item.disorderName) && /adolescent-onset/i.test(item.label)),
+    );
+    expect(rows.length).toBeGreaterThanOrEqual(2);
+    for (const item of rows) {
+      expect(item.definition?.clinicalNote ?? "").not.toMatch(/symptom-count threshold/i);
+    }
+  });
+
   it("gives Gaming Disorder online/offline subtypes direction-specific definitions", () => {
     // The generator originally merged both subtypes into one "online or offline"
     // string; each subtype must describe its own direction.
