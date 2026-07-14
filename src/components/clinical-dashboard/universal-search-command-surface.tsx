@@ -42,6 +42,7 @@ const domainsByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain[]>> =
   services: ["services"],
   forms: ["forms"],
   differentials: ["differentials", "presentations"],
+  dsm: ["dsm"],
   formulation: ["specifiers"],
   tools: ["tools"],
 };
@@ -53,6 +54,7 @@ const domainHeadings: Record<UniversalSearchDomain, string> = {
   forms: "Forms",
   differentials: "Differentials",
   presentations: "Presentations",
+  dsm: "DSM-5 Diagnoses",
   specifiers: "Formulation",
   tools: "Tools",
 };
@@ -722,11 +724,13 @@ export function UniversalSearchCommandSurface({
             ? "favourites"
             : modeId === "differentials"
               ? "differentials"
-              : modeId === "answer"
-                ? "answer"
-                : modeId === "tools"
-                  ? "tools"
-                  : null;
+              : modeId === "dsm"
+                ? "dsm"
+                : modeId === "answer"
+                  ? "answer"
+                  : modeId === "tools"
+                    ? "tools"
+                    : null;
 
     if (actionSetId) {
       const actions = modeActionItemsFor(actionSetId).slice(0, 3);

@@ -6,6 +6,7 @@ import { format } from "prettier";
 import { appModeDefinitions, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { documentsSearchHref, DOCUMENTS_MODE_HOME_ROUTE } from "@/lib/document-flow-routes";
 import { differentialRecords } from "@/lib/differentials";
+import { dsmDiagnoses } from "@/lib/dsm";
 import { formulationMechanisms } from "@/lib/formulation";
 import { formRecords } from "@/lib/forms";
 import { serviceRecords } from "@/lib/services";
@@ -40,6 +41,11 @@ const routeDescriptions: Record<string, string> = {
   "/differentials/diagnoses": "Diagnosis stream.",
   "/differentials/diagnoses/[slug]": "Differential diagnosis detail.",
   "/differentials/presentations": "Presentation workflow stream.",
+  "/dsm": "DSM-5 Diagnosis home.",
+  "/dsm/search": "DSM diagnosis search and catalogue browser.",
+  "/dsm/compare": "DSM diagnosis comparison.",
+  "/dsm/diagnoses/[slug]": "DSM diagnosis criteria and information.",
+  "/dsm/diagnoses/[slug]/differentials": "DSM diagnosis differential considerations.",
   "/documents/[id]": "Document viewer/detail page.",
   "/documents/search": "Documents search command centre.",
   "/documents/source": "Compatibility redirect to the canonical live document viewer when a valid id is supplied.",
@@ -97,6 +103,8 @@ const routeOwnershipRows = [
   ["Forms", "src/app/forms, src/lib/forms.ts, src/app/api/registry/records"],
   ["Favourites", "src/app/favourites, src/components/clinical-dashboard/favourites-command-library-page.tsx"],
   ["Differentials", "src/app/differentials, src/lib/differentials.ts"],
+  ["DSM-5 Diagnosis", "src/app/dsm, src/components/dsm, src/lib/dsm.ts"],
+  ["Specifiers (legacy redirect)", "src/app/specifiers/[[...path]]/page.tsx"],
   ["Formulation", "src/app/formulation, src/components/formulation, src/lib/formulation.ts"],
   ["Medications", "src/app/medications, src/components/clinical-dashboard/medication-prescribing-workspace.tsx"],
   ["Documents", "src/app/documents, src/lib/document-flow-routes.ts"],
@@ -206,6 +214,8 @@ function renderModeRoutes() {
     forms: appModeHomeHref("forms", { query: "transport forms", focus: true, run: true }),
     favourites: appModeHomeHref("favourites", { query: "clozapine set", focus: true, run: true }),
     differentials: appModeHomeHref("differentials", { query: "acute confusion", focus: true, run: true }),
+    dsm: appModeHomeHref("dsm", { query: "major depressive disorder", focus: true, run: true }),
+    specifiers: appModeHomeHref("specifiers", { query: "depressed but racing thoughts", focus: true, run: true }),
     formulation: appModeHomeHref("formulation", { query: "I keep going over it", focus: true, run: true }),
     prescribing: appModeHomeHref("prescribing", { query: "acamprosate renal dose", focus: true, run: true }),
     tools: appModeHomeHref("tools", { query: "medications", focus: true, run: true }),
@@ -274,6 +284,18 @@ function renderModePageIndex() {
       detail: "`/differentials/diagnoses`, `/differentials/diagnoses/[slug]`, and `/differentials/presentations`.",
     },
     {
+      mode: "DSM-5 Diagnosis",
+      home: appModeHomeHref("dsm"),
+      search: appModeHomeHref("dsm", { query: "major depressive disorder", focus: true, run: true }),
+      detail: "`/dsm/diagnoses/[slug]`, `/dsm/compare`, and `/dsm/diagnoses/[slug]/differentials`.",
+    },
+    {
+      mode: "Specifiers",
+      home: appModeHomeHref("specifiers"),
+      search: appModeHomeHref("specifiers", { query: "depressed but racing thoughts", focus: true, run: true }),
+      detail: "Compatibility entry that redirects through `/specifiers` into the Formulation workspace.",
+    },
+    {
       mode: "Formulation",
       home: appModeHomeHref("formulation"),
       search: appModeHomeHref("formulation", { query: "I keep going over it", focus: true, run: true }),
@@ -327,6 +349,8 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "/services/[slug]",
         "/forms/[slug]",
         "/differentials/diagnoses/[slug]",
+        "/dsm/diagnoses/[slug]",
+        "/dsm/diagnoses/[slug]/differentials",
         "/formulation/[slug]",
         "/medications/[slug]",
       ].includes(route.route),
@@ -375,6 +399,12 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "Differential diagnosis slugs",
         "/differentials/diagnoses/[slug]",
         differentialRecords.map((record) => record.slug),
+      ),
+      "",
+      ...renderSlugInventory(
+        "DSM diagnosis slugs",
+        "/dsm/diagnoses/[slug]",
+        dsmDiagnoses.map((record) => record.slug),
       ),
       "",
       ...renderSlugInventory(

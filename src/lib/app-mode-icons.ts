@@ -1,4 +1,5 @@
 import {
+  BookOpenCheck,
   BrainCircuit,
   FileSignature,
   FileText,
@@ -7,6 +8,7 @@ import {
   Pill,
   Route,
   Sparkles,
+  Tags,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -21,6 +23,8 @@ export const appModeIcons: Record<AppModeId, LucideIcon> = {
   forms: FileSignature,
   favourites: Heart,
   differentials: BrainCircuit,
+  dsm: BookOpenCheck,
+  specifiers: Tags,
   formulation: Network,
   prescribing: Pill,
   tools: Wrench,

@@ -36,6 +36,7 @@ import {
   ShieldCheck,
   Sparkles,
   Table2,
+  Tags,
   UploadCloud,
   Waypoints,
   Wrench,
@@ -55,6 +56,8 @@ export type ModeActionSetId =
   | "favourites"
   | "tools"
   | "differentials"
+  | "dsm"
+  | "specifiers"
   | "formulation"
   | "prescribing";
 export type ModeActionPlacement = "up" | "down";
@@ -118,6 +121,13 @@ export type ModeActionId =
   | "differentials-criteria"
   | "differentials-documents"
   | "differentials-evidence"
+  | "dsm-search"
+  | "dsm-compare"
+  | "dsm-criteria"
+  | "specifiers-search"
+  | "specifiers-builder"
+  | "specifiers-compare"
+  | "specifiers-map"
   | "formulation-search"
   | "formulation-builder"
   | "formulation-compare"
@@ -230,6 +240,49 @@ const modeActionSets = {
       icon: FileText,
     },
     { id: "differentials-evidence", label: "View evidence", description: "Review cited support", icon: ShieldCheck },
+  ],
+  dsm: [
+    {
+      id: "dsm-search",
+      label: "Search diagnoses",
+      description: "Find criteria and ICD codes",
+      icon: Search,
+      primary: true,
+    },
+    {
+      id: "dsm-compare",
+      label: "Compare diagnoses",
+      description: "Review distinctions side by side",
+      icon: GitBranch,
+    },
+    {
+      id: "dsm-criteria",
+      label: "Review criteria",
+      description: "Open core diagnostic criteria",
+      icon: ListChecks,
+    },
+  ],
+  specifiers: [
+    {
+      id: "specifiers-search",
+      label: "Find a specifier",
+      description: "Match presentation features",
+      icon: Tags,
+      primary: true,
+    },
+    {
+      id: "specifiers-builder",
+      label: "Build wording",
+      description: "Assemble diagnostic wording",
+      icon: ListChecks,
+    },
+    {
+      id: "specifiers-compare",
+      label: "Compare specifiers",
+      description: "Clarify close clinical calls",
+      icon: GitCompareArrows,
+    },
+    { id: "specifiers-map", label: "Specifier map", description: "Browse by diagnostic role", icon: Waypoints },
   ],
   formulation: [
     {

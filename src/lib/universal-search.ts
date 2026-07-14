@@ -9,6 +9,7 @@ import {
   rankDifferentialRecords,
   rankPresentationWorkflows,
 } from "@/lib/differentials";
+import { dsmDiagnosisSummary, rankDsmDiagnoses } from "@/lib/dsm";
 import { formRecords, rankFormRecords, type FormRecord } from "@/lib/forms";
 import { rowToMedicationRecord } from "@/lib/medication-records";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
@@ -244,6 +245,22 @@ async function searchPresentationsDomain(args: ResolvedSearchArgs): Promise<Univ
   }));
 }
 
+async function searchDsmDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
+  return rankDsmDiagnoses(args.baseQuery, args.limitPerDomain, args.expansions).map((match) => {
+    const summary = dsmDiagnosisSummary(match.diagnosis);
+    return {
+      id: match.diagnosis.slug,
+      kind: "dsm" as const,
+      title: match.diagnosis.title,
+      subtitle: summary.summary,
+      href: `/dsm/diagnoses/${match.diagnosis.slug}`,
+      score: match.score,
+      badge: match.diagnosis.icd_code,
+      meta: match.diagnosis.category.label,
+    };
+  });
+}
+
 async function searchToolsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   return rankToolRecords(args.baseQuery, args.limitPerDomain, args.expansions).map((match) => ({
     id: match.tool.id,
@@ -370,6 +387,7 @@ const domainAdapters: Record<
   forms: { run: searchFormsDomain, timeoutMs: registryDomainTimeoutMs },
   differentials: { run: searchDifferentialsDomain, timeoutMs: registryDomainTimeoutMs },
   presentations: { run: searchPresentationsDomain, timeoutMs: registryDomainTimeoutMs },
+  dsm: { run: searchDsmDomain, timeoutMs: registryDomainTimeoutMs },
   specifiers: { run: searchSpecifiersDomain, timeoutMs: registryDomainTimeoutMs },
   tools: { run: searchToolsDomain, timeoutMs: registryDomainTimeoutMs },
 };
@@ -560,6 +578,8 @@ export function universalSearchViewAllHref(domain: UniversalSearchDomain, query:
     // The differentials mode home search composes both kinds, so presentations share it.
     case "presentations":
       return `/differentials?q=${encodeURIComponent(query)}&run=1`;
+    case "dsm":
+      return `/dsm/search?q=${encodeURIComponent(query)}&run=1`;
     case "specifiers":
       return `/formulation?q=${encodeURIComponent(query)}&run=1`;
     case "tools":
