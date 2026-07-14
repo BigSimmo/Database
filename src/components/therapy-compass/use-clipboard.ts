@@ -30,6 +30,7 @@ export function useClipboard(resetMs = 1400) {
   const [copied, setCopied] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = useRef(true);
+  const latestRequest = useRef(0);
 
   useEffect(() => {
     mounted.current = true;
@@ -41,8 +42,12 @@ export function useClipboard(resetMs = 1400) {
 
   const copy = useCallback(
     (text: string, key = "default") => {
+      // One hook instance is shared across several controls, so tag each request
+      // and ignore stale completions: a later copy supersedes this one, and its
+      // (possibly out-of-order) success must not overwrite the newer feedback.
+      const request = ++latestRequest.current;
       void copyText(text).then((ok) => {
-        if (!ok || !mounted.current) return;
+        if (!ok || !mounted.current || request !== latestRequest.current) return;
         setCopied(key);
         if (timer.current) clearTimeout(timer.current);
         timer.current = setTimeout(() => setCopied(null), resetMs);

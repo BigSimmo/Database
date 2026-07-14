@@ -72,4 +72,29 @@ describe("useClipboard", () => {
     await settle();
     expect(result.current.copied).toBeNull();
   });
+
+  it("ignores a stale out-of-order completion and keeps the most recent copy's key", async () => {
+    const resolvers: Array<() => void> = [];
+    setWriteText(vi.fn().mockImplementation(() => new Promise<void>((resolve) => resolvers.push(resolve))));
+    const { result } = renderHook(() => useClipboard());
+
+    act(() => result.current.copy("first", "k-first"));
+    act(() => result.current.copy("second", "k-second"));
+    expect(resolvers).toHaveLength(2);
+
+    // The most recent (second) write resolves first — its key wins.
+    await act(async () => {
+      resolvers[1]();
+      await Promise.resolve();
+    });
+    expect(result.current.copied).toBe("k-second");
+
+    // The stale (first) write resolves later — it must NOT overwrite the newer feedback.
+    await act(async () => {
+      resolvers[0]();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.copied).toBe("k-second");
+  });
 });
