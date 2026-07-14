@@ -36,6 +36,7 @@ on:
       - "worker/python/requirements.txt"
       - "scripts/check-node-engine.cjs"
       - "scripts/guard-next-build.mjs"
+      - "scripts/build-worker.mjs"
       - ".github/workflows/docker-image.yml"
   workflow_dispatch:
   schedule:

@@ -19,3 +19,4 @@ dev-server.log
 Dockerfile
 Dockerfile.worker
 .dockerignore
+dist

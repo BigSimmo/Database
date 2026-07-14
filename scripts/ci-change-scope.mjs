@@ -134,7 +134,7 @@ const containerPatterns = [
   "railway.app.json",
   "railway.worker.json",
   "worker/python/requirements.txt",
-  /^scripts\/(check-node-engine|guard-next-build)\.(?:cjs|mjs)$/,
+  /^scripts\/(check-node-engine|guard-next-build|build-worker)\.(?:cjs|mjs)$/,
 ];
 
 const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
