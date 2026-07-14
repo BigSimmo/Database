@@ -3583,7 +3583,7 @@ export function ClinicalDashboard({
                     </div>
                   ) : null)}
 
-                {showUniversalAlsoMatches ? (
+                {showUniversalAlsoMatches && activeModeResultKind !== "answer" ? (
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
@@ -3745,6 +3745,10 @@ export function ClinicalDashboard({
                       void ask(recentQuery);
                     }}
                   />
+                ) : null}
+
+                {showUniversalAlsoMatches && activeModeResultKind === "answer" ? (
+                  <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
               </section>
 

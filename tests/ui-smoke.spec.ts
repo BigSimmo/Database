@@ -1719,15 +1719,20 @@ test.describe("Clinical KB UI smoke coverage", () => {
       const main = document.querySelector("main#main-content");
       const header = document.querySelector("header");
       const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
+      const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
       return {
         scrollHeight: main?.scrollHeight ?? 0,
         clientHeight: main?.clientHeight ?? 0,
         headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
         surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
+        alsoMatchesHeight: alsoMatches ? Math.ceil(alsoMatches.getBoundingClientRect().height) : 0,
       };
     });
-    // Content-sized section => no phantom scroll (old floor made scrollHeight ≫ clientHeight).
-    expect(geo.scrollHeight - geo.clientHeight).toBeLessThanOrEqual(4);
+    // Content-sized section => no unexplained phantom scroll. Submitted universal
+    // matches are real content below the answer, so their compact panel may account
+    // for the overflow; the old viewport floor created much more empty scroll.
+    const permittedOverflow = geo.alsoMatchesHeight > 0 ? geo.alsoMatchesHeight + 24 : 4;
+    expect(geo.scrollHeight - geo.clientHeight).toBeLessThanOrEqual(permittedOverflow);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
     // (a bottom-anchor regression would push surfaceTop far down the viewport).
     expect(geo.surfaceTop - geo.headerBottom).toBeGreaterThanOrEqual(0);

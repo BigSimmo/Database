@@ -798,6 +798,15 @@ export function UniversalSearchCommandSurface({
       });
     }
 
+    if (modeId === "answer") {
+      const actionsIndex = built.findIndex((section) => section.key === "actions");
+      if (actionsIndex >= 0) {
+        const [actionsSection] = built.splice(actionsIndex, 1);
+        const insertionIndex = built[0]?.key === "top-hit" ? 1 : 0;
+        built.splice(insertionIndex, 0, actionsSection);
+      }
+    }
+
     return built;
   }, [
     config,
