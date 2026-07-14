@@ -1,0 +1,125 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  curatedEnrichmentFor,
+  getSpecifierCatalogItem,
+  popularCatalogSlugs,
+  specifierCatalogItems,
+  specifierSlug,
+  specifiersStats,
+} from "@/lib/specifiers-content";
+import { searchSpecifierCatalog, specifierIndexItems, specifierVerifiedCount } from "@/lib/specifiers-search-index";
+
+describe("specifiers content catalog", () => {
+  it("flattens to the stats-reported item count", () => {
+    // Assert stats↔content consistency plus a sanity floor, rather than a brittle
+    // exact count (the dataset can gain/lose rows via governance edits).
+    expect(specifierCatalogItems().length).toBe(specifiersStats().specifierItems);
+    expect(specifiersStats().specifierItems).toBeGreaterThan(550);
+  });
+
+  it("assigns a unique slug to every item", () => {
+    const items = specifierCatalogItems();
+    const slugs = new Set(items.map((item) => item.slug));
+    expect(slugs.size).toBe(items.length);
+  });
+
+  it("derives URL-safe slugs from the row key", () => {
+    expect(specifierSlug("specifier:ndv:x:severity:mild")).toBe("specifier-ndv-x-severity-mild");
+    expect(specifierCatalogItems().every((item) => /^[a-z0-9-]+$/.test(item.slug))).toBe(true);
+  });
+
+  it("round-trips getSpecifierCatalogItem by slug", () => {
+    const sample = specifierCatalogItems()[0];
+    expect(getSpecifierCatalogItem(sample.slug)?.label).toBe(sample.label);
+    expect(getSpecifierCatalogItem("does-not-exist")).toBeUndefined();
+  });
+
+  it("keeps the compact client index in sync with the full catalog", () => {
+    const catalogSlugs = new Set(specifierCatalogItems().map((item) => item.slug));
+    expect(specifierIndexItems.length).toBe(catalogSlugs.size);
+    expect(specifierIndexItems.every((item) => catalogSlugs.has(item.slug))).toBe(true);
+  });
+
+  it("never invents a definition for self-explanatory items", () => {
+    for (const item of specifierCatalogItems()) {
+      if (item.definitionStatus === "obvious-no-definition") {
+        expect(item.definition).toBeNull();
+      }
+    }
+  });
+
+  it("pre-renders a bounded subset (source-verified) rather than all 586", () => {
+    const slugs = popularCatalogSlugs();
+    expect(slugs.length).toBeGreaterThan(0);
+    expect(slugs.length).toBeLessThan(specifierCatalogItems().length);
+    expect(slugs.length).toBe(Math.min(96, specifierVerifiedCount));
+  });
+
+  it("enriches a catalog item that matches a curated record", () => {
+    const anxious = specifierCatalogItems().find((item) => /anxious distress/i.test(item.label));
+    expect(anxious).toBeDefined();
+    const enrichment = curatedEnrichmentFor(anxious!);
+    expect(enrichment?.fit.length).toBeGreaterThan(0);
+  });
+
+  it("does not enrich generic labels from unrelated diagnostic categories", () => {
+    // An Intellectual Developmental Disorder "Mild" severity row must not pick up
+    // the mood "Mild severity" curated guidance.
+    const nonMoodMild = specifierCatalogItems().find(
+      (item) => item.categoryId === "ndv" && item.label.toLowerCase() === "mild",
+    );
+    expect(nonMoodMild).toBeDefined();
+    expect(curatedEnrichmentFor(nonMoodMild!)).toBeUndefined();
+  });
+
+  it("confines enrichment to mood (bipolar/depressive) categories", () => {
+    for (const item of specifierCatalogItems()) {
+      if (!["bip", "dep"].includes(item.categoryId)) {
+        expect(curatedEnrichmentFor(item)).toBeUndefined();
+      }
+    }
+  });
+
+  it("withholds unverified generated definitions behind a verification gate", () => {
+    // Unverified auto-generated definitions were systematically mis-templated in the
+    // source export, so every non-source-verified defined item must be demoted to
+    // needs-manual-or-clinician-verification with a neutral placeholder — never
+    // presenting fabricated clinical guidance as fact.
+    for (const item of specifierCatalogItems()) {
+      if (item.review.sourceVerificationStatus !== "source-verified" && item.definition) {
+        expect(item.definitionStatus).toBe("needs-manual-or-clinician-verification");
+        expect(item.definition.meaning).toMatch(/pending clinician verification/i);
+      }
+    }
+  });
+
+  it("only source-verified rows carry displayed definition text, free of cross-domain templates", () => {
+    const shown = specifierIndexItems.filter((item) => item.meaning);
+    expect(shown.length).toBe(specifierVerifiedCount);
+    for (const item of shown) {
+      expect(item.src).toBe("source-verified");
+      expect(item.meaning).not.toMatch(/tic frequency|sexual-dysfunction context|personality change presentation/i);
+    }
+  });
+});
+
+describe("searchSpecifierCatalog", () => {
+  it("finds a known specifier by label", () => {
+    const results = searchSpecifierCatalog("anxious distress");
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.some((result) => /anxious distress/i.test(result.item.label))).toBe(true);
+  });
+
+  it("returns the whole filtered category with an empty query", () => {
+    const results = searchSpecifierCatalog("", { categoryId: "dep" });
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((result) => result.item.categoryId === "dep")).toBe(true);
+  });
+
+  it("filters to source-verified items only", () => {
+    const results = searchSpecifierCatalog("", { reviewedOnly: true });
+    expect(results.length).toBe(specifierVerifiedCount);
+    expect(results.every((result) => result.item.src === "source-verified")).toBe(true);
+  });
+});
