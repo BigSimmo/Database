@@ -196,6 +196,19 @@ function registryDocumentRow(entry: RegistryCorpusEntry): TablesInsert<"document
   };
 }
 
+function registryDocumentRowPreservingOwner(
+  entry: RegistryCorpusEntry,
+  existing: Record<string, unknown> | null | undefined,
+): TablesInsert<"documents"> {
+  const document = registryDocumentRow(entry);
+  if (!existing) return document;
+  const storedOwnerId = existing.owner_id;
+  if (storedOwnerId !== null && storedOwnerId !== entry.ownerId) {
+    throw new Error(`Registry corpus owner mismatch for document ${document.id}; refusing to change tenant scope.`);
+  }
+  return { ...document, owner_id: storedOwnerId };
+}
+
 /** Registry chunk row. */
 function registryChunkRow(entry: RegistryCorpusEntry, embedding: Vector): TablesInsert<"document_chunks"> {
   const { documentId, metadata } = registryCorpusIdentity(entry);
@@ -240,10 +253,13 @@ function registryDocumentRowCurrent(
   return Object.entries(expected).every(([key, value]) => stableJson(existing[key]) === stableJson(value));
 }
 
-function registryDocumentIntentLabel(entry: RegistryCorpusEntry): TablesInsert<"document_labels"> {
+function registryDocumentIntentLabel(
+  entry: RegistryCorpusEntry,
+  ownerId: string | null = entry.ownerId,
+): TablesInsert<"document_labels"> {
   return {
     document_id: registryDocumentId(entry),
-    owner_id: entry.ownerId,
+    owner_id: ownerId,
     label: registryDocumentIntent(entry.kind),
     label_type: "document_intent",
     confidence: 1,
@@ -285,7 +301,11 @@ export function registryGovernanceProjection(entry: RegistryCorpusEntry): Regist
   };
 }
 
-async function reconcileRegistryGeneratedLabels(supabase: AdminClient, entries: RegistryCorpusEntry[]) {
+async function reconcileRegistryGeneratedLabels(
+  supabase: AdminClient,
+  entries: RegistryCorpusEntry[],
+  documentOwnerById: Map<string, string | null>,
+) {
   const documentIds = entries.map(registryDocumentId);
   const expectedIntentByDocument = new Map(
     entries.map((entry) => [registryDocumentId(entry), registryDocumentIntent(entry.kind)]),
@@ -309,9 +329,16 @@ async function reconcileRegistryGeneratedLabels(supabase: AdminClient, entries: 
     if (deleteError) throw new Error(`Registry label cleanup failed: ${deleteError.message}`);
   }
 
+  const expectedIntentLabels = entries.map((entry) => {
+    const documentId = registryDocumentId(entry);
+    return registryDocumentIntentLabel(
+      entry,
+      documentOwnerById.has(documentId) ? (documentOwnerById.get(documentId) ?? null) : entry.ownerId,
+    );
+  });
   const { error: upsertError } = await supabase
     .from("document_labels")
-    .upsert(entries.map(registryDocumentIntentLabel), { onConflict: "document_id,label_type,label,source" });
+    .upsert(expectedIntentLabels, { onConflict: "document_id,label_type,label,source" });
   if (upsertError) throw new Error(`Registry intent label upsert failed: ${upsertError.message}`);
 }
 
@@ -454,8 +481,10 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
 
   for (let start = 0; start < entries.length; start += REGISTRY_EMBEDDING_WRITE_BATCH_SIZE) {
     const batch = entries.slice(start, start + REGISTRY_EMBEDDING_WRITE_BATCH_SIZE);
-    const documents = batch.map(registryDocumentRow);
-    const documentIds = documents.map((document) => document.id).filter((id): id is string => typeof id === "string");
+    const derivedDocuments = batch.map(registryDocumentRow);
+    const documentIds = derivedDocuments
+      .map((document) => document.id)
+      .filter((id): id is string => typeof id === "string");
     const chunkIds = batch.map(registryChunkId);
 
     const { data: existingDocuments, error: existingDocumentError } = await supabase
@@ -475,6 +504,20 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
 
     const existingDocumentById = new Map((existingDocuments ?? []).map((document) => [document.id, document]));
     const existingChunkById = new Map((existingChunks ?? []).map((chunk) => [chunk.id, chunk]));
+    const documents = batch.map((entry, index) => {
+      const documentId = derivedDocuments[index]?.id;
+      return registryDocumentRowPreservingOwner(
+        entry,
+        typeof documentId === "string" ? existingDocumentById.get(documentId) : null,
+      );
+    });
+    const documentOwnerById = new Map(
+      documents.flatMap((document) =>
+        typeof document.id === "string"
+          ? ([[document.id, document.owner_id ?? null]] as Array<[string, string | null]>)
+          : [],
+      ),
+    );
     const pendingEntries = batch.flatMap((entry, index) => {
       const document = documents[index];
       if (!document?.id) return [];
@@ -534,7 +577,7 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
       chunkCount += pendingChunks.length;
     }
 
-    await reconcileRegistryGeneratedLabels(supabase, batch);
+    await reconcileRegistryGeneratedLabels(supabase, batch, documentOwnerById);
   }
 
   return { documentCount, chunkCount };

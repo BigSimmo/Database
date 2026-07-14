@@ -483,13 +483,8 @@ async function exerciseTenancyBoundary(args: {
     { method: "POST", body: JSON.stringify({ mode: "full" }) },
     [404],
   );
-  await requestJson(
-    config,
-    tokenA,
-    `/api/documents/${fixtureA.documentId}/reindex`,
-    { method: "POST", body: JSON.stringify({ mode: "full" }) },
-    [201],
-  );
+  // This staging profile deliberately has no ingestion worker. The cross-tenant 404 above is the
+  // isolation proof; do not enqueue owner A's real reindex only to race fixture cleanup.
   checkpoints.push("reindex");
 }
 

@@ -753,11 +753,11 @@ export function ClinicalDashboard({
   const explicitDemoMode = demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   const clientDemoMode = explicitDemoMode || browserAuthUnavailableDemoFallback || localNoAuthMode;
   const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
-  activeAnswerThreadOwnerIdRef.current = answerThreadOwnerId;
   const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
   useEffect(() => {
     const previousOwnerId = previousAnswerThreadOwnerIdRef.current;
     previousAnswerThreadOwnerIdRef.current = answerThreadOwnerId;
+    activeAnswerThreadOwnerIdRef.current = answerThreadOwnerId;
     if (!previousOwnerId || previousOwnerId === answerThreadOwnerId) return;
     answerThreadBootstrappedRef.current = false;
     queueMicrotask(() => {

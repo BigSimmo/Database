@@ -2618,7 +2618,7 @@ export function DocumentViewer({
                       onUrlExpired={handleSignedUrlExpired}
                       onLoadSuccess={handlePdfLoadSuccess}
                       onPageChange={(page) => {
-                        window.history.pushState(null, "", documentPageHref(documentId, page));
+                        router.push(documentPageHref(documentId, page), { scroll: false });
                       }}
                     />
                   )}

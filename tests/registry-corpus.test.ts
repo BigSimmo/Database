@@ -169,6 +169,49 @@ describe("registry corpus", () => {
     expect(embedTextsMock).toHaveBeenCalledTimes(1);
   });
 
+  it("preserves public ownership during metadata and generated-label refreshes", async () => {
+    const { supabase, documents, labels } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const { embedClinicalRegistryRows } = await import("../src/lib/registry-corpus");
+
+    await embedClinicalRegistryRows(supabase as never, [registryRow()]);
+    const [documentId] = [...documents.keys()];
+    const stored = documents.get(documentId!)!;
+    documents.set(documentId!, {
+      ...stored,
+      owner_id: null,
+      metadata: { ...(stored.metadata as Record<string, unknown>), registry_detail_href: "/legacy/crisis-service" },
+    });
+    const [intentLabelKey] = [...labels.keys()];
+    labels.set(intentLabelKey!, { ...labels.get(intentLabelKey!)!, owner_id: null });
+
+    await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).resolves.toEqual({
+      documentCount: 1,
+      chunkCount: 1,
+    });
+    expect(documents.get(documentId!)?.owner_id).toBeNull();
+    expect(labels.get(intentLabelKey!)?.owner_id).toBeNull();
+    expect(embedTextsMock).toHaveBeenCalledTimes(1);
+    await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).resolves.toEqual({
+      documentCount: 0,
+      chunkCount: 0,
+    });
+  });
+
+  it("refuses to move a registry document from another tenant", async () => {
+    const { supabase, documents } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const { embedClinicalRegistryRows } = await import("../src/lib/registry-corpus");
+
+    await embedClinicalRegistryRows(supabase as never, [registryRow()]);
+    const [documentId] = [...documents.keys()];
+    documents.set(documentId!, { ...documents.get(documentId!)!, owner_id: "33333333-3333-4333-8333-333333333333" });
+
+    await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).rejects.toThrow(
+      /owner mismatch.*refusing to change tenant scope/i,
+    );
+  });
+
   it("writes validation evidence and reconciles registry smart-v2 labels without generated sites", async () => {
     const { supabase, documents, chunks, labels } = corpusHarness();
     embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
