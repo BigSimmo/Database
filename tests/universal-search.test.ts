@@ -47,9 +47,25 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
       limitPerDomain: 5,
       demo: true,
     });
-    const formulation = formulationResponse.groups.find((group) => group.kind === "specifiers");
+    const formulation = formulationResponse.groups.find((group) => group.kind === "formulation");
     expect(formulation?.items[0]?.title).toBe("Avoidance");
     expect(formulation?.items[0]?.href).toBe("/formulation/avoidance");
+
+    const specifierResponse = await runUniversalSearch({
+      query: "depressed but racing thoughts",
+      limitPerDomain: 5,
+      demo: true,
+    });
+    const specifiers = specifierResponse.groups.find((group) => group.kind === "specifiers");
+    expect(specifiers?.items[0]?.title).toBe("With mixed features");
+    expect(specifiers?.items[0]?.href).toBe("/specifiers/with-mixed-features");
+  });
+
+  it("keeps view-all destinations separate for specifiers and formulation", async () => {
+    const { universalSearchViewAllHref } = await loadUniversalSearch();
+
+    expect(universalSearchViewAllHref("specifiers", "mixed features")).toBe("/specifiers?q=mixed%20features&run=1");
+    expect(universalSearchViewAllHref("formulation", "rumination")).toBe("/formulation?q=rumination&run=1");
   });
 
   it("filters to requested domains only", async () => {
@@ -61,9 +77,17 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
       demo: true,
     });
     expect(response.groups.map((group) => group.kind)).toEqual(
-      ["documents", "medications", "services", "forms", "differentials", "presentations", "specifiers", "tools"].filter(
-        (domain) => ["tools", "differentials"].includes(domain),
-      ),
+      [
+        "documents",
+        "medications",
+        "services",
+        "forms",
+        "differentials",
+        "presentations",
+        "specifiers",
+        "formulation",
+        "tools",
+      ].filter((domain) => ["tools", "differentials"].includes(domain)),
     );
   });
 
@@ -267,7 +291,7 @@ describe("runUniversalSearch (query intelligence & ranking)", () => {
     expect(response.contextMode).toBe("documents");
     expect(response.preferredDomains).toEqual(["documents"]);
     expect(response.domainOrder?.[0]).toBe("documents");
-    expect(response.topHit?.kind).toBe("specifiers");
+    expect(response.topHit?.kind).toBe("formulation");
     expect(response.topHit?.title).toBe("Avoidance");
   });
 
@@ -461,6 +485,7 @@ describe("GET /api/search/universal (live public/owner path)", () => {
         "differentials",
         "presentations",
         "specifiers",
+        "formulation",
         "tools",
       ],
     }));

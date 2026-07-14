@@ -276,6 +276,7 @@ export function MasterSearchHeader({
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
     selectedSearch.kind === "favourites" ||
+    selectedSearch.kind === "specifiers" ||
     selectedSearch.kind === "formulation";
   const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
   const indexedDocumentTotal = documentTotal ?? documents.length;
@@ -443,11 +444,13 @@ export function MasterSearchHeader({
               ? "favourites"
               : searchMode === "differentials"
                 ? "differentials"
-                : searchMode === "formulation"
-                  ? "formulation"
-                  : searchMode === "tools"
-                    ? "tools"
-                    : "answer";
+                : searchMode === "specifiers"
+                  ? "specifiers"
+                  : searchMode === "formulation"
+                    ? "formulation"
+                    : searchMode === "tools"
+                      ? "tools"
+                      : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
   const actionMenuSubtitle = searchMode === "answer" ? "Source-backed mode" : selectedAppMode.description;
@@ -606,6 +609,22 @@ export function MasterSearchHeader({
     }
     if (actionId === "differentials-evidence") {
       onOpenEvidence?.();
+      return;
+    }
+    if (actionId === "specifiers-search") {
+      onSearchModeChange("specifiers");
+      return;
+    }
+    if (actionId === "specifiers-builder") {
+      window.location.assign("/specifiers/builder");
+      return;
+    }
+    if (actionId === "specifiers-compare") {
+      window.location.assign("/specifiers/compare");
+      return;
+    }
+    if (actionId === "specifiers-map") {
+      window.location.assign("/specifiers/map");
       return;
     }
     if (actionId === "formulation-search") {

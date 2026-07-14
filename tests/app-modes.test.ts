@@ -12,14 +12,17 @@ import {
   isSearchableAppMode,
   visibleAppModeDefinitions,
 } from "@/lib/app-modes";
-import { universalSearchPreferredDomains } from "@/lib/universal-search-mode-context";
+import { universalSearchModeForDomain, universalSearchPreferredDomains } from "@/lib/universal-search-mode-context";
 
 describe("app mode search contract", () => {
   it("maps every mode to its preferred universal-search domains", () => {
     expect(universalSearchPreferredDomains("answer")).toEqual(["documents"]);
     expect(universalSearchPreferredDomains("prescribing")).toEqual(["medications", "documents"]);
     expect(universalSearchPreferredDomains("differentials")).toEqual(["differentials", "presentations"]);
-    expect(universalSearchPreferredDomains("formulation")).toEqual(["specifiers"]);
+    expect(universalSearchPreferredDomains("specifiers")).toEqual(["specifiers"]);
+    expect(universalSearchPreferredDomains("formulation")).toEqual(["formulation"]);
+    expect(universalSearchModeForDomain("specifiers")).toBe("specifiers");
+    expect(universalSearchModeForDomain("formulation")).toBe("formulation");
     expect(universalSearchPreferredDomains("favourites")).toEqual([]);
   });
 
@@ -124,6 +127,18 @@ describe("app mode search contract", () => {
     expect(config.placeholder.toLowerCase()).toContain("pattern");
   });
 
+  it("keeps specifiers separate from formulation as diagnostic wording support", () => {
+    const config = appModeSearchConfig("specifiers");
+    const mode = appModeDefinitions.find((definition) => definition.id === "specifiers");
+
+    expect(isSearchableAppMode("specifiers")).toBe(true);
+    expect(mode?.href).toBe("/specifiers");
+    expect(config.kind).toBe("specifiers");
+    expect(config.resultKind).toBe("specifiers");
+    expect(config.placeholder.toLowerCase()).toContain("specifier");
+    expect(appModeHomeHref("specifiers")).not.toBe(appModeHomeHref("formulation"));
+  });
+
   it("keeps source-library shortcut searches in their active mode family", () => {
     expect(appModeCanUseSourceLibraryShortcut("answer")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("tools")).toBe(false);
@@ -135,6 +150,7 @@ describe("app mode search contract", () => {
     expect(appModeCanUseSourceLibraryShortcut("favourites")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("prescribing")).toBe(true);
     expect(appModeCanUseSourceLibraryShortcut("differentials")).toBe(true);
+    expect(appModeCanUseSourceLibraryShortcut("specifiers")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("formulation")).toBe(false);
 
     expect(appModeSourceLibrarySearchMode("documents")).toBe("documents");
@@ -165,6 +181,9 @@ describe("app mode search contract", () => {
     );
     expect(appModeHomeHref("differentials", { query: "  acute confusion  ", focus: true })).toBe(
       "/differentials?q=acute+confusion&focus=1",
+    );
+    expect(appModeHomeHref("specifiers", { query: "  depressed but racing thoughts  ", run: true, focus: true })).toBe(
+      "/specifiers?q=depressed+but+racing+thoughts&focus=1&run=1",
     );
     expect(appModeHomeHref("formulation", { query: "  I keep going over it  ", run: true, focus: true })).toBe(
       "/formulation?q=I+keep+going+over+it&focus=1&run=1",
@@ -204,6 +223,7 @@ describe("app mode search contract", () => {
         "forms",
         "favourites",
         "differentials",
+        "specifiers",
         "formulation",
         "prescribing",
         "tools",
@@ -221,6 +241,7 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("forms", "production")).toBe(true);
     expect(isAppModeVisible("favourites", "production")).toBe(true);
     expect(isAppModeVisible("differentials", "production")).toBe(true);
+    expect(isAppModeVisible("specifiers", "production")).toBe(true);
     expect(isAppModeVisible("formulation", "production")).toBe(true);
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
     expect(isAppModeVisible("tools", "production")).toBe(true);
@@ -229,6 +250,7 @@ describe("app mode search contract", () => {
     expect(productionModes).toContain("forms");
     expect(productionModes).toContain("favourites");
     expect(productionModes).toContain("differentials");
+    expect(productionModes).toContain("specifiers");
     expect(productionModes).toContain("formulation");
     expect(productionModes).toContain("prescribing");
     expect(productionModes).toContain("tools");
@@ -240,6 +262,7 @@ describe("app mode search contract", () => {
         "forms",
         "favourites",
         "differentials",
+        "specifiers",
         "formulation",
         "prescribing",
         "tools",

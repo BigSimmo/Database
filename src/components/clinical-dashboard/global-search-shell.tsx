@@ -126,6 +126,7 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
     resolvedSearchMode !== "forms" &&
     resolvedSearchMode !== "favourites" &&
     resolvedSearchMode !== "differentials" &&
+    resolvedSearchMode !== "specifiers" &&
     resolvedSearchMode !== "formulation" &&
     !isDocumentSearchMockupRoute;
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
@@ -236,7 +237,7 @@ function GlobalStandaloneSearchShellClient({
   const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search");
   const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
-  // Services, forms, and favourites own their submitted-search views on their
+  // Registry and local decision-support modes own their submitted-search views on their
   // standalone routes; the shell must not swap them to the dashboard. On the
   // home route the dashboard always renders, so these exclusions only apply
   // to the standalone pages.
@@ -246,6 +247,7 @@ function GlobalStandaloneSearchShellClient({
     resolvedSearchMode !== "forms" &&
     resolvedSearchMode !== "favourites" &&
     resolvedSearchMode !== "differentials" &&
+    resolvedSearchMode !== "specifiers" &&
     resolvedSearchMode !== "formulation" &&
     !isDocumentSearchMockupRoute;
   const isStandaloneModeHome =
@@ -255,6 +257,7 @@ function GlobalStandaloneSearchShellClient({
       (searchMode === "forms" && pathname === "/forms") ||
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials") ||
+      (searchMode === "specifiers" && pathname === "/specifiers") ||
       (searchMode === "formulation" && pathname === "/formulation") ||
       (searchMode === "tools" && pathname === "/tools"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
@@ -334,6 +337,7 @@ function GlobalStandaloneSearchShellClient({
     router.prefetch("/?mode=tools");
     router.prefetch("/favourites");
     router.prefetch("/differentials");
+    router.prefetch("/specifiers");
     router.prefetch("/formulation");
   }
 

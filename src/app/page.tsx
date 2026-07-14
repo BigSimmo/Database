@@ -25,7 +25,6 @@ export default async function Home({ searchParams }: HomeProps) {
   await connection();
   const params = searchParams ? await searchParams : {};
   const requestedMode = firstSearchParam(params.mode);
-  const legacySpecifierMode = requestedMode === "specifiers";
   const initialSearchMode: AppModeId =
     isAppModeId(requestedMode) && isAppModeVisible(requestedMode) ? requestedMode : "answer";
 
@@ -51,7 +50,17 @@ export default async function Home({ searchParams }: HomeProps) {
     redirect(suffix ? `/differentials?${suffix}` : "/differentials");
   }
 
-  if (initialSearchMode === "formulation" || legacySpecifierMode) {
+  if (initialSearchMode === "specifiers") {
+    const specifierParams = new URLSearchParams();
+    const query = firstSearchParam(params.q)?.trim();
+    if (query) specifierParams.set("q", query);
+    if (firstSearchParam(params.focus) === "1") specifierParams.set("focus", "1");
+    if (firstSearchParam(params.run) === "1") specifierParams.set("run", "1");
+    const suffix = specifierParams.toString();
+    redirect(suffix ? `/specifiers?${suffix}` : "/specifiers");
+  }
+
+  if (initialSearchMode === "formulation") {
     const formulationParams = new URLSearchParams();
     const query = firstSearchParam(params.q)?.trim();
     if (query) formulationParams.set("q", query);

@@ -101,7 +101,8 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
   await expectNoHorizontalOverflow(page);
 
   await page.getByRole("link", { name: "Open Worry" }).click();
-  await expect(page.getByRole("heading", { name: "Worry", exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/formulation\/worry$/, { timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Worry", exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("link", { name: "Compare", exact: true }).last()).toBeVisible();
   await expect(page.getByRole("link", { name: "Use in formulation", exact: true }).first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
@@ -146,32 +147,20 @@ test("moves a selected mechanism through framework, quality review, and an edita
   await expectNoBlockingAxeViolations(page, testInfo);
 });
 
-test("keeps legacy specifier detail links on a valid formulation route", async ({ page }) => {
+test("keeps specifier and formulation route families clinically separate", async ({ page }) => {
   await gotoApp(page, "/specifiers/with-anxious-distress");
 
-  await expect(page).toHaveURL(/\/formulation\?q=with\+anxious\+distress&run=1$/);
-  await expect(page.getByRole("heading", { name: /Mechanisms matching “with anxious distress”/ })).toBeVisible();
+  await expect(page).toHaveURL(/\/specifiers\/with-anxious-distress$/);
+  await expect(page.getByRole("heading", { name: "With anxious distress", exact: true })).toBeVisible();
+  await expect(page.getByText("Psychiatric specifier", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Mechanisms matching/)).toHaveCount(0);
   await expect(page.getByText("Page not found", { exact: true })).toHaveCount(0);
 
-  await gotoApp(page, "/specifiers/compare?specifier=rumination&specifier=worry");
-  await expect(page).toHaveURL(/\/formulation\/compare\?a=rumination&b=worry$/);
-  await expect(page.getByRole("combobox", { name: "Mechanism A" })).toHaveValue("rumination");
-  await expect(page.getByRole("combobox", { name: "Mechanism B" })).toHaveValue("worry");
-
-  await gotoApp(page, "/specifiers?query=I+keep+going+over+it&run=1");
-  await expect(page).toHaveURL(/\/formulation\?q=I\+keep\+going\+over\+it&run=1$/);
-  await expect(page.getByRole("heading", { name: /Mechanisms matching “I keep going over it”/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Rumination", exact: true })).toBeVisible();
-
-  await gotoApp(page, "/specifiers/builder?specifier=with-psychotic-features");
-  await expect(page).toHaveURL(/\/formulation\?q=with\+psychotic\+features&run=1$/);
-  await expect(page.getByRole("heading", { name: /Mechanisms matching “with psychotic features”/ })).toBeVisible();
-
-  await gotoApp(page, "/specifiers/compare?a=with-anxious-distress&b=with-mixed-features");
-  await expect(page).toHaveURL(/\/formulation\?q=with\+anxious\+distress\+versus\+with\+mixed\+features&run=1$/);
-  await expect(
-    page.getByRole("heading", { name: /Mechanisms matching “with anxious distress versus with mixed features”/ }),
-  ).toBeVisible();
+  await gotoApp(page, "/formulation/rumination");
+  await expect(page).toHaveURL(/\/formulation\/rumination$/);
+  await expect(page.getByRole("heading", { name: "Rumination", exact: true })).toBeVisible();
+  await expect(page.getByText("Formulation mechanism", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("With anxious distress", { exact: true })).toHaveCount(0);
 });
 
 test("compares supported alternatives and groups mechanisms without implying causation", async ({ page }) => {

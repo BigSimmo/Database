@@ -35,6 +35,7 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  Tags,
   Table2,
   UploadCloud,
   Waypoints,
@@ -55,6 +56,7 @@ export type ModeActionSetId =
   | "favourites"
   | "tools"
   | "differentials"
+  | "specifiers"
   | "formulation"
   | "prescribing";
 export type ModeActionPlacement = "up" | "down";
@@ -118,6 +120,10 @@ export type ModeActionId =
   | "differentials-criteria"
   | "differentials-documents"
   | "differentials-evidence"
+  | "specifiers-search"
+  | "specifiers-builder"
+  | "specifiers-compare"
+  | "specifiers-map"
   | "formulation-search"
   | "formulation-builder"
   | "formulation-compare"
@@ -230,6 +236,28 @@ const modeActionSets = {
       icon: FileText,
     },
     { id: "differentials-evidence", label: "View evidence", description: "Review cited support", icon: ShieldCheck },
+  ],
+  specifiers: [
+    {
+      id: "specifiers-search",
+      label: "Find a specifier",
+      description: "Match presentation features",
+      icon: Tags,
+      primary: true,
+    },
+    {
+      id: "specifiers-builder",
+      label: "Build wording",
+      description: "Assemble diagnostic wording",
+      icon: ListChecks,
+    },
+    {
+      id: "specifiers-compare",
+      label: "Compare specifiers",
+      description: "Clarify close clinical calls",
+      icon: GitCompareArrows,
+    },
+    { id: "specifiers-map", label: "Specifier map", description: "Browse by diagnostic role", icon: Waypoints },
   ],
   formulation: [
     {
