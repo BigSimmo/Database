@@ -67,7 +67,12 @@ import { NativePdfEmbed, PdfCanvasViewer } from "@/components/document-viewer/pd
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
-import { documentPageHref } from "@/lib/document-viewer-navigation";
+import {
+  documentLoadKey,
+  documentPageHref,
+  isFullDocumentReload,
+  nextLoadedDocumentKey,
+} from "@/lib/document-viewer-navigation";
 import { formatClinicalDate } from "@/lib/source-metadata";
 import { partitionViewerImages } from "@/lib/image-filtering";
 import { isLocalNoAuthMode } from "@/lib/client-env";
@@ -1846,8 +1851,8 @@ export function DocumentViewer({
 
     const controller = new AbortController();
     const authRequest = registerAuthRequest(controller);
-    const loadKey = `${documentId}::${previewAttempt}`;
-    const isFullReload = loadedKeyRef.current !== loadKey;
+    const loadKey = documentLoadKey(documentId, previewAttempt);
+    const isFullReload = isFullDocumentReload(loadedKeyRef.current, loadKey);
     const reset = window.setTimeout(() => {
       // Skip the reset on navigation so the mounted PDF and current content stay
       // visible (no loading flash) while the new page window loads in the background.
@@ -1902,9 +1907,14 @@ export function DocumentViewer({
       })
       .then(([[detailResult], signedUrlPair]) => {
         if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
-        loadedKeyRef.current = loadKey;
+        const detailLoaded = detailResult.status === "fulfilled";
+        // Advance the loaded key only on a successful detail load. A failed full
+        // load must stay "not loaded" so the next page/chunk navigation is still
+        // treated as a full reload — re-fetching signed URLs and refreshing the
+        // error — rather than a cheap navigation that skips that recovery.
+        loadedKeyRef.current = nextLoadedDocumentKey(loadedKeyRef.current, loadKey, detailLoaded);
 
-        if (detailResult.status === "fulfilled") {
+        if (detailLoaded) {
           const detail = detailResult.value;
           setDocument(detail.document ?? null);
           setPages(detail.pages ?? []);
