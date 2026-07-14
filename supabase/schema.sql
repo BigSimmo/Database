@@ -91,6 +91,18 @@ create table if not exists public.documents (
       )
     )
   ) stored,
+  -- Typed mirror of metadata->>'index_generation_id' (the committed index
+  -- generation pointer). The JSON stays the source of truth for every writer;
+  -- GENERATED ALWAYS means the column can never drift. Malformed non-UUID
+  -- values generate NULL, matching the old text-comparison reader semantics.
+  index_generation_id uuid generated always as (
+    case
+      when metadata->>'index_generation_id'
+        ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+        then (metadata->>'index_generation_id')::uuid
+      else null
+    end
+  ) stored,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -2583,6 +2595,22 @@ as $$
     or row_generation::text = nullif(coalesce(document_metadata, '{}'::jsonb)->>'index_generation_id', '');
 $$;
 
+-- Typed overload: NULL row generation keeps legacy rows visible; otherwise
+-- compare typed to typed (NULL document generation yields NULL -> filtered,
+-- exactly like the old text comparison against a missing metadata key).
+create or replace function public.is_committed_document_generation(
+  row_generation uuid,
+  document_generation uuid
+)
+returns boolean
+language sql
+stable
+set search_path = public, extensions, pg_temp
+as $$
+  select row_generation is null
+    or row_generation = document_generation;
+$$;
+
 create or replace function public.is_committed_artifact_generation(
   artifact_metadata jsonb,
   document_metadata jsonb
@@ -2660,7 +2688,7 @@ as $$
       join public.documents d on d.id = c.document_id
       where public.retrieval_owner_matches(owner_filter, d.owner_id)
         and d.status = 'indexed'
-        and public.is_committed_document_generation(c.index_generation_id, d.metadata)
+        and public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
         and c.search_tsv @@ plainto_tsquery('english', it.term)
     ) as chunk_present,
     totals.total_doc_count
@@ -2722,7 +2750,7 @@ as $$
   where (document_filter is null or c.document_id = document_filter)
     and public.retrieval_owner_matches(owner_filter, d.owner_id)
     and d.status = 'indexed'
-    and public.is_committed_document_generation(c.index_generation_id, d.metadata)
+    and public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
     and 1 - (c.embedding <=> query_embedding) >= min_similarity
   order by c.embedding <=> query_embedding
   limit match_count;
@@ -2790,7 +2818,7 @@ as $$
     where (document_filters is null or c.document_id = any(document_filters))
       and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
-      and public.is_committed_document_generation(c.index_generation_id, d.metadata)
+      and public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
       and 1 - (c.embedding <=> query_embedding) >= min_similarity
     order by c.embedding <=> query_embedding
     limit greatest(match_count * 6, 48)
@@ -2831,7 +2859,7 @@ as $$
     where (document_filters is null or c.document_id = any(document_filters))
       and public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
-      and public.is_committed_document_generation(c.index_generation_id, d.metadata)
+      and public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
       and c.search_tsv @@ query.tsq
     order by (
       ts_rank_cd(c.search_tsv, query.tsq) +
@@ -3890,7 +3918,7 @@ as $$
     cross join query
     where public.retrieval_owner_matches(owner_filter, d.owner_id)
       and d.status = 'indexed'
-      and public.is_committed_document_generation(c.index_generation_id, d.metadata)
+      and public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
     order by (
       ts_rank_cd(c.search_tsv, query.tsq) +
       (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)
@@ -4022,7 +4050,7 @@ as $$
     and c.document_id = any(document_filters)
     and public.retrieval_owner_matches(owner_filter, d.owner_id)
     and d.status = 'indexed'
-    and public.is_committed_document_generation(c.index_generation_id, d.metadata)
+    and public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
     and (c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq)
   order by text_rank desc, c.chunk_index asc
   limit least(greatest(match_count, 1), 80);
@@ -5298,6 +5326,8 @@ revoke execute on function public.cleanup_abandoned_document_index_generations(u
 grant execute on function public.cleanup_abandoned_document_index_generations(uuid, integer, boolean) to service_role;
 revoke execute on function public.is_committed_document_generation(uuid, jsonb) from public, anon, authenticated;
 grant execute on function public.is_committed_document_generation(uuid, jsonb) to service_role;
+revoke execute on function public.is_committed_document_generation(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.is_committed_document_generation(uuid, uuid) to service_role;
 revoke execute on function public.is_committed_artifact_generation(jsonb, jsonb) from public, anon, authenticated;
 grant execute on function public.is_committed_artifact_generation(jsonb, jsonb) to service_role;
 
@@ -6032,7 +6062,7 @@ select
   where (document_filter is null or c.document_id = document_filter)
     and public.retrieval_owner_matches(owner_filter, d.owner_id)
     and d.status = 'indexed'
-    and public.is_committed_document_generation(c.index_generation_id, d.metadata)
+    and public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
     and 1 - (c.embedding <=> query_embedding) >= min_similarity
   order by c.embedding <=> query_embedding
   limit match_count;
@@ -6056,7 +6086,7 @@ AS $function$
     from public.document_chunks c join public.documents d on d.id = c.document_id
     left join public.document_index_quality q on q.document_id = c.document_id cross join query
     where (document_filters is null or c.document_id = any(document_filters)) and public.retrieval_owner_matches(owner_filter, d.owner_id)
-      and d.status = 'indexed' and public.is_committed_document_generation(c.index_generation_id, d.metadata)
+      and d.status = 'indexed' and public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
       and 1 - (c.embedding <=> query_embedding) >= min_similarity
     order by c.embedding <=> query_embedding limit greatest(match_count * 6, 48)
   ),
@@ -6071,7 +6101,7 @@ AS $function$
     from public.document_chunks c join public.documents d on d.id = c.document_id
     left join public.document_index_quality q on q.document_id = c.document_id cross join query
     where (document_filters is null or c.document_id = any(document_filters)) and public.retrieval_owner_matches(owner_filter, d.owner_id)
-      and d.status = 'indexed' and public.is_committed_document_generation(c.index_generation_id, d.metadata)
+      and d.status = 'indexed' and public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
       and c.search_tsv @@ query.tsq
     order by (ts_rank_cd(c.search_tsv, query.tsq) + (ts_rank_cd(d.title_search_tsv, query.tsq) * 3.0)) desc limit greatest(match_count * 6, 48)
   ),

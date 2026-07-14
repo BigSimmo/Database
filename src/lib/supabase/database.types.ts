@@ -1123,6 +1123,7 @@ export type Database = {
           id: string;
           image_count: number;
           import_batch_id: string | null;
+          index_generation_id: string | null;
           metadata: Json;
           owner_id: string | null;
           page_count: number;
@@ -1146,6 +1147,7 @@ export type Database = {
           id?: string;
           image_count?: number;
           import_batch_id?: string | null;
+          index_generation_id?: string | null;
           metadata?: Json;
           owner_id?: string | null;
           page_count?: number;
@@ -1169,6 +1171,7 @@ export type Database = {
           id?: string;
           image_count?: number;
           import_batch_id?: string | null;
+          index_generation_id?: string | null;
           metadata?: Json;
           owner_id?: string | null;
           page_count?: number;

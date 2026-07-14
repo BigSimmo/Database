@@ -289,7 +289,10 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain("create or replace function public.jsonb_merge_deep");
     expect(schema).toContain("create or replace function public.apply_document_metadata_patch");
     expect(schema).toContain("perform public.apply_document_metadata_patch");
-    expect(schema).toContain("public.is_committed_document_generation(c.index_generation_id, d.metadata)");
+    // D2 (2026-07-14): retrieval readers compare the typed generated column on
+    // documents, not the JSONB metadata pointer.
+    expect(schema).toContain("public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)");
+    expect(schema).not.toContain("public.is_committed_document_generation(c.index_generation_id, d.metadata)");
     expect(schema).toContain("public.is_committed_artifact_generation(m.metadata, d.metadata)");
     expect(schema).toContain("public.is_committed_artifact_generation(f.metadata, d.metadata)");
     expect(schema).toContain("public.is_committed_artifact_generation(u.metadata, d.metadata)");
@@ -655,7 +658,9 @@ describe("Supabase schema Data API grants", () => {
     );
     expect(corpusStatsBody).toContain("public.retrieval_owner_matches(owner_filter, d.owner_id)");
     expect(corpusStatsBody).toContain("d.status = 'indexed'");
-    expect(corpusStatsBody).toContain("public.is_committed_document_generation(c.index_generation_id, d.metadata)");
+    expect(corpusStatsBody).toContain(
+      "public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)",
+    );
     expect(corpusStatsBody).toContain(
       "grant execute on function public.corpus_topic_term_stats(text[], uuid) to service_role;",
     );
@@ -1009,11 +1014,18 @@ describe("Supabase Preview replay guards", () => {
       expect(body).toContain("union");
       expect(body).not.toContain("c.search_tsv @@ query.tsq or d.title_search_tsv @@ query.tsq");
       expect(body).toContain("where public.retrieval_owner_matches(owner_filter, d.owner_id)");
-      expect(body).toContain("public.is_committed_document_generation(c.index_generation_id, d.metadata)");
       expect(body).toContain("limit least(greatest(match_count * 2, 24), 96)");
       expect(body).toContain("0::double precision as similarity");
       expect(body).toContain("least(0.5,");
     }
+    // D2 (2026-07-14): the effective schema body compares the typed documents
+    // column; the historical A1 migration snapshot keeps the JSONB comparison.
+    expect(extractTextChunkFunction(schema)).toContain(
+      "public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)",
+    );
+    expect(extractTextChunkFunction(indexFriendlyLexicalRetrievalMigration)).toContain(
+      "public.is_committed_document_generation(c.index_generation_id, d.metadata)",
+    );
     expect(indexFriendlyLexicalRetrievalMigration).toContain(
       "revoke execute on function public.match_document_chunks_text(text, integer, uuid[], uuid) from public, anon, authenticated;",
     );
