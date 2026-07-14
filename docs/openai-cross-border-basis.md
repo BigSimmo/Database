@@ -17,10 +17,11 @@
 This document covers the model-provider leg: query text + retrieved excerpts sent to OpenAI in the
 United States for embedding and answer synthesis (PIA §3–4; verified still true in code —
 [src/lib/openai.ts:75-79](../src/lib/openai.ts) builds a plain `new OpenAI({ apiKey, timeout, maxRetries })`
-with no `baseURL`/ZDR header, `store:false` by default, and `prompt_cache_retention` forced to `"24h"`
-for gpt-5.5 at [openai.ts:174](../src/lib/openai.ts)). Railway application and worker processing in
-Singapore is the separate overseas processor leg recorded in the PIA; the APP 8 record must cover
-both providers.
+with no `baseURL`/ZDR header and `store:false` by default. GPT-5.6-and-later requests use
+`prompt_cache_options.ttl="30m"`; gpt-5.5 requests force the legacy
+`prompt_cache_retention="24h"` field ([openai.ts](../src/lib/openai.ts)). Railway application and
+worker processing in Singapore is the separate overseas processor leg recorded in the PIA; the APP
+8 record must cover both providers.
 
 Two obligations attach to that flow:
 
@@ -38,14 +39,16 @@ The code-side controls cannot _by themselves_ discharge APP 8 — the "reasonabl
 
 ## 2. What actually crosses the border
 
-| Egress    | Payload                                                          | Endpoint                                         | Reference                                                                                    |
-| --------- | ---------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| Embedding | Raw query text (normalized)                                      | `POST /v1/embeddings` (`text-embedding-3-small`) | [openai.ts embedText](../src/lib/openai.ts)                                                  |
-| Answer    | Raw query verbatim + retrieved chunk text + static system prompt | `POST /v1/responses` (`gpt-5.5`, `store:false`)  | [rag.ts:4220](../src/lib/rag.ts) · [rag-source-block.ts:180](../src/lib/rag-source-block.ts) |
+| Egress    | Payload                                                          | Endpoint                                                      | Reference                                                                           |
+| --------- | ---------------------------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Embedding | Raw query text (normalized)                                      | `POST /v1/embeddings` (`text-embedding-3-small`)              | [openai.ts embedText](../src/lib/openai.ts)                                         |
+| Answer    | Raw query verbatim + retrieved chunk text + static system prompt | `POST /v1/responses` (Terra fast / Sol strong, `store:false`) | [rag.ts](../src/lib/rag.ts) · [rag-source-block.ts](../src/lib/rag-source-block.ts) |
 
-The app **adds no patient identifiers** and stores queries only as a keyed hash locally; but it does
-**not scrub** PHI a clinician types. Everything else (documents, embeddings, logs, auth) stays at rest
-in **Sydney — AWS `ap-southeast-2`** (PIA §7).
+The app **adds no raw patient or owner identifiers** and stores queries only as a keyed hash locally.
+When configured, authenticated Responses requests include a stable HMAC-SHA256
+`safety_identifier`; anonymous and background requests omit it. The app does **not scrub** PHI a
+clinician types. Everything else (documents, embeddings, logs, auth) stays at rest in
+**Sydney — AWS `ap-southeast-2`** (PIA §7).
 
 ## 3. OpenAI's current terms (verified 2026-07-13)
 
@@ -60,7 +63,7 @@ these terms change; the PIA (2026-07-06) already predates the Australia data-res
 | **Zero Data Retention (ZDR)** | Removes the 30-day abuse-monitoring retention; **not self-serve** — prior approval by OpenAI, configured per **project**. Apply via the account/sales team.                                                                                                                                                                                             | [Data controls](https://developers.openai.com/api/docs/guides/your-data)                                                                                                                                           |
 | **Data residency**            | API data residency now covers **Australia** (among US, Europe, UK, Canada, Japan, Korea, Singapore, India, UAE). Enabled by creating a **new Project** and selecting the country; eligibility via sales. **Australia = storage at rest only** — regional _processing/inference_ is US/Europe/UAE only. ~10% uplift for models released from 5 Mar 2026. | [Data residency (API)](https://help.openai.com/en/articles/10503543-data-residency-for-the-openai-api) · [Announcement](https://openai.com/index/expanding-data-residency-access-to-business-customers-worldwide/) |
 | **Sub-processors**            | Published list of sub-processors that may process Customer Data. Review for the APP 8 accountability chain.                                                                                                                                                                                                                                             | [Sub-processor list](https://openai.com/policies/sub-processor-list/) · [platform](https://platform.openai.com/subprocessors)                                                                                      |
-| **Prompt caching**            | For gpt-5.5, `prompt_cache_retention` cannot be `in_memory`; app forces `"24h"` ([openai.ts:174](../src/lib/openai.ts)). Whether ZDR also zeroes the prompt cache must be **confirmed in writing** (see §6, PIA-6).                                                                                                                                     | [Data controls](https://developers.openai.com/api/docs/guides/your-data)                                                                                                                                           |
+| **Prompt caching**            | GPT-5.6 requests `prompt_cache_options.ttl="30m"` by default and never receives the deprecated retention field. The TTL is a minimum, not a guaranteed deletion deadline. Explicit pre-5.6 deployments retain the legacy retention behavior. ZDR interaction must be **confirmed in writing** (see §6, PIA-6).                                          | [Prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching) · [Data controls](https://developers.openai.com/api/docs/guides/your-data)                                                          |
 
 ## 4. This app's endpoints are ZDR-eligible
 
@@ -90,9 +93,10 @@ Items 1–2 (plus documenting 4–5) are what turn PIA-1 from open to closed. It
 
 ## 6. Open question to pin with OpenAI
 
-**Does ZDR eliminate the forced 24h gpt-5.5 prompt cache**, or does an encrypted ≤24h cache persist
-regardless? Get this in writing — it determines whether **PIA-6** is fully resolved by ZDR or merely
-mitigated. Record the answer in the status block.
+**What is the effective prompt-cache deletion behavior under ZDR for GPT-5.6 requests that specify
+the 30-minute TTL, and for requests where the app omits the extended TTL option?** Get this in
+writing — it determines whether **PIA-6** is fully resolved by ZDR or merely mitigated. Record the
+answer in the status block.
 
 ## 7. Consistency with the shipped user-facing notice
 
@@ -166,9 +170,8 @@ in the PIA. No automated action in this review accepted either provider's terms.
 These touch the OpenAI request path — do them **only after** the legal decision, and treat them as
 provider-path changes (confirm before running against live).
 
-- **ZDR granted:** no code change strictly required (ZDR is account/project-side). Optionally revisit
-  the forced `"24h"` prompt-cache retention ([openai.ts:174](../src/lib/openai.ts)) depending on the §6
-  answer, and note the resolution against **PIA-6**.
+- **ZDR granted:** no code change strictly required (ZDR is account/project-side). Revisit
+  `OPENAI_PROMPT_CACHE_TTL` depending on the §6 answer and note the resolution against **PIA-6**.
 - **Australia data residency adopted:** the client currently has no `baseURL` override
   ([openai.ts:75-79](../src/lib/openai.ts)). Data-residency Projects route via the standard API with a
   region-scoped project key; confirm whether a `baseURL`/project-key change is needed and wire an

@@ -229,6 +229,14 @@ async function main() {
       }
     }
 
+    if (envModule.env.OPENAI_API_KEY && !envModule.env.OPENAI_SAFETY_IDENTIFIER_SECRET) {
+      result.warnings.push(
+        "OPENAI_SAFETY_IDENTIFIER_SECRET is not set; authenticated Responses requests omit the privacy-preserving safety identifier.",
+      );
+    } else if (envModule.env.OPENAI_SAFETY_IDENTIFIER_SECRET) {
+      result.passes.push("OpenAI safety identifiers use a deployment-secret HMAC; raw owner IDs are not sent.");
+    }
+
     // Exercise the real boot guard so this check tracks its behaviour instead of
     // re-encoding the env rule (mirrors requireServerEnv/requireOpenAIEnv above). A
     // present secret passes in any environment; a missing one fails closed only in a

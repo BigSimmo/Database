@@ -238,7 +238,7 @@ Manual parsing and clamping should move into shared utilities only.
 - Preserve answer in-flight coalescing for duplicate requests where available.
 - Avoid repeating expensive generation after cancellation or client retry.
 - Keep prompt/cache versioning explicit when schema changes.
-- Track model route, retry path, usage, request IDs, latency, cached-input tokens, and fallback reason.
+- Track model route, retry path, usage, request IDs, latency, cached-input/cache-write tokens, and fallback reason.
 - Keep answer-generation timeout bounded separately from the global OpenAI request timeout.
 - Keep explicit source/table/document lookup paths model-free when retrieval support is strong enough.
 - Cap UI supplemental block counts to reduce render noise.

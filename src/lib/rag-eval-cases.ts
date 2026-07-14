@@ -423,7 +423,7 @@ export const answerQualityEvalCases: AnswerQualityEvalCase[] = [
     id: "quality-lithium-monitoring-range",
     question: "What lithium level range is used for maintenance monitoring?",
     expectedIntent: "monitoring_schedule",
-    expectedQueryClass: "medication_dose_risk",
+    expectedQueryClass: "table_threshold",
     expectedFiles: ["CG.MHSP.Lithium.pdf"],
     mustContainAny: ["lithium", "level", "mmol"],
   },
@@ -432,7 +432,9 @@ export const answerQualityEvalCases: AnswerQualityEvalCase[] = [
     id: "quality-lithium-monitoring-documents",
     question: "What documents support lithium monitoring?",
     expectedIntent: "document_lookup",
-    expectedQueryClass: "document_lookup",
+    // Retrieval intentionally remains medication-focused for this wording; the
+    // answer intent separately switches to the deterministic document list.
+    expectedQueryClass: "medication_dose_risk",
     expectedFiles: ["CG.MHSP.Lithium.pdf"],
     mustContainAny: ["document", "lithium"],
   },

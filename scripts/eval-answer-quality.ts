@@ -79,14 +79,16 @@ async function main() {
   const targetingByIntent = new Map<string, { applicable: number; hit: number }>();
   let targetingApplicable = 0;
   let targetingHit = 0;
-  const targetingMisses: Array<{ id: string; intent: string; reason: string; answer: string }> = [];
+  const targetingMisses: Array<{ id: string; intent: string; reason: string; answer_length: number }> = [];
+  const caseResults: Array<Record<string, unknown>> = [];
 
   for (const testCase of cases) {
     const answer = (await withProviderBackoff(`answer-quality:${testCase.id}`, () =>
       answerQuestionWithScope({ query: testCase.question, ownerId, logQuery: false, skipCache: true }),
     )) as RagAnswer;
 
-    for (const score of scoreAnswerQualityEvalCase(testCase, answer)) {
+    const metricScores = scoreAnswerQualityEvalCase(testCase, answer);
+    for (const score of metricScores) {
       metricTotals[score.metric] += score.score;
     }
 
@@ -103,11 +105,26 @@ async function main() {
           id: testCase.id,
           intent: testCase.expectedIntent,
           reason: targeting.reason,
-          answer: (answer.answer ?? "").replace(/\s+/g, " ").slice(0, 160),
+          answer_length: answer.answer?.length ?? 0,
         });
       }
     }
     targetingByIntent.set(testCase.expectedIntent, bucket);
+    caseResults.push({
+      id: testCase.id,
+      intent: testCase.expectedIntent,
+      grounded: answer.grounded,
+      confidence: answer.confidence,
+      route: answer.routingMode,
+      query_class: answer.queryClass ?? null,
+      model: answer.modelUsed ?? null,
+      citation_count: answer.citations.length,
+      routing_reason: answer.routingReason ?? null,
+      metrics: Object.fromEntries(metricScores.map((score) => [score.metric, score.score])),
+      targeting: targeting.applicable ? targeting.score : null,
+      targeting_reason: targeting.reason,
+      answer_length: answer.answer?.length ?? 0,
+    });
   }
 
   const caseCount = cases.length;
@@ -131,6 +148,7 @@ async function main() {
     targeting_rate: targetingRate,
     targeting_by_intent: targetingByIntentRates,
     targeting_misses: targetingMisses,
+    case_results: caseResults,
   };
 
   if (args.json) {
@@ -147,7 +165,7 @@ async function main() {
     if (targetingMisses.length) {
       console.log("  targeting_misses:");
       for (const miss of targetingMisses) {
-        console.log(`    [${miss.intent}] ${miss.id}: ${miss.reason} :: "${miss.answer}"`);
+        console.log(`    [${miss.intent}] ${miss.id}: ${miss.reason} :: answer_length=${miss.answer_length}`);
       }
     }
   }

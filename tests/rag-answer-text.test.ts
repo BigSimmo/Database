@@ -109,6 +109,29 @@ describe("RAG answer text helpers", () => {
     expect(hasClinicalAnswerQualityIssue("Monitor for respiratio before discharge.")).toBe(true);
   });
 
+  it("rejects dose figures with a missing unit while accepting a complete dose", () => {
+    expect(hasClinicalAnswerQualityIssue("For sertraline, increase according to response, maximum 60.")).toBe(true);
+    expect(hasClinicalAnswerQualityIssue("For sertraline, the maximum dose is 60 mg daily.")).toBe(false);
+    expect(hasClinicalAnswerQualityIssue("For sertraline, the maximum dose is 60 milligrams daily.")).toBe(false);
+    expect(hasClinicalAnswerQualityIssue("For lithium, the dose is 10 mmol daily.")).toBe(false);
+    expect(hasClinicalAnswerQualityIssue("For insulin, the dose is 10 international units daily.")).toBe(false);
+    expect(hasClinicalAnswerQualityIssue("For olanzapine, the maximum dose is 2 tablets daily.")).toBe(false);
+  });
+
+  it("rejects incomplete extractive guidance clauses", () => {
+    expect(hasClinicalAnswerQualityIssue("The guidance for sertraline is that higher doses than the maximum.")).toBe(
+      true,
+    );
+    expect(hasClinicalAnswerQualityIssue("Check renal function before. Review the result when compared with.")).toBe(
+      true,
+    );
+    expect(hasClinicalAnswerQualityIssue("» sertraline is 50 mg daily. mg daily, increase.")).toBe(true);
+    expect(
+      hasClinicalAnswerQualityIssue("Best Uses acamprosate requires renal review. Bottom Line continue care."),
+    ).toBe(true);
+    expect(hasClinicalAnswerQualityIssue("For acamprosate, clinical Focus Renal function is important.")).toBe(true);
+  });
+
   it("polishes cached answer display text without requiring regeneration", () => {
     expect(
       polishClinicalAnswerProse("Serum lithium concentrations should be monitored once every three months.1"),

@@ -36,11 +36,14 @@ const envSchema = z.object({
   // Must match the vector(N) dimension in supabase/schema.sql. Changing the embedding
   // model without updating this (and the schema) silently corrupts ingestion (IDX-C2).
   EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(1536),
-  OPENAI_ANSWER_MODEL: z.string().default("gpt-5.5"),
-  OPENAI_FAST_ANSWER_MODEL: z.string().default("gpt-5.5"),
-  // Strong tier intentionally stays on the standard (non-"pro") model. Fast vs strong
-  // is differentiated by reasoning effort (OPENAI_*_REASONING_EFFORT), not model tier.
-  OPENAI_STRONG_ANSWER_MODEL: z.string().default("gpt-5.5"),
+  OPENAI_ANSWER_MODEL: z.string().default("gpt-5.6-terra"),
+  OPENAI_FAST_ANSWER_MODEL: z.string().default("gpt-5.6-terra"),
+  OPENAI_STRONG_ANSWER_MODEL: z.string().default("gpt-5.6-sol"),
+  // Workload-specific overrides keep rollout experiments isolated. When omitted,
+  // the resolved values below preserve the existing answer-tier behaviour.
+  OPENAI_QUERY_CLASSIFIER_MODEL: z.string().optional(),
+  OPENAI_SUMMARY_MODEL: z.string().optional(),
+  OPENAI_INDEXING_MODEL: z.string().optional(),
   // Reasoning models (gpt-5*) draw reasoning tokens from this SAME budget as the
   // visible answer, so a low cap makes medium/high-effort reasoning consume the whole
   // budget *thinking* and return `incomplete: max_output_tokens` BEFORE it writes the
@@ -73,7 +76,7 @@ const envSchema = z.object({
   // batches of this size. 256 keeps total tokens well under the ceiling even for the
   // largest (narrative-profile) chunks while staying far below the 2048 input cap.
   OPENAI_EMBEDDING_BATCH_SIZE: z.coerce.number().int().positive().max(2048).default(256),
-  OPENAI_VISION_MODEL: z.string().default("gpt-5.5"),
+  OPENAI_VISION_MODEL: z.string().default("gpt-5.6-terra"),
   OPENAI_VISION_IMAGE_DETAIL: z.enum(["auto", "low", "high"]).default("auto"),
   OPENAI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(45000),
   // Answer generation has a source-backed fallback path, but a too-tight budget
@@ -87,7 +90,13 @@ const envSchema = z.object({
   OPENAI_ANSWER_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   OPENAI_MAX_RETRIES: z.coerce.number().int().nonnegative().default(2),
   OPENAI_GENERATION_MAX_RETRIES: z.coerce.number().int().nonnegative().default(0),
+  // Legacy Responses prompt-cache retention for pre-5.6 models. GPT-5.6 uses
+  // OPENAI_PROMPT_CACHE_TTL and never receives this deprecated field.
   OPENAI_PROMPT_CACHE_RETENTION: z.enum(["off", "in_memory", "24h"]).default("24h"),
+  OPENAI_PROMPT_CACHE_TTL: z.enum(["off", "30m"]).optional(),
+  // Optional deployment-secret HMAC key for privacy-preserving Responses API
+  // safety identifiers. Raw owner/user identifiers are never sent to OpenAI.
+  OPENAI_SAFETY_IDENTIFIER_SECRET: z.string().min(32).optional(),
   OPENAI_STORE_RESPONSES: z
     .enum(["true", "false"])
     .default("false")
@@ -206,7 +215,7 @@ const envSchema = z.object({
 });
 
 const parsedEnv = envSchema.parse(process.env);
-const nonProAnswerModelFallback = "gpt-5.5";
+const nonProAnswerModelFallback = "gpt-5.6-terra";
 
 function isProAnswerModel(model: string) {
   return /(?:^|[-_])pro(?:$|[-_])/i.test(model);
@@ -227,6 +236,11 @@ export const env = {
   OPENAI_ANSWER_MODEL: runtimeAnswerModel(parsedEnv.OPENAI_ANSWER_MODEL),
   OPENAI_FAST_ANSWER_MODEL: runtimeAnswerModel(parsedEnv.OPENAI_FAST_ANSWER_MODEL),
   OPENAI_STRONG_ANSWER_MODEL: runtimeAnswerModel(parsedEnv.OPENAI_STRONG_ANSWER_MODEL),
+  OPENAI_QUERY_CLASSIFIER_MODEL: runtimeAnswerModel(
+    parsedEnv.OPENAI_QUERY_CLASSIFIER_MODEL ?? parsedEnv.OPENAI_FAST_ANSWER_MODEL,
+  ),
+  OPENAI_SUMMARY_MODEL: runtimeAnswerModel(parsedEnv.OPENAI_SUMMARY_MODEL ?? parsedEnv.OPENAI_ANSWER_MODEL),
+  OPENAI_INDEXING_MODEL: runtimeAnswerModel(parsedEnv.OPENAI_INDEXING_MODEL ?? parsedEnv.OPENAI_STRONG_ANSWER_MODEL),
 } satisfies typeof parsedEnv;
 
 export function requireServerEnv(): {

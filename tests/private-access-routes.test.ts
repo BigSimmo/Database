@@ -3860,40 +3860,34 @@ describe("private document API access", () => {
   });
 
   it("streams only public progress details and exactly one completion before the final answer", async () => {
-    const answerQuestionWithScope = vi.fn(
-      async (args: {
-        onProgress?: (event: unknown) => void | Promise<void>;
-        onRevising?: (reason: string) => void;
-      }) => {
-        await args.onProgress?.({
-          stage: "routing",
-          message: "private-message-marker",
-          resultCount: 2,
-          visibleSourceCount: 1,
-          timingMs: 42,
-          selectedContextCount: 4.9,
-          australianSourceCount: 4,
-          waSourceCount: 3,
-          usedSupplementaryFallback: true,
-          model: "private-model-marker",
-          mode: "private-mode-marker",
-          reason: "private-reason-marker",
-          smartApiPlan: { marker: "private-plan-marker" },
-          relevance: { marker: "private-relevance-marker" },
-          privateMarker: "private-direct-marker",
-        });
-        args.onRevising?.("private-revising-marker");
-        await args.onProgress?.({ stage: "complete", message: "private-complete-marker" });
-        await args.onProgress?.({ stage: "complete", message: "private-duplicate-complete-marker" });
-        return {
-          answer: "Owned evidence.",
-          grounded: true,
-          confidence: "medium",
-          citations: [],
-          sources: [],
-        };
-      },
-    );
+    const answerQuestionWithScope = vi.fn(async (args: { onProgress?: (event: unknown) => void | Promise<void> }) => {
+      await args.onProgress?.({
+        stage: "routing",
+        message: "private-message-marker",
+        resultCount: 2,
+        visibleSourceCount: 1,
+        timingMs: 42,
+        selectedContextCount: 4.9,
+        australianSourceCount: 4,
+        waSourceCount: 3,
+        usedSupplementaryFallback: true,
+        model: "private-model-marker",
+        mode: "private-mode-marker",
+        reason: "private-reason-marker",
+        smartApiPlan: { marker: "private-plan-marker" },
+        relevance: { marker: "private-relevance-marker" },
+        privateMarker: "private-direct-marker",
+      });
+      await args.onProgress?.({ stage: "complete", message: "private-complete-marker" });
+      await args.onProgress?.({ stage: "complete", message: "private-duplicate-complete-marker" });
+      return {
+        answer: "Owned evidence.",
+        grounded: true,
+        confidence: "medium",
+        citations: [],
+        sources: [],
+      };
+    });
     const client = createSupabaseMock();
     mockRuntime(client, { answerQuestionWithScope });
     const { POST } = await import("../src/app/api/answer/stream/route");
@@ -3931,7 +3925,8 @@ describe("private document API access", () => {
       waSourceCount: 3,
     });
     expect(body).not.toContain("usedSupplementaryFallback");
-    expect(body).toContain("event: revising\ndata: {}");
+    expect(body).not.toContain("event: token");
+    expect(body).not.toContain("event: revising");
     for (const privateMarker of [
       "private-message-marker",
       "private-model-marker",
@@ -3940,7 +3935,6 @@ describe("private document API access", () => {
       "private-plan-marker",
       "private-relevance-marker",
       "private-direct-marker",
-      "private-revising-marker",
       "private-complete-marker",
       "private-duplicate-complete-marker",
     ]) {

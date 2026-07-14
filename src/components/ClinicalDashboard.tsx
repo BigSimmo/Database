@@ -330,34 +330,6 @@ function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
 }
 
-// Provisional view shown while an answer streams in. The prose is content-preserving (the same
-// text the final payload will carry); the caret conveys that generation is still in flight. On a
-// quality-gate escalation the pipeline sends a `revising` signal and this switches to a neutral
-// "revising for accuracy" state so a clinician never acts on soon-to-be-replaced text.
-function StreamingAnswerPreview({ text, revising }: { text: string; revising: boolean }) {
-  if (revising) {
-    return (
-      <div className={cn(answerSurface, "p-4")} data-testid="answer-streaming-revising" aria-live="polite">
-        <div className="flex items-center gap-2 text-sm font-medium text-[color:var(--text-muted)]">
-          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-          Revising for accuracy…
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className={cn(answerSurface, "p-4")} data-testid="answer-streaming" aria-live="polite">
-      <p className="whitespace-pre-wrap text-sm leading-relaxed text-[color:var(--text)]">
-        {text}
-        <span
-          className="ml-0.5 inline-block h-4 w-[2px] animate-pulse bg-[color:var(--text-muted)] align-text-bottom"
-          aria-hidden
-        />
-      </p>
-    </div>
-  );
-}
-
 function normalizeNavigationHash(hash: string) {
   return navigationHashes.includes(hash as (typeof navigationHashes)[number]) ? hash : "#search";
 }
@@ -377,7 +349,7 @@ const maxVisiblePriorTurns = 10;
 // Non-retryable so an aborted request does not immediately re-fetch against the
 // already-aborted signal; the user re-submits to try again. Raised by the
 // stall watchdog (see createAnswerRequestWatchdog): a live stream that keeps
-// delivering progress/token/heartbeat bytes is never aborted, no matter how
+// delivering progress/heartbeat bytes is never aborted, no matter how
 // long a fast->strong escalation takes, so this now only appears when the
 // stream genuinely went silent or hit the absolute ceiling.
 function answerTimedOutError() {
@@ -746,11 +718,6 @@ export function ClinicalDashboard({
   const [answerProgress, setAnswerProgress] = useState<string | null>(null);
   const [answerProgressEvents, setAnswerProgressEvents] = useState<TimedAnswerProgressUpdate[]>([]);
   const [answerProgressStartedAt, setAnswerProgressStartedAt] = useState<number | null>(null);
-  // In-progress streamed answer prose (content-preserving — the final committed answer still comes
-  // from the parsed `final` payload). null between searches; `{ text, revising }` while generating.
-  // `revising` = the quality gates dropped a provisional answer and are re-generating, so a
-  // "revising for accuracy" state shows instead of stale text.
-  const [streamingAnswer, setStreamingAnswer] = useState<{ text: string; revising: boolean } | null>(null);
   const [answerLifecycle, dispatchAnswerLifecycle] = useReducer(answerLifecycleReducer, initialAnswerLifecycle);
   const [error, setError] = useState<string | null>(null);
   // Companion state for `error`, used to pick the right recovery UI (retry vs.
@@ -881,7 +848,6 @@ export function ClinicalDashboard({
       resetAnswerThread();
       setAnswer(null);
       setSources([]);
-      setStreamingAnswer(null);
       setDocuments([]);
       setDocumentsPagination(null);
       setJobs([]);
@@ -1877,7 +1843,6 @@ export function ClinicalDashboard({
     signal?: AbortSignal,
     onStreamActivity?: () => void,
   ) {
-    setStreamingAnswer(null);
     let response: Response;
     try {
       response = await fetch("/api/answer/stream", {
@@ -1910,19 +1875,7 @@ export function ClinicalDashboard({
 
     let payload: AnswerPayload;
     try {
-      payload = await readAnswerStream(
-        response,
-        onProgress,
-        (delta) => {
-          dispatchAnswerLifecycle({ type: "stream" });
-          setStreamingAnswer((prev) => ({ text: (prev?.text ?? "") + delta, revising: false }));
-        },
-        () => {
-          dispatchAnswerLifecycle({ type: "revise" });
-          setStreamingAnswer({ text: "", revising: true });
-        },
-        onStreamActivity,
-      );
+      payload = await readAnswerStream(response, onProgress, onStreamActivity);
     } catch (error) {
       if (answerTimedOutRef.current) throw answerTimedOutError();
       if (isAbortError(error)) throw error;
@@ -1981,7 +1934,6 @@ export function ClinicalDashboard({
     searchRequestSeqRef.current += 1;
     searchAbortRef.current?.abort();
     searchAbortRef.current = null;
-    setStreamingAnswer(null);
     setLoading(false);
     setAnswerProgress(null);
     setAnswerProgressEvents([]);
@@ -3845,11 +3797,7 @@ export function ClinicalDashboard({
                     </>
                   )
                 ) : showAnswerPending ? (
-                  streamingAnswer && (streamingAnswer.text || streamingAnswer.revising) ? (
-                    <StreamingAnswerPreview text={streamingAnswer.text} revising={streamingAnswer.revising} />
-                  ) : (
-                    <AnswerSkeleton />
-                  )
+                  <AnswerSkeleton />
                 ) : answer && answerRenderModel ? (
                   stagedDashboardExtraction.answerSurface ? (
                     <>

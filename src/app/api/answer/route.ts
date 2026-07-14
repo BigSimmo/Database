@@ -13,8 +13,8 @@ import {
 import { publicAccessContext } from "@/lib/public-api-access";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
-import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
-import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
+import { queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
+import { resolveSearchScope } from "@/lib/search-scope";
 import { resolveRetrievalAccessScope } from "@/lib/owner-scope";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -29,19 +29,11 @@ import { captureServerException } from "@/lib/observability/error-capture";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import * as serverAuth from "@/lib/supabase/auth";
+import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/answer-request";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 
 export const runtime = "nodejs";
 
-const answerSchema = z.object({
-  query: z.string().trim().min(1).max(2000),
-  documentId: z.string().uuid().optional(),
-  documentIds: z.array(z.string().uuid()).max(25).optional(),
-  filters: searchScopeFiltersSchema.optional(),
-  queryMode: clinicalQueryModeSchema.optional().default("auto"),
-});
-
-type AnswerRequestBody = z.infer<typeof answerSchema>;
 const emptyScopeAnswer =
   "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.";
 
@@ -70,7 +62,7 @@ export async function POST(request: Request) {
   const routeStartedAt = Date.now();
   let body: AnswerRequestBody | null = null;
   try {
-    const answerBody = await parseJsonBody(request, answerSchema, "Invalid answer request.");
+    const answerBody = await parseJsonBody(request, answerRequestSchema, "Invalid answer request.");
     body = answerBody;
     if (isDemoMode()) {
       return NextResponse.json({ ...buildDemoAnswerPayload(answerBody), interactionId });

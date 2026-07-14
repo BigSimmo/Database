@@ -559,7 +559,7 @@ export async function generateDocumentEnrichment(args: {
     buildEnrichmentPrompt({ ...args, images: args.images ?? [] }),
     summarySchema,
     {
-      model: env.OPENAI_STRONG_ANSWER_MODEL || env.OPENAI_FAST_ANSWER_MODEL,
+      model: env.OPENAI_INDEXING_MODEL,
       // Answer-size budget; responseBody() floors the effective cap by reasoning effort so
       // medium-effort reasoning cannot starve the enrichment JSON (reasoningHeadroomFloor).
       maxOutputTokens: 2400,
@@ -653,7 +653,7 @@ export async function upsertDocumentEnrichment(args: {
         clinical_specifics: enrichment.clinical_specifics,
         source_chunk_ids: sourceChunkIds,
         source_image_ids: sourceImageIds,
-        model: env.OPENAI_STRONG_ANSWER_MODEL || env.OPENAI_FAST_ANSWER_MODEL,
+        model: env.OPENAI_INDEXING_MODEL,
         metadata: { ...generatedMetadata, ...coverageMetadata, label_count: enrichment.labels.length },
         generated_at: enrichedAt,
         updated_at: enrichedAt,

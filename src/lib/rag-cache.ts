@@ -13,6 +13,12 @@ import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag-contracts";
 import type { Json } from "@/lib/supabase/database.types";
 import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
+import {
+  ragAnswerPromptVersion,
+  ragAnswerSchemaVersion,
+  ragIndexingPromptVersion,
+  ragQueryClassifierPromptVersion,
+} from "@/lib/rag-versioning";
 
 const answerCache = new Map<string, { expiresAt: number; answer: RagAnswer; indexingVersion: string }>();
 export const answerInflight = new Map<string, Promise<RagAnswer>>();
@@ -20,7 +26,7 @@ const searchCache = new Map<
   string,
   { expiresAt: number; results: SearchResult[]; telemetry: SearchTelemetry; indexingVersion: string }
 >();
-const ragCacheDependencyVersion = "rag-cache-v12";
+const ragCacheDependencyVersion = "rag-cache-v13";
 const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
@@ -52,6 +58,57 @@ function modeKey(args: Pick<SearchChunksArgs, "queryMode">) {
   return args.queryMode ?? "auto";
 }
 
+export type AnswerGenerationFingerprintInput = {
+  answerModel: string;
+  fastModel: string;
+  strongModel: string;
+  classifierModel: string;
+  indexingModel: string;
+  embeddingModel: string;
+  embeddingDimensions: number;
+  fastReasoningEffort: string;
+  strongReasoningEffort: string;
+  answerVerbosity: string;
+  maxOutputTokens: number;
+  providerMode: string;
+  promptVersion: string;
+  schemaVersion: string;
+  classifierPromptVersion: string;
+  retrievalVersion: string;
+  indexingPromptVersion: string;
+};
+
+export function buildAnswerGenerationFingerprint(input: AnswerGenerationFingerprintInput) {
+  return createHash("sha256").update(JSON.stringify(input)).digest("hex").slice(0, 20);
+}
+
+export function answerGenerationFingerprint() {
+  return buildAnswerGenerationFingerprint({
+    answerModel: env.OPENAI_ANSWER_MODEL,
+    fastModel: env.OPENAI_FAST_ANSWER_MODEL,
+    strongModel: env.OPENAI_STRONG_ANSWER_MODEL,
+    classifierModel: env.OPENAI_QUERY_CLASSIFIER_MODEL,
+    indexingModel: env.OPENAI_INDEXING_MODEL,
+    embeddingModel: env.OPENAI_EMBEDDING_MODEL,
+    embeddingDimensions: env.EMBEDDING_DIMENSIONS,
+    fastReasoningEffort: env.OPENAI_FAST_REASONING_EFFORT,
+    strongReasoningEffort: env.OPENAI_STRONG_REASONING_EFFORT,
+    answerVerbosity: env.OPENAI_TEXT_VERBOSITY,
+    maxOutputTokens: env.OPENAI_MAX_OUTPUT_TOKENS,
+    providerMode: env.RAG_PROVIDER_MODE,
+    promptVersion: ragAnswerPromptVersion,
+    schemaVersion: ragAnswerSchemaVersion,
+    classifierPromptVersion: ragQueryClassifierPromptVersion,
+    retrievalVersion: ragDeepMemoryVersion,
+    indexingPromptVersion: ragIndexingPromptVersion,
+  });
+}
+
+function sharedAnswerNormalizedQuery(args: Pick<SearchChunksArgs, "query" | "queryMode">) {
+  const query = normalizedCacheQuery(`${modeKey(args)} ${args.query}`);
+  return queryCacheKeyForStorage(`${query}|generation:${answerGenerationFingerprint()}`);
+}
+
 export function scopedAnswerCacheKey(
   args: Pick<SearchChunksArgs, "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode">,
 ) {
@@ -59,6 +116,7 @@ export function scopedAnswerCacheKey(
     ragCacheDependencyVersion,
     scopeKey(args),
     modeKey(args),
+    `generation:${answerGenerationFingerprint()}`,
     args.query.trim().toLowerCase().replace(/\s+/g, " "),
   ].join("|");
 }
@@ -443,6 +501,7 @@ export async function getSharedCachedAnswer(
       "answer",
       args,
       indexingVersion,
+      sharedAnswerNormalizedQuery(args),
     ).maybeSingle();
     if (error || !data?.payload) return null;
     const answer = cloneAnswer((data.payload as { answer: RagAnswer }).answer);
@@ -527,7 +586,13 @@ function setSharedCachedAnswer(
   answer: RagAnswer,
 ) {
   if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return;
-  void replaceSharedCacheRow("answer", args, { answer: cloneAnswer(answer) }, env.RAG_ANSWER_CACHE_TTL_MS);
+  void replaceSharedCacheRow(
+    "answer",
+    args,
+    { answer: cloneAnswer(answer) },
+    env.RAG_ANSWER_CACHE_TTL_MS,
+    sharedAnswerNormalizedQuery(args),
+  );
 }
 
 export function invalidateRagCachesForOwner(ownerId?: string | null) {

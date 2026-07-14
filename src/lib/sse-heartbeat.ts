@@ -1,7 +1,6 @@
 // SSE liveness for long-running answer streams. Generation legitimately goes
-// silent for stretches (e.g. strong-route reasoning before the first output
-// token, bounded by OPENAI_ANSWER_TIMEOUT_MS), during which neither progress
-// events nor token deltas are emitted. A periodic comment line keeps
+// silent for stretches (e.g. strong-route reasoning and deterministic quality
+// gates, bounded by OPENAI_ANSWER_TIMEOUT_MS). A periodic comment line keeps
 // intermediaries from idling out the connection and gives the client's stall
 // watchdog a byte-level liveness signal. Comment lines (leading ":") are
 // ignored by SSE parsers, so clients need no changes to tolerate them.

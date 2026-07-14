@@ -19,8 +19,8 @@ import { answerQuestionWithScope, summarizeDocument, type AnswerProgressEvent } 
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
-import { clinicalQueryModeSchema, queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
-import { resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
+import { queryClassForClinicalMode, queryForClinicalMode } from "@/lib/clinical-query-mode";
+import { resolveSearchScope } from "@/lib/search-scope";
 import { resolveRetrievalAccessScope, type RetrievalAccessScope } from "@/lib/owner-scope";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -32,31 +32,13 @@ import { logger } from "@/lib/logger";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import { startSseHeartbeat } from "@/lib/sse-heartbeat";
 import { parseJsonBody } from "@/lib/validation/body";
+import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/answer-request";
+import type { AnswerStreamEventMap, AnswerStreamEventName } from "@/lib/answer-stream-contract";
 import { toPublicAnswerProgressEvent } from "@/lib/answer-progress-public";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 
 export const runtime = "nodejs";
 
-const answerSchema = z
-  .object({
-    query: z.string().trim().min(1).max(2000),
-    documentId: z.string().uuid().optional(),
-    documentIds: z.array(z.string().uuid()).max(25).optional(),
-    filters: searchScopeFiltersSchema.optional(),
-    queryMode: clinicalQueryModeSchema.optional().default("auto"),
-    summaryMode: z.boolean().optional().default(false),
-  })
-  .superRefine((value, context) => {
-    if (value.summaryMode && !value.documentId) {
-      context.addIssue({
-        code: "custom",
-        path: ["documentId"],
-        message: "Document summary mode requires a document id.",
-      });
-    }
-  });
-
-type AnswerBody = z.infer<typeof answerSchema>;
 const emptyScopeAnswer =
   "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.";
 
@@ -120,7 +102,7 @@ function logStreamError(error: unknown, signal?: AbortSignal) {
   void captureServerException(error, { route: "api/answer/stream", source: "stream" });
 }
 
-function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
+function buildDemoStreamAnswer(body: AnswerRequestBody, fallbackReason?: string) {
   const demo =
     body.summaryMode && body.documentId
       ? demoSummary(body.documentId)
@@ -146,7 +128,7 @@ function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
   );
 }
 
-function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signal?: AbortSignal) {
+function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope, signal?: AbortSignal) {
   const ownerId = accessScope.ownerId;
   const encoder = new TextEncoder();
   const interactionId = randomUUID();
@@ -156,7 +138,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
       async start(controller) {
         const streamStartedAt = Date.now();
         let completionSent = false;
-        const send = (event: string, data: unknown) => {
+        const send = <Name extends AnswerStreamEventName>(event: Name, data: AnswerStreamEventMap[Name]) => {
           try {
             controller.enqueue(encoder.encode(encodeSse(event, data)));
           } catch {
@@ -173,20 +155,15 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
         const sendComplete = () => {
           sendProgress({ stage: "complete", elapsedMs: Date.now() - streamStartedAt });
         };
-        const sendFinal = (data: unknown) => {
+        const sendFinal = (data: AnswerStreamEventMap["final"]) => {
           sendComplete();
           send("final", data);
         };
-        // Generation can go silent for long stretches (strong-route reasoning
-        // before the first output token); heartbeat comments keep the
-        // connection visibly alive for proxies and the client's stall watchdog.
+        // Generation can go silent for long stretches while the model reasons
+        // and deterministic gates run; heartbeat comments keep the connection
+        // visibly alive without exposing provisional clinical prose.
         const stopHeartbeat = startSseHeartbeat((frame) => controller.enqueue(encoder.encode(frame)));
         const onProgress = (event: AnswerProgressEvent) => sendProgress(event);
-        // Stream the answer prose as it generates (content-preserving) and signal a reset when a
-        // provisional answer is being revised by the quality gates.
-        const onToken = (delta: string) => send("token", { delta });
-        const onRevising = () => send("revising", {});
-
         try {
           sendProgress({ stage: "scoping" });
           const scope = isDemoMode()
@@ -238,8 +215,6 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
                   allowGlobalSearch: !ownerId,
                   queryMode: body.queryMode,
                   onProgress,
-                  onToken,
-                  onRevising,
                   signal,
                 });
           const governedResponse = buildGovernedAnswerClientResponse(answer);
@@ -292,7 +267,7 @@ function streamAnswer(body: AnswerBody, accessScope: RetrievalAccessScope, signa
 
 export async function POST(request: Request) {
   try {
-    const body = await parseJsonBody(request, answerSchema, "Invalid answer request.");
+    const body = await parseJsonBody(request, answerRequestSchema, "Invalid answer request.");
     if (isDemoMode()) return streamAnswer(body, resolveRetrievalAccessScope(), request.signal);
 
     const supabase = createAdminClient();

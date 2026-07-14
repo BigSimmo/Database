@@ -1864,7 +1864,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("stopping generation removes provisional output and exposes a stable rerun action", async ({ page }) => {
+  test("stopping generation exposes a stable rerun action without answer output", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page, { answerDelayMs: 1500 });
     const question = "What monitoring is required for clozapine?";

@@ -210,7 +210,7 @@ describe("analyzeQueryWithClassifierFallback corpus grounding", () => {
       });
     vi.doMock("@/lib/openai", async (importOriginal) => {
       const actual = await importOriginal<typeof import("../src/lib/openai")>();
-      return { ...actual, generateStructuredTextResult: classifierMock };
+      return { ...actual, generateParsedTextResult: classifierMock };
     });
     const rag = await import("../src/lib/rag");
     const corpusGrounding = await import("../src/lib/corpus-grounding");
@@ -281,12 +281,12 @@ describe("analyzeQueryWithClassifierFallback corpus grounding", () => {
 
   it("falls through to the LLM classifier when grounding is inconclusive", async () => {
     const classifierMock = vi.fn(async () => ({
-      text: JSON.stringify({
+      parsed: {
         queryClass: "broad_summary",
         confidence: 0.9,
         reasons: ["classifier_test"],
         expandedTerms: [],
-      }),
+      },
     }));
     const { rag, analyzeClinicalQuery, opts } = await loadRag({
       classifierMock,
@@ -316,12 +316,12 @@ describe("analyzeQueryWithClassifierFallback corpus grounding", () => {
 
   it("keeps legacy behaviour when no corpus grounding scope is provided", async () => {
     const classifierMock = vi.fn(async () => ({
-      text: JSON.stringify({
+      parsed: {
         queryClass: "broad_summary",
         confidence: 0.9,
         reasons: ["classifier_test"],
         expandedTerms: [],
-      }),
+      },
     }));
     const { rag, analyzeClinicalQuery } = await loadRag({ classifierMock, rows: [] });
     const analysis = analyzeClinicalQuery("bipolar disorder");

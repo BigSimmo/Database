@@ -806,6 +806,7 @@ export type OpenAITokenUsage = {
   output_tokens?: number;
   total_tokens?: number;
   cached_input_tokens?: number;
+  cache_write_tokens?: number;
   reasoning_output_tokens?: number;
 };
 

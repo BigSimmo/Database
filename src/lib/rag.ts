@@ -8,8 +8,13 @@ import {
 } from "@/lib/owner-scope";
 import { classifyCorpusGrounding } from "@/lib/corpus-grounding";
 import type { Database, Json } from "@/lib/supabase/database.types";
-import { createStreamingAnswerExtractor } from "@/lib/answer-stream-extractor";
-import { embedTextWithTelemetry, generateStructuredTextResult, type OpenAITextResult } from "@/lib/openai";
+import {
+  embedTextWithTelemetry,
+  generateParsedTextResult,
+  generateStructuredTextResult,
+  openAISafetyIdentifier,
+  type OpenAITextResult,
+} from "@/lib/openai";
 import {
   SOURCE_ONLY_EMBEDDING_SKIP_REASON,
   allowsAutoDegrade,
@@ -125,6 +130,7 @@ import {
   zoneContextPatternsForQuery,
 } from "@/lib/clinical-search";
 import { env, requestedOpenAIAnswerModels } from "@/lib/env";
+import { ragAnswerPromptVersion, ragQueryClassifierPromptVersion, ragSummaryPromptVersion } from "@/lib/rag-versioning";
 import { logger } from "@/lib/logger";
 import { captureServerEvent } from "@/lib/observability/error-capture";
 import {
@@ -137,6 +143,7 @@ import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { isReviewedTablePromotable } from "@/lib/table-review";
 import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
 import {
+  SOURCE_BACKED_REVIEW_FALLBACK_REASON,
   chooseAnswerRoute,
   hasAdversarialManipulationIntent,
   hasDirectTitleSupport,
@@ -439,13 +446,6 @@ export type AnswerProgressEvent = {
 type AnswerQuestionWithScopeArgs = SearchChunksArgs & {
   logQuery?: boolean;
   onProgress?: (event: AnswerProgressEvent) => void | Promise<void>;
-  // Streaming hooks. onToken receives the answer prose as it generates (content-preserving — the
-  // same text arrives incrementally). onRevising fires when a generated answer fails a quality
-  // gate and the pipeline re-generates with the strong model, so the UI can clear the provisional
-  // text and show a "revising for accuracy" state before the corrected answer streams in. Only the
-  // streaming route sets these; the non-streaming path leaves them undefined.
-  onToken?: (delta: string) => void;
-  onRevising?: (reason: string) => void;
   signal?: AbortSignal;
 };
 
@@ -1213,6 +1213,7 @@ function addOpenAIUsage(total: OpenAITokenUsage, usage?: OpenAITokenUsage) {
     output_tokens: (total.output_tokens ?? 0) + (usage.output_tokens ?? 0),
     total_tokens: (total.total_tokens ?? 0) + (usage.total_tokens ?? 0),
     cached_input_tokens: (total.cached_input_tokens ?? 0) + (usage.cached_input_tokens ?? 0),
+    cache_write_tokens: (total.cache_write_tokens ?? 0) + (usage.cache_write_tokens ?? 0),
     reasoning_output_tokens: (total.reasoning_output_tokens ?? 0) + (usage.reasoning_output_tokens ?? 0),
   };
 }
@@ -1222,53 +1223,26 @@ function hasOpenAIUsage(usage: OpenAITokenUsage) {
   return Object.values(usage).some((value) => typeof value === "number" && value > 0);
 }
 
-const queryClassifierOutputSchema = {
-  type: "object",
-  description: "Low-cost query classification fallback for clinical RAG retrieval only.",
-  additionalProperties: false,
-  properties: {
-    queryClass: {
-      type: "string",
-      enum: [
-        "document_lookup",
-        "table_threshold",
-        "medication_dose_risk",
-        "comparison",
-        "broad_summary",
-        "unsupported_or_general",
-      ],
-    },
-    confidence: {
-      type: "number",
-      minimum: 0,
-      maximum: 1,
-    },
-    reasons: {
-      type: "array",
-      maxItems: 4,
-      items: { type: "string", maxLength: 80 },
-    },
-    expandedTerms: {
-      type: "array",
-      maxItems: 10,
-      items: { type: "string", maxLength: 60 },
-    },
-  },
-  required: ["queryClass", "confidence", "reasons", "expandedTerms"],
-};
+const queryClassifierParseSchema = z
+  .object({
+    queryClass: z.enum([
+      "document_lookup",
+      "table_threshold",
+      "medication_dose_risk",
+      "comparison",
+      "broad_summary",
+      "unsupported_or_general",
+    ]),
+    confidence: z.number(),
+    reasons: z.array(z.string()),
+    expandedTerms: z.array(z.string()),
+  })
+  .strict();
 
-const queryClassifierParseSchema = z.object({
-  queryClass: z.enum([
-    "document_lookup",
-    "table_threshold",
-    "medication_dose_risk",
-    "comparison",
-    "broad_summary",
-    "unsupported_or_general",
-  ]),
+const queryClassifierVerdictSchema = queryClassifierParseSchema.extend({
   confidence: z.number().min(0).max(1),
-  reasons: z.array(z.string()).max(4),
-  expandedTerms: z.array(z.string()).max(10),
+  reasons: z.array(z.string().max(80)).max(4),
+  expandedTerms: z.array(z.string().max(60)).max(10),
 });
 
 /** Unique text values. */
@@ -1287,7 +1261,7 @@ function uniqueTextValues(values: Array<string | null | undefined>, limit = 32) 
   return output;
 }
 
-type ClassifierVerdict = z.infer<typeof queryClassifierParseSchema>;
+type ClassifierVerdict = z.infer<typeof queryClassifierVerdictSchema>;
 
 // Finding #11 interim fix (docs/process-hardening.md): the LLM classifier verdict flips
 // run-to-run for the same query, so the unsupported short-circuit downstream intermittently
@@ -1307,7 +1281,13 @@ function classifierVerdictMemoKey(query: string, analysis: ClinicalQueryAnalysis
   const normalizedQuery = query.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
   // The deterministic class + confidence bucket are part of the key so a deterministic-analyzer
   // change invalidates stale verdicts instead of replaying them against a different baseline.
-  return `${normalizedQuery}::${analysis.queryClass}::${analysis.confidence.toFixed(2)}`;
+  return [
+    env.OPENAI_QUERY_CLASSIFIER_MODEL,
+    ragQueryClassifierPromptVersion,
+    normalizedQuery,
+    analysis.queryClass,
+    analysis.confidence.toFixed(2),
+  ].join("::");
 }
 
 /** Store classifier verdict memo. */
@@ -1326,8 +1306,12 @@ export function resetClassifierVerdictMemoForTests() {
 }
 
 /** Request classifier verdict. */
-async function requestClassifierVerdict(query: string, analysis: ClinicalQueryAnalysis): Promise<ClassifierVerdict> {
-  const result = await generateStructuredTextResult(
+async function requestClassifierVerdict(
+  query: string,
+  analysis: ClinicalQueryAnalysis,
+  ownerId?: string | null,
+): Promise<ClassifierVerdict> {
+  const result = await generateParsedTextResult(
     [
       {
         role: "user",
@@ -1344,9 +1328,9 @@ async function requestClassifierVerdict(query: string, analysis: ClinicalQueryAn
         ],
       },
     ],
-    queryClassifierOutputSchema,
+    queryClassifierParseSchema,
     {
-      model: env.OPENAI_FAST_ANSWER_MODEL,
+      model: env.OPENAI_QUERY_CLASSIFIER_MODEL,
       maxOutputTokens: 220,
       operation: "text_generation",
       instructions:
@@ -1354,11 +1338,12 @@ async function requestClassifierVerdict(query: string, analysis: ClinicalQueryAn
       reasoningEffort: "low",
       textVerbosity: "low",
       schemaName: "clinical_rag_query_classifier",
-      promptCacheKey: "clinical-rag-query-classifier-v1",
+      promptCacheKey: ragQueryClassifierPromptVersion,
       timeoutMs: 6000,
+      safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(ownerId) : undefined,
     },
   );
-  return queryClassifierParseSchema.parse(JSON.parse(result.text));
+  return queryClassifierVerdictSchema.parse(result.parsed);
 }
 
 /** Apply classifier verdict. */
@@ -1397,6 +1382,7 @@ export async function analyzeQueryWithClassifierFallback(
     // against the corpus BEFORE the nondeterministic LLM classifier. Scoped with the exact
     // owner_filter retrieval will use so grounding can never see documents retrieval cannot.
     corpusGrounding?: { supabase: ReturnType<typeof createAdminClient>; ownerFilter: string | null };
+    ownerId?: string | null;
   },
 ) {
   if (
@@ -1461,7 +1447,7 @@ export async function analyzeQueryWithClassifierFallback(
 
   let pending = classifierVerdictInflight.get(memoKey);
   if (!pending) {
-    pending = requestClassifierVerdict(query, analysis).finally(() => {
+    pending = requestClassifierVerdict(query, analysis, opts?.ownerId).finally(() => {
       classifierVerdictInflight.delete(memoKey);
     });
     classifierVerdictInflight.set(memoKey, pending);
@@ -3361,6 +3347,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   })();
   const queryAnalysis = await analyzeQueryWithClassifierFallback(retrievalQuery, analyzeClinicalQuery(retrievalQuery), {
     corpusGrounding: corpusGroundingScope,
+    ownerId: args.ownerId,
   });
   throwIfAborted(args.signal);
   if (modeQueryClass) queryAnalysis.queryClass = modeQueryClass;
@@ -4100,7 +4087,7 @@ export function isCacheableGroundedGenerationFallback(
     answer.citations.length > 0 &&
     (answer.unverifiedNumericTokens?.length ?? 0) === 0 &&
     /(?:source_backed_extractive_fallback|comparison_source_safe_fallback)/.test(answer.routingReason ?? "") &&
-    !/source_backed_review_fallback/.test(answer.routingReason ?? "")
+    !(answer.routingReason ?? "").includes(SOURCE_BACKED_REVIEW_FALLBACK_REASON)
   );
 }
 
@@ -4618,40 +4605,43 @@ async function answerQuestionWithScopeUncoalesced(
       generation_latency_ms: 0,
       total_latency_ms: Date.now() - startedAt,
     };
-    const answer: RagAnswer = annotateAnswerWithDiagnostics(
+    const sourceSafeExtractiveAnswer = buildExtractiveAnswer({
+      query: args.query,
+      queryClass,
+      results: answerInputResults,
+      quoteCards,
+      documentBreakdown,
+      evidenceSummary,
+      sourceCoverage,
+      conflictsOrGaps,
+      visualEvidence,
+      bestSource,
+      smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
+      relatedDocuments,
+      routeReason:
+        queryClass === "comparison" ? `${route.reason}; comparison_source_extractive_fallback` : route.reason,
+      timings: extractiveTimings,
+    });
+    const sourceSafeComparisonAnswer =
       queryClass === "comparison"
         ? (buildComparisonAnswer({
             query: args.query,
             results: answerInputResults,
-            selectedDocuments: explicitlySelectedComparisonDocuments,
             routeReason: route.reason,
+            selectedDocuments: explicitlySelectedComparisonDocuments,
             timings: extractiveTimings,
           }) ??
-            buildComparisonEvidenceGapAnswer({
-              query: args.query,
-              results: answerInputResults,
-              selectedDocuments: explicitlySelectedComparisonDocuments,
-              routeReason: `${route.reason}; comparison_evidence_gap`,
-              timings: extractiveTimings,
-            }))
-        : buildExtractiveAnswer({
-            query: args.query,
-            queryClass,
-            results: answerInputResults,
-            quoteCards,
-            documentBreakdown,
-            evidenceSummary,
-            sourceCoverage,
-            conflictsOrGaps,
-            visualEvidence,
-            bestSource,
-            smartPanel: { ...smartPanel, relevance, bestSource, relatedDocuments },
-            relatedDocuments,
-            routeReason: route.reason,
-            timings: extractiveTimings,
-          }),
-      retrievalDiagnostics,
-    );
+          (sourceSafeExtractiveAnswer.grounded
+            ? sourceSafeExtractiveAnswer
+            : buildComparisonEvidenceGapAnswer({
+                query: args.query,
+                results: answerInputResults,
+                selectedDocuments: explicitlySelectedComparisonDocuments,
+                routeReason: `${route.reason}; comparison_evidence_gap`,
+                timings: extractiveTimings,
+              })))
+        : sourceSafeExtractiveAnswer;
+    const answer: RagAnswer = annotateAnswerWithDiagnostics(sourceSafeComparisonAnswer, retrievalDiagnostics);
     answer.quoteCards ??= quoteCards;
     answer.documentBreakdown ??= documentBreakdown;
     answer.evidenceSummary ??= evidenceSummary;
@@ -4666,7 +4656,32 @@ async function answerQuestionWithScopeUncoalesced(
     answer.smartPanel = answer.smartPanel ? { ...answer.smartPanel, relevance } : answer.smartPanel;
     answer.smartApiPlan = smartApiPlan;
     answer.scoreExplanations = answerScoreExplanations;
-    const finalizedAnswer = finalizeRagAnswerQuality(answer, args.query, queryClass);
+    let finalizedAnswer = finalizeRagAnswerQuality(answer, args.query, queryClass);
+    const extractiveReviewCitations = answer.citations.length
+      ? answer.citations
+      : compactCitations(answerInputResults, 5, "deterministic_support");
+    const extractiveNeedsReviewFallback = !finalizedAnswer.grounded && extractiveReviewCitations.length > 0;
+    if (extractiveNeedsReviewFallback) {
+      const reviewRouteReason = `${answer.routingReason ?? route.reason}; ${SOURCE_BACKED_REVIEW_FALLBACK_REASON}`;
+      const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
+      finalizedAnswer = finalizeRagAnswerQuality(
+        {
+          ...answer,
+          answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
+          grounded: true,
+          confidence: deriveConfidence(answerInputResults, extractiveReviewCitations),
+          citations: extractiveReviewCitations,
+          modelUsed: null,
+          routingMode: "extractive",
+          routingReason: reviewRouteReason,
+          responseMode: reviewPlan.displayMode,
+          smartApiPlan: reviewPlan,
+          answerSections: [],
+        },
+        args.query,
+        queryClass,
+      );
+    }
 
     if (args.logQuery !== false)
       await logRagQuery({
@@ -4752,7 +4767,8 @@ async function answerQuestionWithScopeUncoalesced(
 - Never state unsupported numbers, doses, frequencies, thresholds, routes, or medication names. If a number or dose is not clearly in the evidence, leave it out.
 - Copy every dose, level, threshold, cut-off, frequency, and duration EXACTLY as written in a cited excerpt — digit for digit, with its unit. Never supply a number from general clinical knowledge (including "typical" therapeutic levels or well-known reference ranges) that is not verbatim in the excerpts, and never round, infer, or complete a partial figure.
 - Do not merge separate values into a range. If the excerpts list discrete dose steps (for example 0.25 mg, 0.5 mg, 1 mg), present them as discrete steps — never as "0.25–1 mg" or any range the excerpt does not itself state.
-- Use only citation_chunk_id values from the supplied source block — never invent, transform, abbreviate, or reuse IDs from outside the retrieved evidence. Cite only the strongest 3-5, not every source.
+- Use only citation_chunk_id values from the supplied source block — never invent, transform, abbreviate, or reuse IDs from outside the retrieved evidence. Cite only the strongest 3-5 that collectively support every claim you retain; if five chunks cannot cover a lower-priority claim, omit that claim instead of leaving it uncited.
+- For every number, dose, threshold, frequency, or timing, include the exact supporting chunk ID in the containing section's citation_chunk_ids (and in the top-level citations when the figure appears in the answer field). Do not combine independently sourced requirements into one sentence unless all supporting chunk IDs are attached to that sentence's citation scope.
 - If the excerpts contain only headings, partial table fragments, or disconnected text that cannot support a logical answer, say the uploaded documents do not contain enough information — do not fill from general knowledge.
 - Integrate relevant sources: merge overlapping guidance once; when several documents are relevant, synthesise by clinical theme/action and reconcile conflicts explicitly rather than silently choosing one; call out weak, nearby-only, or missing support when the evidence is partial or conflicting. Prefer Australian or WA-specific guidance when present. Sources are ordered by relevance — prioritise earlier ones unless a later source resolves a conflict or gap. The fused source brief and structured memory lines are orientation only; verify every claim against the raw excerpts below them and cite the original chunks.
 - Do not give patient-specific medical advice.
@@ -4887,11 +4903,6 @@ Quality retry instruction:
 ${qualityRetryInstruction}`
       : buildAnswerInput(contextResults);
     const generationStartedAt = Date.now();
-    // Fresh per-generation extractor: each generateWithModel call is a separate JSON stream, so the
-    // answer prose restarts from zero. Deltas are forwarded only for the answer field; the rest of
-    // the structured JSON (sections, citations) is delivered in the final payload as before.
-    const streamExtractor = args.onToken ? createStreamingAnswerExtractor() : null;
-    let streamRawBuffer = "";
     try {
       const result = await generateStructuredTextResult(input, answerJsonOutputSchemaForResults(contextResults), {
         model,
@@ -4899,21 +4910,14 @@ ${qualityRetryInstruction}`
         operation: "answer",
         schemaName: "clinical_rag_answer",
         instructions: answerInstructions,
-        promptCacheKey: "clinical-rag-answer-v18",
+        promptCacheKey: ragAnswerPromptVersion,
         timeoutMs: env.OPENAI_ANSWER_TIMEOUT_MS,
         maxRetries: 0,
         reasoningEffort: useStrongReasoning
           ? strongReasoningEffortForQueryClass(queryClass, env.OPENAI_STRONG_REASONING_EFFORT)
           : env.OPENAI_FAST_REASONING_EFFORT,
         signal: args.signal,
-        onOutputTextDelta:
-          streamExtractor && args.onToken
-            ? (delta) => {
-                streamRawBuffer += delta;
-                const prose = streamExtractor.push(streamRawBuffer);
-                if (prose) args.onToken?.(prose);
-              }
-            : undefined,
+        safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(args.ownerId) : undefined,
       });
       openAIUsage = addOpenAIUsage(openAIUsage, result.usage);
       if (result.requestId) openAIRequestIds.push(result.requestId);
@@ -5126,9 +5130,6 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
-      // Any prose already streamed to the client is now provisional — tell the UI to clear it and
-      // show a "revising for accuracy" state before the corrected strong answer streams in.
-      args.onRevising?.(retryReason);
       // Widen the retry context from the trimmed fast set to the full result set, but keep the P9
       // per-document crowding cap — the strong-initial route is capped, so the retry must be too.
       packedContextResults = await packContextForGeneration(strongRetryContextResults);
@@ -5211,7 +5212,6 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
-      args.onRevising?.(retryReason);
       // Same as the truncation retry above: widen but keep the P9 per-document crowding cap.
       packedContextResults = await packContextForGeneration(strongRetryContextResults);
       // Strong spends more reasoning tokens than the fast attempt it is replacing, so it needs
@@ -5239,6 +5239,12 @@ ${qualityRetryInstruction}`
     const strongQualityFailureReason = usedStrongModel
       ? generatedAnswerQualityFailureReason(answer, args.query, queryClass)
       : null;
+    if (route.mode === "strong" && queryClass === "comparison" && strongQualityFailureReason) {
+      // A second strong-model pass is expensive and pushes comparison requests beyond the
+      // latency target. The catch path can rebuild these answers deterministically from the
+      // same attributed sources, so prefer that bounded recovery over another generation.
+      throw new Error(`OpenAI generation quality gate failed: ${strongQualityFailureReason}`);
+    }
     const answerNeedsStrongQualityRepair = usedStrongModel && Boolean(strongQualityFailureReason);
     if (answerNeedsStrongQualityRepair && generationLatencyMs >= generationTotalBudgetMs) {
       // A4 tail-latency guard: out of the cumulative generation time budget, so keep the
@@ -5256,7 +5262,6 @@ ${qualityRetryInstruction}`
         model: env.OPENAI_STRONG_ANSWER_MODEL,
         reason: routingReason,
       });
-      args.onRevising?.("strong_quality_retry");
       generated = await generateWithModel(env.OPENAI_STRONG_ANSWER_MODEL, packedContextResults, {
         strong: true,
         maxOutputTokensOverride: strongRetryMaxOutputTokens,
@@ -5374,6 +5379,22 @@ ${qualityRetryInstruction}`
     });
     answer = finalizeRagAnswerQuality(answer, args.query, queryClass, numericVerificationSources);
 
+    // A provider response can be schema-valid yet still fail the deterministic claim/numeric
+    // provenance gates after its citations are scoped to individual claims. Reuse the existing
+    // source-safe comparison/extractive recovery path instead of returning an empty unsupported
+    // model answer. The fallback is finalized through the same gates in the catch block, so weak
+    // or unsafe source evidence still fails closed.
+    const sourceSafeFallbackReason = answer.routingReason?.includes("claim_support_high_risk_gap")
+      ? "claim_support_high_risk_gap"
+      : answer.routingReason?.includes("material_source_governance_gap")
+        ? "material_source_governance_gap"
+        : answer.unverifiedNumericTokens?.length
+          ? "numeric_faithfulness_gap"
+          : null;
+    if (sourceSafeFallbackReason) {
+      throw new Error(`OpenAI generation quality gate failed: ${sourceSafeFallbackReason}`);
+    }
+
     if (args.logQuery !== false)
       await logRagQuery({
         owner_id: args.ownerId ?? null,
@@ -5472,23 +5493,53 @@ ${qualityRetryInstruction}`
       queryClass,
       routeMode: route.mode ?? "unknown",
     });
-    const comparisonFallbackAnswer =
+    const comparisonMatrixFallbackAnswer =
       queryClass === "comparison"
-        ? (buildComparisonAnswer({
+        ? buildComparisonAnswer({
             query: args.query,
             results: generationFallbackResults,
             selectedDocuments: explicitlySelectedComparisonDocuments,
             routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_source_safe_fallback`,
             timings: baseFallbackAnswer.latencyTimings,
-          }) ??
-          buildComparisonEvidenceGapAnswer({
-            query: args.query,
-            results: generationFallbackResults,
-            selectedDocuments: explicitlySelectedComparisonDocuments,
-            routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_evidence_gap`,
-            timings: baseFallbackAnswer.latencyTimings,
-          }))
+          })
         : null;
+    const comparisonExtractiveFallbackAnswer =
+      queryClass === "comparison" && !comparisonMatrixFallbackAnswer
+        ? buildExtractiveAnswer({
+            query: args.query,
+            queryClass,
+            results: generationFallbackResults,
+            quoteCards: generationFallbackArtifacts.quoteCards,
+            documentBreakdown: generationFallbackArtifacts.documentBreakdown,
+            evidenceSummary: generationFallbackArtifacts.evidenceSummary,
+            sourceCoverage: generationFallbackArtifacts.sourceCoverage,
+            conflictsOrGaps: generationFallbackArtifacts.conflictsOrGaps,
+            visualEvidence: generationFallbackArtifacts.visualEvidence,
+            bestSource: generationFallbackArtifacts.bestSource,
+            smartPanel: {
+              ...generationFallbackArtifacts.smartPanel,
+              relevance: generationFallbackArtifacts.relevance,
+              bestSource: generationFallbackArtifacts.bestSource,
+              relatedDocuments,
+            },
+            relatedDocuments,
+            routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_source_extractive_fallback`,
+            timings: baseFallbackAnswer.latencyTimings,
+          })
+        : null;
+    const comparisonFallbackAnswer =
+      comparisonMatrixFallbackAnswer ??
+      (comparisonExtractiveFallbackAnswer?.grounded
+        ? comparisonExtractiveFallbackAnswer
+        : queryClass === "comparison"
+          ? buildComparisonEvidenceGapAnswer({
+              query: args.query,
+              results: generationFallbackResults,
+              selectedDocuments: explicitlySelectedComparisonDocuments,
+              routeReason: `${route.reason}; generation_fallback:${sanitizedReason}; comparison_evidence_gap`,
+              timings: baseFallbackAnswer.latencyTimings,
+            })
+          : null);
     const canRecoverGenerationErrorExtractively =
       queryClass !== "comparison" && generationFallbackResults.length > 0 && baseFallbackAnswer.citations.length > 0;
     const extractiveFallbackRouteReason = `${route.reason}; generation_fallback:${sanitizedReason}; source_backed_extractive_fallback`;
@@ -5600,7 +5651,7 @@ ${qualityRetryInstruction}`
             const reviewRouteReason = [
               route.reason,
               `generation_fallback:${sanitizedReason}`,
-              "source_backed_review_fallback",
+              SOURCE_BACKED_REVIEW_FALLBACK_REASON,
               `extractive_quality_gate:${sourceBackedReviewReason}`,
             ].join("; ");
             const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
@@ -5620,11 +5671,46 @@ ${qualityRetryInstruction}`
             } satisfies RagAnswer;
           })()
         : (extractiveFallbackAnswer ?? baseFallbackAnswer);
-    const fallbackAnswer = finalizeRagAnswerQuality(
+    let fallbackAnswer = finalizeRagAnswerQuality(
       annotateAnswerWithDiagnostics(generationFallbackAnswer, retrievalDiagnostics),
       args.query,
       queryClass,
     );
+    const finalizedFallbackNeedsReview =
+      fallbackAnswer.responseMode === "evidence_gap" &&
+      /(?:claim_support_high_risk_gap|material_source_governance_gap)/.test(fallbackAnswer.routingReason ?? "") &&
+      baseFallbackAnswer.citations.length > 0;
+    if (finalizedFallbackNeedsReview) {
+      const reviewRouteReason = [
+        route.reason,
+        `generation_fallback:${sanitizedReason}`,
+        SOURCE_BACKED_REVIEW_FALLBACK_REASON,
+        "post_generation_claim_quality_gate",
+      ].join("; ");
+      const reviewPlan = buildCurrentSmartApiPlan("extractive", reviewRouteReason);
+      fallbackAnswer = finalizeRagAnswerQuality(
+        annotateAnswerWithDiagnostics(
+          {
+            ...baseFallbackAnswer,
+            answer: boldHighYieldClinicalText(sourceBackedGenerationTimeoutAnswer(args.query), args.query),
+            grounded: true,
+            confidence: deriveConfidence(generationFallbackResults, baseFallbackAnswer.citations),
+            modelUsed: null,
+            routingMode: "extractive",
+            routingReason: reviewRouteReason,
+            responseMode: reviewPlan.displayMode,
+            smartApiPlan: reviewPlan,
+            answerSections: [],
+            queryAnalysis,
+            relevance: generationFallbackArtifacts.relevance,
+            scoreExplanations: generationFallbackArtifacts.scoreExplanations,
+          },
+          retrievalDiagnostics,
+        ),
+        args.query,
+        queryClass,
+      );
+    }
     await args.onProgress?.({ stage: "verifying", message: "Checking citations and source metadata." });
     if (args.logQuery !== false)
       await logRagQuery({
@@ -5763,13 +5849,14 @@ Sources:
 ${buildRagSourceBlock(results)}`;
 
   const generated = await generateStructuredTextResult(summaryInput, answerJsonOutputSchemaForResults(results), {
-    model: env.OPENAI_ANSWER_MODEL,
+    model: env.OPENAI_SUMMARY_MODEL,
     maxOutputTokens: env.OPENAI_MAX_OUTPUT_TOKENS,
     operation: "summary",
     schemaName: "clinical_document_summary",
     instructions: summaryInstructions,
-    promptCacheKey: "clinical-document-summary-v2",
+    promptCacheKey: ragSummaryPromptVersion,
     reasoningEffort: env.OPENAI_SUMMARY_REASONING_EFFORT,
+    safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(ownerId) : undefined,
     signal: options?.signal,
   });
   const answer = parseAnswerJson(generated.text, results, "summary");
@@ -5782,7 +5869,7 @@ ${buildRagSourceBlock(results)}`;
   answer.visualEvidence = buildVisualEvidence(results);
   answer.bestSource = selectBestSourceRecommendation(results, answer.quoteCards);
   answer.smartPanel = { ...buildSmartPanel("summary", results), bestSource: answer.bestSource };
-  answer.modelUsed = env.OPENAI_ANSWER_MODEL;
+  answer.modelUsed = env.OPENAI_SUMMARY_MODEL;
   answer.openAIRequestIds = generated.requestId ? [generated.requestId] : [];
   answer.openAIUsage = generated.usage;
   answer.latencyTimings = {

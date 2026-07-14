@@ -400,11 +400,17 @@ describe("private RAG API access", () => {
     const { POST } = await import("../src/app/api/answer/stream/route");
 
     const response = await POST(jsonRequest("/api/answer/stream", { query: "clozapine monitoring" }));
-    await response.text();
+    const stream = await response.text();
 
     expect(response.status).toBe(200);
+    expect(stream).not.toContain("event: token");
+    expect(stream).not.toContain("event: revising");
+    expect(stream).toContain("event: final");
     expect(mocks.answerQuestionWithScope).toHaveBeenCalledWith(
       expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true, query: "clozapine monitoring" }),
+    );
+    expect(mocks.answerQuestionWithScope).toHaveBeenCalledWith(
+      expect.not.objectContaining({ onToken: expect.anything(), onRevising: expect.anything() }),
     );
   });
 

@@ -207,11 +207,12 @@ test("answer progress remains user-safe through fallback and keeps a compact com
     timeout: 3_000,
   });
 
-  await expect(page.getByTestId("answer-streaming")).toContainText("Provisional lithium draft", {
-    timeout: 4_000,
-  });
   await expect(progress).toContainText("Building a source-backed answer", { timeout: 5_000 });
-  await expect(page.getByTestId("answer-streaming-revising")).toBeVisible();
+  // Rolling deployments may still route a new client to an older server that
+  // emits provisional token/revising frames. The client must ignore both so
+  // unvalidated clinical prose never reaches the page before the final event.
+  await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
+  await expect(page.getByTestId("answer-streaming-revising")).toHaveCount(0);
   await expect(page.getByText("Provisional lithium draft")).toHaveCount(0);
 
   await expect(progress).toHaveAttribute("data-progress-state", "complete", { timeout: 6_000 });

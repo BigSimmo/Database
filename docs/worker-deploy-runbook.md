@@ -156,7 +156,8 @@ the client publishable key (build-time, app bundle only) or
 - Models/dimensions: `OPENAI_EMBEDDING_MODEL=text-embedding-3-small`,
   `EMBEDDING_DIMENSIONS=1536` (must match `vector(N)` in
   `supabase/schema.sql` — a mismatch is caught by the startup dimension probe),
-  `OPENAI_VISION_MODEL=gpt-5.5`.
+  `OPENAI_VISION_MODEL=gpt-5.6-terra` and
+  `OPENAI_INDEXING_MODEL=gpt-5.6-terra`.
 - `RAG_PROVIDER_MODE=auto` (OpenAI with graceful source-only fallback).
 - Worker knobs (all defaulted): `WORKER_POLL_MS=30000`,
   `WORKER_BATCH_SIZE=3`, `WORKER_CONCURRENCY=1`, `WORKER_MAX_ATTEMPTS=3`,

@@ -133,7 +133,9 @@ describe("client environment isolation", () => {
     const text = readFileSync(PUBLIC_ENV, "utf8");
     const referencedKeys = [...text.matchAll(/process\.env\.([A-Z0-9_]+)/g)].map((match) => match[1]!);
     expect(new Set(referencedKeys)).toEqual(PUBLIC_ENV_KEYS);
-    expect(text).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY|OPENAI_API_KEY|RAG_QUERY_HASH_SECRET/);
+    expect(text).not.toMatch(
+      /SUPABASE_SERVICE_ROLE_KEY|OPENAI_API_KEY|OPENAI_SAFETY_IDENTIFIER_SECRET|RAG_QUERY_HASH_SECRET/,
+    );
   });
 
   it("scans public assets and generated client chunks without printing surrounding content", () => {

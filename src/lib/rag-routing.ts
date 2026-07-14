@@ -12,6 +12,8 @@ export type AnswerRoute = {
   documentCount: number;
 };
 
+export const SOURCE_BACKED_REVIEW_FALLBACK_REASON = "source_backed_review_fallback";
+
 const unsupportedSimilarityThreshold = 0.32;
 const strongRetrievalThreshold = 0.64;
 const extractiveRetrievalThreshold = 0.76;
