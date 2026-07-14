@@ -50,7 +50,15 @@ async function installClipboardMock(page: Page) {
 
 async function gotoApp(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+  // Wait for the app shell to mount (deterministic) rather than for the network to
+  // idle — these routes keep background fetches alive, so networkidle burned the
+  // full timeout on every navigation. Best-effort: the per-test assertions below
+  // still gate real readiness if the shell selector never resolves.
+  await page
+    .locator("#main-content")
+    .first()
+    .waitFor({ state: "visible", timeout: 15_000 })
+    .catch(() => undefined);
 }
 
 async function waitForReactEventHandler(locator: Locator, eventName: "onScroll") {
@@ -1076,7 +1084,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
       if (route.path.includes("mode=answer")) {
         await waitForDemoDashboardReady(page);
       } else {
-        await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+        await page
+          .locator("#main-content")
+          .first()
+          .waitFor({ state: "visible", timeout: 15_000 })
+          .catch(() => undefined);
       }
 
       const activeLink = page.getByRole("link", { name: route.label, exact: true });
@@ -1782,7 +1794,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "lithium dosing");
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
-    await page.waitForTimeout(400);
+    // Wait for streaming to finish (deterministic) so the geometry below reads the
+    // final, settled layout — replaces a fixed 400ms sleep.
+    await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
 
     const geo = await page.evaluate(() => {
       const main = document.querySelector("main#main-content");
@@ -1828,7 +1842,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "lithium dosing");
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
-    await page.waitForTimeout(400);
+    // Wait for streaming to finish (deterministic) so the geometry below reads the
+    // final, settled layout — replaces a fixed 400ms sleep.
+    await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
     // Start from the top so the assertions describe the resting, top-aligned view.
     await page.locator("main#main-content").evaluate((el) => {
       el.scrollTop = 0;
@@ -1954,6 +1970,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(cancelled.getByRole("button", { name: "Run again" })).toBeVisible();
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(0);
     await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
+    // Intentional fixed wait: this asserts a NEGATIVE (no answer streams in after
+    // Stop), so there is no event to await — we give a late async render time to
+    // (wrongly) appear, then confirm it did not.
     await page.waitForTimeout(1700);
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(0);
   });

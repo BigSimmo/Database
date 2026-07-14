@@ -181,10 +181,14 @@ function launcherLaunchLink(page: Page, title: string) {
 
 async function gotoLauncher(page: Page, path = "/?mode=tools") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  // Most launcher routes keep background fetches alive, so a long networkidle wait
-  // burns the full timeout on every navigation without adding signal. A short grace
-  // period is enough; the per-route assertions below wait on real UI readiness.
-  await page.waitForLoadState("networkidle", { timeout: 2_000 }).catch(() => undefined);
+  // Launcher routes keep background fetches alive, so wait for the app shell to
+  // mount (deterministic) instead of for the network to idle; the per-route
+  // assertions below still gate real UI readiness.
+  await page
+    .locator("#main-content")
+    .first()
+    .waitFor({ state: "visible", timeout: 15_000 })
+    .catch(() => undefined);
 }
 
 async function expectNoPageHorizontalOverflow(page: Page) {
@@ -629,7 +633,6 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     const input = visibleGlobalSearchInput(page).first();
     await expect(input).toBeVisible();
-    await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 
     // Phone searches use the same accessible listbox as larger viewports, bounded
     // above the bottom dock so results stay reachable without horizontal overflow.

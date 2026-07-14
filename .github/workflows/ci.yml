@@ -38,6 +38,7 @@ jobs:
       workflow_changed: ${{ steps.scope.outputs.workflow_changed }}
       codex_autofix_changed: ${{ steps.scope.outputs.codex_autofix_changed }}
       build_changed: ${{ steps.scope.outputs.build_changed }}
+      lockfile_changed: ${{ steps.scope.outputs.lockfile_changed }}
       changed_files: ${{ steps.scope.outputs.changed_files }}
     steps:
       - name: Checkout
@@ -69,15 +70,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: ".nvmrc"
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
 
       - name: Runtime alignment
         run: npm run check:runtime
@@ -112,22 +106,31 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: ".nvmrc"
-          cache: npm
-          cache-dependency-path: package-lock.json
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
 
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
-      - name: Install dependencies
-        run: npm ci
+      # A PR can only introduce a new (possibly-vulnerable) dependency when a
+      # manifest/lockfile changes, so the audit blocks the merge gate only then
+      # (retried to absorb transient npm-registry flake). For every other change
+      # it runs advisory, and the weekly scheduled full run still enforces drift.
+      - name: Dependency audit (blocking on dependency changes)
+        if: needs.changes.outputs.lockfile_changed == 'true'
+        run: |
+          for attempt in 1 2 3; do
+            if npm audit --omit=dev --audit-level=high; then exit 0; fi
+            echo "npm audit attempt ${attempt} failed (likely a transient registry error); retrying in 10s" >&2
+            sleep 10
+          done
+          npm audit --omit=dev --audit-level=high
 
-      - name: Dependency vulnerability audit
+      - name: Dependency audit (advisory)
+        if: needs.changes.outputs.lockfile_changed != 'true'
+        continue-on-error: true
         run: npm audit --omit=dev --audit-level=high
 
       - name: Edge function typecheck
@@ -156,15 +159,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: ".nvmrc"
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
 
       - name: Unit tests (with coverage gate)
         run: npm run test:coverage
@@ -181,17 +177,23 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: ".nvmrc"
-          cache: npm
-          cache-dependency-path: package-lock.json
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore Next.js build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}-${{ hashFiles('src/**', 'data/**', 'public/**', 'next.config.ts', 'tsconfig.json', 'postcss.config.mjs') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}-
 
       - name: Build
+        env:
+          # experimental.cpus only parallelises static generation (small on this
+          # build); the incremental .next/cache above is the real speedup. Kept as
+          # a tunable so the local default stays cpus:1 (WasmHash-crash-safe).
+          NEXT_BUILD_CPUS: "4"
         run: npm run build
 
       - name: Bundle budget (warn-only until a baseline is enforced)
@@ -217,24 +219,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: ".nvmrc"
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Restore Chromium browser cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Chromium browser
-        run: npx playwright install --with-deps chromium
+      - name: Setup UI e2e environment
+        uses: ./.github/actions/setup-ui-e2e
 
       - name: Chromium critical UI smoke
         run: npm run test:e2e:critical
@@ -264,24 +250,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: ".nvmrc"
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Restore Chromium browser cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Chromium browser
-        run: npx playwright install --with-deps chromium
+      - name: Setup UI e2e environment
+        uses: ./.github/actions/setup-ui-e2e
 
       - name: Chromium stable regression suite
         run: npm run test:e2e:regression
@@ -296,53 +266,14 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
 
-  ui-quarantine:
-    name: Advisory quarantined UI tests
-    needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.ui_changed == 'true'
-    continue-on-error: true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
-        with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: ".nvmrc"
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Restore Chromium browser cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Chromium browser
-        run: npx playwright install --with-deps chromium
-
-      - name: Chromium quarantined tests (advisory)
-        run: npm run test:e2e:quarantine
-
-      - name: Upload quarantine diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: quarantine-ui-diagnostics-${{ github.run_id }}
-          path: |
-            test-results/
-            playwright-report/
-          if-no-files-found: ignore
-
   # Prototype /mockups specs live in their own advisory lane so a red mockup
   # can never mask (or block on) a production-journey regression (PT-05).
+  #
+  # The former `ui-quarantine` job was removed: there are currently no
+  # @quarantine-tagged specs, so it started a full runner (npm ci + browser +
+  # server) only to run nothing. `test:e2e:regression` already grep-inverts
+  # @quarantine, so a newly-tagged flake would run NOWHERE — re-add a quarantine
+  # lane (mirroring this job with test:e2e:quarantine) at that point.
   ui-mockups:
     name: Advisory mockup UI
     needs: changes
@@ -356,24 +287,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: ".nvmrc"
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Restore Chromium browser cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Chromium browser
-        run: npx playwright install --with-deps chromium
+      - name: Setup UI e2e environment
+        uses: ./.github/actions/setup-ui-e2e
 
       - name: Chromium mockup regression
         run: npm run test:e2e:mockups
@@ -528,27 +443,36 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: ".nvmrc"
-          cache: npm
-          cache-dependency-path: package-lock.json
+      - name: Setup Node and dependencies
+        uses: ./.github/actions/setup-node-cached
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Restore Next.js build cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}-${{ hashFiles('src/**', 'data/**', 'public/**', 'next.config.ts', 'tsconfig.json', 'postcss.config.mjs') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package-lock.json') }}-
 
       - name: Build
+        env:
+          NEXT_BUILD_CPUS: "4"
         run: npm run build
 
       - name: Restore browser cache
+        id: pw-cache
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        run: |
+          if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+            npx playwright install
+          else
+            npx playwright install --with-deps
+          fi
 
       - name: Full browser UI matrix
         id: e2e-matrix
