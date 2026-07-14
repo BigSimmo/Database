@@ -1,5 +1,9 @@
 import * as nextEnv from "@next/env";
+import { pathToFileURL } from "node:url";
 import { documentLabelTier, normalizeDocumentLabelForStorage } from "@/lib/document-tags";
+import { isRegistryProjectionDocument } from "./lib/registry-projection-document";
+
+export { isRegistryProjectionDocument } from "./lib/registry-projection-document";
 
 const loadEnvConfig =
   nextEnv.loadEnvConfig ??
@@ -534,9 +538,16 @@ async function main() {
   }
   const supabase = await loadAdminClient();
   const loadedDocuments = await loadDocuments(supabase, args);
+  const registryDocuments = loadedDocuments.filter(isRegistryProjectionDocument);
+  const classifiableDocuments = loadedDocuments.filter((document) => !isRegistryProjectionDocument(document));
+  if (registryDocuments.length > 0) {
+    console.log(
+      `[classify:documents] Skipped ${registryDocuments.length} registry projection(s); use registry:reconcile-governance to repair deterministic governance metadata and labels without embeddings.`,
+    );
+  }
   const documents = args.onlyMissingSmartV2
-    ? await filterDocumentsMissingSmartV2(supabase, loadedDocuments)
-    : loadedDocuments;
+    ? await filterDocumentsMissingSmartV2(supabase, classifiableDocuments)
+    : classifiableDocuments;
   const plans = [];
 
   for (const document of documents) {
@@ -550,7 +561,9 @@ async function main() {
   console.log(`\nUpdated ${plans.length} document organization profile(s).`);
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

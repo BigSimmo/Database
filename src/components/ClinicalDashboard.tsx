@@ -126,13 +126,14 @@ const DocumentDrawer = dynamic(
   { ssr: false },
 );
 
-// Results surfaces load lazily: they only render after a submitted search/answer, so their chunk
-// downloads behind the (multi-second) retrieval/answer request rather than bloating the initial
-// answer-home bundle. The answer surface keeps the same skeleton as generation to avoid a flash.
-const StagedAnswerResultSurface = dynamic(
-  () => import("@/components/clinical-dashboard/answer-result-surface").then((m) => m.StagedAnswerResultSurface),
-  { ssr: false, loading: () => <AnswerSkeleton /> },
-);
+// Results surfaces load lazily. Preload the primary answer surface after hydration so a cold
+// browser does not finish a fast/cached answer before the result UI chunk is available.
+const loadStagedAnswerResultSurface = () =>
+  import("@/components/clinical-dashboard/answer-result-surface").then((m) => m.StagedAnswerResultSurface);
+const StagedAnswerResultSurface = dynamic(loadStagedAnswerResultSurface, {
+  ssr: false,
+  loading: () => <AnswerSkeleton />,
+});
 const RelatedDocumentsPanel = dynamic(
   () => import("@/components/clinical-dashboard/document-results").then((m) => m.RelatedDocumentsPanel),
   { ssr: false },
@@ -461,6 +462,7 @@ export function ClinicalDashboard({
   const jobsRef = useRef(jobs);
   const batchesRef = useRef(batches);
   const answerThreadBootstrappedRef = useRef(false);
+  const activeAnswerThreadOwnerIdRef = useRef<string | null>(null);
   const [answerThreadBootstrapped, setAnswerThreadBootstrapped] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
@@ -504,6 +506,11 @@ export function ClinicalDashboard({
     autoRunSearch && searchParams.get("run") === "1" && submittedUrlModeMatchesActive
       ? (searchParams.get("q") ?? searchParams.get("query") ?? "").trim()
       : "";
+
+  useEffect(() => {
+    void loadStagedAnswerResultSurface();
+  }, []);
+
   const routedSearchContext = useMemo(() => readSearchNavigationContext(searchParams), [searchParams]);
   const routedSearchContextSignature = searchNavigationContextSignature(routedSearchContext);
   const [privateScopeStatus, setPrivateScopeStatus] = useState<"none" | "restoring" | "restored" | "unavailable">(
@@ -556,7 +563,8 @@ export function ClinicalDashboard({
     setLatestAnswerQuery(null);
     setCollapsedTurnIds(new Set());
     setShowEarlierTurns(false);
-    clearPersistedAnswerThread();
+    const ownerId = activeAnswerThreadOwnerIdRef.current;
+    if (ownerId) clearPersistedAnswerThread(ownerId);
   }, []);
   function toggleAnswerTurnCollapsed(turnId: string) {
     setCollapsedTurnIds((current) => {
@@ -750,6 +758,7 @@ export function ClinicalDashboard({
   useEffect(() => {
     const previousOwnerId = previousAnswerThreadOwnerIdRef.current;
     previousAnswerThreadOwnerIdRef.current = answerThreadOwnerId;
+    activeAnswerThreadOwnerIdRef.current = answerThreadOwnerId;
     if (!previousOwnerId || previousOwnerId === answerThreadOwnerId) return;
     answerThreadBootstrappedRef.current = false;
     queueMicrotask(() => {
@@ -905,23 +914,23 @@ export function ClinicalDashboard({
       return;
     }
     let cancelled = false;
-    const frame = window.requestAnimationFrame(() => {
+    queueMicrotask(() => {
+      if (cancelled) return;
       try {
         const stored = JSON.parse(
           window.sessionStorage.getItem(`${recentQueryStorageKey}:${answerThreadOwnerId}`) ?? "[]",
         );
-        if (Array.isArray(stored) && !cancelled) {
-          setRecentQueries(
-            stored.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).slice(0, 5),
-          );
-        }
+        setRecentQueries(
+          Array.isArray(stored)
+            ? stored.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).slice(0, 5)
+            : [],
+        );
       } catch {
-        if (!cancelled) setRecentQueries([]);
+        setRecentQueries([]);
       }
     });
     return () => {
       cancelled = true;
-      window.cancelAnimationFrame(frame);
     };
   }, [answerThreadOwnerId]);
 
@@ -951,7 +960,7 @@ export function ClinicalDashboard({
     if (!answerThreadBootstrapped) return;
     if (searchMode !== "answer") return;
     if (!answer && priorAnswerTurns.length === 0) {
-      clearPersistedAnswerThread();
+      if (answerThreadOwnerId) clearPersistedAnswerThread(answerThreadOwnerId);
       return;
     }
     if (!answerThreadOwnerId) return;

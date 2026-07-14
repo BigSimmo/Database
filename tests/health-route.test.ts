@@ -2,13 +2,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const DEEP_TOKEN = "deep-probe-secret";
 
-function mockEnv(options: { configured: boolean; demoMode?: boolean; deepSecret?: boolean }) {
+function mockEnv(options: {
+  configured: boolean;
+  openAIConfigured?: boolean;
+  demoMode?: boolean;
+  deepSecret?: boolean;
+  providerMode?: "auto" | "openai" | "offline";
+}) {
   vi.resetModules();
+  const openAIConfigured = options.openAIConfigured ?? options.configured;
   vi.doMock("@/lib/env", () => ({
     env: {
       NEXT_PUBLIC_SUPABASE_URL: options.configured ? "https://sjrfecxgysukkwxsowpy.supabase.co" : undefined,
       SUPABASE_SERVICE_ROLE_KEY: options.configured ? "service-role-key" : undefined,
-      OPENAI_API_KEY: options.configured ? "openai-key" : undefined,
+      OPENAI_API_KEY: openAIConfigured ? "openai-key" : undefined,
+      RAG_PROVIDER_MODE: options.providerMode ?? "auto",
       HEALTH_DEEP_PROBE_SECRET: options.deepSecret ? DEEP_TOKEN : undefined,
     },
     isDemoMode: () => Boolean(options.demoMode),
@@ -53,6 +61,28 @@ describe("GET /api/health", () => {
     expect(response.status).toBe(503);
     expect(body.status).toBe("degraded");
     expect(body.checks).toMatchObject({ supabaseConfig: "missing", openaiConfig: "missing" });
+  });
+
+  it("treats a missing OpenAI key as intentionally skipped only in explicit offline mode", async () => {
+    mockEnv({ configured: false, providerMode: "offline" });
+    const { GET } = await import("../src/app/api/health/route");
+
+    const response = await GET(healthRequest());
+    const body = await payload(response);
+
+    expect(response.status).toBe(503);
+    expect(body.checks).toMatchObject({ supabaseConfig: "missing", openaiConfig: "skipped" });
+  });
+
+  it("reports healthy without an OpenAI key when Supabase is configured for explicit offline mode", async () => {
+    mockEnv({ configured: true, openAIConfigured: false, providerMode: "offline" });
+    const { GET } = await import("../src/app/api/health/route");
+
+    const response = await GET(healthRequest());
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.checks).toMatchObject({ supabaseConfig: "ok", openaiConfig: "skipped" });
   });
 
   it("gates the deep probe without a token and omits the slo/cache snapshots", async () => {

@@ -1,6 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Suspense,
@@ -15,6 +14,7 @@ import {
 } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
+import { ClinicalDashboard } from "@/components/ClinicalDashboard";
 import {
   clearLegacyRecentQueries,
   demoRecentQueryOwnerId,
@@ -50,11 +50,6 @@ import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
-
-const ClinicalDashboard = dynamic(
-  () => import("@/components/ClinicalDashboard").then((module) => module.ClinicalDashboard),
-  { ssr: false, loading: () => <ModeHomeRouteLoading /> },
-);
 
 const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
   { value: "auto", label: "Auto" },
@@ -131,7 +126,7 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
     resolvedSearchMode !== "forms" &&
     resolvedSearchMode !== "favourites" &&
     resolvedSearchMode !== "differentials" &&
-    resolvedSearchMode !== "specifiers" &&
+    resolvedSearchMode !== "formulation" &&
     !isDocumentSearchMockupRoute;
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
@@ -251,7 +246,7 @@ function GlobalStandaloneSearchShellClient({
     resolvedSearchMode !== "forms" &&
     resolvedSearchMode !== "favourites" &&
     resolvedSearchMode !== "differentials" &&
-    resolvedSearchMode !== "specifiers" &&
+    resolvedSearchMode !== "formulation" &&
     !isDocumentSearchMockupRoute;
   const isStandaloneModeHome =
     !hasSubmittedModeSearch &&
@@ -260,7 +255,7 @@ function GlobalStandaloneSearchShellClient({
       (searchMode === "forms" && pathname === "/forms") ||
       (searchMode === "favourites" && pathname === "/favourites") ||
       (searchMode === "differentials" && pathname === "/differentials") ||
-      (searchMode === "specifiers" && pathname === "/specifiers") ||
+      (searchMode === "formulation" && pathname === "/formulation") ||
       (searchMode === "tools" && pathname === "/tools"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
@@ -339,7 +334,7 @@ function GlobalStandaloneSearchShellClient({
     router.prefetch("/?mode=tools");
     router.prefetch("/favourites");
     router.prefetch("/differentials");
-    router.prefetch("/specifiers");
+    router.prefetch("/formulation");
   }
 
   function openGuide() {
