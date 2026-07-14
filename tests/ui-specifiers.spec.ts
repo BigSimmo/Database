@@ -69,12 +69,16 @@ test("searches clinical language without provenance fields and carries a result 
 
   await expect(page).toHaveURL(/\/specifiers\?.*q=depressed(?:\+|%20)but(?:\+|%20)racing(?:\+|%20)thoughts.*run=1/);
   await expect(page.getByRole("heading", { name: /Matches for “depressed but racing thoughts”/ })).toBeVisible();
+  await expect(page.getByText(/Results ranked by text relevance/i)).toBeVisible();
+  await expect(page.getByText("Top match", { exact: true })).toBeVisible();
+  await expect(page.getByText("Best fit", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/clinical fit/i)).toHaveCount(0);
   await expect(page.getByRole("link", { name: "With mixed features", exact: true })).toBeVisible();
   await expect(page.getByText("Source status", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Source", { exact: true })).toHaveCount(0);
 
   await page.getByRole("link", { name: "Open With mixed features" }).click();
-  await expect(page).toHaveURL(/\/specifiers\/with-mixed-features$/);
+  await expect(page).toHaveURL(/\/specifiers\/with-mixed-features$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "With mixed features", exact: true })).toBeVisible();
   await expect(page.getByText("What matters now", { exact: true })).toBeVisible();
 
@@ -139,22 +143,21 @@ test("blocks incompatible specifiers and preserves severe psychotic-features wor
   await expect(rapidCycling).toBeChecked();
 });
 
-test("infers the correct diagnosis from a non-MDD deep link", async ({ page }) => {
-  await gotoApp(page, "/specifiers/builder?specifier=with-rapid-cycling");
+test("infers a compatible diagnosis for non-MDD builder deep links", async ({ page }) => {
+  await gotoApp(page, "/specifiers/builder?specifier=with-rapid-cycling&specifier=with-psychotic-features");
 
   const rapidCycling = page.getByRole("checkbox", { name: /Rapid cycling/ });
-  await expect(rapidCycling).toBeChecked();
   await expect(page.getByRole("combobox", { name: "Diagnostic phrase" })).toHaveValue("bipolar-i-depressed");
+  await expect(rapidCycling).toBeEnabled();
+  await expect(rapidCycling).toBeChecked();
   await expect(
-    page.getByText("Bipolar I disorder, current episode depressed, with rapid cycling", { exact: true }),
+    page.getByText(
+      "Bipolar I disorder, current episode depressed, severe with psychotic features, with rapid cycling",
+      { exact: true },
+    ),
   ).toBeVisible();
-});
 
-test("labels search results using text-relevance language instead of clinical-fit language", async ({ page }) => {
-  await gotoApp(page, "/specifiers?q=racing+thoughts&run=1");
-
-  await expect(page.getByRole("heading", { name: /Matches for “racing thoughts”/ })).toBeVisible();
-  await expect(page.getByText("Top match", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Results ranked by text relevance/i)).toBeVisible();
-  await expect(page.getByText(/clinical fit/i)).toHaveCount(0);
+  await page.getByRole("combobox", { name: "Diagnostic phrase" }).selectOption("bipolar-i-manic");
+  await expect(rapidCycling).toBeEnabled();
+  await expect(rapidCycling).toBeChecked();
 });

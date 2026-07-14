@@ -15,17 +15,14 @@ export async function generateMetadata({ searchParams }: CompareRouteProps): Pro
   const params = searchParams ? await searchParams : {};
   const left = findSpecifier(first(params.a) ?? "");
   const right = findSpecifier(first(params.b) ?? "");
-
-  if (left && right) {
-    return {
-      title: `Compare ${left.shortName} and ${right.shortName}`,
-      description: `Side-by-side comparison of ${left.name} and ${right.name} specifiers.`,
-    };
-  }
+  const names = [left?.shortName, right?.shortName].filter(Boolean);
 
   return {
-    title: "Compare specifiers",
-    description: "Compare psychiatric specifiers side by side to understand the deciding features.",
+    title: `${names.length ? `Compare ${names.join(" and ")}` : "Compare psychiatric specifiers"} - Clinical KB`,
+    description:
+      left && right
+        ? `Compare ${left.name} and ${right.name} side by side, including clinical signals, timing, and cautions.`
+        : "Compare psychiatric specifiers side by side, including clinical signals, timing, and cautions.",
   };
 }
 
