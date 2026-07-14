@@ -32,10 +32,23 @@ function tryGit(args) {
   }
 }
 
-/** Branch names referenced in the review ledger (2nd table column may prefix "PR #N / "). */
+/**
+ * Branch names referenced in the review ledger. Parses the branch/ref column
+ * (2nd table column, which may prefix "PR #N / ") generically so every namespace
+ * is captured — claude/, codex/, copilot/, cursor/, fix/, and any future prefix —
+ * rather than relying on a hard-coded prefix allowlist.
+ */
 export function parseLedgerBranches(markdown) {
   const names = new Set();
-  for (const m of markdown.matchAll(/\b((?:claude|codex)\/[A-Za-z0-9._-]+)/g)) names.add(m[1]);
+  for (const line of markdown.split("\n")) {
+    if (!line.startsWith("|")) continue;
+    // | date | branch/ref | head | scope | outcome | checks |  -> column index 2
+    const cell = (line.split("|")[2] ?? "").trim();
+    if (!cell) continue;
+    // A ref token is "<namespace>/<name>" with no surrounding whitespace, so the
+    // "PR #N / " prefix and prose in the cell do not produce false matches.
+    for (const m of cell.matchAll(/[A-Za-z0-9._-]+\/[A-Za-z0-9._/-]+/g)) names.add(m[0]);
+  }
   return names;
 }
 

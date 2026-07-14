@@ -46,4 +46,16 @@ describe("sweep-branch-ledger parsing", () => {
     expect(names.has("codex/design-ux-review-fixes")).toBe(true);
     expect(names.has("claude/answer-page-design-polish-ffd5a6")).toBe(true);
   });
+
+  it("extracts every branch namespace, not just claude/ and codex/", () => {
+    const md = [
+      "| 2026-07-14 | copilot/fix-failing-ci | a | branch-cleanup-deletion-pending | out | c |",
+      "| 2026-07-14 | cursor/fix-pr654-ci-53b4 | b | branch-cleanup | out | c |",
+      "| 2026-07-14 | fix/accessibility-remaining-findings | c | branch-cleanup | out | c |",
+    ].join("\n");
+    const names = parseLedgerBranches(md);
+    expect(names.has("copilot/fix-failing-ci")).toBe(true);
+    expect(names.has("cursor/fix-pr654-ci-53b4")).toBe(true);
+    expect(names.has("fix/accessibility-remaining-findings")).toBe(true);
+  });
 });
