@@ -18,6 +18,11 @@ function compareHref(diagnoses: DsmDiagnosis[]) {
   return `/dsm/compare?ids=${encodeURIComponent(diagnoses.map((diagnosis) => diagnosis.slug).join(","))}`;
 }
 
+function chooseDiagnosesHref(diagnoses: DsmDiagnosis[]) {
+  if (!diagnoses.length) return "/dsm/search";
+  return `/dsm/search?ids=${encodeURIComponent(diagnoses.map((diagnosis) => diagnosis.slug).join(","))}`;
+}
+
 function removeDiagnosisHref(diagnoses: DsmDiagnosis[], slug: string) {
   const remaining = diagnoses.filter((diagnosis) => diagnosis.slug !== slug);
   return remaining.length ? compareHref(remaining) : "/dsm/compare";
@@ -88,7 +93,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
         description="Review core criteria, course-defining features, specifiers, and differential flags side by side. This is a structured review aid, not a diagnostic score."
         actions={
           <Link
-            href="/dsm/search"
+            href={chooseDiagnosesHref(diagnoses)}
             className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]"
           >
             <Plus className="h-4 w-4" aria-hidden />
@@ -129,7 +134,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
           ))}
           {diagnoses.length < 3 ? (
             <Link
-              href={`/dsm/search?ids=${encodeURIComponent(diagnoses.map((diagnosis) => diagnosis.slug).join(","))}`}
+              href={chooseDiagnosesHref(diagnoses)}
               className="grid min-h-[7.5rem] place-items-center rounded-xl border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] p-3 text-center text-sm font-bold text-[color:var(--clinical-accent)]"
             >
               <span className="grid justify-items-center gap-2">
@@ -254,7 +259,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
               </p>
             </div>
             <Link
-              href="/dsm/search"
+              href={chooseDiagnosesHref(diagnoses)}
               className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
             >
               <BookOpenCheck className="h-4 w-4" aria-hidden />

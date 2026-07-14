@@ -99,13 +99,16 @@ for (const diagnosis of dsmDiagnoses) {
 }
 
 // Lookup by title initialism (e.g., "MDD" from "Major depressive disorder", "OCD" from
-// "Obsessive-compulsive disorder"). Splits on spaces, hyphens, and slashes.
+// "Obsessive-compulsive disorder", "PDD" from "Persistent depressive disorder (dysthymia)").
+// Strip parentheticals first so aliases like PDD are not polluted by subtitle words.
+// Splits on spaces, hyphens, and slashes.
 const diagnosisByInitialism = new Map<string, DsmDiagnosis>();
 for (const diagnosis of dsmDiagnoses) {
   const initialism = diagnosis.title
+    .replace(/\([^)]*\)/g, " ")
     .split(/[\s\-\/]+/)
     .map((word) => word[0])
-    .filter(Boolean)
+    .filter((char) => Boolean(char) && /[A-Za-z0-9]/i.test(char))
     .join("")
     .toLowerCase();
   if (initialism.length >= 2 && !diagnosisByInitialism.has(initialism)) {

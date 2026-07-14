@@ -52,4 +52,12 @@ describe("DSM clinical catalogue", () => {
       "bipolar-ii-disorder",
     );
   });
+
+  it("resolves initialisms after stripping title parentheticals", () => {
+    expect(resolveDsmDifferential("MDD")?.slug).toBe("major-depressive-disorder");
+    expect(resolveDsmDifferential("PDD")?.slug).toBe("persistent-depressive-disorder-dysthymia");
+    expect(
+      rankDsmDiagnoses("PDD", 5).some((match) => match.diagnosis.slug === "persistent-depressive-disorder-dysthymia"),
+    ).toBe(true);
+  });
 });
