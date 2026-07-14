@@ -16,24 +16,6 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_DB_URL: z.string().url().optional(),
   HEALTH_DEEP_PROBE_SECRET: z.string().min(16).optional(),
-  // Optional server-side Sentry error capture (answer pipeline + uncaught route
-  // errors). Fully inert when unset: @sentry/node is never imported and no event
-  // egress occurs. Deliberately NOT part of requireServerEnv — a missing DSN must
-  // never block boot. See src/lib/observability/error-capture.ts.
-  SENTRY_DSN: z.preprocess(
-    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
-    z.string().url().optional(),
-  ),
-  // Optional client-side (browser) Sentry error capture, the counterpart to the
-  // server SENTRY_DSN above. This public DSN is safe to expose to the browser. Fully
-  // inert when unset: the @sentry/browser SDK is tree-shaken out of the client bundle
-  // (see src/instrumentation-client.ts). Blank is normalized to undefined so an empty
-  // NEXT_PUBLIC_SENTRY_DSN="" never fails envSchema.parse at startup.
-  NEXT_PUBLIC_SENTRY_DSN: z.preprocess(
-    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
-    z.string().url().optional(),
-  ),
-  NEXT_PUBLIC_SENTRY_ENVIRONMENT: z.string().optional(),
   NEXT_PUBLIC_LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
