@@ -62,6 +62,7 @@ export async function POST(request: Request): Promise<Response> {
     method: "POST",
     body: envelope,
     headers: { "Content-Type": "application/x-sentry-envelope" },
+    signal: AbortSignal.timeout(10000),
   });
 
   const body = await upstream.text();

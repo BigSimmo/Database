@@ -54,6 +54,10 @@ export function scrubSentryEvent<T extends Event>(event: T): T {
   // No user identity (email/id/ip) — the request-hash correlation id is enough.
   delete event.user;
 
+  // Remove breadcrumbs (client-side console/fetch/XHR breadcrumb data could leak
+  // request/identity data to Sentry).
+  delete event.breadcrumbs;
+
   if (event.extra) event.extra = redactByKey(event.extra) as Record<string, unknown>;
   if (event.contexts) event.contexts = redactByKey(event.contexts) as typeof event.contexts;
   if (event.tags) event.tags = redactByKey(event.tags) as typeof event.tags;
