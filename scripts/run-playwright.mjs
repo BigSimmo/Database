@@ -29,7 +29,13 @@ const routeSmokePaths = ["/", "/applications"];
 // cold-start flakes: ui-tools mode-home, differentials, universal-search). We warm
 // every distinct page route the suite touches BEFORE running Playwright, so every
 // navigation lands on an already-compiled route. `/?mode=…` variants share the `/`
-// route, so warming `/` covers them. Best-effort with a generous compile timeout.
+// route, so warming `/` covers them.
+//
+// Warming is STRICTLY SEQUENTIAL: `next dev` uses Turbopack, whose persistent
+// (RocksDB) cache cannot service concurrent compilations — firing the warms in
+// parallel corrupts it ("Only a single write operation is allowed at a time" →
+// TurbopackInternalError / missing build-manifest.json). One route at a time
+// compiles cleanly. Best-effort with a generous per-route compile timeout.
 const warmupPaths = ["/", "/applications", "/tools", "/services", "/favourites", "/medications"];
 const warmupTimeoutMs = 90_000;
 
@@ -147,10 +153,13 @@ async function hasHealthyRouteComponents(baseUrl) {
 }
 
 // Pre-compile the page routes the suite navigates to so the first test to hit each
-// one does not race `next dev`'s lazy on-demand compile. Concurrent + best-effort:
-// a route that is slow or 404s here is not fatal (the tests still assert readiness).
+// one does not race `next dev`'s lazy on-demand compile. Sequential (see warmupPaths
+// note) + best-effort: a route that is slow or 404s here is not fatal — the tests
+// still assert real readiness.
 async function warmRoutes(baseUrl) {
-  await Promise.all(warmupPaths.map((routePath) => requestText(`${baseUrl}${routePath}`, warmupTimeoutMs)));
+  for (const routePath of warmupPaths) {
+    await requestText(`${baseUrl}${routePath}`, warmupTimeoutMs);
+  }
 }
 
 async function waitForServer(baseUrl) {
