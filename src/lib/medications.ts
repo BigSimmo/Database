@@ -360,7 +360,11 @@ export function medicationHeroMetrics(record: MedicationRecord): MedicationHeroM
   ];
   const metrics: MedicationHeroMetric[] = ordered.slice(0, 4).map((stat) => ({
     label: stat.label,
-    value: shortValue(stat.value),
+    // Never truncate the prescribing ceiling: multi-variant max doses (e.g.
+    // "Buvidal 160 mg/month; Sublocade 300 mg/month") must stay complete, and the
+    // full value lives nowhere else now that the Key-stats sidebar is gone. Other
+    // stats are short curated tokens, so shortValue is only a safety-net cap.
+    value: isMaxDoseLabel(stat.label) ? stat.value.replace(/\*\*/g, "").trim() : shortValue(stat.value),
     tone: heroMetricTone(stat),
   }));
   if (metrics.length >= 4) return metrics;
@@ -368,7 +372,7 @@ export function medicationHeroMetrics(record: MedicationRecord): MedicationHeroM
   const usualDose = medicationUsualDose(record);
   const backfills: MedicationHeroMetric[] = [
     { label: "Usual dose", value: shortValue(usualDose), tone: "clinical" },
-    record.schedule ? { label: "Schedule", value: record.schedule, tone: "neutral" } : null,
+    record.schedule ? { label: "Schedule", value: shortValue(record.schedule), tone: "neutral" } : null,
     record.category ? { label: "Category", value: shortValue(record.category), tone: "neutral" } : null,
   ].filter((metric): metric is MedicationHeroMetric => metric !== null);
 

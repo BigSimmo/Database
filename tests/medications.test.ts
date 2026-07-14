@@ -269,11 +269,11 @@ describe("medicationHeroMetrics", () => {
     expect(metrics.map((metric) => metric.tone)).toEqual(["clinical", "neutral", "warning", "success"]);
   });
 
-  it("caps to four metrics and shortens over-long values", () => {
+  it("caps to four metrics; keeps the ceiling full but shortens other over-long values", () => {
     const record = buildRecord({
       stats: [
-        { label: "Max Dose", value: "2 mg: max 20 pieces/day; 4 mg: max 10 pieces/day", cls: "hi", flag: "hi" },
-        { label: "Half-life", value: "13-28.4 h", cls: "", flag: "" },
+        { label: "Max Dose", value: "Buvidal 160 mg/month; Sublocade 300 mg/month", cls: "hi", flag: "hi" },
+        { label: "Note", value: "An unusually long caution token that should be capped", cls: "", flag: "" },
         { label: "Renal Adj.", value: "DOSE RED.", cls: "warn", flag: "warn" },
         { label: "Efficacy", value: "MODERATE", cls: "warn", flag: "" },
         { label: "Extra", value: "SHOULD NOT APPEAR", cls: "", flag: "" },
@@ -282,8 +282,14 @@ describe("medicationHeroMetrics", () => {
     const metrics = medicationHeroMetrics(record);
     expect(metrics).toHaveLength(4);
     expect(metrics.some((metric) => metric.label === "Extra")).toBe(false);
-    expect(metrics[0].value.endsWith("…")).toBe(true);
-    expect(metrics[0].value.length).toBeLessThanOrEqual(25);
+    // The prescribing ceiling is never truncated — the full multi-variant value stays.
+    expect(metrics.find((metric) => metric.label === "Max Dose")?.value).toBe(
+      "Buvidal 160 mg/month; Sublocade 300 mg/month",
+    );
+    // ...but other over-long stat values are still capped.
+    const note = metrics.find((metric) => metric.label === "Note");
+    expect(note?.value.endsWith("…")).toBe(true);
+    expect(note?.value.length ?? 0).toBeLessThanOrEqual(25);
   });
 
   it("marks genuine hi-risk stats as danger even though Max Dose is not", () => {
@@ -335,6 +341,15 @@ describe("medicationHeroMetrics", () => {
     expect(record).toBeTruthy();
     const labels = medicationHeroMetrics(record as MedicationRecord).map((metric) => metric.label);
     expect(labels.filter((label) => label === "Route")).toHaveLength(2);
+  });
+
+  it("keeps a multi-variant max-dose ceiling complete from the snapshot (not truncated)", () => {
+    // The ceiling's full value is not repeated elsewhere on the page, so it must
+    // not be clamped away — both depot brand ceilings must survive.
+    const record = getMedicationRecord("buprenorphine-sl-depot");
+    expect(record).toBeTruthy();
+    const maxDose = medicationHeroMetrics(record as MedicationRecord).find((metric) => /max dose/i.test(metric.label));
+    expect(maxDose?.value).toBe("Buvidal 160 mg/month; Sublocade 300 mg/month");
   });
 });
 
