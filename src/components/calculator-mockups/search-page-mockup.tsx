@@ -16,10 +16,11 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
+import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { chatComposerInput, chatComposerShellBase, chatSendButton, cn, eyebrowText } from "@/components/ui-primitives";
 
@@ -501,6 +502,17 @@ export function CalculatorsSearchPageMockup() {
     };
   }, [activeCalc]);
 
+  // Hide the bottom composer dock on scroll-down in lockstep with the shell's
+  // top header, using the same hook (identical thresholds, phone-only, inert on
+  // desktop). On phones this page's own <main> (searchPageShell) is the scroller
+  // — #main-content stays at 0 and only catches the descendant scroll — so point
+  // the hook at that <main> by its testid. The hook polls the ref until resolved.
+  const scrollContainerRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    scrollContainerRef.current = document.querySelector<HTMLElement>('[data-testid="calculators-search-page"]');
+  }, []);
+  const footerHidden = useHideOnScroll({ containerRef: scrollContainerRef });
+
   const compact = density === "compact";
 
   const submitSearch = () => {
@@ -628,9 +640,17 @@ export function CalculatorsSearchPageMockup() {
       </SearchResultsLayout>
 
       {/* Phones: composer docks at the bottom, matching the site-wide composer
-          placement. Hidden while a calculator sheet is open. */}
+          placement, and slides away on scroll-down in lockstep with the header.
+          Hidden while a calculator sheet is open. */}
       {activeCalc ? null : (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--surface-glass)] px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-md sm:hidden">
+        <div
+          data-testid="calculators-phone-dock"
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--surface-glass)] px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-md transition-transform duration-200 ease-out motion-reduce:transition-none sm:hidden",
+            footerHidden ? "translate-y-full" : "translate-y-0",
+          )}
+          aria-hidden={footerHidden}
+        >
           <CalculatorComposer
             query={query}
             onQuery={setQuery}
