@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeParity, parseCiEnvNames, parseEnvSchemaNames } from "../scripts/check-env-parity.mjs";
-import { parseLedgerBranches } from "../scripts/sweep-branch-ledger.mjs";
+import { hasCompletedCleanupReview, parseLedgerBranches } from "../scripts/sweep-branch-ledger.mjs";
 
 describe("check-env-parity name parsing", () => {
   it("extracts UPPER_SNAKE schema keys from env.ts-style text", () => {
@@ -45,5 +45,46 @@ describe("sweep-branch-ledger parsing", () => {
     const names = parseLedgerBranches(md);
     expect(names.has("codex/design-ux-review-fixes")).toBe(true);
     expect(names.has("claude/answer-page-design-polish-ffd5a6")).toBe(true);
+  });
+
+  it("extracts every branch namespace, not just claude/ and codex/", () => {
+    const md = [
+      "| 2026-07-14 | copilot/fix-failing-ci | a | branch-cleanup-deletion-pending | out | c |",
+      "| 2026-07-14 | cursor/fix-pr654-ci-53b4 | b | branch-cleanup | out | c |",
+      "| 2026-07-14 | fix/accessibility-remaining-findings | c | branch-cleanup | out | c |",
+    ].join("\n");
+    const names = parseLedgerBranches(md);
+    expect(names.has("copilot/fix-failing-ci")).toBe(true);
+    expect(names.has("cursor/fix-pr654-ci-53b4")).toBe(true);
+    expect(names.has("fix/accessibility-remaining-findings")).toBe(true);
+  });
+
+  it("normalizes origin/* remote-tracking rows to the short name the sweep compares against", () => {
+    const md = "| 2026-07-14 | origin/claude/codebase-index-coverage | a | branch-cleanup | out | c |";
+    const names = parseLedgerBranches(md);
+    // the sweep strips origin/ from live refs before ledgerBranches.has(short)
+    expect(names.has("claude/codebase-index-coverage")).toBe(true);
+    expect(names.has("origin/claude/codebase-index-coverage")).toBe(false);
+  });
+});
+
+describe("hasCompletedCleanupReview", () => {
+  it("matches an exact completed branch-cleanup review (name + HEAD + scope)", () => {
+    const md = "| 2026-07-14 | copilot/fix | headsha | branch-cleanup | out | c |";
+    expect(hasCompletedCleanupReview(md, "copilot/fix", "headsha")).toBe(true);
+    // matches origin/-prefixed and "PR #N / " prefixed rows too
+    const md2 = "| 2026-07-14 | PR #654 / origin/fix/a11y | h2 | branch-cleanup | out | c |";
+    expect(hasCompletedCleanupReview(md2, "fix/a11y", "h2")).toBe(true);
+  });
+
+  it("does NOT treat a deletion-pending row as a completed review", () => {
+    const md = "| 2026-07-14 | copilot/fix-yet-again | headsha | branch-cleanup-deletion-pending | out | c |";
+    // scope differs, so the still-undeleted branch must be surfaced for retry
+    expect(hasCompletedCleanupReview(md, "copilot/fix-yet-again", "headsha")).toBe(false);
+  });
+
+  it("does NOT match when the HEAD has moved since the review", () => {
+    const md = "| 2026-07-14 | codex/foo | oldsha | branch-cleanup | out | c |";
+    expect(hasCompletedCleanupReview(md, "codex/foo", "newsha")).toBe(false);
   });
 });
