@@ -633,6 +633,8 @@ function secondStageScore(result: SearchResult, queryClass: RagQueryClass | unde
       Math.max(0, sourceQuality - w.visualIntelligencePivot) * w.visualIntelligenceSlope,
     );
   if (result.source_metadata?.document_status === "outdated") score -= w.outdatedPenalty;
+  // D4: ships 0 (no-op) — activate via RAG_RANKING_CONFIG only behind a green golden eval.
+  if (result.source_metadata?.document_status === "unknown") score -= w.unknownCurrentnessPenalty;
   if (result.source_metadata?.extraction_quality === "poor") score -= w.poorExtractionPenalty;
   if (
     result.indexing_quality?.quality_score !== undefined &&

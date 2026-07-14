@@ -21,6 +21,8 @@ describe("ranking-config defaults (W6 — zero behavior change)", () => {
     expect(w.visualIntelligencePivot).toBe(0.55);
     expect(w.visualIntelligenceSlope).toBe(0.08);
     expect(w.outdatedPenalty).toBe(0.035);
+    // D4 ships OFF — unknown-currentness weighting needs golden-eval proof (#118 lesson).
+    expect(w.unknownCurrentnessPenalty).toBe(0);
     expect(w.poorExtractionPenalty).toBe(0.035);
     expect(w.lowIndexQualityPenalty).toBe(0.035);
     expect(w.lowIndexQualityThreshold).toBe(0.55);
@@ -58,6 +60,15 @@ describe("resolveRankingConfig override merge", () => {
     // Untouched weights fall back to defaults.
     expect(cfg.secondStage.positionBase).toBe(0.09);
     expect(cfg.documentDiversityPenalty).toBe(0.03);
+    // D4 activation path: the JSON override can set the penalty; negatives clamp to 0.
+    expect(
+      resolveRankingConfig(JSON.stringify({ secondStage: { unknownCurrentnessPenalty: 0.03 } })).secondStage
+        .unknownCurrentnessPenalty,
+    ).toBe(0.03);
+    expect(
+      resolveRankingConfig(JSON.stringify({ secondStage: { unknownCurrentnessPenalty: -1 } })).secondStage
+        .unknownCurrentnessPenalty,
+    ).toBe(0);
   });
 
   it("ignores non-numeric values and clamps diversity penalties to non-negative", () => {
