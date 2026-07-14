@@ -55,26 +55,6 @@ export function anonymousApiSubjectKey(request: Request) {
   return `anon:${createHash("sha256").update(source).digest("hex").slice(0, 32)}`;
 }
 
-export function hasSessionCookieSignal(request: Request) {
-  const cookieHeader = request.headers.get("cookie") ?? "";
-  return cookieHeader.includes("sb-");
-}
-
-export function hasBearerAuthAttempt(request: Request) {
-  const authorization = request.headers.get("authorization") ?? "";
-  return /^Bearer\s+\S+/i.test(authorization);
-}
-
-/** True when the request may carry a durable Supabase session (cookie), not a bare bearer attempt. */
-export function hasPublicApiAuthSignal(request: Request) {
-  return hasSessionCookieSignal(request);
-}
-
-/** Anonymous callers with no cookie or bearer skip auth resolution and rate limits on curated public catalogs. */
-export function shouldResolvePublicCatalogAccess(request: Request) {
-  return hasSessionCookieSignal(request) || hasBearerAuthAttempt(request);
-}
-
 type OwnerScopedQuery<T> = {
   eq(column: string, value: unknown): T;
   is(column: string, value: null): T;
@@ -94,6 +74,45 @@ type OwnerScopedQuery<T> = {
 export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, ownerId: string | undefined): T {
   if (ownerId) return query.or(`owner_id.eq.${ownerId},owner_id.is.null`);
   return query.is("owner_id", null);
+}
+
+// Owner-internal document columns that must never be exposed on a row the caller does not own.
+// `withOwnerReadScope` lets an authenticated caller read PUBLIC documents (owner_id IS NULL) that
+// belong to nobody; those rows must not leak the storage location, dedup hash, import provenance,
+// raw stage error, or free-form `metadata` of the operator who ingested them. `metadata` is
+// arbitrary and can carry owner-internal provenance (e.g. the bulk-edit author's user id, prior
+// titles, indexing internals), so — matching the anonymous list projection and the `[id]` detail
+// route — it is stripped for non-owners rather than surfaced as governance data.
+const NON_OWNER_INTERNAL_DOCUMENT_FIELDS = [
+  "storage_path",
+  "content_hash",
+  "source_path",
+  "import_batch_id",
+  "error_message",
+  "metadata",
+] as const;
+
+/** True when `viewerOwnerId` is set and owns the row (i.e. the caller's own document). */
+export function callerOwnsDocumentRow(row: { owner_id?: unknown }, viewerOwnerId: string | undefined): boolean {
+  return Boolean(viewerOwnerId) && row.owner_id === viewerOwnerId;
+}
+
+/**
+ * Strip operator-internal storage fields from a document row unless the caller owns it.
+ *
+ * No-op for owned rows and for rows already selected without those columns (e.g. the anonymous
+ * public projection), so it is safe to map over every returned row regardless of caller identity.
+ */
+export function redactNonOwnedDocumentFields<T extends Record<string, unknown>>(
+  row: T,
+  viewerOwnerId: string | undefined,
+): T {
+  if (callerOwnsDocumentRow(row, viewerOwnerId)) return row;
+  const redacted = { ...row };
+  for (const field of NON_OWNER_INTERNAL_DOCUMENT_FIELDS) {
+    delete redacted[field];
+  }
+  return redacted;
 }
 
 export async function publicAccessContext(request: Request, supabase: AdminClient) {

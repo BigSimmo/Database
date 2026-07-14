@@ -87,12 +87,9 @@ export async function GET(request: Request) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
     }
-    if (error instanceof Error && error.message.includes("Missing server environment")) {
-      return jobsResponse(demoJobs, {
-        demoMode: true,
-        error: "Server environment is not configured; demo jobs are being served.",
-      });
-    }
+    // A partially-configured production (isDemoMode() false but createAdminClient throws
+    // "Missing server environment") must surface as a real error rather than silently serving
+    // unauthenticated demo jobs, which masked the misconfiguration and returned fake data (S11/H6).
     return jsonError(error);
   }
 }

@@ -197,6 +197,45 @@ describe("/api/documents/bulk", () => {
     );
     expect(invalidateRagCachesForOwner).toHaveBeenCalledWith(ownerId);
   });
+
+  it("does not leak the raw database error in a per-document bulk failure", async () => {
+    const rawDbError = 'duplicate key value violates unique constraint "documents_secret_internal_idx"';
+    const supabase = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return { data: [{ id: documentId, title: "Old title", metadata: {} }], error: null };
+      }
+      if (call.table === "documents" && call.operation === "update") {
+        return { data: null, error: { message: rawDbError } };
+      }
+      return { data: null, error: null };
+    });
+    mockRouteRuntime(supabase.client);
+    const { POST } = await import("../src/app/api/documents/bulk/route");
+
+    const response = await POST(
+      new Request("http://localhost/api/documents/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ documentIds: [documentId], metadata: { publisher: "WA Health" } }),
+      }),
+    );
+    const payload = (await response.json()) as {
+      ok: boolean;
+      updatedCount: number;
+      results: Array<{ documentId: string; updated: boolean; error?: string }>;
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({ ok: false, updatedCount: 0 });
+    expect(payload.results[0]).toMatchObject({
+      documentId,
+      updated: false,
+      error: "Bulk edit failed for this document.",
+    });
+    // The raw DB constraint text must never reach the client.
+    expect(JSON.stringify(payload)).not.toContain("documents_secret_internal_idx");
+    expect(JSON.stringify(payload)).not.toContain("unique constraint");
+  });
 });
 
 describe("/api/documents/[id]/table-facts", () => {

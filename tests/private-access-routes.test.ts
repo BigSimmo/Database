@@ -527,6 +527,120 @@ describe("private document API access", () => {
     expect(client.calls[0].range).toEqual({ from: 0, to: 99 });
   });
 
+  it("redacts owner-internal storage fields on public rows in an authenticated document list", async () => {
+    const owned = {
+      id: documentId,
+      owner_id: userId,
+      title: "Owned document",
+      status: "indexed",
+      storage_path: `${userId}/documents/owned.pdf`,
+      content_hash: "sha256:owned",
+      metadata: { extraction_quality: "good" },
+    };
+    const shared = {
+      id: otherDocumentId,
+      owner_id: null,
+      title: "Public guideline",
+      status: "indexed",
+      storage_path: "someone-else/documents/shared.pdf",
+      content_hash: "sha256:shared",
+      source_path: "/import/shared.pdf",
+      import_batch_id: "batch-1",
+      error_message: "internal stage error",
+      metadata: { extraction_quality: "partial" },
+    };
+    const client = createSupabaseMock((call) => (call.table === "documents" ? ok([owned, shared]) : ok([])));
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(authenticatedRequest("/api/documents?includeMeta=false"));
+    const body = await payload(response);
+    const [ownedRow, sharedRow] = body.documents as Array<Record<string, unknown>>;
+
+    expect(response.status).toBe(200);
+    // The caller's own row keeps its storage internals.
+    expect(ownedRow).toMatchObject({
+      id: documentId,
+      storage_path: `${userId}/documents/owned.pdf`,
+      content_hash: "sha256:owned",
+    });
+    // The shared public row keeps its public fields but not the owner's storage internals or
+    // free-form metadata (which can carry owner-internal provenance).
+    expect(sharedRow).toMatchObject({ id: otherDocumentId, title: "Public guideline" });
+    expect(sharedRow).not.toHaveProperty("metadata");
+    expect(sharedRow).not.toHaveProperty("storage_path");
+    expect(sharedRow).not.toHaveProperty("content_hash");
+    expect(sharedRow).not.toHaveProperty("source_path");
+    expect(sharedRow).not.toHaveProperty("import_batch_id");
+    expect(sharedRow).not.toHaveProperty("error_message");
+  });
+
+  it("redacts nested metadata for non-owned public documents in an authenticated list", async () => {
+    const owned = { id: documentId, owner_id: userId, title: "Owned document", status: "indexed" };
+    const shared = { id: otherDocumentId, owner_id: null, title: "Public guideline", status: "indexed" };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents") return ok([owned, shared]);
+      const requestedIds = call.inFilters.find((filter) => filter.column === "document_id")?.values ?? [];
+      if (call.table === "document_labels") {
+        const rows = [
+          { id: "owned-label", document_id: documentId, label: "Owned", metadata: { private: true } },
+          { id: "shared-label", document_id: otherDocumentId, label: "Shared", metadata: { private: true } },
+        ];
+        return ok(rows.filter((row) => requestedIds.includes(row.document_id)));
+      }
+      if (call.table === "document_summaries") {
+        const rows = [
+          {
+            id: "owned-summary",
+            document_id: documentId,
+            summary: "Owned summary",
+            source_chunk_ids: ["owned-chunk"],
+            metadata: { private: true },
+          },
+          {
+            id: "shared-summary",
+            document_id: otherDocumentId,
+            summary: "Shared summary",
+            source_chunk_ids: ["shared-chunk"],
+            metadata: { private: true },
+          },
+        ];
+        return ok(rows.filter((row) => requestedIds.includes(row.document_id)));
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(authenticatedRequest("/api/documents?includeMeta=true"));
+    const body = await payload(response);
+    const [ownedRow, sharedRow] = body.documents as Array<Record<string, unknown>>;
+
+    expect(response.status).toBe(200);
+    const labelCalls = client.calls.filter((call) => call.table === "document_labels");
+    const summaryCalls = client.calls.filter((call) => call.table === "document_summaries");
+    expect(labelCalls).toHaveLength(2);
+    expect(summaryCalls).toHaveLength(2);
+    expect(labelCalls.map((call) => call.selected)).toEqual(
+      expect.arrayContaining([expect.stringContaining("metadata"), expect.not.stringContaining("metadata")]),
+    );
+    expect(summaryCalls.map((call) => call.selected)).toEqual(
+      expect.arrayContaining([expect.stringContaining("source_chunk_ids"), expect.not.stringContaining("metadata")]),
+    );
+    expect((ownedRow.labels as Array<Record<string, unknown>>)[0]).toHaveProperty("metadata");
+    expect(ownedRow.summary).toHaveProperty("source_chunk_ids");
+    expect((sharedRow.labels as Array<Record<string, unknown>>)[0]).toEqual({
+      id: "shared-label",
+      document_id: otherDocumentId,
+      label: "Shared",
+    });
+    expect(sharedRow.summary).toEqual({
+      id: "shared-summary",
+      document_id: otherDocumentId,
+      summary: "Shared summary",
+    });
+  });
+
   it("accepts legacy Supabase auth cookies for private document access", async () => {
     const documents = [{ id: documentId, owner_id: userId, title: "Owned document" }];
     const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
@@ -557,7 +671,7 @@ describe("private document API access", () => {
     expect(client.calls[0].orFilters).toContain(`owner_id.eq.${userId},owner_id.is.null`);
   });
 
-  it("allows authenticated users to read public document detail", async () => {
+  it("redacts owner-internal fields when an authenticated user reads a public document they do not own", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
         return ok({
@@ -568,7 +682,26 @@ describe("private document API access", () => {
           file_type: "application/pdf",
           page_count: 2,
           chunk_count: 1,
-          metadata: { index_generation_id: "generation-a" },
+          storage_path: "someone-else/documents/guideline.pdf",
+          content_hash: "sha256:leaky-hash",
+          source_path: "/import/guideline.pdf",
+          import_batch_id: "batch-99",
+          error_message: "internal stage error",
+          metadata: { index_generation_id: "generation-a", extraction_quality: "good" },
+        });
+      }
+      if (call.table === "document_summaries") {
+        return ok({
+          id: "summary-1",
+          document_id: documentId,
+          owner_id: null,
+          summary: "Public summary text.",
+          clinical_specifics: null,
+          source_chunk_ids: ["chunk-a", "chunk-b"],
+          source_image_ids: ["image-a"],
+          model: "gpt-internal",
+          metadata: { internal_note: "owner only" },
+          generated_at: "2026-01-01T00:00:00.000Z",
         });
       }
       if (call.table === "document_pages") return ok([]);
@@ -584,10 +717,71 @@ describe("private document API access", () => {
       params: Promise.resolve({ id: documentId }),
     });
     const body = await payload(response);
+    const document = body.document as Record<string, unknown>;
 
     expect(response.status).toBe(200);
-    expect(body.document).toMatchObject({ id: documentId, title: "Public guideline", owner_id: null });
+    // The caller can still read the shared public document...
+    expect(document).toMatchObject({ id: documentId, title: "Public guideline" });
     expect(client.calls[0].orFilters).toContain(`owner_id.eq.${userId},owner_id.is.null`);
+    // ...but not the owner's storage location, dedup hash, import provenance, raw error, metadata,
+    // or index-health diagnostics — an authed non-owner gets the same redacted view as anonymous.
+    expect(document).not.toHaveProperty("storage_path");
+    expect(document).not.toHaveProperty("content_hash");
+    expect(document).not.toHaveProperty("source_path");
+    expect(document).not.toHaveProperty("import_batch_id");
+    expect(document).not.toHaveProperty("error_message");
+    expect(document).not.toHaveProperty("owner_id");
+    expect(document).not.toHaveProperty("metadata");
+    expect(body).not.toHaveProperty("indexHealth");
+    // The public document's generated summary is readable, but its owner-internal provenance
+    // (chunk/image source IDs, generation model, owner_id, metadata) must be redacted.
+    const summary = document.summary as Record<string, unknown> | null;
+    expect(summary).toMatchObject({ summary: "Public summary text." });
+    expect(summary).not.toHaveProperty("source_chunk_ids");
+    expect(summary).not.toHaveProperty("source_image_ids");
+    expect(summary).not.toHaveProperty("model");
+    expect(summary).not.toHaveProperty("owner_id");
+    expect(summary).not.toHaveProperty("metadata");
+  });
+
+  it("returns full owner-internal fields when the authenticated caller owns the document", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && matchesOwnerReadScope(call, userId)) {
+        return ok({
+          id: documentId,
+          owner_id: userId,
+          title: "Owned guideline",
+          file_name: "guideline.pdf",
+          file_type: "application/pdf",
+          page_count: 2,
+          chunk_count: 1,
+          storage_path: `${userId}/documents/guideline.pdf`,
+          content_hash: "sha256:owned-hash",
+          metadata: { index_generation_id: "generation-a", extraction_quality: "good" },
+        });
+      }
+      if (["document_pages", "document_images", "document_chunks", "document_table_facts"].includes(call.table)) {
+        return ok([]);
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/route");
+
+    const response = await GET(authenticatedRequest(`/api/documents/${documentId}`), {
+      params: Promise.resolve({ id: documentId }),
+    });
+    const body = await payload(response);
+    const document = body.document as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(document).toMatchObject({
+      id: documentId,
+      owner_id: userId,
+      storage_path: `${userId}/documents/guideline.pdf`,
+      content_hash: "sha256:owned-hash",
+    });
+    expect(body).toHaveProperty("indexHealth");
   });
 
   it("allows anonymous users to read public document detail", async () => {
