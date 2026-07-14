@@ -101,12 +101,12 @@ Suggested PR granularity (one theme per PR):
 
 ### B3. Restore OpenAI quota and run release gates
 
-|             |                                                                                                                                                                                                                         |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Finding** | M3 — release gate + golden evals incomplete; prior quota exhaustion                                                                                                                                                     |
-| **Owner**   | OWNER:OPS                                                                                                                                                                                                               |
-| **Address** | Restore embedding/completions quota → run `npm run eval:retrieval:quality` (36/36) → `npm run eval:quality -- --rag-only` → `npm run verify:release` per [`launch-operator-runbook.md`](launch-operator-runbook.md) §2. |
-| **Prove**   | Paste summaries into release notes / backlog; canary path in B4                                                                                                                                                         |
+|             |                                                                                                                                                                                                                                                                                                                |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Finding** | M3 — release gate + golden evals incomplete; prior quota exhaustion                                                                                                                                                                                                                                            |
+| **Owner**   | OWNER:OPS                                                                                                                                                                                                                                                                                                      |
+| **Address** | Complete the runbook §0 identity preflight with `npm run check:supabase-project`, then restore embedding/completions quota → run `npm run eval:retrieval:quality` (36/36) → `npm run eval:quality -- --rag-only` → `npm run verify:release` per [`launch-operator-runbook.md`](launch-operator-runbook.md) §2. |
+| **Prove**   | Paste summaries into release notes / backlog; canary path in B4                                                                                                                                                                                                                                                |
 
 ### B4. Eval Canary trust + staging soak
 
