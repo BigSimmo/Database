@@ -9,7 +9,7 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, vi } from "vitest";
 
-function installMatchMediaStub(matches = false) {
+export function installMatchMediaStub(matches = false) {
   Object.defineProperty(window, "matchMedia", {
     writable: true,
     configurable: true,
@@ -29,9 +29,13 @@ function installMatchMediaStub(matches = false) {
 beforeEach(() => {
   installMatchMediaStub(false);
   // jsdom does not implement scrollIntoView; components call it on focus/expand.
-  if (!Element.prototype.scrollIntoView) {
-    Element.prototype.scrollIntoView = vi.fn();
+  // Ensure a base impl exists, then re-spy each test so the mock's call history is
+  // reset every time — vi.restoreAllMocks() only restores vi.spyOn spies, not a
+  // one-time plain vi.fn() assignment.
+  if (typeof Element.prototype.scrollIntoView !== "function") {
+    Element.prototype.scrollIntoView = () => {};
   }
+  vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(() => {});
 });
 
 afterEach(() => {

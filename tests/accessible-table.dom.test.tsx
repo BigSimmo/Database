@@ -1,29 +1,13 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { AccessibleTable } from "@/components/AccessibleTable";
+import { installMatchMediaStub as setMatchMedia } from "./setup/jsdom.setup";
 
 // Interactive counterpart to tests/accessible-table-fallback.test.ts (which asserts
 // on the SSR-rendered HTML string). This exercises the same component under jsdom
 // via @testing-library/react so real DOM state + user interaction are covered: the
 // mobile "Expand table" affordance and the full-screen dialog it toggles.
-
-function setMatchMedia(matches: boolean) {
-  Object.defineProperty(window, "matchMedia", {
-    writable: true,
-    configurable: true,
-    value: vi.fn().mockImplementation((query: string) => ({
-      matches,
-      media: query,
-      onchange: null,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-      addListener: vi.fn(),
-      removeListener: vi.fn(),
-      dispatchEvent: vi.fn(),
-    })),
-  });
-}
 
 const columns = ["Score", "Management"];
 const rows = [["0", "Monitor observations"]];
