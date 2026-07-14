@@ -18,9 +18,12 @@ import type { Json, TablesInsert, Vector } from "@/lib/supabase/database.types";
 
 export type RegistryCorpusKind = "service" | "form" | "medication" | "differential";
 
+export type RegistryDocumentIntent =
+  "operational-process" | "documentation-requirement" | "medication-instruction" | "decision-support";
+
 type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminClient>;
 
-type RegistryCorpusEntry = {
+export type RegistryCorpusEntry = {
   kind: RegistryCorpusKind;
   subkind: string | null;
   ownerId: string;
@@ -49,6 +52,37 @@ export type RegistryCorpusEditTarget =
   | { corpusKind: "differential"; ownerId: string; slug: string; differentialKind?: DifferentialRecordRow["kind"] };
 
 const REGISTRY_EMBEDDING_WRITE_BATCH_SIZE = 64;
+
+const registryDocumentIntents: Record<RegistryCorpusKind, RegistryDocumentIntent> = {
+  service: "operational-process",
+  form: "documentation-requirement",
+  medication: "medication-instruction",
+  differential: "decision-support",
+};
+
+/** Stable smart-v2 intent for each registry family. Registry identity is
+ * authoritative here; document text must not collapse every registry record
+ * into the generic classifier fallback. */
+export function registryDocumentIntent(kind: RegistryCorpusKind) {
+  return registryDocumentIntents[kind];
+}
+
+/** Evidence attached to the registry document and chunk metadata. This records
+ * the status already held by the curated registry row; it never promotes that
+ * status or claims a review that the producer did not receive. */
+function registryClinicalValidationEvidence(entry: RegistryCorpusEntry): Record<string, Json> {
+  return {
+    status: entry.validationStatus,
+    basis:
+      entry.validationStatus === "unverified"
+        ? "Registry record has no recorded clinical validation."
+        : "Validation status preserved from the curated registry governance record; status changes require clinical review.",
+    evidence_type: "registry_governance_record",
+    evidence_text: null,
+    registry_record_kind: entry.kind,
+    registry_record_id: entry.recordId,
+  };
+}
 
 /** Sha256. */
 function sha256(value: string) {
@@ -89,6 +123,7 @@ function registryBaseMetadata(entry: RegistryCorpusEntry): Record<string, Json> 
     source_title: entry.title,
     document_status: entry.sourceStatus,
     clinical_validation_status: entry.validationStatus,
+    clinical_validation_evidence: registryClinicalValidationEvidence(entry),
     extraction_quality: "good",
     publisher: "Clinical KB registry",
     jurisdiction: "WA/local clinical workspace",
@@ -96,8 +131,13 @@ function registryBaseMetadata(entry: RegistryCorpusEntry): Record<string, Json> 
 }
 
 /** Registry document id. */
+export function registryCorpusDocumentId(kind: RegistryCorpusKind, recordId: string) {
+  return deterministicUuid(`registry-document:${kind}:${recordId}`);
+}
+
+/** Registry document id. */
 function registryDocumentId(entry: RegistryCorpusEntry) {
-  return deterministicUuid(`registry-document:${entry.kind}:${entry.recordId}`);
+  return registryCorpusDocumentId(entry.kind, entry.recordId);
 }
 
 /** Corpus document id for a differential record row. Chunks cascade from the
@@ -198,6 +238,81 @@ function registryDocumentRowCurrent(
 ) {
   if (!existing) return false;
   return Object.entries(expected).every(([key, value]) => stableJson(existing[key]) === stableJson(value));
+}
+
+function registryDocumentIntentLabel(entry: RegistryCorpusEntry): TablesInsert<"document_labels"> {
+  return {
+    document_id: registryDocumentId(entry),
+    owner_id: entry.ownerId,
+    label: registryDocumentIntent(entry.kind),
+    label_type: "document_intent",
+    confidence: 1,
+    source: "generated",
+    metadata: {
+      generated_by: "registry-corpus-producer",
+      registry_governance_version: "registry-governance-v1",
+      registry_record_kind: entry.kind,
+      registry_record_id: entry.recordId,
+      label_tier: "primary",
+      review_status: "new",
+    },
+  };
+}
+
+export type RegistryGovernanceProjection = {
+  kind: RegistryCorpusKind;
+  recordId: string;
+  slug: string;
+  ownerId: string;
+  documentId: string;
+  requiredMetadata: Record<string, Json>;
+  intentLabel: TablesInsert<"document_labels">;
+};
+
+/** Provider-free governance projection for an already materialized registry
+ * document. This deliberately excludes document content, chunks, and
+ * embeddings so reconciliation can repair metadata and generated labels
+ * without invoking the corpus embedding path. */
+export function registryGovernanceProjection(entry: RegistryCorpusEntry): RegistryGovernanceProjection {
+  return {
+    kind: entry.kind,
+    recordId: entry.recordId,
+    slug: entry.slug,
+    ownerId: entry.ownerId,
+    documentId: registryDocumentId(entry),
+    requiredMetadata: registryBaseMetadata(entry),
+    intentLabel: registryDocumentIntentLabel(entry),
+  };
+}
+
+async function reconcileRegistryGeneratedLabels(supabase: AdminClient, entries: RegistryCorpusEntry[]) {
+  const documentIds = entries.map(registryDocumentId);
+  const expectedIntentByDocument = new Map(
+    entries.map((entry) => [registryDocumentId(entry), registryDocumentIntent(entry.kind)]),
+  );
+  const { data: existingLabels, error: existingLabelError } = await supabase
+    .from("document_labels")
+    .select("id,document_id,label,label_type,source")
+    .in("document_id", documentIds);
+  if (existingLabelError) throw new Error(`Registry label preflight failed: ${existingLabelError.message}`);
+
+  const staleGeneratedLabelIds = (existingLabels ?? []).flatMap((label) => {
+    if (label.source !== "generated") return [];
+    if (label.label_type === "site") return [label.id];
+    if (label.label_type === "document_intent" && label.label !== expectedIntentByDocument.get(label.document_id)) {
+      return [label.id];
+    }
+    return [];
+  });
+  if (staleGeneratedLabelIds.length > 0) {
+    const { error: deleteError } = await supabase.from("document_labels").delete().in("id", staleGeneratedLabelIds);
+    if (deleteError) throw new Error(`Registry label cleanup failed: ${deleteError.message}`);
+  }
+
+  const { error: upsertError } = await supabase
+    .from("document_labels")
+    .upsert(entries.map(registryDocumentIntentLabel), { onConflict: "document_id,label_type,label,source" });
+  if (upsertError) throw new Error(`Registry intent label upsert failed: ${upsertError.message}`);
 }
 
 /** Registry corpus embedding enabled. */
@@ -373,51 +488,53 @@ export async function embedRegistryCorpusEntries(supabase: AdminClient, entries:
       return [{ entry, document, needsEmbedding, existingEmbedding: existingChunk?.embedding ?? null }];
     });
 
-    if (pendingEntries.length === 0) continue;
+    if (pendingEntries.length > 0) {
+      const pendingDocuments = pendingEntries.map((pending) => pending.document);
+      const entriesToEmbed = pendingEntries.filter((pending) => pending.needsEmbedding);
+      const embeddings =
+        entriesToEmbed.length > 0 ? await embedTexts(entriesToEmbed.map((pending) => pending.entry.content)) : [];
+      let embeddingIndex = 0;
+      const pendingChunks = pendingEntries.map((pending) =>
+        registryChunkRow(
+          pending.entry,
+          (pending.needsEmbedding ? embeddings[embeddingIndex++] : pending.existingEmbedding) as Vector,
+        ),
+      );
+      const pendingDocumentIds = pendingDocuments
+        .map((document) => document.id)
+        .filter((id): id is string => typeof id === "string");
+      const existingPendingDocuments = pendingDocumentIds.flatMap((id) => {
+        const document = existingDocumentById.get(id);
+        return document ? [document] : [];
+      });
+      const existingPendingDocumentIds = new Set(existingPendingDocuments.map((document) => document.id));
 
-    const pendingDocuments = pendingEntries.map((pending) => pending.document);
-    const entriesToEmbed = pendingEntries.filter((pending) => pending.needsEmbedding);
-    const embeddings =
-      entriesToEmbed.length > 0 ? await embedTexts(entriesToEmbed.map((pending) => pending.entry.content)) : [];
-    let embeddingIndex = 0;
-    const pendingChunks = pendingEntries.map((pending) =>
-      registryChunkRow(
-        pending.entry,
-        (pending.needsEmbedding ? embeddings[embeddingIndex++] : pending.existingEmbedding) as Vector,
-      ),
-    );
-    const pendingDocumentIds = pendingDocuments
-      .map((document) => document.id)
-      .filter((id): id is string => typeof id === "string");
-    const existingPendingDocuments = pendingDocumentIds.flatMap((id) => {
-      const document = existingDocumentById.get(id);
-      return document ? [document] : [];
-    });
-    const existingPendingDocumentIds = new Set(existingPendingDocuments.map((document) => document.id));
+      const { error: documentError } = await supabase.from("documents").upsert(pendingDocuments, { onConflict: "id" });
+      if (documentError) throw new Error(`Registry corpus document upsert failed: ${documentError.message}`);
 
-    const { error: documentError } = await supabase.from("documents").upsert(pendingDocuments, { onConflict: "id" });
-    if (documentError) throw new Error(`Registry corpus document upsert failed: ${documentError.message}`);
-
-    const { error: chunkError } = await supabase.from("document_chunks").upsert(pendingChunks, { onConflict: "id" });
-    if (chunkError) {
-      const insertedDocumentIds = pendingDocumentIds.filter((id) => !existingPendingDocumentIds.has(id));
-      const rollbackErrors: string[] = [];
-      if (insertedDocumentIds.length > 0) {
-        const { error: deleteError } = await supabase.from("documents").delete().in("id", insertedDocumentIds);
-        if (deleteError) rollbackErrors.push(`delete failed: ${deleteError.message}`);
+      const { error: chunkError } = await supabase.from("document_chunks").upsert(pendingChunks, { onConflict: "id" });
+      if (chunkError) {
+        const insertedDocumentIds = pendingDocumentIds.filter((id) => !existingPendingDocumentIds.has(id));
+        const rollbackErrors: string[] = [];
+        if (insertedDocumentIds.length > 0) {
+          const { error: deleteError } = await supabase.from("documents").delete().in("id", insertedDocumentIds);
+          if (deleteError) rollbackErrors.push(`delete failed: ${deleteError.message}`);
+        }
+        if (existingPendingDocuments.length > 0) {
+          const { error: restoreError } = await supabase
+            .from("documents")
+            .upsert(existingPendingDocuments, { onConflict: "id" });
+          if (restoreError) rollbackErrors.push(`restore failed: ${restoreError.message}`);
+        }
+        const suffix = rollbackErrors.length > 0 ? `; rollback errors: ${rollbackErrors.join(", ")}` : "";
+        throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}${suffix}`);
       }
-      if (existingPendingDocuments.length > 0) {
-        const { error: restoreError } = await supabase
-          .from("documents")
-          .upsert(existingPendingDocuments, { onConflict: "id" });
-        if (restoreError) rollbackErrors.push(`restore failed: ${restoreError.message}`);
-      }
-      const suffix = rollbackErrors.length > 0 ? `; rollback errors: ${rollbackErrors.join(", ")}` : "";
-      throw new Error(`Registry corpus chunk upsert failed: ${chunkError.message}${suffix}`);
+
+      documentCount += pendingDocuments.length;
+      chunkCount += pendingChunks.length;
     }
 
-    documentCount += pendingDocuments.length;
-    chunkCount += pendingChunks.length;
+    await reconcileRegistryGeneratedLabels(supabase, batch);
   }
 
   return { documentCount, chunkCount };

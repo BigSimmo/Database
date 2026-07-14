@@ -103,15 +103,18 @@ async function installTimedAnswerStream(page: Page) {
           },
           { delay: 1_600, event: "progress", data: { stage: "generating", message: "private-draft-marker" } },
           { delay: 2_000, event: "token", data: { delta: "Provisional lithium draft" } },
-          { delay: 2_400, event: "revising", data: { reason: "private-provider-reason-marker" } },
-          { delay: 2_450, event: "progress", data: { stage: "fallback", message: "private-fallback-marker" } },
-          { delay: 3_100, event: "progress", data: { stage: "verifying", message: "private-check-marker" } },
+          // Keep the provisional state observable for more than one browser
+          // assertion polling interval. Firefox/WebKit can spend long enough
+          // painting the progress stepper to miss a sub-second token window.
+          { delay: 3_400, event: "revising", data: { reason: "private-provider-reason-marker" } },
+          { delay: 3_450, event: "progress", data: { stage: "fallback", message: "private-fallback-marker" } },
+          { delay: 4_000, event: "progress", data: { stage: "verifying", message: "private-check-marker" } },
           {
-            delay: 3_700,
+            delay: 4_600,
             event: "progress",
             data: { stage: "complete", message: "private-ready-marker", elapsedMs: 3_700 },
           },
-          { delay: 3_800, event: "final", data: answer },
+          { delay: 4_800, event: "final", data: answer },
         ];
 
         return new Response(

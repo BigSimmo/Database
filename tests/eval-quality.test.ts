@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildEvalQualityReport,
+  configureEvalProviderEnvironment,
   deliveredGroundedAfterSourceGovernancePolicy,
   qualityFailureCategory,
+  ragAnswerTimingDiagnostics,
   renderEvalQualityMarkdown,
   sourceGovernanceDangerFailuresForAnswer,
   sourceWarningsForRagQualityAnswer,
@@ -98,17 +100,52 @@ function ragResult(overrides: Partial<RagQualityResult> = {}): RagQualityResult 
     unverifiedNumericTokenCount: 0,
     hasFaithfulnessWarning: false,
     routingReason: "test_route",
+    timings: {
+      retrievalMs: 500,
+      routingMs: 10,
+      generationMs: 350,
+      verificationMs: 40,
+      totalMs: 900,
+      routeBudgetMs: 25_000,
+      routeDeadlineExceeded: false,
+    },
+    routeCeilingExceeded: false,
     estimatedCostUsd: 0.001,
     ...overrides,
   };
 }
 
 describe("eval quality reporting", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("categorizes common retrieval and answer failures", () => {
     expect(qualityFailureCategory("expected query class table_threshold, got document_lookup")).toBe("query_class");
     expect(qualityFailureCategory("missing expected document(s) in top 5")).toBe("expected_source");
     expect(qualityFailureCategory("expected at least 2 citations")).toBe("citation");
     expect(qualityFailureCategory("numeric faithfulness warning present")).toBe("numeric_grounding");
+  });
+
+  it("enforces route ceilings while allowing unsupported retrieval time", () => {
+    expect(
+      ragAnswerTimingDiagnostics({
+        routingMode: "unsupported",
+        latencyTimings: { total_latency_ms: 2_000, generation_latency_ms: 0, route_budget_ms: 0 },
+      }).routeCeilingExceeded,
+    ).toBe(false);
+    expect(
+      ragAnswerTimingDiagnostics({
+        routingMode: "unsupported",
+        latencyTimings: { total_latency_ms: 2_000, generation_latency_ms: 1, route_budget_ms: 0 },
+      }).routeCeilingExceeded,
+    ).toBe(true);
+    expect(
+      ragAnswerTimingDiagnostics({
+        routingMode: "fast",
+        latencyTimings: { total_latency_ms: 25_001, generation_latency_ms: 10_000 },
+      }).routeCeilingExceeded,
+    ).toBe(true);
   });
 
   it("builds source governance, retrieval, and RAG summaries", () => {
@@ -587,8 +624,101 @@ describe("eval quality reporting", () => {
     expect(markdown).toContain("## Source Governance");
     expect(markdown).toContain("## Answer Metrics");
     expect(markdown).toContain("## Answer Case Diagnostics");
-    expect(markdown).toContain("| rag-1 | fast | fast | 900 | 200 | 650 | 150 | 25 | test-model | passed |");
+    expect(markdown).toContain(
+      "| rag-1 | fast | fast | test_route | 900 | 500 | 10 | 200 | 650 | 40 | 150 | 25 | 25000 | no | test-model | passed |",
+    );
     expect(markdown).toContain("| Hit@K | 1 |");
     expect(markdown).toContain("Policy: unknown, unverified");
+  });
+
+  it("hard-fails any answer case that exceeds its route ceiling", () => {
+    const report = buildEvalQualityReport({
+      generatedAt: "2026-07-13T00:00:00.000Z",
+      retrievalResults: [retrievalResult()],
+      ragResults: [
+        ragResult({
+          latencyMs: 25_001,
+          routeCeilingExceeded: true,
+          failures: ["route latency ceiling exceeded: 25001ms total, 25000ms budget"],
+          timings: {
+            retrievalMs: 1_000,
+            routingMs: 10,
+            generationMs: 23_951,
+            verificationMs: 40,
+            totalMs: 25_001,
+            routeBudgetMs: 25_000,
+            routeDeadlineExceeded: true,
+          },
+        }),
+      ],
+    });
+
+    expect(report.rag.summary.route_ceiling_failure_count).toBe(1);
+    expect(report.blocking_threshold_failures).toContain("RAG route_ceiling_failure_count 1 above 0");
+  });
+
+  it("accepts an offline source-only result only when expected sources are retrieved and cited", () => {
+    const sourceOnly = ragResult({
+      grounded: false,
+      model: null,
+      generationLatencyMs: 0,
+      estimatedCostUsd: 0,
+      openAIRequestIds: [],
+      openAIUsage: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 },
+      timings: {
+        retrievalMs: 500,
+        routingMs: 10,
+        generationMs: 0,
+        verificationMs: 40,
+        totalMs: 550,
+        routeBudgetMs: 25_000,
+        routeDeadlineExceeded: false,
+      },
+    });
+    const passing = buildEvalQualityReport({ retrievalResults: [], ragResults: [sourceOnly], providerMode: "offline" });
+    expect(passing.provider).toMatchObject({ mode: "offline", passed: true });
+    expect(passing.rag.summary.grounded_supported_rate).toBe(1);
+
+    const missingEvidence = buildEvalQualityReport({
+      retrievalResults: [],
+      ragResults: [{ ...sourceOnly, expectedHit: false, citations: 0 }],
+      providerMode: "offline",
+    });
+    expect(missingEvidence.rag.summary.grounded_supported_rate).toBe(0);
+    expect(missingEvidence.blocking_threshold_failures).toContain("RAG grounded_supported_rate 0 below 0.9");
+  });
+
+  it("hard-fails offline reports containing provider evidence", () => {
+    const report = buildEvalQualityReport({
+      retrievalResults: [],
+      ragResults: [
+        ragResult({
+          openAIRequestIds: ["req_leak"],
+          openAIUsage: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 1 },
+        }),
+      ],
+      providerMode: "offline",
+    });
+    expect(report.provider.passed).toBe(false);
+    expect(report.blocking_threshold_failures).toEqual(
+      expect.arrayContaining([
+        "offline provider invariant model_case_count 1 above 0",
+        "offline provider invariant openai_request_id_count 1 above 0",
+        "offline provider invariant token_usage_case_count 1 above 0",
+        "offline provider invariant nonzero_cost_case_count 1 above 0",
+        "offline provider invariant generation_latency_case_count 1 above 0",
+      ]),
+    );
+  });
+
+  it("removes OpenAI credentials before offline RAG imports", () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("OPENAI_ORG_ID", "test-org");
+    vi.stubEnv("OPENAI_PROJECT_ID", "test-project");
+    configureEvalProviderEnvironment("offline");
+    expect(process.env.RAG_PROVIDER_MODE).toBe("offline");
+    expect(process.env.OPENAI_API_KEY).toBeUndefined();
+    expect(process.env.OPENAI_ORG_ID).toBeUndefined();
+    expect(process.env.OPENAI_PROJECT_ID).toBeUndefined();
   });
 });

@@ -90,6 +90,16 @@ describe("answer thread storage", () => {
     expect(loadPersistedAnswerThread("user-a")).toBeNull();
   });
 
+  it("clears only the active owner's thread when an owner is provided", () => {
+    savePersistedAnswerThread("user-a", sampleThread);
+    savePersistedAnswerThread("user-b", sampleThread);
+
+    clearPersistedAnswerThread("user-a");
+
+    expect(loadPersistedAnswerThread("user-a")).toBeNull();
+    expect(loadPersistedAnswerThread("user-b")).toEqual(sampleThread);
+  });
+
   it("rejects invalid persisted payloads", () => {
     storage.set(`${answerThreadStorageKey}:user-a`, JSON.stringify({ version: 2 }));
     expect(loadPersistedAnswerThread("user-a")).toBeNull();

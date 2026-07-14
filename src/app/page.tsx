@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 
 import { HomePageClient } from "@/app/home-page-client";
 import { isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
@@ -17,6 +18,11 @@ function firstSearchParam(value: string | string[] | undefined) {
 }
 
 export default async function Home({ searchParams }: HomeProps) {
+  // The dashboard reads and updates the query string throughout its client
+  // lifecycle. Render it for the incoming request so `useSearchParams()` is
+  // available during the initial server render instead of leaving the entire
+  // interactive shell behind a hydration-only Suspense fallback.
+  await connection();
   const params = searchParams ? await searchParams : {};
   const requestedMode = firstSearchParam(params.mode);
   const initialSearchMode: AppModeId =

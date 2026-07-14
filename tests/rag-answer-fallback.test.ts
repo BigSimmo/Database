@@ -597,6 +597,30 @@ describe("RAG structured-output fallback", () => {
     expect(answer.faithfulnessWarning).toBeUndefined();
   });
 
+  it("recovers incomplete max-output generation with an extractive answer when evidence is strong", async () => {
+    const answer = await answerFromTextSources(
+      "How should agitation be managed when oral medication is refused?",
+      [
+        source({
+          id: "agitation-max-output-1",
+          title: "Agitation And Arousal Pharmacological Management(AKG)",
+          file_name: "Agitation and Arousal Pharmacological Management (AKG).pdf",
+          section_heading: "Appendix V: Agitation and Arousal PRN Medication",
+          content:
+            "Agitation is managed by using IM medication when oral medication is refused, with review and monitoring.",
+          match_explanation: { titleHit: true, contentHit: true, tableHit: true, reasons: ["title", "table"] },
+        }),
+      ],
+      new Error("OpenAI generation incomplete: max_output_tokens"),
+    );
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("generation_fallback:provider_incomplete_max_output_tokens");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+    expect(answer.grounded).toBe(true);
+    expect(answer.answer).toMatch(/IM medication|oral medication|agitation/i);
+  });
+
   it("returns a grounded document-support fallback for procedure queries when no clean fact can be synthesized", async () => {
     const answer = await answerFromTextSources(
       "What is the process for ECT procedure?",
