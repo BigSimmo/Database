@@ -10,6 +10,7 @@ import { dsmDiagnoses } from "@/lib/dsm";
 import { formulationMechanisms } from "@/lib/formulation";
 import { formRecords } from "@/lib/forms";
 import { serviceRecords } from "@/lib/services";
+import { specifierRecords } from "@/lib/specifiers";
 
 const appDir = path.join(process.cwd(), "src", "app");
 const siteMapPath = path.join(process.cwd(), "docs", "site-map.md");
@@ -63,7 +64,11 @@ const routeDescriptions: Record<string, string> = {
   "/formulation/builder": "Structured clinical formulation builder.",
   "/formulation/compare": "Side-by-side mechanism comparison.",
   "/formulation/map": "Formulation mechanism domain map.",
-  "/specifiers/[[...path]]": "Compatibility redirect to the corrected Formulation workspace.",
+  "/specifiers": "Psychiatric specifier home and local search surface.",
+  "/specifiers/[slug]": "Psychiatric specifier decision-support guide.",
+  "/specifiers/builder": "Structured diagnostic wording builder.",
+  "/specifiers/compare": "Side-by-side psychiatric specifier comparison.",
+  "/specifiers/map": "Psychiatric specifier family map.",
 };
 
 const apiDescriptions: Record<string, string> = {
@@ -104,7 +109,7 @@ const routeOwnershipRows = [
   ["Favourites", "src/app/favourites, src/components/clinical-dashboard/favourites-command-library-page.tsx"],
   ["Differentials", "src/app/differentials, src/lib/differentials.ts"],
   ["DSM-5 Diagnosis", "src/app/dsm, src/components/dsm, src/lib/dsm.ts"],
-  ["Specifiers (legacy redirect)", "src/app/specifiers/[[...path]]/page.tsx"],
+  ["Specifiers", "src/app/specifiers, src/components/specifiers, src/lib/specifiers.ts"],
   ["Formulation", "src/app/formulation, src/components/formulation, src/lib/formulation.ts"],
   ["Medications", "src/app/medications, src/components/clinical-dashboard/medication-prescribing-workspace.tsx"],
   ["Documents", "src/app/documents, src/lib/document-flow-routes.ts"],
@@ -293,7 +298,7 @@ function renderModePageIndex() {
       mode: "Specifiers",
       home: appModeHomeHref("specifiers"),
       search: appModeHomeHref("specifiers", { query: "depressed but racing thoughts", focus: true, run: true }),
-      detail: "Compatibility entry that redirects through `/specifiers` into the Formulation workspace.",
+      detail: "`/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, and `/specifiers/map`.",
     },
     {
       mode: "Formulation",
@@ -349,6 +354,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "/services/[slug]",
         "/forms/[slug]",
         "/differentials/diagnoses/[slug]",
+        "/specifiers/[slug]",
         "/dsm/diagnoses/[slug]",
         "/dsm/diagnoses/[slug]/differentials",
         "/formulation/[slug]",
@@ -387,6 +393,12 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "Seeded service slugs",
         "/services/[slug]",
         serviceRecords.map((record) => record.slug),
+      ),
+      "",
+      ...renderSlugInventory(
+        "Psychiatric specifier slugs",
+        "/specifiers/[slug]",
+        specifierRecords.map((record) => record.slug),
       ),
       "",
       ...renderSlugInventory(

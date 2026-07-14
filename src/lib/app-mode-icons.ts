@@ -7,8 +7,8 @@ import {
   Network,
   Pill,
   Route,
-  Sparkles,
   Tags,
+  Sparkles,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
