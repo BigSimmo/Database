@@ -218,6 +218,21 @@ describe("clinical search query normalization", () => {
     ).toBe("agitation arousal dose");
   });
 
+  it("preserves supported agitation amount, route, and frequency signals without broad expansion", () => {
+    expect(buildClinicalTextSearchQuery("What 5 mg option is listed for agitation?")).toBe(
+      "agitation arousal dose 5 mg",
+    );
+    expect(buildClinicalTextSearchQuery("Which subcutaneous dose is listed for agitation?")).toBe(
+      "agitation arousal dose sc",
+    );
+    expect(buildClinicalTextSearchQuery("Which sublingual PRN option is listed for agitation?")).toBe(
+      "agitation arousal sl prn",
+    );
+    expect(buildClinicalTextSearchQuery("What dosing frequency is listed for agitation?")).toBe(
+      "agitation arousal dose frequency",
+    );
+  });
+
   it("anchors clozapine blood-monitoring paraphrases to clozapine FBC evidence", () => {
     expect(
       buildClinicalTextSearchQuery(
