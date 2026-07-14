@@ -456,7 +456,7 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
             <article
               key={form.slug}
               data-testid={`form-search-mobile-result-${form.slug}`}
-              className="grid grid-cols-[44px_minmax(0,1fr)] gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[0_1px_2px_rgb(12_24_34_/_5%)]"
+              className="grid grid-cols-[44px_minmax(0,1fr)] gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[var(--shadow-tight)]"
             >
               <div className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-xl font-extrabold leading-none text-[color:var(--clinical-accent)]">
                 {resultCode(match, index)}

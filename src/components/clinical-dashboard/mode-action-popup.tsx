@@ -773,8 +773,8 @@ export function ModeActionPopup({
       >
         <div
           className={cn(
-            "mode-action-panel overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[0_18px_42px_rgb(15_37_48_/_16%)] ring-1 ring-white/45 dark:ring-white/10",
-            integrated ? "rounded-[1.35rem] shadow-[0_20px_48px_rgb(15_37_48_/_18%)]" : "rounded-[1rem]",
+            "mode-action-panel overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)] ring-1 ring-white/45 dark:ring-white/10",
+            integrated ? "rounded-[1.35rem] shadow-[var(--shadow-elevated)]" : "rounded-[1rem]",
           )}
         >
           {renderPopoverHeader()}

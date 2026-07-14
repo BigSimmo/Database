@@ -95,7 +95,7 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
       closeLabel="Close account setup"
       initialFocusRef={emailInputRef}
       bodyClassName="p-0 sm:p-0"
-      contentClassName="account-setup-dialog max-h-[calc(100dvh-0.75rem)] rounded-t-[1.35rem] border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[0_24px_70px_rgba(15,23,42,0.18)] sm:max-h-[calc(100dvh-2rem)] sm:max-w-[32rem] sm:rounded-xl"
+      contentClassName="account-setup-dialog max-h-[calc(100dvh-0.75rem)] rounded-t-[1.35rem] border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-elevated)] sm:max-h-[calc(100dvh-2rem)] sm:max-w-[32rem] sm:rounded-xl"
       portal
     >
       <form onSubmit={submit} className="relative">

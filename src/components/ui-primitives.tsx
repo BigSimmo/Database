@@ -66,7 +66,7 @@ export const proseMeasure = "max-w-[68ch]";
 // chunk numbers, guideline versions, document IDs. Pairs with tabular figures.
 export const codeText = "font-mono tabular-nums tracking-tight";
 export const commandInput =
-  "min-h-12 w-full rounded-lg border border-[color:var(--border)]/70 bg-[color:var(--surface)] pl-12 pr-12 text-sm font-semibold text-[color:var(--text)] shadow-[0_10px_22px_rgba(0,0,0,0.06),var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25 motion-safe:transition sm:text-base";
+  "min-h-12 w-full rounded-lg border border-[color:var(--border)]/70 bg-[color:var(--surface)] pl-12 pr-12 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-soft),var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25 motion-safe:transition sm:text-base";
 
 export const chatAnswerText =
   "max-w-[68ch] text-base-minus font-medium leading-[1.56] text-[color:var(--text-heading)] sm:text-base sm:leading-[1.62]";
@@ -109,7 +109,7 @@ export const clinicalNotesRow =
  */
 export const chatComposerShellBase = "flex items-center rounded-full border";
 export const chatComposerShellDelta =
-  "min-h-14 gap-2 border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[0_1px_2px_rgb(16_24_40_/_5%),0_8px_22px_rgb(16_24_40_/_8%)] focus-within:border-[color:var(--clinical-accent)]";
+  "min-h-14 gap-2 border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[var(--shadow-soft)] focus-within:border-[color:var(--clinical-accent)]";
 export const chatComposerShell = `${chatComposerShellBase} ${chatComposerShellDelta}`;
 export const chatComposerInput =
   "min-h-tap min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]";
@@ -118,7 +118,7 @@ export const chatComposerIconButton =
 export const chatSendButton =
   "grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
 export const tableCard =
-  "overflow-hidden rounded-lg border border-[color:var(--border)]/80 bg-[color:var(--surface)] shadow-[0_6px_16px_rgb(15_27_45_/_4%)]";
+  "overflow-hidden rounded-lg border border-[color:var(--border)]/80 bg-[color:var(--surface)] shadow-[var(--shadow-tight)]";
 export const tableCardHeader =
   "border-b border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] px-3 py-2.5 text-sm font-semibold text-[color:var(--text-heading)]";
 export const tableMicroActionRow =
