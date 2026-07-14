@@ -503,26 +503,14 @@ export function ServicesNavigatorPage() {
             className="mode-home-composer-slot hidden w-full min-w-0 [&:not(:empty)]:block"
           />
           <Stepper />
-          <div className="xl:hidden">
-            <SearchResultsHeaderBand
-              modeId="services"
-              query={query}
-              matchCount={displayedMatches.length}
-              loading={registryLoading}
-              sortValue={sortValue}
-              onSortChange={setSortValue}
-            />
-          </div>
-          <div className="hidden xl:block">
-            <SearchResultsHeaderBand
-              modeId="services"
-              query={query}
-              matchCount={displayedMatches.length}
-              loading={registryLoading}
-              sortValue={sortValue}
-              onSortChange={setSortValue}
-            />
-          </div>
+          <SearchResultsHeaderBand
+            modeId="services"
+            query={query}
+            matchCount={displayedMatches.length}
+            loading={registryLoading}
+            sortValue={sortValue}
+            onSortChange={setSortValue}
+          />
         </>
       }
       sidebar={

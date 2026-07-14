@@ -19,6 +19,7 @@ import {
   type UniversalSearchResponse,
 } from "@/lib/universal-search";
 import { parseRequestQuery, queryInteger } from "@/lib/validation/query";
+import { appModeIds } from "@/lib/app-modes";
 
 export const runtime = "nodejs";
 
@@ -33,6 +34,7 @@ export const runtime = "nodejs";
 const universalSearchQuerySchema = z.object({
   q: z.string().trim().min(2).max(200),
   limit: queryInteger({ fallback: 5, min: 1, max: 10 }),
+  mode: z.enum(appModeIds).optional(),
   domains: z
     .string()
     .trim()
@@ -64,10 +66,20 @@ function universalResponse(
 
 export async function GET(request: Request) {
   try {
-    const { q, limit, domains } = parseRequestQuery(request, universalSearchQuerySchema, "Invalid universal query.");
+    const { q, limit, domains, mode } = parseRequestQuery(
+      request,
+      universalSearchQuerySchema,
+      "Invalid universal query.",
+    );
 
     if (isDemoMode() || isLocalNoAuthMode()) {
-      const payload = await runUniversalSearch({ query: q, limitPerDomain: limit, domains, demo: true });
+      const payload = await runUniversalSearch({
+        query: q,
+        limitPerDomain: limit,
+        domains,
+        contextMode: mode,
+        demo: true,
+      });
       return universalResponse({ ...payload, demoMode: true });
     }
 
@@ -91,6 +103,7 @@ export async function GET(request: Request) {
       query: q,
       limitPerDomain: limit,
       domains,
+      contextMode: mode,
       supabase,
       ownerId: access.ownerId,
       demo: false,

@@ -28,6 +28,7 @@ import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { searchSpecifiers, specifierFamilies, specifierSearchPresets, type SpecifierFamily } from "@/lib/specifiers";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 const diagnosisOptions = [
   { value: "", label: "All diagnoses" },
@@ -200,6 +201,8 @@ function SpecifierResults({ query }: { query: string }) {
           {results.length} {results.length === 1 ? "match" : "matches"}
         </p>
       </header>
+
+      <UniversalSearchAlsoMatches modeId="specifiers" query={query} />
 
       <section
         aria-label="Filter specifier results"

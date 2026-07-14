@@ -18,9 +18,12 @@ import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { rowToServiceRecord } from "@/lib/registry-records";
 import { fetchOwnerRegistryRowsWithSeed } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
+import { searchSpecifiers } from "@/lib/specifiers";
 import { rankToolRecords } from "@/lib/tools-catalog";
 import type { ClinicalQueryAnalysis, SearchResult } from "@/lib/types";
 import { universalSearchDomains, type UniversalSearchDomain } from "@/lib/universal-search-domains";
+import { universalSearchPreferredDomains } from "@/lib/universal-search-mode-context";
+import type { AppModeId } from "@/lib/app-modes";
 
 // Server-side federated cross-entity search: one parallel in-process fan-out to the document
 // retrieval pipeline plus the shared registry rankers (medications, services, forms,
@@ -90,6 +93,8 @@ export type UniversalSearchResponse = {
   domainOrder?: UniversalSearchDomain[];
   topHit?: UniversalSearchTopHit;
   answerAction?: UniversalSearchAnswerAction;
+  contextMode?: AppModeId;
+  preferredDomains?: UniversalSearchDomain[];
   // demoMode / publicAccess are attached by the route to its JSON response, not by runUniversalSearch.
 };
 
@@ -97,6 +102,7 @@ export type RunUniversalSearchArgs = {
   query: string;
   limitPerDomain: number;
   domains?: UniversalSearchDomain[];
+  contextMode?: AppModeId;
   // Live mode: both present. Demo/public mode: demo=true and the registry adapters serve
   // fixtures without touching Supabase.
   supabase?: AdminClient;
@@ -250,6 +256,21 @@ async function searchToolsDomain(args: ResolvedSearchArgs): Promise<UniversalSea
   }));
 }
 
+async function searchSpecifiersDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
+  return searchSpecifiers(args.baseQuery)
+    .slice(0, args.limitPerDomain)
+    .map(({ record, score }) => ({
+      id: record.slug,
+      kind: "specifiers" as const,
+      title: record.name,
+      subtitle: record.summary,
+      href: `/specifiers/${record.slug}`,
+      score,
+      badge: record.familyLabel,
+      meta: record.appliesTo.slice(0, 2).join(" · ") || undefined,
+    }));
+}
+
 function searchResultDocumentHref(result: SearchResult) {
   const metadata =
     result.source_metadata && typeof result.source_metadata === "object"
@@ -349,6 +370,7 @@ const domainAdapters: Record<
   forms: { run: searchFormsDomain, timeoutMs: registryDomainTimeoutMs },
   differentials: { run: searchDifferentialsDomain, timeoutMs: registryDomainTimeoutMs },
   presentations: { run: searchPresentationsDomain, timeoutMs: registryDomainTimeoutMs },
+  specifiers: { run: searchSpecifiersDomain, timeoutMs: registryDomainTimeoutMs },
   tools: { run: searchToolsDomain, timeoutMs: registryDomainTimeoutMs },
 };
 
@@ -410,13 +432,22 @@ function preferredLeadDomains(analysis: ClinicalQueryAnalysis): UniversalSearchD
   return [];
 }
 
-function buildDomainOrder(analysis: ClinicalQueryAnalysis, groups: UniversalSearchGroup[]): UniversalSearchDomain[] {
+function buildDomainOrder(
+  analysis: ClinicalQueryAnalysis,
+  groups: UniversalSearchGroup[],
+  preferredDomains: UniversalSearchDomain[],
+): UniversalSearchDomain[] {
   const present = new Set(groups.map((group) => group.kind));
   const confidentDomains = groups
     .filter((group) => group.items.some((item) => item.confident))
     .map((group) => group.kind);
   const order: UniversalSearchDomain[] = [];
-  for (const domain of [...preferredLeadDomains(analysis), ...confidentDomains, ...universalSearchDomains]) {
+  for (const domain of [
+    ...preferredDomains,
+    ...preferredLeadDomains(analysis),
+    ...confidentDomains,
+    ...universalSearchDomains,
+  ]) {
     if (present.has(domain) && !order.includes(domain)) order.push(domain);
   }
   return order;
@@ -498,7 +529,10 @@ export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<
     return { kind: requested[index], total: 0, items: [], latencyMs: Date.now() - startedAt, error: true };
   });
 
-  const domainOrder = buildDomainOrder(analysis, groups);
+  const preferredDomains = universalSearchPreferredDomains(args.contextMode).filter((domain) =>
+    requested.includes(domain),
+  );
+  const domainOrder = buildDomainOrder(analysis, groups, preferredDomains);
   return {
     query: args.query,
     groups,
@@ -507,6 +541,8 @@ export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<
     domainOrder,
     topHit: buildTopHit(groups, domainOrder),
     answerAction: buildAnswerAction(analysis, args.query),
+    contextMode: args.contextMode,
+    preferredDomains,
   };
 }
 
@@ -524,6 +560,8 @@ export function universalSearchViewAllHref(domain: UniversalSearchDomain, query:
     // The differentials mode home search composes both kinds, so presentations share it.
     case "presentations":
       return `/differentials?q=${encodeURIComponent(query)}&run=1`;
+    case "specifiers":
+      return `/specifiers?q=${encodeURIComponent(query)}&run=1`;
     case "tools":
       return `/?mode=tools&q=${encodeURIComponent(query)}&run=1`;
   }

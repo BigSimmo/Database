@@ -119,6 +119,26 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     // prescribing, services, forms, and differentials.
     crossModes: ["documents", "prescribing", "services", "forms", "differentials"],
   },
+  specifiers: {
+    examples: ["with anxious distress", "post-birth onset", "winter recurrence"],
+    suggestions: [
+      { text: "with anxious distress", meta: "Episode feature" },
+      { text: "with peripartum onset", meta: "Course" },
+      { text: "with seasonal pattern", meta: "Course" },
+    ],
+    scopes: [],
+    crossModes: ["differentials", "documents", "answer"],
+  },
+  tools: {
+    examples: ["renal calculator", "dose converter", "clinical forms"],
+    suggestions: [
+      { text: "renal function calculator", meta: "Calculator" },
+      { text: "dose converter", meta: "Medication tool" },
+      { text: "clinical forms", meta: "Directory" },
+    ],
+    scopes: [],
+    crossModes: ["documents", "prescribing", "forms", "favourites"],
+  },
 };
 
 export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurfaceConfig | null {

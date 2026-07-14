@@ -12,8 +12,17 @@ import {
   isSearchableAppMode,
   visibleAppModeDefinitions,
 } from "@/lib/app-modes";
+import { universalSearchPreferredDomains } from "@/lib/universal-search-mode-context";
 
 describe("app mode search contract", () => {
+  it("maps every mode to its preferred universal-search domains", () => {
+    expect(universalSearchPreferredDomains("answer")).toEqual(["documents"]);
+    expect(universalSearchPreferredDomains("prescribing")).toEqual(["medications", "documents"]);
+    expect(universalSearchPreferredDomains("differentials")).toEqual(["differentials", "presentations"]);
+    expect(universalSearchPreferredDomains("specifiers")).toEqual(["specifiers"]);
+    expect(universalSearchPreferredDomains("favourites")).toEqual([]);
+  });
+
   it("requires every mode to declare its search behavior and copy", () => {
     const ids = new Set<string>();
 

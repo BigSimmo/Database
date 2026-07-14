@@ -80,6 +80,7 @@ import {
 } from "@/components/clinical-dashboard/answer-progress";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { answerRecovery, errorCopy } from "@/lib/ui-copy";
@@ -3702,6 +3703,17 @@ export function ClinicalDashboard({
                       </button>
                     </div>
                   ) : null)}
+
+                {modeSearchSubmitted &&
+                query.trim() &&
+                (activeModeResultKind === "answer" ||
+                  activeModeResultKind === "tools" ||
+                  activeModeResultKind === "favourites") ? (
+                  <UniversalSearchAlsoMatches
+                    modeId={searchMode}
+                    query={activeModeResultKind === "answer" ? (latestAnswerQuery ?? query) : query}
+                  />
+                ) : null}
 
                 {activeModeResultKind === "differentials" ? (
                   <DifferentialsHome

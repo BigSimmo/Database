@@ -41,6 +41,15 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
     const tools = toolsResponse.groups.find((group) => group.kind === "tools");
     expect(tools?.items.some((item) => item.id === "forms")).toBe(true);
     expect(forms?.items.every((item) => item.href.startsWith("/forms/"))).toBe(true);
+
+    const specifierResponse = await runUniversalSearch({
+      query: "with anxious distress",
+      limitPerDomain: 5,
+      demo: true,
+    });
+    const specifiers = specifierResponse.groups.find((group) => group.kind === "specifiers");
+    expect(specifiers?.items[0]?.title).toBe("With anxious distress");
+    expect(specifiers?.items[0]?.href).toBe("/specifiers/with-anxious-distress");
   });
 
   it("filters to requested domains only", async () => {
@@ -52,8 +61,8 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
       demo: true,
     });
     expect(response.groups.map((group) => group.kind)).toEqual(
-      ["documents", "medications", "services", "forms", "differentials", "presentations", "tools"].filter((domain) =>
-        ["tools", "differentials"].includes(domain),
+      ["documents", "medications", "services", "forms", "differentials", "presentations", "specifiers", "tools"].filter(
+        (domain) => ["tools", "differentials"].includes(domain),
       ),
     );
   });
@@ -215,6 +224,26 @@ describe("GET /api/search/universal (demo mode)", () => {
     expect(payload.groups.map((group) => group.kind)).toEqual(["presentations"]);
     expect(payload.groups[0]?.items[0]?.href).toContain("/differentials/presentations/");
   });
+
+  it("accepts a mode context and rejects unknown modes", async () => {
+    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
+    const { GET } = await import("../src/app/api/search/universal/route");
+    const response = await GET(
+      new Request("http://localhost/api/search/universal?q=transport&mode=forms&domains=forms,services"),
+    );
+    expect(response.status).toBe(200);
+    const payload = (await response.json()) as {
+      contextMode?: string;
+      preferredDomains?: string[];
+      domainOrder?: string[];
+    };
+    expect(payload.contextMode).toBe("forms");
+    expect(payload.preferredDomains).toEqual(["forms"]);
+    expect(payload.domainOrder?.[0]).toBe("forms");
+
+    const invalid = await GET(new Request("http://localhost/api/search/universal?q=transport&mode=bogus"));
+    expect(invalid.status).toBe(400);
+  });
 });
 
 describe("runUniversalSearch (query intelligence & ranking)", () => {
@@ -224,6 +253,22 @@ describe("runUniversalSearch (query intelligence & ranking)", () => {
     // The groups array is unchanged (canonical order); only the separate domainOrder reorders.
     expect(response.groups.map((group) => group.kind)).toEqual(universalSearchDomains);
     expect(response.domainOrder?.[0]).toBe("medications");
+  });
+
+  it("leads normal groups with the active mode but still allows an exact external Best match", async () => {
+    const { runUniversalSearch } = await loadUniversalSearch();
+    const response = await runUniversalSearch({
+      query: "with anxious distress",
+      limitPerDomain: 5,
+      contextMode: "documents",
+      demo: true,
+    });
+
+    expect(response.contextMode).toBe("documents");
+    expect(response.preferredDomains).toEqual(["documents"]);
+    expect(response.domainOrder?.[0]).toBe("documents");
+    expect(response.topHit?.kind).toBe("specifiers");
+    expect(response.topHit?.title).toBe("With anxious distress");
   });
 
   it("typo-corrects the base query so a misspelled drug still finds the record", async () => {
@@ -415,6 +460,7 @@ describe("GET /api/search/universal (live public/owner path)", () => {
         "forms",
         "differentials",
         "presentations",
+        "specifiers",
         "tools",
       ],
     }));

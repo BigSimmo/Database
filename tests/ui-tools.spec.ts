@@ -622,7 +622,7 @@ test.describe("Clinical KB tools launcher", () => {
     }
   });
 
-  test("phone bottom-dock search keeps the command popup hidden", async ({ page }) => {
+  test("phone bottom-dock search opens the bounded command results sheet", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
@@ -630,12 +630,12 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(input).toBeVisible();
     await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
 
-    // Phones never show the universal command popup — it crowds the small
-    // screen — so focusing/typing must not surface the dropdown or its scrim.
+    // Phone searches use the same accessible listbox as larger viewports, bounded
+    // above the bottom dock so results stay reachable without horizontal overflow.
     await input.click();
     await input.press("ArrowDown");
-    await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
-    await expect(page.locator("form.answer-footer-search-dock")).not.toHaveAttribute("data-command-open", "true");
+    await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(1);
+    await expect(page.getByRole("listbox", { name: "Services search suggestions" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -655,10 +655,11 @@ test.describe("Clinical KB tools launcher", () => {
       expect(geometry.top).toBeGreaterThan(0);
       expect(geometry.bottom).toBeLessThan(geometry.viewportHeight - 40);
 
-      // Focusing the hero composer must not surface the universal popup on phones.
+      // Hero composers expose the same bounded universal results sheet on phones.
       await heroInput.click();
       await heroInput.press("ArrowDown");
-      await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+      await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(1);
+      await expect(page.getByRole("listbox")).toBeVisible();
       await expectNoPageHorizontalOverflow(page);
     }
   });
