@@ -648,7 +648,6 @@ export function ModeActionPopup({
                   {item.description ? (
                     <span
                       id={descriptionId}
-                      aria-hidden="true"
                       className="mt-0.5 block truncate text-xs font-medium text-[color:var(--text-soft)]"
                     >
                       {item.description}
