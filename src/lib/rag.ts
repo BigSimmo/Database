@@ -139,7 +139,6 @@ import {
 } from "@/lib/clinical-search";
 import { env, requestedOpenAIAnswerModels } from "@/lib/env";
 import { ragAnswerPromptVersion, ragQueryClassifierPromptVersion, ragSummaryPromptVersion } from "@/lib/rag-versioning";
-import { captureServerEvent } from "@/lib/observability/error-capture";
 import {
   answerPrivacyMetadata,
   answerTextForStorage,
@@ -4473,14 +4472,6 @@ ${qualityRetryInstruction}`
       generationFallbackArtifacts,
     );
     const sanitizedReason = summarizeGenerationFailureReason(error);
-    // This degradation is invisible to route-level capture (the request still
-    // succeeds with a source-only answer), so report it here. The token-starvation
-    // incident (GEN-C1) lived exclusively in this branch for weeks.
-    await captureServerEvent("answer_generation_fallback", {
-      reason: sanitizedReason,
-      queryClass,
-      routeMode: route.mode ?? "unknown",
-    });
     const comparisonMatrixFallbackAnswer =
       queryClass === "comparison"
         ? buildComparisonAnswer({

@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { TriangleAlert, RefreshCw } from "lucide-react";
 
 import { cn, primaryControl } from "@/components/ui-primitives";
-import { captureClientException } from "@/lib/observability/sentry-client";
 
 export type RouteErrorBoundaryProps = {
   /** The error thrown by the segment, forwarded by Next.js. */
@@ -41,8 +40,6 @@ export function RouteErrorBoundary({
 }: RouteErrorBoundaryProps) {
   useEffect(() => {
     console.error(logLabel, error);
-    // No-op unless the browser Sentry SDK was initialized (NEXT_PUBLIC_SENTRY_DSN set at build).
-    captureClientException(error);
   }, [error, logLabel]);
 
   return (
