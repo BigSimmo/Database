@@ -92,7 +92,12 @@ function streamAnswerFeedbackMetadata(interactionId: string, answer: string) {
   return isDemoMode() ? { interactionId } : answerFeedbackMetadata(interactionId, answer);
 }
 
-function logStreamError(error: unknown) {
+function logStreamError(error: unknown, signal?: AbortSignal) {
+  // Client aborts (Stop button / watchdog) and expected sub-500 degradations are
+  // operational noise, not failures — the caller still surfaces them to the client
+  // via the SSE error event. Only genuine server-fault stream failures are logged.
+  if ((error instanceof DOMException && error.name === "AbortError") || signal?.aborted) return;
+  if (error instanceof PublicApiError && error.status < 500) return;
   logger.error("Search stream failed", safeErrorLogDetails(error));
 }
 
@@ -234,7 +239,7 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
             sendFinal({ ...buildDemoStreamAnswer(body, fallbackReason), interactionId });
             return;
           }
-          logStreamError(error);
+          logStreamError(error, signal);
           const streamError = streamErrorPayload(error);
           send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
         } finally {

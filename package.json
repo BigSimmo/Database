@@ -141,7 +141,6 @@
   },
   "dependencies": {
     "@next/env": "16.2.10",
-    "@sentry/browser": "^10.65.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
     "exceljs": "^4.4.0",
