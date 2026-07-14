@@ -56,11 +56,11 @@ export function ImageLightbox({
   }, [onClose]);
 
   const zoomByFactor = useCallback((factor: number) => {
-    setScale((current) => {
-      const next = clampScale(current * factor);
-      if (next <= 1) setTranslate({ x: 0, y: 0 });
-      return next;
-    });
+    setScale((current) => clampScale(current * factor));
+    // Reset pan when zooming back to fit. Kept out of the setScale updater (which
+    // React may double-invoke) and out of an effect (the repo bans
+    // set-state-in-effect); scaleRef mirrors the live scale.
+    if (clampScale(scaleRef.current * factor) <= 1) setTranslate({ x: 0, y: 0 });
   }, []);
 
   const panByDelta = useCallback((dx: number, dy: number) => {

@@ -2,7 +2,8 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import { Download, ExternalLink, FileText } from "lucide-react";
+import { useState } from "react";
+import { CircleAlert, Download, ExternalLink, FileText } from "lucide-react";
 
 import { cn, floatingControl } from "@/components/ui-primitives";
 
@@ -45,20 +46,9 @@ export function NonPdfSourcePreview({
   }
 
   if (type.startsWith("image/")) {
+    // Keyed by signedUrl so a freshly issued URL remounts with a clean failed state.
     return (
-      <div className="flex flex-col items-center gap-3 bg-[color:var(--surface-inset)] p-3 sm:p-4">
-        <img
-          src={signedUrl}
-          alt={title}
-          loading="lazy"
-          decoding="async"
-          className="max-h-[70vh] w-auto max-w-full rounded-lg bg-[color:var(--surface)] object-contain shadow-[var(--shadow-tight)]"
-        />
-        <a href={signedUrl} target="_blank" rel="noreferrer" className={secondaryButton}>
-          <ExternalLink aria-hidden="true" className="h-4 w-4" />
-          Open full image
-        </a>
-      </div>
+      <InlineImagePreview key={signedUrl} signedUrl={signedUrl} downloadSignedUrl={downloadSignedUrl} title={title} />
     );
   }
 
@@ -95,6 +85,71 @@ export function NonPdfSourcePreview({
           ) : null}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Inline image with a failure fallback. The source is a direct signed URL owned
+ * by the parent (not a re-fetchable endpoint), so on an expired/broken URL it
+ * surfaces the same Open/Download recovery affordance rather than a silently
+ * broken <img>.
+ */
+function InlineImagePreview({
+  signedUrl,
+  downloadSignedUrl,
+  title,
+}: {
+  signedUrl: string;
+  downloadSignedUrl: string | null;
+  title: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <div className={placeholderSurface}>
+        <div className="max-w-md">
+          <CircleAlert aria-hidden="true" className="mx-auto mb-2 h-8 w-8 text-[color:var(--warning)]" />
+          <p className="font-semibold text-[color:var(--text)]">Image preview could not load</p>
+          <p className="mt-1">The preview link may have expired. Open the image in a new tab or download it.</p>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "min-h-11")}>
+              <ExternalLink aria-hidden="true" className="h-4 w-4" />
+              Open
+            </a>
+            {downloadSignedUrl ? (
+              <a
+                href={downloadSignedUrl}
+                target="_blank"
+                rel="noreferrer"
+                download
+                className={cn(secondaryButton, "min-h-11")}
+              >
+                <Download aria-hidden="true" className="h-4 w-4" />
+                Download
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-3 bg-[color:var(--surface-inset)] p-3 sm:p-4">
+      <img
+        src={signedUrl}
+        alt={title}
+        loading="lazy"
+        decoding="async"
+        onError={() => setFailed(true)}
+        className="max-h-[70vh] w-auto max-w-full rounded-lg bg-[color:var(--surface)] object-contain shadow-[var(--shadow-tight)]"
+      />
+      <a href={signedUrl} target="_blank" rel="noreferrer" className={secondaryButton}>
+        <ExternalLink aria-hidden="true" className="h-4 w-4" />
+        Open full image
+      </a>
     </div>
   );
 }
