@@ -68,6 +68,11 @@ const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit:
   document_read: { limit: 45, windowSeconds: 60 },
   document_upload: { limit: 3, windowSeconds: 60 },
   answer_feedback: { limit: 12, windowSeconds: 60 },
+  // Anonymous curated-catalog reads (medications/registry/differentials) return the full
+  // seed corpus (~MBs). Halve the authenticated allowance so an unauthenticated caller
+  // cannot use the public catalog endpoints as a high-volume egress lever, while still
+  // leaving ample headroom for legitimate public browsing.
+  registry: { limit: 60, windowSeconds: 60 },
 };
 
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;

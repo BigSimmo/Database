@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 
 import type { Pathway, ReferenceData, Therapy, TherapyDataset } from "./types";
 
-const BASE = "/mockups/therapy-compass";
+// Served as static public assets. Kept outside /mockups so the production
+// `/therapy-compass` route can load them — `proxy.ts` 404s every /mockups path
+// in production, which would otherwise starve the tool of its dataset.
+const BASE = "/therapy-compass-data";
 
-// Module-level cache so the ~2.7 MB dataset is fetched at most once per session,
-// shared across every screen. The route is dev-only, so these static assets
-// never ship to production.
+// Module-level cache so the ~2.6 MB dataset is fetched at most once per session,
+// shared across every screen.
 let cache: Promise<TherapyDataset> | null = null;
 
 async function fetchJson<T>(path: string): Promise<T> {

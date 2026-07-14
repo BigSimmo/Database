@@ -82,6 +82,7 @@ const sidebarToolItems = [
   { id: "formulation", label: "Formulation", icon: Network, href: "/formulation" },
   { id: "prescribing", label: "Medication", icon: Pill, href: "/?mode=prescribing" },
   { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
+  { id: "therapy-compass", label: "Therapy Compass", icon: appModeIcons["therapy-compass"], href: "/therapy-compass" },
 ] as const;
 
 function sidebarItemBadge(item: (typeof sidebarToolItems)[number]): string | undefined {

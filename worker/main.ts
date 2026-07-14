@@ -89,23 +89,6 @@ type OptionalIndexWriteIssue = {
   code?: string | null;
 };
 
-type GenerationTableResult = {
-  data: unknown[] | null;
-  error: { message?: string; code?: string; details?: string; hint?: string } | null;
-};
-
-type GenerationTableFilter = PromiseLike<GenerationTableResult> & {
-  eq: (column: string, value: string) => GenerationTableFilter;
-  neq: (column: string, value: string) => PromiseLike<GenerationTableResult>;
-  is: (column: string, value: null) => PromiseLike<GenerationTableResult>;
-  limit: (count: number) => GenerationTableFilter;
-};
-
-type GenerationTableQuery = {
-  select: (columns: string) => GenerationTableFilter;
-  delete: () => GenerationTableFilter;
-};
-
 function supabaseStageError(
   stage: string,
   error: { message?: string; code?: string; details?: string; hint?: string },
@@ -541,10 +524,10 @@ async function commitDocumentIndexGeneration(args: {
     })),
     p_quality: sanitizeJsonbRecord(args.quality),
   });
-  if (!error) return;
-  throw supabaseStageError("commit_document_index_generation", error);
-  await upsertIndexQuality(args.quality);
-  await deleteStaleIndexGenerationRows(args.documentId, args.indexGenerationId);
+  // The RPC upserts index quality and prunes stale/legacy generation rows atomically server-side
+  // (20260702000000_commit_generation_preserve_legacy_artifacts, lease-fenced by
+  // 20260713062125_fence_index_generation_commit), so the worker only needs to surface failures.
+  if (error) throw supabaseStageError("commit_document_index_generation", error);
 }
 
 function buildDocumentPageRows(documentId: string, extracted: ExtractedDocument) {
@@ -555,65 +538,6 @@ function buildDocumentPageRows(documentId: string, extracted: ExtractedDocument)
     ocr_used: Boolean(page.ocrUsed),
     metadata: {},
   }));
-}
-
-// Audit M13 (mirrors 20260702000000_commit_generation_preserve_legacy_artifacts):
-// this client-side fallback (used only when the commit RPC is missing) must
-// apply the same preservation rule as the RPC — legacy generationless rows are
-// purged only when this generation wrote replacement rows into the same
-// table, so a transient artifact-write failure cannot destroy the
-// previously-good legacy artifacts. Rows tagged with a DIFFERENT generation
-// are always removed. Note: chunk-anchored artifacts (table facts, embedding
-// fields, index units) cascade with their legacy chunks regardless — the
-// guarantee fully protects images, memory cards, and sections.
-async function deleteStaleIndexGenerationRows(documentId: string, indexGenerationId: string) {
-  // The generated Supabase client only types known table literals. This cleanup
-  // path selects among a small runtime-known set of tables, so use a minimal
-  // adapter at the dynamic boundary instead of widening the whole admin client.
-  const fromGenerationTable = supabase.from.bind(supabase) as unknown as (table: string) => GenerationTableQuery;
-  const hasReplacementRows = async (table: string, direct: boolean) => {
-    let query = fromGenerationTable(table).select("id").eq("document_id", documentId).limit(1);
-    query = direct
-      ? query.eq("index_generation_id", indexGenerationId)
-      : query.eq("metadata->>index_generation_id", indexGenerationId);
-    const { data, error } = await query;
-    if (error) throw supabaseStageError(`check replacement ${table}`, error);
-    return (data ?? []).length > 0;
-  };
-  const deleteDirectGenerationRows = async (table: string) => {
-    const stale = await fromGenerationTable(table)
-      .delete()
-      .eq("document_id", documentId)
-      .neq("index_generation_id", indexGenerationId);
-    if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
-    if (!(await hasReplacementRows(table, true))) return;
-    const missing = await fromGenerationTable(table)
-      .delete()
-      .eq("document_id", documentId)
-      .is("index_generation_id", null);
-    if (missing.error) throw supabaseStageError(`delete generationless ${table}`, missing.error);
-  };
-  const deleteMetadataGenerationRows = async (table: string) => {
-    const stale = await fromGenerationTable(table)
-      .delete()
-      .eq("document_id", documentId)
-      .neq("metadata->>index_generation_id", indexGenerationId);
-    if (stale.error) throw supabaseStageError(`delete stale ${table}`, stale.error);
-    if (!(await hasReplacementRows(table, false))) return;
-    const missing = await fromGenerationTable(table)
-      .delete()
-      .eq("document_id", documentId)
-      .is("metadata->>index_generation_id", null);
-    if (missing.error) throw supabaseStageError(`delete generationless ${table}`, missing.error);
-  };
-
-  await deleteDirectGenerationRows("document_chunks");
-  await deleteMetadataGenerationRows("document_images");
-  await deleteMetadataGenerationRows("document_table_facts");
-  await deleteMetadataGenerationRows("document_embedding_fields");
-  await deleteMetadataGenerationRows("document_index_units");
-  await deleteMetadataGenerationRows("document_memory_cards");
-  await deleteMetadataGenerationRows("document_sections");
 }
 
 async function upsertIndexQuality(quality: ReturnType<typeof buildIndexQualityPayload>) {

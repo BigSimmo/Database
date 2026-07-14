@@ -129,6 +129,9 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
     resolvedSearchMode !== "dsm" &&
     resolvedSearchMode !== "specifiers" &&
     resolvedSearchMode !== "formulation" &&
+    // Therapy Compass owns its route with an in-tool search; a run-enabled link
+    // (/therapy-compass?q=…&run=1) must keep rendering the tool, not the dashboard.
+    resolvedSearchMode !== "therapy-compass" &&
     !isDocumentSearchMockupRoute;
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
@@ -251,6 +254,9 @@ function GlobalStandaloneSearchShellClient({
     resolvedSearchMode !== "dsm" &&
     resolvedSearchMode !== "specifiers" &&
     resolvedSearchMode !== "formulation" &&
+    // Therapy Compass owns its route with an in-tool search; a run-enabled link
+    // (/therapy-compass?q=…&run=1) must keep rendering the tool, not the dashboard.
+    resolvedSearchMode !== "therapy-compass" &&
     !isDocumentSearchMockupRoute;
   const isStandaloneModeHome =
     !hasSubmittedModeSearch &&
