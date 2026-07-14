@@ -61,7 +61,6 @@ const modeIdByDomain: Record<UniversalSearchDomain, AppModeId> = {
   tools: "tools",
 };
 
-
 const domainHeadings: Record<UniversalSearchDomain, string> = {
   documents: "Documents",
   medications: "Medications",

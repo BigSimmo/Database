@@ -2382,7 +2382,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page).toHaveURL(/\/formulation\?q=I\+keep\+going\+over\+it&focus=1&run=1$/);
     await expect(
-      page.getByRole("heading", { level: 1, name: "Mechanisms matching “I keep going over it”" }),
+      page.getByRole("heading", { level: 1, name: 'Mechanisms matching "I keep going over it"' }),
     ).toBeVisible();
   });
 

@@ -83,4 +83,3 @@ export default async function Home({ searchParams }: HomeProps) {
 
   return <HomePageClient initialMode={initialSearchMode} />;
 }
-

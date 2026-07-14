@@ -20,7 +20,16 @@ export type AppModeId = (typeof appModeIds)[number];
 export type SearchableAppModeId = AppModeId;
 
 export type AppModeSearchKind =
-  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "dsm" | "specifiers" | "formulation" | "tools";
+  | "answer"
+  | "documents"
+  | "services"
+  | "forms"
+  | "favourites"
+  | "differentials"
+  | "dsm"
+  | "specifiers"
+  | "formulation"
+  | "tools";
 export type AppModeResultKind = AppModeSearchKind;
 
 export type AppModeSearchConfig = {

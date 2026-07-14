@@ -66,9 +66,17 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
       demo: true,
     });
     expect(response.groups.map((group) => group.kind)).toEqual(
-      ["documents", "medications", "services", "forms", "differentials", "presentations", "dsm", "specifiers", "tools"].filter(
-        (domain) => ["tools", "differentials"].includes(domain),
-      ),
+      [
+        "documents",
+        "medications",
+        "services",
+        "forms",
+        "differentials",
+        "presentations",
+        "dsm",
+        "specifiers",
+        "tools",
+      ].filter((domain) => ["tools", "differentials"].includes(domain)),
     );
   });
 
