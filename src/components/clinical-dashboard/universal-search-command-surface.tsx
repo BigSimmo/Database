@@ -32,6 +32,7 @@ const domainsByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain[]>> =
   services: ["services"],
   forms: ["forms"],
   differentials: ["differentials", "presentations"],
+  dsm: ["dsm"],
   tools: ["tools"],
 };
 
@@ -44,6 +45,7 @@ const modeIdByDomain: Record<UniversalSearchDomain, AppModeId> = {
   // Presentations are the differentials mode's umbrella pages — no app mode of their own,
   // so the group borrows the differentials icon and "View all in Differentials" target.
   presentations: "differentials",
+  dsm: "dsm",
   tools: "tools",
 };
 
@@ -54,6 +56,7 @@ const domainHeadings: Record<UniversalSearchDomain, string> = {
   forms: "Forms",
   differentials: "Differentials",
   presentations: "Presentations",
+  dsm: "DSM-5 Diagnoses",
   tools: "Tools",
 };
 
@@ -628,11 +631,13 @@ export function UniversalSearchCommandSurface({
             ? "favourites"
             : modeId === "differentials"
               ? "differentials"
-              : modeId === "answer"
-                ? "answer"
-                : modeId === "tools"
-                  ? "tools"
-                  : null;
+              : modeId === "dsm"
+                ? "dsm"
+                : modeId === "answer"
+                  ? "answer"
+                  : modeId === "tools"
+                    ? "tools"
+                    : null;
 
     if (actionSetId) {
       const actions = modeActionItemsFor(actionSetId).slice(0, 3);

@@ -104,6 +104,18 @@ describe("app mode search contract", () => {
     expect(appModeQueryMode("differentials", "auto")).toBe("compare_guidance");
   });
 
+  it("routes DSM searches to the dedicated local catalogue", () => {
+    const config = appModeSearchConfig("dsm");
+
+    expect(isSearchableAppMode("dsm")).toBe(true);
+    expect(config.kind).toBe("dsm");
+    expect(config.resultKind).toBe("dsm");
+    expect(appModeHomeHref("dsm")).toBe("/dsm");
+    expect(appModeHomeHref("dsm", { query: "  bipolar II  ", run: true, focus: true })).toBe(
+      "/dsm/search?q=bipolar+II&focus=1&run=1",
+    );
+  });
+
   it("keeps source-library shortcut searches in their active mode family", () => {
     expect(appModeCanUseSourceLibraryShortcut("answer")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("tools")).toBe(false);
@@ -180,6 +192,7 @@ describe("app mode search contract", () => {
         "forms",
         "favourites",
         "differentials",
+        "dsm",
         "prescribing",
         "tools",
       ]),
@@ -196,6 +209,7 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("forms", "production")).toBe(true);
     expect(isAppModeVisible("favourites", "production")).toBe(true);
     expect(isAppModeVisible("differentials", "production")).toBe(true);
+    expect(isAppModeVisible("dsm", "production")).toBe(true);
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
     expect(isAppModeVisible("tools", "production")).toBe(true);
     expect(productionModes).not.toContain("evidence");
@@ -203,6 +217,7 @@ describe("app mode search contract", () => {
     expect(productionModes).toContain("forms");
     expect(productionModes).toContain("favourites");
     expect(productionModes).toContain("differentials");
+    expect(productionModes).toContain("dsm");
     expect(productionModes).toContain("prescribing");
     expect(productionModes).toContain("tools");
     expect(developmentModes).toEqual(
@@ -213,6 +228,7 @@ describe("app mode search contract", () => {
         "forms",
         "favourites",
         "differentials",
+        "dsm",
         "prescribing",
         "tools",
       ]),

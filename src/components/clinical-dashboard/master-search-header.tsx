@@ -442,9 +442,11 @@ export function MasterSearchHeader({
               ? "favourites"
               : searchMode === "differentials"
                 ? "differentials"
-                : searchMode === "tools"
-                  ? "tools"
-                  : "answer";
+                : searchMode === "dsm"
+                  ? "dsm"
+                  : searchMode === "tools"
+                    ? "tools"
+                    : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
   const actionMenuSubtitle = searchMode === "answer" ? "Source-backed mode" : selectedAppMode.description;
@@ -603,6 +605,20 @@ export function MasterSearchHeader({
     }
     if (actionId === "differentials-evidence") {
       onOpenEvidence?.();
+      return;
+    }
+    if (actionId === "dsm-search") {
+      onSearchModeChange("dsm");
+      return;
+    }
+    if (actionId === "dsm-compare") {
+      onSearchModeChange("dsm");
+      onQueryChange(trimmedQuery || "major depressive disorder bipolar II disorder");
+      return;
+    }
+    if (actionId === "dsm-criteria") {
+      onSearchModeChange("dsm");
+      onQueryChange(trimmedQuery || "major depressive disorder");
       return;
     }
   }

@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { HomePageClient } from "@/app/home-page-client";
-import { isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
+import { appModeHomeHref, isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
 
 type HomeProps = {
   searchParams?: Promise<{
@@ -42,6 +42,17 @@ export default async function Home({ searchParams }: HomeProps) {
     if (firstSearchParam(params.run) === "1") differentialParams.set("run", "1");
     const suffix = differentialParams.toString();
     redirect(suffix ? `/differentials?${suffix}` : "/differentials");
+  }
+
+  if (initialSearchMode === "dsm") {
+    const query = firstSearchParam(params.q)?.trim();
+    redirect(
+      appModeHomeHref("dsm", {
+        query,
+        focus: firstSearchParam(params.focus) === "1",
+        run: firstSearchParam(params.run) === "1",
+      }),
+    );
   }
 
   return <HomePageClient initialMode={initialSearchMode} />;

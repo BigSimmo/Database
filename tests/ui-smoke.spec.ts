@@ -2242,6 +2242,27 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
   });
 
+  test("DSM diagnosis mode redirects into the local catalogue and opens a diagnosis", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=dsm&q=major+depressive&focus=1&run=1");
+
+    await expect(page).toHaveURL(/\/dsm\/search\?q=major\+depressive&focus=1&run=1$/);
+    await expect(page.getByTestId("dsm-search-page")).toBeVisible();
+
+    const result = page.getByTestId("dsm-search-result").filter({ hasText: "Major depressive disorder" });
+    await expect(result).toBeVisible();
+    await expectMinTouchTarget(result.getByRole("button", { name: "Add Major depressive disorder to comparison" }));
+    await expectMinTouchTarget(result.getByRole("link", { name: "Open Major depressive disorder" }));
+
+    await result.getByRole("link", { name: "Open Major depressive disorder" }).click();
+    await expect(page).toHaveURL(/\/dsm\/diagnoses\/major-depressive-disorder$/, { timeout: 30_000 });
+    await expect(page.getByTestId("dsm-diagnosis-page")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "DSM-5 Diagnosis home" })).toHaveAttribute("href", "/dsm");
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("submitted differentials searches stay on the standalone differentials route", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
