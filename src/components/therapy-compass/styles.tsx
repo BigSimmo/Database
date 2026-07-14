@@ -19,6 +19,12 @@ const CSS = `
 .tc-root .tc-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .tc-root .tc-row { transition: background .12s ease; }
 .tc-root .tc-row:hover { background: var(--surface-subtle); }
+.tc-root .tc-spin { animation: tc-spin 0.8s linear infinite; }
+@keyframes tc-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .tc-root .tc-spin { animation-duration: 2s; }
+  .tc-root * { transition-duration: 0.001ms !important; }
+}
 @media (max-width: 640px) {
   .tc-root .tc-main { padding: 20px 16px 32px !important; }
   .tc-root .tc-topnav { padding: 12px 16px !important; gap: 12px !important; }

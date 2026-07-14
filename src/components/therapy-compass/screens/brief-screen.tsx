@@ -1,10 +1,47 @@
 "use client";
 
+import { useMemo, useState } from "react";
+
 import { useTcBindings } from "../bindings";
+import { commandControl, outlineControl } from "../controls";
+import { parseSteps, summarise } from "../data/select";
+import { AlertIcon, CopyIcon, ExternalLinkIcon, FileTextIcon, SaveIcon, SearchIcon } from "../icons";
 import { s } from "../style-utils";
+import { LoadingState } from "../ui";
+
+const CHECKLIST = [
+  "Confirm the primary problem",
+  "Check risk and acuity",
+  "Review contraindications",
+  "Confirm patient-facing language",
+];
 
 export function BriefScreen() {
   const b = useTcBindings();
+  const t = b.selectedTherapy;
+  const [filter, setFilter] = useState("");
+
+  const briefTherapies = useMemo(
+    () =>
+      b.therapies
+        .filter((x) => x.briefInterventionAvailable)
+        .filter((x) => !filter.trim() || x.name.toLowerCase().includes(filter.toLowerCase()))
+        .slice(0, 40),
+    [b.therapies, filter],
+  );
+
+  if (b.loading || !t) return <LoadingState label="Loading brief interventions…" />;
+
+  const durationLabel = b.briefTab === "15min" ? "15-minute" : b.briefTab === "ground" ? "Grounding" : "5-minute";
+  const durationText =
+    b.briefTab === "15min"
+      ? t.fifteenMinuteVersion || t.fullSessionVersion || t.briefVersion
+      : b.briefTab === "ground"
+        ? t.clinicianScripts.find((c) => /ground|relax|distress/i.test(`${c.scriptType} ${c.title}`))?.body ||
+          t.briefVersion
+        : t.briefVersion;
+  const steps = parseSteps(durationText, 6);
+
   return (
     <section data-screen-label="Brief" style={s(`max-width:1240px;margin:0 auto;`)}>
       <div
@@ -19,58 +56,22 @@ export function BriefScreen() {
             Brief Intervention
           </h1>
           <p style={s(`margin:0;font-size:14.5px;color:var(--text-muted);`)}>
-            Fast scripts and steps from uploaded delivery fields.
+            Fast scripts and steps drawn from each record&rsquo;s delivery fields.
           </p>
         </div>
         <div style={s(`display:flex;gap:10px;`)}>
           <button
             type="button"
             className="tc-btn"
-            style={s(
-              `display:flex;align-items:center;gap:8px;height:44px;padding:0 16px;border:1px solid var(--border-strong);border-radius:11px;background:var(--surface);color:var(--text);font-size:13.5px;font-weight:600;`,
-            )}
+            onClick={() => b.openSheet(t.slug)}
+            style={s(commandControl + "height:44px;")}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-              <path d="M6 4h12v16l-6-4-6 4Z" />
-            </svg>
-            Saved briefs
-          </button>
-          <button
-            type="button"
-            className="tc-btn"
-            style={s(
-              `display:flex;align-items:center;gap:8px;height:44px;padding:0 18px;border:none;border-radius:11px;background:var(--command);color:var(--command-contrast);font-size:13.5px;font-weight:600;box-shadow:var(--shadow-tight);`,
-            )}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-              <path d="M6 3h8l4 4v14H6Z" />
-              <path d="M14 3v4h4" />
-            </svg>
+            <FileTextIcon size={16} />
             Create handout
           </button>
         </div>
       </div>
-      <div style={s(`position:relative;display:flex;align-items:center;margin-bottom:16px;`)}>
-        <svg
-          style={s(`position:absolute;left:15px;color:var(--text-soft);`)}
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        >
-          <circle cx="11" cy="11" r="7" />
-          <path d="m20 20-3.5-3.5" />
-        </svg>
-        <input
-          aria-label="Filter brief interventions"
-          placeholder="Filter brief interventions…"
-          style={s(
-            `width:100%;height:46px;padding:0 15px 0 42px;border:1px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);font-size:14px;font-family:inherit;outline:none;box-shadow:var(--shadow-tight);`,
-          )}
-        />
-      </div>
+
       <div style={s(`display:flex;gap:24px;border-bottom:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap;`)}>
         <button type="button" className="tc-btn" onClick={b.set5} style={b.brief5}>
           5 minutes
@@ -81,201 +82,73 @@ export function BriefScreen() {
         <button type="button" className="tc-btn" onClick={b.setGround} style={b.briefGround}>
           Grounding now
         </button>
-        <button
-          type="button"
-          className="tc-btn"
-          style={s(
-            `padding:10px 4px;border:none;background:transparent;color:var(--text-muted);font-size:14px;font-weight:500;border-bottom:2px solid transparent;`,
-          )}
-        >
-          Patient explanation
-        </button>
-        <button
-          type="button"
-          className="tc-btn"
-          style={s(
-            `padding:10px 4px;border:none;background:transparent;color:var(--text-muted);font-size:14px;font-weight:500;border-bottom:2px solid transparent;`,
-          )}
-        >
-          Behavioural task
-        </button>
-        <button
-          type="button"
-          className="tc-btn"
-          style={s(
-            `padding:10px 4px;border:none;background:transparent;color:var(--text-muted);font-size:14px;font-weight:500;border-bottom:2px solid transparent;`,
-          )}
-        >
-          Script
-        </button>
       </div>
-      <div style={s(`display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start;`)}>
+
+      <div style={s(`display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start;`)}>
+        {/* records list */}
         <div
           style={s(
             `background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-soft);padding:16px;`,
           )}
         >
-          <div style={s(`font-size:13px;font-weight:650;color:var(--text-heading);margin-bottom:12px;`)}>
-            Available records
-          </div>
-          <div style={s(`display:flex;flex-direction:column;gap:8px;`)}>
-            <button
-              type="button"
-              className="tc-btn"
+          <label style={s(`position:relative;display:flex;align-items:center;margin-bottom:12px;`)}>
+            <SearchIcon size={16} strokeWidth={1.8} style={s(`position:absolute;left:12px;color:var(--text-soft);`)} />
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Filter records…"
+              aria-label="Filter brief-intervention records"
               style={s(
-                `display:flex;gap:12px;padding:13px;border:1px solid var(--clinical-accent-border);border-left:3px solid var(--clinical-accent);border-radius:11px;background:var(--clinical-accent-soft);text-align:left;`,
+                `width:100%;height:40px;padding:0 12px 0 36px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;outline:none;`,
               )}
-            >
-              <span
-                style={s(
-                  `display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:#fff;color:var(--clinical-accent);flex:none;`,
-                )}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                  <path d="M13 4a1.5 1.5 0 1 0 0-.01M8 21l2-6 3 2 1 4M13 11l3-1 3 2M9 11 6 9" />
-                </svg>
-              </span>
-              <span style={s(`flex:1;`)}>
-                <span style={s(`display:block;font-size:13px;font-weight:650;color:var(--text-heading);`)}>
-                  Behavioural Activation
-                </span>
-                <span style={s(`display:block;font-size:11.5px;color:var(--text-muted);margin-top:2px;`)}>
-                  Depression and low motivation
-                </span>
-              </span>
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--warning-text)"
-                strokeWidth="1.8"
-                style={s(`flex:none;`)}
-              >
-                <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-                <path d="M12 9v4M12 17h.01" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className="tc-btn tc-row"
-              style={s(
-                `display:flex;gap:12px;padding:13px;border:1px solid var(--border);border-radius:11px;background:var(--surface);text-align:left;`,
-              )}
-            >
-              <span
-                style={s(
-                  `display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:var(--surface-inset);color:var(--text-muted);flex:none;`,
-                )}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                  <path d="M12 2 4 7v10l8 5 8-5V7Z" />
-                </svg>
-              </span>
-              <span style={s(`flex:1;`)}>
-                <span style={s(`display:block;font-size:13px;font-weight:650;color:var(--text-heading);`)}>
-                  Acceptance &amp; Commitment (ACT)
-                </span>
-                <span style={s(`display:block;font-size:11.5px;color:var(--text-muted);margin-top:2px;`)}>
-                  Psychological flexibility
-                </span>
-              </span>
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--warning-text)"
-                strokeWidth="1.8"
-                style={s(`flex:none;`)}
-              >
-                <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-                <path d="M12 9v4M12 17h.01" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className="tc-btn tc-row"
-              style={s(
-                `display:flex;gap:12px;padding:13px;border:1px solid var(--border);border-radius:11px;background:var(--surface);text-align:left;`,
-              )}
-            >
-              <span
-                style={s(
-                  `display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:var(--surface-inset);color:var(--text-muted);flex:none;`,
-                )}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                  <path d="M12 22c4-2 7-5 7-10a7 7 0 0 0-14 0c0 5 3 8 7 10Z" />
-                  <path d="M12 12c0-3 1.5-5 4-6M12 12c0-3-1.5-5-4-6" />
-                </svg>
-              </span>
-              <span style={s(`flex:1;`)}>
-                <span style={s(`display:block;font-size:13px;font-weight:650;color:var(--text-heading);`)}>
-                  Applied Relaxation
-                </span>
-                <span style={s(`display:block;font-size:11.5px;color:var(--text-muted);margin-top:2px;`)}>
-                  Anxiety-arousal regulation
-                </span>
-              </span>
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--success-text)"
-                strokeWidth="1.9"
-                style={s(`flex:none;`)}
-              >
-                <circle cx="12" cy="12" r="9" />
-                <path d="m8.5 12 2.5 2.5 4.5-5" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              className="tc-btn tc-row"
-              style={s(
-                `display:flex;gap:12px;padding:13px;border:1px solid var(--border);border-radius:11px;background:var(--surface);text-align:left;`,
-              )}
-            >
-              <span
-                style={s(
-                  `display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:var(--surface-inset);color:var(--text-muted);flex:none;`,
-                )}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-                  <circle cx="8" cy="8" r="2.3" />
-                  <circle cx="16" cy="8" r="2.3" />
-                  <path d="M3.5 19a4.5 4.5 0 0 1 9 0M11.5 19a4.5 4.5 0 0 1 9 0" />
-                </svg>
-              </span>
-              <span style={s(`flex:1;`)}>
-                <span style={s(`display:block;font-size:13px;font-weight:650;color:var(--text-heading);`)}>
-                  Problem Management Plus
-                </span>
-                <span style={s(`display:block;font-size:11.5px;color:var(--text-muted);margin-top:2px;`)}>
-                  Brief transdiagnostic support
-                </span>
-              </span>
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="var(--warning-text)"
-                strokeWidth="1.8"
-                style={s(`flex:none;`)}
-              >
-                <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-                <path d="M12 9v4M12 17h.01" />
-              </svg>
-            </button>
+            />
+          </label>
+          <div
+            style={s(`display:flex;flex-direction:column;gap:8px;max-height:520px;overflow:auto;`)}
+            className="tc-scroll"
+          >
+            {briefTherapies.map((x) => {
+              const active = x.slug === t.slug;
+              return (
+                <button
+                  key={x.slug}
+                  type="button"
+                  className="tc-btn tc-row"
+                  onClick={() => b.select(x.slug)}
+                  style={s(
+                    `display:flex;gap:12px;align-items:center;padding:12px 13px;border:1px solid ${active ? "var(--clinical-accent-border)" : "var(--border)"};${active ? "border-left:3px solid var(--clinical-accent);" : ""}border-radius:11px;background:${active ? "var(--clinical-accent-soft)" : "var(--surface)"};text-align:left;cursor:pointer;font-family:inherit;`,
+                  )}
+                >
+                  <span style={s(`flex:1;min-width:0;`)}>
+                    <span style={s(`display:block;font-size:13px;font-weight:650;color:var(--text-heading);`)}>
+                      {x.name}
+                    </span>
+                    <span
+                      style={s(
+                        `display:block;font-size:11.5px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`,
+                      )}
+                    >
+                      {x.bestUsedFor ?? x.category}
+                    </span>
+                  </span>
+                  <AlertIcon
+                    size={15}
+                    strokeWidth={1.8}
+                    style={s(
+                      `color:${x.reviewStatus === "reviewed" ? "var(--success-text)" : "var(--warning-text)"};flex:none;`,
+                    )}
+                  />
+                </button>
+              );
+            })}
           </div>
           <div style={s(`text-align:center;font-size:11.5px;color:var(--text-soft);margin-top:14px;`)}>
-            Showing 4 of 4 records
+            Showing {briefTherapies.length} records
           </div>
         </div>
-        <div style={s(`display:flex;flex-direction:column;gap:16px;`)}>
+
+        {/* brief detail */}
+        <div style={s(`display:flex;flex-direction:column;gap:16px;min-width:0;`)}>
           <div
             style={s(
               `background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-soft);padding:22px 24px;`,
@@ -287,44 +160,30 @@ export function BriefScreen() {
               )}
             >
               <div style={s(`display:flex;align-items:center;gap:12px;flex-wrap:wrap;`)}>
-                <h2 style={s(`margin:0;font-size:19px;font-weight:680;color:var(--text-heading);`)}>
-                  Behavioural Activation
-                </h2>
+                <h2 style={s(`margin:0;font-size:19px;font-weight:680;color:var(--text-heading);`)}>{t.name}</h2>
                 <span
                   style={s(
                     `font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:7px;background:var(--clinical-accent-soft);color:var(--clinical-accent-hover);border:1px solid var(--clinical-accent-border);`,
                   )}
                 >
-                  5-minute mode
-                </span>
-                <span
-                  style={s(
-                    `font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:7px;background:var(--info-bg);color:var(--info-text);border:1px solid var(--info-border);`,
-                  )}
-                >
-                  Source-derived
+                  {durationLabel} mode
                 </span>
                 <span
                   style={s(
                     `font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:7px;background:var(--warning-bg);color:var(--warning-text);border:1px solid var(--warning-border);`,
                   )}
                 >
-                  Clinician review required
+                  {t.reviewStatus === "reviewed" ? "Reviewed" : "Clinician review required"}
                 </span>
               </div>
               <button
                 type="button"
                 className="tc-btn"
-                onClick={b.goDetail}
-                style={s(
-                  `display:flex;align-items:center;gap:7px;height:36px;padding:0 13px;border:1px solid var(--border-strong);border-radius:9px;background:var(--surface);color:var(--text);font-size:12.5px;font-weight:600;`,
-                )}
+                onClick={() => b.open(t.slug)}
+                style={s(outlineControl + "height:36px;padding:0 13px;font-size:12.5px;")}
               >
-                Open full record{" "}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                  <path d="M14 4h6v6M20 4l-8 8" />
-                  <path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
-                </svg>
+                Open full record
+                <ExternalLinkIcon size={14} strokeWidth={1.7} />
               </button>
             </div>
             <div
@@ -332,233 +191,89 @@ export function BriefScreen() {
                 `display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;`,
               )}
             >
-              <div style={s(`padding:14px 15px;background:var(--surface);`)}>
-                <div
-                  style={s(
-                    `font-size:10.5px;font-weight:700;letter-spacing:0.05em;color:var(--text-soft);margin-bottom:7px;`,
-                  )}
-                >
-                  GOAL
-                </div>
-                <p style={s(`margin:0;font-size:12.5px;line-height:1.45;color:var(--text-muted);`)}>
-                  Depression and low motivation in outpatient care.
-                </p>
-              </div>
-              <div style={s(`padding:14px 15px;background:var(--surface);`)}>
-                <div
-                  style={s(
-                    `font-size:10.5px;font-weight:700;letter-spacing:0.05em;color:var(--text-soft);margin-bottom:7px;`,
-                  )}
-                >
-                  SCRIPT / STEPS
-                </div>
-                <p style={s(`margin:0;font-size:12.5px;line-height:1.45;color:var(--text-muted);`)}>
-                  Choose one small activity.
-                </p>
-              </div>
-              <div style={s(`padding:14px 15px;background:var(--warning-bg);`)}>
-                <div
-                  style={s(
-                    `font-size:10.5px;font-weight:700;letter-spacing:0.05em;color:var(--warning-text);margin-bottom:7px;`,
-                  )}
-                >
-                  CAUTIONS
-                </div>
-                <p style={s(`margin:0;font-size:12.5px;line-height:1.45;color:var(--warning-text);`)}>
-                  Review source cautions, acuity and patient factors before use.
-                </p>
-              </div>
-              <div style={s(`padding:14px 15px;background:var(--surface);`)}>
-                <div
-                  style={s(
-                    `font-size:10.5px;font-weight:700;letter-spacing:0.05em;color:var(--text-soft);margin-bottom:7px;`,
-                  )}
-                >
-                  SOURCE STATUS
-                </div>
-                <p style={s(`margin:0;font-size:12.5px;line-height:1.45;color:var(--text-muted);`)}>
-                  Uploaded delivery fields ·{" "}
-                  <span style={s(`color:var(--warning-text);font-weight:600;`)}>review required.</span>
-                </p>
-              </div>
+              <MetaCell eyebrow="GOAL" text={t.bestUsedFor || t.indications || "—"} />
+              <MetaCell eyebrow="FIRST STEP" text={steps[0] || summarise(durationText, 1) || "—"} />
+              <MetaCell
+                eyebrow="CAUTIONS"
+                tone="warning"
+                text={summarise(t.contraindicationsOrCautions, 1) || "Review cautions before use."}
+              />
+              <MetaCell eyebrow="SOURCE" text={t.reviewStatus === "reviewed" ? "Reviewed record" : "Review required"} />
             </div>
           </div>
+
           <div style={s(`display:grid;grid-template-columns:1.6fr 1fr;gap:16px;align-items:start;`)}>
             <div
               style={s(
-                `background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-soft);padding:20px 22px;`,
+                `background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-soft);padding:20px 22px;min-width:0;`,
               )}
             >
               <div style={s(`font-size:15px;font-weight:650;color:var(--text-heading);margin-bottom:16px;`)}>
-                5-minute delivery
+                {durationLabel} delivery
               </div>
-              <div style={s(`display:flex;flex-direction:column;gap:14px;`)}>
-                <div style={s(`display:flex;gap:14px;`)}>
-                  <span
-                    style={s(
-                      `display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--clinical-accent-soft);color:var(--clinical-accent);font-size:12px;font-weight:700;flex:none;`,
-                    )}
-                  >
-                    1
-                  </span>
-                  <div style={s(`flex:1;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;`)}>
-                    <div>
-                      <div style={s(`font-size:13.5px;font-weight:650;color:var(--text-heading);`)}>Orient</div>
-                      <div style={s(`font-size:12.5px;color:var(--text-muted);margin-top:2px;`)}>
-                        Confirm the immediate goal and available time.
-                      </div>
-                    </div>
-                    <div style={s(`display:flex;align-items:center;gap:8px;flex:none;`)}>
-                      <span style={s(`font-size:11px;color:var(--text-soft);`)}>Uploaded delivery fields</span>
-                      <button
-                        type="button"
-                        className="tc-btn"
-                        title="Copy"
+              {steps.length ? (
+                <div style={s(`display:flex;flex-direction:column;gap:14px;`)}>
+                  {steps.map((step, i) => (
+                    <div key={i} style={s(`display:flex;gap:14px;`)}>
+                      <span
                         style={s(
-                          `display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-soft);`,
+                          `display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:${i === steps.length - 1 ? "var(--clinical-accent)" : "var(--clinical-accent-soft)"};color:${i === steps.length - 1 ? "#fff" : "var(--clinical-accent)"};font-size:12px;font-weight:700;flex:none;`,
                         )}
                       >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.7"
-                        >
-                          <rect x="8" y="8" width="12" height="12" rx="2" />
-                          <path d="M4 16V6a2 2 0 0 1 2-2h10" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div style={s(`display:flex;gap:14px;`)}>
-                  <span
-                    style={s(
-                      `display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--clinical-accent-soft);color:var(--clinical-accent);font-size:12px;font-weight:700;flex:none;`,
-                    )}
-                  >
-                    2
-                  </span>
-                  <div style={s(`flex:1;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;`)}>
-                    <div>
-                      <div style={s(`font-size:13.5px;font-weight:650;color:var(--text-heading);`)}>
-                        Choose one small activity
-                      </div>
-                      <div style={s(`font-size:12.5px;color:var(--text-muted);margin-top:2px;`)}>
-                        Use the source-derived brief step.
-                      </div>
-                    </div>
-                    <div style={s(`display:flex;align-items:center;gap:8px;flex:none;`)}>
-                      <span style={s(`font-size:11px;color:var(--text-soft);`)}>Uploaded delivery fields</span>
-                      <button
-                        type="button"
-                        className="tc-btn"
-                        title="Copy"
+                        {i + 1}
+                      </span>
+                      <div
                         style={s(
-                          `display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-soft);`,
+                          `flex:1;min-width:0;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;`,
                         )}
                       >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.7"
+                        <div style={s(`font-size:13.5px;line-height:1.55;color:var(--text-muted);`)}>{step}</div>
+                        <button
+                          type="button"
+                          className="tc-btn"
+                          title="Copy step"
+                          style={s(
+                            `display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-soft);flex:none;cursor:pointer;`,
+                          )}
                         >
-                          <rect x="8" y="8" width="12" height="12" rx="2" />
-                          <path d="M4 16V6a2 2 0 0 1 2-2h10" />
-                        </svg>
-                      </button>
+                          <CopyIcon size={14} />
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-                <div style={s(`display:flex;gap:14px;`)}>
-                  <span
+              ) : (
+                <p style={s(`margin:0;font-size:13.5px;color:var(--text-muted);`)}>
+                  No structured {durationLabel.toLowerCase()} steps in this record yet.{" "}
+                  {t.briefVersion
+                    ? "Use the source brief version and the clinician script below."
+                    : "Open the full record for delivery guidance."}
+                </p>
+              )}
+
+              {t.clinicianScripts.length ? (
+                <div style={s(`margin-top:20px;padding-top:16px;border-top:1px solid var(--border);`)}>
+                  <div
                     style={s(
-                      `display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--clinical-accent-soft);color:var(--clinical-accent);font-size:12px;font-weight:700;flex:none;`,
+                      `font-size:12px;font-weight:700;letter-spacing:0.05em;color:var(--text-soft);margin-bottom:10px;`,
                     )}
                   >
-                    3
-                  </span>
-                  <div style={s(`flex:1;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;`)}>
-                    <div>
-                      <div style={s(`font-size:13.5px;font-weight:650;color:var(--text-heading);`)}>
-                        Plan the next action
-                      </div>
-                      <div style={s(`font-size:12.5px;color:var(--text-muted);margin-top:2px;`)}>
-                        Record what will happen, when and where.
-                      </div>
-                    </div>
-                    <div style={s(`display:flex;align-items:center;gap:8px;flex:none;`)}>
-                      <span style={s(`font-size:11px;color:var(--text-soft);`)}>Uploaded delivery fields</span>
-                      <button
-                        type="button"
-                        className="tc-btn"
-                        title="Copy"
-                        style={s(
-                          `display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-soft);`,
-                        )}
-                      >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.7"
-                        >
-                          <rect x="8" y="8" width="12" height="12" rx="2" />
-                          <path d="M4 16V6a2 2 0 0 1 2-2h10" />
-                        </svg>
-                      </button>
-                    </div>
+                    CLINICIAN SCRIPT
                   </div>
-                </div>
-                <div style={s(`display:flex;gap:14px;`)}>
-                  <span
-                    style={s(
-                      `display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--clinical-accent);color:#fff;font-size:12px;font-weight:700;flex:none;`,
-                    )}
-                  >
-                    4
-                  </span>
-                  <div style={s(`flex:1;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;`)}>
-                    <div>
-                      <div style={s(`font-size:13.5px;font-weight:650;color:var(--text-heading);`)}>Review</div>
-                      <div style={s(`font-size:12.5px;color:var(--text-muted);margin-top:2px;`)}>
-                        Check understanding, cautions and follow-up.
-                      </div>
+                  {t.clinicianScripts.slice(0, 2).map((c, i) => (
+                    <div key={i} style={s(`margin-bottom:12px;`)}>
+                      {c.scriptType ? (
+                        <div style={s(`font-size:12.5px;font-weight:650;color:var(--text-heading);margin-bottom:3px;`)}>
+                          {c.scriptType}
+                        </div>
+                      ) : null}
+                      <p style={s(`margin:0;font-size:13px;line-height:1.6;color:var(--text-muted);`)}>{c.body}</p>
                     </div>
-                    <div style={s(`display:flex;align-items:center;gap:8px;flex:none;`)}>
-                      <span style={s(`font-size:11px;color:var(--text-soft);`)}>Uploaded delivery fields</span>
-                      <button
-                        type="button"
-                        className="tc-btn"
-                        title="Copy"
-                        style={s(
-                          `display:inline-flex;width:30px;height:30px;align-items:center;justify-content:center;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text-soft);`,
-                        )}
-                      >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.7"
-                        >
-                          <rect x="8" y="8" width="12" height="12" rx="2" />
-                          <path d="M4 16V6a2 2 0 0 1 2-2h10" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              </div>
+              ) : null}
             </div>
+
             <div
               style={s(
                 `background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-soft);padding:20px 22px;`,
@@ -568,126 +283,80 @@ export function BriefScreen() {
                 Before use
               </div>
               <div style={s(`display:flex;flex-direction:column;gap:13px;margin-bottom:16px;`)}>
-                <div
-                  style={s(`display:flex;align-items:center;gap:11px;font-size:13px;color:var(--text);cursor:pointer;`)}
-                >
+                {CHECKLIST.map((item) => (
                   <span
-                    style={s(
-                      `width:19px;height:19px;border:1.5px solid var(--border-strong);border-radius:5px;flex:none;`,
-                    )}
-                  ></span>
-                  Confirm the primary problem
-                </div>
-                <div
-                  style={s(`display:flex;align-items:center;gap:11px;font-size:13px;color:var(--text);cursor:pointer;`)}
-                >
-                  <span
-                    style={s(
-                      `width:19px;height:19px;border:1.5px solid var(--border-strong);border-radius:5px;flex:none;`,
-                    )}
-                  ></span>
-                  Check risk and acuity
-                </div>
-                <div
-                  style={s(`display:flex;align-items:center;gap:11px;font-size:13px;color:var(--text);cursor:pointer;`)}
-                >
-                  <span
-                    style={s(
-                      `width:19px;height:19px;border:1.5px solid var(--border-strong);border-radius:5px;flex:none;`,
-                    )}
-                  ></span>
-                  Review contraindications
-                </div>
-                <div
-                  style={s(`display:flex;align-items:center;gap:11px;font-size:13px;color:var(--text);cursor:pointer;`)}
-                >
-                  <span
-                    style={s(
-                      `width:19px;height:19px;border:1.5px solid var(--border-strong);border-radius:5px;flex:none;`,
-                    )}
-                  ></span>
-                  Confirm patient-facing language
-                </div>
+                    key={item}
+                    style={s(`display:flex;align-items:center;gap:11px;font-size:13px;color:var(--text);`)}
+                  >
+                    <span
+                      style={s(
+                        `width:19px;height:19px;border:1.5px solid var(--border-strong);border-radius:5px;flex:none;`,
+                      )}
+                    />
+                    {item}
+                  </span>
+                ))}
               </div>
               <div
                 style={s(
                   `display:flex;align-items:flex-start;gap:9px;padding:13px 14px;background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:11px;`,
                 )}
               >
-                <svg
-                  width="17"
-                  height="17"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="var(--warning-text)"
-                  strokeWidth="1.8"
-                  style={s(`flex:none;margin-top:1px;`)}
-                >
-                  <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-                  <path d="M12 9v4M12 17h.01" />
-                </svg>
+                <AlertIcon
+                  size={17}
+                  strokeWidth={1.8}
+                  style={s(`color:var(--warning-text);flex:none;margin-top:1px;`)}
+                />
                 <span style={s(`font-size:12.5px;font-weight:600;line-height:1.45;color:var(--warning-text);`)}>
                   Clinical review is required before saving or sharing.
                 </span>
               </div>
             </div>
           </div>
+
           <div style={s(`display:flex;gap:10px;flex-wrap:wrap;`)}>
-            <button
-              type="button"
-              className="tc-btn"
-              style={s(
-                `display:flex;align-items:center;gap:8px;height:46px;padding:0 18px;border:1px solid var(--border-strong);border-radius:12px;background:var(--surface);color:var(--text);font-size:13.5px;font-weight:600;`,
-              )}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                <rect x="8" y="8" width="12" height="12" rx="2" />
-                <path d="M4 16V6a2 2 0 0 1 2-2h10" />
-              </svg>
+            <button type="button" className="tc-btn" style={s(outlineControl + "height:46px;")}>
+              <CopyIcon size={16} />
               Copy intervention
             </button>
-            <button
-              type="button"
-              className="tc-btn"
-              style={s(
-                `display:flex;align-items:center;gap:8px;height:46px;padding:0 18px;border:1px solid var(--border-strong);border-radius:12px;background:var(--surface);color:var(--text);font-size:13.5px;font-weight:600;`,
-              )}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                <path d="M6 4h12v16l-6-4-6 4Z" />
-              </svg>
+            <button type="button" className="tc-btn" style={s(outlineControl + "height:46px;")}>
+              <SaveIcon size={16} />
               Save brief
             </button>
             <button
               type="button"
               className="tc-btn"
-              onClick={b.goBrief}
-              style={s(
-                `display:flex;align-items:center;gap:8px;height:46px;padding:0 18px;border:1px solid var(--border-strong);border-radius:12px;background:var(--surface);color:var(--text);font-size:13.5px;font-weight:600;`,
-              )}
+              onClick={() => b.openSheet(t.slug)}
+              style={s(commandControl + "height:46px;margin-left:auto;")}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                <path d="M6 3h8l4 4v14H6Z" />
-                <path d="M14 3v4h4" />
-              </svg>
+              <FileTextIcon size={16} />
               Open patient sheet
-            </button>
-            <button
-              type="button"
-              className="tc-btn"
-              style={s(
-                `display:flex;align-items:center;gap:8px;height:46px;padding:0 22px;margin-left:auto;border:none;border-radius:12px;background:var(--command);color:var(--command-contrast);font-size:13.5px;font-weight:600;box-shadow:var(--shadow-tight);`,
-              )}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
-                <path d="M6 3h8l4 4v14H6Z" />
-                <path d="M14 3v4h4" />
-              </svg>
-              Create handout
             </button>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function MetaCell({ eyebrow, text, tone }: { eyebrow: string; text: string; tone?: "warning" }) {
+  const warn = tone === "warning";
+  return (
+    <div style={s(`padding:14px 15px;background:${warn ? "var(--warning-bg)" : "var(--surface)"};`)}>
+      <div
+        style={s(
+          `font-size:10.5px;font-weight:700;letter-spacing:0.05em;color:${warn ? "var(--warning-text)" : "var(--text-soft)"};margin-bottom:7px;`,
+        )}
+      >
+        {eyebrow}
+      </div>
+      <p
+        style={s(
+          `margin:0;font-size:12.5px;line-height:1.45;color:${warn ? "var(--warning-text)" : "var(--text-muted)"};`,
+        )}
+      >
+        {text}
+      </p>
+    </div>
   );
 }
