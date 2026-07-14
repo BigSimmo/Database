@@ -13,6 +13,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isSourceOverlayRedesignMockup = pathname === "/mockups/document-search/source-overlays";
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
+  // Therapy Compass keeps the universal header + rail but provides its own
+  // primary search surface, so the shared bottom composer is hidden (as with
+  // the tools/favourites mockups).
+  const isTherapyCompassMockup = pathname.startsWith("/mockups/therapy-compass");
 
   return (
     <GlobalMockupSearchShell
@@ -26,7 +30,11 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
               : "answer"
       }
       searchComposerVisible={
-        !isToolsPageMockup && !isFavouritesPageMockup && !isStandaloneDocumentFlow && !isUniversalSearchRedesignMockup
+        !isToolsPageMockup &&
+        !isFavouritesPageMockup &&
+        !isStandaloneDocumentFlow &&
+        !isUniversalSearchRedesignMockup &&
+        !isTherapyCompassMockup
       }
       chromeVisible={!isSourceOverlayRedesignMockup}
     >
