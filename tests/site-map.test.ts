@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { appModeDefinitions, appModeHomeHref } from "@/lib/app-modes";
 import { tools } from "@/components/tools-page-mockups/tool-fixtures";
 import { differentialRecords } from "@/lib/differentials";
+import { dsmDiagnoses } from "@/lib/dsm";
 import { formRecords } from "@/lib/forms";
 import { serviceRecords } from "@/lib/services";
 import { collectSiteMapData, renderSiteMap } from "../scripts/generate-site-map";
@@ -17,6 +18,7 @@ const acceptedDynamicPatterns = [
   /^\/services\/[^/?#]+(?:[?#].*)?$/,
   /^\/forms\/[^/?#]+(?:[?#].*)?$/,
   /^\/differentials\/diagnoses\/[^/?#]+(?:[?#].*)?$/,
+  /^\/dsm\/diagnoses\/[^/?#]+(?:[?#].*)?$/,
   /^\/medications\/[^/?#]+(?:[?#].*)?$/,
 ];
 
@@ -31,6 +33,7 @@ function routePatternForHref(href: string) {
     if (pathname.startsWith("/services/")) return "/services/[slug]";
     if (pathname.startsWith("/forms/")) return "/forms/[slug]";
     if (pathname.startsWith("/differentials/diagnoses/")) return "/differentials/diagnoses/[slug]";
+    if (pathname.startsWith("/dsm/diagnoses/")) return "/dsm/diagnoses/[slug]";
     if (pathname.startsWith("/medications/")) return "/medications/[slug]";
   }
   return pathname;
@@ -60,6 +63,7 @@ describe("tracked sitemap", () => {
     for (const service of serviceRecords) expectDocumentedRoute(service.slug);
     for (const form of formRecords) expectDocumentedRoute(form.slug);
     for (const record of differentialRecords) expectDocumentedRoute(record.slug);
+    for (const record of dsmDiagnoses) expectDocumentedRoute(record.slug);
     expectDocumentedRoute("acamprosate");
   });
 
@@ -79,6 +83,10 @@ describe("tracked sitemap", () => {
       "/forms",
       "/favourites",
       "/differentials",
+      "/dsm",
+      "/dsm/search",
+      "/dsm/compare",
+      "/dsm/diagnoses/major-depressive-disorder",
       "/medications/acamprosate",
       "/differentials/diagnoses/delirium",
     ]) {

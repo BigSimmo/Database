@@ -139,6 +139,18 @@ describe("app mode search contract", () => {
     expect(appModeHomeHref("specifiers")).not.toBe(appModeHomeHref("formulation"));
   });
 
+  it("routes DSM searches to the dedicated local catalogue", () => {
+    const config = appModeSearchConfig("dsm");
+
+    expect(isSearchableAppMode("dsm")).toBe(true);
+    expect(config.kind).toBe("dsm");
+    expect(config.resultKind).toBe("dsm");
+    expect(appModeHomeHref("dsm")).toBe("/dsm");
+    expect(appModeHomeHref("dsm", { query: "  bipolar II  ", run: true, focus: true })).toBe(
+      "/dsm/search?q=bipolar+II&focus=1&run=1",
+    );
+  });
+
   it("keeps source-library shortcut searches in their active mode family", () => {
     expect(appModeCanUseSourceLibraryShortcut("answer")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("tools")).toBe(false);
@@ -188,6 +200,9 @@ describe("app mode search contract", () => {
     expect(appModeHomeHref("formulation", { query: "  I keep going over it  ", run: true, focus: true })).toBe(
       "/formulation?q=I+keep+going+over+it&focus=1&run=1",
     );
+    expect(appModeHomeHref("specifiers", { query: "  racing thoughts  ", run: true, focus: true })).toBe(
+      "/specifiers?q=racing+thoughts&focus=1&run=1",
+    );
     expect(appModeHomeHref("prescribing", { query: "  acamprosate renal dose  " })).toBe(
       "/?mode=prescribing&q=acamprosate+renal+dose",
     );
@@ -223,6 +238,7 @@ describe("app mode search contract", () => {
         "forms",
         "favourites",
         "differentials",
+        "dsm",
         "specifiers",
         "formulation",
         "prescribing",
@@ -241,6 +257,7 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("forms", "production")).toBe(true);
     expect(isAppModeVisible("favourites", "production")).toBe(true);
     expect(isAppModeVisible("differentials", "production")).toBe(true);
+    expect(isAppModeVisible("dsm", "production")).toBe(true);
     expect(isAppModeVisible("specifiers", "production")).toBe(true);
     expect(isAppModeVisible("formulation", "production")).toBe(true);
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
@@ -250,6 +267,7 @@ describe("app mode search contract", () => {
     expect(productionModes).toContain("forms");
     expect(productionModes).toContain("favourites");
     expect(productionModes).toContain("differentials");
+    expect(productionModes).toContain("dsm");
     expect(productionModes).toContain("specifiers");
     expect(productionModes).toContain("formulation");
     expect(productionModes).toContain("prescribing");
@@ -262,6 +280,7 @@ describe("app mode search contract", () => {
         "forms",
         "favourites",
         "differentials",
+        "dsm",
         "specifiers",
         "formulation",
         "prescribing",

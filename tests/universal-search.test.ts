@@ -42,6 +42,11 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
     expect(tools?.items.some((item) => item.id === "forms")).toBe(true);
     expect(forms?.items.every((item) => item.href.startsWith("/forms/"))).toBe(true);
 
+    const dsmResponse = await runUniversalSearch({ query: "major depressive disorder", limitPerDomain: 5, demo: true });
+    const dsm = dsmResponse.groups.find((group) => group.kind === "dsm");
+    expect(dsm?.items[0]?.title.toLowerCase()).toContain("major depressive disorder");
+    expect(dsm?.items[0]?.href).toBe("/dsm/diagnoses/major-depressive-disorder");
+
     const formulationResponse = await runUniversalSearch({
       query: "avoidance",
       limitPerDomain: 5,
@@ -84,6 +89,7 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
         "forms",
         "differentials",
         "presentations",
+        "dsm",
         "specifiers",
         "formulation",
         "tools",
@@ -484,6 +490,7 @@ describe("GET /api/search/universal (live public/owner path)", () => {
         "forms",
         "differentials",
         "presentations",
+        "dsm",
         "specifiers",
         "formulation",
         "tools",
