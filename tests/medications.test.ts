@@ -211,6 +211,14 @@ describe("medication action tone", () => {
     expect(firstClinicalSentence("Rash, nausea, etc. may occur. Stop if severe.")).toBe("Rash, nausea, etc. may occur");
     expect(firstClinicalSentence("No trailing period")).toBe("No trailing period");
   });
+
+  it("does not cut at single-letter genus abbreviations", () => {
+    expect(firstClinicalSentence("Atypical CAP, H. pylori eradication, severe MAC complex in HIV.")).toBe(
+      "Atypical CAP, H. pylori eradication, severe MAC complex in HIV",
+    );
+    expect(firstClinicalSentence("E. coli UTI. Second line.")).toBe("E. coli UTI");
+    expect(firstClinicalSentence("C. difficile colitis (severe). Oral only.")).toBe("C. difficile colitis (severe)");
+  });
 });
 
 describe("shortValue", () => {
@@ -316,5 +324,13 @@ describe("medicationIndication", () => {
 
   it("falls back to taxonomy when no indication content exists", () => {
     expect(medicationIndication(buildRecord({ subclass: "SSRI" }))).toBe("SSRI");
+  });
+
+  it("keeps genus abbreviations intact from the snapshot (does not truncate H. pylori)", () => {
+    const record = getMedicationRecord("clarithromycin");
+    expect(record).toBeTruthy();
+    const indication = medicationIndication(record as MedicationRecord);
+    expect(indication).toContain("H. pylori");
+    expect(indication).not.toBe("Atypical CAP, H");
   });
 });

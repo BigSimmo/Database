@@ -179,6 +179,10 @@ export function firstClinicalSentence(value: string): string {
     if (next !== undefined && !/\s/.test(next)) continue;
     const before = text.slice(0, match.index);
     if (/(?:^|[\s(])(?:e\.g|i\.e|etc|vs|approx)$/i.test(before)) continue;
+    // Single-letter clinical abbreviations — genus abbreviations such as
+    // "H. pylori", "E. coli", "C. difficile" — are not sentence ends; splitting
+    // here would drop the rest of the clause (e.g. an indication list).
+    if (/(?:^|[\s(])[A-Za-z]$/.test(before)) continue;
     return before.trim();
   }
   return text;
