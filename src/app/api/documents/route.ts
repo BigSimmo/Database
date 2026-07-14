@@ -6,7 +6,11 @@ import { isDemoMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
-import { enforceDocumentReadRateLimit, redactNonOwnedDocumentFields, withOwnerReadScope } from "@/lib/public-api-access";
+import {
+  enforceDocumentReadRateLimit,
+  redactNonOwnedDocumentFields,
+  withOwnerReadScope,
+} from "@/lib/public-api-access";
 import { parseRequestQuery, queryBoolean, queryInteger } from "@/lib/validation/query";
 
 export const runtime = "nodejs";

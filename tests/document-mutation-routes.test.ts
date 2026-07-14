@@ -227,7 +227,11 @@ describe("/api/documents/bulk", () => {
 
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({ ok: false, updatedCount: 0 });
-    expect(payload.results[0]).toMatchObject({ documentId, updated: false, error: "Bulk edit failed for this document." });
+    expect(payload.results[0]).toMatchObject({
+      documentId,
+      updated: false,
+      error: "Bulk edit failed for this document.",
+    });
     // The raw DB constraint text must never reach the client.
     expect(JSON.stringify(payload)).not.toContain("documents_secret_internal_idx");
     expect(JSON.stringify(payload)).not.toContain("unique constraint");
