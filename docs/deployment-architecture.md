@@ -229,7 +229,8 @@ check and watch patterns rather than relying on dashboard defaults.
 
 ### Decision: containerized worker (recommended) over completing the edge-agent migration
 
-Ship the existing worker as a container (`Dockerfile.worker`: Node 24 + tsx +
+Ship the existing worker as a container (`Dockerfile.worker`: Node 24 + a
+prebuilt esbuild bundle over production-only `node_modules` +
 Tesseract + a Python venv with `worker/python/requirements.txt`) and run **one
 always-on worker instance** co-located in Railway Singapore (`worker` service).
 The `indexing-v3-agent` Edge Function **stays** in its current role as the

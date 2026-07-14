@@ -63,9 +63,11 @@ the standard gates.
 
 Status: ✅ **CI covers the worker image build.** All build inputs referenced by
 `Dockerfile.worker` are present in the tree (`package-lock.json`, `.npmrc`,
-`scripts/check-node-engine.cjs`, `scripts/run-tsx.mjs`,
+`scripts/check-node-engine.cjs`, `scripts/build-worker.mjs`,
 `worker/python/requirements.txt`, `worker/index.ts`) and the `server-only`
-runner path is guarded by `tests/tsx-server-only-runner.test.ts`.
+bundle path is guarded by `tests/tsx-server-only-runner.test.ts` plus
+`tests/worker-bundle.test.ts` (resolve-checks every bundle external against
+plain-`node` ESM resolution and the `--omit=dev` prune).
 
 Local build for parity (optional; needs Docker with a few GB free — unlike the
 app image it does **not** need the 8 GiB build heap):
@@ -76,17 +78,23 @@ docker build -f Dockerfile.worker -t clinical-kb-worker .
 
 ### What ships in the image
 
-- **Node 24** (`node:24-bookworm-slim`) + the **full** `node_modules`
-  (dev-inclusive): the worker runs through `tsx`, which is a devDependency.
+- **Node 24** (`node:24-bookworm-slim`) + **production-only** `node_modules`
+  (`npm ci --omit=dev`): the worker runs as a prebuilt esbuild bundle
+  (`dist/worker/index.mjs`, built in a separate image stage by
+  `scripts/build-worker.mjs`), so tsx and the rest of the dev toolchain never
+  reach the image.
 - **Tesseract OCR** (Debian package; bundles English language data).
 - A **Python venv** at `/opt/ocr-venv` with `worker/python/requirements.txt`
   (PyMuPDF, Pillow, pytesseract). The venv is first on `PATH`, so the default
   `PYTHON_BIN=python` resolves to it — no override needed in-container.
 - Runtime is the non-root `node` user. No secret is baked into any layer.
-- `CMD` routes through `scripts/run-tsx.mjs` (registers the `server-only`
-  stub so `worker/index.ts`'s `import "server-only"` resolves outside the Next
-  bundler). **Do not** change this to bare `tsx` — the worker would crash-loop
-  on boot.
+- `CMD` runs the bundle under plain `node`. The build aliases `server-only`
+  to the standalone stub (what `scripts/run-tsx.mjs` did at runtime), so
+  `worker/index.ts`'s `import "server-only"` resolves outside the Next
+  bundler. **Do not** change this to bare `tsx`/`node` on the TypeScript
+  sources — the worker would crash-loop on boot. Bundle externals must stay
+  resolvable under plain-`node` ESM semantics with production-only deps;
+  `tests/worker-bundle.test.ts` enforces both.
 - The default command is the **always-on long-poll loop** (no `--once`): probe
   Supabase health → claim jobs → process → poll every `WORKER_POLL_MS` when
   idle. `--once` is a drain-and-exit mode for local/one-shot use, not for the

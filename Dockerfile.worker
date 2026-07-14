@@ -3,9 +3,10 @@
 # See docs/deployment-architecture.md for why the worker ships as a
 # container instead of completing the edge-agent migration.
 #
-# Runtime contents:
-#   - Node 24 + full (dev-inclusive) node_modules: the worker runs through
-#     tsx, which is a devDependency.
+# Runtime contents (2026-07-13 audit, finding 12 — slimmed):
+#   - Node 24 + PRODUCTION-ONLY node_modules: the worker runs as a
+#     prebuilt esbuild bundle (dist/worker/index.mjs), so tsx and the rest
+#     of the dev toolchain never reach the image.
 #   - Tesseract OCR (Debian package, bundles English language data).
 #   - Python venv with worker/python/requirements.txt (PyMuPDF, Pillow,
 #     pytesseract). The venv's `python` matches the PYTHON_BIN default.
@@ -14,12 +15,27 @@
 # Run:   docker run --env-file <secrets> clinical-kb-worker
 # Secrets are injected at run time; nothing is baked into the image.
 
-FROM node:24-bookworm-slim AS deps
+# Dev-inclusive install + bundle. scripts/build-worker.mjs resolves the
+# `server-only` marker to the standalone stub at build time (the job
+# run-tsx.mjs previously did at runtime) and keeps npm packages external,
+# so the bundle resolves them from the runner's production node_modules.
+FROM node:24-bookworm-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json .npmrc ./
 COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
 COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
 RUN npm ci
+COPY . .
+RUN node scripts/build-worker.mjs
+
+# Production-only node_modules for the runtime stage. The preinstall/
+# postinstall lifecycle scripts must be present in every npm-ci stage.
+FROM node:24-bookworm-slim AS prod-deps
+WORKDIR /app
+COPY package.json package-lock.json .npmrc ./
+COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
+COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
+RUN npm ci --omit=dev
 
 FROM node:24-bookworm-slim AS runner
 RUN apt-get update \
@@ -31,15 +47,15 @@ RUN python3 -m venv /opt/ocr-venv \
   && /opt/ocr-venv/bin/pip install --no-cache-dir -r worker/python/requirements.txt
 ENV PATH="/opt/ocr-venv/bin:${PATH}"
 ENV NODE_ENV=production
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build /app/dist ./dist
+COPY worker/python worker/python
+COPY package.json ./package.json
 USER node
 # Long-poll worker; WORKER_* env vars control claim batch size, concurrency,
 # and the stale-claim window (see src/lib/env.ts).
 #
-# Route through scripts/run-tsx.mjs, NOT bare tsx: worker/index.ts imports
-# src/lib/env, which begins with `import "server-only"`. Under bare tsx that
-# import throws and the worker crash-loops on boot. run-tsx.mjs registers the
-# server-only stub hook so the import resolves outside the Next bundler.
-# Guarded by tests/tsx-server-only-runner.test.ts.
-CMD ["node", "scripts/run-tsx.mjs", "worker/index.ts"]
+# The bundle already has `server-only` stubbed (scripts/build-worker.mjs), so
+# no runtime loader hook is needed. Guarded by
+# tests/tsx-server-only-runner.test.ts.
+CMD ["node", "dist/worker/index.mjs"]
