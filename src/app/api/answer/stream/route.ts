@@ -24,7 +24,6 @@ import { resolveSearchScope } from "@/lib/search-scope";
 import { resolveRetrievalAccessScope, type RetrievalAccessScope } from "@/lib/owner-scope";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { captureServerException } from "@/lib/observability/error-capture";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { isSupabaseApiKeyConfigurationError, nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -93,13 +92,8 @@ function streamAnswerFeedbackMetadata(interactionId: string, answer: string) {
   return isDemoMode() ? { interactionId } : answerFeedbackMetadata(interactionId, answer);
 }
 
-function logStreamError(error: unknown, signal?: AbortSignal) {
+function logStreamError(error: unknown) {
   logger.error("Search stream failed", safeErrorLogDetails(error));
-  // Report only server-fault failures: client aborts (Stop button / watchdog) and
-  // expected sub-500 degradations are operational noise, not incidents.
-  if ((error instanceof DOMException && error.name === "AbortError") || signal?.aborted) return;
-  if (error instanceof PublicApiError && error.status < 500) return;
-  void captureServerException(error, { route: "api/answer/stream", source: "stream" });
 }
 
 function buildDemoStreamAnswer(body: AnswerRequestBody, fallbackReason?: string) {
@@ -240,7 +234,7 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
             sendFinal({ ...buildDemoStreamAnswer(body, fallbackReason), interactionId });
             return;
           }
-          logStreamError(error, signal);
+          logStreamError(error);
           const streamError = streamErrorPayload(error);
           send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
         } finally {
@@ -301,21 +295,11 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return jsonError(error, 400);
     }
-    const clientAborted = (error instanceof DOMException && error.name === "AbortError") || request.signal.aborted;
     if (error instanceof PublicApiError) {
-      if (error.status >= 500 && !clientAborted) {
-        void captureServerException(error, { route: "api/answer/stream", status: error.status });
-      }
       return jsonError(error, error.status);
     }
     if (error instanceof Error) {
-      if (!clientAborted) {
-        void captureServerException(error, { route: "api/answer/stream", status: 500 });
-      }
       return jsonError(new PublicApiError("Answer processing failed.", 500, { code: error.name }), 500);
-    }
-    if (!clientAborted) {
-      void captureServerException(error, { route: "api/answer/stream", status: 500 });
     }
     return jsonError("Answer processing failed.", 500);
   }
