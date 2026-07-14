@@ -26,7 +26,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { type FormEvent, memo, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibleTable, hasRenderableAccessibleTable } from "@/components/AccessibleTable";
 import { documentDisplayTitle, documentOrganizationProfile } from "@/components/DocumentOrganizationBadges";
 import { formatDocumentLabelDisplay } from "@/lib/document-tags";
@@ -67,7 +67,12 @@ import { NativePdfEmbed, PdfCanvasViewer } from "@/components/document-viewer/pd
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
-import { documentPageHref } from "@/lib/document-viewer-navigation";
+import {
+  documentLoadKey,
+  documentPageHref,
+  isFullDocumentReload,
+  nextLoadedDocumentKey,
+} from "@/lib/document-viewer-navigation";
 import { formatClinicalDate } from "@/lib/source-metadata";
 import { partitionViewerImages } from "@/lib/image-filtering";
 import { isLocalNoAuthMode } from "@/lib/client-env";
@@ -194,6 +199,67 @@ const pdfViewerModeNativeValue = pdfViewerModeValue.native;
 
 function getDefaultPdfViewerMode(): boolean {
   return false;
+}
+
+type SignedUrlResponsePayload = {
+  url?: string;
+  caption?: string;
+  mimeType?: string;
+  fileType?: string;
+  expiresAt?: string;
+  error?: string;
+};
+
+// Single signed-URL GET: parse JSON, mark the session expired on 401, and throw
+// a message on failure. Shared by the initial load and the expiry refresh so the
+// fetch/auth handling lives in exactly one place.
+async function requestSignedUrlPayload(
+  endpoint: string,
+  options: {
+    signal: AbortSignal;
+    headers: HeadersInit | undefined;
+    onUnauthorized: () => void;
+    errorMessage: string;
+  },
+): Promise<SignedUrlResponsePayload> {
+  const response = await fetch(endpoint, { signal: options.signal, headers: options.headers });
+  const payload: SignedUrlResponsePayload = await response.json();
+  if (response.status === 401) options.onUnauthorized();
+  if (!response.ok) throw new Error(payload?.error || options.errorMessage);
+  return payload;
+}
+
+// Fetch the preview + download signed URLs together (serving the client cache
+// first when allowed). Returns their settled results for the caller to apply.
+function fetchSignedUrlPair(
+  signedUrlEndpoint: string,
+  downloadSignedUrlEndpoint: string,
+  options: {
+    signal: AbortSignal;
+    headers: HeadersInit | undefined;
+    onUnauthorized: () => void;
+    useCache: boolean;
+  },
+) {
+  const cachedSigned = options.useCache ? getCachedSignedUrl(signedUrlEndpoint) : null;
+  const cachedDownload = options.useCache ? getCachedSignedUrl(downloadSignedUrlEndpoint) : null;
+  const signedUrlRequest: Promise<SignedUrlResponsePayload> = cachedSigned
+    ? Promise.resolve(cachedSigned)
+    : requestSignedUrlPayload(signedUrlEndpoint, {
+        signal: options.signal,
+        headers: options.headers,
+        onUnauthorized: options.onUnauthorized,
+        errorMessage: "Source preview could not be loaded.",
+      });
+  const signedDownloadUrlRequest: Promise<SignedUrlResponsePayload> = cachedDownload
+    ? Promise.resolve(cachedDownload)
+    : requestSignedUrlPayload(downloadSignedUrlEndpoint, {
+        signal: options.signal,
+        headers: options.headers,
+        onUnauthorized: options.onUnauthorized,
+        errorMessage: "Download URL could not be loaded.",
+      });
+  return Promise.allSettled([signedUrlRequest, signedDownloadUrlRequest]);
 }
 
 function getInitialPdfViewerMode() {
@@ -1539,18 +1605,25 @@ export function DocumentViewer({
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
     let cancelled = false;
+    let observer: MutationObserver | null = null;
+    // #main-content is the app-shell scroll container: it mounts once (usually
+    // before this effect runs) and persists for the viewer's lifetime. Resolve it
+    // synchronously, and only fall back to observing the DOM until it appears —
+    // then disconnect, rather than reacting to every app-wide mutation forever.
     const sync = () => {
       if (cancelled) return;
       const main = window.document.getElementById("main-content");
+      if (!main) return;
       setShellScrollContainer((current) => (current === main ? current : main));
+      observer?.disconnect();
+      observer = null;
     };
-    const frame = window.requestAnimationFrame(sync);
-    const observer = new MutationObserver(sync);
+    observer = new MutationObserver(sync);
     observer.observe(window.document.body, { childList: true, subtree: true });
+    sync();
     return () => {
       cancelled = true;
-      window.cancelAnimationFrame(frame);
-      observer.disconnect();
+      observer?.disconnect();
     };
   }, []);
   const scrollHidden = useHideOnScroll(shellScrollContainer ? { scrollContainer: shellScrollContainer } : {});
@@ -1666,6 +1739,108 @@ export function DocumentViewer({
     };
   }, [authorizationHeader, isConfigured]);
 
+  // Apply the settled preview + download signed-URL results to state. Shared by
+  // the initial load effect and the expired-URL refresh so a re-issued URL takes
+  // the exact same path (cache write, previewError, download fallback).
+  const applySignedUrlResults = useCallback(
+    (
+      signedUrlResult: PromiseSettledResult<SignedUrlResponsePayload>,
+      downloadResult: PromiseSettledResult<SignedUrlResponsePayload>,
+      signedUrlEndpoint: string,
+      downloadSignedUrlEndpoint: string,
+    ) => {
+      if (signedUrlResult.status === "fulfilled") {
+        const payload = signedUrlResult.value;
+        if (payload?.url) setCachedSignedUrl(signedUrlEndpoint, { ...payload, url: payload.url });
+        setSignedUrl(payload?.url ?? null);
+        setPreviewError(null);
+      } else {
+        setSignedUrl(null);
+        setDownloadSignedUrl(null);
+        setPreviewError(
+          signedUrlResult.reason instanceof Error
+            ? signedUrlResult.reason.message
+            : "Source preview could not be loaded.",
+        );
+      }
+
+      if (downloadResult.status === "fulfilled") {
+        const payload = downloadResult.value;
+        if (payload?.url) {
+          setCachedSignedUrl(downloadSignedUrlEndpoint, { ...payload, url: payload.url });
+          setDownloadSignedUrl(payload.url);
+          return;
+        }
+      }
+
+      if (signedUrlResult.status === "fulfilled") {
+        setDownloadSignedUrl(signedUrlResult.value?.url ?? null);
+      } else {
+        setDownloadSignedUrl(null);
+      }
+    },
+    [],
+  );
+
+  // Re-issue only the signed URLs (no document-detail refetch) when a PDF's URL
+  // expires mid-session, so the viewer refreshes in place without the full
+  // reload/flicker. Its AbortController is cancelled on the next refresh and on unmount.
+  const refreshControllerRef = useRef<AbortController | null>(null);
+  const refreshSignedUrls = useCallback(() => {
+    const signedUrlEndpoint = `/api/documents/${documentId}/signed-url`;
+    const downloadSignedUrlEndpoint = `${signedUrlEndpoint}?download=true`;
+
+    refreshControllerRef.current?.abort();
+    const controller = new AbortController();
+    refreshControllerRef.current = controller;
+    const authRequest = registerAuthRequest(controller);
+
+    readLocalProjectIdentity()
+      .then((identity) => {
+        if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) {
+          throw new DOMException("Stale authentication epoch", "AbortError");
+        }
+        if (!identity?.localServer?.safeLocalOrigin) {
+          throw new Error(unsafeLocalProjectMessage(identity));
+        }
+        // handleSignedUrlExpired already cleared the cache, so always mint fresh.
+        return fetchSignedUrlPair(signedUrlEndpoint, downloadSignedUrlEndpoint, {
+          signal: controller.signal,
+          headers: clientDemoMode ? undefined : authorizationHeader,
+          onUnauthorized: markSessionExpired,
+          useCache: false,
+        });
+      })
+      .then(([signedUrlResult, downloadResult]) => {
+        if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
+        applySignedUrlResults(signedUrlResult, downloadResult, signedUrlEndpoint, downloadSignedUrlEndpoint);
+      })
+      .catch((error) => {
+        if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
+        setPreviewError(error instanceof Error ? error.message : "Source preview could not be loaded.");
+      })
+      .finally(() => {
+        authRequest.release();
+        if (refreshControllerRef.current === controller) refreshControllerRef.current = null;
+      });
+  }, [
+    documentId,
+    registerAuthRequest,
+    isAuthEpochCurrent,
+    clientDemoMode,
+    authorizationHeader,
+    markSessionExpired,
+    applySignedUrlResults,
+  ]);
+
+  useEffect(() => () => refreshControllerRef.current?.abort(), []);
+
+  // Distinguishes a full document (re)load — a new documentId or an explicit
+  // retry (previewAttempt) — from page/chunk navigation on the already-loaded
+  // document. Navigation only re-windows the detail; a full load also resets the
+  // preview and re-issues signed URLs.
+  const loadedKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!canViewSourceDocuments && authStatus === "loading") {
       return () => undefined;
@@ -1676,8 +1851,12 @@ export function DocumentViewer({
 
     const controller = new AbortController();
     const authRequest = registerAuthRequest(controller);
+    const loadKey = documentLoadKey(documentId, previewAttempt);
+    const isFullReload = isFullDocumentReload(loadedKeyRef.current, loadKey);
     const reset = window.setTimeout(() => {
-      if (!controller.signal.aborted) {
+      // Skip the reset on navigation so the mounted PDF and current content stay
+      // visible (no loading flash) while the new page window loads in the background.
+      if (!controller.signal.aborted && isFullReload) {
         setLoadingDocument(true);
         setViewerError(null);
         setPreviewError(null);
@@ -1714,37 +1893,28 @@ export function DocumentViewer({
           if (!response.ok) throw new Error(payload.error || "Document details could not be loaded.");
           return payload;
         });
-        const cachedSignedUrl = getCachedSignedUrl(signedUrlEndpoint);
-        const cachedDownloadSignedUrl = getCachedSignedUrl(downloadSignedUrlEndpoint);
-        const signedUrlRequest = cachedSignedUrl
-          ? Promise.resolve(cachedSignedUrl)
-          : fetch(signedUrlEndpoint, {
+        // Navigation keeps the current signed URLs; only a full load re-issues them.
+        const signedUrlPair = isFullReload
+          ? fetchSignedUrlPair(signedUrlEndpoint, downloadSignedUrlEndpoint, {
               signal: controller.signal,
               headers: clientDemoMode ? undefined : authorizationHeader,
-            }).then(async (response) => {
-              const payload = await response.json();
-              if (response.status === 401) markSessionExpired();
-              if (!response.ok) throw new Error(payload.error || "Source preview could not be loaded.");
-              return payload;
-            });
-        const signedDownloadUrlRequest = cachedDownloadSignedUrl
-          ? Promise.resolve(cachedDownloadSignedUrl)
-          : fetch(downloadSignedUrlEndpoint, {
-              signal: controller.signal,
-              headers: clientDemoMode ? undefined : authorizationHeader,
-            }).then(async (response) => {
-              const payload = await response.json();
-              if (response.status === 401) markSessionExpired();
-              if (!response.ok) throw new Error(payload.error || "Download URL could not be loaded.");
-              return payload;
-            });
+              onUnauthorized: markSessionExpired,
+              useCache: true,
+            })
+          : Promise.resolve(null);
 
-        return Promise.allSettled([detailRequest, signedUrlRequest, signedDownloadUrlRequest]);
+        return Promise.all([Promise.allSettled([detailRequest]), signedUrlPair]);
       })
-      .then(([detailResult, signedUrlResult, signedDownloadUrlResult]) => {
+      .then(([[detailResult], signedUrlPair]) => {
         if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
+        const detailLoaded = detailResult.status === "fulfilled";
+        // Advance the loaded key only on a successful detail load. A failed full
+        // load must stay "not loaded" so the next page/chunk navigation is still
+        // treated as a full reload — re-fetching signed URLs and refreshing the
+        // error — rather than a cheap navigation that skips that recovery.
+        loadedKeyRef.current = nextLoadedDocumentKey(loadedKeyRef.current, loadKey, detailLoaded);
 
-        if (detailResult.status === "fulfilled") {
+        if (detailLoaded) {
           const detail = detailResult.value;
           setDocument(detail.document ?? null);
           setPages(detail.pages ?? []);
@@ -1752,7 +1922,9 @@ export function DocumentViewer({
           setTableFacts(detail.tableFacts ?? []);
           setChunks(detail.chunks ?? []);
           setIndexHealth(detail.indexHealth ?? null);
-        } else {
+        } else if (isFullReload) {
+          // Only clear the viewer on a full load; a transient detail failure
+          // during navigation keeps the current content on screen.
           setDocument(null);
           setPages([]);
           setImages([]);
@@ -1772,40 +1944,14 @@ export function DocumentViewer({
           }
         }
 
-        if (signedUrlResult.status === "fulfilled") {
-          const payload = signedUrlResult.value;
-          if (payload?.url) setCachedSignedUrl(signedUrlEndpoint, payload);
-          setSignedUrl(payload?.url ?? null);
-          setPreviewError(null);
-        } else {
-          setSignedUrl(null);
-          setDownloadSignedUrl(null);
-          setPreviewError(
-            signedUrlResult.reason instanceof Error
-              ? signedUrlResult.reason.message
-              : "Source preview could not be loaded.",
-          );
-        }
-
-        if (signedDownloadUrlResult.status === "fulfilled") {
-          const payload = signedDownloadUrlResult.value;
-          if (payload?.url) {
-            setCachedSignedUrl(downloadSignedUrlEndpoint, payload);
-            setDownloadSignedUrl(payload.url);
-            return;
-          }
-        }
-
-        if (signedUrlResult.status === "fulfilled") {
-          const payload = signedUrlResult.value;
-          setDownloadSignedUrl(payload?.url ?? null);
-        } else {
-          setDownloadSignedUrl(null);
+        if (signedUrlPair) {
+          const [signedUrlResult, signedDownloadUrlResult] = signedUrlPair;
+          applySignedUrlResults(signedUrlResult, signedDownloadUrlResult, signedUrlEndpoint, downloadSignedUrlEndpoint);
         }
       })
       .catch((error) => {
         if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
-        setViewerError(error instanceof Error ? error.message : "Document could not be loaded.");
+        if (isFullReload) setViewerError(error instanceof Error ? error.message : "Document could not be loaded.");
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoadingDocument(false);
@@ -1830,6 +1976,7 @@ export function DocumentViewer({
     registerAuthRequest,
     isAuthEpochCurrent,
     previewAttempt,
+    applySignedUrlResults,
   ]);
 
   useEffect(() => {
@@ -2080,20 +2227,23 @@ export function DocumentViewer({
   // The PDF signed URL has a 10-min TTL and pdf.js holds a dead reference once it
   // expires. When the canvas reports an expiry, drop the cached URLs and re-run
   // the fetch pipeline to mint fresh ones (bounded so a broken URL can't loop).
-  const handleSignedUrlExpired = () => {
+  // Stable identity (useCallback) so the memoised PdfCanvasViewer isn't re-rendered
+  // — and its page re-rastered — every time an unrelated parent state (source-search
+  // keystroke, composer focus, online/offline) changes.
+  const handleSignedUrlExpired = useCallback(() => {
     if (signedUrlRefreshCountRef.current >= 2) return;
     signedUrlRefreshCountRef.current += 1;
     const signedUrlEndpoint = `/api/documents/${documentId}/signed-url`;
     clearCachedSignedUrl(signedUrlEndpoint);
     clearCachedSignedUrl(`${signedUrlEndpoint}?download=true`);
-    setPreviewAttempt((current) => current + 1);
-  };
+    refreshSignedUrls();
+  }, [documentId, refreshSignedUrls]);
   // A successful reload means the refreshed URL was accepted, so the recovery
   // worked — restore the budget for the next (unrelated) TTL expiry. A broken
   // URL never loads, so it never resets, and the cap still stops its loop.
-  const handlePdfLoadSuccess = () => {
+  const handlePdfLoadSuccess = useCallback(() => {
     signedUrlRefreshCountRef.current = 0;
-  };
+  }, []);
   const handleDocumentRenamed = (updatedDocument: ClinicalDocument) => {
     setDocument((current) => (current?.id === updatedDocument.id ? { ...current, ...updatedDocument } : current));
   };

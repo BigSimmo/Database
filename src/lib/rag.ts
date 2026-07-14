@@ -139,7 +139,6 @@ import {
 } from "@/lib/clinical-search";
 import { env, requestedOpenAIAnswerModels } from "@/lib/env";
 import { ragAnswerPromptVersion, ragQueryClassifierPromptVersion, ragSummaryPromptVersion } from "@/lib/rag-versioning";
-import { captureServerEvent } from "@/lib/observability/error-capture";
 import {
   answerPrivacyMetadata,
   answerTextForStorage,
@@ -633,6 +632,8 @@ function secondStageScore(result: SearchResult, queryClass: RagQueryClass | unde
       Math.max(0, sourceQuality - w.visualIntelligencePivot) * w.visualIntelligenceSlope,
     );
   if (result.source_metadata?.document_status === "outdated") score -= w.outdatedPenalty;
+  // D4: ships 0 (no-op) — activate via RAG_RANKING_CONFIG only behind a green golden eval.
+  if (result.source_metadata?.document_status === "unknown") score -= w.unknownCurrentnessPenalty;
   if (result.source_metadata?.extraction_quality === "poor") score -= w.poorExtractionPenalty;
   if (
     result.indexing_quality?.quality_score !== undefined &&
@@ -4471,14 +4472,6 @@ ${qualityRetryInstruction}`
       generationFallbackArtifacts,
     );
     const sanitizedReason = summarizeGenerationFailureReason(error);
-    // This degradation is invisible to route-level capture (the request still
-    // succeeds with a source-only answer), so report it here. The token-starvation
-    // incident (GEN-C1) lived exclusively in this branch for weeks.
-    await captureServerEvent("answer_generation_fallback", {
-      reason: sanitizedReason,
-      queryClass,
-      routeMode: route.mode ?? "unknown",
-    });
     const comparisonMatrixFallbackAnswer =
       queryClass === "comparison"
         ? buildComparisonAnswer({
