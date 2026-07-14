@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildAnswerRenderModel,
   describeSourceStrengthForCopy,
@@ -302,6 +302,64 @@ describe("answer render policy", () => {
       }),
     );
     expect(model.trust).not.toBe("high");
+  });
+
+  it("keeps high trust for routine claims on unverified evidence while the D5 flag is off", () => {
+    // Locks the zero-change default: only high-risk claims are authority-gated.
+    const model = buildAnswerRenderModel(
+      answer({
+        supportedClaims: [
+          {
+            claimId: "claim-1",
+            text: "Document the review date.",
+            riskClass: "routine",
+            supportingChunkIds: ["chunk-1"],
+            supportStatus: "direct",
+          },
+        ],
+        evidenceAssessments: {
+          "chunk-1": {
+            relevance: "direct",
+            claimSupport: "direct",
+            authority: "unverified",
+            currency: "current",
+            extractionQuality: "good",
+          },
+        },
+      }),
+    );
+    expect(model.trust).toBe("high");
+  });
+
+  it("caps trust for ANY claim on unverified evidence when NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS is on (D5)", () => {
+    vi.stubEnv("NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS", "true");
+    try {
+      const model = buildAnswerRenderModel(
+        answer({
+          supportedClaims: [
+            {
+              claimId: "claim-1",
+              text: "Document the review date.",
+              riskClass: "routine",
+              supportingChunkIds: ["chunk-1"],
+              supportStatus: "direct",
+            },
+          ],
+          evidenceAssessments: {
+            "chunk-1": {
+              relevance: "direct",
+              claimSupport: "direct",
+              authority: "unverified",
+              currency: "current",
+              extractionQuality: "good",
+            },
+          },
+        }),
+      );
+      expect(model.trust).toBe("medium");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it.each([
