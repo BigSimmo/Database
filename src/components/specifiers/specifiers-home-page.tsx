@@ -190,7 +190,7 @@ function SpecifierCatalogueMatches({ matches }: { matches: SpecifierCatalogMatch
   return (
     <section aria-labelledby="catalogue-matches-title" className="grid gap-3">
       <header className="grid gap-1.5 border-t border-[color:var(--border)] pt-5">
-        <p className={eyebrowText}>Full DSM-5-TR catalogue</p>
+        <p className={eyebrowText}>Full specifier catalogue</p>
         <h2
           id="catalogue-matches-title"
           className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)]"
