@@ -630,6 +630,18 @@ export function MasterSearchHeader({
       onSearchModeChange("specifiers");
       return;
     }
+    if (actionId === "specifiers-builder") {
+      window.location.assign("/formulation/builder");
+      return;
+    }
+    if (actionId === "specifiers-compare") {
+      window.location.assign("/formulation/compare");
+      return;
+    }
+    if (actionId === "specifiers-map") {
+      window.location.assign("/formulation/map");
+      return;
+    }
     if (actionId === "formulation-search") {
       onSearchModeChange("formulation");
       return;

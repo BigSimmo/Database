@@ -98,22 +98,35 @@ for (const diagnosis of dsmDiagnoses) {
   if (match) diagnosisByAbbreviation.set(match[1].toLowerCase(), diagnosis);
 }
 
-// Lookup by title initialism (e.g., "MDD" from "Major depressive disorder", "OCD" from
-// "Obsessive-compulsive disorder", "PDD" from "Persistent depressive disorder (dysthymia)").
-// Strip parentheticals first so aliases like PDD are not polluted by subtitle words.
-// Splits on spaces, hyphens, and slashes.
-const diagnosisByInitialism = new Map<string, DsmDiagnosis>();
-for (const diagnosis of dsmDiagnoses) {
-  const initialism = diagnosis.title
+function dsmTitleInitialism(title: string) {
+  return title
     .replace(/\([^)]*\)/g, " ")
     .split(/[\s\-\/]+/)
     .map((word) => word[0])
     .filter((char) => Boolean(char) && /[A-Za-z0-9]/i.test(char))
     .join("")
     .toLowerCase();
+}
+
+// Lookup by title initialism (e.g., "MDD" from "Major depressive disorder", "OCD" from
+// "Obsessive-compulsive disorder", "PDD" from "Persistent depressive disorder (dysthymia)").
+// Strip parentheticals first so aliases like PDD are not polluted by subtitle words.
+// Splits on spaces, hyphens, and slashes.
+const diagnosisByInitialism = new Map<string, DsmDiagnosis>();
+for (const diagnosis of dsmDiagnoses) {
+  const initialism = dsmTitleInitialism(diagnosis.title);
   if (initialism.length >= 2 && !diagnosisByInitialism.has(initialism)) {
     diagnosisByInitialism.set(initialism, diagnosis);
   }
+}
+
+function dsmDiagnosisAliases(diagnosis: DsmDiagnosis) {
+  const aliases = new Set<string>();
+  const parenthetical = PARENTHETICAL_ABBREV_RE.exec(diagnosis.title)?.[1];
+  if (parenthetical) aliases.add(normalizeSearchText(parenthetical));
+  const initialism = dsmTitleInitialism(diagnosis.title);
+  if (initialism.length >= 2) aliases.add(initialism);
+  return [...aliases];
 }
 
 // Lookup by normalized title with slashes collapsed to spaces, covering alternate formatting
@@ -175,7 +188,8 @@ export function rankDsmDiagnoses(
       {
         id: "title",
         weight: 8,
-        text: (diagnosis) => normalizeSearchText(`${diagnosis.title} ${diagnosis.slug}`),
+        text: (diagnosis) =>
+          normalizeSearchText(`${diagnosis.title} ${diagnosis.slug} ${dsmDiagnosisAliases(diagnosis).join(" ")}`),
       },
       {
         id: "code",
@@ -203,9 +217,17 @@ export function rankDsmDiagnoses(
     compactBonus: 4,
     compactExtraText: (diagnosis) => normalizeSearchText(diagnosis.title),
     phraseBonus: 6,
-    exactValues: (diagnosis) => [normalizeSearchText(diagnosis.title), normalizeSearchText(diagnosis.slug)],
+    exactValues: (diagnosis) => [
+      normalizeSearchText(diagnosis.title),
+      normalizeSearchText(diagnosis.slug),
+      ...dsmDiagnosisAliases(diagnosis),
+    ],
     exactBonus: 14,
-    prefixValues: (diagnosis) => [normalizeSearchText(diagnosis.title), normalizeSearchText(diagnosis.slug)],
+    prefixValues: (diagnosis) => [
+      normalizeSearchText(diagnosis.title),
+      normalizeSearchText(diagnosis.slug),
+      ...dsmDiagnosisAliases(diagnosis),
+    ],
     prefixBonus: 5,
     expandTokens: (terms) => [...terms, ...normalizedExpansions],
     limit,

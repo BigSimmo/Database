@@ -60,4 +60,9 @@ describe("DSM clinical catalogue", () => {
       rankDsmDiagnoses("PDD", 5).some((match) => match.diagnosis.slug === "persistent-depressive-disorder-dysthymia"),
     ).toBe(true);
   });
+
+  it("ranks abbreviation queries above incidental differential mentions", () => {
+    expect(rankDsmDiagnoses("MDD", 1)[0]?.diagnosis.slug).toBe("major-depressive-disorder");
+    expect(rankDsmDiagnoses("PDD", 1)[0]?.diagnosis.slug).toBe("persistent-depressive-disorder-dysthymia");
+  });
 });
