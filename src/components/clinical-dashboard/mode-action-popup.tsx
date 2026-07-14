@@ -597,9 +597,10 @@ export function ModeActionPopup({
   const integratedDownOffsetClass = integratedChipRow ? "top-[calc(100%+3.65rem)]" : "top-[calc(100%+0.875rem)]";
 
   // Shared, presentation-agnostic action list — the same rows render inside the
-  // desktop popover and the phone/tablet sheet. Each row's accessible name is its
-  // `label`; the secondary description is exposed via aria-describedby (kept out of
-  // the name so exact-match tests like "Scope"/"Upload PDF" hold).
+  // desktop popover and the phone/tablet sheet. Each row's accessible name is set
+  // via aria-label to the `label` only; the visible secondary description is linked
+  // with aria-describedby (and must not use aria-hidden, which conflicts with it).
+  // That keeps exact-match queries like "Scope"/"Upload PDF" stable.
   function renderActionRows() {
     return (
       <div
@@ -619,6 +620,7 @@ export function ModeActionPopup({
                 ref={(element) => assignActionRef(element, index)}
                 type="button"
                 role="menuitem"
+                aria-label={item.label}
                 aria-describedby={descriptionId}
                 onKeyDown={(event) => handleItemKeyDown(event, index)}
                 onClick={() => runActionAndClose(item.id)}
