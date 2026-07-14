@@ -161,7 +161,7 @@ function CommandDropdown({
       className={cn(
         // text-left: the hero composer slot sits inside the centred mode-home
         // template, so without it the section headings inherit text-center.
-        "universal-command-dropdown absolute left-0 right-0 z-30 overflow-hidden rounded-2xl border border-[color:var(--border-strong)] bg-[color:var(--surface)] text-left shadow-[0_8px_20px_rgb(16_24_40_/_9%),0_24px_56px_rgb(16_24_40_/_14%)]",
+        "universal-command-dropdown absolute left-0 right-0 z-30 overflow-hidden rounded-2xl border border-[color:var(--border-strong)] bg-[color:var(--surface)] text-left shadow-[var(--shadow-elevated)]",
         opensUpward ? "bottom-[calc(100%+0.5rem)] top-auto" : "top-[calc(100%+0.5rem)]",
         // Phones never get the typeahead popup — it crowds the small screen —
         // so both placements stay hidden below their smallest useful width.

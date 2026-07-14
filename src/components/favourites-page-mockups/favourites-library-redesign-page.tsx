@@ -414,7 +414,7 @@ function ResumeBand({ variant, selected }: { variant: FavouritesLibraryRedesignV
                 key={stat.label}
                 className="grid min-h-20 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 border-t border-[#dbe5ec] px-4 first:border-t-0 sm:border-l sm:border-t-0 sm:first:border-l-0"
               >
-                <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-[#007c89] shadow-[inset_0_0_0_1px_#d8e6eb]">
+                <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-[#007c89] shadow-[inset_0_0_0_1px_var(--border)]">
                   <Icon className="h-4 w-4" aria-hidden />
                 </span>
                 <span className="min-w-0">
@@ -562,7 +562,7 @@ function SetNavigatorStrip({ variant }: { variant: FavouritesLibraryRedesignVari
             key={set.title}
             className={cn(
               "rounded-xl border bg-white p-4 shadow-[0_16px_40px_rgba(15,31,44,0.06)]",
-              active ? "border-[#7fc9b1] ring-2 ring-[#bfe6d8]" : "border-[#d6e0e7]",
+              active ? "border-[#7fc9b1] ring-2 ring-[color:var(--clinical-accent-border)]" : "border-[#d6e0e7]",
             )}
           >
             <div className="flex items-start justify-between gap-3">
@@ -637,7 +637,7 @@ function LibraryTable({ variant, selected }: { variant: FavouritesLibraryRedesig
                 className={cn(
                   "grid min-h-[5.5rem] grid-cols-[4.25rem_minmax(8.5rem,1.2fr)_5rem_5.5rem_5.75rem_5rem] items-center gap-2 border-b border-[#e4ebf1] px-3 py-3 last:border-b-0 transition",
                   focusRing,
-                  isSelected ? "bg-[#edf7fb] shadow-[inset_3px_0_0_#0b7285]" : "hover:bg-[#f8fafc]",
+                  isSelected ? "bg-[#edf7fb] shadow-[inset_3px_0_0_var(--clinical-accent)]" : "hover:bg-[#f8fafc]",
                 )}
               >
                 <span className="flex items-center gap-2">
