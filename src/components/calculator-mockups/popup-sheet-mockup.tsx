@@ -45,6 +45,7 @@ export function CalculatorSheet({
   const derived = deriveCalculator(calc, answers);
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const Icon = calc.icon;
 
@@ -53,6 +54,13 @@ export function CalculatorSheet({
     previousFocusRef.current = document.activeElement as HTMLElement | null;
     closeRef.current?.focus();
     return () => previousFocusRef.current?.focus?.();
+  }, [calc.id]);
+
+  // Switching calculators in place keeps this sheet mounted, so reset its scroll
+  // on calc change — otherwise the next one opens at the prior sheet's offset
+  // (e.g. partway down the related-content rows) instead of its indication.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
   }, [calc.id]);
 
   // Trap Tab / Shift+Tab within the dialog so focus can't reach the page behind.
@@ -151,7 +159,7 @@ export function CalculatorSheet({
           <ScoreBandBar calc={calc} score={derived.score} started={derived.started} />
         </div>
 
-        <div className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-4">
+        <div ref={scrollRef} className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-4">
           <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)] p-2.5 text-sm-minus font-semibold leading-5 text-[color:var(--info)]">
             <Info className="mt-0.5 size-icon-md shrink-0" aria-hidden="true" />
             {calc.indication}
