@@ -10,7 +10,6 @@ import { dsmDiagnoses } from "@/lib/dsm";
 import { formulationMechanisms } from "@/lib/formulation";
 import { formRecords } from "@/lib/forms";
 import { serviceRecords } from "@/lib/services";
-import { specifierRecords } from "@/lib/specifiers";
 
 const appDir = path.join(process.cwd(), "src", "app");
 const siteMapPath = path.join(process.cwd(), "docs", "site-map.md");
@@ -105,7 +104,7 @@ const routeOwnershipRows = [
   ["Favourites", "src/app/favourites, src/components/clinical-dashboard/favourites-command-library-page.tsx"],
   ["Differentials", "src/app/differentials, src/lib/differentials.ts"],
   ["DSM-5 Diagnosis", "src/app/dsm, src/components/dsm, src/lib/dsm.ts"],
-  ["Specifiers", "src/app/specifiers, src/components/specifiers, src/lib/specifiers.ts"],
+  ["Specifiers (legacy redirect)", "src/app/specifiers/[[...path]]/page.tsx"],
   ["Formulation", "src/app/formulation, src/components/formulation, src/lib/formulation.ts"],
   ["Medications", "src/app/medications, src/components/clinical-dashboard/medication-prescribing-workspace.tsx"],
   ["Documents", "src/app/documents, src/lib/document-flow-routes.ts"],
@@ -294,7 +293,7 @@ function renderModePageIndex() {
       mode: "Specifiers",
       home: appModeHomeHref("specifiers"),
       search: appModeHomeHref("specifiers", { query: "depressed but racing thoughts", focus: true, run: true }),
-      detail: "`/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, and `/specifiers/map`.",
+      detail: "Compatibility entry that redirects through `/specifiers` into the Formulation workspace.",
     },
     {
       mode: "Formulation",
@@ -352,7 +351,6 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "/differentials/diagnoses/[slug]",
         "/dsm/diagnoses/[slug]",
         "/dsm/diagnoses/[slug]/differentials",
-        "/specifiers/[slug]",
         "/formulation/[slug]",
         "/medications/[slug]",
       ].includes(route.route),
@@ -413,12 +411,6 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "Formulation mechanism slugs",
         "/formulation/[slug]",
         formulationMechanisms.map((mechanism) => mechanism.id),
-      ),
-      "",
-      ...renderSlugInventory(
-        "Psychiatric specifier slugs",
-        "/specifiers/[slug]",
-        specifierRecords.map((record) => record.slug),
       ),
       "",
       ...renderSlugInventory("Medication slugs", "/medications/[slug]", medicationSlugs),
