@@ -983,9 +983,9 @@
   "governance": {
     "contentGovernance": {
       "contentVersion": "Source review v1",
-      "confirmationNote": "Linked sources have static metadata review, and owner confirmation is now complete for release.",
+      "confirmationNote": "Linked sources have static metadata review; local owner confirmation remains pending before clinical deployment.",
       "jurisdictionMode": "jurisdiction-neutral",
-      "releaseStatus": "owner-confirmed-source-review-complete"
+      "releaseStatus": "source-review-complete-owner-confirmation-pending"
     },
     "sourceReviewRegistry": {
       "cbt": {

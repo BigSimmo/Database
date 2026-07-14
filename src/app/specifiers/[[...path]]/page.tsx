@@ -10,13 +10,18 @@ type LegacySpecifierRouteProps = {
 export default async function LegacySpecifierRoute({ params, searchParams }: LegacySpecifierRouteProps) {
   const { path = [] } = await params;
   const values = searchParams ? await searchParams : {};
+  const [legacyDestination] = path;
+  const isLegacyCompare = path.length === 1 && legacyDestination === "compare";
   const nextParams = new URLSearchParams();
   for (const [key, value] of Object.entries(values)) {
-    if (Array.isArray(value)) value.forEach((item) => nextParams.append(key === "specifier" ? "mechanism" : key, item));
-    else if (value) nextParams.set(key === "specifier" ? "mechanism" : key, value);
+    const items = Array.isArray(value) ? value : value ? [value] : [];
+    if (key === "specifier" && isLegacyCompare) {
+      items.slice(0, 2).forEach((item, index) => nextParams.append(index === 0 ? "a" : "b", item));
+    } else {
+      items.forEach((item) => nextParams.append(key === "specifier" ? "mechanism" : key, item));
+    }
   }
 
-  const [legacyDestination] = path;
   const canPreserveDestination =
     path.length === 1 &&
     (["builder", "compare", "map"].includes(legacyDestination) || Boolean(findFormulationMechanism(legacyDestination)));

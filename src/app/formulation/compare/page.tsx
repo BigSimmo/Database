@@ -10,5 +10,13 @@ function firstParam(value: string | string[] | undefined) {
 
 export default async function FormulationCompareRoute({ searchParams }: CompareRouteProps) {
   const params = searchParams ? await searchParams : {};
-  return <FormulationComparePage initialLeft={firstParam(params.a)} initialRight={firstParam(params.b)} />;
+  const initialLeft = firstParam(params.a);
+  const initialRight = firstParam(params.b);
+  return (
+    <FormulationComparePage
+      key={`${initialLeft ?? ""}:${initialRight ?? ""}`}
+      initialLeft={initialLeft}
+      initialRight={initialRight}
+    />
+  );
 }

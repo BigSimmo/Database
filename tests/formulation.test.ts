@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import formulationContent from "@/data/formulation-content.json";
 import {
   comparisonGuideFor,
   findFormulationMechanism,
@@ -33,6 +34,12 @@ describe("clinical formulation content", () => {
       expect(mechanism.patientPhrases.length).toBeGreaterThan(0);
       expect(mechanism.treatmentLeverage).toBeTruthy();
     }
+  });
+
+  it("keeps release readiness separate from pending owner confirmation", () => {
+    expect(formulationContent.governance.contentReviewSummary.pendingOwnerConfirmations).toBeGreaterThan(0);
+    expect(formulationContent.governance.contentGovernance.confirmationNote).toMatch(/confirmation remains pending/i);
+    expect(formulationContent.governance.contentGovernance.releaseStatus).not.toMatch(/^owner-confirmed/);
   });
 
   it("matches patient language and clinical clues to mechanisms", () => {

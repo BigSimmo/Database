@@ -54,6 +54,7 @@ function Selector({
           aria-hidden
         />
         <select
+          aria-label={`Mechanism ${label}`}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           className="min-h-12 w-full rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] pl-10 pr-9 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
