@@ -79,14 +79,17 @@ export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, owne
 // Owner-internal document columns that must never be exposed on a row the caller does not own.
 // `withOwnerReadScope` lets an authenticated caller read PUBLIC documents (owner_id IS NULL) that
 // belong to nobody; those rows must not leak the storage location, dedup hash, import provenance,
-// or raw stage error of the operator who ingested them. Shared governance `metadata` is preserved
-// so public-corpus badges keep rendering — only the operator-internal storage fields are stripped.
+// raw stage error, or free-form `metadata` of the operator who ingested them. `metadata` is
+// arbitrary and can carry owner-internal provenance (e.g. the bulk-edit author's user id, prior
+// titles, indexing internals), so — matching the anonymous list projection and the `[id]` detail
+// route — it is stripped for non-owners rather than surfaced as governance data.
 const NON_OWNER_INTERNAL_DOCUMENT_FIELDS = [
   "storage_path",
   "content_hash",
   "source_path",
   "import_batch_id",
   "error_message",
+  "metadata",
 ] as const;
 
 /** True when `viewerOwnerId` is set and owns the row (i.e. the caller's own document). */

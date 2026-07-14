@@ -564,9 +564,10 @@ describe("private document API access", () => {
       storage_path: `${userId}/documents/owned.pdf`,
       content_hash: "sha256:owned",
     });
-    // The shared public row keeps its shared governance metadata but not the owner's storage internals.
+    // The shared public row keeps its public fields but not the owner's storage internals or
+    // free-form metadata (which can carry owner-internal provenance).
     expect(sharedRow).toMatchObject({ id: otherDocumentId, title: "Public guideline" });
-    expect(sharedRow.metadata).toEqual({ extraction_quality: "partial" });
+    expect(sharedRow).not.toHaveProperty("metadata");
     expect(sharedRow).not.toHaveProperty("storage_path");
     expect(sharedRow).not.toHaveProperty("content_hash");
     expect(sharedRow).not.toHaveProperty("source_path");
