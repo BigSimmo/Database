@@ -68,9 +68,15 @@ function TherapyCompassShell() {
  * design's own left rail is dropped, with its destinations kept reachable via a
  * horizontal in-content nav under the global header.
  */
-export function TherapyCompassPage() {
+export function TherapyCompassPage({
+  initialQuery = "",
+  autoRunSearch = false,
+}: {
+  initialQuery?: string;
+  autoRunSearch?: boolean;
+}) {
   return (
-    <TcProvider>
+    <TcProvider initialQuery={initialQuery} autoRunSearch={autoRunSearch}>
       <TherapyCompassStyles />
       <TherapyCompassShell />
     </TcProvider>

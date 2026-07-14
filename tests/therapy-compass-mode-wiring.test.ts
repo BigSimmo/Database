@@ -34,4 +34,17 @@ describe("Therapy Compass production-mode wiring", () => {
     const occurrences = shellSrc.match(/resolvedSearchMode !== "therapy-compass"/g) ?? [];
     expect(occurrences.length).toBeGreaterThanOrEqual(2);
   });
+
+  it("honors run-enabled deep links by seeding the in-tool search instead of landing on Home", () => {
+    const routeSrc = readFileSync(new URL("../src/app/therapy-compass/page.tsx", import.meta.url), "utf8");
+    const bindingsSrc = readFileSync(
+      new URL("../src/components/therapy-compass/bindings.tsx", import.meta.url),
+      "utf8",
+    );
+    // The route reads q/run and threads autoRunSearch into the provider...
+    expect(routeSrc).toMatch(/searchParams/);
+    expect(routeSrc).toMatch(/autoRunSearch/);
+    // ...and the provider opens on Search (not Home) with the query seeded.
+    expect(bindingsSrc).toMatch(/seededQuery \? "search" : "home"/);
+  });
 });
