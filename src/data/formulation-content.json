@@ -1,0 +1,1188 @@
+{
+  "metadata": {
+    "packageName": "Formulation clinical content — text only",
+    "exportedAt": "2026-07-14T14:58:48+08:00",
+    "sourceRevision": "2d718a49701b759ef0a93b41664459bccb08d52f",
+    "sourceRepository": "C:/Dev/Apps/Formulation",
+    "intendedUse": "Portable clinical formulation content for Database or another repository",
+    "graphsIncluded": false,
+    "exclusionNote": "Relationship-map structures and relationship-seeding fields are intentionally omitted by request."
+  },
+  "domains": [
+    "Attachment",
+    "Trauma",
+    "Cognition",
+    "Affect",
+    "Behaviour",
+    "Interpersonal",
+    "Defence",
+    "Developmental",
+    "Biological",
+    "Social",
+    "Cultural",
+    "Risk"
+  ],
+  "sourceLibrary": {
+    "cbt": {
+      "id": "cbt",
+      "title": "Cognitive Behavior Therapy, StatPearls",
+      "url": "https://www.ncbi.nlm.nih.gov/books/NBK470241/"
+    },
+    "defense": {
+      "id": "defense",
+      "title": "Defense Mechanisms, StatPearls",
+      "url": "https://www.ncbi.nlm.nih.gov/books/NBK559106/"
+    },
+    "anxiety": {
+      "id": "anxiety",
+      "title": "Anxiety, StatPearls",
+      "url": "https://www.ncbi.nlm.nih.gov/books/NBK470361/"
+    },
+    "attachment": {
+      "id": "attachment",
+      "title": "Affiliation and Attachment, NIMH RDoC",
+      "url": "https://www.nimh.nih.gov/research/research-funded-by-nimh/rdoc/constructs/affiliation-and-attachment"
+    },
+    "dissociation": {
+      "id": "dissociation",
+      "title": "What Are Dissociative Disorders?, American Psychiatric Association",
+      "url": "https://www.psychiatry.org/patients-families/dissociative-disorders/what-are-dissociative-disorders"
+    },
+    "emotion": {
+      "id": "emotion",
+      "title": "Emotion dysregulation disorders review, PMC",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10653990/"
+    },
+    "rumination": {
+      "id": "rumination",
+      "title": "Rumination as a transdiagnostic process review, PubMed",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/32087393/"
+    },
+    "shame": {
+      "id": "shame",
+      "title": "Shame and mental health systematic review, PubMed",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/27687818/"
+    },
+    "perfectionism": {
+      "id": "perfectionism",
+      "title": "Perfectionism and mental health review, PMC",
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7882132/"
+    }
+  },
+  "mechanisms": [
+    {
+      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
+      "sourceConfidence": "Static source metadata recorded",
+      "version": "Source review v1",
+      "symptoms": ["Anxiety", "Panic", "Low mood", "Trauma intrusions"],
+      "diagnosticContexts": ["Anxiety disorders", "PTSD", "Depression", "Personality difficulties"],
+      "protective": [],
+      "sources": ["defense", "anxiety", "cbt"],
+      "caveats": [
+        "Use as a formulation hypothesis, not as a diagnosis.",
+        "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
+        "Revise the formulation when new information does not fit the hypothesised mechanism."
+      ],
+      "fitIndicators": [
+        "Distress drops quickly after the person escapes, postpones, suppresses, or narrows activity.",
+        "The avoided task, cue, feeling, or relationship remains threatening because it is not tested safely.",
+        "Short-term relief is followed by longer-term restriction, anxiety, shame, or functional cost."
+      ],
+      "poorFitIndicators": [
+        "Withdrawal is mainly due to low energy, cognitive impairment, environmental barriers, or lack of opportunity.",
+        "The person approaches feared situations but becomes overwhelmed by dissociation, confusion, or psychosis.",
+        "The behaviour is a deliberate values-based boundary rather than a fear-maintenance cycle."
+      ],
+      "caseExample": "A patient stops attending appointments after panic symptoms in the waiting room; relief after cancelling strengthens the belief that attending is unsafe.",
+      "treatmentTargetExample": "Plan graded appointment attendance with reduced safety behaviours and a brief post-session review of what was learned.",
+      "name": "Avoidance",
+      "definition": "A pattern of keeping away from internal experiences, situations, people, or tasks that trigger distress or perceived threat.",
+      "summary": "Avoidance reduces distress in the short term but commonly maintains anxiety, trauma responses, functional impairment, and interpersonal narrowing.",
+      "coreProcess": "Threat appraisal activates escape, safety behaviour, suppression, or disengagement, which prevents corrective learning and narrows coping options.",
+      "development": "Often develops after repeated threat, criticism, shame, trauma, panic, social defeat, or reinforcement from short-term relief.",
+      "predisposing": ["High threat sensitivity", "Trauma exposure", "Low perceived coping efficacy"],
+      "precipitating": ["New perceived threat", "Interpersonal conflict", "Panic or intrusive memory"],
+      "perpetuating": [
+        "Short-term relief",
+        "Reduced exposure to disconfirming evidence",
+        "Increasing life restriction"
+      ],
+      "clinicalClues": [
+        "Missed appointments",
+        "Safety behaviours",
+        "Narrowing activities",
+        "Over-preparation or withdrawal"
+      ],
+      "patientPhrases": ["I just avoid it", "I cannot face it", "It feels safer not to go"],
+      "domains": ["Behaviour", "Cognition", "Trauma", "Risk"],
+      "tags": ["avoidance", "safety behaviour", "escape", "withdrawal", "anxiety"],
+      "maintainingCycles": ["Threat cue -> anxiety -> avoidance -> relief -> threat belief remains untested"],
+      "comparisonNotes": [
+        "Differentiate from dissociation by checking whether disengagement is deliberate/behavioural or involves altered awareness."
+      ],
+      "formulationUse": "Avoidance may explain why distress persists despite the patient working hard to stay safe.",
+      "exampleSentence": "Avoidance appears to reduce distress briefly, but it also prevents corrective experience and maintains the threat appraisal.",
+      "treatmentImplications": [
+        "Graded exposure or behavioural experiments",
+        "Reduce safety behaviours",
+        "Clarify avoided affect or meanings"
+      ],
+      "treatmentLeverage": "Target the relief-maintenance loop and build tolerable approach behaviours.",
+      "id": "avoidance"
+    },
+    {
+      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
+      "sourceConfidence": "Static source metadata recorded",
+      "version": "Source review v1",
+      "symptoms": ["Affective instability", "Interpersonal conflict", "Self-harm risk in some contexts"],
+      "diagnosticContexts": ["Personality disorder contexts", "Trauma-related presentations"],
+      "protective": [],
+      "sources": ["defense"],
+      "caveats": [
+        "Use as a formulation hypothesis, not as a diagnosis.",
+        "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
+        "Revise the formulation when new information does not fit the hypothesised mechanism."
+      ],
+      "fitIndicators": [
+        "Views of self or others shift rapidly between idealised and devalued positions.",
+        "Mixed feelings feel intolerable during attachment threat, disappointment, or rupture.",
+        "Team or relationship responses become polarised around the patient’s current affective state."
+      ],
+      "poorFitIndicators": [
+        "The person can hold mixed views but is making a stable, evidence-based judgement.",
+        "The main issue is fixed persecutory belief, intoxication, cognitive impairment, or cultural misunderstanding.",
+        "The shift is confined to one realistic conflict rather than a broader relational pattern."
+      ],
+      "caseExample": "After a perceived slight, a previously trusted clinician is described as uncaring and useless, while another clinician is suddenly seen as the only safe person.",
+      "treatmentTargetExample": "Use rupture repair to name both disappointment and continuing care without forcing premature certainty.",
+      "name": "Splitting",
+      "definition": "An all-or-none way of organising self, others, or situations into wholly good or wholly bad categories when mixed representations feel intolerable.",
+      "summary": "Splitting can simplify unbearable ambivalence but may destabilise relationships, teams, and self-experience.",
+      "coreProcess": "Conflicting positive and negative representations are not integrated, so affective state strongly shapes the current view.",
+      "development": "May be understood psychodynamically as a primitive defence, especially under high affect, insecure attachment, or personality vulnerability.",
+      "predisposing": ["Attachment insecurity", "Trauma history", "Difficulty mentalising under affect"],
+      "precipitating": ["Perceived rejection", "Rupture", "Disappointment in a valued person"],
+      "perpetuating": [
+        "Rapid certainty reduces ambivalence",
+        "Interpersonal responses reinforce polarisation",
+        "Repair conversations are avoided"
+      ],
+      "clinicalClues": ["Sudden idealisation or devaluation", "Team splitting", "Abrupt shifts after minor rupture"],
+      "patientPhrases": [
+        "They are the only one who understands me",
+        "They are completely useless",
+        "I was stupid to trust them"
+      ],
+      "domains": ["Defence", "Interpersonal", "Affect", "Attachment"],
+      "tags": ["splitting", "all-or-none", "idealisation", "devaluation", "ambivalence"],
+      "maintainingCycles": [
+        "Attachment threat -> intense affect -> polarised appraisal -> rupture -> threat increases"
+      ],
+      "comparisonNotes": [
+        "Distinguish from ordinary ambivalence by the speed, rigidity, and interpersonal impact of the shift."
+      ],
+      "formulationUse": "Splitting can organise otherwise overwhelming mixed feelings, but it may make alliance ruptures more likely.",
+      "exampleSentence": "Under attachment threat, splitting may make it hard to hold mixed feelings about self and others, intensifying rupture and repair cycles.",
+      "treatmentImplications": [
+        "Maintain consistent stance",
+        "Name mixed affects carefully",
+        "Support reflective functioning during rupture repair"
+      ],
+      "treatmentLeverage": "Help the patient tolerate mixed representations without escalating shame or abandonment fear.",
+      "id": "splitting"
+    },
+    {
+      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
+      "sourceConfidence": "Static source metadata recorded",
+      "version": "Source review v1",
+      "symptoms": ["Low mood", "Anxiety", "Self-harm urges", "Substance use", "Interpersonal withdrawal"],
+      "diagnosticContexts": [
+        "Trauma-related disorders",
+        "Depression",
+        "Eating disorders",
+        "Personality disorder contexts"
+      ],
+      "protective": [],
+      "sources": ["shame", "cbt"],
+      "caveats": [
+        "Use as a formulation hypothesis, not as a diagnosis.",
+        "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
+        "Revise the formulation when new information does not fit the hypothesised mechanism."
+      ],
+      "fitIndicators": [
+        "Exposure, dependency, mistakes, or feedback trigger hiding, anger, appeasing, or self-attack.",
+        "Global self-defect language appears stronger than concern about a specific action.",
+        "Avoidance or withdrawal protects against being seen as unacceptable."
+      ],
+      "poorFitIndicators": [
+        "The primary affect is guilt about a specific harm with intact self-worth.",
+        "Withdrawal is driven mainly by anhedonia, fatigue, threat, or practical barriers.",
+        "The person is responding to current stigma or mistreatment rather than internalised defectiveness alone."
+      ],
+      "caseExample": "A patient misses therapy after disclosing trauma because they feel exposed and “disgusting,” then interprets the absence as proof they are failing.",
+      "treatmentTargetExample": "Name shame gently, separate protection from self-attack, and build tolerable disclosure or repair steps.",
+      "name": "Shame",
+      "definition": "A painful self-conscious affect in which the self is experienced as exposed, defective, unacceptable, or at risk of rejection.",
+      "summary": "Shame often links trauma, attachment threat, avoidance, concealment, anger, self-criticism, and disengagement from care.",
+      "coreProcess": "Global negative self-evaluation and anticipated social devaluation drive hiding, appeasing, attacking, or withdrawal.",
+      "development": "May emerge from humiliation, abuse, neglect, exclusion, chronic criticism, stigma, or repeated failures interpreted as self-defect.",
+      "predisposing": ["Criticism or humiliation", "Trauma", "Stigma", "Attachment insecurity"],
+      "precipitating": ["Exposure", "Mistake", "Dependency need", "Perceived rejection"],
+      "perpetuating": ["Secrecy", "Avoidance", "Self-attack", "Ruptures that confirm defectiveness"],
+      "clinicalClues": ["Downcast gaze", "Concealment", "Harsh self-criticism", "Anger after feeling exposed"],
+      "patientPhrases": ["There is something wrong with me", "I cannot let anyone see that", "I am disgusting"],
+      "domains": ["Affect", "Trauma", "Attachment", "Interpersonal"],
+      "tags": ["shame", "defectiveness", "self-criticism", "concealment", "humiliation"],
+      "maintainingCycles": ["Exposure -> shame -> hiding or attack -> isolation or rupture -> shame intensifies"],
+      "comparisonNotes": [
+        "Distinguish shame from guilt: shame centres on the self, guilt centres more on an action or harm."
+      ],
+      "formulationUse": "Shame may explain avoidance, anger, withdrawal, or self-attack when the patient feels exposed or dependent.",
+      "exampleSentence": "Shame appears to organise the patient around hiding and self-protection, reducing exposure but maintaining isolation and self-criticism.",
+      "treatmentImplications": [
+        "Use a non-shaming stance",
+        "Name shame gently",
+        "Link protective function before challenging beliefs"
+      ],
+      "treatmentLeverage": "Reduce concealment and self-attack while building tolerable interpersonal safety.",
+      "id": "shame"
+    },
+    {
+      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
+      "sourceConfidence": "Static source metadata recorded",
+      "version": "Source review v1",
+      "symptoms": ["Affective lability", "Anger", "Self-harm urges", "Anxiety", "Depressive spirals"],
+      "diagnosticContexts": [
+        "Borderline personality disorder",
+        "ADHD",
+        "Bipolar disorder differential",
+        "Trauma-related presentations"
+      ],
+      "protective": [],
+      "sources": ["emotion"],
+      "caveats": [
+        "Use as a formulation hypothesis, not as a diagnosis.",
+        "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
+        "Revise the formulation when new information does not fit the hypothesised mechanism."
+      ],
+      "fitIndicators": [
+        "Affect escalates quickly and drives urgent actions before reflection is available.",
+        "The person struggles to name, modulate, or recover from emotional states.",
+        "Interpersonal, risk, or impulsive consequences feed further distress and shame."
+      ],
+      "poorFitIndicators": [
+        "Mood shifts are better explained by episodic mania, delirium, intoxication, or seizure activity.",
+        "The person has intense emotion but can pause, label, and choose effective responses consistently.",
+        "The apparent dysregulation occurs only in a currently unsafe environment."
+      ],
+      "caseExample": "After a delayed reply, a patient moves from anxiety to rage to self-harm urges within minutes, then feels ashamed and abandoned.",
+      "treatmentTargetExample": "Use chain analysis, emotion labelling, and pause strategies before high-risk action urges dominate.",
+      "name": "Emotional dysregulation",
+      "definition": "Difficulty modulating the intensity, duration, expression, or behavioural consequences of emotional states.",
+      "summary": "Emotional dysregulation is a transdiagnostic formulation mechanism that can amplify impulsivity, interpersonal rupture, avoidance, and risk.",
+      "coreProcess": "High emotional sensitivity, intense arousal, limited regulation strategies, and rapid action urges interact under stress.",
+      "development": "May reflect temperament, neurodevelopmental vulnerability, trauma, invalidating environments, attachment insecurity, or learned coping patterns.",
+      "predisposing": [
+        "High affective sensitivity",
+        "Trauma",
+        "Invalidating environments",
+        "Neurodevelopmental vulnerability"
+      ],
+      "precipitating": ["Perceived rejection", "Loss of control", "Threat cue", "Interpersonal rupture"],
+      "perpetuating": [
+        "Action urges reduce distress briefly",
+        "Ruptures increase threat",
+        "Avoidance limits skills practice"
+      ],
+      "clinicalClues": [
+        "Rapid affect shifts",
+        "Impulsive coping",
+        "Difficulty naming emotion",
+        "Escalation during rupture"
+      ],
+      "patientPhrases": ["It goes from zero to one hundred", "I cannot calm down", "I do things before I can think"],
+      "domains": ["Affect", "Behaviour", "Interpersonal", "Risk"],
+      "tags": ["emotion regulation", "affect", "lability", "impulsivity", "distress tolerance"],
+      "maintainingCycles": [
+        "Trigger -> intense emotion -> urgent behaviour -> consequences -> shame or threat -> further dysregulation"
+      ],
+      "comparisonNotes": [
+        "Differentiate from affect intolerance by assessing whether the main issue is arousal intensity, skill deficit, or fear of emotion."
+      ],
+      "formulationUse": "Emotional dysregulation can explain why stress rapidly becomes behavioural, interpersonal, or risk-relevant.",
+      "exampleSentence": "Emotional dysregulation appears to intensify threat cues into urgent action, creating consequences that then feed further distress.",
+      "treatmentImplications": [
+        "Emotion labelling",
+        "Distress tolerance skills",
+        "Chain analysis",
+        "Interpersonal rupture planning"
+      ],
+      "treatmentLeverage": "Increase pause, labelling, and tolerable regulation options before action urges dominate.",
+      "id": "emotional-dysregulation"
+    },
+    {
+      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
+      "sourceConfidence": "Static source metadata recorded",
+      "version": "Source review v1",
+      "symptoms": ["Anxiety", "Worry", "Relationship distress", "Obsessive doubt"],
+      "diagnosticContexts": [
+        "Generalised anxiety",
+        "Obsessive-compulsive presentations",
+        "Health anxiety",
+        "Attachment insecurity"
+      ],
+      "protective": [],
+      "sources": ["anxiety", "cbt"],
+      "caveats": [
+        "Use as a formulation hypothesis, not as a diagnosis.",
+        "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
+        "Revise the formulation when new information does not fit the hypothesised mechanism."
+      ],
+      "fitIndicators": [
+        "Questions or checking repeatedly seek certainty, safety, approval, or relational confirmation.",
+        "Relief after reassurance fades quickly and the same doubt returns stronger.",
+        "Others become strained, frustrated, or pulled into repeated certainty-giving cycles."
+      ],
+      "poorFitIndicators": [
+        "The person is asking for ordinary information, care coordination, or reasonable clarification.",
+        "The concern remains resolved after a clear answer or practical plan.",
+        "The main pattern is avoidance, mistrust, or protest rather than repeated uncertainty reduction."
+      ],
+      "caseExample": "A patient repeatedly asks whether the clinician is upset with them; each answer helps briefly, then doubt returns and more messages follow.",
+      "treatmentTargetExample": "Map the reassurance loop and practise delayed reassurance, uncertainty tolerance, and internal anchors.",
+      "name": "Reassurance seeking",
+      "definition": "Repeatedly seeking certainty, safety, approval, or relational confirmation to reduce distress or doubt.",
+      "summary": "Reassurance seeking can soothe briefly but may maintain uncertainty intolerance, anxiety, dependency cycles, and interpersonal strain.",
+      "coreProcess": "Distress or doubt triggers interpersonal checking, which gives short-term relief while preventing internal tolerance of uncertainty.",
+      "development": "Often develops where uncertainty, threat, abandonment fear, or negative self-beliefs feel intolerable without external confirmation.",
+      "predisposing": ["Anxiety sensitivity", "Attachment insecurity", "Low self-trust", "Intolerance of uncertainty"],
+      "precipitating": ["Ambiguous message", "Body sensation", "Mistake", "Perceived distance from another person"],
+      "perpetuating": ["Temporary relief", "Escalating certainty demands", "Others withdraw or become frustrated"],
+      "clinicalClues": [
+        "Repeated checking questions",
+        "Frequent messages",
+        "Difficulty accepting answers",
+        "Relief that fades quickly"
+      ],
+      "patientPhrases": ["Are you sure?", "Do you still care?", "What if I missed something?", "I just need to know"],
+      "domains": ["Interpersonal", "Attachment", "Cognition", "Behaviour"],
+      "tags": ["reassurance", "checking", "uncertainty", "dependency", "safety behaviour"],
+      "maintainingCycles": ["Doubt -> reassurance -> relief -> doubt returns stronger -> reassurance escalates"],
+      "comparisonNotes": [
+        "Distinguish from ordinary support seeking by repetition, urgency, and inability to use the response."
+      ],
+      "formulationUse": "Reassurance seeking may show how anxiety is regulated interpersonally while uncertainty tolerance remains low.",
+      "exampleSentence": "Reassurance seeking temporarily reduces doubt, but because the relief fades it can maintain dependence on external certainty.",
+      "treatmentImplications": [
+        "Map reassurance cycles",
+        "Build uncertainty tolerance",
+        "Use response prevention or delayed reassurance where appropriate"
+      ],
+      "treatmentLeverage": "Shift from certainty seeking toward tolerating uncertainty and using internal anchors.",
+      "id": "reassurance-seeking"
+    },
+    {
+      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
+      "sourceConfidence": "Static source metadata recorded",
+      "version": "Source review v1",
+      "symptoms": ["Loneliness", "Depression", "Relationship difficulties", "Reduced help-seeking"],
+      "diagnosticContexts": [
+        "Attachment-related formulation",
+        "Trauma-related presentations",
+        "Personality functioning"
+      ],
+      "protective": [],
+      "sources": ["attachment"],
+      "caveats": [
+        "Use as a formulation hypothesis, not as a diagnosis.",
+        "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
+        "Revise the formulation when new information does not fit the hypothesised mechanism."
+      ],
+      "fitIndicators": [
+        "Closeness, dependency, or support is minimised just when care becomes relevant.",
+        "Self-sufficiency protects against vulnerability, intrusion, shame, or rejection.",
+        "The person distances after warmth, repair, or perceived demand."
+      ],
+      "poorFitIndicators": [
+        "Distance reflects healthy boundaries, cultural preference, or a realistic safety concern.",
+        "Reduced engagement is mainly due to depression, psychosis, cognitive impairment, or access barriers.",
+        "The person wants closeness but cannot access it because of dissociation or social anxiety."
+      ],
+      "caseExample": "After a helpful session, a patient cancels follow-up and says they do not need help, despite worsening loneliness.",
+      "treatmentTargetExample": "Offer predictable, autonomy-respecting support and track closeness-distance shifts without shaming.",
+      "name": "Attachment avoidance",
+      "definition": "A relational strategy of down-regulating attachment needs, dependence, and emotional closeness to preserve autonomy or reduce vulnerability.",
+      "summary": "Attachment avoidance may appear as self-sufficiency, emotional distance, minimisation of need, or disengagement under relational stress.",
+      "coreProcess": "Attachment cues activate vulnerability or threat, which is managed through distance, deactivation, intellectualisation, or self-reliance.",
+      "development": "May emerge when closeness has been unreliable, intrusive, rejecting, shaming, or unsafe.",
+      "predisposing": [
+        "Dismissive attachment patterns",
+        "Repeated rejection",
+        "Intrusive caregiving",
+        "Relational trauma"
+      ],
+      "precipitating": ["Dependency need", "Therapeutic closeness", "Perceived demand", "Loss of autonomy"],
+      "perpetuating": [
+        "Distance reduces vulnerability",
+        "Others experience rejection",
+        "Support is not tested as safe"
+      ],
+      "clinicalClues": [
+        "Minimises distress",
+        "Misses sessions after closeness",
+        "Prefers factual discussion",
+        "Rejects help quickly"
+      ],
+      "patientPhrases": ["I do not need anyone", "It is fine", "I handle things myself", "People get too much"],
+      "domains": ["Attachment", "Interpersonal", "Developmental", "Defence"],
+      "tags": ["attachment avoidance", "self-reliance", "distance", "deactivation", "closeness"],
+      "maintainingCycles": ["Need -> vulnerability -> distance -> short-term safety -> unmet need persists"],
+      "comparisonNotes": [
+        "Distinguish from healthy independence by rigidity, distress after closeness, and cost to support or intimacy."
+      ],
+      "formulationUse": "Attachment avoidance may explain disengagement just when support, closeness, or dependency becomes clinically relevant.",
+      "exampleSentence": "Attachment avoidance may protect against vulnerability by creating distance, but it also limits support and repair.",
+      "treatmentImplications": [
+        "Respect autonomy",
+        "Use predictable boundaries",
+        "Track closeness-distance shifts without shaming"
+      ],
+      "treatmentLeverage": "Make support tolerable without forcing dependency.",
+      "id": "attachment-avoidance"
+    },
+    {
+      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
+      "sourceConfidence": "Static source metadata recorded",
+      "version": "Source review v1",
+      "symptoms": ["Depression", "Anxiety", "Shame", "Interpersonal sensitivity"],
+      "diagnosticContexts": [
+        "Depression",
+        "Anxiety disorders",
+        "Trauma-related presentations",
+        "Schema-focused formulation"
+      ],
+      "protective": [],
+      "sources": ["cbt"],
+      "caveats": [
+        "Use as a formulation hypothesis, not as a diagnosis.",
+        "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
+        "Revise the formulation when new information does not fit the hypothesised mechanism."
+      ],
+      "fitIndicators": [
+        "Events are repeatedly interpreted through broad beliefs such as defectiveness, danger, unlovability, or failure.",
+        "The belief appears across settings and shapes attention, emotion, and coping behaviour.",
+        "Disconfirming evidence is discounted, avoided, or quickly reinterpreted."
+      ],
+      "poorFitIndicators": [
+        "The thought is situation-specific and changes with new evidence.",
+        "The belief reflects a current realistic threat or systemic adversity rather than a global schema alone.",
+        "The main pattern is repetitive worry or rumination without a stable self/other/world belief."
+      ],
+      "caseExample": "A neutral email delay is read as proof the patient is disliked, confirming a wider belief of being unwanted.",
+      "treatmentTargetExample": "Identify the recurring belief, test predictions safely, and build a more balanced alternative meaning.",
+      "name": "Negative core beliefs",
+      "definition": "Global, rigid, overgeneralised beliefs about the self, others, or world that shape interpretation and emotional response.",
+      "summary": "Negative core beliefs bias attention and meaning-making, often linking early experience to current automatic thoughts, affect, and behaviour.",
+      "coreProcess": "A schema-like belief filters events so ambiguous information is interpreted as confirming defectiveness, danger, unlovability, or failure.",
+      "development": "May develop through repeated interpersonal learning, trauma, criticism, exclusion, loss, or chronic unmet needs.",
+      "predisposing": ["Early criticism", "Bullying", "Trauma", "Repeated invalidation"],
+      "precipitating": ["Failure cue", "Rejection cue", "Conflict", "Performance demand"],
+      "perpetuating": [
+        "Confirmation bias",
+        "Avoidance of disconfirming experience",
+        "Self-criticism and safety behaviours"
+      ],
+      "clinicalClues": [
+        "Global self-statements",
+        "Persistent themes across situations",
+        "Extreme words such as always or never"
+      ],
+      "patientPhrases": ["I am not good enough", "I am unlovable", "People will hurt me", "I always fail"],
+      "domains": ["Cognition", "Developmental", "Attachment", "Affect"],
+      "tags": ["core belief", "schema", "self-belief", "cognition", "automatic thoughts"],
+      "maintainingCycles": [
+        "Trigger -> negative meaning -> affect -> coping behaviour -> apparent confirmation of belief"
+      ],
+      "comparisonNotes": [
+        "Distinguish from automatic thoughts by breadth, rigidity, and recurrence across many contexts."
+      ],
+      "formulationUse": "Negative core beliefs provide a bridge between developmental learning and current interpretations.",
+      "exampleSentence": "A negative core belief of defectiveness appears to shape threat appraisals, self-criticism, and avoidance of disconfirming feedback.",
+      "treatmentImplications": [
+        "Identify themes across situations",
+        "Use behavioural experiments",
+        "Build balanced alternative beliefs"
+      ],
+      "treatmentLeverage": "Work at the level of meaning, not only surface thoughts.",
+      "id": "negative-core-beliefs"
+    },
+    {
+      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
+      "sourceConfidence": "Static source metadata recorded",
+      "version": "Source review v1",
+      "symptoms": ["Interpersonal conflict", "Paranoid ideation in some contexts", "Anger", "Shame"],
+      "diagnosticContexts": ["Psychodynamic formulation", "Personality functioning", "Trauma-related mistrust"],
+      "protective": [],
+      "sources": ["defense"],
+      "caveats": [
+        "Use as a formulation hypothesis, not as a diagnosis.",
+        "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
+        "Revise the formulation when new information does not fit the hypothesised mechanism."
+      ],
+      "fitIndicators": [
+        "Unwanted feelings or impulses appear attributed to another person with high certainty.",
+        "The attribution reduces self-conflict but escalates suspicion, blame, or rupture.",
+        "The content of the accusation resembles a disowned affect, wish, or fear."
+      ],
+      "poorFitIndicators": [
+        "There is strong evidence that the other person is acting in the described way.",
+        "The belief is fixed, bizarre, or psychotic rather than relationally linked and affect-responsive.",
+        "The pattern is primarily shame, trauma mistrust, or negative core belief without disowned affect."
+      ],
+      "caseExample": "A patient who feels angry after a rupture insists the clinician is angry and punitive, despite no clear evidence.",
+      "treatmentTargetExample": "Validate the affect first, then gently compare evidence and invite curiosity about the internal feeling state.",
+      "name": "Projection",
+      "definition": "A defence in which unacceptable feelings, impulses, or self-states are attributed to another person.",
+      "summary": "Projection can protect against shame or conflict but may create suspicion, blame, and interpersonal escalation.",
+      "coreProcess": "An unwanted internal state is experienced as located in the other, reducing self-conflict but distorting interpersonal appraisal.",
+      "development": "May emerge when owning particular affects or impulses is associated with shame, danger, punishment, or loss of attachment.",
+      "predisposing": ["Shame-proneness", "Threatened self-image", "Harsh internal standards"],
+      "precipitating": ["Unacceptable anger, envy, dependency, or desire", "Interpersonal ambiguity"],
+      "perpetuating": [
+        "External blame reduces self-conflict",
+        "Others become defensive",
+        "Suspicion appears confirmed"
+      ],
+      "clinicalClues": [
+        "High certainty about others motives",
+        "Accusations matching disowned affect",
+        "Escalation when self-reflection is invited"
+      ],
+      "patientPhrases": ["They hate me", "They are trying to control me", "Everyone is judging me"],
+      "domains": ["Defence", "Interpersonal", "Affect", "Cognition"],
+      "tags": ["projection", "externalisation", "blame", "defence", "mistrust"],
+      "maintainingCycles": [
+        "Disowned affect -> attribution to other -> defensive interaction -> apparent confirmation"
+      ],
+      "comparisonNotes": [
+        "Distinguish from realistic mistrust by checking evidence, flexibility, and links to disowned affect."
+      ],
+      "formulationUse": "Projection may explain why intolerable self-states are experienced as threats located in other people.",
+      "exampleSentence": "Projection may protect against owning painful feelings, but it can make relationships feel more hostile and confirming.",
+      "treatmentImplications": [
+        "Validate affect before interpretation",
+        "Explore evidence gently",
+        "Avoid premature confrontation"
+      ],
+      "treatmentLeverage": "Build capacity to notice disowned feeling states without shame escalation.",
+      "id": "projection"
+    },
+    {
+      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
+      "sourceConfidence": "Static source metadata recorded",
+      "version": "Source review v1",
+      "symptoms": ["Depression", "Anxiety", "Insomnia", "Shame"],
+      "diagnosticContexts": ["Depression", "Anxiety", "Trauma-related presentations", "Perfectionism"],
+      "protective": [],
+      "sources": ["rumination", "cbt"],
+      "caveats": [
+        "Use as a formulation hypothesis, not as a diagnosis.",
+        "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
+        "Revise the formulation when new information does not fit the hypothesised mechanism."
+      ],
+      "fitIndicators": [
+        "Thinking is repetitive, past- or meaning-focused, and does not move toward effective action.",
+        "Mood worsens as the person reviews causes, failures, or consequences.",
+        "The process feels like problem-solving but remains abstract and self-critical."
+      ],
+      "poorFitIndicators": [
+        "The person is doing concrete planning that leads to action.",
+        "Thinking is future-threat oriented and better described as worry.",
+        "Repetitive thought is driven by obsessional intrusions requiring a different formulation."
+      ],
+      "caseExample": "After an argument, a patient spends hours replaying what they “should have said,” becomes more ashamed, and withdraws.",
+      "treatmentTargetExample": "Shift from abstract replay to concrete next steps, attention shifting, or values-based action.",
+      "name": "Rumination",
+      "definition": "Repetitive, passive, negatively toned thinking about distress, causes, meanings, or consequences.",
+      "summary": "Rumination may feel like problem-solving but often maintains low mood, shame, threat, and cognitive inflexibility.",
+      "coreProcess": "Attention becomes repeatedly captured by unresolved negative meanings without moving into effective action or new learning.",
+      "development": "May develop as an attempt to understand, prevent, or mentally undo painful experiences, especially when emotion feels unresolved.",
+      "predisposing": ["Depressive thinking style", "Perfectionism", "Shame", "Low behavioural activation"],
+      "precipitating": ["Failure", "Loss", "Conflict", "Unresolved ambiguity"],
+      "perpetuating": ["Reduced action", "Increased negative affect", "Selective attention to threat or defectiveness"],
+      "clinicalClues": [
+        "Long repetitive analysis",
+        "Difficulty shifting attention",
+        "Sleep disruption",
+        "Repeated why questions"
+      ],
+      "patientPhrases": ["I keep going over it", "I cannot switch my mind off", "Why did I do that?"],
+      "domains": ["Cognition", "Affect", "Behaviour"],
+      "tags": ["rumination", "repetitive thinking", "depression", "shame", "cognition"],
+      "maintainingCycles": [
+        "Negative event -> repetitive analysis -> mood worsens -> more negative material becomes salient"
+      ],
+      "comparisonNotes": [
+        "Distinguish from worry: rumination often reviews past or current distress, while worry anticipates future threat."
+      ],
+      "formulationUse": "Rumination may maintain distress by keeping attention fixed on negative meanings without corrective action.",
+      "exampleSentence": "Rumination appears to keep the patient caught in repeated negative meaning-making, worsening mood and reducing behavioural movement.",
+      "treatmentImplications": [
+        "Shift to concrete problem-solving",
+        "Attention training",
+        "Behavioural activation",
+        "Metacognitive work"
+      ],
+      "treatmentLeverage": "Move from repetitive analysis to values-based action or specific problem-solving.",
+      "id": "rumination"
+    },
+    {
+      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
+      "sourceConfidence": "Static source metadata recorded",
+      "version": "Source review v1",
+      "symptoms": ["Anxiety", "Muscle tension", "Insomnia", "Poor concentration"],
+      "diagnosticContexts": ["Generalised anxiety", "Health anxiety", "Obsessive-compulsive presentations"],
+      "protective": [],
+      "sources": ["anxiety", "cbt"],
+      "caveats": [
+        "Use as a formulation hypothesis, not as a diagnosis.",
+        "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
+        "Revise the formulation when new information does not fit the hypothesised mechanism."
+      ],
+      "fitIndicators": [
+        "Thinking is repetitive, future-oriented, and organised around possible threats or uncertainty.",
+        "Planning gives a brief sense of control but increases vigilance and arousal.",
+        "The person struggles to separate solvable problems from hypothetical threats."
+      ],
+      "poorFitIndicators": [
+        "The main loop is past-focused rumination rather than future threat simulation.",
+        "Concern is proportionate and leads to effective preparation.",
+        "The dominant process is intrusive obsession, trauma re-experiencing, or psychotic threat belief."
+      ],
+      "caseExample": "A patient spends the night imagining every way a meeting could go wrong and arrives exhausted but still uncertain.",
+      "treatmentTargetExample": "Sort worries into solvable problems versus hypothetical threats, then practise uncertainty exposure.",
+      "name": "Worry",
+      "definition": "Repetitive future-oriented thinking about possible threats, uncertainty, or negative outcomes.",
+      "summary": "Worry attempts to prepare for danger but may maintain anxiety by overestimating threat and under-testing coping.",
+      "coreProcess": "Future threat simulations create an illusion of preparation while increasing vigilance, arousal, and safety behaviours.",
+      "development": "May develop where uncertainty has felt dangerous, unpredictable, or personally costly.",
+      "predisposing": ["Intolerance of uncertainty", "High responsibility beliefs", "Threat sensitivity"],
+      "precipitating": ["Ambiguity", "Upcoming decision", "Bodily sensation", "Responsibility cue"],
+      "perpetuating": [
+        "Temporary sense of control",
+        "Avoidance of emotional processing",
+        "Reduced tolerance of uncertainty"
+      ],
+      "clinicalClues": ["What-if chains", "Reassurance seeking", "Over-planning", "Difficulty sleeping"],
+      "patientPhrases": ["What if something goes wrong?", "I need to be prepared", "I cannot stop thinking ahead"],
+      "domains": ["Cognition", "Affect", "Behaviour", "Risk"],
+      "tags": ["worry", "uncertainty", "what if", "future threat", "anxiety"],
+      "maintainingCycles": ["Uncertainty -> worry -> temporary control -> more threat scanning -> more uncertainty"],
+      "comparisonNotes": [
+        "Distinguish from rumination by future orientation and perceived function of preventing harm."
+      ],
+      "formulationUse": "Worry may function as an attempted safety strategy that keeps threat active and uncertainty intolerable.",
+      "exampleSentence": "Worry gives a brief sense of preparation, but it also sustains threat monitoring and prevents uncertainty tolerance.",
+      "treatmentImplications": [
+        "Worry postponement",
+        "Uncertainty exposure",
+        "Problem-solving versus hypothetical worry sorting"
+      ],
+      "treatmentLeverage": "Separate solvable problems from hypothetical threat loops.",
+      "id": "worry"
+    },
+    {
+      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
+      "sourceConfidence": "Static source metadata recorded",
+      "version": "Source review v1",
+      "symptoms": ["Amnesia", "Depersonalisation", "Derealisation", "Emotional numbing"],
+      "diagnosticContexts": [
+        "Dissociative disorders",
+        "PTSD",
+        "Complex trauma",
+        "Functional neurological symptoms differential"
+      ],
+      "protective": [],
+      "sources": ["dissociation"],
+      "caveats": [
+        "Use as a formulation hypothesis, not as a diagnosis.",
+        "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
+        "Revise the formulation when new information does not fit the hypothesised mechanism."
+      ],
+      "fitIndicators": [
+        "There are episodes of detachment, derealisation, depersonalisation, time loss, or altered awareness.",
+        "Disconnection appears when arousal, trauma cues, shame, or threat exceed coping capacity.",
+        "The person may look present but later reports gaps, unreality, or watching from outside themselves."
+      ],
+      "poorFitIndicators": [
+        "The person is deliberately avoiding while awareness and memory remain intact.",
+        "Symptoms are better explained by seizure, intoxication, delirium, sleep disorder, or psychosis.",
+        "The main issue is emotional numbing without altered awareness or integration."
+      ],
+      "caseExample": "During a trauma reminder, a patient feels unreal, loses track of time, and later cannot recall parts of the conversation.",
+      "treatmentTargetExample": "Prioritise grounding, orientation, and pacing before detailed trauma processing.",
+      "name": "Dissociation",
+      "definition": "A disruption or disconnection in memory, identity, emotion, perception, behaviour, body experience, or sense of self.",
+      "summary": "Dissociation can reduce overwhelming distress during threat but may later impair memory integration, presence, agency, and relational engagement.",
+      "coreProcess": "Overwhelming arousal or threat is managed by disconnection, detachment, numbing, derealisation, depersonalisation, or memory compartmentalisation.",
+      "development": "Frequently associated with trauma, especially repeated or overwhelming experiences, though mild dissociation can occur in everyday life.",
+      "predisposing": ["Trauma exposure", "Overwhelming affect", "Low safety", "Dissociative coping history"],
+      "precipitating": ["Trauma cue", "High arousal", "Shame exposure", "Interpersonal threat"],
+      "perpetuating": [
+        "Immediate reduction in overwhelm",
+        "Reduced memory integration",
+        "Avoidance of affective processing"
+      ],
+      "clinicalClues": ["Time loss", "Spacing out", "Detached voice or gaze", "Derealisation", "Depersonalisation"],
+      "patientPhrases": [
+        "I was not really there",
+        "Everything felt unreal",
+        "I lost time",
+        "I watched it happen from outside"
+      ],
+      "domains": ["Trauma", "Affect", "Behaviour", "Risk"],
+      "tags": ["dissociation", "detachment", "depersonalisation", "derealisation", "trauma"],
+      "maintainingCycles": ["Threat cue -> overwhelm -> dissociation -> reduced processing -> cue remains potent"],
+      "comparisonNotes": [
+        "Distinguish from avoidance by altered awareness, memory, identity, or presence rather than only behavioural escape."
+      ],
+      "formulationUse": "Dissociation may explain sudden disengagement, memory gaps, or emotional numbing when arousal exceeds coping capacity.",
+      "exampleSentence": "Dissociation appears to protect against overwhelming affect, but it may also interrupt integration and reduce present-moment agency.",
+      "treatmentImplications": [
+        "Grounding and stabilisation",
+        "Window of tolerance work",
+        "Pace trauma processing carefully"
+      ],
+      "treatmentLeverage": "Increase present-moment orientation and safety before intensive processing.",
+      "id": "dissociation"
+    },
+    {
+      "sourceStatus": "Source metadata reviewed; owner confirmation pending",
+      "sourceConfidence": "Static source metadata recorded",
+      "version": "Source review v1",
+      "symptoms": ["Anxiety", "Depression", "Burnout", "Eating disorder symptoms in some contexts"],
+      "diagnosticContexts": [
+        "Anxiety disorders",
+        "Depression",
+        "Obsessive-compulsive personality traits",
+        "Eating disorders"
+      ],
+      "protective": [],
+      "sources": ["perfectionism", "cbt"],
+      "caveats": [
+        "Use as a formulation hypothesis, not as a diagnosis.",
+        "Check context, culture, developmental history, mental state, risk, and alternative explanations.",
+        "Revise the formulation when new information does not fit the hypothesised mechanism."
+      ],
+      "fitIndicators": [
+        "Self-worth, safety, or acceptability depends on meeting rigid high standards.",
+        "Mistakes trigger self-criticism, overchecking, avoidance, or procrastination.",
+        "The standard remains costly even when performance is objectively adequate."
+      ],
+      "poorFitIndicators": [
+        "High standards are flexible, values-based, and not associated with significant distress or impairment.",
+        "Avoidance is mainly due to fear, low mood, access barriers, or executive function difficulty.",
+        "The main belief is broad defectiveness rather than conditional worth tied to performance."
+      ],
+      "caseExample": "A patient delays submitting work for days because anything less than flawless feels humiliating and unsafe.",
+      "treatmentTargetExample": "Run good-enough behavioural experiments and loosen the link between worth and flawless performance.",
+      "name": "Perfectionism",
+      "definition": "A rigid pattern of setting excessively high standards and linking worth, safety, or acceptability to flawless performance.",
+      "summary": "Perfectionism can drive achievement but may maintain anxiety, depression, shame, procrastination, avoidance, and burnout.",
+      "coreProcess": "Conditional self-worth and threat appraisal attach high emotional cost to mistakes, uncertainty, or ordinary limitation.",
+      "development": "May develop through criticism, conditional approval, achievement-based identity, insecurity, or attempts to prevent shame and loss of control.",
+      "predisposing": ["Conditional approval", "High criticism", "Anxiety", "Negative core beliefs"],
+      "precipitating": ["Performance demand", "Mistake", "Evaluation", "Loss of control"],
+      "perpetuating": [
+        "Overchecking",
+        "Avoidance or procrastination",
+        "Temporary relief after meeting standards",
+        "Self-criticism"
+      ],
+      "clinicalClues": ["All-or-nothing standards", "Difficulty finishing", "Overchecking", "Harsh internal critic"],
+      "patientPhrases": [
+        "If it is not perfect, it is a failure",
+        "I should have done better",
+        "I cannot submit it yet"
+      ],
+      "domains": ["Cognition", "Behaviour", "Affect", "Developmental"],
+      "tags": ["perfectionism", "standards", "self-criticism", "control", "procrastination"],
+      "maintainingCycles": [
+        "High standard -> threat of mistake -> overcontrol or avoidance -> temporary relief -> standard remains rigid"
+      ],
+      "comparisonNotes": [
+        "Distinguish from conscientiousness by rigidity, distress, and cost to functioning or relationships."
+      ],
+      "formulationUse": "Perfectionism may organise coping around preventing shame, criticism, or loss of worth.",
+      "exampleSentence": "Perfectionism appears to protect against shame through high control, but it increases self-criticism and avoidance when standards cannot be met.",
+      "treatmentImplications": [
+        "Behavioural experiments with good-enough performance",
+        "Self-compassion work",
+        "Challenge conditional worth rules"
+      ],
+      "treatmentLeverage": "Reduce the link between worth and flawless performance.",
+      "id": "perfectionism"
+    }
+  ],
+  "formulationTemplates": [
+    {
+      "id": "5Ps",
+      "label": "5Ps"
+    },
+    {
+      "id": "CBT cycle",
+      "label": "CBT cycle"
+    },
+    {
+      "id": "Trauma-informed",
+      "label": "Trauma-informed"
+    },
+    {
+      "id": "Interpersonal",
+      "label": "Interpersonal"
+    },
+    {
+      "id": "Risk",
+      "label": "Risk"
+    },
+    {
+      "id": "Treatment plan",
+      "label": "Treatment plan"
+    }
+  ],
+  "formulationSections": [
+    {
+      "id": "presenting",
+      "label": "Presenting problem",
+      "prompt": "Brief summary of the presenting problem",
+      "group": ["5Ps", "CBT cycle", "Trauma-informed", "Interpersonal", "Risk", "Treatment plan"]
+    },
+    {
+      "id": "symptoms",
+      "label": "Key symptoms and phenomenology",
+      "prompt": "Observed symptoms, subjective experience, and relevant context",
+      "group": ["5Ps", "Trauma-informed", "Risk"]
+    },
+    {
+      "id": "predisposing",
+      "label": "Predisposing factors",
+      "prompt": "Developmental, biological, psychological, social, or cultural factors",
+      "group": ["5Ps", "Trauma-informed", "Interpersonal"]
+    },
+    {
+      "id": "precipitating",
+      "label": "Precipitating factors",
+      "prompt": "Recent events, stressors, losses, conflict, or changes",
+      "group": ["5Ps", "CBT cycle", "Trauma-informed", "Risk"]
+    },
+    {
+      "id": "perpetuating",
+      "label": "Perpetuating factors",
+      "prompt": "Maintaining cycles, avoidance, interpersonal patterns, or system factors",
+      "group": ["5Ps", "CBT cycle", "Interpersonal"]
+    },
+    {
+      "id": "protective",
+      "label": "Protective factors",
+      "prompt": "Strengths, supports, values, engagement, and stabilising factors",
+      "group": ["5Ps", "Trauma-informed", "Risk", "Treatment plan"]
+    },
+    {
+      "id": "risk",
+      "label": "Risk formulation",
+      "prompt": "Risk factors, protective factors, uncertainty, and monitoring needs",
+      "group": ["Risk", "Treatment plan"]
+    },
+    {
+      "id": "treatment",
+      "label": "Treatment implications",
+      "prompt": "Formulation-linked treatment targets and next steps",
+      "group": ["CBT cycle", "Trauma-informed", "Interpersonal", "Risk", "Treatment plan"]
+    },
+    {
+      "id": "trigger",
+      "label": "Trigger or cue",
+      "prompt": "Situation, sensation, memory, relationship cue, or demand that starts the cycle",
+      "group": ["CBT cycle", "Trauma-informed", "Interpersonal"]
+    },
+    {
+      "id": "meaning",
+      "label": "Meaning or appraisal",
+      "prompt": "Beliefs, interpretations, threat meanings, shame meanings, or attachment meanings",
+      "group": ["CBT cycle", "Trauma-informed", "Interpersonal"]
+    },
+    {
+      "id": "response",
+      "label": "Emotional and behavioural response",
+      "prompt": "Affect, body response, coping behaviour, relational response, or safety strategy",
+      "group": ["CBT cycle", "Trauma-informed", "Interpersonal"]
+    },
+    {
+      "id": "repair",
+      "label": "Repair or stabilising step",
+      "prompt": "Grounding, rupture repair, graded experiment, support plan, or immediate stabilising action",
+      "group": ["Trauma-informed", "Interpersonal", "Risk", "Treatment plan"]
+    }
+  ],
+  "formulationQualityPrompts": [
+    {
+      "id": "quality-evidence",
+      "label": "Evidence supporting this mechanism",
+      "prompt": "What clinical observations, patient language, sequence, or behavioural pattern supports this mechanism?"
+    },
+    {
+      "id": "quality-alternative",
+      "label": "Alternative explanation",
+      "prompt": "What else could explain the presentation, and what would make that more likely?"
+    },
+    {
+      "id": "quality-disconfirming",
+      "label": "Disconfirming evidence",
+      "prompt": "What would weaken or overturn this formulation hypothesis?"
+    },
+    {
+      "id": "quality-intervention",
+      "label": "Intervention target",
+      "prompt": "What practical intervention target follows from this formulation?"
+    }
+  ],
+  "comparisonGuidance": {
+    "avoidance__dissociation": {
+      "mostUsefulDistinction": "Avoidance usually preserves awareness while the person escapes or narrows activity; dissociation changes presence, memory, body experience, or awareness.",
+      "commonConfusion": "Both can look like disengagement, shutdown, or being hard to reach in the room.",
+      "treatmentImplicationDifference": "Avoidance often points to graded approach or behavioural experiments; dissociation first needs grounding, pacing, and orientation.",
+      "assessmentQuestion": "When this happens, are you choosing to get away from something, or do you feel unreal, absent, detached, or missing time?"
+    },
+    "rumination__worry": {
+      "mostUsefulDistinction": "Rumination revisits distress, causes, and meanings; worry rehearses future threat and uncertainty.",
+      "commonConfusion": "Both can be described as overthinking and both can interfere with sleep and concentration.",
+      "treatmentImplicationDifference": "Rumination often needs concrete action or attention shifting; worry often needs problem sorting and uncertainty tolerance.",
+      "assessmentQuestion": "Is your mind mainly replaying what happened or trying to prevent what might happen next?"
+    },
+    "negative-core-beliefs__shame": {
+      "mostUsefulDistinction": "Shame is the painful exposed affect; negative core beliefs are the broader self, other, or world meanings that shame may activate.",
+      "commonConfusion": "Both can sound like global self-criticism and defectiveness.",
+      "treatmentImplicationDifference": "Shame work emphasises non-shaming contact and tolerable exposure; core belief work tests predictions and builds alternative meanings.",
+      "assessmentQuestion": "In the moment, is the strongest experience feeling exposed and unacceptable, or believing something globally true about yourself?"
+    },
+    "projection__splitting": {
+      "mostUsefulDistinction": "Projection locates an unwanted feeling in another person; splitting organises self or others into all-good or all-bad positions.",
+      "commonConfusion": "Both can produce sudden certainty, blame, and relational escalation.",
+      "treatmentImplicationDifference": "Projection needs gentle curiosity about disowned affect; splitting needs support for holding mixed representations during rupture.",
+      "assessmentQuestion": "Does the conflict centre on what the other person supposedly feels or intends, or on a rapid shift into a wholly good or bad view?"
+    }
+  },
+  "sourceWarnings": {
+    "prototype": "Linked sources have static metadata review; local owner confirmation is still required before clinical deployment.",
+    "source": "Source metadata recorded in static review data; owner confirmation pending.",
+    "draft": "Draft formulation text for review and editing.",
+    "clipboard": "Keep copied formulation text de-identified.",
+    "privacy": "Patient-entered text stays in this browser session unless you copy it.",
+    "regulatory": "Formal release confirmation is tracked separately from the primary workspace."
+  },
+  "governance": {
+    "contentGovernance": {
+      "contentVersion": "Source review v1",
+      "confirmationNote": "Linked sources have static metadata review; local owner confirmation remains pending before clinical deployment.",
+      "jurisdictionMode": "jurisdiction-neutral",
+      "releaseStatus": "source-review-complete-owner-confirmation-pending"
+    },
+    "sourceReviewRegistry": {
+      "cbt": {
+        "approvedUse": "Teaching only",
+        "confidence": "Established clinical reference",
+        "extractionStatus": "Recorded",
+        "identifiers": ["Bookshelf NBK470241", "PMID 29261869"],
+        "reviewedBy": "Codex static source metadata review",
+        "reviewedAt": "2026-06-11",
+        "reviewVersion": "Source review v1",
+        "sourceType": "StatPearls chapter",
+        "sourceUpdatedAt": "2023-05-23",
+        "caveats": "Use to support CBT formulation concepts; not a local treatment protocol or clinical validation.",
+        "citationNotes": "NCBI Bookshelf StatPearls chapter with update date and PMID recorded from linked source.",
+        "auditTrail": [
+          {
+            "action": "static-source-metadata-recorded",
+            "actor": "Codex",
+            "date": "2026-06-11",
+            "note": "Recorded linked-source metadata for cbt; owner clinical confirmation remains separate."
+          }
+        ]
+      },
+      "defense": {
+        "approvedUse": "Teaching only",
+        "confidence": "Established clinical reference",
+        "extractionStatus": "Recorded",
+        "identifiers": ["Bookshelf NBK559106", "PMID 32644532"],
+        "reviewedBy": "Codex static source metadata review",
+        "reviewedAt": "2026-06-11",
+        "reviewVersion": "Source review v1",
+        "sourceType": "StatPearls chapter",
+        "sourceUpdatedAt": "2023-05-22",
+        "caveats": "Use to support psychodynamic mechanism language; verify fit against case context and alternatives.",
+        "citationNotes": "NCBI Bookshelf StatPearls chapter with update date and PMID recorded from linked source.",
+        "auditTrail": [
+          {
+            "action": "static-source-metadata-recorded",
+            "actor": "Codex",
+            "date": "2026-06-11",
+            "note": "Recorded linked-source metadata for defense; owner clinical confirmation remains separate."
+          }
+        ]
+      },
+      "anxiety": {
+        "approvedUse": "Teaching only",
+        "confidence": "Established clinical reference",
+        "extractionStatus": "Recorded",
+        "identifiers": ["Bookshelf NBK470361", "PMID 29262212"],
+        "reviewedBy": "Codex static source metadata review",
+        "reviewedAt": "2026-06-11",
+        "reviewVersion": "Source review v1",
+        "sourceType": "StatPearls chapter",
+        "sourceUpdatedAt": "2023-04-24",
+        "caveats": "Use to support anxiety, threat appraisal, and worry formulation concepts; not diagnostic guidance.",
+        "citationNotes": "NCBI Bookshelf StatPearls chapter with update date and PMID recorded from linked source.",
+        "auditTrail": [
+          {
+            "action": "static-source-metadata-recorded",
+            "actor": "Codex",
+            "date": "2026-06-11",
+            "note": "Recorded linked-source metadata for anxiety; owner clinical confirmation remains separate."
+          }
+        ]
+      },
+      "attachment": {
+        "approvedUse": "Teaching only",
+        "confidence": "Research-framework reference",
+        "extractionStatus": "Recorded",
+        "identifiers": ["NIMH RDoC Social Processes construct"],
+        "reviewedBy": "Codex static source metadata review",
+        "reviewedAt": "2026-06-11",
+        "reviewVersion": "Source review v1",
+        "sourceType": "NIMH RDoC construct page",
+        "sourceUpdatedAt": "source page current at review",
+        "caveats": "Use as a research-framework anchor for affiliation and attachment; adapt to local clinical model.",
+        "citationNotes": "NIMH RDoC construct page classifies Affiliation and Attachment under Social Processes.",
+        "auditTrail": [
+          {
+            "action": "static-source-metadata-recorded",
+            "actor": "Codex",
+            "date": "2026-06-11",
+            "note": "Recorded linked-source metadata for attachment; owner clinical confirmation remains separate."
+          }
+        ]
+      },
+      "dissociation": {
+        "approvedUse": "Teaching only",
+        "confidence": "Professional association reference",
+        "extractionStatus": "Recorded",
+        "identifiers": ["APA patient and family topic page"],
+        "reviewedBy": "Codex static source metadata review",
+        "reviewedAt": "2026-06-11",
+        "reviewVersion": "Source review v1",
+        "sourceType": "American Psychiatric Association patient education page",
+        "sourceUpdatedAt": "source page current at review",
+        "caveats": "Use for accessible dissociation background only; diagnostic criteria and treatment require local clinical review.",
+        "citationNotes": "APA page identifies dissociative symptom domains, trauma association, and disorder categories.",
+        "auditTrail": [
+          {
+            "action": "static-source-metadata-recorded",
+            "actor": "Codex",
+            "date": "2026-06-11",
+            "note": "Recorded linked-source metadata for dissociation; owner clinical confirmation remains separate."
+          }
+        ]
+      },
+      "emotion": {
+        "approvedUse": "Teaching only",
+        "confidence": "Peer-reviewed review article",
+        "extractionStatus": "Recorded",
+        "identifiers": ["PMCID PMC10653990", "PMID 38026703", "DOI 10.1042/NS20220077"],
+        "reviewedBy": "Codex static source metadata review",
+        "reviewedAt": "2026-06-11",
+        "reviewVersion": "Source review v1",
+        "sourceType": "Peer-reviewed narrative review",
+        "sourceUpdatedAt": "2023-11-15",
+        "caveats": "Use as a mechanism evidence reference for emotion dysregulation; not a standalone treatment recommendation.",
+        "citationNotes": "PMC metadata records a Neuronal Signal narrative review on inflammation and emotion regulation mechanisms.",
+        "auditTrail": [
+          {
+            "action": "static-source-metadata-recorded",
+            "actor": "Codex",
+            "date": "2026-06-11",
+            "note": "Recorded linked-source metadata for emotion; owner clinical confirmation remains separate."
+          }
+        ]
+      },
+      "rumination": {
+        "approvedUse": "Teaching only",
+        "confidence": "Peer-reviewed review article",
+        "extractionStatus": "Recorded",
+        "identifiers": ["PMID 32087393", "DOI 10.1016/j.brat.2020.103573"],
+        "reviewedBy": "Codex static source metadata review",
+        "reviewedAt": "2026-06-11",
+        "reviewVersion": "Source review v1",
+        "sourceType": "Peer-reviewed review article",
+        "sourceUpdatedAt": "2020-01-31",
+        "caveats": "Use as a mechanism evidence reference for rumination; case formulation still needs differential review.",
+        "citationNotes": "PubMed metadata records a Behaviour Research and Therapy review on rumination consequences and mechanisms.",
+        "auditTrail": [
+          {
+            "action": "static-source-metadata-recorded",
+            "actor": "Codex",
+            "date": "2026-06-11",
+            "note": "Recorded linked-source metadata for rumination; owner clinical confirmation remains separate."
+          }
+        ]
+      },
+      "shame": {
+        "approvedUse": "Teaching only",
+        "confidence": "Peer-reviewed systematic review",
+        "extractionStatus": "Recorded",
+        "identifiers": ["PMID 27687818", "DOI 10.1016/j.neubiorev.2016.09.019"],
+        "reviewedBy": "Codex static source metadata review",
+        "reviewedAt": "2026-06-11",
+        "reviewVersion": "Source review v1",
+        "sourceType": "Peer-reviewed systematic review",
+        "sourceUpdatedAt": "2016-09-26",
+        "caveats": "Use as a background reference for shame-related mechanisms; culture, context, and alternative affects need review.",
+        "citationNotes": "PubMed metadata records a systematic review of shame, embarrassment, guilt, and neural correlates.",
+        "auditTrail": [
+          {
+            "action": "static-source-metadata-recorded",
+            "actor": "Codex",
+            "date": "2026-06-11",
+            "note": "Recorded linked-source metadata for shame; owner clinical confirmation remains separate."
+          }
+        ]
+      },
+      "perfectionism": {
+        "approvedUse": "Teaching only",
+        "confidence": "Peer-reviewed literature review",
+        "extractionStatus": "Recorded",
+        "identifiers": ["PMCID PMC7882132", "PMID 32996466", "DOI 10.5116/ijme.5f54.c8f8"],
+        "reviewedBy": "Codex static source metadata review",
+        "reviewedAt": "2026-06-11",
+        "reviewVersion": "Source review v1",
+        "sourceType": "Peer-reviewed literature review",
+        "sourceUpdatedAt": "2020-09-28",
+        "caveats": "Use as a background reference for perfectionism and impostor-phenomenon links; population limits apply.",
+        "citationNotes": "PMC metadata records an International Journal of Medical Education literature review.",
+        "auditTrail": [
+          {
+            "action": "static-source-metadata-recorded",
+            "actor": "Codex",
+            "date": "2026-06-11",
+            "note": "Recorded linked-source metadata for perfectionism; owner clinical confirmation remains separate."
+          }
+        ]
+      }
+    },
+    "contentReviewSummary": {
+      "sourceCount": 9,
+      "pendingOwnerConfirmations": 9,
+      "pendingSourceReviews": 0,
+      "releaseChecklistStatus": "Non-clinical handoff ready"
+    }
+  }
+}
