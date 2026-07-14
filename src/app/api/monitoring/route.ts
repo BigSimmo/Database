@@ -23,6 +23,9 @@ const UPSTREAM_TIMEOUT_MS = 5_000;
 // quota. A per-instance in-memory window is intentionally simple (unlike the
 // durable answer/upload limiters this is best-effort telemetry relay, not a paid
 // or state-changing path); Sentry's own ingest rate limits are the backstop.
+// 120/minute is intentionally above normal error bursts from one browser session
+// (reload loops, repeated boundary retries) while still limiting obvious abuse on
+// this unauthenticated telemetry-only endpoint.
 const RATE_LIMIT_MAX = 120;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 type RateWindow = { count: number; resetAt: number };

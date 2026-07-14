@@ -17,7 +17,7 @@ const envSchema = z.object({
   SUPABASE_DB_URL: z.string().url().optional(),
   HEALTH_DEEP_PROBE_SECRET: z.string().min(16).optional(),
   // Optional client-side (browser) Sentry error capture. This public DSN is safe
-  // to expose to the browser. Fully
+  // to expose to the browser.
   // inert when unset: the @sentry/browser SDK is tree-shaken out of the client bundle
   // (see src/instrumentation-client.ts). Blank is normalized to undefined so an empty
   // NEXT_PUBLIC_SENTRY_DSN="" never fails envSchema.parse at startup.
