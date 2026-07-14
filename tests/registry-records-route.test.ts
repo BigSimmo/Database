@@ -337,8 +337,24 @@ describe("registry records API", () => {
     expect(payload.publicAccess).toBe(true);
     expect(payload.record.slug).toBe("13yarn");
     expect(payload.linkedDocuments).toEqual([]);
+    // The seed detail is served without a table read or auth round-trip, but anonymous detail
+    // requests must still pass the registry limiter (finding C — no anonymous bypass).
     expect(client.from).not.toHaveBeenCalled();
-    expect(client.rpc).not.toHaveBeenCalled();
+    expect(client.rpc).toHaveBeenCalled();
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it("rate-limits anonymous detail requests (429) instead of skipping the limiter", async () => {
+    const client = createSupabaseMock(() => ok([]), { limited: true });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/[slug]/route");
+
+    const response = await GET(request("/api/registry/records/13YARN?kind=service"), {
+      params: Promise.resolve({ slug: "13YARN" }),
+    });
+
+    expect(response.status).toBe(429);
+    expect(client.from).not.toHaveBeenCalled();
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
 

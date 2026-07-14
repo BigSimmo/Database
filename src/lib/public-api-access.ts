@@ -55,26 +55,6 @@ export function anonymousApiSubjectKey(request: Request) {
   return `anon:${createHash("sha256").update(source).digest("hex").slice(0, 32)}`;
 }
 
-export function hasSessionCookieSignal(request: Request) {
-  const cookieHeader = request.headers.get("cookie") ?? "";
-  return cookieHeader.includes("sb-");
-}
-
-export function hasBearerAuthAttempt(request: Request) {
-  const authorization = request.headers.get("authorization") ?? "";
-  return /^Bearer\s+\S+/i.test(authorization);
-}
-
-/** True when the request may carry a durable Supabase session (cookie), not a bare bearer attempt. */
-export function hasPublicApiAuthSignal(request: Request) {
-  return hasSessionCookieSignal(request);
-}
-
-/** Anonymous callers with no cookie or bearer skip auth resolution and rate limits on curated public catalogs. */
-export function shouldResolvePublicCatalogAccess(request: Request) {
-  return hasSessionCookieSignal(request) || hasBearerAuthAttempt(request);
-}
-
 type OwnerScopedQuery<T> = {
   eq(column: string, value: unknown): T;
   is(column: string, value: null): T;

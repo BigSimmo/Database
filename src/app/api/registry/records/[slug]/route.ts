@@ -9,7 +9,7 @@ import {
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { safeErrorLogDetails } from "@/lib/privacy";
-import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
+import { publicAccessContext } from "@/lib/public-api-access";
 import { getFormRecord } from "@/lib/forms";
 import {
   deriveGovernanceColumns,
@@ -67,15 +67,9 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       });
     }
 
-    if (!shouldResolvePublicCatalogAccess(request)) {
-      const payload = publicRegistryDetailPayload(kind, normalizedSlug);
-      if (!payload) return notFoundResponse(normalizedSlug);
-      return registryResponse({
-        ...payload,
-        publicAccess: true,
-      });
-    }
-
+    // Anonymous callers still resolve access + rate limit before we serve the seed detail:
+    // publicAccessContext skips the Supabase auth round-trip when there's no session cookie/bearer,
+    // but every caller must pass the registry limiter (M4/C1 — no anonymous bypass).
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
 

@@ -18,7 +18,7 @@ import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differenti
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { safeErrorLogDetails } from "@/lib/privacy";
-import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
+import { publicAccessContext } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 
@@ -58,24 +58,9 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       });
     }
 
-    if (!shouldResolvePublicCatalogAccess(request)) {
-      const snapshot = loadDifferentialSnapshot();
-      const workflow = getPresentationWorkflow(normalizedSlug);
-      if (!workflow) return notFoundResponse(normalizedSlug);
-      const governance = deriveGovernanceFromSnapshot(snapshot);
-      const candidates = workflow.candidates.flatMap((candidate) => {
-        const record = getDifferentialRecord(candidate.slug);
-        if (!record) return [];
-        return [{ ...candidate, record }];
-      });
-      return differentialResponse({
-        workflow,
-        candidates,
-        governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
-        publicAccess: true,
-      });
-    }
-
+    // Anonymous callers still resolve access + rate limit before we serve the seed detail:
+    // publicAccessContext skips the Supabase auth round-trip when there's no session cookie/bearer,
+    // but every caller must pass the registry limiter (M4/C1 — no anonymous bypass).
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
 

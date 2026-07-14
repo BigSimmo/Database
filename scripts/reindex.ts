@@ -246,29 +246,17 @@ async function main() {
         locked_at: string | null;
         documents: RecoveryDocument | RecoveryDocument[] | null;
       };
-      const staleAfterCutoff = new Date(staleCutoff);
-      const jobs = (data ?? [])
-        .map((job: RawJobRow) => ({
-          ...job,
-          documents: Array.isArray(job.documents)
-            ? (job.documents[0] as RecoveryDocument | undefined)
-            : (job.documents as RecoveryDocument | undefined),
-        }))
-        .filter((job) => {
-          if (job.status === "pending") {
-            return true;
-          }
-          if (job.status === "failed") {
-            return true;
-          }
-          if (job.status !== "processing") {
-            return false;
-          }
-          if (job.locked_at === null) {
-            return true;
-          }
-          return new Date(job.locked_at) <= staleAfterCutoff;
-        });
+      // Pass every queried job (pending/processing/failed) to the planner and let its
+      // active-vs-recoverable classification decide. Filtering out fresh `processing` jobs here
+      // hid legitimate in-flight owners from the planner: a document with a failed row plus a
+      // fresh processing retry would then requeue the failed row and collide with the still-open
+      // processing sibling on ingestion_jobs_one_open_per_document_uidx (Audit I2/E2 follow-up).
+      const jobs = (data ?? []).map((job: RawJobRow) => ({
+        ...job,
+        documents: Array.isArray(job.documents)
+          ? (job.documents[0] as RecoveryDocument | undefined)
+          : (job.documents as RecoveryDocument | undefined),
+      }));
       hasActiveProcessingJobs = (data ?? [])
         .map((job: RawJobRow) => ({
           ...job,
