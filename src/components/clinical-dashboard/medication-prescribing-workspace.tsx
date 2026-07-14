@@ -73,6 +73,8 @@ type MedicationResult = {
 type MedicationRow = {
   result: MedicationResult;
   badges: ClinicalBadgeItem[];
+  /** Per-medication (drug-class) identity accent hex, for a subtle icon tint. */
+  accent?: string;
 };
 
 type MedicationResultFilter = "best" | "indication" | "safety" | "monitoring";
@@ -298,8 +300,25 @@ function FilterStrip({
   );
 }
 
-function ResultToneIcon({ result }: { result: MedicationResult }) {
+function ResultToneIcon({ result, accent }: { result: MedicationResult; accent?: string }) {
   const tone = result.tone === "teal" ? "teal" : result.tone === "blue" ? "blue" : "slate";
+  if (accent) {
+    // Decorative per-medication (class) accent tint; a soft wash + border keeps
+    // it legible in light and dark without carrying semantic meaning.
+    return (
+      <span
+        aria-hidden="true"
+        style={{
+          background: `color-mix(in srgb, ${accent} 12%, var(--surface))`,
+          borderColor: `color-mix(in srgb, ${accent} 34%, var(--surface))`,
+          color: accent,
+        }}
+        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]"
+      >
+        <Pill className="h-[54%] w-[54%]" aria-hidden="true" />
+      </span>
+    );
+  }
   return <IconTile icon={Pill} tone={tone} className="h-9 w-9" />;
 }
 
@@ -382,14 +401,15 @@ function MedicationResults({
     const governance = catalog.data?.governance;
     const toRow = (result: MedicationResult, medication?: MedicationRecord): MedicationRow => {
       const badges = medication ? medicationIdentityBadges(medication, governance?.[medication.slug]) : [];
+      const accent = medication?.accent;
       // Prepend a per-patient alert badge so the highest-severity consideration
       // surfaces first in the row's badge cluster (priority-sorted by tone).
       if (medication && !profileEmpty) {
         const alerts = evaluatePatientAlerts(medication, profile);
         const alertBadge = considerationSummaryBadge(alerts.considerations.length, alerts.highestTone);
-        if (alertBadge) return { result, badges: [alertBadge, ...badges] };
+        if (alertBadge) return { result, badges: [alertBadge, ...badges], accent };
       }
-      return { result, badges };
+      return { result, badges, accent };
     };
     const sourceRows =
       catalog.data?.matches?.map((match) => toRow(match.result, match.medication)) ??
@@ -510,7 +530,7 @@ function MedicationResults({
               const rowContent = (
                 <>
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <ResultToneIcon result={result} />
+                    <ResultToneIcon result={result} accent={row.accent} />
                     <div className="min-w-0">
                       <span className="block break-words text-base-minus font-semibold text-[color:var(--text-heading)]">
                         <HighlightedName text={result.name} term={query} />
@@ -590,7 +610,7 @@ function MedicationResults({
           );
           const cardContent = (
             <div className="grid grid-cols-[2.25rem_minmax(0,1fr)_auto] items-start gap-2.5">
-              <ResultToneIcon result={result} />
+              <ResultToneIcon result={result} accent={row.accent} />
               <div className="min-w-0 space-y-1.5">
                 <div className="min-w-0">
                   <p className="line-clamp-2 break-words text-base-minus font-semibold leading-5 text-[color:var(--text-heading)]">
