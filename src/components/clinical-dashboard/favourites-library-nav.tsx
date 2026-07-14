@@ -49,16 +49,10 @@ const focusRing =
 const favouritesNavCollapsedKey = "clinical-kb-favourites-nav-collapsed";
 const favouritesNavCollapsedEvent = "clinical-kb-favourites-nav-collapsed-change";
 
-const setAccentBars = [
-  "bg-gradient-to-r from-[color:var(--clinical-accent)] to-[color:var(--tone-indigo)]",
-  "bg-gradient-to-r from-[color:var(--info)] to-[color:var(--tone-indigo)]",
-  "bg-gradient-to-r from-[color:var(--tone-purple)] to-[color:var(--tone-rose)]",
-  "bg-gradient-to-r from-[color:var(--warning)] to-[color:var(--tone-rose)]",
-];
-
-function getSetAccentBar(index: number) {
-  return setAccentBars[index % setAccentBars.length];
-}
+// Calm, single clinical accent for saved-set cards. Avoids decorative multi-hue
+// gradients (and semantic colours like --warning) so the carousel stays quiet and
+// scan-first, consistent with the card's own --clinical-accent selected/hover states.
+const setAccentBar = "bg-[color:var(--clinical-accent)]";
 
 function isSourceBacked(item: FavouritesNavItem): boolean {
   return Boolean(item.evidence && item.evidence !== "Run" && item.evidence !== "Saved query");
@@ -399,11 +393,11 @@ export function FavouritesMobileBrowseRail({
       </h2>
       <div className="-mx-4 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:thin] sm:-mx-6 sm:px-6">
         <div className="flex w-max max-w-none gap-2.5 pr-1">
-          {sets.map((set, index) => (
+          {sets.map((set) => (
             <SetBrowseCard
               key={set.id}
               set={set}
-              accentClass={getSetAccentBar(index)}
+              accentClass={setAccentBar}
               active={selectedSetId === set.id && viewMode === "all"}
               onClick={() => {
                 onSelectViewMode("all");

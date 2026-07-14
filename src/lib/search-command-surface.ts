@@ -130,14 +130,14 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["documents", "prescribing", "services", "forms", "differentials"],
   },
   specifiers: {
-    examples: ["depressed with racing thoughts", "mood episode after birth", "better but not fully recovered"],
+    examples: ["depressed but racing thoughts", "returns every winter", "much better but not fully recovered"],
     suggestions: [
-      { text: "with anxious distress", meta: "Episode feature" },
-      { text: "with seasonal pattern", meta: "Course and onset" },
-      { text: "in partial remission", meta: "Severity and remission" },
+      { text: "depressed but racing thoughts", meta: "Episode features" },
+      { text: "returns every winter", meta: "Course and onset" },
+      { text: "much better but not fully recovered", meta: "Severity and remission" },
     ],
     scopes: [],
-    crossModes: ["dsm", "differentials", "formulation"],
+    crossModes: ["dsm", "differentials", "formulation", "documents"],
   },
   formulation: {
     examples: ["avoidance after panic", "rumination after rejection", "dissociation under threat"],

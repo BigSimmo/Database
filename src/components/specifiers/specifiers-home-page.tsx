@@ -16,7 +16,9 @@ import {
 
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import {
+  CategoryTag,
   DiagnosisChips,
+  ReviewStatusBadge,
   SpecifierBreadcrumbs,
   SpecifierFamilyBadge,
   SpecifierPageShell,
@@ -28,6 +30,13 @@ import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { searchSpecifiers, specifierFamilies, specifierSearchPresets, type SpecifierFamily } from "@/lib/specifiers";
+import { searchSpecifierCatalog, type SpecifierCatalogMatch } from "@/lib/specifiers-search-index";
+
+// The curated set covers a small number of high-signal mood-episode specifiers.
+// The full DSM-5-TR catalogue (~585 items) is surfaced additively beneath the
+// curated matches so a search still reaches the broader taxonomy without displacing
+// the richer curated cards.
+const CATALOGUE_RESULT_LIMIT = 24;
 
 const diagnosisOptions = [
   { value: "", label: "All diagnoses" },
@@ -175,10 +184,69 @@ function EmptySearchResults({ query }: { query: string }) {
   );
 }
 
+function SpecifierCatalogueMatches({ matches }: { matches: SpecifierCatalogMatch[] }) {
+  if (!matches.length) return null;
+
+  return (
+    <section aria-labelledby="catalogue-matches-title" className="grid gap-3">
+      <header className="grid gap-1.5 border-t border-[color:var(--border)] pt-5">
+        <p className={eyebrowText}>Full specifier catalogue</p>
+        <h2
+          id="catalogue-matches-title"
+          className="text-xl font-extrabold tracking-tight text-[color:var(--text-heading)]"
+        >
+          More across the specifier taxonomy
+        </h2>
+        <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+          Broader matches from the complete catalogue. Definitions are shown only where the source has been verified;
+          the rest are marked pending clinician review.
+        </p>
+      </header>
+
+      <ul className="grid gap-2 sm:grid-cols-2">
+        {matches.map(({ item }) => (
+          <li key={item.slug}>
+            <Link
+              href={`/specifiers/${item.slug}`}
+              className={cn(
+                specifierCard,
+                "group grid gap-2 p-4 transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
+              )}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <span className="min-w-0 text-sm font-extrabold text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]">
+                  {item.label}
+                </span>
+                <ArrowRight
+                  className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                  aria-hidden
+                />
+              </div>
+              <p className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">{item.disorder}</p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <CategoryTag categoryId={item.categoryId} name={item.category} />
+                <ReviewStatusBadge status={item.src} />
+              </div>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function SpecifierResults({ query }: { query: string }) {
   const [family, setFamily] = useState<"all" | SpecifierFamily>("all");
   const [diagnosis, setDiagnosis] = useState("");
   const results = useMemo(() => searchSpecifiers(query, { family, diagnosis }), [diagnosis, family, query]);
+  // The full-catalogue section is additive and diagnosis-specific, so it is NOT
+  // de-duped against the curated cards: those are generic mood-only specifiers, and
+  // a label-only match would wrongly hide the disorder-specific catalogue rows (e.g.
+  // a curated "With catatonia" card must not remove schizophrenia/autism catatonia).
+  // It still drives the shared count and empty-state so a catalog-only query never
+  // shows "0 matches" with an empty-state banner above real results.
+  const catalogueMatches = useMemo(() => searchSpecifierCatalog(query).slice(0, CATALOGUE_RESULT_LIMIT), [query]);
+  const totalMatches = results.length + catalogueMatches.length;
 
   return (
     <SpecifierPageShell>
@@ -199,7 +267,7 @@ function SpecifierResults({ query }: { query: string }) {
           </p>
         </div>
         <p className="nums text-sm font-bold text-[color:var(--text-muted)]" aria-live="polite">
-          {results.length} {results.length === 1 ? "match" : "matches"}
+          {totalMatches} {totalMatches === 1 ? "match" : "matches"}
         </p>
       </header>
 
@@ -245,9 +313,9 @@ function SpecifierResults({ query }: { query: string }) {
         </label>
       </section>
 
-      {results.length === 0 ? (
+      {totalMatches === 0 ? (
         <EmptySearchResults query={query} />
-      ) : (
+      ) : results.length > 0 ? (
         <section aria-label="Specifier matches" className="grid gap-3">
           {results.map(({ record }, index) => (
             <article
@@ -319,7 +387,9 @@ function SpecifierResults({ query }: { query: string }) {
             </article>
           ))}
         </section>
-      )}
+      ) : null}
+
+      <SpecifierCatalogueMatches matches={catalogueMatches} />
 
       <SpecifierSafetyNote />
     </SpecifierPageShell>

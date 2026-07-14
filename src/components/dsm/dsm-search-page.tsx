@@ -1,11 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { BookOpenCheck, Check, ChevronRight, CircleAlert, GitCompareArrows, ListFilter, SearchX } from "lucide-react";
+import {
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type FocusEvent as ReactFocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
+import {
+  BookOpenCheck,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CircleAlert,
+  GitCompareArrows,
+  ListFilter,
+  SearchX,
+  X,
+} from "lucide-react";
 
 import { DsmPageHeader } from "@/components/dsm/dsm-page-header";
-import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
+import { useDismissableLayer } from "@/components/use-dismissable-layer";
+import { cn, codeText, metadataPill, pageContainer, searchFocusRing } from "@/components/ui-primitives";
 import type { DsmCategory, DsmDiagnosisSummary } from "@/lib/dsm";
 
 function categoryHref(query: string, category?: string, ids: string[] = []) {
@@ -20,6 +38,189 @@ function categoryHref(query: string, category?: string, ids: string[] = []) {
 function compareHref(slugs: string[]) {
   const params = new URLSearchParams({ ids: slugs.join(",") });
   return `/dsm/compare?${params.toString()}`;
+}
+
+// Compact category filter: a single trigger that opens an anchored menu of
+// category links, replacing the multi-row pill wall so results sit higher on the
+// page. Each option is a real navigation link (server-driven filtering), styled as
+// a menuitemradio so the active category reads as the checked option.
+function CategoryFilterDropdown({
+  query,
+  categories,
+  activeCategory,
+  totalCount,
+  selected,
+}: {
+  query: string;
+  categories: DsmCategory[];
+  activeCategory?: DsmCategory;
+  totalCount: number;
+  selected: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const optionRefs = useRef<Array<HTMLAnchorElement | null>>([]);
+  const menuId = useId();
+
+  const options = useMemo(
+    () => [
+      { key: undefined as string | undefined, label: "All categories", count: totalCount },
+      ...categories.map((item) => ({ key: item.key, label: item.label, count: item.diagnosis_count })),
+    ],
+    [categories, totalCount],
+  );
+  const activeIndex = activeCategory ? options.findIndex((option) => option.key === activeCategory.key) : 0;
+
+  useDismissableLayer({
+    enabled: open,
+    refs: [rootRef],
+    restoreFocusRef: triggerRef,
+    onDismiss: () => setOpen(false),
+  });
+
+  function focusOption(index: number) {
+    const total = options.length;
+    const next = ((index % total) + total) % total;
+    optionRefs.current[next]?.focus();
+  }
+
+  // Single source of truth for initial focus: whoever opens the menu picks the
+  // option to land on and schedules the one focus call. A parallel open-effect
+  // that also focused the active item would race this and clobber ArrowUp's
+  // reverse-entry onto the last option.
+  function openMenu(focusIndex: number) {
+    setOpen(true);
+    window.requestAnimationFrame(() => focusOption(focusIndex));
+  }
+
+  function handleTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      openMenu(Math.max(0, activeIndex));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      openMenu(options.length - 1);
+    }
+  }
+
+  function handleOptionKeyDown(event: ReactKeyboardEvent<HTMLAnchorElement>, index: number) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusOption(index + 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusOption(index - 1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusOption(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusOption(options.length - 1);
+    } else if (event.key === " ") {
+      // A menuitemradio announces Space as an activation key, but the option is
+      // an anchor (Space would otherwise scroll), so activate it like click/Enter.
+      event.preventDefault();
+      event.currentTarget.click();
+    }
+    // Escape (dismiss + restore focus to the trigger) is owned by
+    // useDismissableLayer's document-level handler, so it isn't duplicated here.
+  }
+
+  // Close when focus leaves the widget entirely (e.g. Tab off the last option),
+  // so the menu never lingers open over the results. Keep it open while focus
+  // moves between the trigger and its options, and don't prevent the focus move.
+  function handleRootBlur(event: ReactFocusEvent<HTMLDivElement>) {
+    if (!open) return;
+    const nextTarget = event.relatedTarget as Node | null;
+    if (nextTarget && rootRef.current?.contains(nextTarget)) return;
+    setOpen(false);
+  }
+
+  const activeLabel = activeCategory ? activeCategory.label : "All categories";
+  const activeCount = activeCategory ? activeCategory.diagnosis_count : totalCount;
+
+  return (
+    <div ref={rootRef} onBlur={handleRootBlur} className="relative w-full sm:w-auto">
+      <button
+        type="button"
+        ref={triggerRef}
+        data-testid="dsm-category-filter"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls={open ? menuId : undefined}
+        onKeyDown={handleTriggerKeyDown}
+        onClick={() => (open ? setOpen(false) : openMenu(Math.max(0, activeIndex)))}
+        className={cn(
+          "inline-flex min-h-tap w-full items-center gap-2 rounded-lg border px-3 text-xs font-bold transition sm:w-auto sm:min-w-[15rem]",
+          searchFocusRing,
+          open || activeCategory
+            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
+            : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--border-strong)]",
+        )}
+      >
+        <ListFilter className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+        <span className="shrink-0 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+          Category
+        </span>
+        <span className="min-w-0 flex-1 truncate text-left font-extrabold text-[color:var(--text-heading)]">
+          {activeLabel}
+        </span>
+        <span className="shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold tabular-nums text-[color:var(--text-muted)]">
+          {activeCount}
+        </span>
+        <ChevronDown
+          className={cn("h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition-transform", open && "rotate-180")}
+          aria-hidden
+        />
+      </button>
+
+      {open ? (
+        <div
+          id={menuId}
+          role="menu"
+          aria-label="Filter by category"
+          className="absolute left-0 top-[calc(100%+0.5rem)] z-40 max-h-[min(22rem,60vh)] w-[min(20rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-1.5 shadow-[var(--shadow-elevated)]"
+        >
+          {options.map((option, index) => {
+            const isActive = index === activeIndex;
+            return (
+              <Link
+                key={option.key ?? "all"}
+                ref={(element) => {
+                  optionRefs.current[index] = element;
+                }}
+                href={categoryHref(query, option.key, selected)}
+                role="menuitemradio"
+                aria-checked={isActive}
+                // Roving focus: menu items stay out of the Tab sequence (arrow keys
+                // move focus programmatically) so one Tab press leaves the whole
+                // widget instead of walking through every category link.
+                tabIndex={-1}
+                onKeyDown={(event) => handleOptionKeyDown(event, index)}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "flex min-h-10 items-center gap-2 rounded-lg px-2.5 text-xs font-bold transition",
+                  searchFocusRing,
+                  isActive
+                    ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+                )}
+              >
+                <span className="grid h-4 w-4 shrink-0 place-items-center text-[color:var(--clinical-accent)]">
+                  {isActive ? <Check className="h-4 w-4" aria-hidden /> : null}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                <span className="shrink-0 rounded-md bg-[color:var(--surface-subtle)] px-1.5 py-0.5 text-2xs font-bold tabular-nums text-[color:var(--text-soft)]">
+                  {option.count}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function DsmSearchPage({
@@ -77,53 +278,26 @@ export function DsmSearchPage({
       />
 
       <div className={cn(pageContainer, "space-y-4 px-4 py-4 sm:px-6 sm:py-6 lg:px-8")}>
-        <section aria-labelledby="dsm-category-filter" className="grid gap-2.5">
-          <div className="flex items-center justify-between gap-3">
-            <h2
-              id="dsm-category-filter"
-              className="inline-flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-muted)]"
-            >
-              <ListFilter className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
-              Filter by category
-            </h2>
-            {activeCategory ? (
-              <Link
-                href={categoryHref(query, undefined, selected)}
-                className="inline-flex min-h-tap items-center rounded-lg px-1 text-xs font-bold text-[color:var(--clinical-accent)]"
-              >
-                Clear filter
-              </Link>
-            ) : null}
-          </div>
-          <div className="answer-suggestion-row-scroll -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
+        <section aria-label="Filter by category" className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <CategoryFilterDropdown
+            query={query}
+            categories={categories}
+            activeCategory={activeCategory}
+            totalCount={totalCount}
+            selected={selected}
+          />
+          {activeCategory ? (
             <Link
               href={categoryHref(query, undefined, selected)}
-              aria-current={!activeCategory ? "page" : undefined}
               className={cn(
-                "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-3 text-xs font-bold transition",
-                !activeCategory
-                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)]",
+                "inline-flex min-h-tap items-center gap-1 rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+                searchFocusRing,
               )}
             >
-              All · {totalCount}
+              <X className="h-3.5 w-3.5" aria-hidden />
+              Clear filter
             </Link>
-            {categories.map((item) => (
-              <Link
-                key={item.key}
-                href={categoryHref(query, item.key, selected)}
-                aria-current={item.key === activeCategory?.key ? "page" : undefined}
-                className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-3 text-xs font-bold transition",
-                  item.key === activeCategory?.key
-                    ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)]",
-                )}
-              >
-                {item.label} · {item.diagnosis_count}
-              </Link>
-            ))}
-          </div>
+          ) : null}
         </section>
 
         {results.length ? (
@@ -132,6 +306,14 @@ export function DsmSearchPage({
               aria-label="DSM diagnosis results"
               className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
             >
+              <div className="flex items-baseline justify-between gap-3 border-b border-[color:var(--border)] px-4 py-3">
+                <h2 className="text-base font-extrabold text-[color:var(--text-heading)] sm:text-lg">
+                  {query ? "Matching diagnoses" : "Diagnosis catalogue"}
+                </h2>
+                <span className="shrink-0 text-xs font-bold tabular-nums text-[color:var(--text-muted)]">
+                  {results.length} {results.length === 1 ? "result" : "results"}
+                </span>
+              </div>
               <div className="hidden grid-cols-[2.5rem_minmax(14rem,1fr)_10rem_7rem_1.25rem] gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2.5 text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--text-soft)] lg:grid">
                 <span>Select</span>
                 <span>Diagnosis</span>
@@ -174,9 +356,9 @@ export function DsmSearchPage({
                         )}
                       </button>
                       <Link href={`/dsm/diagnoses/${result.slug}`} className="min-w-0 focus-visible:outline-none">
-                        <h2 className="text-sm font-extrabold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)] sm:text-base-minus">
+                        <h3 className="text-sm font-extrabold leading-5 text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)] sm:text-base-minus">
                           {result.title}
-                        </h2>
+                        </h3>
                         <p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
                           {result.summary}
                         </p>
