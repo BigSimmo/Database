@@ -156,8 +156,16 @@ function deriveTrust(answer: RagAnswer): AnswerRenderTrust {
   }
 
   if (retrievalBlocked || !sourceBacked || hasFaithfulnessWarning || answer.confidence === "low") return "low";
-  const highRiskSupport = (answer.supportedClaims ?? []).filter((claim) => claim.riskClass === "high_risk");
-  const highRiskAuthorityAccepted = highRiskSupport.every(
+  // D5 (audit item, ships OFF): when enabled, unverified-authority evidence caps
+  // trust for ALL supported claims, not just high-risk ones. Clinical product
+  // decision — flip only behind a green golden answer-quality eval. This module
+  // renders client-side, so the flag is a NEXT_PUBLIC build-time inline (unset
+  // = false = existing high-risk-only behavior).
+  const capAllClaims = process.env.NEXT_PUBLIC_RAG_TRUST_CAP_ALL_CLAIMS === "true";
+  const authorityGatedClaims = capAllClaims
+    ? (answer.supportedClaims ?? [])
+    : (answer.supportedClaims ?? []).filter((claim) => claim.riskClass === "high_risk");
+  const authorityAccepted = authorityGatedClaims.every(
     (claim) =>
       claim.supportStatus === "direct" &&
       claim.supportingChunkIds.length > 0 &&
@@ -166,7 +174,7 @@ function deriveTrust(answer: RagAnswer): AnswerRenderTrust {
         return authority === "approved" || authority === "locally_reviewed";
       }),
   );
-  if (highRiskSupport.length > 0 && !highRiskAuthorityAccepted) return "medium";
+  if (authorityGatedClaims.length > 0 && !authorityAccepted) return "medium";
   if (answer.confidence === "high") return "high";
   return "medium";
 }

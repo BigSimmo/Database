@@ -38,6 +38,13 @@ export type SecondStageWeights = {
   visualIntelligenceSlope: number;
   /** Penalties for governance/quality signals. */
   outdatedPenalty: number;
+  /**
+   * Penalty for document_status "unknown" (currentness never established).
+   * Ships 0 = OFF (audit item D4): per the #118 lesson, governance weighting
+   * needs golden-eval proof before activation — enable via RAG_RANKING_CONFIG
+   * only behind a fresh green golden retrieval + answer-quality run.
+   */
+  unknownCurrentnessPenalty: number;
   poorExtractionPenalty: number;
   lowIndexQualityPenalty: number;
   lowIndexQualityThreshold: number;
@@ -77,6 +84,7 @@ export const defaultRankingConfig: RankingConfig = {
     visualIntelligencePivot: 0.55,
     visualIntelligenceSlope: 0.08,
     outdatedPenalty: 0.035,
+    unknownCurrentnessPenalty: 0,
     poorExtractionPenalty: 0.035,
     lowIndexQualityPenalty: 0.035,
     lowIndexQualityThreshold: 0.55,
@@ -137,6 +145,10 @@ export function resolveRankingConfig(raw?: string | null): RankingConfig {
       visualIntelligencePivot: num(ss.visualIntelligencePivot, d.secondStage.visualIntelligencePivot),
       visualIntelligenceSlope: num(ss.visualIntelligenceSlope, d.secondStage.visualIntelligenceSlope),
       outdatedPenalty: num(ss.outdatedPenalty, d.secondStage.outdatedPenalty),
+      unknownCurrentnessPenalty: Math.max(
+        0,
+        num(ss.unknownCurrentnessPenalty, d.secondStage.unknownCurrentnessPenalty),
+      ),
       poorExtractionPenalty: num(ss.poorExtractionPenalty, d.secondStage.poorExtractionPenalty),
       lowIndexQualityPenalty: num(ss.lowIndexQualityPenalty, d.secondStage.lowIndexQualityPenalty),
       lowIndexQualityThreshold: num(ss.lowIndexQualityThreshold, d.secondStage.lowIndexQualityThreshold),
