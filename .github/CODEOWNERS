@@ -1,0 +1,39 @@
+# CODEOWNERS — https://docs.github.com/articles/about-code-owners
+#
+# This repo is currently single-maintainer, so every path resolves to the same
+# owner. The value here is intent + automatic review routing on the high-risk
+# surfaces called out in AGENTS.md (auth, migrations/RLS, RAG/retrieval, source
+# governance, clinical output, production config). As collaborators join, add
+# them to the specific sections below rather than only the catch-all.
+#
+# Later patterns win, so the catch-all comes first and high-risk paths override it.
+
+# Catch-all
+*                                   @BigSimmo
+
+# Database / migrations / RLS (destructive-change surface)
+/supabase/                          @BigSimmo
+
+# Environment + security header contract
+/src/lib/env.ts                     @BigSimmo
+/src/lib/client-env.ts              @BigSimmo
+/src/lib/security-headers.ts        @BigSimmo
+/src/proxy.ts                       @BigSimmo
+/src/instrumentation.ts             @BigSimmo
+/src/instrumentation-client.ts      @BigSimmo
+
+# RAG / retrieval / search / ranking
+/src/lib/rag.ts                     @BigSimmo
+/src/lib/rag-*.ts                   @BigSimmo
+/src/lib/retrieval-*.ts             @BigSimmo
+/src/lib/*search*.ts                @BigSimmo
+/src/lib/privacy.ts                 @BigSimmo
+/src/lib/query-privacy.ts           @BigSimmo
+
+# Source governance + clinical output
+/scripts/audit-source-governance.ts @BigSimmo
+/scripts/*governance*.ts            @BigSimmo
+/docs/clinical-governance.md        @BigSimmo
+
+# CI / release automation
+/.github/workflows/                 @BigSimmo

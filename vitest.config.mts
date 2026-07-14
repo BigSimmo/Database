@@ -25,8 +25,33 @@ const config = {
         lines: 50,
       },
     },
-    environment: "node",
-    include: ["tests/**/*.test.ts"],
+    // Two projects run under one `npm run test` invocation. `extends: true` makes
+    // each inherit the shared root config above (coverage, timeouts, resolve.alias
+    // below), so only the environment/include/setup differ.
+    projects: [
+      {
+        extends: true,
+        test: {
+          // The long-standing suite: pure logic + route + SSR-string component tests.
+          // Node environment, unchanged glob — existing tests behave exactly as before.
+          name: "node",
+          environment: "node",
+          include: ["tests/**/*.test.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          // Interactive component tier: @testing-library/react under jsdom. Kept on a
+          // distinct `*.dom.test.tsx` glob so it can never collect the node suite's
+          // `*.test.ts` files (and vice versa).
+          name: "jsdom",
+          environment: "jsdom",
+          include: ["tests/**/*.dom.test.tsx"],
+          setupFiles: ["tests/setup/jsdom.setup.ts"],
+        },
+      },
+    ],
   },
   resolve: {
     alias: {
