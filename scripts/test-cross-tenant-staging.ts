@@ -285,8 +285,10 @@ async function createFixture(
   return fixture;
 }
 
-function documentIds(value: unknown, context: string) {
-  return asRecords(value, context).map((record) => String(record.id ?? record.document_id ?? ""));
+export function crossTenantDocumentIds(value: unknown, context: string) {
+  // Search and answer sources carry a chunk id in `id`; prefer the owning document id when
+  // both fields are present. Document-list and universal-search items only carry `id`.
+  return asRecords(value, context).map((record) => String(record.document_id ?? record.id ?? ""));
 }
 
 function stringIds(value: unknown, context: string) {
@@ -311,7 +313,7 @@ async function exerciseTenancyBoundary(args: {
     "user A document list",
   );
   assertCondition(
-    documentIds(listA.documents, "user A documents").includes(fixtureA.documentId),
+    crossTenantDocumentIds(listA.documents, "user A documents").includes(fixtureA.documentId),
     "User A could not list its own private fixture.",
   );
   const listB = asRecord(
@@ -319,7 +321,7 @@ async function exerciseTenancyBoundary(args: {
     "user B document list",
   );
   assertCondition(
-    !documentIds(listB.documents, "user B documents").includes(fixtureA.documentId),
+    !crossTenantDocumentIds(listB.documents, "user B documents").includes(fixtureA.documentId),
     "User B listed user A's private fixture.",
   );
   const ownListB = asRecord(
@@ -327,7 +329,7 @@ async function exerciseTenancyBoundary(args: {
     "user B own document list",
   );
   assertCondition(
-    documentIds(ownListB.documents, "user B own documents").includes(fixtureB.documentId),
+    crossTenantDocumentIds(ownListB.documents, "user B own documents").includes(fixtureB.documentId),
     "User B could not list its own private fixture.",
   );
   checkpoints.push("list");
@@ -404,7 +406,7 @@ async function exerciseTenancyBoundary(args: {
   );
   const universalIds = (payload: JsonRecord) =>
     asRecords(payload.groups, "universal groups").flatMap((group) =>
-      group.kind === "documents" ? documentIds(group.items, "universal document items") : [],
+      group.kind === "documents" ? crossTenantDocumentIds(group.items, "universal document items") : [],
     );
   assertCondition(
     universalIds(universalA).includes(fixtureA.documentId),
@@ -432,11 +434,11 @@ async function exerciseTenancyBoundary(args: {
     "user B offline search",
   );
   assertCondition(
-    documentIds(searchA.results, "user A search results").includes(fixtureA.documentId),
+    crossTenantDocumentIds(searchA.results, "user A search results").includes(fixtureA.documentId),
     "User A offline retrieval missed its fixture.",
   );
   assertCondition(
-    documentIds(searchB.results, "user B search results").length === 0,
+    crossTenantDocumentIds(searchB.results, "user B search results").length === 0,
     "User B retrieved user A's chunks.",
   );
   assertCondition(
@@ -460,7 +462,7 @@ async function exerciseTenancyBoundary(args: {
     "Staging app must run with RAG_PROVIDER_MODE=offline for this harness.",
   );
   assertCondition(
-    documentIds(answerA.sources, "user A answer sources").includes(fixtureA.documentId),
+    crossTenantDocumentIds(answerA.sources, "user A answer sources").includes(fixtureA.documentId),
     "User A source-only answer did not cite its private fixture.",
   );
   assertCondition(

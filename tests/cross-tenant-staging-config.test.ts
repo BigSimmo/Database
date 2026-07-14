@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { crossTenantFixtureMarker, readCrossTenantStagingConfig } from "../scripts/test-cross-tenant-staging";
+import {
+  crossTenantDocumentIds,
+  crossTenantFixtureMarker,
+  readCrossTenantStagingConfig,
+} from "../scripts/test-cross-tenant-staging";
 import { analyzeClinicalQuery } from "../src/lib/clinical-search";
 import { shouldApplyUnsupportedSearchShortCircuit } from "../src/lib/rag-retrieval-variants";
 
@@ -31,6 +35,12 @@ describe("cross-tenant staging configuration safety", () => {
 
     expect(marker).toBe("lithium tenancyprobe123456781234a");
     expect(shouldApplyUnsupportedSearchShortCircuit(marker, analysis)).toBe(false);
+  });
+
+  it("prefers document_id over a chunk id in search and answer sources", () => {
+    expect(crossTenantDocumentIds([{ id: "chunk-id", document_id: "document-id" }], "sources")).toEqual([
+      "document-id",
+    ]);
   });
 
   it("accepts a dedicated, internally consistent staging configuration", () => {
