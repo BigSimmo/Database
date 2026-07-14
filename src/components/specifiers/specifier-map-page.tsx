@@ -17,11 +17,6 @@ import { cn, eyebrowText } from "@/components/ui-primitives";
 import { findSpecifier, specifierFamilies, specifierRecords } from "@/lib/specifiers";
 
 export function SpecifierMapPage({ initialSlug }: { initialSlug?: string }) {
-<<<<<<< HEAD
-  const [selectedSlug, setSelectedSlug] = useState(findSpecifier(initialSlug ?? "")?.slug ?? specifierRecords[0].slug);
-  const selected = findSpecifier(selectedSlug) ?? specifierRecords[0];
-
-=======
   // Derive valid initial slug from props
   const validInitialSlug = findSpecifier(initialSlug ?? "")?.slug ?? specifierRecords[0].slug;
 
@@ -42,7 +37,6 @@ export function SpecifierMapPage({ initialSlug }: { initialSlug?: string }) {
     setState({ selectedSlug: slug, lastInitialSlug: initialSlug });
   };
 
->>>>>>> origin/main
   return (
     <SpecifierPageShell>
       <div className="grid gap-3">

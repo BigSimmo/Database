@@ -726,18 +726,6 @@ export function UniversalSearchCommandSurface({
             ? "favourites"
             : modeId === "differentials"
               ? "differentials"
-<<<<<<< HEAD
-              : modeId === "specifiers"
-                ? "specifiers"
-                : modeId === "formulation"
-                  ? "formulation"
-                  : modeId === "dsm"
-                    ? "dsm"
-                    : modeId === "answer"
-                      ? "answer"
-                      : modeId === "tools"
-                        ? "tools"
-=======
               : modeId === "dsm"
                 ? "dsm"
                 : modeId === "answer"
@@ -748,7 +736,6 @@ export function UniversalSearchCommandSurface({
                       ? "specifiers"
                       : modeId === "formulation"
                         ? "formulation"
->>>>>>> origin/main
                         : null;
 
     if (actionSetId) {
