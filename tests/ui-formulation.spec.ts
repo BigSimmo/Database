@@ -135,8 +135,23 @@ test("moves a selected mechanism through framework, quality review, and an edita
   const draft = page.getByRole("textbox", { name: "Formulation draft" });
   await expect(draft).toHaveValue(/CBT cycle formulation/);
   await expect(draft).toHaveValue(/Rumination appears to keep the patient caught/);
+
+  await draft.fill("Stale edited draft");
+  await page.getByRole("button", { name: /Select\s+Mechanisms/ }).click();
+  await page.getByRole("button", { name: "Clear" }).click();
+  await page.getByRole("button", { name: /Draft\s+Formulation/ }).click();
+  await expect(draft).not.toHaveValue("Stale edited draft");
+  await expect(draft).toHaveValue(/Select mechanisms and add case evidence/);
   await expectNoHorizontalOverflow(page);
   await expectNoBlockingAxeViolations(page, testInfo);
+});
+
+test("keeps legacy specifier detail links on a valid formulation route", async ({ page }) => {
+  await gotoApp(page, "/specifiers/with-anxious-distress");
+
+  await expect(page).toHaveURL(/\/formulation\?q=with\+anxious\+distress&run=1$/);
+  await expect(page.getByRole("heading", { name: /Mechanisms matching “with anxious distress”/ })).toBeVisible();
+  await expect(page.getByText("Page not found", { exact: true })).toHaveCount(0);
 });
 
 test("compares supported alternatives and groups mechanisms without implying causation", async ({ page }) => {

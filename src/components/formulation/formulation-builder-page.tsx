@@ -242,6 +242,11 @@ export function FormulationBuilderPage({
     setEditedDraft(null);
   }
 
+  function clearMechanisms() {
+    setSelectedIds([]);
+    setEditedDraft(null);
+  }
+
   function updateSection(id: string, value: string) {
     setSectionNotes((current) => ({ ...current, [id]: value }));
     setEditedDraft(null);
@@ -309,7 +314,7 @@ export function FormulationBuilderPage({
                       </div>
                       <button
                         type="button"
-                        onClick={() => setSelectedIds([])}
+                        onClick={clearMechanisms}
                         className="inline-flex min-h-tap items-center gap-2 rounded-lg px-3 text-xs font-bold text-[color:var(--text-muted)] hover:bg-[color:var(--surface)]"
                       >
                         <RotateCcw className="h-3.5 w-3.5" aria-hidden />
