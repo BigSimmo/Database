@@ -162,10 +162,10 @@ export function CalculatorsDirectoryGridMockup() {
     return calculators.filter((calc) => {
       if (domain !== "all" && calc.domain !== domain) return false;
       if (!trimmed) return true;
-      return [calc.abbrev, calc.name, calc.indication, domainLabels[calc.domain]]
+      const haystack = [calc.abbrev, calc.name, calc.indication, calc.summary, domainLabels[calc.domain]]
         .join(" ")
-        .toLowerCase()
-        .includes(trimmed);
+        .toLowerCase();
+      return haystack.includes(trimmed) || calc.items.some((item) => item.text.toLowerCase().includes(trimmed));
     });
   }, [domain, query]);
 

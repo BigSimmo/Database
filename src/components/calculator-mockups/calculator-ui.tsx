@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, Check, CheckCheck, ClipboardCopy, RotateCcw, type LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
 
@@ -31,9 +31,10 @@ export function isCheckboxOnly(calc: CalculatorFixture): boolean {
 }
 
 /**
- * Seed every unset checkbox item to an explicit 0 ("No"). Used when a
- * checkbox-only scale is opened so an all-negative screen reads as a valid
- * 0 result (started + complete) instead of "Not started".
+ * Seed every unset checkbox item to an explicit 0 ("No"). Invoked by the
+ * "Mark remaining as No" affordance — never on mount — so an all-negative
+ * CAGE/SAD PERSONS screen reads as a valid 0 result (started + complete) only
+ * once the user chooses to record it, not merely by opening the scale.
  */
 export function seedCheckboxDefaults(calc: CalculatorFixture, answers: AnswerMap): AnswerMap {
   if (!isCheckboxOnly(calc)) return answers;
@@ -585,13 +586,10 @@ export function CalculatorItems({
   showKey?: boolean;
 }) {
   const key = sharedOptionKey(calc);
-
-  // Opening the items view seeds checkbox-only scales to an explicit all-"No"
-  // state so an all-negative CAGE/SAD PERSONS reads as a valid 0 result.
-  useEffect(() => {
-    const seeded = seedCheckboxDefaults(calc, answers);
-    if (seeded !== answers) onAnswersChange(seeded);
-  }, [calc, answers, onAnswersChange]);
+  // Offer an explicit "all remaining negative" affordance for checkbox-only
+  // scales, so an all-negative CAGE/SAD PERSONS can be completed without ticking
+  // each box — but only on user action, never by merely opening the scale.
+  const canMarkRemaining = isCheckboxOnly(calc) && calc.items.some((item) => answers[item.id] === undefined);
 
   return (
     <section aria-label={`${calc.abbrev} items`} className="grid min-w-0 content-start gap-2">
@@ -642,6 +640,19 @@ export function CalculatorItems({
           </div>
         ),
       )}
+      {canMarkRemaining ? (
+        <button
+          type="button"
+          onClick={() => onAnswersChange(seedCheckboxDefaults(calc, answers))}
+          className={cn(
+            "mt-1 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-subtle)] px-3 text-sm-minus font-bold text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--text)]",
+            focusRing,
+          )}
+        >
+          <Check className="size-icon-sm" aria-hidden="true" />
+          Mark remaining as “No”
+        </button>
+      ) : null}
     </section>
   );
 }
