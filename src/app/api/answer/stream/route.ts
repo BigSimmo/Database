@@ -39,29 +39,6 @@ import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 
 export const runtime = "nodejs";
 
-<<<<<<< HEAD
-=======
-const answerSchema = z
-  .object({
-    query: z.string().trim().min(1).max(2000),
-    documentId: z.string().uuid().optional(),
-    documentIds: z.array(z.string().uuid()).max(25).optional(),
-    filters: searchScopeFiltersSchema.optional(),
-    queryMode: clinicalQueryModeSchema.optional().default("auto"),
-    summaryMode: z.boolean().optional().default(false),
-  })
-  .superRefine((value, context) => {
-    if (value.summaryMode && !value.documentId) {
-      context.addIssue({
-        code: "custom",
-        path: ["documentId"],
-        message: "Document summary mode requires a document id.",
-      });
-    }
-  });
-
-type AnswerBody = z.infer<typeof answerSchema>;
->>>>>>> origin/main
 const emptyScopeAnswer =
   "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.";
 
@@ -125,16 +102,11 @@ function logStreamError(error: unknown, signal?: AbortSignal) {
   void captureServerException(error, { route: "api/answer/stream", source: "stream" });
 }
 
-<<<<<<< HEAD
 function buildDemoStreamAnswer(body: AnswerRequestBody, fallbackReason?: string) {
-  const demo = demoAnswer(body.query, body.documentId, body.documentIds);
-=======
-function buildDemoStreamAnswer(body: AnswerBody, fallbackReason?: string) {
   const demo =
     body.summaryMode && body.documentId
       ? demoSummary(body.documentId)
       : demoAnswer(body.query, body.documentId, body.documentIds);
->>>>>>> origin/main
   const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
   const sources = annotateSearchResults(answerFocusQuery, demo.sources);
   const relevance = buildEvidenceRelevance(answerFocusQuery, sources);
@@ -217,65 +189,8 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
             });
             return;
           }
-<<<<<<< HEAD
-          const singleDocumentScope = Boolean(
-            body.documentId && !body.documentIds?.length && scope?.activeFilterCount === 0,
-          );
-          const answer = isDemoMode()
-            ? buildDemoStreamAnswer(body)
-            : await answerQuestionWithScope({
-                query: body.query,
-                documentId: singleDocumentScope ? body.documentId : undefined,
-                documentIds: singleDocumentScope
-                  ? undefined
-                  : (scope?.documentIds ?? body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
-                ownerId,
-                accessScope,
-                allowGlobalSearch: !ownerId,
-                queryMode: body.queryMode,
-                onProgress,
-                signal,
-              });
-          const warnings = sourceGovernanceWarnings({
-            results: answer.sources ?? [],
-            relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
-          });
-          const shouldUseSourceGovernanceRefusal =
-            answer.grounded !== false && answer.confidence !== "unsupported" && answer.responseMode !== "evidence_gap";
-          if (shouldUseSourceGovernanceRefusal && hasDangerSourceGovernanceWarning(warnings)) {
-            // Explicit refusal payload — do not spread ...answer (see /api/answer):
-            // the refused sources/smartPanel/smartApiPlan must not reach the client.
-            if (!isDemoMode()) {
-              void logAnswerDiagnostics({
-                supabase: createAdminClient(),
-                query: body.query,
-                ownerId,
-                answer: {
-                  ...answer,
-                  grounded: false,
-                  confidence: "unsupported",
-                  sources: [],
-                  responseMode: "evidence_gap",
-                  fallbackReason: "source_governance_refusal",
-                  routingReason: [answer.routingReason, "source_governance_refusal"].filter(Boolean).join("; "),
-                },
-              });
-            }
-            sendFinal({
-              answer: sourceGovernanceRefusalAnswer,
-              grounded: false,
-              confidence: "unsupported",
-              citations: [],
-              sources: [],
-              degradedMode: answerDegradedModeSignal(answer),
-              scope: scope ? { ...scope, queryMode: body.queryMode } : undefined,
-              sourceGovernanceWarnings: warnings,
-              ...streamAnswerFeedbackMetadata(interactionId, sourceGovernanceRefusalAnswer),
-            });
-=======
           if (isDemoMode()) {
             sendFinal({ ...buildDemoStreamAnswer(body), interactionId });
->>>>>>> origin/main
             return;
           }
 
@@ -300,8 +215,6 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
                   allowGlobalSearch: !ownerId,
                   queryMode: body.queryMode,
                   onProgress,
-                  onToken,
-                  onRevising,
                   signal,
                 });
           const governedResponse = buildGovernedAnswerClientResponse(answer);

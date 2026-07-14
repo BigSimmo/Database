@@ -29,11 +29,7 @@ import { captureServerException } from "@/lib/observability/error-capture";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import * as serverAuth from "@/lib/supabase/auth";
-<<<<<<< HEAD
-import type { RagAnswer } from "@/lib/types";
 import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/answer-request";
-=======
->>>>>>> origin/main
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
 
 export const runtime = "nodejs";

@@ -5856,11 +5856,8 @@ ${buildRagSourceBlock(results)}`;
     instructions: summaryInstructions,
     promptCacheKey: ragSummaryPromptVersion,
     reasoningEffort: env.OPENAI_SUMMARY_REASONING_EFFORT,
-<<<<<<< HEAD
     safetyIdentifier: env.OPENAI_SAFETY_IDENTIFIER_SECRET ? openAISafetyIdentifier(ownerId) : undefined,
-=======
     signal: options?.signal,
->>>>>>> origin/main
   });
   const answer = parseAnswerJson(generated.text, results, "summary");
   answer.answer = cleanClinicalSummaryText(answer.answer);
