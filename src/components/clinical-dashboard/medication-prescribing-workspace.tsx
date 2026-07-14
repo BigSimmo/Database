@@ -22,8 +22,12 @@ import { useMemo, useState } from "react";
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { considerationSummaryBadge } from "@/components/clinical-dashboard/medication-considerations";
+import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
+import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useMedicationCatalog } from "@/components/clinical-dashboard/use-medication-catalog";
+import { evaluatePatientAlerts } from "@/lib/medication-patient-alerts";
 import {
   BadgeCluster,
   ClinicalBadge,
@@ -372,13 +376,21 @@ function MedicationResults({
 >) {
   const command = useSearchCommand();
   const catalog = useMedicationCatalog(query);
+  const { profile, isEmpty: profileEmpty } = usePatientProfile();
   const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");
   const { rows, counts, totalAvailable } = useMemo(() => {
     const governance = catalog.data?.governance;
-    const toRow = (result: MedicationResult, medication?: MedicationRecord): MedicationRow => ({
-      result,
-      badges: medication ? medicationIdentityBadges(medication, governance?.[medication.slug]) : [],
-    });
+    const toRow = (result: MedicationResult, medication?: MedicationRecord): MedicationRow => {
+      const badges = medication ? medicationIdentityBadges(medication, governance?.[medication.slug]) : [];
+      // Prepend a per-patient alert badge so the highest-severity consideration
+      // surfaces first in the row's badge cluster (priority-sorted by tone).
+      if (medication && !profileEmpty) {
+        const alerts = evaluatePatientAlerts(medication, profile);
+        const alertBadge = considerationSummaryBadge(alerts.considerations.length, alerts.highestTone);
+        if (alertBadge) return { result, badges: [alertBadge, ...badges] };
+      }
+      return { result, badges };
+    };
     const sourceRows =
       catalog.data?.matches?.map((match) => toRow(match.result, match.medication)) ??
       (catalog.data?.records ?? []).slice(0, 12).map((record) =>
@@ -413,7 +425,7 @@ function MedicationResults({
       counts: filterCounts,
       totalAvailable: scoped.length,
     };
-  }, [activeFilter, catalog.data, command?.commandScopes]);
+  }, [activeFilter, catalog.data, command?.commandScopes, profile, profileEmpty]);
   const resultCount = rows.length;
   // The match-quality badge only earns its slot when it differentiates: hide it on
   // "Exact clinical fit" rows when every visible row says the same thing.
@@ -436,6 +448,8 @@ function MedicationResults({
           <QueryChip query={query} />
         </div>
       </div>
+
+      <PatientProfilePanel variant="compact" />
 
       <FilterStrip activeFilter={activeFilter} counts={counts} onFilterChange={setActiveFilter} />
 

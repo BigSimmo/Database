@@ -19,6 +19,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { BadgeCluster, clinicalBadgeToneClass } from "@/components/clinical-dashboard/clinical-badge";
+import { MedicationConsiderations } from "@/components/clinical-dashboard/medication-considerations";
+import { PatientProfilePanel } from "@/components/clinical-dashboard/patient-profile-panel";
 import { useMedicationDetail } from "@/components/clinical-dashboard/use-medication-catalog";
 import {
   medicationAccessBadges,
@@ -213,6 +215,11 @@ function MedicationRecordDetail({
                 danger={tile.danger}
               />
             ))}
+          </section>
+
+          <section className="space-y-2.5">
+            <PatientProfilePanel />
+            <MedicationConsiderations record={record} />
           </section>
 
           <div className="flex flex-wrap gap-2">
