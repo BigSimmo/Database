@@ -130,7 +130,7 @@ Suggested PR granularity (one theme per PR):
 
 ## Wave C — Code P1: anonymous catalog availability
 
-### C1. Rate-limit anonymous public catalogs (M4)
+### Wave C1. Rate-limit anonymous public catalogs (finding M4)
 
 |             |                                                                                                                                                                                                                                                     |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -144,7 +144,7 @@ Suggested PR granularity (one theme per PR):
 
 ## Wave D — Security & tenancy P2
 
-### D1. Redact internal fields on authenticated public-document DTOs (S1 / S10 detail)
+### Wave D1. Redact internal fields on authenticated public-document DTOs (findings S1 / S10 detail)
 
 |             |                                                                                                                                                                                                                                  |
 | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -268,7 +268,7 @@ Suggested PR granularity (one theme per PR):
 | **Address** | For each `flake-ledger.json` entry: fix root cause **or** tag `@quarantine` with owner/date. Replace `waitForTimeout` with condition waits; stop relying on swallowed `networkidle` for readiness. |
 | **Prove**   | Either ledger empty or every ledger title tagged/fixed; critical/regression green                                                                                                                  |
 
-### F5. Align `.env.example` with safe defaults (C1)
+### F5. Align `.env.example` with safe defaults (Finding C1)
 
 |             |                                                                                                                                                         |
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -438,8 +438,8 @@ After Waves B–H land (or are deferred with dated waiver):
 | --------------------------------------- | -------------------- | ----------------------------- |
 | Block real patients                     | B1, B2               | Legal + secret placement      |
 | Block next release claim                | B3, B4, J            | Evidence missing              |
-| Fix before wide anon traffic            | C1                   | DoS / cost                    |
-| Fix before multi-tenant trust expansion | D1, D2, D5           | Disclosure / regression class |
+| Fix before wide anon traffic            | Wave C1              | DoS / cost                    |
+| Fix before multi-tenant trust expansion | Waves D1, D2, D5     | Disclosure / regression class |
 | Fix before next reindex / recovery      | E1–E3                | Index correctness             |
 | Fix before next UI merge wave           | F1–F4, G1–G4         | Silent CI holes / a11y        |
 | Hygiene                                 | H1–H6, F5–F6, Wave I | Contracts & debt              |
@@ -459,4 +459,4 @@ After Waves B–H land (or are deferred with dated waiver):
 
 Append progress to the review ledger when a wave completes, and flip matching rows in
 [`operator-backlog.md`](operator-backlog.md). Prefer linking PRs back to issue IDs in this document
-(`C1`, `E2`, …) in the PR body.
+(`Wave C1`, `Wave E2`, …) in the PR body.
