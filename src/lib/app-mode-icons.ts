@@ -1,6 +1,7 @@
 import {
   BookOpenCheck,
   BrainCircuit,
+  Compass,
   FileSignature,
   FileText,
   Heart,
@@ -28,4 +29,5 @@ export const appModeIcons: Record<AppModeId, LucideIcon> = {
   formulation: Network,
   prescribing: Pill,
   tools: Wrench,
+  "therapy-compass": Compass,
 };

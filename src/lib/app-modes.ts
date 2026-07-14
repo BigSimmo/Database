@@ -14,6 +14,7 @@ export const appModeIds = [
   "formulation",
   "prescribing",
   "tools",
+  "therapy-compass",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -307,6 +308,31 @@ export const appModeDefinitions = [
       badgeLabel: null,
     },
   },
+  {
+    id: "therapy-compass",
+    label: "Therapy Compass",
+    description: "Source-grounded therapy decision support",
+    href: "/therapy-compass",
+    search: {
+      // Therapy Compass owns its in-tool search over the imported therapy library
+      // (not the document corpus), so it borrows the benign "tools" search kind and
+      // suppresses the universal composer on its route.
+      kind: "tools",
+      placeholder: "Search therapies, symptoms, or skills...",
+      inputAriaLabel: "Search therapies by problem, symptom, skill, or population",
+      submitIdleLabel: "Compass",
+      submitBusyLabel: "Compass",
+      submitAriaLabel: "Open Therapy Compass",
+      emptyTitle: "Browse the therapy library",
+      readyTitle: "Search source-grounded therapies",
+      progressLabel: "Loading the therapy library.",
+      resultKind: "tools",
+      resultHeading: "Therapies",
+      statusLabel: "Compass",
+      nextStep: "Open a therapy record",
+      badgeLabel: null,
+    },
+  },
 ] as const satisfies readonly AppModeDefinition[];
 
 export function appModeDefinition(modeId: AppModeId) {
@@ -339,6 +365,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "dsm",
   "specifiers",
   "formulation",
+  "therapy-compass",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
