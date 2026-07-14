@@ -190,6 +190,18 @@ test.describe("universal search typeahead", () => {
     await expect(page.getByText("Also matches in other modes")).toBeVisible();
     await expect(page.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
   });
+
+  test("shows submitted cross-mode matches once for Favourites and after a Tools search", async ({ page }) => {
+    await mockUniversalSearch(page);
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/favourites?q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("universal-also-matches")).toHaveCount(1);
+
+    const input = await openComposer(page, "/tools?focus=1");
+    await input.fill("acamprosate");
+    await input.press("Enter");
+    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
+  });
 });
 
 // Smart affordances: query interpretation banner, pinned best-bet, and the Answer-mode bridge.
@@ -266,5 +278,24 @@ test.describe("universal search smart affordances", () => {
     expect((await answerRequest).postDataJSON()).toMatchObject({ query: "acamprosat" });
     await expect(page.getByRole("main").getByRole("heading", { name: "Answer", exact: true })).toBeVisible();
     await expect(page).toHaveURL(/mode=answer/);
+  });
+
+  test("keeps a completed Answer query eligible for submitted cross-mode matches", async ({ page }) => {
+    await mockSmartSearch(page);
+    const input = await openComposer(page, "/?mode=answer&focus=1");
+    await input.fill("acamprosat");
+    await input.press("Enter");
+
+    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
+  });
+
+  test("keeps a saved exact match first in Favourites", async ({ page }) => {
+    await mockSmartSearch(page);
+    const input = await openComposer(page, "/favourites?focus=1");
+    await input.fill("acamprosate");
+
+    await expect(page.getByText("Best match")).toBeHidden();
+    await expect(page.getByRole("option").first()).toContainText("Acamprosate renal screen");
+    await expect(page.getByRole("option").first()).toContainText("Saved");
   });
 });

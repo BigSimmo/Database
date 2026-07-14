@@ -3011,6 +3011,11 @@ export function ClinicalDashboard({
     activeModeResultKind === "answer" &&
     answerProgressEvents.length > 0 &&
     (loading || (Boolean(answer) && answerProgressCompleted));
+  const universalAlsoMatchesQuery = activeModeResultKind === "answer" ? (latestAnswerQuery ?? query) : query;
+  const showUniversalAlsoMatches =
+    (modeSearchSubmitted || activeModeResultKind === "tools" || activeModeResultKind === "favourites") &&
+    Boolean(universalAlsoMatchesQuery.trim()) &&
+    (activeModeResultKind === "answer" || activeModeResultKind === "tools" || activeModeResultKind === "favourites");
   const showDesktopHomeComposer =
     !error &&
     (activeModeResultKind === "tools" ||
@@ -3578,15 +3583,8 @@ export function ClinicalDashboard({
                     </div>
                   ) : null)}
 
-                {modeSearchSubmitted &&
-                query.trim() &&
-                (activeModeResultKind === "answer" ||
-                  activeModeResultKind === "tools" ||
-                  activeModeResultKind === "favourites") ? (
-                  <UniversalSearchAlsoMatches
-                    modeId={searchMode}
-                    query={activeModeResultKind === "answer" ? (latestAnswerQuery ?? query) : query}
-                  />
+                {showUniversalAlsoMatches ? (
+                  <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
                 {activeModeResultKind === "differentials" ? (

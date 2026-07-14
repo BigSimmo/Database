@@ -29,8 +29,8 @@ import {
 import type { UniversalSearchDomain } from "@/lib/universal-search";
 import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
 
-// Reverse of modeIdByDomain for chip counts: the domains whose live result totals a
-// cross-mode chip should sum. Answer/favourites chips have no countable domain; the
+// Domains whose live result totals a cross-mode chip should sum. Answer/favourites
+// chips have no countable domain; the
 // differentials chip counts both of its domains because the mode home search composes
 // presentations and diagnoses into one result list.
 const domainsByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain[]>> = {
@@ -82,6 +82,8 @@ function rankLocalFavourites(items: FavouriteItem[], query: string): LocalFavour
       title: item.title,
       subtitle: item.meta,
       href: item.href,
+      // Saved searches are standalone Favourites artifacts; saved canonical entities
+      // already surface through their owning universal domain outside Favourites mode.
       standalone: item.primaryAction === "Run",
       score,
     };
@@ -432,7 +434,9 @@ export function UniversalSearchCommandSurface({
 
     // Best-bet: a single near-exact match pinned to the top so the strongest hit is one keystroke
     // away regardless of which domain it lives in.
-    if (trimmedQuery && universalQuery === trimmedQuery && universalTopHit) {
+    const topHitIsSavedFavourite =
+      modeId === "favourites" && Boolean(universalTopHit && savedHrefs.has(universalTopHit.href));
+    if (trimmedQuery && universalQuery === trimmedQuery && universalTopHit && !topHitIsSavedFavourite) {
       const HitIcon = appModeIcons[universalSearchModeForDomain(universalTopHit.kind)];
       const hit = universalTopHit;
       built.push({

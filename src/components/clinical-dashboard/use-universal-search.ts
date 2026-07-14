@@ -155,7 +155,7 @@ export function useUniversalSearch(args: {
         .then(async (response) => {
           if (requestId !== requestSeqRef.current) return;
           if (!response.ok) {
-            setResult({ groups: [], query: trimmedQuery });
+            setResult({ groups: [], query: trimmedQuery, contextMode: args.contextMode });
             return;
           }
           const payload = (await response.json()) as Partial<UniversalSearchResult>;
@@ -167,7 +167,7 @@ export function useUniversalSearch(args: {
             domainOrder: payload.domainOrder,
             topHit: payload.topHit,
             answerAction: payload.answerAction,
-            contextMode: payload.contextMode,
+            contextMode: payload.contextMode ?? args.contextMode,
             preferredDomains: payload.preferredDomains,
           };
           writeResultCache(key, next);
@@ -177,7 +177,7 @@ export function useUniversalSearch(args: {
           // An aborted fetch is a superseded keystroke, not a failure — leave state to the newer request.
           if (error instanceof DOMException && error.name === "AbortError") return;
           if (requestId !== requestSeqRef.current) return;
-          setResult({ groups: [], query: trimmedQuery });
+          setResult({ groups: [], query: trimmedQuery, contextMode: args.contextMode });
         });
     }, debounceMs);
 
@@ -205,7 +205,7 @@ export function useUniversalSearch(args: {
       preferredDomains: cached.preferredDomains,
     };
   }
-  const fresh = result.query === trimmedQuery;
+  const fresh = result.query === trimmedQuery && result.contextMode === args.contextMode;
   return {
     groups: fresh ? result.groups : [],
     loading: !fresh,
