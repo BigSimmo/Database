@@ -67,7 +67,12 @@ import { NativePdfEmbed, PdfCanvasViewer } from "@/components/document-viewer/pd
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
-import { documentPageHref } from "@/lib/document-viewer-navigation";
+import {
+  documentLoadKey,
+  documentPageHref,
+  isFullDocumentReload,
+  nextLoadedDocumentKey,
+} from "@/lib/document-viewer-navigation";
 import { formatClinicalDate } from "@/lib/source-metadata";
 import { partitionViewerImages } from "@/lib/image-filtering";
 import { isLocalNoAuthMode } from "@/lib/client-env";
@@ -1600,18 +1605,25 @@ export function DocumentViewer({
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
     let cancelled = false;
+    let observer: MutationObserver | null = null;
+    // #main-content is the app-shell scroll container: it mounts once (usually
+    // before this effect runs) and persists for the viewer's lifetime. Resolve it
+    // synchronously, and only fall back to observing the DOM until it appears —
+    // then disconnect, rather than reacting to every app-wide mutation forever.
     const sync = () => {
       if (cancelled) return;
       const main = window.document.getElementById("main-content");
+      if (!main) return;
       setShellScrollContainer((current) => (current === main ? current : main));
+      observer?.disconnect();
+      observer = null;
     };
-    const frame = window.requestAnimationFrame(sync);
-    const observer = new MutationObserver(sync);
+    observer = new MutationObserver(sync);
     observer.observe(window.document.body, { childList: true, subtree: true });
+    sync();
     return () => {
       cancelled = true;
-      window.cancelAnimationFrame(frame);
-      observer.disconnect();
+      observer?.disconnect();
     };
   }, []);
   const scrollHidden = useHideOnScroll(shellScrollContainer ? { scrollContainer: shellScrollContainer } : {});
@@ -1823,6 +1835,12 @@ export function DocumentViewer({
 
   useEffect(() => () => refreshControllerRef.current?.abort(), []);
 
+  // Distinguishes a full document (re)load — a new documentId or an explicit
+  // retry (previewAttempt) — from page/chunk navigation on the already-loaded
+  // document. Navigation only re-windows the detail; a full load also resets the
+  // preview and re-issues signed URLs.
+  const loadedKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!canViewSourceDocuments && authStatus === "loading") {
       return () => undefined;
@@ -1833,8 +1851,12 @@ export function DocumentViewer({
 
     const controller = new AbortController();
     const authRequest = registerAuthRequest(controller);
+    const loadKey = documentLoadKey(documentId, previewAttempt);
+    const isFullReload = isFullDocumentReload(loadedKeyRef.current, loadKey);
     const reset = window.setTimeout(() => {
-      if (!controller.signal.aborted) {
+      // Skip the reset on navigation so the mounted PDF and current content stay
+      // visible (no loading flash) while the new page window loads in the background.
+      if (!controller.signal.aborted && isFullReload) {
         setLoadingDocument(true);
         setViewerError(null);
         setPreviewError(null);
@@ -1871,19 +1893,28 @@ export function DocumentViewer({
           if (!response.ok) throw new Error(payload.error || "Document details could not be loaded.");
           return payload;
         });
-        const signedUrlPair = fetchSignedUrlPair(signedUrlEndpoint, downloadSignedUrlEndpoint, {
-          signal: controller.signal,
-          headers: clientDemoMode ? undefined : authorizationHeader,
-          onUnauthorized: markSessionExpired,
-          useCache: true,
-        });
+        // Navigation keeps the current signed URLs; only a full load re-issues them.
+        const signedUrlPair = isFullReload
+          ? fetchSignedUrlPair(signedUrlEndpoint, downloadSignedUrlEndpoint, {
+              signal: controller.signal,
+              headers: clientDemoMode ? undefined : authorizationHeader,
+              onUnauthorized: markSessionExpired,
+              useCache: true,
+            })
+          : Promise.resolve(null);
 
         return Promise.all([Promise.allSettled([detailRequest]), signedUrlPair]);
       })
-      .then(([[detailResult], [signedUrlResult, signedDownloadUrlResult]]) => {
+      .then(([[detailResult], signedUrlPair]) => {
         if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
+        const detailLoaded = detailResult.status === "fulfilled";
+        // Advance the loaded key only on a successful detail load. A failed full
+        // load must stay "not loaded" so the next page/chunk navigation is still
+        // treated as a full reload — re-fetching signed URLs and refreshing the
+        // error — rather than a cheap navigation that skips that recovery.
+        loadedKeyRef.current = nextLoadedDocumentKey(loadedKeyRef.current, loadKey, detailLoaded);
 
-        if (detailResult.status === "fulfilled") {
+        if (detailLoaded) {
           const detail = detailResult.value;
           setDocument(detail.document ?? null);
           setPages(detail.pages ?? []);
@@ -1891,7 +1922,9 @@ export function DocumentViewer({
           setTableFacts(detail.tableFacts ?? []);
           setChunks(detail.chunks ?? []);
           setIndexHealth(detail.indexHealth ?? null);
-        } else {
+        } else if (isFullReload) {
+          // Only clear the viewer on a full load; a transient detail failure
+          // during navigation keeps the current content on screen.
           setDocument(null);
           setPages([]);
           setImages([]);
@@ -1911,11 +1944,14 @@ export function DocumentViewer({
           }
         }
 
-        applySignedUrlResults(signedUrlResult, signedDownloadUrlResult, signedUrlEndpoint, downloadSignedUrlEndpoint);
+        if (signedUrlPair) {
+          const [signedUrlResult, signedDownloadUrlResult] = signedUrlPair;
+          applySignedUrlResults(signedUrlResult, signedDownloadUrlResult, signedUrlEndpoint, downloadSignedUrlEndpoint);
+        }
       })
       .catch((error) => {
         if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
-        setViewerError(error instanceof Error ? error.message : "Document could not be loaded.");
+        if (isFullReload) setViewerError(error instanceof Error ? error.message : "Document could not be loaded.");
       })
       .finally(() => {
         if (!controller.signal.aborted) setLoadingDocument(false);
@@ -2191,20 +2227,23 @@ export function DocumentViewer({
   // The PDF signed URL has a 10-min TTL and pdf.js holds a dead reference once it
   // expires. When the canvas reports an expiry, drop the cached URLs and re-run
   // the fetch pipeline to mint fresh ones (bounded so a broken URL can't loop).
-  const handleSignedUrlExpired = () => {
+  // Stable identity (useCallback) so the memoised PdfCanvasViewer isn't re-rendered
+  // — and its page re-rastered — every time an unrelated parent state (source-search
+  // keystroke, composer focus, online/offline) changes.
+  const handleSignedUrlExpired = useCallback(() => {
     if (signedUrlRefreshCountRef.current >= 2) return;
     signedUrlRefreshCountRef.current += 1;
     const signedUrlEndpoint = `/api/documents/${documentId}/signed-url`;
     clearCachedSignedUrl(signedUrlEndpoint);
     clearCachedSignedUrl(`${signedUrlEndpoint}?download=true`);
     refreshSignedUrls();
-  };
+  }, [documentId, refreshSignedUrls]);
   // A successful reload means the refreshed URL was accepted, so the recovery
   // worked — restore the budget for the next (unrelated) TTL expiry. A broken
   // URL never loads, so it never resets, and the cap still stops its loop.
-  const handlePdfLoadSuccess = () => {
+  const handlePdfLoadSuccess = useCallback(() => {
     signedUrlRefreshCountRef.current = 0;
-  };
+  }, []);
   const handleDocumentRenamed = (updatedDocument: ClinicalDocument) => {
     setDocument((current) => (current?.id === updatedDocument.id ? { ...current, ...updatedDocument } : current));
   };

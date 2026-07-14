@@ -1,6 +1,6 @@
 "use client";
 
-import { type KeyboardEvent as ReactKeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, memo, useCallback, useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -44,7 +44,11 @@ function isLikelyExpiredUrl(error: unknown): boolean {
   );
 }
 
-export function PdfCanvasViewer({
+// Memoised: this is the heaviest subtree in the document view (it holds the
+// pdf.js document and re-rasters the canvas). With stable props from the parent
+// it skips re-render when unrelated parent state (search, composer, connectivity)
+// changes, so a keystroke elsewhere never re-rasterises the page.
+export const PdfCanvasViewer = memo(function PdfCanvasViewer({
   url,
   title,
   initialPage,
@@ -553,14 +557,22 @@ export function PdfCanvasViewer({
       </div>
     </div>
   );
-}
+});
 
 function nativePdfEmbedUrl(url: string, initialPage: number) {
   const page = Math.max(1, Math.trunc(initialPage || 1));
   return `${url.split("#")[0]}#page=${page}`;
 }
 
-export function NativePdfEmbed({ url, title, initialPage }: { url: string; title: string; initialPage: number }) {
+export const NativePdfEmbed = memo(function NativePdfEmbed({
+  url,
+  title,
+  initialPage,
+}: {
+  url: string;
+  title: string;
+  initialPage: number;
+}) {
   return (
     <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]">
       <iframe
@@ -572,4 +584,4 @@ export function NativePdfEmbed({ url, title, initialPage }: { url: string; title
       />
     </div>
   );
-}
+});
