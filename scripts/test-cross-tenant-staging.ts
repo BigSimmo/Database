@@ -40,6 +40,12 @@ type Fixture = {
   storagePath: string;
 };
 
+export function crossTenantFixtureMarker(runId: string, tenant: "a" | "b") {
+  // Anchor the unique token to a real clinical term. A random token by itself is correctly
+  // rejected by the release retrieval guard as unsupported before lexical search runs.
+  return `lithium tenancyprobe${runId.replace(/-/g, "").slice(0, 12)}${tenant}`;
+}
+
 function required(name: string) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing required ${name}.`);
@@ -206,7 +212,7 @@ async function createFixture(
   register: (fixture: Fixture) => void,
 ): Promise<Fixture> {
   const documentId = randomUUID();
-  const marker = `tenancyprobe${runId.replace(/-/g, "").slice(0, 12)}${tenant}`;
+  const marker = crossTenantFixtureMarker(runId, tenant);
   const storagePath = `${ownerId}/cross-tenant/${runId}/${tenant}-${documentId}.pdf`;
   const fixture = { documentId, ownerId, marker, storagePath };
   // Register before the first write so finally cleanup covers partial provisioning.

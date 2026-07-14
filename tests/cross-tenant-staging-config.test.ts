@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { readCrossTenantStagingConfig } from "../scripts/test-cross-tenant-staging";
+import { crossTenantFixtureMarker, readCrossTenantStagingConfig } from "../scripts/test-cross-tenant-staging";
+import { analyzeClinicalQuery } from "../src/lib/clinical-search";
+import { shouldApplyUnsupportedSearchShortCircuit } from "../src/lib/rag-retrieval-variants";
 
 const validConfig = {
   CROSS_TENANT_STAGING_APP_URL: "https://clinical-kb-staging.tests.invalid",
@@ -23,6 +25,14 @@ afterEach(() => {
 });
 
 describe("cross-tenant staging configuration safety", () => {
+  it("uses a unique clinically anchored marker that reaches lexical retrieval", () => {
+    const marker = crossTenantFixtureMarker("12345678-1234-4234-8234-123456789abc", "a");
+    const analysis = analyzeClinicalQuery(marker);
+
+    expect(marker).toBe("lithium tenancyprobe123456781234a");
+    expect(shouldApplyUnsupportedSearchShortCircuit(marker, analysis)).toBe(false);
+  });
+
   it("accepts a dedicated, internally consistent staging configuration", () => {
     stubConfig();
     expect(readCrossTenantStagingConfig()).toMatchObject({
