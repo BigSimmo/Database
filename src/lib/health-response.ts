@@ -16,9 +16,10 @@ type HealthResponseOptions = {
 export async function healthResponse(request: Request, options: HealthResponseOptions = {}) {
   const deep = options.forceDeep || new URL(request.url).searchParams.get("deep") === "1";
   const supabaseConfigured = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
+  const openAIConfigured = Boolean(env.OPENAI_API_KEY);
   const checks: Record<string, "ok" | "missing" | "error" | "skipped" | "unauthorized"> = {
     supabaseConfig: supabaseConfigured ? "ok" : "missing",
-    openaiConfig: env.OPENAI_API_KEY ? "ok" : "missing",
+    openaiConfig: openAIConfigured ? "ok" : env.RAG_PROVIDER_MODE === "offline" ? "skipped" : "missing",
   };
   let slo: AnswerSloSnapshot | null = null;
   let cache: CacheMetricsSnapshot | null = null;

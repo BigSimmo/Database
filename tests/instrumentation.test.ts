@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // The boot guard (src/instrumentation.ts) must refuse to start a production server
-// that is misconfigured (missing/mismatched Supabase or OpenAI config), running in
-// demo mode, or running with local no-auth enabled. It must be a no-op outside the
-// Node.js production runtime so dev and Edge keep working. env is parsed at import
-// time, so each case re-imports the module with a fresh, stubbed environment.
+// that is misconfigured (missing/mismatched Supabase or required OpenAI config),
+// running in demo mode, or running with local no-auth enabled. Explicit offline
+// mode is the only production profile that may omit OpenAI. It must be a no-op
+// outside the Node.js production runtime so dev and Edge keep working. env is
+// parsed at import time, so each case re-imports the module with fresh stubs.
 
 const MATCHING_URL = "https://sjrfecxgysukkwxsowpy.supabase.co";
 
@@ -17,6 +18,7 @@ const ENV_KEYS = [
   "SUPABASE_PROJECT_REF",
   "SUPABASE_PROJECT_NAME",
   "OPENAI_API_KEY",
+  "RAG_PROVIDER_MODE",
   "RAG_QUERY_HASH_SECRET",
   "NEXT_PUBLIC_LOCAL_NO_AUTH",
   "LOCAL_NO_AUTH",
@@ -67,13 +69,28 @@ describe("instrumentation boot guard", () => {
     await expect(register()).rejects.toThrow(/no-auth mode is enabled/);
   });
 
-  it("refuses to start a production server without an OpenAI key", async () => {
+  it.each(["auto", "openai"] as const)(
+    "refuses to start a %s production server without an OpenAI key",
+    async (mode) => {
+      const register = await loadRegister({
+        ...PRODUCTION_NODE,
+        NEXT_PUBLIC_SUPABASE_URL: MATCHING_URL,
+        SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+        RAG_PROVIDER_MODE: mode,
+      });
+      await expect(register()).rejects.toThrow(/OPENAI_API_KEY/);
+    },
+  );
+
+  it("starts an explicit offline production server without an OpenAI key", async () => {
     const register = await loadRegister({
       ...PRODUCTION_NODE,
       NEXT_PUBLIC_SUPABASE_URL: MATCHING_URL,
       SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+      RAG_PROVIDER_MODE: "offline",
+      RAG_QUERY_HASH_SECRET: "test-secret-at-least-16-chars",
     });
-    await expect(register()).rejects.toThrow(/OPENAI_API_KEY/);
+    await expect(register()).resolves.toBeUndefined();
   });
 
   it("refuses to start a production server without a query-hash secret", async () => {

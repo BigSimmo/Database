@@ -2,6 +2,13 @@
 
 This document turns the current process review into phased, durable repo practice. It separates changes that already take effect from work that should stay explicit until it is implemented.
 
+## Staging tenancy evidence
+
+The provider-backed A/B tenancy regression is intentionally outside local and PR
+gates. Run the standalone manual/nightly workflow and attach a recent green evidence
+artifact before release; see
+[`docs/staging-tenancy-release-evidence.md`](staging-tenancy-release-evidence.md).
+
 ## Phase 1 - Active now
 
 - `npm run verify:cheap` is the default broad local gate for source/config/test changes: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests.

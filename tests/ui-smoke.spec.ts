@@ -5,9 +5,11 @@ import { recentQueryStorageKey } from "../src/components/clinical-dashboard/dash
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
+import { formRecords } from "../src/lib/forms";
 import { deriveGovernanceFromSections } from "../src/lib/medication-records";
 import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
-import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
+import { medicationToSearchResult, rankMedicationRecords, type MedicationRecord } from "../src/lib/medications";
+import { serviceRecords } from "../src/lib/services";
 
 const dashboardViewports = [
   { name: "small-mobile", width: 320, height: 720 },
@@ -31,9 +33,45 @@ async function expectNoPageHorizontalOverflow(page: Page) {
   expect(overflow).toBeLessThanOrEqual(2);
 }
 
+async function installClipboardMock(page: Page) {
+  await page.addInitScript(() => {
+    let clipboardText = "";
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        readText: async () => clipboardText,
+        writeText: async (value: string) => {
+          clipboardText = value;
+        },
+      },
+    });
+  });
+}
+
 async function gotoApp(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+}
+
+async function waitForReactEventHandler(locator: Locator, eventName: "onScroll") {
+  await expect
+    .poll(
+      async () =>
+        locator.evaluate((element, reactEventName) => {
+          const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
+          if (!propsKey) return false;
+          const props = (element as unknown as Record<string, Record<string, unknown>>)[propsKey];
+          return typeof props?.[reactEventName] === "function";
+        }, eventName),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+}
+
+async function activateFocusedControl(page: Page, control: Locator) {
+  await control.focus();
+  await expect(control).toBeFocused();
+  await page.keyboard.press("Enter");
 }
 
 async function expectSingleMedicationPage(page: Page) {
@@ -224,6 +262,22 @@ async function blockExternalRequests(page: Page) {
   });
 }
 
+function medicationIndexRecords(records: MedicationRecord[]): MedicationRecord[] {
+  return records.map((record) => ({
+    slug: record.slug,
+    name: record.name,
+    class: record.class,
+    subclass: record.subclass,
+    category: record.category,
+    accent: record.accent,
+    tag: record.tag,
+    schedule: record.schedule,
+    stats: [],
+    sections: [],
+    quick: [],
+  }));
+}
+
 async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
   await blockExternalRequests(page);
   await mockLocalProjectIdentity(page);
@@ -272,7 +326,8 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
 
     const query = url.searchParams.get("q")?.trim() || undefined;
     const limit = Number(url.searchParams.get("limit") ?? "50");
-    const records = loadMedicationSnapshot();
+    const fullRecords = loadMedicationSnapshot();
+    const records = url.searchParams.get("fields") === "index" ? medicationIndexRecords(fullRecords) : fullRecords;
     const matches = query ? rankMedicationRecords(records, query, limit) : undefined;
     await route.fulfill({
       json: {
@@ -283,6 +338,18 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
           score: match.score,
           reasons: match.reasons,
         })),
+        total: records.length,
+        governance: {},
+        demoMode: true,
+      },
+    });
+  });
+  await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
+    const kind = new URL(route.request().url()).searchParams.get("kind");
+    const records = kind === "form" ? formRecords : serviceRecords;
+    await route.fulfill({
+      json: {
+        records,
         total: records.length,
         governance: {},
         demoMode: true,
@@ -405,6 +472,18 @@ async function mockDemoApi(page: Page, options: MockDemoApiOptions = {}) {
           retrieval_strategy: "text_fast_path",
           embedding_skipped: true,
         },
+        demoMode: true,
+      },
+    });
+  });
+  await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+    const query = new URL(route.request().url()).searchParams.get("q")?.trim() ?? "";
+    await route.fulfill({
+      json: {
+        query,
+        groups: [],
+        tookMs: 0,
+        domainOrder: [],
         demoMode: true,
       },
     });
@@ -627,15 +706,11 @@ async function scrollMobileTableExpandClearOfFooter(page: Page, clinicalTable: L
 async function openMobileTableFullscreen(page: Page, clinicalTable: Locator) {
   await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
   const expandButton = clinicalTable.getByTestId("table-expand-button");
-  const tableSurface = clinicalTable.getByTestId("accessible-table-surface");
   const tableDialog = page.getByTestId("table-fullscreen-dialog");
   await expect(async () => {
     if (await tableDialog.isVisible().catch(() => false)) return;
-    if (await expandButton.isVisible().catch(() => false)) {
-      await expandButton.click();
-    } else {
-      await tableSurface.click();
-    }
+    await expect(expandButton).toBeVisible();
+    await expandButton.click();
     await expect(tableDialog).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 15_000 });
   return tableDialog;
@@ -1319,11 +1394,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(clinicalTable.getByTestId("accessible-table-surface")).toBeFocused();
     }
     if (await tableExpandButton.isVisible().catch(() => false)) {
-      await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
-      await tableExpandButton.click();
-      await expect(tableDialog).toBeVisible();
-      await tableDialog.getByRole("button", { name: "Close full-screen table" }).click();
-      await expect(tableDialog).toBeHidden();
+      const reopenedTableDialog = await openMobileTableFullscreen(page, clinicalTable);
+      await reopenedTableDialog.getByRole("button", { name: "Close full-screen table" }).click();
+      await expect(reopenedTableDialog).toBeHidden();
       await expect(tableExpandButton).toBeFocused();
     }
     await expect(page.locator("#answer-more-detail-drawer")).toHaveCount(0);
@@ -1472,11 +1545,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
           visualEvidence: [],
         }),
       });
+      await installClipboardMock(page);
       await gotoApp(page, "/");
       await waitForDemoDashboardReady(page);
-      await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
-        origin: new URL(page.url()).origin,
-      });
 
       await fillVisibleQuestionInput(page, "What lithium toxicity symptoms need review?");
       await visibleAnswerSubmitButton(page).click();
@@ -1533,11 +1604,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
           };
         },
       });
+      await installClipboardMock(page);
       await gotoApp(page, "/");
       await waitForDemoDashboardReady(page);
-      await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
-        origin: new URL(page.url()).origin,
-      });
 
       await fillVisibleQuestionInput(page, "What clozapine monitoring items are shown in the table image?");
       await visibleAnswerSubmitButton(page).click();
@@ -2231,10 +2300,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(expandButton).toHaveAttribute("aria-expanded", "false");
 
       await expect(expandButton).toBeVisible();
-      await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
-      await expandButton.click();
-      const dialog = page.getByTestId("table-fullscreen-dialog");
-      await expect(dialog).toBeVisible();
+      const dialog = await openMobileTableFullscreen(page, clinicalTable);
       await expect(dialog.getByRole("table")).toBeVisible();
       await expect(dialog).toContainText("FBC/ANC");
       await expect(dialog).not.toContainText(/page|p\.|chunk|Synthetic clozapine monitoring protocol/i);
@@ -2389,7 +2455,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("favourites hub hydrates saved services from the registry", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    // mockDemoApi does not cover the registry list used for favourite hydration.
+    // Override the shared registry fixture with the saved-service scenario.
     await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         json: {
@@ -2685,17 +2751,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(viewerNav.getByRole("link", { name: "PDF" })).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "Text" })).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
-    await page.getByRole("button", { name: "Open document actions" }).first().click();
-    const documentActions = page.getByRole("dialog", { name: "This document" });
-    await expect(documentActions).toBeVisible();
-    await tapOutsideActiveSurface(page);
-    await expect(documentActions).toHaveCount(0);
     await expect(preview).toBeVisible();
     const switchToCanvasMode = page.getByRole("button", { name: "Switch to canvas zoom mode" });
     if ((await switchToCanvasMode.count()) > 0) {
       await switchToCanvasMode.click();
     }
     await expect(toolbar).toBeVisible({ timeout: 30000 });
+    const enterFullscreen = page.getByRole("button", { name: "Fit page width and enter fullscreen" });
+    // The toolbar is mounted before pdf.js finishes painting. Wait for its
+    // existing pagesReady signal so late canvas height changes cannot move a
+    // target between Firefox's actionability check and pointer dispatch.
+    await expect(enterFullscreen).toBeEnabled({ timeout: 30000 });
+    await expect(pdfScroller.locator("canvas")).toBeVisible();
+
     await expectDomIntegrity(page);
 
     const evidenceBox = await evidence.boundingBox();
@@ -2714,15 +2782,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const passageToggle = page.getByTestId("toggle-full-passage").first();
     await expect(passageToggle).toHaveText("Show full passage");
-    await passageToggle.click();
+    // Keyboard activation is intentional here: pdf.js can resize the canvas
+    // while Firefox is calculating pointer coordinates, but a focused native
+    // button must keep its expand/collapse behavior through that layout shift.
+    await activateFocusedControl(page, passageToggle);
     await expect(passageToggle).toHaveText("Show passage preview");
     const expandedEvidenceBox = await evidence.boundingBox();
     expect(expandedEvidenceBox?.height ?? 0).toBeGreaterThan(evidenceBox!.height);
-    await viewerNav.getByRole("link", { name: "PDF" }).click();
+    await activateFocusedControl(page, viewerNav.getByRole("link", { name: "PDF" }));
     await expect(preview).toBeInViewport();
-    await viewerNav.getByRole("link", { name: "Text" }).click();
+    await activateFocusedControl(page, viewerNav.getByRole("link", { name: "Text" }));
     await expect(page.getByText("Indexed page text", { exact: true })).toBeInViewport();
-    await viewerNav.getByRole("link", { name: "PDF" }).click();
+    await activateFocusedControl(page, viewerNav.getByRole("link", { name: "PDF" }));
     await expect(preview).toBeInViewport();
 
     const mobilePdfStyles = await toolbar.evaluate((element) => ({
@@ -2731,7 +2802,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(mobilePdfStyles.position).toBe("static");
 
     await expect(pdfScroller).toBeVisible();
-    await page.getByRole("button", { name: "Fit page width and enter fullscreen" }).click();
+    await enterFullscreen.click();
     await expect(page.getByRole("button", { name: "Exit fullscreen document view" })).toBeVisible();
     const fullscreenRootStyles = await page.getByTestId("pdf-fullscreen-root").evaluate((element) => {
       const style = window.getComputedStyle(element);
@@ -2752,6 +2823,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     expect(fitWidthScrollStyles.overflowX).toBe("hidden");
     expect(fitWidthScrollStyles.touchAction).toContain("pan-y");
+
+    // Exercise the independent actions sheet last. Its portal/focus teardown
+    // causes a deferred root commit in Firefox; no subsequent target should be
+    // selected against the pre-teardown layout.
+    await page.getByRole("button", { name: "Open document actions" }).first().click();
+    const documentActions = page.getByRole("dialog", { name: "This document" });
+    await expect(documentActions).toBeVisible();
+    await tapOutsideActiveSurface(page);
+    await expect(documentActions).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -2798,6 +2878,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const headerHeight = await header.evaluate((node) => node.getBoundingClientRect().height);
     expect(Math.abs(reserve - headerHeight)).toBeLessThanOrEqual(2);
 
+    await waitForReactEventHandler(main, "onScroll");
     await main.evaluate((node) => {
       const spacer = document.createElement("div");
       spacer.setAttribute("data-testid", "header-hide-scroll-spacer");
@@ -2806,9 +2887,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     // Step scroll down so the dashboard main listener sees deliberate movement.
     for (const offset of [40, 80, 120, 160, 200]) {
-      await main.evaluate((node, top) => {
-        node.scrollTop = top;
-      }, offset);
+      await scrollPrimarySurface(page, offset);
     }
 
     await expect(header).toHaveAttribute("data-scroll-hidden", "true");
@@ -2829,9 +2908,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     // Any deliberate scroll up slides the glass bar back in.
     for (const offset of [160, 120, 60]) {
-      await main.evaluate((node, top) => {
-        node.scrollTop = top;
-      }, offset);
+      await scrollPrimarySurface(page, offset);
     }
     await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
   });
@@ -2846,7 +2923,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const alert = page.getByTestId("private-scope-unavailable");
     await expect(alert).toBeVisible({ timeout: 15000 });
 
-    const main = page.locator("main#main-content");
+    const main = page.locator("#main-content");
+    await waitForReactEventHandler(main, "onScroll");
     await main.evaluate((node) => {
       const spacer = document.createElement("div");
       spacer.style.height = "2000px";
@@ -2876,22 +2954,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("absolute");
 
     const main = page.locator("main#main-content");
+    await waitForReactEventHandler(main, "onScroll");
     await main.evaluate((node) => {
       const spacer = document.createElement("div");
       spacer.style.height = "2400px";
       node.appendChild(spacer);
     });
     for (const offset of [40, 90, 150, 220, 300]) {
-      await main.evaluate((node, top) => {
-        node.scrollTop = top;
-      }, offset);
+      await scrollPrimarySurface(page, offset);
     }
     await expect(header).toHaveAttribute("data-scroll-hidden", "true");
 
     for (const offset of [250, 200, 140]) {
-      await main.evaluate((node, top) => {
-        node.scrollTop = top;
-      }, offset);
+      await scrollPrimarySurface(page, offset);
     }
     await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
   });
@@ -2910,6 +2985,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("relative");
 
     const main = page.locator("main#main-content");
+    await waitForReactEventHandler(main, "onScroll");
     await main.evaluate((node) => {
       const spacer = document.createElement("div");
       spacer.style.height = "2000px";
@@ -2949,6 +3025,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await scrollPrimarySurface(page, 0);
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
 
+    const main = page.locator("#main-content");
+    await waitForReactEventHandler(main, "onScroll");
     await page.evaluate(() => {
       const main = window.document.getElementById("main-content");
       const spacer = window.document.createElement("div");
@@ -3003,7 +3081,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await composer
       .getByRole("textbox", { name: "Search or answer from this document" })
       .fill("How is clozapine monitored?");
-    await composer.getByRole("button", { name: "Answer from this document" }).click();
+    await activateFocusedControl(page, composer.getByRole("button", { name: "Answer from this document" }));
 
     const generatedSummary = page.getByTestId("generated-clinical-summary");
     await expect(generatedSummary).toBeVisible();
@@ -3029,7 +3107,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(legacySummaryRequestCount).toBe(0);
 
     await composer.getByRole("textbox", { name: "Search or answer from this document" }).fill("");
-    await composer.getByRole("button", { name: "Answer from this document" }).click();
+    // The generated answer intentionally smooth-scrolls into view. WebKit can
+    // move the fixed pointer target during that animation, so exercise the
+    // native submit control by keyboard for this immediate follow-up action.
+    await activateFocusedControl(page, composer.getByRole("button", { name: "Answer from this document" }));
     await expect.poll(() => answerRequests.length).toBe(2);
     expect(answerRequests[1]).toEqual({
       query: documentSummaryQuestion,

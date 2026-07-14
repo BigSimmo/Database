@@ -1,6 +1,7 @@
 import { access, readFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 
 import { checkSupabaseProjectConfig } from "@/lib/supabase/project";
@@ -36,6 +37,11 @@ const result: Result = {
 
 function placeholderLooksLikeExample(value: string) {
   return /replace-with|your-|example|-example-|\{\w+\}|xxxx|todo|placeholder/i.test(value);
+}
+
+export function openAIReadinessPolicy(providerMode: "auto" | "openai" | "offline", apiKey?: string) {
+  if (providerMode === "offline") return { required: false, ready: true } as const;
+  return { required: true, ready: Boolean(apiKey) } as const;
 }
 
 async function checkRequiredFile(filePath: string, message: string) {
@@ -214,18 +220,23 @@ async function main() {
       }
     }
 
-    try {
-      envModule.requireOpenAIEnv();
-      result.passes.push("OpenAI API key is configured.");
-      if (placeholderLooksLikeExample(envModule.env.OPENAI_API_KEY ?? "")) {
-        result.failures.push("OPENAI_API_KEY still looks like a placeholder.");
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (isMissingEnvError(message)) {
-        recordIssue(`OpenAI configuration issue: ${message}`, { downgradeToWarningInCi: true });
-      } else {
-        result.failures.push(`OpenAI configuration issue: ${message}`);
+    const openAIReadiness = openAIReadinessPolicy(envModule.env.RAG_PROVIDER_MODE, envModule.env.OPENAI_API_KEY);
+    if (!openAIReadiness.required) {
+      result.passes.push("OpenAI API key is not required because RAG_PROVIDER_MODE is explicitly offline.");
+    } else {
+      try {
+        envModule.requireOpenAIEnv();
+        result.passes.push("OpenAI API key is configured.");
+        if (placeholderLooksLikeExample(envModule.env.OPENAI_API_KEY ?? "")) {
+          result.failures.push("OPENAI_API_KEY still looks like a placeholder.");
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (isMissingEnvError(message)) {
+          recordIssue(`OpenAI configuration issue: ${message}`, { downgradeToWarningInCi: true });
+        } else {
+          result.failures.push(`OpenAI configuration issue: ${message}`);
+        }
       }
     }
 
@@ -305,7 +316,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  result.failures.push(error instanceof Error ? error.message : String(error));
-  process.exitCode = 1;
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    result.failures.push(error instanceof Error ? error.message : String(error));
+    process.exitCode = 1;
+  });
+}

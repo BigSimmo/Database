@@ -1626,7 +1626,10 @@ export function DocumentViewer({
       observer?.disconnect();
     };
   }, []);
-  const scrollHidden = useHideOnScroll(shellScrollContainer ? { scrollContainer: shellScrollContainer } : {});
+  const scrollHidden = useHideOnScroll({
+    ...(shellScrollContainer ? { scrollContainer: shellScrollContainer } : {}),
+    resetKey: `${documentId}:${initialPage}:${chunkId ?? ""}`,
+  });
   const composerScrollHidden = scrollHidden && !mobileActionsOpen && !composerChromeFocused;
   // Read localStorage once on mount, then seed both derived states from it.
   const [initialPdfViewerMode] = useState(getInitialPdfViewerMode);
@@ -2614,6 +2617,9 @@ export function DocumentViewer({
                       initialPage={initialPage}
                       onUrlExpired={handleSignedUrlExpired}
                       onLoadSuccess={handlePdfLoadSuccess}
+                      onPageChange={(page) => {
+                        router.push(documentPageHref(documentId, page), { scroll: false });
+                      }}
                     />
                   )}
                 </>

@@ -1,8 +1,10 @@
 import * as nextEnv from "@next/env";
 import { promises as fs } from "node:fs";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { reviewDocumentTagQuality } from "@/lib/document-tags";
 import type { DocumentLabel } from "@/lib/types";
+import { isRegistryProjectionDocument } from "./lib/registry-projection-document";
 
 const loadEnvConfig =
   nextEnv.loadEnvConfig ??
@@ -20,13 +22,16 @@ type CoverageArgs = {
 
 type SupabaseAdmin = Awaited<ReturnType<typeof loadAdminClient>>;
 
-type DocumentRow = {
+export type DocumentLabelCoverageDocument = {
   id: string;
   title: string;
   file_name: string;
+  file_type: string | null;
+  source_path: string | null;
+  metadata: Record<string, unknown> | null;
 };
 
-type LabelRow = {
+export type DocumentLabelCoverageLabel = {
   id: string;
   document_id: string;
   label: string;
@@ -88,7 +93,7 @@ function usage() {
   return [
     "Usage: npm run check:document-label-coverage -- [options]",
     "",
-    "Checks every indexed document has generated site and document_type labels.",
+    "Checks physical-document labels and registry metadata/smart-v2 contracts.",
     "",
     "Options:",
     "  --json                           Print machine-readable JSON.",
@@ -161,7 +166,7 @@ async function fetchAll<T extends { id: string }>(
   return rows;
 }
 
-function countByLabelType(labels: LabelRow[]) {
+function countByLabelType(labels: DocumentLabelCoverageLabel[]) {
   const counts = new Map<string, number>();
   for (const label of labels) {
     counts.set(label.label_type, (counts.get(label.label_type) ?? 0) + 1);
@@ -170,6 +175,40 @@ function countByLabelType(labels: LabelRow[]) {
 }
 
 const smartV2LabelTypes = new Set(["clinical_action", "care_phase", "document_intent", "content_feature"]);
+const registryKinds = new Set(["service", "form", "medication", "differential"]);
+const registryIntentByKind = {
+  service: "operational-process",
+  form: "documentation-requirement",
+  medication: "medication-instruction",
+  differential: "decision-support",
+} as const;
+const requiredRegistryMetadataKeys = [
+  "source_kind",
+  "registry_record_kind",
+  "registry_record_id",
+  "registry_record_slug",
+  "publisher",
+  "document_status",
+  "clinical_validation_status",
+  "clinical_validation_evidence",
+  "extraction_quality",
+] as const;
+
+function metadataRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function nonEmptyMetadataValue(value: unknown) {
+  if (typeof value === "string") return value.trim().length > 0;
+  if (value && typeof value === "object" && !Array.isArray(value)) return Object.keys(value).length > 0;
+  return value !== undefined && value !== null;
+}
+
+function registryKindFor(document: DocumentLabelCoverageDocument) {
+  const metadata = metadataRecord(document.metadata);
+  const kind = typeof metadata.registry_record_kind === "string" ? metadata.registry_record_kind : "";
+  return registryKinds.has(kind) ? (kind as keyof typeof registryIntentByKind) : null;
+}
 
 function countQualityIssues(issues: ReturnType<typeof reviewDocumentTagQuality>) {
   const counts = new Map<string, number>();
@@ -177,27 +216,18 @@ function countQualityIssues(issues: ReturnType<typeof reviewDocumentTagQuality>)
   return Object.fromEntries([...counts.entries()].sort());
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2));
-  if (args.help) {
-    console.log(usage());
-    return;
-  }
-
-  const supabase = await loadAdminClient();
-  const allowedSiteMissing = await loadAllowlist(args.allowedSiteMissingPath);
-  const allowedDocumentTypeMissing = await loadAllowlist(args.allowedDocumentTypeMissingPath);
-  const documents = await fetchAll<DocumentRow>(supabase, "documents", "id,title,file_name", (query) =>
-    query.eq("status", "indexed"),
-  );
-  const labels = await fetchAll<LabelRow>(
-    supabase,
-    "document_labels",
-    "id,document_id,label,label_type,source,confidence",
-    (query) => query.eq("source", "generated"),
-  );
-
+export function buildDocumentLabelCoverageReport(args: {
+  documents: DocumentLabelCoverageDocument[];
+  labels: DocumentLabelCoverageLabel[];
+  allowedSiteMissing?: Set<string>;
+  allowedDocumentTypeMissing?: Set<string>;
+}) {
+  const { documents, labels } = args;
+  const allowedSiteMissing = args.allowedSiteMissing ?? new Set<string>();
+  const allowedDocumentTypeMissing = args.allowedDocumentTypeMissing ?? new Set<string>();
   const documentIds = new Set(documents.map((document) => document.id));
+  const physicalDocuments = documents.filter((document) => !isRegistryProjectionDocument(document));
+  const registryDocuments = documents.filter(isRegistryProjectionDocument);
   const generatedDocumentIds = new Set(labels.map((label) => label.document_id));
   const siteDocumentIds = new Set(
     labels.filter((label) => label.label_type === "site").map((label) => label.document_id),
@@ -207,35 +237,68 @@ async function main() {
   );
   const smartV2Labels = labels.filter((label) => smartV2LabelTypes.has(label.label_type));
   const smartV2DocumentIds = new Set(smartV2Labels.map((label) => label.document_id));
+  const labelsByDocument = new Map<string, DocumentLabelCoverageLabel[]>();
+  for (const label of labels) {
+    labelsByDocument.set(label.document_id, [...(labelsByDocument.get(label.document_id) ?? []), label]);
+  }
 
   const missingGenerated = [...documentIds].filter((id) => !generatedDocumentIds.has(id));
   const missingSmartV2 = [...documentIds].filter((id) => !smartV2DocumentIds.has(id));
   const allowedSiteMissingDocs = [...allowedSiteMissing].filter(
-    (id) => !siteDocumentIds.has(id) && documentIds.has(id),
+    (id) => !siteDocumentIds.has(id) && physicalDocuments.some((document) => document.id === id),
   );
   const allowedDocumentTypeMissingDocs = [...allowedDocumentTypeMissing].filter(
-    (id) => !documentTypeDocumentIds.has(id) && documentIds.has(id),
+    (id) => !documentTypeDocumentIds.has(id) && physicalDocuments.some((document) => document.id === id),
   );
-  const missingSite = [...documentIds].filter((id) => !siteDocumentIds.has(id) && !allowedSiteMissing.has(id));
-  const missingDocumentType = [...documentIds].filter(
-    (id) => !documentTypeDocumentIds.has(id) && !allowedDocumentTypeMissing.has(id),
-  );
-  const labelsByDocument = new Map<string, LabelRow[]>();
-  for (const label of labels) {
-    labelsByDocument.set(label.document_id, [...(labelsByDocument.get(label.document_id) ?? []), label]);
-  }
+  const missingSite = physicalDocuments
+    .map((document) => document.id)
+    .filter((id) => !siteDocumentIds.has(id) && !allowedSiteMissing.has(id));
+  const missingDocumentType = physicalDocuments
+    .map((document) => document.id)
+    .filter((id) => !documentTypeDocumentIds.has(id) && !allowedDocumentTypeMissing.has(id));
+
+  const registryContractGaps = registryDocuments.flatMap((document) => {
+    const metadata = metadataRecord(document.metadata);
+    const missingKeys: string[] = requiredRegistryMetadataKeys.filter((key) => {
+      if (key === "source_kind") return metadata.source_kind !== "registry_record";
+      if (key === "registry_record_kind") return registryKindFor(document) === null;
+      return !nonEmptyMetadataValue(metadata[key]);
+    });
+    const kind = registryKindFor(document);
+    const documentLabels = labelsByDocument.get(document.id) ?? [];
+    const expectedIntent = kind ? registryIntentByKind[kind] : null;
+    const hasExpectedIntent =
+      expectedIntent !== null &&
+      documentLabels.some(
+        (label) =>
+          label.source === "generated" && label.label_type === "document_intent" && label.label === expectedIntent,
+      );
+    const hasGeneratedSite = documentLabels.some(
+      (label) => label.source === "generated" && label.label_type === "site",
+    );
+    if (!hasExpectedIntent) missingKeys.push("smart_v2_document_intent");
+    if (hasGeneratedSite) missingKeys.push("generated_site_label");
+    return missingKeys.length > 0
+      ? [{ id: document.id, title: document.title, file_name: document.file_name, missing_keys: [...missingKeys] }]
+      : [];
+  });
+
   const qualityIssues = reviewDocumentTagQuality(
     documents.map((document) => ({
       ...document,
       labels: labelsByDocument.get(document.id) ?? [],
     })),
-    { overusedThreshold: Math.max(100, Math.ceil(documents.length * 0.35)) },
   );
+  const passed =
+    missingGenerated.length === 0 &&
+    missingSite.length === 0 &&
+    missingDocumentType.length === 0 &&
+    registryContractGaps.length === 0;
 
-  const passed = missingGenerated.length === 0 && missingSite.length === 0 && missingDocumentType.length === 0;
-
-  const report = {
+  return {
     indexed_documents: documents.length,
+    physical_documents: physicalDocuments.length,
+    registry_documents: registryDocuments.length,
     generated_label_rows: labels.length,
     generated_documents: generatedDocumentIds.size,
     indexed_without_generated: missingGenerated.length,
@@ -258,6 +321,18 @@ async function main() {
       examples: issue.examples,
       document_titles: issue.documentTitles,
     })),
+    physical_contract: {
+      indexed_documents: physicalDocuments.length,
+      without_site: missingSite.length,
+      without_document_type: missingDocumentType.length,
+      passed: missingSite.length === 0 && missingDocumentType.length === 0,
+    },
+    registry_contract: {
+      indexed_documents: registryDocuments.length,
+      documents_with_gaps: registryContractGaps.length,
+      sample_gaps: registryContractGaps.slice(0, 25),
+      passed: registryContractGaps.length === 0,
+    },
     sample_missing_generated: missingGenerated.slice(0, 10),
     sample_missing_site: missingSite.slice(0, 10),
     sample_missing_document_type: missingDocumentType.slice(0, 10),
@@ -268,12 +343,45 @@ async function main() {
     allowed_document_type_missing_docs: allowedDocumentTypeMissingDocs,
     passed,
   };
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    console.log(usage());
+    return;
+  }
+
+  const supabase = await loadAdminClient();
+  const allowedSiteMissing = await loadAllowlist(args.allowedSiteMissingPath);
+  const allowedDocumentTypeMissing = await loadAllowlist(args.allowedDocumentTypeMissingPath);
+  const documents = await fetchAll<DocumentLabelCoverageDocument>(
+    supabase,
+    "documents",
+    "id,title,file_name,file_type,source_path,metadata",
+    (query) => query.eq("status", "indexed"),
+  );
+  const labels = await fetchAll<DocumentLabelCoverageLabel>(
+    supabase,
+    "document_labels",
+    "id,document_id,label,label_type,source,confidence",
+    (query) => query.eq("source", "generated"),
+  );
+
+  const report = buildDocumentLabelCoverageReport({
+    documents,
+    labels,
+    allowedSiteMissing,
+    allowedDocumentTypeMissing,
+  });
 
   if (args.json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
     console.log("[Document Label Coverage]");
     console.log(`Indexed documents: ${report.indexed_documents}`);
+    console.log(`Physical documents: ${report.physical_documents}`);
+    console.log(`Registry documents: ${report.registry_documents}`);
     console.log(`Generated label rows: ${report.generated_label_rows}`);
     console.log(`Documents with generated labels: ${report.generated_documents}`);
     console.log(`Indexed without generated labels: ${report.indexed_without_generated}`);
@@ -298,21 +406,28 @@ async function main() {
         .map(([type, count]) => `${type}=${count}`)
         .join(", ")}`,
     );
-    if (allowedSiteMissingDocs.length) {
-      console.log(`Allowed indexed docs without site labels (from allowlist): ${allowedSiteMissingDocs.length}`);
-    }
-    if (allowedDocumentTypeMissingDocs.length) {
+    console.log(`Registry contract gaps: ${report.registry_contract.documents_with_gaps}`);
+    if (report.allowed_site_missing_docs.length) {
       console.log(
-        `Allowed indexed docs without document_type labels (from allowlist): ${allowedDocumentTypeMissingDocs.length}`,
+        `Allowed indexed docs without site labels (from allowlist): ${report.allowed_site_missing_docs.length}`,
       );
     }
-    console.log(passed ? "PASS: generated label coverage is complete." : "FAIL: generated label coverage has gaps.");
+    if (report.allowed_document_type_missing_docs.length) {
+      console.log(
+        `Allowed indexed docs without document_type labels (from allowlist): ${report.allowed_document_type_missing_docs.length}`,
+      );
+    }
+    console.log(
+      report.passed ? "PASS: generated label coverage is complete." : "FAIL: generated label coverage has gaps.",
+    );
   }
 
-  if (!passed) process.exitCode = 1;
+  if (!report.passed) process.exitCode = 1;
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}

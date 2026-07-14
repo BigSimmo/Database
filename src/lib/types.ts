@@ -971,8 +971,13 @@ export type RagAnswer = {
     context_pack_cache_hits?: number;
     answer_retry_count?: number;
     answer_retry_reasons?: string[];
+    retrieval_latency_ms?: number;
+    routing_latency_ms?: number;
     search_latency_ms?: number;
     generation_latency_ms?: number;
+    verification_latency_ms?: number;
+    route_budget_ms?: number;
+    route_deadline_exceeded?: boolean;
     total_latency_ms?: number;
   };
   openAIRequestIds?: string[];

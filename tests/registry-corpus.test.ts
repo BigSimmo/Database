@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { buildDefaultMedicationRows } from "../src/lib/medication-fixtures";
-import { clinicalRegistryRowsToCorpusEntries, medicationRowsToCorpusEntries } from "../src/lib/registry-corpus";
+import {
+  clinicalRegistryRowsToCorpusEntries,
+  medicationRowsToCorpusEntries,
+  registryDocumentIntent,
+} from "../src/lib/registry-corpus";
 import { registryCorpusDetailHref } from "../src/lib/registry-corpus-links";
 import type { MedicationRecordRow } from "../src/lib/medication-records";
 import type { RegistryRecordRow } from "../src/lib/registry-records";
@@ -50,37 +54,52 @@ function registryRow(overrides: Partial<RegistryRecordRow> = {}): RegistryRecord
 function corpusHarness() {
   const documents = new Map<string, Record<string, unknown>>();
   const chunks = new Map<string, Record<string, unknown>>();
-  const tableState = { documents, document_chunks: chunks };
+  const labels = new Map<string, Record<string, unknown>>();
+  const tableState = { documents, document_chunks: chunks, document_labels: labels };
   const supabase = {
     from: vi.fn((table: keyof typeof tableState) => {
+      let selectedColumn = "id";
       let selectedIds: string[] = [];
+      let deleting = false;
       const query = {
         select: vi.fn(() => query),
-        in: vi.fn((_column: string, ids: string[]) => {
+        in: vi.fn((column: string, ids: string[]) => {
+          selectedColumn = column;
           selectedIds = ids;
+          if (deleting) {
+            for (const [key, row] of tableState[table]) {
+              if (ids.includes(String(row[column]))) tableState[table].delete(key);
+            }
+          }
           return query;
         }),
         upsert: vi.fn(async (rows: Array<Record<string, unknown>>) => {
-          for (const row of rows) tableState[table].set(String(row.id), row);
+          for (const row of rows) {
+            const key =
+              table === "document_labels"
+                ? `${row.document_id}|${row.label_type}|${row.label}|${row.source}`
+                : String(row.id);
+            tableState[table].set(key, { id: String(row.id ?? key), ...row });
+          }
           return { data: rows, error: null };
         }),
-        delete: vi.fn(() => query),
+        delete: vi.fn(() => {
+          deleting = true;
+          return query;
+        }),
         then: (
           resolve: (value: { data: Array<Record<string, unknown>>; error: null }) => unknown,
           reject?: (reason: unknown) => unknown,
         ) =>
           Promise.resolve({
-            data: selectedIds.flatMap((id) => {
-              const row = tableState[table].get(id);
-              return row ? [row] : [];
-            }),
+            data: [...tableState[table].values()].filter((row) => selectedIds.includes(String(row[selectedColumn]))),
             error: null,
           }).then(resolve, reject),
       };
       return query;
     }),
   };
-  return { supabase, documents, chunks };
+  return { supabase, documents, chunks, labels };
 }
 
 describe("registry corpus", () => {
@@ -148,6 +167,146 @@ describe("registry corpus", () => {
       chunkCount: 0,
     });
     expect(embedTextsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves public ownership during metadata and generated-label refreshes", async () => {
+    const { supabase, documents, labels } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const { embedClinicalRegistryRows } = await import("../src/lib/registry-corpus");
+
+    await embedClinicalRegistryRows(supabase as never, [registryRow()]);
+    const [documentId] = [...documents.keys()];
+    const stored = documents.get(documentId!)!;
+    documents.set(documentId!, {
+      ...stored,
+      owner_id: null,
+      metadata: { ...(stored.metadata as Record<string, unknown>), registry_detail_href: "/legacy/crisis-service" },
+    });
+    const [intentLabelKey] = [...labels.keys()];
+    labels.set(intentLabelKey!, {
+      ...labels.get(intentLabelKey!)!,
+      owner_id: null,
+      confidence: 0.75,
+      metadata: {
+        ...((labels.get(intentLabelKey!)?.metadata as Record<string, unknown>) ?? {}),
+        review_status: "approved",
+        reviewed_by: "clinical-reviewer",
+      },
+    });
+
+    await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).resolves.toEqual({
+      documentCount: 1,
+      chunkCount: 1,
+    });
+    expect(documents.get(documentId!)?.owner_id).toBeNull();
+    expect(labels.get(intentLabelKey!)?.owner_id).toBeNull();
+    expect(labels.get(intentLabelKey!)?.confidence).toBe(0.75);
+    expect(labels.get(intentLabelKey!)?.metadata).toMatchObject({
+      review_status: "approved",
+      reviewed_by: "clinical-reviewer",
+    });
+    expect(embedTextsMock).toHaveBeenCalledTimes(1);
+    await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).resolves.toEqual({
+      documentCount: 0,
+      chunkCount: 0,
+    });
+  });
+
+  it("refuses to move a registry document from another tenant", async () => {
+    const { supabase, documents } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const { embedClinicalRegistryRows } = await import("../src/lib/registry-corpus");
+
+    await embedClinicalRegistryRows(supabase as never, [registryRow()]);
+    const [documentId] = [...documents.keys()];
+    documents.set(documentId!, { ...documents.get(documentId!)!, owner_id: "33333333-3333-4333-8333-333333333333" });
+
+    await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).rejects.toThrow(
+      /owner mismatch.*refusing to change tenant scope/i,
+    );
+  });
+
+  it("writes validation evidence and reconciles registry smart-v2 labels without generated sites", async () => {
+    const { supabase, documents, chunks, labels } = corpusHarness();
+    embedTextsMock.mockReset().mockResolvedValue([[0.1]]);
+    const { embedClinicalRegistryRows } = await import("../src/lib/registry-corpus");
+
+    await embedClinicalRegistryRows(supabase as never, [registryRow()]);
+    const [document] = [...documents.values()];
+    const [chunk] = [...chunks.values()];
+    expect(document?.metadata).toMatchObject({
+      source_kind: "registry_record",
+      registry_record_kind: "service",
+      publisher: "Clinical KB registry",
+      clinical_validation_evidence: {
+        status: "locally_reviewed",
+        evidence_type: "registry_governance_record",
+        registry_record_kind: "service",
+      },
+    });
+    expect(chunk?.metadata).toMatchObject({
+      clinical_validation_evidence: { status: "locally_reviewed" },
+    });
+    expect([...labels.values()]).toEqual([
+      expect.objectContaining({
+        label: "operational-process",
+        label_type: "document_intent",
+        source: "generated",
+      }),
+    ]);
+
+    const documentId = String(document?.id);
+    labels.set("generic", {
+      id: "generic",
+      document_id: documentId,
+      owner_id: registryRow().owner_id,
+      label: "staff-guidance",
+      label_type: "document_intent",
+      source: "generated",
+      confidence: 0.55,
+    });
+    labels.set("fabricated-site", {
+      id: "fabricated-site",
+      document_id: documentId,
+      owner_id: registryRow().owner_id,
+      label: "fsh",
+      label_type: "site",
+      source: "generated",
+      confidence: 0.8,
+    });
+    labels.set("manual", {
+      id: "manual",
+      document_id: documentId,
+      owner_id: registryRow().owner_id,
+      label: "clinician-reviewed-service",
+      label_type: "document_intent",
+      source: "manual",
+      confidence: 1,
+    });
+
+    await expect(embedClinicalRegistryRows(supabase as never, [registryRow()])).resolves.toEqual({
+      documentCount: 0,
+      chunkCount: 0,
+    });
+    expect([...labels.values()]).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "operational-process", source: "generated" }),
+        expect.objectContaining({ label: "clinician-reviewed-service", source: "manual" }),
+      ]),
+    );
+    expect([...labels.values()]).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: "staff-guidance", source: "generated" })]),
+    );
+    expect([...labels.values()]).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ label_type: "site", source: "generated" })]),
+    );
+  });
+
+  it("maps every registry family to its deterministic smart-v2 intent", () => {
+    expect(registryDocumentIntent("medication")).toBe("medication-instruction");
+    expect(registryDocumentIntent("differential")).toBe("decision-support");
+    expect(registryDocumentIntent("form")).toBe("documentation-requirement");
+    expect(registryDocumentIntent("service")).toBe("operational-process");
   });
 
   it("converts registry rows into source-governed corpus entries", () => {
