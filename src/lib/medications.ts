@@ -1,4 +1,6 @@
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
+import { medicationStatTone } from "@/lib/medication-badges";
+import type { SemanticTone } from "@/lib/semantic-tone";
 
 export type MedicationPatientMetadata = {
   factors?: string[];
@@ -139,12 +141,30 @@ export function medicationSearchText(record: MedicationRecord) {
 }
 
 export function medicationIndication(record: MedicationRecord) {
-  return (
+  const raw =
     firstRowValue(record, "ind", "primary") ||
     firstRowValue(record, "summary", "overview") ||
     record.subclass ||
-    record.category
-  );
+    record.category;
+  // Emit a single clinical clause so constrained surfaces (search rows, cross-mode
+  // subtitles, the detail header) get one crisp line; the full indication list
+  // still lives in the record's indication/summary sections.
+  return firstClinicalSentence(raw.replace(/\*\*/g, "")) || raw;
+}
+
+// Shared "short & sharp" clamp for constrained surfaces: take the first clinical
+// clause (protecting decimals/abbreviations, see firstClinicalSentence), strip
+// markdown bold, then cap on a word boundary with an ellipsis. Generalises the
+// slice(0, N)… idiom already used by formulationShortLabel (medication-badges.ts)
+// so every glanceable cell/tile trims content the same way. Full text is always
+// preserved in the deep-content sections/reference — this only shapes previews.
+export function shortValue(text: string, cap = 24): string {
+  const clause = firstClinicalSentence((text ?? "").replace(/\*\*/g, "").trim());
+  if (clause.length <= cap) return clause;
+  const slice = clause.slice(0, cap);
+  const boundary = slice.lastIndexOf(" ");
+  const head = (boundary > cap * 0.6 ? slice.slice(0, boundary) : slice).replace(/[\s,;:]+$/, "");
+  return `${head}…`;
 }
 
 // Take the first sentence without mangling decimals ("1.5 mg") or common
@@ -234,7 +254,7 @@ export function medicationToSearchResult(match: MedicationSearchMatch): Medicati
     name: medication.name,
     indication: medicationIndication(medication),
     match: score >= 12 ? "Exact clinical fit" : score >= 6 ? "Good clinical fit" : "Related match",
-    dose: medicationUsualDose(medication),
+    dose: shortValue(medicationUsualDose(medication), 44),
     ceiling: medicationCeiling(medication),
     action: action.text,
     actionTone: action.tone,
@@ -295,31 +315,51 @@ export function rankMedicationRecords(
 
 export { medicationIdentityBadges } from "@/lib/medication-badges";
 
-export function medicationDetailTiles(record: MedicationRecord) {
+export type MedicationHeroMetric = {
+  label: string;
+  value: string;
+  tone: SemanticTone;
+};
+
+// "Max Dose" (and a bare "Dose") carry flag:"hi" to mark the prescribing
+// ceiling's importance, not a safety stop — render it as the primary/clinical
+// metric so red stays reserved for genuine risk signals (contraindications,
+// toxicity, teratogenicity), matching the #659 colour contract.
+function heroMetricTone(stat: MedicationStat): SemanticTone {
+  if (/^(?:max\s+)?dose$/i.test(stat.label.trim())) return "clinical";
+  return medicationStatTone(stat);
+}
+
+// The top-of-page metric tiles. Every record already carries a curated ~4-item
+// `stats` array of short, glanceable values (median 8 chars) — Max Dose plus
+// half-life and drug-specific risk/caution flags — so those ARE the "max dose ·
+// duration · cautions, short and sharp". We lead with Max Dose (the most-cited
+// ceiling), cap each value with shortValue, and backfill from crisp derived
+// tokens only for the rare record with fewer than four stats. Verbose derived
+// sentences (indication/dosing/contraindications) are not tiled here — they live
+// in the header subtitle and the detail sections instead.
+export function medicationHeroMetrics(record: MedicationRecord): MedicationHeroMetric[] {
+  const isMaxDose = (stat: MedicationStat) => /^(?:max\s+)?dose$/i.test(stat.label.trim());
+  const ordered = [...record.stats.filter(isMaxDose), ...record.stats.filter((stat) => !isMaxDose(stat))];
+  const metrics: MedicationHeroMetric[] = ordered.slice(0, 4).map((stat) => ({
+    label: stat.label,
+    value: shortValue(stat.value),
+    tone: heroMetricTone(stat),
+  }));
+  if (metrics.length >= 4) return metrics;
+
   const usualDose = medicationUsualDose(record);
-  const ceiling = medicationCeiling(record);
-  const avoid = medicationAction(record);
-  return [
-    {
-      label: "Prescribing answer",
-      value: medicationIndication(record).split(".")[0] ?? record.name,
-      meta: record.subclass || record.category,
-    },
-    {
-      label: "Dosing",
-      value: usualDose,
-      meta: record.stats[0]?.label ?? "Usual dose",
-    },
-    {
-      label: "Dose ceiling",
-      value: ceiling,
-      meta: "MAX",
-    },
-    {
-      label: "Avoid",
-      value: avoid?.split(",")[0] ?? "Review contraindications",
-      meta: record.schedule === "S8" ? "Controlled" : "Safety",
-      danger: true,
-    },
-  ];
+  const backfills: MedicationHeroMetric[] = [
+    { label: "Usual dose", value: shortValue(usualDose), tone: "clinical" },
+    record.schedule ? { label: "Schedule", value: record.schedule, tone: "neutral" } : null,
+    record.category ? { label: "Category", value: shortValue(record.category), tone: "neutral" } : null,
+  ].filter((metric): metric is MedicationHeroMetric => metric !== null);
+
+  for (const fill of backfills) {
+    if (metrics.length >= 4) break;
+    if (metrics.some((metric) => metric.label.toLowerCase() === fill.label.toLowerCase())) continue;
+    if (!fill.value || fill.value === "See dosing" || fill.value === "See reference") continue;
+    metrics.push(fill);
+  }
+  return metrics;
 }
