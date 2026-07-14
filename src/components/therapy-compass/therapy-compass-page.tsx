@@ -68,9 +68,19 @@ function TherapyCompassShell() {
  * design's own left rail is dropped, with its destinations kept reachable via a
  * horizontal in-content nav under the global header.
  */
-export function TherapyCompassPage() {
+export function TherapyCompassPage({
+  initialQuery = "",
+  autoRunSearch = false,
+}: {
+  initialQuery?: string;
+  autoRunSearch?: boolean;
+}) {
+  // Remount the provider when a fresh run-enabled deep link arrives so its seed
+  // re-runs — the App Router preserves client state across same-route navigations,
+  // so without this a new /therapy-compass?q=…&run=1 would keep the prior search.
+  const seedKey = autoRunSearch && initialQuery.trim() ? `q:${initialQuery.trim()}` : "home";
   return (
-    <TcProvider>
+    <TcProvider key={seedKey} initialQuery={initialQuery} autoRunSearch={autoRunSearch}>
       <TherapyCompassStyles />
       <TherapyCompassShell />
     </TcProvider>
