@@ -139,6 +139,16 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     // prescribing, services, forms, and differentials.
     crossModes: ["documents", "prescribing", "services", "forms", "differentials"],
   },
+  specifiers: {
+    examples: ["depressed with racing thoughts", "mood episode after birth", "better but not fully recovered"],
+    suggestions: [
+      { text: "with anxious distress", meta: "Episode feature" },
+      { text: "with seasonal pattern", meta: "Course and onset" },
+      { text: "in partial remission", meta: "Severity and remission" },
+    ],
+    scopes: [],
+    crossModes: ["dsm", "differentials", "formulation"],
+  },
   formulation: {
     examples: ["avoidance after panic", "rumination after rejection", "dissociation under threat"],
     suggestions: [

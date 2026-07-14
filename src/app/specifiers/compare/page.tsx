@@ -15,6 +15,7 @@ export async function generateMetadata({ searchParams }: CompareRouteProps): Pro
   const params = searchParams ? await searchParams : {};
   const left = findSpecifier(first(params.a) ?? "");
   const right = findSpecifier(first(params.b) ?? "");
+<<<<<<< HEAD
   const names = [left?.shortName, right?.shortName].filter(Boolean);
 
   return {
@@ -23,6 +24,19 @@ export async function generateMetadata({ searchParams }: CompareRouteProps): Pro
       left && right
         ? `Compare ${left.name} and ${right.name} side by side, including clinical signals, timing, and cautions.`
         : "Compare psychiatric specifiers side by side, including clinical signals, timing, and cautions.",
+=======
+
+  if (left && right) {
+    return {
+      title: `Compare ${left.shortName} and ${right.shortName}`,
+      description: `Side-by-side comparison of ${left.name} and ${right.name} specifiers.`,
+    };
+  }
+
+  return {
+    title: "Compare specifiers",
+    description: "Compare psychiatric specifiers side by side to understand the deciding features.",
+>>>>>>> origin/main
   };
 }
 

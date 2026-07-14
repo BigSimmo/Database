@@ -43,6 +43,7 @@ function wordingSegment(record: SpecifierRecord) {
 }
 
 export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecifiers?: string[] }) {
+<<<<<<< HEAD
   const validInitial = normalizeSpecifierSelection(initialSpecifiers);
   const initialDiagnosis =
     diagnosisPresets.find((preset) =>
@@ -54,6 +55,28 @@ export function SpecifierBuilderPage({ initialSpecifiers = [] }: { initialSpecif
   const [diagnosisId, setDiagnosisId] = useState<SpecifierBuilderDiagnosis>(initialDiagnosis.id);
   const [selected, setSelected] = useState<string[]>(validInitial);
   const diagnosis = diagnosisPresets.find((preset) => preset.id === diagnosisId) ?? initialDiagnosis;
+=======
+  const normalizedInitial = normalizeSpecifierSelection(initialSpecifiers);
+
+  // Determine the best initial diagnosis from the deep-linked specifiers
+  const inferredDiagnosis =
+    normalizedInitial.length > 0
+      ? (diagnosisPresets.find((preset) =>
+          normalizedInitial.every((slug) => {
+            const record = specifierRecords.find((candidate) => candidate.slug === slug);
+            return record ? specifierAppliesToBuilderDiagnosis(record, preset.id) : false;
+          }),
+        ) ?? diagnosisPresets[0])
+      : diagnosisPresets[0];
+
+  const validInitial = normalizedInitial.filter((slug) => {
+    const record = specifierRecords.find((candidate) => candidate.slug === slug);
+    return record ? specifierAppliesToBuilderDiagnosis(record, inferredDiagnosis.id) : false;
+  });
+  const [diagnosisId, setDiagnosisId] = useState<SpecifierBuilderDiagnosis>(inferredDiagnosis.id);
+  const [selected, setSelected] = useState<string[]>(validInitial);
+  const diagnosis = diagnosisPresets.find((preset) => preset.id === diagnosisId) ?? inferredDiagnosis;
+>>>>>>> origin/main
   const selectedRecords = useMemo(
     () =>
       selected

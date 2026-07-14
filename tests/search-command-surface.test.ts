@@ -36,6 +36,11 @@ describe("search command surface", () => {
     expect(searchCommandSurfaceConfig("tools")?.examples.length).toBeGreaterThan(0);
     expect(searchCommandSurfaceConfig("specifiers")?.crossModes).toContain("formulation");
     expect(searchCommandSurfaceConfig("formulation")?.crossModes).toContain("differentials");
+
+    const specifiers = searchCommandSurfaceConfig("specifiers");
+    expect(specifiers?.examples.length).toBeGreaterThan(0);
+    expect(specifiers?.suggestions.length).toBeGreaterThan(0);
+    expect(specifiers?.crossModes).toContain("formulation");
   });
 
   it("detects form code queries", () => {
