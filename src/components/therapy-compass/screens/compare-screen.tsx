@@ -2,18 +2,19 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 
-import { useTcBindings } from "../bindings";
+import { MAX_COMPARE, useTcBindings } from "../bindings";
 import { commandControl, outlineControl } from "../controls";
 import { needsReviewCount, parseSteps, searchTherapies, shortestDelivery, summarise } from "../data/select";
 import type { Therapy } from "../data/types";
 import {
   AlertIcon,
+  CheckIcon,
   ClockIcon,
+  CopyIcon,
   CrosshairIcon,
   InfoIcon,
   PlayIcon,
   PlusIcon,
-  SaveIcon,
   ScaleIcon,
   SearchIcon,
   ShieldIcon,
@@ -21,6 +22,7 @@ import {
 } from "../icons";
 import { s } from "../style-utils";
 import { EmptyState } from "../ui";
+import { useClipboard } from "../use-clipboard";
 
 type Row = {
   key: string;
@@ -69,6 +71,7 @@ const ROWS: Row[] = [
 export function CompareScreen() {
   const b = useTcBindings();
   const items = b.compareTherapies;
+  const { copied, copy } = useClipboard();
 
   const rows = useMemo(() => {
     if (b.cmpTab === "priorities") return ROWS.filter((r) => r.priority);
@@ -77,6 +80,16 @@ export function CompareScreen() {
     }
     return ROWS;
   }, [b.cmpTab, items]);
+
+  const copySet = () =>
+    copy(
+      [
+        `Therapy comparison — ${items.map((t) => t.name).join(" vs ")}`,
+        "",
+        ...ROWS.map((r) => `${r.label}: ${items.map((t) => r.get(t)).join("  |  ")}`),
+      ].join("\n"),
+      "set",
+    );
 
   const cols = `minmax(180px,1.1fr) ${items.map(() => "minmax(160px,1fr)").join(" ")}`;
   const dense = b.density === "dense";
@@ -115,9 +128,15 @@ export function CompareScreen() {
               Dense
             </button>
           </div>
-          <button type="button" className="tc-btn" style={s(outlineControl + "height:42px;")}>
-            <SaveIcon size={16} />
-            Save set
+          <button
+            type="button"
+            className="tc-btn"
+            onClick={copySet}
+            disabled={items.length < 2}
+            style={s(outlineControl + `height:42px;${items.length < 2 ? "opacity:0.5;cursor:not-allowed;" : ""}`)}
+          >
+            {copied === "set" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
+            {copied === "set" ? "Copied" : "Copy set"}
           </button>
           <button type="button" className="tc-btn" onClick={b.clearCompare} style={s(outlineControl + "height:42px;")}>
             Clear
@@ -310,12 +329,13 @@ function SummaryCell({
 function AddPicker() {
   const b = useTcBindings();
   const [q, setQ] = useState("");
+  const atLimit = b.compareSlugs.length >= MAX_COMPARE;
   const matches = useMemo(() => {
-    if (!q.trim()) return [];
+    if (atLimit || !q.trim()) return [];
     return searchTherapies(b.therapies, { query: q, tags: [], briefOnly: false, sheetOnly: false, reviewedOnly: false })
       .filter((t) => !b.isInCompare(t.slug))
       .slice(0, 6);
-  }, [q, b]);
+  }, [q, b, atLimit]);
 
   return (
     <div style={s(`position:relative;flex:1;min-width:260px;`)}>
@@ -324,10 +344,13 @@ function AddPicker() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Add a therapy to the comparison…"
+          disabled={atLimit}
+          placeholder={
+            atLimit ? "Maximum of 4 selected — remove one to add another" : "Add a therapy to the comparison…"
+          }
           aria-label="Add a therapy to compare"
           style={s(
-            `width:100%;height:46px;padding:0 14px 0 40px;border:1px dashed var(--border-strong);border-radius:12px;background:var(--surface);color:var(--text);font-size:14px;font-family:inherit;outline:none;`,
+            `width:100%;height:46px;padding:0 14px 0 40px;border:1px dashed var(--border-strong);border-radius:12px;background:var(--surface);color:var(--text);font-size:14px;font-family:inherit;outline:none;${atLimit ? "opacity:0.6;cursor:not-allowed;" : ""}`,
           )}
         />
       </label>

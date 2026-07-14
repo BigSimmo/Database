@@ -219,10 +219,16 @@ function DesktopComparisonTable({
         data-testid="differential-comparison-scroll"
         className="polished-scroll overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]"
       >
-        <table className="min-w-[84rem] border-separate border-spacing-0 text-left">
+        <table
+          aria-label="Differential comparison"
+          className="min-w-[84rem] border-separate border-spacing-0 text-left"
+        >
           <thead>
             <tr>
-              <th className="sticky left-0 z-10 w-[10.75rem] border-b border-r border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] px-3.5 py-3 align-top text-xs font-extrabold uppercase text-[color:var(--text-muted)]">
+              <th
+                scope="col"
+                className="sticky left-0 z-10 w-[10.75rem] border-b border-r border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] px-3.5 py-3 align-top text-xs font-extrabold uppercase text-[color:var(--text-muted)]"
+              >
                 Criteria
                 <span className="mt-1.5 block text-2xs font-bold normal-case text-[color:var(--text-muted)]">
                   Reorder
@@ -230,6 +236,7 @@ function DesktopComparisonTable({
               </th>
               {candidates.map((candidate) => (
                 <th
+                  scope="col"
                   key={candidate.record.slug}
                   className={cn(
                     "w-[8.5rem] border-b border-r border-[color:var(--border)] bg-[color:var(--clinical-chat-table-header)] p-0 align-top",
@@ -244,7 +251,10 @@ function DesktopComparisonTable({
           <tbody>
             {workflow.criteria.map((criterion) => (
               <tr key={criterion.id} className={rowTone[criterion.tone]}>
-                <th className="sticky left-0 z-10 w-[10.75rem] border-b border-r border-[color:var(--border)] bg-inherit px-3.5 py-3 align-top">
+                <th
+                  scope="row"
+                  className="sticky left-0 z-10 w-[10.75rem] border-b border-r border-[color:var(--border)] bg-inherit px-3.5 py-3 align-top"
+                >
                   <CriteriaLabel criterion={criterion} />
                 </th>
                 {candidates.map((candidate) => (
