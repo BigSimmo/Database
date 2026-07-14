@@ -629,7 +629,7 @@ function MedicationResults({
                   </div>
                 ) : null}
                 <div className="flex max-w-full flex-wrap items-center gap-1.5 text-sm-minus font-semibold text-[color:var(--text-heading)]">
-                  <span className="nums break-words">{result.dose}</span>
+                  <span className="nums line-clamp-2 break-words">{result.dose}</span>
                   <DoseCeiling value={result.ceiling} />
                 </div>
                 <p className="line-clamp-2 break-words text-pretty text-xs leading-[1.45] text-[color:var(--text-muted)]">

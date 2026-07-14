@@ -235,8 +235,11 @@ describe("shortValue", () => {
     expect(out).not.toMatch(/[\s,;:]…$/); // no space/punctuation immediately before the ellipsis
   });
 
-  it("keeps only the first clinical clause, protecting decimals and abbreviations", () => {
-    expect(shortValue("Start 1.5 mg NOCTE. Titrate weekly.", 40)).toBe("Start 1.5 mg NOCTE");
+  it("caps by length only — no sentence-splitting — so dotted abbreviations survive", () => {
+    // Stat values are curated tokens ("L.O.T. DRUG", "b.d."), not prose; splitting
+    // at an internal period would drop clinical label content.
+    expect(shortValue("L.O.T. DRUG")).toBe("L.O.T. DRUG");
+    expect(shortValue("Start 1.5 mg NOCTE. Titrate weekly.", 40)).toBe("Start 1.5 mg NOCTE. Titrate weekly.");
   });
 });
 
@@ -305,6 +308,15 @@ describe("medicationHeroMetrics", () => {
     expect(metrics.length).toBeLessThanOrEqual(4);
     expect(metrics[0].label).toMatch(/max dose/i);
     expect(metrics[0].tone).toBe("clinical");
+  });
+
+  it("preserves dotted-abbreviation stat values from the snapshot (L.O.T. DRUG)", () => {
+    const record = getMedicationRecord("lorazepam");
+    expect(record).toBeTruthy();
+    const hepaticSafe = medicationHeroMetrics(record as MedicationRecord).find(
+      (metric) => metric.label === "Hepatic Safe",
+    );
+    expect(hepaticSafe?.value).toBe("L.O.T. DRUG");
   });
 });
 

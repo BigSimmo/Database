@@ -152,16 +152,18 @@ export function medicationIndication(record: MedicationRecord) {
   return firstClinicalSentence(raw.replace(/\*\*/g, "")) || raw;
 }
 
-// Shared "short & sharp" clamp for constrained surfaces: take the first clinical
-// clause (protecting decimals/abbreviations, see firstClinicalSentence), strip
-// markdown bold, then cap on a word boundary with an ellipsis. Generalises the
-// slice(0, N)… idiom already used by formulationShortLabel (medication-badges.ts)
-// so every glanceable cell/tile trims content the same way. Full text is always
-// preserved in the deep-content sections/reference — this only shapes previews.
+// Shared "short & sharp" length cap for constrained surfaces (hero-metric tiles,
+// search cells): strip markdown bold, then cap on a word boundary with an
+// ellipsis. Generalises the slice(0, N)… idiom already used by
+// formulationShortLabel (medication-badges.ts). It intentionally does NOT split
+// on sentences — stat values are curated tokens that can carry dotted
+// abbreviations ("L.O.T. DRUG", "b.d.") — so callers that want the first clause
+// of prose compose firstClinicalSentence themselves (e.g. medicationIndication,
+// medicationUsualDose). Full text always remains in the sections/reference.
 export function shortValue(text: string, cap = 24): string {
-  const clause = firstClinicalSentence((text ?? "").replace(/\*\*/g, "").trim());
-  if (clause.length <= cap) return clause;
-  const slice = clause.slice(0, cap);
+  const cleaned = (text ?? "").replace(/\*\*/g, "").trim();
+  if (cleaned.length <= cap) return cleaned;
+  const slice = cleaned.slice(0, cap);
   const boundary = slice.lastIndexOf(" ");
   const head = (boundary > cap * 0.6 ? slice.slice(0, boundary) : slice).replace(/[\s,;:]+$/, "");
   return `${head}…`;
@@ -326,11 +328,17 @@ export type MedicationHeroMetric = {
 };
 
 // "Max Dose" (and a bare "Dose") carry flag:"hi" to mark the prescribing
-// ceiling's importance, not a safety stop — render it as the primary/clinical
-// metric so red stays reserved for genuine risk signals (contraindications,
-// toxicity, teratogenicity), matching the #659 colour contract.
+// ceiling's importance, not a safety stop, so both tone and ordering treat it
+// specially — share one label test so the two stay aligned.
+function isMaxDoseLabel(label: string): boolean {
+  return /^(?:max\s+)?dose$/i.test(label.trim());
+}
+
+// Render Max Dose as the primary/clinical metric so red stays reserved for
+// genuine risk signals (contraindications, toxicity, teratogenicity), matching
+// the #659 colour contract.
 function heroMetricTone(stat: MedicationStat): SemanticTone {
-  if (/^(?:max\s+)?dose$/i.test(stat.label.trim())) return "clinical";
+  if (isMaxDoseLabel(stat.label)) return "clinical";
   return medicationStatTone(stat);
 }
 
@@ -343,8 +351,10 @@ function heroMetricTone(stat: MedicationStat): SemanticTone {
 // sentences (indication/dosing/contraindications) are not tiled here — they live
 // in the header subtitle and the detail sections instead.
 export function medicationHeroMetrics(record: MedicationRecord): MedicationHeroMetric[] {
-  const isMaxDose = (stat: MedicationStat) => /^(?:max\s+)?dose$/i.test(stat.label.trim());
-  const ordered = [...record.stats.filter(isMaxDose), ...record.stats.filter((stat) => !isMaxDose(stat))];
+  const ordered = [
+    ...record.stats.filter((stat) => isMaxDoseLabel(stat.label)),
+    ...record.stats.filter((stat) => !isMaxDoseLabel(stat.label)),
+  ];
   const metrics: MedicationHeroMetric[] = ordered.slice(0, 4).map((stat) => ({
     label: stat.label,
     value: shortValue(stat.value),
