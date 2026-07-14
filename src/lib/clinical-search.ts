@@ -1245,13 +1245,16 @@ export function buildClinicalTextSearchQuery(query: string) {
   const hasAgitationArousalContext =
     (hasAgitationArousalTypo && /\bagitation\b/i.test(correctedQueryText) && /\barousal\b/i.test(correctedQueryText)) ||
     /\bagitation\b/i.test(correctedQueryText);
+  // Dose/route alias pattern aligned with buildRetrievalIntent in retrieval-selection.ts
+  const DOSE_ROUTE_ALIAS_PATTERN =
+    /\b(?:dose|doses|dosage|dosages|dosing|route|oral|intramuscular|subcutaneous|subcut|sublingual|im|po|sc|sl|frequency|mg|mcg|prn)\b/i;
   const wantsAgitationArousal =
     hasAgitationArousalContext &&
-    /\b(?:dose|dosing|guidance|inpatient|psychiatric|route|oral|intramuscular|\bim\b|\bpo\b|chart|table|pharmacolog)/i.test(
+    /\b(?:dose|doses|dosage|dosages|dosing|guidance|inpatient|psychiatric|route|oral|intramuscular|subcutaneous|subcut|sublingual|\bim\b|\bpo\b|sc|sl|frequency|mg|mcg|prn|chart|table|pharmacolog)/i.test(
       correctedQueryText,
     );
   const wantsAgitationMedicationChart =
-    wantsAgitationArousal && /\b(?:dose|dosing|route|oral|intramuscular|im|po)\b/i.test(correctedQueryText);
+    wantsAgitationArousal && DOSE_ROUTE_ALIAS_PATTERN.test(correctedQueryText);
 
   if (wantsClozapineMissedDose) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "missed", "dose", "monitoring", "table");
@@ -1265,10 +1268,15 @@ export function buildClinicalTextSearchQuery(query: string) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "monitoring");
   } else if (wantsAgitationMedicationChart) {
     const requestedDoseRouteTerms = [
-      /\b(?:dose|dosing)\b/i.test(correctedQueryText) ? "dose" : null,
+      /\b(?:dose|doses|dosage|dosages|dosing)\b/i.test(correctedQueryText) ? "dose" : null,
       /\broute\b/i.test(correctedQueryText) ? "route" : null,
       /\b(?:intramuscular|im)\b/i.test(correctedQueryText) ? "im" : null,
       /\b(?:oral|po)\b/i.test(correctedQueryText) ? "po" : null,
+      /\b(?:subcutaneous|subcut|sc)\b/i.test(correctedQueryText) ? "sc" : null,
+      /\b(?:sublingual|sl)\b/i.test(correctedQueryText) ? "sl" : null,
+      /\b(?:mg|mcg)\b/i.test(correctedQueryText) ? "mg" : null,
+      /\bfrequency\b/i.test(correctedQueryText) ? "frequency" : null,
+      /\bprn\b/i.test(correctedQueryText) ? "prn" : null,
     ].filter((term): term is string => Boolean(term));
     normalizedTokens.splice(0, normalizedTokens.length, "agitation", "arousal", ...requestedDoseRouteTerms);
   } else if (wantsAgitationArousal) {
