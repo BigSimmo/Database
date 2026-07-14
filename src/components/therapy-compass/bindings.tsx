@@ -213,7 +213,9 @@ export function TcProvider({
 
   // Honor a run-enabled deep link (/therapy-compass?q=…&run=1): open on Search
   // with the query seeded, so a query submitted from the universal composer or a
-  // recent-search pick actually runs in-tool instead of landing on Home.
+  // recent-search pick runs in-tool instead of landing on Home. A fresh deep link
+  // while already mounted re-seeds via the provider key in TherapyCompassPage,
+  // which remounts this provider when the run-query changes.
   const seededQuery = autoRunSearch ? initialQuery.trim() : "";
   const [screen, setScreen] = useState<string>(seededQuery ? "search" : "home");
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);

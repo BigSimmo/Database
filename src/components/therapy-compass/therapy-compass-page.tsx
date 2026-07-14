@@ -75,8 +75,12 @@ export function TherapyCompassPage({
   initialQuery?: string;
   autoRunSearch?: boolean;
 }) {
+  // Remount the provider when a fresh run-enabled deep link arrives so its seed
+  // re-runs — the App Router preserves client state across same-route navigations,
+  // so without this a new /therapy-compass?q=…&run=1 would keep the prior search.
+  const seedKey = autoRunSearch && initialQuery.trim() ? `q:${initialQuery.trim()}` : "home";
   return (
-    <TcProvider initialQuery={initialQuery} autoRunSearch={autoRunSearch}>
+    <TcProvider key={seedKey} initialQuery={initialQuery} autoRunSearch={autoRunSearch}>
       <TherapyCompassStyles />
       <TherapyCompassShell />
     </TcProvider>
