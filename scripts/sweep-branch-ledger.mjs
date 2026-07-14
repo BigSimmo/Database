@@ -46,8 +46,12 @@ export function parseLedgerBranches(markdown) {
     const cell = (line.split("|")[2] ?? "").trim();
     if (!cell) continue;
     // A ref token is "<namespace>/<name>" with no surrounding whitespace, so the
-    // "PR #N / " prefix and prose in the cell do not produce false matches.
-    for (const m of cell.matchAll(/[A-Za-z0-9._-]+\/[A-Za-z0-9._/-]+/g)) names.add(m[0]);
+    // "PR #N / " prefix and prose in the cell do not produce false matches. Strip a
+    // leading "origin/" so remote-tracking rows normalize to the same short name the
+    // sweep compares against (it strips "origin/" from live refs before the lookup).
+    for (const m of cell.matchAll(/[A-Za-z0-9._-]+\/[A-Za-z0-9._/-]+/g)) {
+      names.add(m[0].replace(/^origin\//, ""));
+    }
   }
   return names;
 }

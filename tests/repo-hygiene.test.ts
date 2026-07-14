@@ -58,4 +58,12 @@ describe("sweep-branch-ledger parsing", () => {
     expect(names.has("cursor/fix-pr654-ci-53b4")).toBe(true);
     expect(names.has("fix/accessibility-remaining-findings")).toBe(true);
   });
+
+  it("normalizes origin/* remote-tracking rows to the short name the sweep compares against", () => {
+    const md = "| 2026-07-14 | origin/claude/codebase-index-coverage | a | branch-cleanup | out | c |";
+    const names = parseLedgerBranches(md);
+    // the sweep strips origin/ from live refs before ledgerBranches.has(short)
+    expect(names.has("claude/codebase-index-coverage")).toBe(true);
+    expect(names.has("origin/claude/codebase-index-coverage")).toBe(false);
+  });
 });
