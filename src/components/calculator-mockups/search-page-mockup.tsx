@@ -8,16 +8,20 @@ import {
   Info,
   LayoutGrid,
   ListChecks,
+  Plus,
   Rows3,
   Search,
+  Send,
   Sigma,
   SlidersHorizontal,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
-import { chatComposerInput, chatComposerShell, chatSendButton, cn, eyebrowText } from "@/components/ui-primitives";
+import { PrivacyInputNotice } from "@/components/privacy-input-notice";
+import { chatComposerInput, chatComposerShellBase, chatSendButton, cn, eyebrowText } from "@/components/ui-primitives";
 
 import {
   calculators,
@@ -59,54 +63,110 @@ function matches(calc: CalculatorFixture, query: string): boolean {
   return haystack.includes(query) || calc.items.some((item) => item.text.toLowerCase().includes(query));
 }
 
-/* ---------- search input (top on desktop, docked at bottom on phones) ---------- */
+/* ---------- universal-style search composer (top on desktop, docked bottom on phones) ---------- */
 
-function CalculatorSearchForm({
+// Example searches shown in the composer prompt row; each filters the list.
+const promptExamples = ["depression", "anxiety", "drinking", "bipolar", "suicide"];
+
+/**
+ * The calculators search composer, matching the app's universal composer: a
+ * leading "+" (new search), the query input with an inline clear, and the teal
+ * send button. `variant="full"` adds the Smart-search hint, prompt chips, and
+ * privacy notice (desktop header); `variant="compact"` shows the pill plus the
+ * privacy line only (phone bottom dock).
+ */
+function CalculatorComposer({
   query,
   onQuery,
+  onReset,
   onSubmit,
+  variant,
 }: {
   query: string;
   onQuery: (value: string) => void;
+  onReset: () => void;
   onSubmit: () => void;
+  variant: "full" | "compact";
 }) {
   return (
-    <form
-      role="search"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSubmit();
-      }}
-      className={cn(chatComposerShell, "w-full")}
-    >
-      <span className="grid size-tap shrink-0 place-items-center text-[color:var(--text-soft)]">
-        <Search className="size-icon-lg" aria-hidden="true" />
-      </span>
-      <input
-        type="search"
-        value={query}
-        onChange={(event) => onQuery(event.target.value)}
-        placeholder="Search calculators by scale, symptom, or indication"
-        aria-label="Search calculators"
-        className={chatComposerInput}
-      />
-      {query ? (
+    <div className="grid gap-2">
+      {variant === "full" ? (
+        <div className="smart-search-rotating-text" aria-live="polite">
+          <span>Smart search</span>
+          <span aria-hidden="true">·</span>
+          <span>
+            Try <span className="smart-search-rotating-query">&ldquo;depression severity&rdquo;</span> in Calculators.
+          </span>
+        </div>
+      ) : null}
+
+      <form
+        role="search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+        className={cn(chatComposerShellBase, "answer-footer-search-pill relative z-10 w-full")}
+      >
         <button
           type="button"
-          onClick={() => onQuery("")}
-          aria-label="Clear search"
+          onClick={onReset}
+          aria-label="New search"
+          title="New search"
           className={cn(
-            "grid size-tap shrink-0 place-items-center rounded-full text-[color:var(--text-soft)] transition hover:text-[color:var(--text)]",
+            "answer-footer-search-action grid shrink-0 place-items-center rounded-full transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)]",
             focusRing,
           )}
         >
-          <X className="size-icon-md" aria-hidden="true" />
+          <Plus className="h-5 w-5" aria-hidden="true" />
         </button>
+
+        <label className="flex min-w-0 flex-1 items-center overflow-hidden">
+          <input
+            type="search"
+            value={query}
+            enterKeyHint="search"
+            onChange={(event) => onQuery(event.target.value)}
+            placeholder="Search calculators by scale, symptom, or indication"
+            aria-label="Search calculators"
+            className={cn(chatComposerInput, "answer-footer-search-input w-full min-w-0")}
+          />
+          {query ? (
+            <button
+              type="button"
+              onClick={() => onQuery("")}
+              aria-label="Clear search"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          ) : null}
+        </label>
+
+        <span className="answer-footer-search-divider" aria-hidden="true" />
+
+        <button
+          type="submit"
+          aria-label="Search calculators"
+          className={cn(chatSendButton, "answer-footer-search-send")}
+        >
+          <Send className="size-icon-lg" aria-hidden="true" />
+        </button>
+      </form>
+
+      {variant === "full" ? (
+        <AnswerSuggestionChips
+          suggestions={promptExamples}
+          onPick={onQuery}
+          label="Prompts"
+          layout="scroll"
+          className="smart-search-prompt-row"
+          testId="calculator-prompt-row"
+        />
       ) : null}
-      <button type="submit" aria-label="Search calculators" className={chatSendButton}>
-        <ArrowRight className="size-icon-lg" aria-hidden="true" />
-      </button>
-    </form>
+
+      <PrivacyInputNotice className="justify-center" />
+    </div>
   );
 }
 
@@ -447,6 +507,11 @@ export function CalculatorsSearchPageMockup() {
     if (results.length === 1) setOpenId(results[0].calc.id);
   };
 
+  const resetSearch = () => {
+    setQuery("");
+    setDomain("all");
+  };
+
   return (
     <>
       <SearchResultsLayout
@@ -454,10 +519,16 @@ export function CalculatorsSearchPageMockup() {
         resultsLabel="Calculators"
         header={
           <div className="grid gap-3">
-            {/* Desktop: search sits at the top, matching the site-wide search pages.
-                Phones get the docked bottom search rendered outside the layout. */}
+            {/* Desktop: universal-style composer at the top, matching the site-wide
+                search header. Phones get the docked bottom composer below. */}
             <div className="hidden sm:block">
-              <CalculatorSearchForm query={query} onQuery={setQuery} onSubmit={submitSearch} />
+              <CalculatorComposer
+                query={query}
+                onQuery={setQuery}
+                onReset={resetSearch}
+                onSubmit={submitSearch}
+                variant="full"
+              />
             </div>
 
             <div className="flex items-center gap-2">
@@ -556,11 +627,17 @@ export function CalculatorsSearchPageMockup() {
         )}
       </SearchResultsLayout>
 
-      {/* Phones: search docks at the bottom, matching the site-wide composer
+      {/* Phones: composer docks at the bottom, matching the site-wide composer
           placement. Hidden while a calculator sheet is open. */}
       {activeCalc ? null : (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--surface-glass)] px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur-md sm:hidden">
-          <CalculatorSearchForm query={query} onQuery={setQuery} onSubmit={submitSearch} />
+          <CalculatorComposer
+            query={query}
+            onQuery={setQuery}
+            onReset={resetSearch}
+            onSubmit={submitSearch}
+            variant="compact"
+          />
         </div>
       )}
 
