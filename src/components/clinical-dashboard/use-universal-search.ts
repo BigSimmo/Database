@@ -55,13 +55,13 @@ const resultCache = new Map<string, UniversalSearchResult>();
 function cacheKeyFor(
   query: string,
   contextMode: AppModeId,
-  excludeDomain: string | undefined,
+  excludedDomainsKey: string,
   limitPerDomain: number,
   authSignature: string,
 ) {
   // JSON-array key so no field can collide with another via a shared delimiter (auth header
   // values and the query itself can contain spaces, commas, etc.).
-  return JSON.stringify([authSignature, contextMode, excludeDomain ?? "", limitPerDomain, query]);
+  return JSON.stringify([authSignature, contextMode, excludedDomainsKey, limitPerDomain, query]);
 }
 
 // Non-mutating read used during render (must stay pure — no recency side effect here).
@@ -98,7 +98,7 @@ export function useUniversalSearch(args: {
   query: string;
   enabled: boolean;
   contextMode: AppModeId;
-  excludeDomain?: UniversalSearchDomain;
+  excludeDomains?: readonly UniversalSearchDomain[];
   limitPerDomain?: number;
 }): UniversalSearchState {
   const { authorizationHeader } = useAuthSession();
@@ -108,10 +108,10 @@ export function useUniversalSearch(args: {
   const trimmedQuery = args.query.trim();
   const active = args.enabled && trimmedQuery.length >= minQueryLength;
   const limitPerDomain = args.limitPerDomain ?? 3;
-  const excludeDomain = args.excludeDomain;
+  const excludedDomainsKey = universalSearchDomains.filter((domain) => args.excludeDomains?.includes(domain)).join(",");
   const authSignature = JSON.stringify(authorizationHeader ?? {});
   const cacheKey = active
-    ? cacheKeyFor(trimmedQuery, args.contextMode, excludeDomain, limitPerDomain, authSignature)
+    ? cacheKeyFor(trimmedQuery, args.contextMode, excludedDomainsKey, limitPerDomain, authSignature)
     : null;
 
   useEffect(() => {
@@ -144,7 +144,8 @@ export function useUniversalSearch(args: {
     // is not enough — abort frees the server/DB work too.
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
-      const domains = universalSearchDomains.filter((domain) => domain !== excludeDomain);
+      const excludedDomains = new Set(excludedDomainsKey ? excludedDomainsKey.split(",") : []);
+      const domains = universalSearchDomains.filter((domain) => !excludedDomains.has(domain));
       const params = new URLSearchParams({
         q: trimmedQuery,
         limit: String(limitPerDomain),
@@ -185,7 +186,7 @@ export function useUniversalSearch(args: {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [active, cacheKey, trimmedQuery, excludeDomain, limitPerDomain, authorizationHeader, args.contextMode]);
+  }, [active, cacheKey, trimmedQuery, excludedDomainsKey, limitPerDomain, authorizationHeader, args.contextMode]);
 
   if (!active) return { groups: [], loading: false, query: "" };
 

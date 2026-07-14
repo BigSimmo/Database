@@ -202,11 +202,13 @@ test.describe("universal search typeahead", () => {
 
   test("keeps compact cross-mode matches visible after submission", async ({ page }) => {
     await mockUniversalSearch(page);
+    const universalRequest = page.waitForRequest(/\/api\/search\/universal(?:\?.*)?$/);
     await page.goto("/services?q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByTestId("universal-also-matches")).toBeVisible();
     await expect(page.getByText("Also matches in other modes")).toBeVisible();
     await expect(page.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
+    expect(new URL((await universalRequest).url()).searchParams.get("domains")?.split(",")).not.toContain("services");
   });
 
   test("shows submitted cross-mode matches on phones outside hidden desktop headers", async ({ page }) => {
@@ -311,7 +313,7 @@ test.describe("universal search smart affordances", () => {
     await mockSmartSearch(page);
     const input = await openComposer(page, "/?mode=answer&focus=1");
     await input.fill("acamprosat");
-    await input.press("Enter");
+    await page.getByRole("button", { name: "Generate source-backed answer" }).click();
 
     await expect(page.getByTestId("universal-also-matches")).toBeVisible();
   });

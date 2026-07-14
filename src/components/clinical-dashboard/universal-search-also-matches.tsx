@@ -6,7 +6,7 @@ import { useUniversalSearch } from "@/components/clinical-dashboard/use-universa
 import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
-import { universalSearchModeForDomain } from "@/lib/universal-search-mode-context";
+import { universalSearchModeForDomain, universalSearchPreferredDomains } from "@/lib/universal-search-mode-context";
 
 export function UniversalSearchAlsoMatches({
   modeId,
@@ -22,6 +22,7 @@ export function UniversalSearchAlsoMatches({
     query: trimmedQuery,
     enabled: trimmedQuery.length >= 2,
     contextMode: modeId,
+    excludeDomains: universalSearchPreferredDomains(modeId),
     limitPerDomain: 2,
   });
   const preferred = new Set(universal.preferredDomains ?? []);
