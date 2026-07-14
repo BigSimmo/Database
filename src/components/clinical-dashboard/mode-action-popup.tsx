@@ -30,12 +30,12 @@ import {
   ListChecks,
   Lock,
   MessageSquarePlus,
+  Network,
   Plus,
   Search,
   ShieldCheck,
   Sparkles,
   Table2,
-  Tags,
   UploadCloud,
   Waypoints,
   Wrench,
@@ -57,6 +57,7 @@ export type ModeActionSetId =
   | "differentials"
   | "dsm"
   | "specifiers"
+  | "formulation"
   | "prescribing";
 export type ModeActionPlacement = "up" | "down";
 
@@ -125,7 +126,11 @@ export type ModeActionId =
   | "specifiers-search"
   | "specifiers-builder"
   | "specifiers-compare"
-  | "specifiers-map";
+  | "specifiers-map"
+  | "formulation-search"
+  | "formulation-builder"
+  | "formulation-compare"
+  | "formulation-map";
 
 export type ModeActionItem = {
   id: ModeActionId;
@@ -277,6 +282,28 @@ const modeActionSets = {
       icon: GitCompareArrows,
     },
     { id: "specifiers-map", label: "Specifier map", description: "Browse by diagnostic role", icon: Waypoints },
+  ],
+  formulation: [
+    {
+      id: "formulation-search",
+      label: "Find a mechanism",
+      description: "Match clinical clues and patient language",
+      icon: Network,
+      primary: true,
+    },
+    {
+      id: "formulation-builder",
+      label: "Build formulation",
+      description: "Structure and review a working draft",
+      icon: ListChecks,
+    },
+    {
+      id: "formulation-compare",
+      label: "Compare mechanisms",
+      description: "Test alternative hypotheses",
+      icon: GitCompareArrows,
+    },
+    { id: "formulation-map", label: "Mechanism map", description: "Browse by formulation domain", icon: Waypoints },
   ],
   prescribing: [
     {

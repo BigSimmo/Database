@@ -7,6 +7,7 @@ import { appModeDefinitions, appModeHomeHref, type AppModeId } from "@/lib/app-m
 import { documentsSearchHref, DOCUMENTS_MODE_HOME_ROUTE } from "@/lib/document-flow-routes";
 import { differentialRecords } from "@/lib/differentials";
 import { dsmDiagnoses } from "@/lib/dsm";
+import { formulationMechanisms } from "@/lib/formulation";
 import { formRecords } from "@/lib/forms";
 import { serviceRecords } from "@/lib/services";
 import { specifierRecords } from "@/lib/specifiers";
@@ -58,11 +59,12 @@ const routeDescriptions: Record<string, string> = {
   "/privacy": "Privacy and data-processing governance draft.",
   "/services": "Services home and search surface.",
   "/services/[slug]": "Registry-backed service detail.",
-  "/specifiers": "Psychiatric specifier home and local search surface.",
-  "/specifiers/[slug]": "Psychiatric specifier decision-support guide.",
-  "/specifiers/builder": "Structured diagnostic wording builder.",
-  "/specifiers/compare": "Side-by-side psychiatric specifier comparison.",
-  "/specifiers/map": "Psychiatric specifier family map.",
+  "/formulation": "Clinical formulation home and local mechanism search surface.",
+  "/formulation/[slug]": "Formulation mechanism decision-support guide.",
+  "/formulation/builder": "Structured clinical formulation builder.",
+  "/formulation/compare": "Side-by-side mechanism comparison.",
+  "/formulation/map": "Formulation mechanism domain map.",
+  "/specifiers/[[...path]]": "Compatibility redirect to the corrected Formulation workspace.",
 };
 
 const apiDescriptions: Record<string, string> = {
@@ -104,6 +106,7 @@ const routeOwnershipRows = [
   ["Differentials", "src/app/differentials, src/lib/differentials.ts"],
   ["DSM-5 Diagnosis", "src/app/dsm, src/components/dsm, src/lib/dsm.ts"],
   ["Specifiers", "src/app/specifiers, src/components/specifiers, src/lib/specifiers.ts"],
+  ["Formulation", "src/app/formulation, src/components/formulation, src/lib/formulation.ts"],
   ["Medications", "src/app/medications, src/components/clinical-dashboard/medication-prescribing-workspace.tsx"],
   ["Documents", "src/app/documents, src/lib/document-flow-routes.ts"],
   ["Tools", "src/components/applications-launcher-page.tsx"],
@@ -214,6 +217,7 @@ function renderModeRoutes() {
     differentials: appModeHomeHref("differentials", { query: "acute confusion", focus: true, run: true }),
     dsm: appModeHomeHref("dsm", { query: "major depressive disorder", focus: true, run: true }),
     specifiers: appModeHomeHref("specifiers", { query: "depressed but racing thoughts", focus: true, run: true }),
+    formulation: appModeHomeHref("formulation", { query: "I keep going over it", focus: true, run: true }),
     prescribing: appModeHomeHref("prescribing", { query: "acamprosate renal dose", focus: true, run: true }),
     tools: appModeHomeHref("tools", { query: "medications", focus: true, run: true }),
   };
@@ -293,6 +297,12 @@ function renderModePageIndex() {
       detail: "`/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, and `/specifiers/map`.",
     },
     {
+      mode: "Formulation",
+      home: appModeHomeHref("formulation"),
+      search: appModeHomeHref("formulation", { query: "I keep going over it", focus: true, run: true }),
+      detail: "`/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, and `/formulation/map`.",
+    },
+    {
       mode: "Medication",
       home: appModeHomeHref("prescribing"),
       search: appModeHomeHref("prescribing", { query: "acamprosate renal dose", focus: true, run: true }),
@@ -343,6 +353,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "/dsm/diagnoses/[slug]",
         "/dsm/diagnoses/[slug]/differentials",
         "/specifiers/[slug]",
+        "/formulation/[slug]",
         "/medications/[slug]",
       ].includes(route.route),
   );
@@ -396,6 +407,12 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "DSM diagnosis slugs",
         "/dsm/diagnoses/[slug]",
         dsmDiagnoses.map((record) => record.slug),
+      ),
+      "",
+      ...renderSlugInventory(
+        "Formulation mechanism slugs",
+        "/formulation/[slug]",
+        formulationMechanisms.map((mechanism) => mechanism.id),
       ),
       "",
       ...renderSlugInventory(

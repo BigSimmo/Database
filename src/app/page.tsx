@@ -71,5 +71,16 @@ export default async function Home({ searchParams }: HomeProps) {
     redirect(suffix ? `/specifiers?${suffix}` : "/specifiers");
   }
 
+  if (initialSearchMode === "formulation") {
+    const formulationParams = new URLSearchParams();
+    const query = firstSearchParam(params.q)?.trim();
+    if (query) formulationParams.set("q", query);
+    if (firstSearchParam(params.focus) === "1") formulationParams.set("focus", "1");
+    if (firstSearchParam(params.run) === "1") formulationParams.set("run", "1");
+    const suffix = formulationParams.toString();
+    redirect(suffix ? `/formulation?${suffix}` : "/formulation");
+  }
+
   return <HomePageClient initialMode={initialSearchMode} />;
 }
+

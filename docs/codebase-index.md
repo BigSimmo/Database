@@ -44,23 +44,23 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 - **App shell:** `src/components/clinical-dashboard/global-search-shell.tsx` — canonical route-aware shell and lazy dashboard dispatch. The mockup-named module is a compatibility re-export used only below `/mockups`.
 - **Home:** `src/app/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
-- **Modes (9):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, specifiers, prescribing, tools
+- **Modes (9):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, formulation, prescribing, tools
 
 ### Product pages (`src/app/`)
 
-| Route                                                               | File                                   |
-| ------------------------------------------------------------------- | -------------------------------------- |
-| `/`                                                                 | `src/app/page.tsx`                     |
-| `/applications`                                                     | `src/app/applications/page.tsx`        |
-| `/differentials`, `/diagnoses`, `/presentations`                    | `src/app/differentials/`               |
-| `/documents/search`, `/source`, `/evidence`, `/[id]`                | `src/app/documents/`                   |
-| `/favourites`                                                       | `src/app/favourites/page.tsx`          |
-| `/forms`, `/forms/[slug]`                                           | `src/app/forms/`                       |
-| `/medications`, `/medications/[slug]`                               | `src/app/medications/`                 |
-| `/services`, `/services/[slug]`                                     | `src/app/services/`                    |
-| `/specifiers`, `/specifiers/[slug]`, `/builder`, `/compare`, `/map` | `src/app/specifiers/`                  |
-| `/mockups/*`                                                        | `src/app/mockups/` (404 in production) |
-| `/auth/callback`                                                    | `src/app/auth/callback/route.ts`       |
+| Route                                                                 | File                                   |
+| --------------------------------------------------------------------- | -------------------------------------- |
+| `/`                                                                   | `src/app/page.tsx`                     |
+| `/applications`                                                       | `src/app/applications/page.tsx`        |
+| `/differentials`, `/diagnoses`, `/presentations`                      | `src/app/differentials/`               |
+| `/documents/search`, `/source`, `/evidence`, `/[id]`                  | `src/app/documents/`                   |
+| `/favourites`                                                         | `src/app/favourites/page.tsx`          |
+| `/forms`, `/forms/[slug]`                                             | `src/app/forms/`                       |
+| `/medications`, `/medications/[slug]`                                 | `src/app/medications/`                 |
+| `/services`, `/services/[slug]`                                       | `src/app/services/`                    |
+| `/formulation`, `/formulation/[slug]`, `/builder`, `/compare`, `/map` | `src/app/formulation/`                 |
+| `/mockups/*`                                                          | `src/app/mockups/` (404 in production) |
+| `/auth/callback`                                                      | `src/app/auth/callback/route.ts`       |
 
 ### API routes (`src/app/api/`)
 
@@ -123,11 +123,11 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### Clinical product data
 
-| Module                                                               | Role                                  |
-| -------------------------------------------------------------------- | ------------------------------------- |
-| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Registry-backed content               |
-| `specifiers.ts`                                                      | Local psychiatric specifier catalogue |
-| `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts`                   | Safety copy and demo mode             |
+| Module                                                               | Role                                                    |
+| -------------------------------------------------------------------- | ------------------------------------------------------- |
+| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Registry-backed content                                 |
+| `formulation.ts`                                                     | Local formulation mechanism library and builder helpers |
+| `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts`                   | Safety copy and demo mode                               |
 
 ### Infra helpers
 
@@ -252,16 +252,16 @@ Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json`
 - 9 app modes with unified search shell
 - Documents mode: upload/manage private guidelines, search, cited answers
 - Answer mode: grounded Q&A with PDF-linked citations
-- Registry modes: services, forms, medications, differentials; Specifiers is a local structured decision-support catalogue
+- Registry modes: services, forms, medications, differentials; Formulation is a local mechanism and structured-draft workspace
 - Demo mode: synthetic data when Supabase unavailable (`demo-data.ts`, `isDemoMode()` in `env.ts`)
 
 ### Global search composer placement rules
 
 One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
-- **Mode homes** (`/services`, `/forms`, `/favourites`, `/differentials`, `/specifiers`, `/applications`, and dashboard homes): inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike.
+- **Mode homes** (`/services`, `/forms`, `/favourites`, `/differentials`, `/formulation`, `/applications`, and dashboard homes): inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike.
 - **Result and detail views**: fixed bottom dock on phone (compact variant on submitted searches), sticky top from `sm` up.
-- **Results routing**: standalone routes own their submitted searches via `?q=…&run=1` (`/services` → `ServicesNavigatorPage`, `/forms` → `FormsSearchResultsPage`, `/differentials` → `DifferentialsHome` results view, `/specifiers` → local structured results, `/favourites` filters the command library in place). Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. `/?mode=favourites` redirects to `/favourites`; `/?mode=differentials` redirects to `/differentials`.
+- **Results routing**: standalone routes own their submitted searches via `?q=…&run=1` (`/services` → `ServicesNavigatorPage`, `/forms` → `FormsSearchResultsPage`, `/differentials` → `DifferentialsHome` results view, `/formulation` → local mechanism results, `/favourites` filters the command library in place). Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. `/?mode=favourites` redirects to `/favourites`; `/?mode=differentials` redirects to `/differentials`; `/?mode=formulation` redirects to `/formulation`.
 - **Intentionally composer-free routes**: `/differentials/presentations/*` (comparison workflow owns its chrome), `/documents/[id]` viewer (has its own in-document ask composer), `/documents/source/*` (document flow owns mobile chrome). Do not re-flag these in search-consistency audits.
 - **Local filter fields** (sidebar "Search chats", document drawer "Find a document"/"Find a source PDF") are scoped filters, not global search; they share the `fieldControlWithIcon`/`fieldIcon` primitives.
 

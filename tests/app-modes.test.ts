@@ -104,6 +104,17 @@ describe("app mode search contract", () => {
     expect(appModeQueryMode("differentials", "auto")).toBe("compare_guidance");
   });
 
+  it("keeps formulation searchable as a standalone local decision-support mode", () => {
+    const config = appModeSearchConfig("formulation");
+    const mode = appModeDefinitions.find((definition) => definition.id === "formulation");
+
+    expect(isSearchableAppMode("formulation")).toBe(true);
+    expect(mode?.href).toBe("/formulation");
+    expect(config.kind).toBe("formulation");
+    expect(config.resultKind).toBe("formulation");
+    expect(config.placeholder.toLowerCase()).toContain("pattern");
+  });
+
   it("keeps specifiers searchable as a standalone local decision-support mode", () => {
     const config = appModeSearchConfig("specifiers");
     const mode = appModeDefinitions.find((definition) => definition.id === "specifiers");
@@ -138,6 +149,7 @@ describe("app mode search contract", () => {
     expect(appModeCanUseSourceLibraryShortcut("favourites")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("prescribing")).toBe(true);
     expect(appModeCanUseSourceLibraryShortcut("differentials")).toBe(true);
+    expect(appModeCanUseSourceLibraryShortcut("formulation")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("specifiers")).toBe(false);
 
     expect(appModeSourceLibrarySearchMode("documents")).toBe("documents");
@@ -168,6 +180,9 @@ describe("app mode search contract", () => {
     );
     expect(appModeHomeHref("differentials", { query: "  acute confusion  ", focus: true })).toBe(
       "/differentials?q=acute+confusion&focus=1",
+    );
+    expect(appModeHomeHref("formulation", { query: "  I keep going over it  ", run: true, focus: true })).toBe(
+      "/formulation?q=I+keep+going+over+it&focus=1&run=1",
     );
     expect(appModeHomeHref("specifiers", { query: "  racing thoughts  ", run: true, focus: true })).toBe(
       "/specifiers?q=racing+thoughts&focus=1&run=1",
@@ -209,6 +224,7 @@ describe("app mode search contract", () => {
         "differentials",
         "dsm",
         "specifiers",
+        "formulation",
         "prescribing",
         "tools",
       ]),
@@ -227,6 +243,7 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("differentials", "production")).toBe(true);
     expect(isAppModeVisible("dsm", "production")).toBe(true);
     expect(isAppModeVisible("specifiers", "production")).toBe(true);
+    expect(isAppModeVisible("formulation", "production")).toBe(true);
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
     expect(isAppModeVisible("tools", "production")).toBe(true);
     expect(productionModes).not.toContain("evidence");
@@ -236,6 +253,7 @@ describe("app mode search contract", () => {
     expect(productionModes).toContain("differentials");
     expect(productionModes).toContain("dsm");
     expect(productionModes).toContain("specifiers");
+    expect(productionModes).toContain("formulation");
     expect(productionModes).toContain("prescribing");
     expect(productionModes).toContain("tools");
     expect(developmentModes).toEqual(
@@ -248,6 +266,7 @@ describe("app mode search contract", () => {
         "differentials",
         "dsm",
         "specifiers",
+        "formulation",
         "prescribing",
         "tools",
       ]),

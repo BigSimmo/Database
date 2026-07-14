@@ -11,6 +11,7 @@ import {
   MessageSquarePlus,
   MessageSquare,
   Moon,
+  Network,
   PanelLeftClose,
   PanelLeftOpen,
   Pill,
@@ -78,6 +79,7 @@ const sidebarToolItems = [
   { id: "differentials", label: "Differentials", icon: BrainCircuit, href: "/differentials" },
   { id: "dsm", label: "DSM-5 Diagnosis", icon: appModeIcons.dsm, href: "/dsm" },
   { id: "specifiers", label: "Specifiers", icon: Tags, href: "/specifiers" },
+  { id: "formulation", label: "Formulation", icon: Network, href: "/formulation" },
   { id: "prescribing", label: "Medication", icon: Pill, href: "/?mode=prescribing" },
   { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
 ] as const;

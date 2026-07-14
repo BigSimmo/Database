@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 
 import { GlobalSearchShell } from "@/components/clinical-dashboard/global-search-shell";
 
-export default function SpecifiersLayout({ children }: { children: ReactNode }) {
+export default function FormulationLayout({ children }: { children: ReactNode }) {
   return (
-    <GlobalSearchShell initialMode="specifiers" desktopSearchPlacement="hero">
+    <GlobalSearchShell initialMode="formulation" desktopSearchPlacement="hero">
       {children}
     </GlobalSearchShell>
   );

@@ -11,12 +11,13 @@ export type AppModeId =
   | "differentials"
   | "dsm"
   | "specifiers"
+  | "formulation"
   | "prescribing"
   | "tools";
 export type SearchableAppModeId = AppModeId;
 
 export type AppModeSearchKind =
-  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "dsm" | "specifiers" | "tools";
+  "answer" | "documents" | "services" | "forms" | "favourites" | "differentials" | "dsm" | "specifiers" | "formulation" | "tools";
 export type AppModeResultKind = AppModeSearchKind;
 
 export type AppModeSearchConfig = {
@@ -225,6 +226,28 @@ export const appModeDefinitions = [
     },
   },
   {
+    id: "formulation",
+    label: "Formulation",
+    description: "Build and test clinical mechanism hypotheses",
+    href: "/formulation",
+    search: {
+      kind: "formulation",
+      placeholder: "Describe a pattern, mechanism, or clinical clue...",
+      inputAriaLabel: "Search formulation mechanisms by pattern or patient language",
+      submitIdleLabel: "Find",
+      submitBusyLabel: "Find",
+      submitAriaLabel: "Find matching formulation mechanisms",
+      emptyTitle: "Describe a clinical pattern",
+      readyTitle: "Find a testable mechanism hypothesis",
+      progressLabel: "Matching clinical clues to formulation mechanisms.",
+      resultKind: "formulation",
+      resultHeading: "Mechanism matches",
+      statusLabel: "Formulation",
+      nextStep: "Check fit, alternatives, and treatment leverage",
+      badgeLabel: null,
+    },
+  },
+  {
     id: "prescribing",
     label: "Medication",
     description: "Medication dosing, safety, and monitoring checks",
@@ -303,6 +326,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "differentials",
   "dsm",
   "specifiers",
+  "formulation",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
@@ -376,6 +400,7 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
     kind === "differentials" ||
     kind === "dsm" ||
     kind === "specifiers" ||
+    kind === "formulation" ||
     kind === "tools"
   );
 }

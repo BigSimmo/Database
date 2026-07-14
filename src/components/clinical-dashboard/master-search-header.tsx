@@ -276,7 +276,7 @@ export function MasterSearchHeader({
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
     selectedSearch.kind === "favourites" ||
-    selectedSearch.kind === "specifiers";
+    selectedSearch.kind === "formulation";
   const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
   const indexedDocumentTotal = documentTotal ?? documents.length;
   const hasUnloadedDocuments = indexedDocumentTotal > documents.length;
@@ -447,9 +447,11 @@ export function MasterSearchHeader({
                   ? "dsm"
                   : searchMode === "specifiers"
                     ? "specifiers"
-                    : searchMode === "tools"
-                      ? "tools"
-                      : "answer";
+                    : searchMode === "formulation"
+                      ? "formulation"
+                      : searchMode === "tools"
+                        ? "tools"
+                        : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
   const actionMenuSubtitle = searchMode === "answer" ? "Source-backed mode" : selectedAppMode.description;
@@ -628,16 +630,20 @@ export function MasterSearchHeader({
       onSearchModeChange("specifiers");
       return;
     }
-    if (actionId === "specifiers-builder") {
-      window.location.assign("/specifiers/builder");
+    if (actionId === "formulation-search") {
+      onSearchModeChange("formulation");
       return;
     }
-    if (actionId === "specifiers-compare") {
-      window.location.assign("/specifiers/compare");
+    if (actionId === "formulation-builder") {
+      window.location.assign("/formulation/builder");
       return;
     }
-    if (actionId === "specifiers-map") {
-      window.location.assign("/specifiers/map");
+    if (actionId === "formulation-compare") {
+      window.location.assign("/formulation/compare");
+      return;
+    }
+    if (actionId === "formulation-map") {
+      window.location.assign("/formulation/map");
       return;
     }
   }
