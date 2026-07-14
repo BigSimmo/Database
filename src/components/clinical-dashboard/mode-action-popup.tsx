@@ -30,12 +30,12 @@ import {
   ListChecks,
   Lock,
   MessageSquarePlus,
+  Network,
   Plus,
   Search,
   ShieldCheck,
   Sparkles,
   Table2,
-  Tags,
   UploadCloud,
   Waypoints,
   Wrench,
@@ -55,7 +55,7 @@ export type ModeActionSetId =
   | "favourites"
   | "tools"
   | "differentials"
-  | "specifiers"
+  | "formulation"
   | "prescribing";
 export type ModeActionPlacement = "up" | "down";
 
@@ -118,10 +118,10 @@ export type ModeActionId =
   | "differentials-criteria"
   | "differentials-documents"
   | "differentials-evidence"
-  | "specifiers-search"
-  | "specifiers-builder"
-  | "specifiers-compare"
-  | "specifiers-map";
+  | "formulation-search"
+  | "formulation-builder"
+  | "formulation-compare"
+  | "formulation-map";
 
 export type ModeActionItem = {
   id: ModeActionId;
@@ -231,27 +231,27 @@ const modeActionSets = {
     },
     { id: "differentials-evidence", label: "View evidence", description: "Review cited support", icon: ShieldCheck },
   ],
-  specifiers: [
+  formulation: [
     {
-      id: "specifiers-search",
-      label: "Find a specifier",
-      description: "Match presentation features",
-      icon: Tags,
+      id: "formulation-search",
+      label: "Find a mechanism",
+      description: "Match clinical clues and patient language",
+      icon: Network,
       primary: true,
     },
     {
-      id: "specifiers-builder",
-      label: "Build wording",
-      description: "Assemble diagnostic wording",
+      id: "formulation-builder",
+      label: "Build formulation",
+      description: "Structure and review a working draft",
       icon: ListChecks,
     },
     {
-      id: "specifiers-compare",
-      label: "Compare specifiers",
-      description: "Clarify close clinical calls",
+      id: "formulation-compare",
+      label: "Compare mechanisms",
+      description: "Test alternative hypotheses",
       icon: GitCompareArrows,
     },
-    { id: "specifiers-map", label: "Specifier map", description: "Browse by diagnostic role", icon: Waypoints },
+    { id: "formulation-map", label: "Mechanism map", description: "Browse by formulation domain", icon: Waypoints },
   ],
   prescribing: [
     {

@@ -2271,13 +2271,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Differentials" })).toBeVisible();
   });
 
-  test("dashboard specifiers mode param redirects to the standalone specifiers route", async ({ page }) => {
+  test("dashboard formulation mode param redirects to the standalone formulation route", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
-    await gotoApp(page, "/?mode=specifiers&q=anxious+distress&focus=1&run=1");
+    await gotoApp(page, "/?mode=formulation&q=I+keep+going+over+it&focus=1&run=1");
 
-    await expect(page).toHaveURL(/\/specifiers\?q=anxious\+distress&focus=1&run=1$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Matches for “anxious distress”" })).toBeVisible();
+    await expect(page).toHaveURL(/\/formulation\?q=I\+keep\+going\+over\+it&focus=1&run=1$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Mechanisms matching “I keep going over it”" }),
+    ).toBeVisible();
   });
 
   test("submitted differentials searches stay on the standalone differentials route", async ({ page }) => {
@@ -2427,7 +2429,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("ArrowDown");
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Differentials\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
-    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Specifiers\b/ })).toBeFocused();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Formulation\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeFocused();
     await page.keyboard.press("ArrowDown");
