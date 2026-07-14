@@ -24,6 +24,20 @@ const identityPath = "/api/local-project-id";
 const startupTimeoutMs = 120_000;
 const missingErrorComponentsNeedle = "missing required error components";
 const routeSmokePaths = ["/", "/applications"];
+// `next dev` compiles each route lazily on its first request, so the first test
+// to hit a route races the compile and can exceed the test timeout (the documented
+// cold-start flakes: ui-tools mode-home, differentials, universal-search). We warm
+// every distinct page route the suite touches BEFORE running Playwright, so every
+// navigation lands on an already-compiled route. `/?mode=…` variants share the `/`
+// route, so warming `/` covers them.
+//
+// Warming is STRICTLY SEQUENTIAL: `next dev` uses Turbopack, whose persistent
+// (RocksDB) cache cannot service concurrent compilations — firing the warms in
+// parallel corrupts it ("Only a single write operation is allowed at a time" →
+// TurbopackInternalError / missing build-manifest.json). One route at a time
+// compiles cleanly. Best-effort with a generous per-route compile timeout.
+const warmupPaths = ["/", "/applications", "/tools", "/services", "/favourites", "/medications"];
+const warmupTimeoutMs = 90_000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -138,6 +152,16 @@ async function hasHealthyRouteComponents(baseUrl) {
   return true;
 }
 
+// Pre-compile the page routes the suite navigates to so the first test to hit each
+// one does not race `next dev`'s lazy on-demand compile. Sequential (see warmupPaths
+// note) + best-effort: a route that is slow or 404s here is not fatal — the tests
+// still assert real readiness.
+async function warmRoutes(baseUrl) {
+  for (const routePath of warmupPaths) {
+    await requestText(`${baseUrl}${routePath}`, warmupTimeoutMs);
+  }
+}
+
 async function waitForServer(baseUrl) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < startupTimeoutMs) {
@@ -218,6 +242,7 @@ const existingBaseUrl = await findExistingProjectServer();
 if (existingBaseUrl) {
   if (await hasHealthyRouteComponents(existingBaseUrl)) {
     console.log(`Using existing Clinical KB server at ${existingBaseUrl}`);
+    await warmRoutes(existingBaseUrl);
     const result = runPlaywright(existingBaseUrl);
     process.exit(result.status ?? (result.signal ? 1 : 0));
   }
@@ -261,6 +286,7 @@ process.once("exit", stop);
 
 try {
   await waitForServer(baseUrl);
+  await warmRoutes(baseUrl);
   const result = runPlaywright(baseUrl);
   stop();
   process.exit(result.status ?? (result.signal ? 1 : 0));

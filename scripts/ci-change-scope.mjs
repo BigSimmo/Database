@@ -9,6 +9,9 @@ const fullRunSentinelFiles = [
   "supabase/__ci_full_run__.sql",
   "Dockerfile",
   ".github/workflows/codex-autofix-review-comments.yml",
+  // Ensures an unresolvable-base / scheduled full run also trips lockfile_changed
+  // so the dependency audit runs in its blocking mode, not advisory.
+  "package-lock.json",
 ];
 
 const outputs = [
@@ -22,6 +25,7 @@ const outputs = [
   "workflow_changed",
   "codex_autofix_changed",
   "build_changed",
+  "lockfile_changed",
 ];
 
 function normalizePath(filePath) {
@@ -163,6 +167,12 @@ const staticConfigPatterns = [
   "vitest.config.mts",
 ];
 
+// Dependency-manifest changes are the only moment a PR can introduce a new
+// (possibly-vulnerable) dependency, so `npm audit` blocks the merge gate only
+// when one of these changes; otherwise the audit runs advisory. Scheduled/
+// full-run passes resolve to the sentinel below, which includes these paths.
+const lockfilePatterns = ["package.json", "package-lock.json", ".npmrc"];
+
 function classify(files) {
   const normalized = [...new Set(files.map(normalizePath).filter(Boolean))].sort();
   const sourceChanged = normalized.some((file) => pathMatches(file, [...sourcePatterns, ...staticConfigPatterns]));
@@ -173,6 +183,7 @@ function classify(files) {
   const ragEvalChanged = normalized.some((file) => pathMatches(file, ragEvalPatterns));
   const workflowChanged = normalized.some((file) => pathMatches(file, workflowPatterns));
   const codexAutofixChanged = normalized.some((file) => pathMatches(file, codexAutofixPatterns));
+  const lockfileChanged = normalized.some((file) => pathMatches(file, lockfilePatterns));
   const buildChanged = normalized.some((file) => pathMatches(file, buildPatterns)) || containerChanged;
   const docsOnly =
     normalized.length > 0 &&
@@ -192,6 +203,7 @@ function classify(files) {
     workflow_changed: workflowChanged,
     codex_autofix_changed: codexAutofixChanged,
     build_changed: buildChanged,
+    lockfile_changed: lockfileChanged,
   };
 }
 
@@ -364,6 +376,7 @@ function selfTest() {
     docs_only: true,
     source_changed: false,
     build_changed: false,
+    lockfile_changed: false,
   });
   assertScope("tests-only", ["tests/rag-routing.test.ts"], {
     source_changed: true,
@@ -431,6 +444,20 @@ function selfTest() {
     container_changed: true,
     workflow_changed: false,
     build_changed: true,
+    lockfile_changed: true,
+  });
+  assertScope("lockfile", ["package-lock.json"], {
+    lockfile_changed: true,
+    build_changed: true,
+    container_changed: true,
+  });
+  assertScope("npmrc", [".npmrc"], {
+    lockfile_changed: true,
+    container_changed: true,
+  });
+  assertScope("source-only-no-lockfile", ["src/lib/rag.ts"], {
+    source_changed: true,
+    lockfile_changed: false,
   });
   assertScope("bundle-budget-config", ["bundle-budget.json"], {
     build_changed: true,
@@ -467,6 +494,7 @@ function selfTest() {
     workflow_changed: true,
     codex_autofix_changed: true,
     build_changed: true,
+    lockfile_changed: true,
   });
   console.log("CI change scope self-test passed.");
 }

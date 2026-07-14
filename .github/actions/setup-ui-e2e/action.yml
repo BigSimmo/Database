@@ -1,0 +1,29 @@
+name: Setup UI e2e environment
+description: >-
+  Node + cached node_modules and Chromium. Browser archives are reused on cache hits,
+  while Playwright system dependencies are installed on every fresh runner. Playwright
+  then boots `next dev` itself (run-playwright.mjs) and warms the routes before testing.
+runs:
+  using: composite
+  steps:
+    - name: Setup Node and dependencies
+      uses: ./.github/actions/setup-node-cached
+
+    - name: Restore Chromium browser cache
+      id: pw-cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+    # The browser archive is cached, but apt libraries are runner-local and must be
+    # installed even on a browser-cache hit.
+    - name: Install Chromium
+      shell: bash
+      run: |
+        if [ "${{ steps.pw-cache.outputs.cache-hit }}" = "true" ]; then
+          npx playwright install-deps chromium
+          npx playwright install chromium
+        else
+          npx playwright install --with-deps chromium
+        fi

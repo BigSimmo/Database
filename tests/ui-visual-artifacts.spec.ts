@@ -13,7 +13,12 @@ async function attachViewportScreenshot(
 ) {
   await page.setViewportSize(viewport);
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle", { timeout: uiLoadTimeoutMs }).catch(() => undefined);
+  // Deterministic app-shell mount wait instead of networkidle (persistent fetches).
+  await page
+    .locator("#main-content")
+    .first()
+    .waitFor({ state: "visible", timeout: uiLoadTimeoutMs })
+    .catch(() => undefined);
   await expect(page.locator("body")).toBeVisible();
 
   await testInfo.attach(name, {
