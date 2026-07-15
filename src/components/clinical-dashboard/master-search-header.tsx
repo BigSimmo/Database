@@ -321,7 +321,9 @@ export function MasterSearchHeader({
     searchComposerVisible &&
     !desktopHomeComposerSlotId &&
     (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
-  const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
+  const bottomComposerScrollHiddenActive = Boolean(
+    hideOnScroll && phoneBottomSearchDockActive && !mobileBottomSearchAddonSlotId,
+  );
   const bottomComposerHidden =
     bottomComposerScrollHiddenActive &&
     scrollHidden &&

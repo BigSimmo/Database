@@ -1412,6 +1412,7 @@ test.describe("Clinical KB tools launcher", () => {
     const compareAction = page.getByTestId("differentials-compare-selected-mobile");
     const dock = page.locator("form.answer-footer-search-dock");
     const scrollport = page.getByTestId("differentials-search-results");
+    const mainContent = page.locator("#main-content");
     await expect(scrollport).toBeVisible();
     await expect(page.locator("#differentials-mobile-compare-addon-slot")).toHaveCount(1);
     await expect(compareAction).toBeVisible();
@@ -1422,6 +1423,23 @@ test.describe("Clinical KB tools launcher", () => {
     await page.waitForTimeout(300);
 
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    const mainPaddingBottom = await mainContent.evaluate((element) =>
+      Number.parseFloat(window.getComputedStyle(element).paddingBottom),
+    );
+    const dockHeight = await dock.evaluate((element) => element.getBoundingClientRect().height);
+    expect(mainPaddingBottom).toBeGreaterThanOrEqual(dockHeight);
+
+    await mainContent.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
+    const lastResultBottom = await page
+      .getByTestId("differential-status-badge")
+      .last()
+      .evaluate(
+        (element) =>
+          element.closest("article")?.getBoundingClientRect().bottom ?? element.getBoundingClientRect().bottom,
+      );
+    const dockTop = await dock.evaluate((element) => element.getBoundingClientRect().top);
+    expect(lastResultBottom).toBeLessThanOrEqual(dockTop);
+
     const compareGeometry = await compareAction.evaluate((element) => {
       const rect = element.getBoundingClientRect();
       const centreX = rect.left + rect.width / 2;
