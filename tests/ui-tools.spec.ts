@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
 import type { Route } from "playwright-core";
-import { acuteConfusionPresentationWorkflow } from "../src/lib/differentials";
+import { acuteConfusionPresentationWorkflow, differentialRecords } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
 import { formRecords } from "../src/lib/forms";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
@@ -133,6 +133,41 @@ async function mockAnswerDashboardApi(page: Page) {
         total: records.length,
         demoMode: true,
         governance: {},
+      },
+    });
+  });
+}
+
+async function mockDifferentialCatalogApi(page: Page) {
+  await page.route(/\/api\/differentials(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const query = url.searchParams.get("q")?.trim() ?? "";
+    const kind = url.searchParams.get("kind") ?? "diagnosis";
+
+    if (kind === "presentation") {
+      await route.fulfill({
+        json: {
+          matches: [
+            {
+              workflow: acuteConfusionPresentationWorkflow,
+              score: 1,
+              reasons: [`Matched ${query}`],
+            },
+          ],
+          demoMode: true,
+        },
+      });
+      return;
+    }
+
+    await route.fulfill({
+      json: {
+        matches: differentialRecords.slice(0, 20).map((record, index) => ({
+          record,
+          score: 1 - index / 10,
+          reasons: [`Matched ${query}`],
+        })),
+        demoMode: true,
       },
     });
   });
@@ -1330,6 +1365,78 @@ test.describe("Clinical KB tools launcher", () => {
     expect(badgeMetrics.height).toBeGreaterThanOrEqual(22);
     expect(badgeMetrics.scrollHeight).toBeLessThanOrEqual(badgeMetrics.height + 1);
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("mobile differential compare action stays tappable while results scroll", async ({ page }) => {
+    await mockAnswerDashboardApi(page);
+    await mockDifferentialCatalogApi(page);
+    await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
+      await route.fulfill({
+        json: {
+          results: [],
+          visualEvidence: [],
+          relatedDocuments: [],
+          documentMatches: [
+            {
+              document_id: "11111111-1111-4111-8111-111111111111",
+              title: "Acute confusion differential guide",
+              file_name: "acute-confusion-differentials.pdf",
+              labels: [],
+              summarySnippet: "Reviewed acute confusion differential guidance.",
+              bestPages: [1],
+              bestChunkIds: ["chunk-acute-confusion"],
+              imageCount: 0,
+              tableCount: 0,
+              matchReason: "Matched indexed passage",
+              score: 0.93,
+            },
+          ],
+          relevance: { verdict: "strong", score: 0.93, directSourceCount: 1, weakSourceCount: 0 },
+          smartPanel: {},
+          telemetry: { query_class: "differential_compare", retrieval_strategy: "text_fast_path" },
+          scope: { queryMode: "compare_guidance" },
+          sourceGovernanceWarnings: [],
+          demoMode: true,
+        },
+      });
+    });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await gotoLauncher(page, "/differentials");
+
+    const input = page.locator('input[placeholder="Ask or search a presentation"]:visible').first();
+    const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
+    await input.fill("acute confusion");
+    await expect(submit).toBeEnabled();
+    await submit.click();
+
+    const compareAction = page.getByTestId("differentials-compare-selected-mobile");
+    const dock = page.locator("form.answer-footer-search-dock");
+    const scrollport = page.getByTestId("differentials-search-results");
+    await expect(scrollport).toBeVisible();
+    await expect(page.locator("#differentials-mobile-compare-addon-slot")).toHaveCount(1);
+    await expect(compareAction).toBeVisible();
+    await expect(compareAction).toContainText("Compare selected");
+
+    await scrollport.evaluate((element) => element.scrollTo({ top: 700, behavior: "instant" }));
+    await expect.poll(() => scrollport.evaluate((element) => element.scrollTop)).toBeGreaterThan(100);
+    await page.waitForTimeout(300);
+
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    const compareGeometry = await compareAction.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const centreX = rect.left + rect.width / 2;
+      const centreY = rect.top + rect.height / 2;
+      const hit = document.elementFromPoint(centreX, centreY);
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        viewportHeight: window.innerHeight,
+        receivesPointer: hit === element || element.contains(hit),
+      };
+    });
+    expect(compareGeometry.top).toBeGreaterThanOrEqual(0);
+    expect(compareGeometry.bottom).toBeLessThanOrEqual(compareGeometry.viewportHeight);
+    expect(compareGeometry.receivesPointer).toBe(true);
   });
 
   test("diagnosis detail actions stay tappable and tabs stay single-line", async ({ page }) => {

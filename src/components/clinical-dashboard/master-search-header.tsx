@@ -1188,7 +1188,11 @@ export function MasterSearchHeader({
     const ModeIdentityIcon = appModeIcons[searchMode];
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
-    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
+    // A differential comparison is a persistent batch action: hiding its host
+    // dock on downward scroll makes the CTA slide under mobile browser chrome
+    // and disables pointer events just when users finish reviewing the list.
+    // Keep that dock pinned while the header can still collapse independently.
+    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock && !mobileBottomSearchAddonSlotId);
     // Phone submitted non-answer result docks reserve pill-only scroll
     // clearance (ClinicalDashboard <main> margins / global-search-shell
     // mobileComposerReserve), so an extra notice line would push the fixed

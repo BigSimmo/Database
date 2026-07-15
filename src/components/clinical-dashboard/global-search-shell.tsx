@@ -45,7 +45,7 @@ import {
 } from "@/lib/app-modes";
 import { isLocalNoAuthMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
@@ -241,6 +241,8 @@ function GlobalStandaloneSearchShellClient({
   const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search");
   const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
+  const differentialsCompareAddonActive =
+    pathname === "/differentials" && searchMode === "differentials" && hasSubmittedModeSearch;
   // Registry and local decision-support modes own their submitted-search views on their
   // standalone routes; the shell must not swap them to the dashboard. On the
   // home route the dashboard always renders, so these exclusions only apply
@@ -283,9 +285,11 @@ function GlobalStandaloneSearchShellClient({
       ? "2rem"
       : searchMode === "answer"
         ? "calc(9rem + env(safe-area-inset-bottom))"
-        : useCompactBottomSearch
-          ? "calc(5.5rem + env(safe-area-inset-bottom))"
-          : "calc(9rem + env(safe-area-inset-bottom))";
+        : differentialsCompareAddonActive
+          ? "calc(8.75rem + env(safe-area-inset-bottom))"
+          : useCompactBottomSearch
+            ? "calc(5.5rem + env(safe-area-inset-bottom))"
+            : "calc(9rem + env(safe-area-inset-bottom))";
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -551,6 +555,9 @@ function GlobalStandaloneSearchShellClient({
             // result views: compact the phone bottom composer so results keep
             // maximum screen space. Mode homes keep the chip-row layout.
             mobileBottomSearchVariant={useCompactBottomSearch ? "compact" : "default"}
+            mobileBottomSearchAddonSlotId={
+              differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
+            }
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
