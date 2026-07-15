@@ -2609,6 +2609,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.keyboard.press("Escape");
     await expect(appModeMenu).toBeHidden();
     await expect(appModeButton).toBeFocused();
+
+    await appModeButton.click();
+    await expect(appModeMenu).toBeVisible();
+    await appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ }).focus();
+    await page.keyboard.press("Tab");
+    await expect(appModeMenu).toBeHidden();
   });
 
   test("prescribing workflow uses in-app medication routes @critical", async ({ page }) => {

@@ -204,6 +204,28 @@ for (const requiredCheck of requiredReviewGateChecks) {
   }
 }
 
+// A finding is necessary but not sufficient for an automatic repair request.
+// Route only explicit opt-ins, high-risk paths, or materially complex source
+// changes, and retain an explicit label-based kill switch.
+const requiredRiskRoutingChecks = [
+  'const forceReviewLabel = "codex-review"',
+  'const skipReviewLabel = "skip-codex-review"',
+  "labels.has(skipReviewLabel)",
+  "github.rest.pulls.listFiles",
+  "excludedAutomaticRoutePathPatterns.some",
+  "highRiskPathPatterns.some",
+  "changedSourceFiles.length >= complexSourceFileThreshold",
+  "sourceChurn >= complexSourceChurnThreshold",
+  "if (routeReasons.length === 0)",
+  "codex-autoresolve-route:${routeReasons.join",
+];
+
+for (const requiredCheck of requiredRiskRoutingChecks) {
+  if (!workflow.includes(requiredCheck)) {
+    failures.push(`Codex auto-resolve workflow is missing smart risk routing: ${requiredCheck}`);
+  }
+}
+
 const requiredThreadResolutionChecks = [
   `const resolvedDispositionMarker = "${resolvedDispositionMarker}"`,
   "replyBody.startsWith(resolvedDispositionMarker)",
