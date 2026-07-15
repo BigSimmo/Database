@@ -2085,7 +2085,10 @@ summary::-webkit-details-marker {
     --tone-slate: CanvasText;
     --focus: Highlight;
     --surface-lux: Canvas;
+    --surface-glass: Canvas;
     --surface-wash: Canvas;
+    --panel-gloss: Canvas;
+    --overlay-backdrop: CanvasText;
     --text-heading: CanvasText;
     --border-lux: ButtonBorder;
     --glow-primary: none;

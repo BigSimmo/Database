@@ -734,6 +734,10 @@ export function MasterSearchHeader({
       event.preventDefault();
       setModeMenuOpen(false);
       window.requestAnimationFrame(() => modeButtonRef.current?.focus());
+    } else if (event.key === "Tab") {
+      // Let the browser advance focus normally, but do not leave an abandoned
+      // menu open after keyboard focus moves into the surrounding header.
+      setModeMenuOpen(false);
     }
   }
 
@@ -1580,7 +1584,7 @@ export function MasterSearchHeader({
               aria-label={`Mode ${selectedAppMode.label}`}
             >
               <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
-                <SelectedAppModeIcon className="h-3.5 w-3.5" />
+                <SelectedAppModeIcon aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
                 <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-muted)] sm:block">
@@ -1639,7 +1643,7 @@ export function MasterSearchHeader({
                             : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
                         )}
                       >
-                        <Icon className="h-4 w-4" />
+                        <Icon aria-hidden="true" className="h-4 w-4" />
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">{mode.label}</span>

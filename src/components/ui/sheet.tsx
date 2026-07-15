@@ -198,7 +198,7 @@ export function Sheet({
   const sheet = (
     <div
       className={cn(
-        "fixed inset-0 z-[100] flex bg-black/45 backdrop-blur-[2px] motion-reduce:animate-none motion-reduce:transition-none",
+        "fixed inset-0 z-[100] flex bg-[color:var(--overlay-backdrop)] backdrop-blur-[2px] motion-reduce:animate-none motion-reduce:transition-none",
         desktopBackdropClassName,
         placement !== "left" && "motion-safe:animate-overlay-in",
         placement === "left"

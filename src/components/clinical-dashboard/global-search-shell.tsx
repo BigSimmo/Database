@@ -458,7 +458,7 @@ function GlobalStandaloneSearchShellClient({
   return (
     <div
       className={cn(
-        "min-h-dvh max-sm:h-dvh max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
+        "min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         shouldShowDesktopSidebar &&
           "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",

@@ -108,6 +108,26 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
   await expectNoBlockingAxeViolations(page, testInfo);
 });
 
+test("keeps long mobile formulation pages inside the app scrollport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await gotoApp(page, "/formulation/builder?mechanism=rumination&template=5Ps");
+
+  await expect(page.getByRole("heading", { name: "Build a formulation that can be tested" })).toBeVisible();
+
+  const geometry = await page.evaluate(() => {
+    const main = document.getElementById("main-content");
+    return {
+      documentClientHeight: document.documentElement.clientHeight,
+      documentScrollHeight: document.documentElement.scrollHeight,
+      mainClientHeight: main?.clientHeight ?? 0,
+      mainScrollHeight: main?.scrollHeight ?? 0,
+    };
+  });
+
+  expect(geometry.documentScrollHeight - geometry.documentClientHeight).toBeLessThanOrEqual(2);
+  expect(geometry.mainScrollHeight).toBeGreaterThan(geometry.mainClientHeight + 40);
+});
+
 test("moves a selected mechanism through framework, quality review, and an editable draft", async ({
   page,
 }, testInfo) => {
