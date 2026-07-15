@@ -52,7 +52,11 @@ describe("standalone TSX server-only compatibility", () => {
     const config = readFileSync(new URL("../vitest.config.mts", import.meta.url), "utf8");
     expect(runner).toContain("const vitestNeedle = vitestBin.toLowerCase()");
     expect(runner).not.toContain("repoNeedle");
-    expect(config).toContain("maxWorkers: 2");
+    // Workers stay bounded to a finite default (tunable via VITEST_MAX_WORKERS) so a
+    // parallel run can never spawn unlimited workers and thrash the host.
+    expect(config).toMatch(
+      /maxWorkers:\s*process\.env\.VITEST_MAX_WORKERS\s*\?\s*Number\(process\.env\.VITEST_MAX_WORKERS\)\s*:\s*\d+/,
+    );
     expect(config).toContain("testTimeout: 30_000");
   });
 });

@@ -19,7 +19,7 @@ import { getDifferentialDetailContext, getDifferentialRecord, getPresentationWor
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { safeErrorLogDetails } from "@/lib/privacy";
-import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
+import { publicAccessContext } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseRequestQuery } from "@/lib/validation/query";
@@ -69,28 +69,9 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       });
     }
 
-    if (!shouldResolvePublicCatalogAccess(request)) {
-      const snapshot = loadDifferentialSnapshot();
-      const governance = deriveGovernanceFromSnapshot(snapshot);
-      if (kind === "presentation") {
-        const workflow = getPresentationWorkflow(normalizedSlug);
-        if (!workflow) return notFoundResponse(normalizedSlug);
-        return differentialResponse({
-          workflow,
-          governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
-          publicAccess: true,
-        });
-      }
-      const record = getDifferentialRecord(normalizedSlug);
-      if (!record) return notFoundResponse(normalizedSlug);
-      return differentialResponse({
-        record,
-        detailContext: getDifferentialDetailContext(record),
-        governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
-        publicAccess: true,
-      });
-    }
-
+    // Anonymous callers still resolve access + rate limit before we serve the seed detail:
+    // publicAccessContext skips the Supabase auth round-trip when there's no session cookie/bearer,
+    // but every caller must pass the registry limiter (M4/C1 — no anonymous bypass).
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
 

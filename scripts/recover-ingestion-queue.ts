@@ -82,7 +82,7 @@ function parseArgs(argv: string[]) {
 async function main() {
   const [
     { env, requireServerEnv },
-    { buildIngestionRecoveryPlan },
+    { buildIngestionRecoveryPlan, INGESTION_RECOVERY_JOB_STATUSES },
     { createAdminClient },
     { assertSupabaseHealthy, probeSupabaseHealth },
   ] = await Promise.all([
@@ -105,7 +105,7 @@ async function main() {
   const { data, error } = await supabase
     .from("ingestion_jobs")
     .select("id,document_id,status,locked_at,documents(status,page_count,chunk_count)")
-    .in("status", ["pending", "processing", "failed"])
+    .in("status", [...INGESTION_RECOVERY_JOB_STATUSES])
     .order("created_at", { ascending: true });
 
   if (error) throw supabaseStageError("load open ingestion jobs", error);

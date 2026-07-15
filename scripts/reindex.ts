@@ -73,7 +73,7 @@ async function safeCount(label: string, countPromise: PromiseLike<CountResult>) 
 async function main() {
   const [
     { env, requireServerEnv },
-    { buildIngestionRecoveryPlan, isFreshProcessingJob },
+    { buildIngestionRecoveryPlan, INGESTION_RECOVERY_JOB_STATUSES, isFreshProcessingJob },
     { hasIncompleteDocumentsWithoutOpenJobs, isReindexQueueClear },
     { createAdminClient },
     { assertSupabaseHealthy, probeSupabaseHealth },
@@ -229,7 +229,7 @@ async function main() {
       const { data, error } = await supabase
         .from("ingestion_jobs")
         .select("id,document_id,status,locked_at,documents(status,page_count,chunk_count)")
-        .in("status", ["processing", "failed"])
+        .in("status", [...INGESTION_RECOVERY_JOB_STATUSES])
         .order("created_at", { ascending: true });
 
       if (error) {
@@ -246,26 +246,17 @@ async function main() {
         locked_at: string | null;
         documents: RecoveryDocument | RecoveryDocument[] | null;
       };
-      const staleAfterCutoff = new Date(staleCutoff);
-      const jobs = (data ?? [])
-        .map((job: RawJobRow) => ({
-          ...job,
-          documents: Array.isArray(job.documents)
-            ? (job.documents[0] as RecoveryDocument | undefined)
-            : (job.documents as RecoveryDocument | undefined),
-        }))
-        .filter((job) => {
-          if (job.status === "failed") {
-            return true;
-          }
-          if (job.status !== "processing") {
-            return false;
-          }
-          if (job.locked_at === null) {
-            return true;
-          }
-          return new Date(job.locked_at) <= staleAfterCutoff;
-        });
+      // Pass every queried job (pending/processing/failed) to the planner and let its
+      // active-vs-recoverable classification decide. Filtering out fresh `processing` jobs here
+      // hid legitimate in-flight owners from the planner: a document with a failed row plus a
+      // fresh processing retry would then requeue the failed row and collide with the still-open
+      // processing sibling on ingestion_jobs_one_open_per_document_uidx (Audit I2/E2 follow-up).
+      const jobs = (data ?? []).map((job: RawJobRow) => ({
+        ...job,
+        documents: Array.isArray(job.documents)
+          ? (job.documents[0] as RecoveryDocument | undefined)
+          : (job.documents as RecoveryDocument | undefined),
+      }));
       hasActiveProcessingJobs = (data ?? [])
         .map((job: RawJobRow) => ({
           ...job,

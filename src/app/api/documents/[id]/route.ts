@@ -10,7 +10,7 @@ import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
-import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
+import { callerOwnsDocumentRow, enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
 import { writeAuditLog } from "@/lib/audit";
 import { parseJsonBody } from "@/lib/validation/body";
 import { parseRouteParams } from "@/lib/validation/params";
@@ -296,6 +296,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (error) throw new Error(error.message);
     if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
 
+    // withOwnerReadScope also returns PUBLIC (owner_id IS NULL) documents to an authenticated
+    // caller. The owner-only projection (raw metadata, storage_path/content_hash, index health,
+    // image storage paths) must be gated on OWNERSHIP, not merely on being authenticated, so an
+    // authed non-owner viewing a shared public document gets the same redacted view as an
+    // anonymous caller (S1/D1).
+    const isOwner = callerOwnsDocumentRow(document, access.ownerId);
+
     const chunkId = detailQuery.chunk ?? null;
     const requestedPage = Math.min(detailQuery.page, Math.max(1, document.page_count ?? 1));
     const pageLimit = detailQuery.pageLimit;
@@ -390,21 +397,25 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         "import_batch_id",
         "error_message",
         "metadata",
+        // Summary provenance: only present on document_summaries rows (fetched with select("*")).
+        // A non-owner viewing a public document's summary must not see the owner's chunk/image
+        // source IDs or the generation model, matching the list route's PUBLIC_SUMMARY projection.
+        "source_chunk_ids",
+        "source_image_ids",
+        "model",
       ]);
       return Object.fromEntries(Object.entries(row).filter(([key]) => !internalKeys.has(key)));
     };
     const publicRows = <T extends Record<string, unknown>>(rows: T[]) =>
-      access.authenticated ? rows : rows.map(omitPublicInternalFields);
-    const responseDocument = access.authenticated
-      ? document
-      : omitPublicInternalFields(document as Record<string, unknown>);
+      isOwner ? rows : rows.map(omitPublicInternalFields);
+    const responseDocument = isOwner ? document : omitPublicInternalFields(document as Record<string, unknown>);
 
     return NextResponse.json({
       document: {
         ...responseDocument,
         labels: publicRows((labelsResult.data ?? []) as Record<string, unknown>[]),
         summary:
-          access.authenticated || !summaryResult.data
+          isOwner || !summaryResult.data
             ? (summaryResult.data ?? null)
             : omitPublicInternalFields(summaryResult.data as Record<string, unknown>),
       },
@@ -430,7 +441,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         hasAfter: Boolean(document.chunk_count && chunkRangeEnd + 1 < document.chunk_count),
         selectedChunkId: selectedChunk?.id ?? null,
       },
-      ...(access.authenticated
+      ...(isOwner
         ? {
             indexHealth: {
               extractionQuality: safeMetadata(document.metadata).extraction_quality ?? null,

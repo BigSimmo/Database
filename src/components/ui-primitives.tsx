@@ -74,10 +74,17 @@ export const chatActionRow =
   "flex min-h-tap flex-wrap items-center gap-1.5 text-xs font-semibold text-[color:var(--text-heading)] sm:min-h-8";
 export const chatMicroAction =
   "inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-md px-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
+// Answer "Sources" capsule. `sourceCapsuleHit` is an invisible 44px WCAG touch
+// target that wraps the compact visible pill `sourceCapsule` (`.source-capsule-face`),
+// so the control reads smaller and lighter without shrinking the tap area. Hover,
+// expanded, and focus chrome are driven from the hit target's :hover /
+// [aria-expanded] / :focus-visible in globals.css (@layer components).
+export const sourceCapsuleHit =
+  "source-capsule-hit inline-flex min-h-tap w-fit items-center justify-center rounded-full outline-none";
 export const sourceCapsule =
-  "source-capsule-hover focus-ring-premium inline-flex min-h-tap items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color-mix(in_srgb,var(--clinical-accent-soft)_55%,var(--surface))] px-3 text-xs font-medium text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent-border)]";
+  "source-capsule-face inline-flex items-center gap-1.5 rounded-full border bg-[color-mix(in_srgb,var(--clinical-accent-soft)_55%,var(--surface))] px-2.5 py-1 text-2xs font-medium text-[color:var(--clinical-accent)]";
 export const sourceCapsuleCountBadge =
-  "nums inline-flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-raised)] px-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
+  "nums inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-[color:var(--surface-raised)] px-1 text-3xs font-semibold leading-none text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]";
 export const evidenceRow =
   "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 export const clinicalNotesRow =

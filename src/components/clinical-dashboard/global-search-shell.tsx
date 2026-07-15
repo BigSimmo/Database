@@ -129,6 +129,9 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
     resolvedSearchMode !== "dsm" &&
     resolvedSearchMode !== "specifiers" &&
     resolvedSearchMode !== "formulation" &&
+    // Therapy Compass owns its route with an in-tool search; a run-enabled link
+    // (/therapy-compass?q=…&run=1) must keep rendering the tool, not the dashboard.
+    resolvedSearchMode !== "therapy-compass" &&
     !isDocumentSearchMockupRoute;
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
@@ -238,7 +241,7 @@ function GlobalStandaloneSearchShellClient({
   const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search");
   const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
-  // Services, forms, and favourites own their submitted-search views on their
+  // Registry and local decision-support modes own their submitted-search views on their
   // standalone routes; the shell must not swap them to the dashboard. On the
   // home route the dashboard always renders, so these exclusions only apply
   // to the standalone pages.
@@ -251,6 +254,9 @@ function GlobalStandaloneSearchShellClient({
     resolvedSearchMode !== "dsm" &&
     resolvedSearchMode !== "specifiers" &&
     resolvedSearchMode !== "formulation" &&
+    // Therapy Compass owns its route with an in-tool search; a run-enabled link
+    // (/therapy-compass?q=…&run=1) must keep rendering the tool, not the dashboard.
+    resolvedSearchMode !== "therapy-compass" &&
     !isDocumentSearchMockupRoute;
   const isStandaloneModeHome =
     !hasSubmittedModeSearch &&

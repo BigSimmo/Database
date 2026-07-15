@@ -1947,27 +1947,40 @@ summary::-webkit-details-marker {
     box-shadow: none !important;
   }
 
-  /* Premium hover transitions for source capsules */
-  .source-capsule-hover {
+  /* Source capsule: a compact visible face inside an invisible 44px tap target.
+     Border/shadow/transform live here (component layer) so the face reads small
+     while the hover, expanded, and focus chrome stay premium. Border colour is
+     owned here — the face carries no border-colour utility — so these rules win
+     without !important. */
+  .source-capsule-face {
+    border-color: var(--border);
     transition:
       border-color 150ms ease,
       box-shadow 150ms ease,
-      transform 150ms ease !important;
+      transform 150ms ease;
   }
 
-  .source-capsule-hover:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: var(--shadow-tight) !important;
+  .source-capsule-hit:hover .source-capsule-face {
+    transform: translateY(-1px);
+    border-color: var(--clinical-accent-border);
+    box-shadow: var(--shadow-tight);
   }
 
-  .source-capsule-hover[aria-expanded="true"] {
+  .source-capsule-hit[aria-expanded="true"] .source-capsule-face {
     border-color: var(--clinical-accent);
     box-shadow: var(--shadow-tight), var(--shadow-inset);
   }
 
-  .source-capsule-hover[aria-expanded="true"]:hover {
-    transform: translateY(-1px) !important;
+  .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
+    transform: translateY(-1px);
+    border-color: var(--clinical-accent);
     box-shadow: var(--shadow-tight), var(--shadow-inset);
+  }
+
+  .source-capsule-hit:focus-visible .source-capsule-face {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 25%, transparent);
   }
 
   .polished-scroll {
@@ -2036,8 +2049,8 @@ summary::-webkit-details-marker {
     transition-duration: 0.01ms !important;
   }
 
-  .source-capsule-hover:hover,
-  .source-capsule-hover[aria-expanded="true"]:hover {
+  .source-capsule-hit:hover .source-capsule-face,
+  .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
     transform: none !important;
   }
 }

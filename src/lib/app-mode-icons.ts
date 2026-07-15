@@ -1,14 +1,15 @@
 import {
   BookOpenCheck,
   BrainCircuit,
+  Compass,
   FileSignature,
   FileText,
   Heart,
   Network,
   Pill,
   Route,
-  Sparkles,
   Tags,
+  Sparkles,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -28,4 +29,5 @@ export const appModeIcons: Record<AppModeId, LucideIcon> = {
   formulation: Network,
   prescribing: Pill,
   tools: Wrench,
+  "therapy-compass": Compass,
 };

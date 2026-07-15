@@ -275,7 +275,12 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await mockStressData(page);
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto("/?mode=documents", { waitUntil: "domcontentloaded" });
-      await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+      // Deterministic app-shell mount wait, not networkidle (persistent fetches).
+      await page
+        .locator("#main-content")
+        .first()
+        .waitFor({ state: "visible", timeout: 15_000 })
+        .catch(() => undefined);
 
       if (viewport.name === "mobile") {
         const dailyActions = await openDailyActions(page);

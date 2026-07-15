@@ -3,6 +3,8 @@ import { z } from "zod";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
+import { logger } from "@/lib/logger";
+import { safeErrorLogDetails } from "@/lib/privacy";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json, TablesUpdate } from "@/lib/supabase/database.types";
@@ -207,10 +209,17 @@ export async function POST(request: Request) {
         if (updateError) throw new Error(updateError.message);
         results.push({ documentId: document.id, updated: true });
       } catch (error) {
+        // Never surface the raw DB error text (constraint names, column details) to the client;
+        // log the sanitized detail server-side and return a generic per-document failure (S10/D5).
+        logger.error("Bulk document edit failed for a document", {
+          ownerId: user.id,
+          documentId: document.id,
+          ...safeErrorLogDetails(error),
+        });
         results.push({
           documentId: document.id,
           updated: false,
-          error: error instanceof Error ? error.message : "Bulk edit failed.",
+          error: "Bulk edit failed for this document.",
         });
       }
     }

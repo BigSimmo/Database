@@ -50,7 +50,15 @@ async function installClipboardMock(page: Page) {
 
 async function gotoApp(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+  // Wait for the app shell to mount (deterministic) rather than for the network to
+  // idle — these routes keep background fetches alive, so networkidle burned the
+  // full timeout on every navigation. Best-effort: the per-test assertions below
+  // still gate real readiness if the shell selector never resolves.
+  await page
+    .locator("#main-content")
+    .first()
+    .waitFor({ state: "visible", timeout: 15_000 })
+    .catch(() => undefined);
 }
 
 async function waitForReactEventHandler(locator: Locator, eventName: "onScroll") {
@@ -1076,7 +1084,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
       if (route.path.includes("mode=answer")) {
         await waitForDemoDashboardReady(page);
       } else {
-        await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+        await page
+          .locator("#main-content")
+          .first()
+          .waitFor({ state: "visible", timeout: 15_000 })
+          .catch(() => undefined);
       }
 
       const activeLink = page.getByRole("link", { name: route.label, exact: true });
@@ -1782,7 +1794,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "lithium dosing");
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
-    await page.waitForTimeout(400);
+    // Wait for streaming to finish (deterministic) so the geometry below reads the
+    // final, settled layout — replaces a fixed 400ms sleep.
+    await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
 
     const geo = await page.evaluate(() => {
       const main = document.querySelector("main#main-content");
@@ -1828,7 +1842,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await fillVisibleQuestionInput(page, "lithium dosing");
     await visibleAnswerSubmitButton(page).click();
     await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
-    await page.waitForTimeout(400);
+    // Wait for streaming to finish (deterministic) so the geometry below reads the
+    // final, settled layout — replaces a fixed 400ms sleep.
+    await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
     // Start from the top so the assertions describe the resting, top-aligned view.
     await page.locator("main#main-content").evaluate((el) => {
       el.scrollTop = 0;
@@ -1954,6 +1970,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(cancelled.getByRole("button", { name: "Run again" })).toBeVisible();
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(0);
     await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
+    // Intentional fixed wait: this asserts a NEGATIVE (no answer streams in after
+    // Stop), so there is no event to await — we give a late async render time to
+    // (wrongly) appear, then confirm it did not.
     await page.waitForTimeout(1700);
     await expect(page.getByTestId("plain-answer-response")).toHaveCount(0);
   });
@@ -2365,14 +2384,59 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("dashboard specifiers mode param redirects through legacy route to formulation", async ({ page }) => {
+  test("DSM category filter dropdown opens to the correct option by keyboard", async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 850 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/dsm/search?q=depression");
+
+    await expect(page.getByTestId("dsm-search-page")).toBeVisible();
+    const trigger = page.getByTestId("dsm-category-filter");
+    const options = page.getByRole("menuitemradio");
+
+    // ArrowUp opens the menu with focus on the LAST option (reverse entry). This
+    // guards against a regression where a competing focus-on-open effect raced
+    // the key handler and stole focus back to the active item.
+    await trigger.focus();
+    await page.keyboard.press("ArrowUp");
+    await expect(options.last()).toBeFocused();
+
+    // Escape closes the menu and restores focus to the trigger.
+    await page.keyboard.press("Escape");
+    await expect(options.first()).toBeHidden();
+    await expect(trigger).toBeFocused();
+
+    // ArrowDown opens the menu with focus on the active option ("All categories").
+    await page.keyboard.press("ArrowDown");
+    await expect(options.first()).toBeFocused();
+    await expect(options.first()).toHaveAttribute("aria-checked", "true");
+
+    // Options sit outside the Tab sequence (tabIndex=-1), so one Tab press from a
+    // non-final option leaves the whole widget in a single step and closes the
+    // menu instead of stepping through every category link.
+    await page.keyboard.press("Tab");
+    await expect(options.first()).toBeHidden();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(options).toHaveCount(0);
+
+    // Space activates the focused option (announced as a menuitemradio) even
+    // though the underlying element is an anchor, applying the category filter.
+    await trigger.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(options.first()).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(options.nth(1)).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(page).toHaveURL(/[?&]category=/);
+  });
+
+  test("dashboard specifiers mode param redirects to the standalone specifiers route", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/?mode=specifiers&q=anxious+distress&focus=1&run=1");
 
-    // /?mode=specifiers → /specifiers → compatibility redirect to /formulation
-    await expect(page).toHaveURL(/\/formulation\?q=anxious\+distress&focus=1&run=1$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Mechanisms matching “anxious distress”" })).toBeVisible();
+    // /?mode=specifiers → /specifiers (Specifiers is its own mode, distinct from Formulation)
+    await expect(page).toHaveURL(/\/specifiers\?q=anxious\+distress&focus=1&run=1$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Matches for “anxious distress”" })).toBeVisible();
   });
 
   test("dashboard formulation mode param redirects to the standalone formulation route", async ({ page }) => {

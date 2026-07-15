@@ -4,7 +4,11 @@ const config = {
     // body. Give those transforms headroom on slower worktree filesystems while
     // retaining a finite timeout that still catches genuine hangs.
     testTimeout: 30_000,
-    maxWorkers: 2,
+    // CI runners and dev containers here have 4 cores / ~16 GB; the node suite is
+    // CPU-bound (cold-imports large Next module graphs), so 2 workers left cores
+    // idle. Scale to the host but cap so a smaller runner cannot oversubscribe,
+    // and honour an explicit override for constrained environments.
+    maxWorkers: process.env.VITEST_MAX_WORKERS ? Number(process.env.VITEST_MAX_WORKERS) : 4,
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],

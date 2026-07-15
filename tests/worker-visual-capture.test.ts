@@ -40,8 +40,11 @@ describe("worker visual capture hardening", () => {
     expect(workerSource).toContain("p_job_id: args.jobId");
     expect(workerSource).toContain("p_worker_id: workerId");
     expect(workerSource).not.toContain("await replacePageRows(args.documentId, args.pages)");
-    expect(workerSource).toContain("await deleteStaleIndexGenerationRows(args.documentId, args.indexGenerationId)");
-    expect(workerSource).toContain("async function deleteStaleIndexGenerationRows");
+    // The commit RPC prunes stale/legacy generation rows and upserts index quality atomically
+    // server-side; the worker must surface any RPC failure (fail closed) rather than run a
+    // client-side fallback that could partially write after an error.
+    expect(workerSource).toContain('if (error) throw supabaseStageError("commit_document_index_generation", error)');
+    expect(workerSource).not.toContain("deleteStaleIndexGenerationRows");
     expect(workerSource).toContain("`${imagePrefix}/${indexGenerationId}/image-${index + 1}${ext}`");
     expect(workerSource).toContain('indexing_v3_agent_repair_reason: "core_index_committed"');
     expect(workerSource).toContain("indexing_v3_agent_repair_reason: null");
