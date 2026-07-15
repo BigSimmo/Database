@@ -1601,6 +1601,7 @@ export function ClinicalDashboard({
 
   useEffect(() => {
     if (urlDocumentSearchBootstrappedRef.current) return;
+    if (authStatus === "loading") return;
     const params = new URLSearchParams(window.location.search);
     const mode = params.get("mode");
     const searchText = params.get("q")?.trim();
@@ -1625,9 +1626,18 @@ export function ClinicalDashboard({
     const isRegistryOnlyMode = mode === "services" || mode === "forms";
     if (modeSearch.kind !== "tools" && modeSearch.kind !== "favourites" && !isRegistryOnlyMode && !canRunSearch) return;
     urlDocumentSearchBootstrappedRef.current = true;
-    void executeSearchRef.current(searchText, mode, scopeFiltersRef.current);
+    const initialContext = readSearchNavigationContext(params);
+    autoRunSearchSignatureRef.current = searchSubmissionSignature(mode, searchText, initialContext);
+    void executeSearchRef.current(
+      searchText,
+      mode,
+      initialContext.scopeFilters,
+      initialContext.queryMode,
+      false,
+      initialContext.scopeRef,
+    );
     // URL search intentionally runs once when the selected mode can execute.
-  }, [canRunSearch, answerThreadBootstrapped]);
+  }, [authStatus, canRunSearch, answerThreadBootstrapped]);
 
   useEffect(() => {
     const updateHash = () => {
@@ -2210,15 +2220,29 @@ export function ClinicalDashboard({
         : undefined);
     if (searchMode === "documents" && trimmedQuery) {
       rememberRecentQuery(trimmedQuery);
-      router.push(
+      const navigationContext = {
+        queryMode: effectiveQueryMode,
+        scopeFilters: effectiveScopeFilters,
+        scopeRef: privateScopeRef,
+      };
+      autoRunSearchSignatureRef.current = searchSubmissionSignature(searchMode, trimmedQuery, navigationContext);
+      window.history.pushState(
+        null,
+        "",
         documentsSearchHref({
           query: trimmedQuery,
           focus: true,
           run: true,
-          queryMode: effectiveQueryMode,
-          scopeFilters: effectiveScopeFilters,
-          scopeRef: privateScopeRef,
+          ...navigationContext,
         }),
+      );
+      await executeSearch(
+        trimmedQuery,
+        searchMode,
+        effectiveScopeFilters,
+        effectiveQueryMode,
+        replaceExistingAnswer,
+        privateScopeRef,
       );
       return;
     }
@@ -2243,6 +2267,7 @@ export function ClinicalDashboard({
     const submittedSearchText = searchMode === "answer" && submittedUrlQuery ? submittedUrlQuery : trimmedQuery;
     const canAutoRunMode = searchMode === "documents" || searchMode === "prescribing" || canRunSearch;
     if (!autoRunSearch || !submittedSearchText || !canAutoRunMode || loading) return;
+    if (authStatus === "loading") return;
     if (routedSearchContext.scopeRef && privateScopeStatus !== "restored") return;
     if (searchMode === "answer" && !answerThreadBootstrapped) return;
     const previousSignature = autoRunSearchSignatureRef.current;
@@ -2265,9 +2290,21 @@ export function ClinicalDashboard({
     }
     if (autoRunSearchSignatureRef.current === signature) return;
     autoRunSearchSignatureRef.current = signature;
+    if (searchMode === "documents") {
+      void executeSearchRef.current(
+        submittedSearchText,
+        searchMode,
+        routedSearchContext.scopeFilters,
+        routedSearchContext.queryMode,
+        routedContextChanged,
+        routedSearchContext.scopeRef,
+      );
+      return;
+    }
     void askRef.current(submittedSearchText, routedSearchContext, routedContextChanged);
   }, [
     autoRunSearch,
+    authStatus,
     canRunSearch,
     loading,
     query,

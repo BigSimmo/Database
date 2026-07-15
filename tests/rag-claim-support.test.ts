@@ -73,9 +73,20 @@ describe("deterministic claim support", () => {
     ["Avoid valproate in hepatic impairment.", "Valproate monitoring includes liver function tests."],
     ["Escalate urgently for myocarditis symptoms.", "Review myocarditis symptoms at the next appointment."],
     ["Stop clozapine below ANC 1.0 x10^9/L.", "Stop lithium below a level of 1.0 x10^9/L."],
+    ["Stop clozapine when fever develops.", "Stop clozapine when myocarditis develops."],
+    ["Give lithium 300 mg for bipolar disorder.", "Give lithium 300 mg for major depression."],
   ])("does not directly support %s from mismatched evidence", (claim, evidence) => {
     const cited = source("c1", evidence);
     expect(assessClaimSupport(answer(claim, [cited])).claims[0]?.supportStatus).not.toBe("direct");
+  });
+
+  it("fails closed when a high-risk action cites a different trigger condition", () => {
+    const cited = source("c1", "Stop clozapine when myocarditis develops.");
+    const result = assessAndEnforceClaimSupport(answer("Stop clozapine when fever develops.", [cited]));
+
+    expect(result).toMatchObject({ grounded: false, confidence: "unsupported", responseMode: "evidence_gap" });
+    expect(result.supportedClaims?.[0]).toMatchObject({ riskClass: "high_risk", supportStatus: "partial" });
+    expect(result.citations).toEqual([]);
   });
 
   it("evaluates section prose only against that section's citations", () => {
