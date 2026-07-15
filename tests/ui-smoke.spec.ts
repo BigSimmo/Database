@@ -2927,8 +2927,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await mockDemoApi(page);
     await gotoApp(page, "/documents/11111111-1111-4111-8111-111111111111?page=1");
 
+    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
+      timeout: 30_000,
+    });
     const summaryCard = page.getByTestId("high-yield-summary");
     await expect(summaryCard).toBeVisible();
+    await expect(summaryCard).toHaveJSProperty("open", false);
+    await summaryCard.getByText("High-yield summary", { exact: true }).click();
+    await expect(summaryCard).toHaveJSProperty("open", true);
     // Smart summary: badge cluster from labels + detected phrases, structured
     // sections, and no document-header boilerplate leaking through.
     await expect(summaryCard.getByText("Narrow therapeutic index", { exact: true })).toBeVisible();
@@ -2944,6 +2950,58 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(indexingDetails.getByText("rag-deep-memory-v1")).toBeHidden();
     await indexingDetails.getByText("Indexing details", { exact: true }).click();
     await expect(indexingDetails.getByText("rag-deep-memory-v1")).toBeVisible();
+
+    await expectDomIntegrity(page);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("document viewer content disclosures are naturally closed and mutually exclusive by default", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/documents/11111111-1111-4111-8111-111111111111?page=1");
+
+    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
+      timeout: 30_000,
+    });
+    const indexedText = page.locator("#source-text-mobile");
+    const summary = page.getByTestId("high-yield-summary");
+    const images = page.locator("#source-images");
+    const indexingDetails = page.getByTestId("indexing-details");
+    const viewerNav = page.getByRole("navigation", { name: "Document viewer sections" }).first();
+
+    for (const disclosure of [indexedText, summary, images, indexingDetails]) {
+      await expect(disclosure).toHaveJSProperty("open", false);
+    }
+
+    const summaryContent = summary.getByTestId("formatted-high-yield-summary");
+    await expect(summaryContent).toBeHidden();
+    await viewerNav.getByRole("link", { name: "Images" }).click();
+    await expect(images).toHaveJSProperty("open", true);
+    await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
+    await page.emulateMedia({ media: "print" });
+    await expect(summaryContent).toBeVisible();
+    await page.emulateMedia({ media: "screen" });
+    await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+    await expect(summaryContent).toBeHidden();
+    await expect(images).toHaveJSProperty("open", true);
+
+    await viewerNav.getByRole("link", { name: "Text" }).click();
+    await expect(indexedText).toHaveJSProperty("open", true);
+    await expect(images).toHaveJSProperty("open", false);
+
+    await viewerNav.getByRole("link", { name: "Summary" }).click();
+    await expect(summary).toHaveJSProperty("open", true);
+    await expect(indexedText).toHaveJSProperty("open", false);
+
+    await viewerNav.getByRole("link", { name: "Images" }).click();
+    await expect(images).toHaveJSProperty("open", true);
+    await expect(summary).toHaveJSProperty("open", false);
+
+    await indexingDetails.getByText("Indexing details", { exact: true }).click();
+    await expect(indexingDetails).toHaveJSProperty("open", true);
+    await expect(images).toHaveJSProperty("open", false);
 
     await expectDomIntegrity(page);
     await expectNoPageHorizontalOverflow(page);
