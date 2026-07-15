@@ -183,5 +183,3 @@ export const SignedImage = memo(function SignedImage({
     </div>
   );
 });
-
-export default SignedImage;
