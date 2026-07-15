@@ -2098,7 +2098,10 @@ summary::-webkit-details-marker {
     --tone-slate: CanvasText;
     --focus: Highlight;
     --surface-lux: Canvas;
+    --surface-glass: Canvas;
     --surface-wash: Canvas;
+    --panel-gloss: Canvas;
+    --overlay-backdrop: CanvasText;
     --text-heading: CanvasText;
     --border-lux: ButtonBorder;
     --glow-primary: none;
@@ -2161,6 +2164,14 @@ summary::-webkit-details-marker {
   .source-print {
     overflow: visible !important;
     box-shadow: none !important;
+  }
+
+  details.source-print > summary {
+    display: none !important;
+  }
+
+  details.source-print > :not(summary) {
+    display: block !important;
   }
 
   a {

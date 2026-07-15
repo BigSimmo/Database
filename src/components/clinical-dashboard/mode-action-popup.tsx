@@ -683,7 +683,7 @@ export function ModeActionPopup({
                   item.primary
                     ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/45 hover:bg-[color:var(--clinical-accent-soft)]/60"
                     : "border-[color:var(--border)] bg-[color:var(--surface)] hover:border-[color:var(--clinical-accent)]/40 hover:bg-[color:var(--clinical-accent-soft)]/24",
-                  "active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                  "motion-safe:active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                 )}
               >
                 <span
@@ -694,7 +694,7 @@ export function ModeActionPopup({
                       : "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]",
                   )}
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon aria-hidden="true" className="h-5 w-5" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-bold text-[color:var(--text-heading)]">
