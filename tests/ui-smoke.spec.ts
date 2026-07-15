@@ -2977,15 +2977,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const summaryContent = summary.getByTestId("formatted-high-yield-summary");
     await expect(summaryContent).toBeHidden();
+    await viewerNav.getByRole("link", { name: "Images" }).click();
+    await expect(images).toHaveJSProperty("open", true);
     await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
     await page.emulateMedia({ media: "print" });
     await expect(summaryContent).toBeVisible();
     await page.emulateMedia({ media: "screen" });
     await page.evaluate(() => window.dispatchEvent(new Event("afterprint")));
     await expect(summaryContent).toBeHidden();
+    await expect(images).toHaveJSProperty("open", true);
 
     await viewerNav.getByRole("link", { name: "Text" }).click();
     await expect(indexedText).toHaveJSProperty("open", true);
+    await expect(images).toHaveJSProperty("open", false);
 
     await viewerNav.getByRole("link", { name: "Summary" }).click();
     await expect(summary).toHaveJSProperty("open", true);

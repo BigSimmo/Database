@@ -1609,15 +1609,25 @@ export function DocumentViewer({
   useEffect(() => {
     const previousOpenStates = new Map<HTMLDetailsElement, boolean>();
     const expandPrintableDisclosures = () => {
+      if (previousOpenStates.size) return;
       previousOpenStates.clear();
-      window.document.querySelectorAll<HTMLDetailsElement>("details.source-print").forEach((disclosure) => {
-        previousOpenStates.set(disclosure, disclosure.open);
+      const printable = window.document.querySelectorAll<HTMLDetailsElement>("details.source-print");
+      window.document
+        .querySelectorAll<HTMLDetailsElement>('details.source-print, details[name="document-viewer-section"]')
+        .forEach((disclosure) => {
+          previousOpenStates.set(disclosure, disclosure.open);
+        });
+      printable.forEach((disclosure) => {
         disclosure.open = true;
       });
     };
     const restorePrintableDisclosures = () => {
-      previousOpenStates.forEach((wasOpen, disclosure) => {
-        if (disclosure.isConnected) disclosure.open = wasOpen;
+      const connected = [...previousOpenStates].filter(([disclosure]) => disclosure.isConnected);
+      connected.forEach(([disclosure]) => {
+        disclosure.open = false;
+      });
+      connected.forEach(([disclosure, wasOpen]) => {
+        if (wasOpen) disclosure.open = true;
       });
       previousOpenStates.clear();
     };
