@@ -2166,6 +2166,14 @@ summary::-webkit-details-marker {
     box-shadow: none !important;
   }
 
+  details.source-print > summary {
+    display: none !important;
+  }
+
+  details.source-print > :not(summary) {
+    display: block !important;
+  }
+
   a {
     color: #000;
     text-decoration: underline;
