@@ -48,22 +48,22 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### Product pages (`src/app/`)
 
-| Route                                                                 | File                                   |
-| --------------------------------------------------------------------- | -------------------------------------- |
-| `/`                                                                   | `src/app/page.tsx`                     |
-| `/applications`                                                       | `src/app/applications/page.tsx`        |
-| `/differentials`, `/diagnoses`, `/presentations`                      | `src/app/differentials/`               |
-| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`        | `src/app/dsm/`                         |
-| `/documents/search`, `/source`, `/evidence`, `/[id]`                  | `src/app/documents/`                   |
-| `/favourites`                                                         | `src/app/favourites/page.tsx`          |
-| `/forms`, `/forms/[slug]`                                             | `src/app/forms/`                       |
-| `/medications`, `/medications/[slug]`                                 | `src/app/medications/`                 |
-| `/services`, `/services/[slug]`                                       | `src/app/services/`                    |
-| `/therapy-compass`                                                    | `src/app/therapy-compass/`             |
-| `/specifiers`, `/specifiers/[slug]`, `/builder`, `/compare`, `/map`   | `src/app/specifiers/`                  |
-| `/formulation`, `/formulation/[slug]`, `/builder`, `/compare`, `/map` | `src/app/formulation/`                 |
-| `/mockups/*`                                                          | `src/app/mockups/` (404 in production) |
-| `/auth/callback`                                                      | `src/app/auth/callback/route.ts`       |
+| Route                                                                                                     | File                                   |
+| --------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `/`                                                                                                       | `src/app/page.tsx`                     |
+| `/applications`                                                                                           | `src/app/applications/page.tsx`        |
+| `/differentials`, `/diagnoses`, `/presentations`                                                          | `src/app/differentials/`               |
+| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/dsm/`                         |
+| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                      | `src/app/documents/`                   |
+| `/favourites`                                                                                             | `src/app/favourites/page.tsx`          |
+| `/forms`, `/forms/[slug]`                                                                                 | `src/app/forms/`                       |
+| `/medications`, `/medications/[slug]`                                                                     | `src/app/medications/`                 |
+| `/services`, `/services/[slug]`                                                                           | `src/app/services/`                    |
+| `/therapy-compass`                                                                                        | `src/app/therapy-compass/`             |
+| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`      | `src/app/specifiers/`                  |
+| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map` | `src/app/formulation/`                 |
+| `/mockups/*`                                                                                              | `src/app/mockups/` (404 in production) |
+| `/auth/callback`                                                                                          | `src/app/auth/callback/route.ts`       |
 
 ### API routes (`src/app/api/`)
 
