@@ -125,10 +125,10 @@ function routeWithQuery(path: string, query: string, selectedIds?: Set<string>) 
 }
 
 /**
- * Phone-only floating compare action. Portals into the bottom search dock's
- * addon slot so it stays anchored just above the composer pill (and hides
- * with it on scroll), but renders as a self-contained floating pill so it
- * reads as a batch-selection action rather than composer chrome.
+ * Mobile/tablet floating compare action. Portals into the search composer's
+ * addon slot so it stays anchored beside the active result controls, but
+ * renders as a self-contained floating pill so it reads as a batch-selection
+ * action rather than composer chrome.
  */
 function DifferentialsMobileCompareBar({
   selectedCount,

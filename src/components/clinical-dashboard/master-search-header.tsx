@@ -235,7 +235,7 @@ export function MasterSearchHeader({
    *  search pill sits in the middle of the hero on phones as well as desktop
    *  instead of docking to the bottom edge. */
   desktopHomeComposerSlotId?: string;
-  /** Phone-only slot rendered above the bottom search pill for page-specific dock addons. */
+  /** Mobile/tablet slot rendered above the search pill for page-specific composer addons. */
   mobileBottomSearchAddonSlotId?: string;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
@@ -321,7 +321,9 @@ export function MasterSearchHeader({
     searchComposerVisible &&
     !desktopHomeComposerSlotId &&
     (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
-  const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
+  const bottomComposerScrollHiddenActive = Boolean(
+    hideOnScroll && phoneBottomSearchDockActive && !mobileBottomSearchAddonSlotId,
+  );
   const bottomComposerHidden =
     bottomComposerScrollHiddenActive &&
     scrollHidden &&
@@ -1192,7 +1194,11 @@ export function MasterSearchHeader({
     const ModeIdentityIcon = appModeIcons[searchMode];
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
-    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
+    // A differential comparison is a persistent batch action: hiding its host
+    // dock on downward scroll makes the CTA slide under mobile browser chrome
+    // and disables pointer events just when users finish reviewing the list.
+    // Keep that dock pinned while the header can still collapse independently.
+    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock && !mobileBottomSearchAddonSlotId);
     // Phone submitted non-answer result docks reserve pill-only scroll
     // clearance (ClinicalDashboard <main> margins / global-search-shell
     // mobileComposerReserve), so an extra notice line would push the fixed
@@ -1241,7 +1247,7 @@ export function MasterSearchHeader({
         )}
       >
         {usesBottomComposerPlacement ? <div className="answer-footer-search-backdrop" aria-hidden="true" /> : null}
-        {usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? (
+        {usesMobileBottomStyle && mobileBottomSearchAddonSlotId ? (
           <div
             id={mobileBottomSearchAddonSlotId}
             className="differentials-mobile-search-addon relative z-10 w-full empty:hidden"
