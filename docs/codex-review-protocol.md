@@ -10,6 +10,7 @@ Use this protocol for every Codex review, audit, bug hunt, PR review, release-re
 - Do not expand into stale branches or unrelated modules unless a confirmed defect crosses that boundary.
 - Before branch or PR review, check `docs/branch-review-ledger.md`: resolve the target with `git rev-parse`, compare the HEAD and scope, and skip unchanged completed reviews unless the user asks for a fresh pass.
 - Treat GitHub automatic review as one pass per pull request. A repair commit or later head does not authorize another automatic pass; require an explicit human request before re-reviewing.
+- Route automatic repair only for high-risk paths, at least 10 changed non-test source files, at least 300 changed non-test source lines, or an explicit `codex-review` label. `skip-codex-review` always opts out, including when both labels are present. Small low-risk, docs-only, test-only, and generated-only changes should not receive the automatic repair request.
 
 ## Review Output
 

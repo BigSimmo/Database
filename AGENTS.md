@@ -389,10 +389,13 @@ When explicitly asked to fix or resolve review findings:
 
 ### Automatic resolve trigger
 
-Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests the resolve task automatically after Codex submits a completed PR review that raised findings.
+Automatic Codex review is review-only by default. This repository includes `.github/workflows/codex-autofix-review-comments.yml`, which requests the resolve task automatically after Codex submits a completed PR review that raised findings and the pull request passes the repository's risk/complexity router.
 
 - The auto-resolve request must fire only from a Codex-authored `pull_request_review` **submitted** event on an open pull request — never from the first inline comment mid-review. This guarantees the request is posted only after a code review completes; without a review there are no findings and the request is pointless.
 - The request job must skip reviews with no actionable findings: skip `approved`/`dismissed` reviews, and skip when the submitted review carries zero inline comments.
+- Route automatic repair only when at least one changed path is high-risk, when the pull request changes at least 10 non-test source files or 300 non-test source lines, or when the `codex-review` label explicitly opts in. Treat `skip-codex-review` as an unconditional opt-out that wins if both labels are present.
+- High-risk paths include migrations/RLS, application API routes, auth/permissions/privacy/security, clinical/RAG/retrieval/search/source/document behavior, provider or production configuration, dependencies, and CI/release workflows. Do not route docs-only, test-only, generated-only, or small low-risk UI/copy changes unless explicitly opted in.
+- Read changed-file metadata through the GitHub API only; never check out or execute pull-request code in the routing job. Record the selected route in a hidden `codex-autoresolve-route` marker for auditability.
 - Match the trusted Codex connector bot by exact login and bot type; do not use substring login checks.
 - Keep per-pull-request concurrency on the authorized job, not the whole workflow, so unrelated events cannot displace a pending Codex request.
 - Pin the supported Node 24-based `actions/github-script` release to its reviewed immutable commit SHA.
