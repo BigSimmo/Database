@@ -59,6 +59,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 | `/forms`, `/forms/[slug]`                                             | `src/app/forms/`                        |
 | `/medications`, `/medications/[slug]`                                 | `src/app/medications/`                  |
 | `/services`, `/services/[slug]`                                       | `src/app/services/`                     |
+| `/therapy-compass`                                                    | `src/app/therapy-compass/`              |
 | `/specifiers/[[...path]]`                                             | `src/app/specifiers/` (legacy redirect) |
 | `/formulation`, `/formulation/[slug]`, `/builder`, `/compare`, `/map` | `src/app/formulation/`                  |
 | `/mockups/*`                                                          | `src/app/mockups/` (404 in production)  |
