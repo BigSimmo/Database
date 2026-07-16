@@ -235,7 +235,7 @@ export function MasterSearchHeader({
    *  search pill sits in the middle of the hero on phones as well as desktop
    *  instead of docking to the bottom edge. */
   desktopHomeComposerSlotId?: string;
-  /** Phone-only slot rendered above the bottom search pill for page-specific dock addons. */
+  /** Mobile/tablet slot rendered above the search pill for page-specific composer addons. */
   mobileBottomSearchAddonSlotId?: string;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
@@ -1243,7 +1243,7 @@ export function MasterSearchHeader({
         )}
       >
         {usesBottomComposerPlacement ? <div className="answer-footer-search-backdrop" aria-hidden="true" /> : null}
-        {usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? (
+        {usesMobileBottomStyle && mobileBottomSearchAddonSlotId ? (
           <div
             id={mobileBottomSearchAddonSlotId}
             className="differentials-mobile-search-addon relative z-10 w-full empty:hidden"

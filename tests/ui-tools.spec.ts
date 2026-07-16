@@ -1455,6 +1455,13 @@ test.describe("Clinical KB tools launcher", () => {
     expect(compareGeometry.top).toBeGreaterThanOrEqual(0);
     expect(compareGeometry.bottom).toBeLessThanOrEqual(compareGeometry.viewportHeight);
     expect(compareGeometry.receivesPointer).toBe(true);
+
+    // The result cards and compare bar remain in their non-desktop layout up
+    // to 1023px, so the composer must keep providing the portal host on tablet.
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await expect(page.locator("#differentials-mobile-compare-addon-slot")).toHaveCount(1);
+    await expect(compareAction).toBeVisible();
+    await expect(compareAction).toContainText("Compare selected");
   });
 
   test("diagnosis detail actions stay tappable and tabs stay single-line", async ({ page }) => {
