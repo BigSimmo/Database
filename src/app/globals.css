@@ -1221,6 +1221,96 @@ summary::-webkit-details-marker {
   display: none;
 }
 
+/* Medication result views use full-bleed structure on phones while keeping
+   readable content inside the device safe area. The dashboard content shell
+   contributes 0.75rem phone gutters, so the workspace cancels only that known
+   inset rather than using 100vw (which can create page-level overflow). */
+@media (max-width: 639px) {
+  .medication-results-workspace {
+    width: calc(100% + 1.5rem);
+    max-width: none;
+    margin-inline: -0.75rem;
+  }
+
+  .medication-results-inset {
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
+  }
+
+  .medication-also-matches,
+  .medication-patient-strip {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .medication-also-matches,
+  .medication-patient-strip > summary,
+  .medication-patient-strip > div {
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
+  }
+
+  .medication-filter-strip {
+    overscroll-behavior-inline: contain;
+    scroll-padding-left: max(1rem, var(--safe-area-left));
+    scroll-padding-right: max(1rem, var(--safe-area-right));
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
+  }
+
+  .medication-mobile-results {
+    gap: 0;
+    border-block: 1px solid var(--border);
+    background: var(--surface-raised);
+  }
+
+  .medication-mobile-result {
+    border-top: 0;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    padding-block: 0.75rem;
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
+    box-shadow: none;
+  }
+
+  .medication-mobile-result:last-child {
+    border-bottom: 0;
+  }
+
+  .medication-mobile-result[data-selected="true"] {
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--clinical-accent-soft) 42%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--clinical-accent);
+  }
+
+  .medication-mobile-result:focus-visible {
+    outline-offset: -2px;
+  }
+}
+
+/* Wide phones in landscape can cross the sm breakpoint while still exposing
+   substantial left/right cutout insets. Preserve the normal tablet card gutter,
+   then add only the safe-area remainder so text never sits beneath a notch. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .medication-results-inset,
+  .medication-also-matches,
+  .medication-filter-strip {
+    padding-left: max(0px, calc(var(--safe-area-left) - 1rem));
+    padding-right: max(0px, calc(var(--safe-area-right) - 1rem));
+  }
+
+  .medication-patient-strip > summary,
+  .medication-patient-strip > div,
+  .medication-mobile-result {
+    padding-left: max(0.75rem, calc(var(--safe-area-left) - 0.25rem));
+    padding-right: max(0.75rem, calc(var(--safe-area-right) - 0.25rem));
+  }
+}
+
 /* Answer-thread follow-ups: the label reads as an eyebrow above the chips so
    wrapped chip rows stay ragged-right without a floating side label. Children
    must stretch so the chip row wraps at the column edge instead of overflowing. */
