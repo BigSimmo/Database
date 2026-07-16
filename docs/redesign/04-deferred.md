@@ -1,4 +1,7 @@
-# Deferred Items
+# Resolved Deferred Items
+
+**Status: closed (reconciled 2026-07-15).** Every item in this file is resolved. The original notes
+remain only as design-history context; this file is not an active backlog.
 
 ## 0. Tools page redesign (resolved June 23, 2026)
 

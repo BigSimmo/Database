@@ -1,4 +1,11 @@
-# Ingestion-concurrency phase-3 — remaining fix work-order
+# Ingestion-concurrency phase-3 — fix work-order
+
+**Status refresh 2026-07-15:** the July-8 migration batch is applied and verified live. The only
+remaining repository design item in this document is deep-memory section ownership/delete scoping
+(see the final section); it is intentionally blocked on an explicit ownership model and a
+retrieval/eval-gated implementation. Worker redeploy and other live operations are tracked in
+[`operator-backlog.md`](operator-backlog.md). Historical author-time status below is retained as
+provenance and must not be read as current live state.
 
 Sequenced, operator-applied plan for the state-machine violations that could
 **not** be safely landed from a chat session. Companion to
@@ -7,7 +14,7 @@ Sequenced, operator-applied plan for the state-machine violations that could
 
 Author date: 2026-07-08. All facts below were read from the **live** project
 `Clinical KB Database` (`sjrfecxgysukkwxsowpy`) via read-only `execute_sql`;
-nothing here was applied to live at author time. **Status refresh 2026-07-09:** July 8 migrations are merged to `main` but pending live apply — see [`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md). Function bodies are quoted from
+nothing here was applied to live at author time. **Historical status (2026-07-09):** July 8 migrations were merged to `main` but pending live apply — see [`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md). Function bodies are quoted from
 `pg_get_functiondef` so migrations are derived from live truth, not `schema.sql`
 (which is known-drifted — see R24e and `docs/database-drift-detection.md`).
 
@@ -18,10 +25,10 @@ nothing here was applied to live at author time. **Status refresh 2026-07-09:** 
   `src/lib/storage-cleanup-safety.ts`) and **R1 lease heartbeat**
   (`shouldPersistJobProgress` in `src/lib/ingestion.ts`, worker refresh of
   `locked_at`) — merged (PR #369).
-- **R1/R2/R7/R9/R23 RPC hardening** — migration `20260708130000` merged (PR #380); **pending live apply**.
-- **R24e** — phantom `ingestion_job_stages.job_id` FK dropped from `schema.sql` (PR #380 batch); **pending live apply** (no-op on live).
-- **R17** — partial unique index + reindex-route 409 handling merged (PR #405); migration `20260708170000` — **pending live apply** (normal `db push` when queue quiet).
-- **R5** — metadata deep-merge RPC + worker merged (PR #408); **pending live apply** + worker redeploy.
+- **R1/R2/R7/R9/R23 RPC hardening** — migration `20260708130000` merged (PR #380) and applied live.
+- **R24e** — phantom `ingestion_job_stages.job_id` FK dropped from `schema.sql` (PR #380 batch); live apply was a no-op as expected.
+- **R17** — partial unique index + reindex-route 409 handling merged (PR #405); migration `20260708170000` applied live.
+- **R5** — metadata deep-merge RPC + worker merged (PR #408); migration applied live; worker redeploy remains an operator action.
 
 ## Still open (not merged or needs design)
 

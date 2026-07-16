@@ -1,20 +1,16 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
-    "src/instrumentation.ts",
-    "src/instrumentation-client.ts",
-    "src/proxy.ts",
     "scripts/**/*.{ts,mjs,cjs}",
     "worker/**/*.ts",
-    "playwright/**/*.ts",
     "eslint-rules/**/*.mjs",
     "tests/**/*.{test.ts,dom.test.tsx,spec.ts}",
     "*.config.{ts,mts,mjs,cjs}"
   ],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs,cjs}", "worker/**/*.ts", "eslint-rules/**/*.mjs"],
-  "ignore": ["src/lib/supabase/database.types.ts", "**/*mockup*", "src/app/mockups/**", "supabase/functions/**"],
+  "ignore": ["src/lib/supabase/database.types.ts", "**/*mockup*", "supabase/functions/**"],
   "ignoreDependencies": ["tailwindcss", "server-only"],
-  "ignoreBinaries": ["supabase", "semgrep", "gitleaks", "taskkill", "railway"],
+  "ignoreBinaries": ["railway", "taskkill"],
   "vitest": { "config": ["vitest.config.mts"] },
   "playwright": { "config": ["playwright.config.ts", "playwright.visual.config.ts"] }
 }
