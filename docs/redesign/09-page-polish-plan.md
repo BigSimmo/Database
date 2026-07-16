@@ -1,5 +1,11 @@
 # Production-Page Polish & Perfection Plan — Clinical KB (July 2026)
 
+**Status: closed as superseded (reconciled 2026-07-15).** Phase 1 landed in PR #239, and later
+design-system, accessibility, type-scale, icon-scale, and page-specific work superseded the remaining
+branch-bound checklist. Current regressions are enforced by `brand:check`, `check:type-scale`,
+`check:icon-scale`, `verify:cheap`, and the UI gates. Do not restart the obsolete worktree/branch plan;
+open new scoped work only from a current failing gate or a fresh product review.
+
 ## Context
 
 The premium redesign (docs `01`–`06`) established a tiered design-token system, a
@@ -190,4 +196,4 @@ verify:cheap`.
 
 ## Status
 
-- **Phase 1: in progress this session.** Remaining phases queued above for review.
+- **Closed/superseded.** The phased checklist is retained as historical design context only.
