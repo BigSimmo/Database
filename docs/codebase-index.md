@@ -44,26 +44,26 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 - **App shell:** `src/components/clinical-dashboard/global-search-shell.tsx` — canonical route-aware shell and lazy dashboard dispatch. The mockup-named module is a compatibility re-export used only below `/mockups`.
 - **Home:** `src/app/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
-- **Modes (11):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, formulation, DSM-5 diagnosis, specifiers, prescribing, tools
+- **Modes (12):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, Therapy Compass
 
 ### Product pages (`src/app/`)
 
-| Route                                                                 | File                                    |
-| --------------------------------------------------------------------- | --------------------------------------- |
-| `/`                                                                   | `src/app/page.tsx`                      |
-| `/applications`                                                       | `src/app/applications/page.tsx`         |
-| `/differentials`, `/diagnoses`, `/presentations`                      | `src/app/differentials/`                |
-| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`        | `src/app/dsm/`                          |
-| `/documents/search`, `/source`, `/evidence`, `/[id]`                  | `src/app/documents/`                    |
-| `/favourites`                                                         | `src/app/favourites/page.tsx`           |
-| `/forms`, `/forms/[slug]`                                             | `src/app/forms/`                        |
-| `/medications`, `/medications/[slug]`                                 | `src/app/medications/`                  |
-| `/services`, `/services/[slug]`                                       | `src/app/services/`                     |
-| `/therapy-compass`                                                    | `src/app/therapy-compass/`              |
-| `/specifiers/[[...path]]`                                             | `src/app/specifiers/` (legacy redirect) |
-| `/formulation`, `/formulation/[slug]`, `/builder`, `/compare`, `/map` | `src/app/formulation/`                  |
-| `/mockups/*`                                                          | `src/app/mockups/` (404 in production)  |
-| `/auth/callback`                                                      | `src/app/auth/callback/route.ts`        |
+| Route                                                                 | File                                   |
+| --------------------------------------------------------------------- | -------------------------------------- |
+| `/`                                                                   | `src/app/page.tsx`                     |
+| `/applications`                                                       | `src/app/applications/page.tsx`        |
+| `/differentials`, `/diagnoses`, `/presentations`                      | `src/app/differentials/`               |
+| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`        | `src/app/dsm/`                         |
+| `/documents/search`, `/source`, `/evidence`, `/[id]`                  | `src/app/documents/`                   |
+| `/favourites`                                                         | `src/app/favourites/page.tsx`          |
+| `/forms`, `/forms/[slug]`                                             | `src/app/forms/`                       |
+| `/medications`, `/medications/[slug]`                                 | `src/app/medications/`                 |
+| `/services`, `/services/[slug]`                                       | `src/app/services/`                    |
+| `/therapy-compass`                                                    | `src/app/therapy-compass/`             |
+| `/specifiers`, `/specifiers/[slug]`, `/builder`, `/compare`, `/map`   | `src/app/specifiers/`                  |
+| `/formulation`, `/formulation/[slug]`, `/builder`, `/compare`, `/map` | `src/app/formulation/`                 |
+| `/mockups/*`                                                          | `src/app/mockups/` (404 in production) |
+| `/auth/callback`                                                      | `src/app/auth/callback/route.ts`       |
 
 ### API routes (`src/app/api/`)
 
