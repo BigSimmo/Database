@@ -15,11 +15,27 @@ import {
 const themeStorageKey = "clinical-kb-theme";
 const themeChangeEvent = "clinical-kb-theme-change";
 
+// In-memory fallback when localStorage is unavailable (Safari private mode,
+// blocked cookies, quota). Null means storage is the source of truth; otherwise
+// the chosen preference is kept for the session so the theme still applies.
+// Mirrors the fallback pattern in use-sidebar-collapsed.ts / use-app-preferences.ts.
+let inMemoryPreference: ThemePreference | null = null;
+
+function readStoredThemeValue(): string | null {
+  if (inMemoryPreference !== null) {
+    return inMemoryPreference === "system" ? null : inMemoryPreference;
+  }
+  try {
+    return window.localStorage.getItem(themeStorageKey);
+  } catch {
+    return null;
+  }
+}
+
 function getThemeSnapshot(): ResolvedTheme {
   if (typeof window === "undefined") return DEFAULT_THEME;
-  const storedTheme = window.localStorage.getItem(themeStorageKey);
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  return resolveThemePreference(storedTheme, prefersDark);
+  return resolveThemePreference(readStoredThemeValue(), prefersDark);
 }
 
 function getServerThemeSnapshot(): ResolvedTheme {
@@ -28,7 +44,7 @@ function getServerThemeSnapshot(): ResolvedTheme {
 
 function getPreferenceSnapshot(): ThemePreference {
   if (typeof window === "undefined") return "system";
-  return readThemePreference(window.localStorage.getItem(themeStorageKey));
+  return readThemePreference(readStoredThemeValue());
 }
 
 function getServerPreferenceSnapshot(): ThemePreference {
@@ -71,16 +87,19 @@ export function useTheme() {
   }, [theme]);
 
   const setPreference = useCallback((next: ThemePreference) => {
-    if (next === "system") {
+    try {
       // Clearing the stored pin lets the OS preference (and its live media
       // query) drive the theme again, matching the pre-hydration script.
-      window.localStorage.removeItem(themeStorageKey);
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      applyResolvedTheme(prefersDark ? "dark" : "light");
-    } else {
-      window.localStorage.setItem(themeStorageKey, next);
-      applyResolvedTheme(next);
+      if (next === "system") window.localStorage.removeItem(themeStorageKey);
+      else window.localStorage.setItem(themeStorageKey, next);
+      inMemoryPreference = null;
+    } catch {
+      // Storage blocked: keep the choice in memory so the theme still applies
+      // (and reads back correctly) for the rest of this session.
+      inMemoryPreference = next;
     }
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    applyResolvedTheme(resolveThemePreference(next === "system" ? null : next, prefersDark));
     window.dispatchEvent(new Event(themeChangeEvent));
   }, []);
 

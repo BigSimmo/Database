@@ -23,7 +23,14 @@ export function countRecentQueries(): number {
     for (let index = 0; index < window.sessionStorage.length; index += 1) {
       const key = window.sessionStorage.key(index);
       if (!key?.startsWith(`${recentQueryStorageKey}:`)) continue;
-      const stored = JSON.parse(window.sessionStorage.getItem(key) ?? "[]");
+      let stored: unknown;
+      try {
+        stored = JSON.parse(window.sessionStorage.getItem(key) ?? "[]");
+      } catch {
+        // Isolate a single corrupt entry: skip just this key rather than let one
+        // malformed value zero the whole total and wrongly disable "Clear".
+        continue;
+      }
       if (Array.isArray(stored)) {
         total += stored.filter((item) => typeof item === "string" && Boolean(item.trim())).length;
       }

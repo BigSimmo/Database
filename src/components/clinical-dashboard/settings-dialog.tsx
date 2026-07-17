@@ -692,7 +692,8 @@ export function SettingsDialog({
               className="mt-2 flex items-center gap-2 px-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
             >
               <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--success)]" />
-              {privacyNotice ?? "This app never stores patient-identifying information."}
+              {privacyNotice ??
+                "Preferences and recent searches stay in this browser — never enter patient-identifying information."}
             </p>
           </SettingsSection>
 
