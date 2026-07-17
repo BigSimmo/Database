@@ -5105,6 +5105,184 @@ begin
   end;
 end $$;
 
+-- Performance remediation: registry projection lifecycle cleanup.
+create index if not exists documents_registry_projection_lookup_idx
+  on public.documents (
+    (metadata->>'registry_record_kind'),
+    (metadata->>'registry_record_id')
+  )
+  where metadata->>'source_kind' = 'registry_record';
+
+create or replace function public.cleanup_registry_corpus_document()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.documents
+  where metadata->>'source_kind' = 'registry_record'
+    and metadata->>'registry_record_kind' = case tg_table_name
+      when 'clinical_registry_records' then pg_catalog.to_jsonb(old)->>'kind'
+      when 'medication_records' then 'medication'
+      when 'differential_records' then 'differential'
+      else null
+    end
+    and metadata->>'registry_record_id' = old.id::text;
+  return old;
+end;
+$$;
+
+revoke execute on function public.cleanup_registry_corpus_document()
+  from public, anon, authenticated, service_role;
+
+-- Performance remediation: privacy-preserving indexed title vocabulary.
+create table if not exists public.document_title_words (
+  word text not null,
+  document_id uuid not null references public.documents(id) on delete cascade,
+  primary key (word, document_id),
+  constraint document_title_words_word_length check (length(word) between 4 and 40),
+  constraint document_title_words_lowercase check (word = lower(word))
+);
+
+create index if not exists document_title_words_word_trgm_idx
+  on public.document_title_words using gin (word extensions.gin_trgm_ops);
+
+create index if not exists document_title_words_document_id_idx
+  on public.document_title_words (document_id);
+create index if not exists rag_aliases_canonical_trgm_idx
+  on public.rag_aliases using gin (lower(canonical) extensions.gin_trgm_ops);
+
+alter table public.document_title_words enable row level security;
+revoke all on table public.document_title_words from public, anon, authenticated;
+grant select, insert, update, delete on table public.document_title_words to service_role;
+
+create or replace function public.sync_document_title_words()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_op <> 'INSERT' then
+    delete from public.document_title_words where document_id = old.id;
+  end if;
+  if tg_op <> 'DELETE' and new.owner_id is null and new.status = 'indexed' then
+    insert into public.document_title_words (word, document_id)
+    select distinct lower(title_word), new.id
+    from pg_catalog.unnest(pg_catalog.regexp_split_to_array(lower(new.title), '[^a-z]+')) as title_word
+    where length(title_word) between 4 and 40
+    on conflict do nothing;
+  end if;
+  return null;
+end;
+$$;
+
+revoke execute on function public.sync_document_title_words()
+  from public, anon, authenticated, service_role;
+drop trigger if exists documents_sync_title_words on public.documents;
+create trigger documents_sync_title_words
+  after insert or update of title, status, owner_id or delete on public.documents
+  for each row execute function public.sync_document_title_words();
+
+insert into public.document_title_words (word, document_id)
+select distinct lower(title_word), d.id
+from public.documents d
+cross join lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as title_word
+where d.owner_id is null and d.status = 'indexed'
+  and length(title_word) between 4 and 40
+on conflict do nothing;
+
+create or replace function public.correct_clinical_query_terms(
+  input_query text,
+  min_sim real default 0.45
+)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog, extensions
+as $$
+declare
+  tokens text[];
+  tok text;
+  best text;
+  best_sim real;
+  corrected text[] := array[]::text[];
+  changed boolean := false;
+begin
+  if input_query is null or length(trim(input_query)) = 0 then
+    return input_query;
+  end if;
+  tokens := regexp_split_to_array(lower(input_query), '\s+');
+  foreach tok in array tokens loop
+    if length(tok) < 4 then
+      corrected := corrected || tok;
+      continue;
+    end if;
+    best := null;
+    best_sim := 0;
+    select candidate.term, candidate.match_sim
+      into best, best_sim
+    from (
+      (
+        select
+          lower(canonical) as term,
+          similarity(lower(alias), tok) as match_sim
+        from public.rag_aliases
+        where enabled
+          and owner_id is null
+          and length(alias) between 4 and 40
+          and length(canonical) between 4 and 40
+          and lower(alias) % tok
+        order by similarity(lower(alias), tok) desc, lower(alias)
+        limit 32
+      )
+      union all
+      (
+        select
+          lower(canonical) as term,
+          similarity(lower(canonical), tok) as match_sim
+        from public.rag_aliases
+        where enabled
+          and owner_id is null
+          and length(canonical) between 4 and 40
+          and lower(canonical) % tok
+        order by similarity(lower(canonical), tok) desc, lower(canonical)
+        limit 32
+      )
+      union all
+      (
+        select
+          word as term,
+          similarity(word, tok) as match_sim
+        from public.document_title_words
+        where length(word) between 4 and 40
+          and word % tok
+        order by similarity(word, tok) desc, word
+        limit 32
+      )
+    ) candidate
+    order by candidate.match_sim desc, candidate.term
+    limit 1;
+    if best is not null and best_sim >= min_sim and best <> tok and length(best) >= length(tok) then
+      corrected := corrected || best;
+      changed := true;
+    else
+      corrected := corrected || tok;
+    end if;
+  end loop;
+  if not changed then
+    return input_query;
+  end if;
+  return array_to_string(corrected, ' ');
+end;
+$$;
+
+revoke execute on function public.correct_clinical_query_terms(text, real)
+  from public, anon, authenticated;
+grant execute on function public.correct_clinical_query_terms(text, real) to service_role;
+
 revoke usage on schema public from anon;
 grant usage on schema public to authenticated, service_role;
 
@@ -5144,6 +5322,8 @@ grant select, insert, update, delete on table public.audit_logs to service_role;
 
 grant usage, select on all sequences in schema public to service_role;
 grant execute on all functions in schema public to service_role;
+revoke execute on function public.cleanup_registry_corpus_document() from service_role;
+revoke execute on function public.sync_document_title_words() from service_role;
 revoke execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) from public, anon, authenticated;
 grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role;
 revoke execute on function public.match_document_embedding_fields_text(text, integer, double precision, uuid[], uuid) from public, anon, authenticated;
@@ -8153,6 +8333,370 @@ begin
 
   v_safe :=
     not v_has_unexpected_grantee
+    and not exists (
+      select 1 from unnest(v_entries) entry
+       where entry like 'table:PUBLIC:%'
+          or entry like 'table:anon:%'
+          or entry like 'table:authenticated:%'
+          or entry like 'sequence:PUBLIC:%'
+          or entry like 'sequence:anon:%'
+          or entry like 'sequence:authenticated:%'
+          or entry = 'function:PUBLIC:execute'
+          or entry like 'function:anon:%'
+          or entry like 'function:authenticated:%'
+    )
+    and 'table:service_role:select' = any(v_entries)
+    and 'table:service_role:insert' = any(v_entries)
+    and 'table:service_role:update' = any(v_entries)
+    and 'table:service_role:delete' = any(v_entries)
+    and 'sequence:service_role:usage' = any(v_entries)
+    and 'sequence:service_role:select' = any(v_entries)
+    and 'function:service_role:execute' = any(v_entries)
+    and not exists (
+      select 1 from unnest(v_entries) entry
+       where entry like 'table:service_role:%'
+         and entry <> all(array[
+           'table:service_role:select', 'table:service_role:insert',
+           'table:service_role:update', 'table:service_role:delete'
+         ])
+    )
+    and not exists (
+      select 1 from unnest(v_entries) entry
+       where entry like 'sequence:service_role:%'
+         and entry <> all(array['sequence:service_role:usage', 'sequence:service_role:select'])
+    )
+    and not exists (
+      select 1 from unnest(v_entries) entry
+       where entry like 'function:service_role:%'
+         and entry <> 'function:service_role:execute'
+    );
+
+  return jsonb_build_object(
+    'role_exists', true,
+    'schema_exists', true,
+    'safe', v_safe,
+    'entries', to_jsonb(v_entries)
+  );
+end;
+$$;
+
+revoke all on function public.default_privileges_status(text, text)
+  from public, anon, authenticated;
+grant execute on function public.default_privileges_status(text, text)
+  to service_role;
+
+do $$
+declare
+  v_status jsonb;
+begin
+  if not exists (select 1 from pg_catalog.pg_roles where rolname = 'supabase_admin') then
+    raise notice 'role supabase_admin does not exist; default-privilege assertion is not applicable';
+    return;
+  end if;
+
+  begin
+    -- Local/Superuser-capable environments can assume the target role even
+    -- when the migration role cannot use ALTER DEFAULT PRIVILEGES FOR ROLE
+    -- directly. Hosted environments that cannot assume it fall through to the
+    -- catalog assertion and block with operator instructions.
+    execute 'set local role supabase_admin';
+    -- Revokes must be global: per-schema ACLs cannot subtract privileges from
+    -- built-in or previously granted global defaults.
+    alter default privileges for role supabase_admin
+      revoke all privileges on tables from public, anon, authenticated, service_role;
+    alter default privileges for role supabase_admin in schema public
+      revoke all privileges on tables from public, anon, authenticated, service_role;
+    alter default privileges for role supabase_admin
+      revoke all privileges on sequences from public, anon, authenticated, service_role;
+    alter default privileges for role supabase_admin in schema public
+      revoke all privileges on sequences from public, anon, authenticated, service_role;
+    alter default privileges for role supabase_admin
+      revoke execute on functions from public, anon, authenticated, service_role;
+    alter default privileges for role supabase_admin in schema public
+      revoke execute on functions from public, anon, authenticated, service_role;
+    alter default privileges for role supabase_admin in schema public
+      grant select, insert, update, delete on tables to service_role;
+    alter default privileges for role supabase_admin in schema public
+      grant usage, select on sequences to service_role;
+    alter default privileges for role supabase_admin in schema public
+      grant execute on functions to service_role;
+    execute 'reset role';
+  exception when insufficient_privilege then
+    begin execute 'reset role'; exception when others then null; end;
+    raise notice 'current role % cannot remediate supabase_admin default privileges; asserting the catalog postcondition', current_user;
+  end;
+
+  v_status := public.default_privileges_status('supabase_admin', 'public');
+  if not coalesce((v_status->>'safe')::boolean, false) then
+    raise exception using
+      errcode = '42501',
+      message = 'Unsafe supabase_admin default privileges; migration blocked.',
+      detail = v_status::text,
+      hint = E'Run these six statements as supabase_admin, then retry the migration:\n'
+        'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC, anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC, anon, authenticated, service_role; END $remediate$;\n'
+        'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC, anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC, anon, authenticated, service_role; END $remediate$;\n'
+        'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated, service_role; END $remediate$;\n'
+        'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO service_role;\n'
+        'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO service_role;\n'
+        'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO service_role;';
+  end if;
+end;
+$$;
+drop trigger if exists clinical_registry_records_delete_cleanup on public.clinical_registry_records;
+create trigger clinical_registry_records_delete_cleanup
+  after delete on public.clinical_registry_records
+  for each row execute function public.cleanup_registry_corpus_document();
+drop trigger if exists medication_records_delete_cleanup on public.medication_records;
+create trigger medication_records_delete_cleanup
+  after delete on public.medication_records
+  for each row execute function public.cleanup_registry_corpus_document();
+drop trigger if exists differential_records_delete_cleanup on public.differential_records;
+create trigger differential_records_delete_cleanup
+  after delete on public.differential_records
+  for each row execute function public.cleanup_registry_corpus_document();
+
+create or replace function public.consume_summary_rate_limits_atomic(
+  p_owner_id uuid,
+  p_subject_key text,
+  p_answer_limit integer,
+  p_answer_window_seconds integer,
+  p_summary_limit integer,
+  p_summary_window_seconds integer,
+  p_global_answer_limit integer,
+  p_global_answer_window_seconds integer
+)
+returns table (
+  bucket text,
+  limited boolean,
+  limit_value integer,
+  remaining integer,
+  retry_after_seconds integer,
+  reset_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_now timestamptz := pg_catalog.statement_timestamp();
+  v_policy record;
+  v_count integer;
+  v_remaining integer;
+  v_reset_at timestamptz;
+  v_min_remaining integer := 2147483647;
+  v_success_limit integer;
+  v_success_reset_at timestamptz;
+begin
+  if (p_owner_id is null) = (p_subject_key is null or pg_catalog.btrim(p_subject_key) = '') then
+    raise exception 'exactly one owner_id or subject_key is required';
+  end if;
+  if p_answer_limit is null or p_answer_limit < 1
+    or p_answer_window_seconds is null or p_answer_window_seconds < 1
+    or p_summary_limit is null or p_summary_limit < 1
+    or p_summary_window_seconds is null or p_summary_window_seconds < 1
+    or p_global_answer_limit is null or p_global_answer_limit < 1
+    or p_global_answer_window_seconds is null or p_global_answer_window_seconds < 1 then
+    raise exception 'limits and windows must be positive';
+  end if;
+
+  if p_owner_id is not null then
+    insert into public.api_rate_limits (owner_id, bucket, window_start, request_count, updated_at)
+    values
+      (p_owner_id, 'answer', v_now, 0, v_now),
+      (p_owner_id, 'document_summarize', v_now, 0, v_now)
+    on conflict on constraint api_rate_limits_pkey do nothing;
+    perform 1
+    from public.api_rate_limits as rl
+    where rl.owner_id = p_owner_id and rl.bucket in ('answer', 'document_summarize')
+    order by rl.bucket
+    for update;
+    for v_policy in
+      select * from (values
+        ('answer'::text, 1, p_answer_limit, p_answer_window_seconds),
+        ('document_summarize'::text, 2, p_summary_limit, p_summary_window_seconds)
+      ) as policy(bucket, ordinal, limit_value, window_seconds)
+      order by ordinal
+    loop
+      update public.api_rate_limits as rl
+      set
+        window_start = case
+          when rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds) <= v_now then v_now
+          else rl.window_start
+        end,
+        request_count = case
+          when rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds) <= v_now then 1
+          else rl.request_count + 1
+        end,
+        updated_at = v_now
+      where rl.owner_id = p_owner_id and rl.bucket = v_policy.bucket
+      returning rl.request_count,
+        rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds)
+      into v_count, v_reset_at;
+      v_remaining := greatest(v_policy.limit_value - v_count, 0);
+      if v_remaining < v_min_remaining then
+        v_min_remaining := v_remaining;
+        v_success_limit := v_policy.limit_value;
+        v_success_reset_at := v_reset_at;
+      end if;
+      if v_count > v_policy.limit_value then
+        return query select
+          v_policy.bucket::text,
+          true,
+          v_policy.limit_value::integer,
+          0,
+          greatest(1, pg_catalog.ceil(extract(epoch from (v_reset_at - v_now)))::integer),
+          v_reset_at;
+        return;
+      end if;
+    end loop;
+  else
+    insert into public.api_rate_limit_subjects (subject_key, bucket, window_start, request_count, updated_at)
+    values
+      (p_subject_key, 'answer', v_now, 0, v_now),
+      ('anon:answer:global', 'answer', v_now, 0, v_now),
+      (p_subject_key, 'document_summarize', v_now, 0, v_now)
+    on conflict on constraint api_rate_limit_subjects_pkey do nothing;
+    perform 1
+    from public.api_rate_limit_subjects as rl
+    where (rl.subject_key, rl.bucket) in (
+      (p_subject_key, 'answer'),
+      ('anon:answer:global', 'answer'),
+      (p_subject_key, 'document_summarize')
+    )
+    order by rl.subject_key, rl.bucket
+    for update;
+    for v_policy in
+      select * from (values
+        ('answer'::text, 1, p_subject_key, p_answer_limit, p_answer_window_seconds, 'answer'::text),
+        ('answer'::text, 2, 'anon:answer:global', p_global_answer_limit, p_global_answer_window_seconds, 'answer'::text),
+        ('document_summarize'::text, 3, p_subject_key, p_summary_limit, p_summary_window_seconds, 'document_summarize'::text)
+      ) as policy(bucket, ordinal, subject_key, limit_value, window_seconds, rejection_bucket)
+      order by ordinal
+    loop
+      update public.api_rate_limit_subjects as rl
+      set
+        window_start = case
+          when rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds) <= v_now then v_now
+          else rl.window_start
+        end,
+        request_count = case
+          when rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds) <= v_now then 1
+          else rl.request_count + 1
+        end,
+        updated_at = v_now
+      where rl.subject_key = v_policy.subject_key and rl.bucket = v_policy.bucket
+      returning rl.request_count,
+        rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds)
+      into v_count, v_reset_at;
+      v_remaining := greatest(v_policy.limit_value - v_count, 0);
+      if v_remaining < v_min_remaining then
+        v_min_remaining := v_remaining;
+        v_success_limit := v_policy.limit_value;
+        v_success_reset_at := v_reset_at;
+      end if;
+      if v_count > v_policy.limit_value then
+        return query select
+          v_policy.rejection_bucket::text,
+          true,
+          v_policy.limit_value::integer,
+          0,
+          greatest(1, pg_catalog.ceil(extract(epoch from (v_reset_at - v_now)))::integer),
+          v_reset_at;
+        return;
+      end if;
+    end loop;
+  end if;
+  return query select
+    null::text,
+    false,
+    v_success_limit,
+    v_min_remaining,
+    greatest(1, pg_catalog.ceil(extract(epoch from (v_success_reset_at - v_now)))::integer),
+    v_success_reset_at;
+end;
+$$;
+
+revoke execute on function public.consume_summary_rate_limits_atomic(
+  uuid, text, integer, integer, integer, integer, integer, integer
+) from public, anon, authenticated;
+grant execute on function public.consume_summary_rate_limits_atomic(
+  uuid, text, integer, integer, integer, integer, integer, integer
+) to service_role;
+
+-- Catalog-level, fail-closed verification for future objects created by
+-- supabase_admin. A missing pg_default_acl row must be interpreted through
+-- acldefault(), including PostgreSQL's built-in PUBLIC EXECUTE on functions.
+
+create or replace function public.default_privileges_status(
+  p_role_name text default 'supabase_admin',
+  p_schema_name text default 'public'
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_role_oid oid;
+  v_namespace_oid oid;
+  v_entries text[] := '{}'::text[];
+  v_safe boolean := false;
+  v_has_unexpected_grantee boolean := false;
+  v_has_grantable boolean := false;
+begin
+  select oid into v_role_oid from pg_catalog.pg_roles where rolname = p_role_name;
+  select oid into v_namespace_oid from pg_catalog.pg_namespace where nspname = p_schema_name;
+
+  if v_role_oid is null or v_namespace_oid is null then
+    return jsonb_build_object(
+      'role_exists', v_role_oid is not null,
+      'schema_exists', v_namespace_oid is not null,
+      'safe', false,
+      'entries', '[]'::jsonb
+    );
+  end if;
+
+  with object_types(object_type, object_code) as (
+    values ('table'::text, 'r'::"char"), ('sequence'::text, 'S'::"char"), ('function'::text, 'f'::"char")
+  ), effective_acls as (
+    select
+      ot.object_type,
+      coalesce(global_acl.defaclacl, pg_catalog.acldefault(ot.object_code, v_role_oid))
+        || coalesce(schema_acl.defaclacl, '{}'::aclitem[]) as acl
+    from object_types ot
+    left join pg_catalog.pg_default_acl global_acl
+      on global_acl.defaclrole = v_role_oid
+     and global_acl.defaclnamespace = 0
+     and global_acl.defaclobjtype = ot.object_code
+    left join pg_catalog.pg_default_acl schema_acl
+      on schema_acl.defaclrole = v_role_oid
+     and schema_acl.defaclnamespace = v_namespace_oid
+     and schema_acl.defaclobjtype = ot.object_code
+  ), exploded as (
+    select distinct
+      ea.object_type,
+      case when privilege.grantee = 0 then 'PUBLIC' else grantee.rolname end as grantee,
+      lower(privilege.privilege_type) as privilege_type,
+      privilege.is_grantable
+    from effective_acls ea
+    cross join lateral pg_catalog.aclexplode(ea.acl) privilege
+    left join pg_catalog.pg_roles grantee on grantee.oid = privilege.grantee
+  )
+  select
+    coalesce(
+      array_agg(format('%s:%s:%s', object_type, grantee, privilege_type)
+                order by object_type, grantee, privilege_type),
+      '{}'::text[]
+    ),
+    coalesce(bool_or(grantee not in (p_role_name, 'postgres', 'service_role')), false),
+    coalesce(bool_or(is_grantable), false)
+  into v_entries, v_has_unexpected_grantee, v_has_grantable
+  from exploded;
+
+  v_safe :=
+    not v_has_unexpected_grantee
+    and not v_has_grantable
     and not exists (
       select 1 from unnest(v_entries) entry
        where entry like 'table:PUBLIC:%'

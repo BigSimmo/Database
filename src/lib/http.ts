@@ -68,7 +68,7 @@ export function jsonError(error: unknown, status = 500) {
       code,
       ...(requestId ? { requestId } : {}),
     },
-    { status: responseStatus },
+    { status: responseStatus, headers: { "Cache-Control": "private, no-store" } },
   );
 }
 

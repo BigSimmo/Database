@@ -25,6 +25,30 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const CHUNKS_DIR = path.join(root, ".next", "static", "chunks");
 const BUDGET_PATH = path.join(root, "bundle-budget.json");
+const APP_BUILD_MANIFEST_PATH = path.join(root, ".next", "app-build-manifest.json");
+const BUILD_MANIFEST_PATH = path.join(root, ".next", "build-manifest.json");
+const ROOT_PAGE_CLIENT_REFERENCE_MANIFEST_PATH = path.join(
+  root,
+  ".next",
+  "server",
+  "app",
+  "page_client-reference-manifest.js",
+);
+
+const fixtureSnapshotMarkerGroups = [
+  {
+    name: "services snapshot",
+    markers: ["deep_research_citation_tokens", "canonical_name_key", "source_table_lines"],
+  },
+  {
+    name: "forms fixture catalogue",
+    markers: ["transport-crisis-form", "extension-transport-order", "detention-examination-movement"],
+  },
+  {
+    name: "differentials snapshot",
+    markers: ["redFlagFlows", "searchAliases", "exportedAt"],
+  },
+];
 
 function walkJsFiles(dir) {
   const out = [];
@@ -74,6 +98,45 @@ export function compareToBudget(current, budget) {
   };
 }
 
+/** Resolve the JavaScript chunks required by the root App Router dashboard. */
+export function initialDashboardChunkNames(appBuildManifest, pageClientReferenceManifest) {
+  const pages = appBuildManifest?.pages ?? {};
+  const pageClientChunks = Object.values(pageClientReferenceManifest?.clientModules ?? {}).flatMap((module) =>
+    Array.isArray(module?.chunks) ? module.chunks : [],
+  );
+  const names = new Set([
+    ...(appBuildManifest?.rootMainFiles ?? []),
+    ...(pages["/layout"] ?? []),
+    ...(pages["/page"] ?? []),
+    ...pageClientChunks,
+  ]);
+  return [...names]
+    .filter((name) => typeof name === "string" && name.endsWith(".js"))
+    .map((name) => name.replace(/^\/?static\/chunks\//, ""));
+}
+
+function loadRootPageClientReferenceManifest() {
+  if (!existsSync(ROOT_PAGE_CLIENT_REFERENCE_MANIFEST_PATH)) return null;
+  const source = readFileSync(ROOT_PAGE_CLIENT_REFERENCE_MANIFEST_PATH, "utf8");
+  const marker = 'globalThis.__RSC_MANIFEST["/page"]=';
+  const start = source.indexOf(marker);
+  if (start < 0) return null;
+  const jsonStart = start + marker.length;
+  const jsonEnd = source.lastIndexOf(";");
+  if (jsonEnd <= jsonStart) return null;
+  return JSON.parse(source.slice(jsonStart, jsonEnd));
+}
+
+/** Identify large fixture payloads from stable groups of serialized keys/slugs.
+ * Requiring every marker in a group avoids failing on ordinary UI copy that
+ * happens to mention one fixture term. */
+export function findFixtureSnapshotsInChunks(files) {
+  const content = files.map(({ buffer }) => buffer.toString("utf8")).join("\n");
+  return fixtureSnapshotMarkerGroups
+    .filter((group) => group.markers.every((marker) => content.includes(marker)))
+    .map((group) => group.name);
+}
+
 function kb(bytes) {
   return `${(bytes / 1024).toFixed(1)} KiB`;
 }
@@ -101,6 +164,30 @@ function main() {
     name: path.relative(CHUNKS_DIR, full),
     buffer: readFileSync(full),
   }));
+  const manifestPath = existsSync(APP_BUILD_MANIFEST_PATH)
+    ? APP_BUILD_MANIFEST_PATH
+    : existsSync(BUILD_MANIFEST_PATH)
+      ? BUILD_MANIFEST_PATH
+      : null;
+  if (!manifestPath) {
+    console.error("[bundle-budget] FAIL — no build manifest is available; cannot verify initial dashboard chunks.");
+    process.exit(1);
+  }
+  const appBuildManifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const pageClientReferenceManifest = loadRootPageClientReferenceManifest();
+  const initialChunkNames = new Set(initialDashboardChunkNames(appBuildManifest, pageClientReferenceManifest));
+  const initialDashboardChunks = files.filter((file) => initialChunkNames.has(file.name.replace(/\\/g, "/")));
+  if (initialDashboardChunks.length === 0) {
+    console.error("[bundle-budget] FAIL — no root dashboard JavaScript chunks were resolved from the build manifest.");
+    process.exit(1);
+  }
+  const fixtureViolations = findFixtureSnapshotsInChunks(initialDashboardChunks);
+  if (fixtureViolations.length > 0) {
+    console.error(
+      `[bundle-budget] FAIL — initial dashboard chunks contain fixture payloads: ${fixtureViolations.join(", ")}.`,
+    );
+    process.exit(1);
+  }
   const current = measureChunks(files);
   const budget = loadBudget();
 
@@ -113,7 +200,7 @@ function main() {
 
   const verdict = compareToBudget(current, budget);
   if (asJson) {
-    console.log(JSON.stringify({ current, verdict }, null, 2));
+    console.log(JSON.stringify({ current, verdict, initialDashboardChunks: initialDashboardChunks.length }, null, 2));
   } else {
     console.log(
       `[bundle-budget] client chunks: ${current.files} files, ${kb(current.totalGzipBytes)} gzip (${kb(current.totalRawBytes)} raw).`,
@@ -122,6 +209,9 @@ function main() {
       console.log(`[bundle-budget] baseline ${kb(verdict.baseline)} gzip; ${verdict.reason}.`);
     console.log("[bundle-budget] largest chunks (gzip):");
     for (const c of current.largest) console.log(`  ${kb(c.gzipBytes).padStart(12)}  ${c.name}`);
+    console.log(
+      `[bundle-budget] initial dashboard fixture assertion passed (${initialDashboardChunks.length} chunks).`,
+    );
   }
 
   if (verdict.status === "fail") {

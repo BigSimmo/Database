@@ -44,9 +44,8 @@ import {
   toneWarning,
 } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { formCatalogDetails } from "@/lib/form-catalog";
-import type { FormRecord } from "@/lib/forms";
-import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/services";
+import { formCatalogDetails, type FormRecord } from "@/lib/form-ranker";
+import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/service-ranker";
 import { readSavedRegistrySlugs, savedFormsStorageKey, writeSavedRegistrySlugs } from "@/lib/saved-registry-storage";
 
 const missingText = "Not listed";

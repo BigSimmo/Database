@@ -33,7 +33,7 @@ import { useSearchCommand } from "@/components/clinical-dashboard/search-command
 import { appModeHomeHref } from "@/lib/app-modes";
 import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { rankServiceRecords, serviceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/services";
+import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
@@ -476,13 +476,15 @@ export function ServicesNavigatorPage() {
     });
     return map;
   }, [scopedMatches]);
-  const [selectedSlugs, setSelectedSlugs] = useState(() => serviceRecords.slice(0, 2).map((service) => service.slug));
-  const selected = searchableRecords.filter((service) => selectedSlugs.includes(service.slug));
+  const [selectedSlugs, setSelectedSlugs] = useState<string[] | null>(null);
+  const effectiveSelectedSlugs = selectedSlugs ?? searchableRecords.slice(0, 2).map((service) => service.slug);
+  const selected = searchableRecords.filter((service) => effectiveSelectedSlugs.includes(service.slug));
 
   function toggleSelected(slug: string) {
-    setSelectedSlugs((current) =>
-      current.includes(slug) ? current.filter((item) => item !== slug) : [slug, ...current].slice(0, 5),
-    );
+    setSelectedSlugs((current) => {
+      const selected = current ?? effectiveSelectedSlugs;
+      return selected.includes(slug) ? selected.filter((item) => item !== slug) : [slug, ...selected].slice(0, 5);
+    });
   }
 
   function applyServiceQuery(nextQuery: string) {
@@ -636,7 +638,7 @@ export function ServicesNavigatorPage() {
                 service={service}
                 index={index}
                 relevanceRank={sortValue === "alpha" ? null : (relevanceRankMap.get(service.slug) ?? null)}
-                selected={selectedSlugs.includes(service.slug)}
+                selected={effectiveSelectedSlugs.includes(service.slug)}
                 onToggleSelected={toggleSelected}
               />
             ))}

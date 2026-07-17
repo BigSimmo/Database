@@ -50,7 +50,7 @@ import {
   type ServiceRecord,
   type ServiceStatusChip,
   type ServiceSummaryCard,
-} from "@/lib/services";
+} from "@/lib/service-ranker";
 import { readSavedRegistrySlugs, savedServicesStorageKey, writeSavedRegistrySlugs } from "@/lib/saved-registry-storage";
 
 const missingText = "Not listed";

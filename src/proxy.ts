@@ -119,9 +119,9 @@ export async function proxy(request: NextRequest) {
   });
 
   // Refresh the session. Per @supabase/ssr guidance, do not run other logic
-  // between createServerClient and getUser — a stale token here would sign the
+  // between createServerClient and getClaims — a stale token here would sign the
   // user out on the next request.
-  await supabase.auth.getUser();
+  await supabase.auth.getClaims();
   return withCsp(response);
 }
 
