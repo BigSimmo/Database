@@ -6297,9 +6297,9 @@
               "label": "Features (ICD-11)",
               "items": [
                 {
-                  "label": "With inadequate food intake associated with limited availability",
+                  "label": "With apparent lack of interest in eating or food",
                   "definition": {
-                    "meaning": "Inadequate intake is linked to limited food availability rather than body-image concern.",
+                    "meaning": "Food restriction reflects an apparent lack of interest in eating or food (low appetite) — one of the three ICD-11 6B83 ARFID drivers, alongside sensory-based avoidance and fear of aversive consequences. It is not limited availability of food (an ICD-11 exclusion) or body-image concern.",
                     "clinicalNote": null,
                     "sourceFamily": "WHO ICD-11 CDDR/MMS",
                     "status": "defined"

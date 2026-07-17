@@ -140,6 +140,16 @@ describe("specifiers content catalog", () => {
     }
   });
 
+  it("labels ARFID drivers per ICD-11 (lack of interest, not limited availability)", () => {
+    // ICD-11 6B83 lists three drivers: sensory-based avoidance, fear of aversive
+    // consequences, and lack of interest in eating. "Limited availability" is an
+    // ICD-11 exclusion, not a driver, so it must not appear as a specifier label.
+    const arfid = specifierCatalogItems().filter((item) => /avoidant.restrictive food intake/i.test(item.disorderName));
+    const labels = arfid.map((item) => item.label.toLowerCase());
+    expect(labels.some((label) => /limited availability/.test(label))).toBe(false);
+    expect(labels.some((label) => /lack of interest/.test(label))).toBe(true);
+  });
+
   it("keeps DSM Section III (AMPD) provenance DSM-specific, not ICD-11", () => {
     // The AMPD trait domains are DSM-5-TR Section III; the reference page derives the
     // source badge from sourceFamily, so it must not carry an ICD-11/WHO provenance.
