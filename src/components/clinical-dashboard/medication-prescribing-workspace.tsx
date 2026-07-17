@@ -489,7 +489,7 @@ function MedicationResults({
       {catalog.loading || catalog.error ? (
         <div className="medication-results-inset">
           {catalog.loading ? (
-            <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogueâ€¦</p>
+            <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogue…</p>
           ) : (
             <p className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-3 py-2 text-sm text-[color:var(--danger)]">
               {catalog.error}
