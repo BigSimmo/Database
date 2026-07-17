@@ -34,7 +34,6 @@ const OWNER_SCOPED_API_TABLES = new Set([
   "rag_answer_feedback",
   "rag_queries",
   "rag_query_misses",
-  "rag_response_cache",
   "rag_retrieval_logs",
   "storage_cleanup_jobs",
 ]);

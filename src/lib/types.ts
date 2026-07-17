@@ -1043,6 +1043,12 @@ export type ExtractedDocument = {
   images: ExtractedImage[];
   warnings?: string[];
   temporaryPaths?: string[];
+  budgetUsage?: {
+    pages: number;
+    artifacts: number;
+    artifactBytes: number;
+    textBytes: number;
+  };
 };
 
 export type ChunkInput = {
