@@ -384,4 +384,23 @@ describe("registry corpus", () => {
       }),
     ).toBe("/differentials/presentations/first-episode-psychosis");
   });
+
+  it("accepts loosely typed registry metadata and rejects invalid route fields", () => {
+    const metadata: Record<string, unknown> = {
+      registry_record_kind: "form",
+      registry_record_slug: "adult-adhd-screen",
+      registry_record_subkind: null,
+      registry_record_id: "not-required-for-routing",
+    };
+
+    expect(
+      registryCorpusDetailHref({
+        kind: metadata.registry_record_kind,
+        slug: metadata.registry_record_slug,
+        subkind: metadata.registry_record_subkind,
+        recordId: metadata.registry_record_id,
+      }),
+    ).toBe("/forms/adult-adhd-screen");
+    expect(registryCorpusDetailHref({ kind: "service", slug: 42 })).toBeNull();
+  });
 });
