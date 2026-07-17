@@ -177,7 +177,7 @@ Operational notes:
 
 The §2 reliability SQL is now also a scrape. An **authorized deep probe** —
 `GET /api/health?deep=1` with the `x-health-deep-token: $HEALTH_DEEP_PROBE_SECRET`
-header (same operator gate as the Supabase probe) — returns two counter blocks:
+header (same operator gate as the Supabase probe) — returns three counter blocks:
 
 - **`slo`** — `answerSloSnapshot` (`src/lib/observability/answer-slo.ts`) counts
   `rag_queries` over the trailing `windowMinutes` (60) and reports
@@ -199,12 +199,25 @@ header (same operator gate as the Supabase probe) — returns two counter blocks
   never write a telemetry row. `hitRate` is a convenience for eyeballing a single
   probe.
 
+- **`coalescing`** — `answerCoalescingMetricsSnapshot`
+  (`src/lib/observability/answer-coalescing-metrics.ts`) reports cumulative
+  coalescible answer **originations**, duplicate **coalescedWaiters**, and the
+  current **activeOriginations** gauge for this one app process. It has no query,
+  owner, document, cache key, or clinical content. A scraper must derive a
+  windowed `coalescingRate` from counter deltas; the supplied rate is a
+  process-lifetime convenience. This is an operational capacity/cost signal,
+  not a liveness gate: a sustained near-zero rate during a known duplicate-heavy
+  ward round means cache keys, cache settings, or replica dilution should be
+  investigated before adding app replicas.
+
 ```jsonc
 // GET /api/health?deep=1  (authorized, live)
 "slo":   { "windowMinutes": 60, "totalQueries": 412,
            "hybridRpcErrorQueries": 0, "hybridRpcErrorRate": 0.0,
            "degradedQueries": 26,      "degradedRate": 0.063 },
-"cache": { "lookups": 1873, "hits": 1402, "misses": 471, "hitRate": 0.748 }
+"cache": { "lookups": 1873, "hits": 1402, "misses": 471, "hitRate": 0.748 },
+"coalescing": { "originations": 312, "coalescedWaiters": 100,
+                 "activeOriginations": 4, "coalescingRate": 0.243 }
 ```
 
 **The counter _values_ never flip liveness.** A bad SLO rate or a cold cache
@@ -214,7 +227,10 @@ only by the reachability `checks`: a failing `probeSupabaseHealth()` still sets
 `checks.supabase = "error"` and returns `503`, whereas an `answerSloSnapshot()`
 query failure merely omits the `slo` block (never a false-healthy zero). The
 cache counter is always present for a token-authorized probe (in-process, works
-in demo mode). Both blocks are wired through `src/lib/health-response.ts` and are
+in demo mode). The cache and coalescing blocks are process-local and reset on
+deploy/restart, so operators must use per-process deltas rather than combine raw
+counter values across replicas. All three blocks are wired through
+`src/lib/health-response.ts` and are
 **withheld from the unauthenticated `/api/health/ready` endpoint** (Railway's
 readiness target, which exposes no diagnostic details). The §2 warn/page
 thresholds map directly onto these fields.
