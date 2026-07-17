@@ -372,7 +372,7 @@ function FormattedHighYieldSummary({
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
-          className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+          className={cn(floatingControl, "sm:min-h-9 px-3 text-xs")}
           data-testid="toggle-full-summary"
         >
           {expanded ? "Show key points only" : "Show full summary"}
@@ -472,7 +472,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
         <>
           {figcaptionBlock}
           <details className="group mt-3">
-            <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text)]">
+            <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] sm:min-h-9">
               <FileImage aria-hidden="true" className="h-4 w-4 shrink-0" />
               Show original table image
               <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 transition group-open:rotate-180" />
@@ -549,7 +549,7 @@ function TableReviewPanel({
                     disabled={!canReview || busyFactId === fact.id}
                     onClick={() => onReview(fact, value)}
                     className={cn(
-                      "inline-flex min-h-8 items-center rounded-md border px-2 text-2xs font-semibold transition",
+                      "inline-flex min-h-tap items-center rounded-md border px-2 text-2xs font-semibold transition sm:min-h-8",
                       reviewClass === value
                         ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                         : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -717,7 +717,7 @@ function PinnedSourceEvidence({
             {visibleContent || "No displayable clinical text was available for this indexed passage."}
           </blockquote>
           <div className="mt-3 flex flex-wrap gap-2">
-            <a href="#pdf-preview-section" className={cn(primaryButton, "min-h-9 px-3 text-xs")}>
+            <a href="#pdf-preview-section" className={cn(primaryButton, "sm:min-h-9 px-3 text-xs")}>
               <ExternalLink aria-hidden="true" className="h-4 w-4" />
               Open source
             </a>
@@ -725,7 +725,7 @@ function PinnedSourceEvidence({
               <button
                 type="button"
                 onClick={() => setExpandedChunkId((current) => (current === chunk.id ? null : chunk.id))}
-                className={cn(secondaryButton, "min-h-9 px-3 text-xs")}
+                className={cn(secondaryButton, "sm:min-h-9 px-3 text-xs")}
                 data-testid="toggle-full-passage"
               >
                 {expanded ? "Show passage preview" : "Show full passage"}
@@ -983,11 +983,11 @@ const IndexedTextPanel = memo(function IndexedTextPanel({
                 {pageHitSummary || "No page numbers indexed for these hits"}
               </p>
             </div>
-            <div className="flex shrink-0 gap-1.5">
+            <div className="flex shrink-0 gap-2">
               <button
                 type="button"
                 onClick={() => moveHit(-1)}
-                className={cn(secondaryButton, "min-h-9 min-w-9 justify-center p-0")}
+                className={cn(secondaryButton, "size-tap justify-center p-0")}
                 aria-label="Previous document search hit"
                 title="Previous document search hit"
               >
@@ -996,7 +996,7 @@ const IndexedTextPanel = memo(function IndexedTextPanel({
               <button
                 type="button"
                 onClick={() => moveHit(1)}
-                className={cn(secondaryButton, "min-h-9 min-w-9 justify-center p-0")}
+                className={cn(secondaryButton, "size-tap justify-center p-0")}
                 aria-label="Next document search hit"
                 title="Next document search hit"
               >
@@ -1294,7 +1294,7 @@ function DocumentManualTagEditor({
                         type="button"
                         onClick={() => saveManualTag(label)}
                         disabled={!editingLabel.trim() || busyAction !== null}
-                        className={cn(primaryButton, "min-h-9 px-2 text-xs")}
+                        className={cn(primaryButton, "sm:min-h-9 px-2 text-xs")}
                         aria-label={`Save ${label.label}`}
                       >
                         {busyAction === `edit:${label.id}` ? (
@@ -1307,7 +1307,7 @@ function DocumentManualTagEditor({
                         type="button"
                         onClick={() => setEditingId(null)}
                         disabled={busyAction !== null}
-                        className={cn(secondaryButton, "min-h-9 px-2 text-xs")}
+                        className={cn(secondaryButton, "sm:min-h-9 px-2 text-xs")}
                         aria-label="Cancel edit"
                       >
                         <X aria-hidden="true" className="h-4 w-4" />
@@ -1323,7 +1323,7 @@ function DocumentManualTagEditor({
                           setEditingType(label.label_type);
                         }}
                         disabled={!canManage || busyAction !== null}
-                        className={cn(secondaryButton, "min-h-9 px-2 text-xs")}
+                        className={cn(secondaryButton, "sm:min-h-9 px-2 text-xs")}
                         aria-label={`Rename ${label.label}`}
                       >
                         <Pencil aria-hidden="true" className="h-4 w-4" />
@@ -1332,7 +1332,7 @@ function DocumentManualTagEditor({
                         type="button"
                         onClick={() => deleteManualTag(label)}
                         disabled={!canManage || busyAction !== null}
-                        className={cn(secondaryButton, "min-h-9 px-2 text-xs text-[color:var(--danger)]")}
+                        className={cn(secondaryButton, "sm:min-h-9 px-2 text-xs text-[color:var(--danger)]")}
                         aria-label={`Remove ${label.label}`}
                       >
                         {busyAction === `delete:${label.id}` ? (

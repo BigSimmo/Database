@@ -476,7 +476,12 @@ function GlobalStandaloneSearchShellClient({
   return (
     <div
       className={cn(
-        "min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
+        // Phone shell height comes from inset-0 alone, never 100dvh: iOS Safari
+        // re-resolves dvh lazily when its toolbar collapses/expands (especially
+        // with body scrolling disabled like here), leaving a dead band between
+        // the clipped shell and the toolbar. Fixed insets track the live
+        // viewport through the whole transition, so content stays edge to edge.
+        "sm:min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         shouldShowDesktopSidebar &&
           "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
@@ -514,7 +519,7 @@ function GlobalStandaloneSearchShellClient({
         </div>
       ) : null}
 
-      <div className="flex min-h-dvh min-w-0 flex-col max-sm:h-dvh max-sm:min-h-0 max-sm:overflow-hidden">
+      <div className="flex min-w-0 flex-col max-sm:h-full max-sm:min-h-0 max-sm:overflow-hidden sm:min-h-dvh">
         <div className={mobileChromeVisible ? undefined : "hidden lg:block"}>
           <MasterSearchHeader
             documents={[]}
