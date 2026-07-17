@@ -183,7 +183,6 @@ export function MasterSearchHeader({
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
-  onBottomComposerScrollHiddenChange,
 }: {
   documents: ClinicalDocument[];
   documentTotal?: number;
@@ -257,8 +256,6 @@ export function MasterSearchHeader({
     /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
     scrollHidden?: boolean;
   };
-  /** Fired when the phone bottom search dock enters or leaves the scroll-hidden state. */
-  onBottomComposerScrollHiddenChange?: (hidden: boolean) => void;
 }) {
   const visibleAppModeOptions = defaultVisibleAppModeOptions;
   const trimmedQuery = query.trim();
@@ -332,10 +329,6 @@ export function MasterSearchHeader({
     !scopeOpen &&
     !scopeSheetOpen &&
     !composerChromeFocused;
-
-  useEffect(() => {
-    onBottomComposerScrollHiddenChange?.(bottomComposerHidden);
-  }, [bottomComposerHidden, onBottomComposerScrollHiddenChange]);
 
   useEffect(() => {
     if (!loading || !commandDropdownOpen) return undefined;
@@ -1243,7 +1236,12 @@ export function MasterSearchHeader({
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
           showFooterSearchChips && "flex flex-col items-center gap-2.5",
           shouldHideBottomOnScroll &&
-            "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
+            cn(
+              "max-sm:transition-transform motion-reduce:transition-none",
+              bottomComposerHidden
+                ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+            ),
         )}
       >
         {usesBottomComposerPlacement ? <div className="answer-footer-search-backdrop" aria-hidden="true" /> : null}
@@ -1516,8 +1514,18 @@ export function MasterSearchHeader({
           // fixed-position mobile mode menu keeps the viewport as its containing block.
           hideStrategy === "overlay" &&
             (overlayAllBreakpoints
-              ? "transition-transform duration-200 ease-out motion-reduce:transition-none"
-              : "max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none"),
+              ? cn(
+                  "transition-transform motion-reduce:transition-none",
+                  headerChromeHidden
+                    ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                    : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                )
+              : cn(
+                  "max-sm:transition-transform motion-reduce:transition-none",
+                  headerChromeHidden
+                    ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                    : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                )),
           hideStrategy === "overlay" &&
             headerChromeHidden &&
             (overlayAllBreakpoints ? "-translate-y-full" : "max-sm:-translate-y-full"),
@@ -1734,7 +1742,10 @@ export function MasterSearchHeader({
         data-scroll-hidden={headerChromeHidden ? "true" : undefined}
         data-testid="universal-header-collapse"
         className={cn(
-          "max-sm:grid max-sm:transition-[grid-template-rows] max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
+          "max-sm:grid max-sm:transition-[grid-template-rows] motion-reduce:transition-none",
+          headerChromeHidden
+            ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+            : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
           headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
         )}
         {...chromeFocusProps}

@@ -1980,6 +1980,31 @@ test.describe("Clinical KB UI smoke coverage", () => {
       Math.round(el.getBoundingClientRect().top),
     );
     expect(composerInputTop).toBeGreaterThanOrEqual(geo.mainBottom - 4);
+
+    // Hiding the fixed dock must not change the scrollable geometry. If its
+    // clearance is removed at the same time, reaching the bottom clamps
+    // scrollTop upward; hide-on-scroll reads that forced movement as an upward
+    // gesture and repeatedly restores/hides the dock, producing visible jitter.
+    const main = page.locator("main#main-content");
+    const bottomDock = page.locator("form.answer-footer-search-dock");
+    const scrollGeometryBeforeHide = await main.evaluate((el) => ({
+      clientHeight: el.clientHeight,
+      scrollHeight: el.scrollHeight,
+    }));
+    for (const offset of [120, 240, 360]) {
+      await main.evaluate((el, top) => {
+        el.scrollTop = top;
+      }, offset);
+    }
+    await expect(bottomDock).toHaveAttribute("data-scroll-hidden", "true");
+    await expect
+      .poll(async () =>
+        main.evaluate((el) => ({
+          clientHeight: el.clientHeight,
+          scrollHeight: el.scrollHeight,
+        })),
+      )
+      .toEqual(scrollGeometryBeforeHide);
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -3291,6 +3316,53 @@ test.describe("Clinical KB UI smoke coverage", () => {
         }),
       )
       .toBe(0);
+
+    // A descendant may become the active scroller. Its near-zero offset must
+    // establish a new baseline rather than looking like a large upward gesture
+    // relative to the deeply scrolled main container.
+    await main.evaluate(async (node) => {
+      const nested = document.createElement("div");
+      nested.dataset.testid = "nested-scroll-intent-source";
+      nested.style.height = "40px";
+      nested.style.overflowY = "auto";
+      const content = document.createElement("div");
+      content.style.height = "200px";
+      nested.appendChild(content);
+      node.appendChild(nested);
+      nested.scrollTop = 4;
+      nested.dispatchEvent(new Event("scroll"));
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
+    await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
+
+    // At the bottom, collapsing the in-flow header grows the scroll viewport
+    // and clamps scrollTop to the new maximum. That geometry-driven event is
+    // not an upward user gesture and must not immediately reveal the header.
+    await main.evaluate((node) => {
+      node.scrollTop = 0;
+    });
+    await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
+    const visibleGeometry = await main.evaluate((node) => ({
+      clientHeight: node.clientHeight,
+      maxOffset: node.scrollHeight - node.clientHeight,
+    }));
+    await main.evaluate((node, top) => {
+      node.scrollTop = top;
+    }, visibleGeometry.maxOffset);
+    await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
+    await expect.poll(async () => collapseHost.getAttribute("data-scroll-hidden"), { timeout: 1_000 }).toBe("true");
+    const collapsedGeometry = await main.evaluate((node) => ({
+      clientHeight: node.clientHeight,
+      maxOffset: node.scrollHeight - node.clientHeight,
+      scrollTop: node.scrollTop,
+    }));
+    expect(collapsedGeometry.clientHeight).toBeGreaterThan(visibleGeometry.clientHeight);
+    expect(Math.abs(collapsedGeometry.scrollTop - collapsedGeometry.maxOffset)).toBeLessThanOrEqual(1);
+
+    await main.evaluate((node) => {
+      node.scrollTop = Math.max(0, node.scrollTop - 24);
+    });
+    await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
   });
 
   test("document viewer bottom composer hides while scrolling down on phones", async ({ page }) => {
