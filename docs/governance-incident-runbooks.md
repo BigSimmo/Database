@@ -23,8 +23,9 @@ These are short operator checklists. Preserve evidence and identifiers, but do n
 
 1. Preserve interaction IDs, hashes, timestamps, configuration-posture versions, and provider request IDs; do not preserve raw clinical prose unless an authorised incident process requires it.
 2. Disable provider generation or switch to the source-only path if external processing must stop.
-3. Confirm raw query and answer persistence and provider response storage remain off, then assess cache and telemetry retention.
-4. Escalate notification and breach decisions to the privacy owner; this runbook does not make that legal determination.
+3. If raw query or answer persistence or provider response storage is enabled, disable the affected path. Verify both settings are off before proceeding.
+4. Inspect affected answer copies in `rag_response_cache.payload`; invalidate affected owners and purge incident-related rows where appropriate, then verify the bounded retention purge before assessing other cache and telemetry retention.
+5. Escalate notification and breach decisions to the privacy owner; this runbook does not make that legal determination.
 
 ## Answer-pipeline rollback
 
