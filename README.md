@@ -168,6 +168,7 @@ records vs archive). The most load-bearing entries:
 - `docs/codebase-index.md` — architecture and module map (start here)
 - `docs/site-map.md` — generated route map (`npm run sitemap:update`)
 - `docs/process-hardening.md` — verification gates, CI expectations, known limits
+- `docs/testing.md` — local test safety, focused/live commands, Playwright ownership, flake policy
 - `docs/clinical-governance.md` — deployment and source governance checklist
 - `docs/deployment-architecture.md` — app/worker/Supabase deployment topology
 - `docs/supabase-migration-reconciliation.md` — migration drift and repair policy
@@ -184,9 +185,9 @@ npm run verify:cheap    # check:runtime + check:github-actions + sitemap:check
                         # + brand:check + check:type-scale + check:icon-scale
                         # + lint + typecheck + test
 npm run verify:pr-local # closest local mirror of the PR gate: format + verify:cheap,
-                        # plus conditional build/client-bundle scan and offline RAG
-                        # tests when changed-file scope requires them
-npm run verify:ui       # check:runtime + test:e2e:chromium
+                        # plus conditional build/client-bundle scan and RAG
+                        # fixture validation; the full unit suite runs once
+npm run verify:ui       # check:runtime + required production Chromium journeys
 npm run verify:release  # check:runtime + lint + typecheck + test + build + test:e2e
                         # + check:production-readiness + governance:release
                         # + eval:quality:release (needs live Supabase + OpenAI keys)
@@ -197,12 +198,12 @@ inspect which checks a change would trigger without running them.
 
 CI is risk-scoped (`.github/workflows/ci.yml`): a `changes` job classifies
 changed paths, `static-pr` always runs runtime, action-pin, CI-scope, format,
-lint, typecheck, and unit checks, and `pr-required` is the single
+lint, and typecheck checks, and `pr-required` is the single
 always-reporting required aggregate (required PR checks are Gitleaks plus that
-aggregate). Coverage, build, safety/config checks, Chromium `ui-critical`
-smoke, and the repo-owned Supabase `db-reset-verify` migration replay run only
-when their file scopes apply; UI PRs also get a non-blocking advisory
-`ui-regression` job. The full Playwright browser matrix
+aggregate). One full unit run with coverage, build, safety/config checks, the
+production Chromium gate, and the repo-owned Supabase `db-reset-verify`
+migration replay run only when their file scopes apply; UI PRs also get one
+non-blocking advisory Chromium invocation. The full Playwright browser matrix
 (`release-browser-matrix`) runs on `main`, `release/*`, manual dispatch, and a
 weekly schedule. Docker image builds, live drift, and live eval canary checks
 are path-filtered, scheduled, or manual rather than required checks for every
@@ -221,8 +222,12 @@ npm run samples:check
 npm run lint
 npm run typecheck
 npm run test
+npm run test:focused -- --files src/lib/example.ts
+npm run test:live # requires ALLOW_PROVIDER_TESTS=true
 npm run test:coverage
 npm run test:e2e
+npm run test:e2e:pr
+npm run test:e2e:advisory
 npm run test:e2e:all
 npm run test:e2e:accessibility
 npm run test:e2e:chromium

@@ -1,4 +1,5 @@
 import fc from "fast-check";
+import "./property-seed";
 import { describe, expect, it } from "vitest";
 import { chunkTextWithOverlap } from "../src/lib/chunking";
 

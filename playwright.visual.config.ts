@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "playwright/test";
 import { getPlaywrightBaseUrl } from "./scripts/playwright-base-url";
 
-const baseURL = getPlaywrightBaseUrl();
+const baseURL = getPlaywrightBaseUrl({ allowEnsure: false });
 
 export default defineConfig({
   testDir: "./tests",

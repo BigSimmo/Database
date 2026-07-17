@@ -2,8 +2,6 @@ import { expect, test, type Page, type TestInfo } from "playwright/test";
 
 const documentPath =
   "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442";
-const uiLoadTimeoutMs = 15_000;
-
 async function attachViewportScreenshot(
   page: Page,
   testInfo: TestInfo,
@@ -13,12 +11,7 @@ async function attachViewportScreenshot(
 ) {
   await page.setViewportSize(viewport);
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  // Deterministic app-shell mount wait instead of networkidle (persistent fetches).
-  await page
-    .locator("#main-content")
-    .first()
-    .waitFor({ state: "visible", timeout: uiLoadTimeoutMs })
-    .catch(() => undefined);
+  await expect(page.locator("#main-content").first()).toBeVisible({ timeout: uiLoadTimeoutMs });
   await expect(page.locator("body")).toBeVisible();
 
   await testInfo.attach(name, {

@@ -1,8 +1,18 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+let resetModulesAfterTest = false;
+
+function isolateNextModuleImport() {
+  vi.resetModules();
+  resetModulesAfterTest = true;
+}
+
 afterEach(() => {
   vi.unstubAllEnvs();
-  vi.resetModules();
+  if (resetModulesAfterTest) {
+    vi.resetModules();
+    resetModulesAfterTest = false;
+  }
 });
 
 async function loadUniversalSearch() {
@@ -98,6 +108,7 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
   });
 
   it("isolates a failing domain instead of blanking the response", async () => {
+    isolateNextModuleImport();
     vi.doMock("@/lib/tools-catalog", async (importOriginal) => {
       const actual = await importOriginal<typeof import("../src/lib/tools-catalog")>();
       return {
@@ -118,6 +129,7 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
   });
 
   it("isolates a failing presentations adapter without touching the differentials group", async () => {
+    isolateNextModuleImport();
     vi.doMock("@/lib/differentials", async (importOriginal) => {
       const actual = await importOriginal<typeof import("../src/lib/differentials")>();
       return {
@@ -151,6 +163,7 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
   });
 
   it("keeps registry hrefs when document search uses related-document mapping", async () => {
+    isolateNextModuleImport();
     vi.doMock("@/lib/rag", async (importOriginal) => {
       const actual = await importOriginal<typeof import("../src/lib/rag")>();
       return {
@@ -213,6 +226,7 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
 
 describe("GET /api/search/universal (demo mode)", () => {
   it("serves fixture-backed groups with demoMode flagged", async () => {
+    isolateNextModuleImport();
     vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
     const { GET } = await import("../src/app/api/search/universal/route");
     const response = await GET(new Request("http://localhost/api/search/universal?q=acamprosate&limit=3"));
@@ -228,6 +242,7 @@ describe("GET /api/search/universal (demo mode)", () => {
   });
 
   it("rejects queries under the minimum length", async () => {
+    isolateNextModuleImport();
     vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
     const { GET } = await import("../src/app/api/search/universal/route");
     const response = await GET(new Request("http://localhost/api/search/universal?q=a"));
@@ -235,6 +250,7 @@ describe("GET /api/search/universal (demo mode)", () => {
   });
 
   it("ignores unknown domains in the CSV filter", async () => {
+    isolateNextModuleImport();
     vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
     const { GET } = await import("../src/app/api/search/universal/route");
     const response = await GET(new Request("http://localhost/api/search/universal?q=monitoring&domains=tools,bogus"));
@@ -244,6 +260,7 @@ describe("GET /api/search/universal (demo mode)", () => {
   });
 
   it("serves the presentations domain through the CSV filter", async () => {
+    isolateNextModuleImport();
     vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
     const { GET } = await import("../src/app/api/search/universal/route");
     const response = await GET(
@@ -256,6 +273,7 @@ describe("GET /api/search/universal (demo mode)", () => {
   });
 
   it("accepts a mode context and rejects unknown modes", async () => {
+    isolateNextModuleImport();
     vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
     const { GET } = await import("../src/app/api/search/universal/route");
     const response = await GET(
@@ -338,6 +356,7 @@ describe("runUniversalSearch (query intelligence & ranking)", () => {
 
   it("passes the ORIGINAL (uncorrected) query to the documents domain", async () => {
     const captured: string[] = [];
+    isolateNextModuleImport();
     vi.doMock("@/lib/demo-data", async (importOriginal) => {
       const actual = await importOriginal<typeof import("../src/lib/demo-data")>();
       return {
@@ -470,6 +489,7 @@ describe("GET /api/search/universal (live public/owner path)", () => {
     client: ReturnType<typeof createSupabaseMock>,
     runUniversalSearch: ReturnType<typeof createRunMock>,
   ) {
+    isolateNextModuleImport();
     // env:{} keeps isDemoMode false (forcing the live path) while leaving the Supabase public
     // keys unset, so the cookie-session probe resolves anonymous without a network call.
     vi.doMock("@/lib/env", () => ({

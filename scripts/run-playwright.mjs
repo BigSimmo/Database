@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 import { spawn, spawnSync } from "node:child_process";
+import { mkdirSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { childProcessExitCode, childProcessFailureSummary } from "./child-process-result.mjs";
+import { offlineTestEnvironment } from "./test-environment.mjs";
+import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 import {
   appName,
   isReservedDevPort,
@@ -21,23 +25,34 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const playwrightBin = path.join(projectRoot, "node_modules", "playwright", "cli.js");
 const nextBin = path.join(projectRoot, "node_modules", "next", "dist", "bin", "next");
 const identityPath = "/api/local-project-id";
-const startupTimeoutMs = 120_000;
+const startupTimeoutMs = 180_000;
 const missingErrorComponentsNeedle = "missing required error components";
-const routeSmokePaths = ["/", "/applications"];
-// `next dev` compiles each route lazily on its first request, so the first test
-// to hit a route races the compile and can exceed the test timeout (the documented
-// cold-start flakes: ui-tools mode-home, differentials, universal-search). We warm
-// every distinct page route the suite touches BEFORE running Playwright, so every
-// navigation lands on an already-compiled route. `/?mode=…` variants share the `/`
-// route, so warming `/` covers them.
-//
-// Warming is STRICTLY SEQUENTIAL: `next dev` uses Turbopack, whose persistent
-// (RocksDB) cache cannot service concurrent compilations — firing the warms in
-// parallel corrupts it ("Only a single write operation is allowed at a time" →
-// TurbopackInternalError / missing build-manifest.json). One route at a time
-// compiles cleanly. Best-effort with a generous per-route compile timeout.
-const warmupPaths = ["/", "/applications", "/tools", "/services", "/favourites", "/medications"];
-const warmupTimeoutMs = 90_000;
+const routeSmokePaths = [
+  "/",
+  "/applications",
+  "/?mode=tools",
+  "/documents/search?mode=documents",
+  "/forms/transport-crisis-form",
+];
+const playwrightArgs = process.argv.slice(2);
+const mockupProjectRequested = playwrightArgs.some(
+  (argument, index) =>
+    argument === "--project=chromium-mockups" ||
+    (argument === "--project" && playwrightArgs[index + 1] === "chromium-mockups"),
+);
+const runId = `${process.pid}-${Date.now()}`;
+const relativeRunRoot = `.next-playwright/${runId}`;
+const absoluteRunRoot = path.join(projectRoot, relativeRunRoot);
+const relativeDistDir = `${relativeRunRoot}/dist`;
+const relativeTsConfigPath = `${relativeRunRoot}/tsconfig.json`;
+
+let lock;
+try {
+  lock = acquireHeavyRunLock({ projectRoot, command: `playwright ${playwrightArgs.join(" ")}` });
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -46,11 +61,7 @@ function sleep(ms) {
 function canListenOnHost(port, host) {
   return new Promise((resolve) => {
     const server = net.createServer();
-    server.once("error", (error) => {
-      // An unsupported address family (e.g. no IPv6 in the container) cannot
-      // hold the port, so it must not disqualify it as busy.
-      resolve(error.code === "EAFNOSUPPORT" || error.code === "EADDRNOTAVAIL");
-    });
+    server.once("error", (error) => resolve(error.code === "EAFNOSUPPORT" || error.code === "EADDRNOTAVAIL"));
     server.once("listening", () => server.close(() => resolve(true)));
     server.listen(port, host);
   });
@@ -73,9 +84,7 @@ function canConnectToHost(port, host) {
 }
 
 async function canListen(port) {
-  for (const host of ["127.0.0.1", "localhost", "::1"]) {
-    if (await canConnectToHost(port, host)) return false;
-  }
+  for (const host of ["127.0.0.1", "localhost", "::1"]) if (await canConnectToHost(port, host)) return false;
   for (const host of ["127.0.0.1", "localhost", "::1", "0.0.0.0", "::"]) {
     if (!(await canListenOnHost(port, host))) return false;
   }
@@ -84,25 +93,20 @@ async function canListen(port) {
 
 async function findFreePort(startPort) {
   for (let port = startPort; port <= projectPortEnd; port += 1) {
-    if (isReservedDevPort(port)) continue;
-    if (await canListen(port)) return port;
+    if (!isReservedDevPort(port) && (await canListen(port))) return port;
   }
   throw new Error(`No free Playwright server port found from ${startPort} to ${projectPortEnd}.`);
 }
 
-function requestJson(url) {
+function request(url, { json = false, timeoutMs = 30_000 } = {}) {
   return new Promise((resolve) => {
-    const request = http.get(url, { timeout: 5000 }, (response) => {
+    const pending = http.get(url, { timeout: timeoutMs }, (response) => {
       let body = "";
       response.setEncoding("utf8");
-      response.on("data", (chunk) => {
-        body += chunk;
-      });
+      response.on("data", (chunk) => (body += chunk));
       response.on("end", () => {
-        if (response.statusCode !== 200) {
-          resolve(null);
-          return;
-        }
+        if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 400) return resolve(null);
+        if (!json) return resolve(body);
         try {
           resolve(JSON.parse(body));
         } catch {
@@ -110,68 +114,12 @@ function requestJson(url) {
         }
       });
     });
-    request.on("timeout", () => {
-      request.destroy();
+    pending.on("timeout", () => {
+      pending.destroy();
       resolve(null);
     });
-    request.on("error", () => resolve(null));
+    pending.on("error", () => resolve(null));
   });
-}
-
-function requestText(url, timeoutMs = 30_000) {
-  return new Promise((resolve) => {
-    const request = http.get(url, { timeout: timeoutMs }, (response) => {
-      let body = "";
-      response.setEncoding("utf8");
-      response.on("data", (chunk) => {
-        body += chunk;
-      });
-      response.on("end", () => {
-        if (!response.statusCode || response.statusCode < 200 || response.statusCode >= 400) {
-          resolve(null);
-          return;
-        }
-        resolve(body);
-      });
-    });
-    request.on("timeout", () => {
-      request.destroy();
-      resolve(null);
-    });
-    request.on("error", () => resolve(null));
-  });
-}
-
-async function hasHealthyRouteComponents(baseUrl) {
-  for (const smokePath of routeSmokePaths) {
-    const body = await requestText(`${baseUrl}${smokePath}`);
-    if (!body || body.includes(missingErrorComponentsNeedle)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-// Pre-compile the page routes the suite navigates to so the first test to hit each
-// one does not race `next dev`'s lazy on-demand compile. Sequential (see warmupPaths
-// note) + best-effort: a route that is slow or 404s here is not fatal — the tests
-// still assert real readiness.
-async function warmRoutes(baseUrl) {
-  for (const routePath of warmupPaths) {
-    await requestText(`${baseUrl}${routePath}`, warmupTimeoutMs);
-  }
-}
-
-async function waitForServer(baseUrl) {
-  const startedAt = Date.now();
-  while (Date.now() - startedAt < startupTimeoutMs) {
-    const payload = await requestJson(`${baseUrl}${identityPath}`);
-    if (isVerifiedProjectPayload(payload) && (await hasHealthyRouteComponents(baseUrl))) {
-      return;
-    }
-    await sleep(500);
-  }
-  throw new Error(`Timed out waiting for Clinical KB at ${baseUrl}.`);
 }
 
 function isVerifiedProjectPayload(payload) {
@@ -182,22 +130,36 @@ function isVerifiedProjectPayload(payload) {
   );
 }
 
-async function findExistingProjectServer() {
-  const baseUrl = `http://localhost:${stableProjectPort(projectRoot)}`;
-  const payload = await requestJson(`${baseUrl}${identityPath}`);
-  return isVerifiedProjectPayload(payload) ? baseUrl : null;
+async function waitForServer(baseUrl, server) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < startupTimeoutMs) {
+    if (serverLaunchError) {
+      throw new Error(`Playwright-owned Next server failed to launch: ${serverLaunchError.message}`);
+    }
+    if (server.exitCode !== null || server.signalCode) {
+      throw new Error(
+        `Playwright-owned Next server exited before readiness (${server.exitCode !== null ? `code ${server.exitCode}` : `signal ${server.signalCode}`}).`,
+      );
+    }
+    const payload = await request(`${baseUrl}${identityPath}`, { json: true, timeoutMs: 5000 });
+    if (isVerifiedProjectPayload(payload)) {
+      let healthy = true;
+      for (const smokePath of routeSmokePaths) {
+        const body = await request(`${baseUrl}${smokePath}`);
+        if (!body || body.includes(missingErrorComponentsNeedle)) {
+          healthy = false;
+          break;
+        }
+      }
+      if (healthy) return;
+    }
+    await sleep(500);
+  }
+  throw new Error(`Timed out waiting for the Playwright-owned Clinical KB server at ${baseUrl}.`);
 }
 
-function runPlaywright(baseUrl) {
-  return spawnSync(process.execPath, [playwrightBin, "test", ...process.argv.slice(2)], {
-    cwd: projectRoot,
-    env: { ...process.env, PLAYWRIGHT_BASE_URL: baseUrl },
-    stdio: "inherit",
-  });
-}
-
-function stopProcessTree(child) {
-  if (!child.pid || child.exitCode !== null) return;
+function stopOwnedProcessTree(child) {
+  if (!child?.pid || child.exitCode !== null) return;
   if (process.platform === "win32") {
     spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], { stdio: "ignore" });
     return;
@@ -209,89 +171,101 @@ function stopProcessTree(child) {
   }
 }
 
-function stopExistingProjectDevServers() {
-  if (process.platform !== "win32") return;
-
-  const command = `
-$repo = $env:PLAYWRIGHT_PROJECT_ROOT
-$patterns = @(
-  "*$repo\\node_modules\\next\\dist\\bin\\next dev*",
-  "*$repo\\node_modules\\next\\dist\\server\\lib\\start-server.js*",
-  "*$repo\\.next\\dev\\build\\*"
-)
-$targets = Get-CimInstance Win32_Process | Where-Object {
-  if (-not $_.CommandLine) { return $false }
-  foreach ($pattern in $patterns) {
-    if ($_.CommandLine -like $pattern) { return $true }
+let server;
+let serverLaunchError;
+let cleaned = false;
+function cleanup() {
+  if (cleaned) return;
+  cleaned = true;
+  try {
+    stopOwnedProcessTree(server);
+    rmSync(absoluteRunRoot, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+    try {
+      rmdirSync(path.dirname(absoluteRunRoot));
+    } catch (error) {
+      if (error?.code !== "ENOENT" && error?.code !== "ENOTEMPTY") throw error;
+    }
+  } catch (error) {
+    console.error(`Playwright cleanup warning: ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    lock.release();
   }
-  return $false
 }
-foreach ($target in $targets) {
-  Stop-Process -Id $target.ProcessId -Force -ErrorAction SilentlyContinue
-}
-`;
-
-  spawnSync("powershell.exe", ["-NoProfile", "-Command", command], {
-    cwd: projectRoot,
-    env: { ...process.env, PLAYWRIGHT_PROJECT_ROOT: projectRoot },
-    stdio: "ignore",
-  });
-}
-
-const existingBaseUrl = await findExistingProjectServer();
-if (existingBaseUrl) {
-  if (await hasHealthyRouteComponents(existingBaseUrl)) {
-    console.log(`Using existing Clinical KB server at ${existingBaseUrl}`);
-    await warmRoutes(existingBaseUrl);
-    const result = runPlaywright(existingBaseUrl);
-    process.exit(result.status ?? (result.signal ? 1 : 0));
-  }
-
-  console.log(`Existing Clinical KB server at ${existingBaseUrl} failed route-component smoke; restarting it.`);
-  stopExistingProjectDevServers();
-  await sleep(1000);
-}
-
-stopExistingProjectDevServers();
-await sleep(1000);
-
-const port = await findFreePort(stableProjectPort(projectRoot));
-const baseUrl = `http://localhost:${port}`;
-console.log(`Starting Playwright-owned Clinical KB server at ${baseUrl}`);
-
-const server = spawn(process.execPath, [nextBin, "dev", "--hostname", "0.0.0.0", "--port", String(port)], {
-  cwd: projectRoot,
-  detached: process.platform !== "win32",
-  env: { ...process.env, PORT: String(port), PLAYWRIGHT_BASE_URL: baseUrl },
-  stdio: ["ignore", "inherit", "inherit"],
-  windowsHide: true,
-});
-
-let stopping = false;
-const stop = () => {
-  if (stopping) return;
-  stopping = true;
-  stopProcessTree(server);
-};
 
 process.once("SIGINT", () => {
-  stop();
+  cleanup();
   process.exit(130);
 });
 process.once("SIGTERM", () => {
-  stop();
+  cleanup();
   process.exit(143);
 });
-process.once("exit", stop);
+process.once("exit", cleanup);
 
 try {
-  await waitForServer(baseUrl);
-  await warmRoutes(baseUrl);
-  const result = runPlaywright(baseUrl);
-  stop();
-  process.exit(result.status ?? (result.signal ? 1 : 0));
+  const port = await findFreePort(stableProjectPort(projectRoot));
+  const baseUrl = `http://localhost:${port}`;
+  mkdirSync(absoluteRunRoot, { recursive: true });
+  writeFileSync(
+    path.join(absoluteRunRoot, "tsconfig.json"),
+    `${JSON.stringify(
+      {
+        extends: "../../tsconfig.json",
+        compilerOptions: {
+          baseUrl: "../..",
+          paths: { "@/*": ["src/*"] },
+        },
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+  const offlineEnv = offlineTestEnvironment(lock.environment, {
+    PORT: String(port),
+    PLAYWRIGHT_BASE_URL: baseUrl,
+    NEXT_DIST_DIR: relativeDistDir,
+    NEXT_TSCONFIG_PATH: relativeTsConfigPath,
+    NODE_ENV: "production",
+    PLAYWRIGHT_OFFLINE_MODE: "true",
+    NEXT_PUBLIC_MOCKUPS_ENABLED: mockupProjectRequested ? "true" : "false",
+  });
+  console.log(`Building isolated production Playwright app (${relativeRunRoot})`);
+
+  const buildResult = spawnSync(process.execPath, ["--max-old-space-size=8192", nextBin, "build", "--webpack"], {
+    cwd: projectRoot,
+    env: offlineEnv,
+    stdio: "inherit",
+  });
+  const buildExitCode = childProcessExitCode(buildResult);
+  if (buildExitCode !== 0) {
+    throw new Error(`Playwright production build failed (${childProcessFailureSummary(buildResult)}).`);
+  }
+
+  console.log(`Starting isolated production Playwright server at ${baseUrl} (${relativeRunRoot})`);
+
+  server = spawn(process.execPath, [nextBin, "start", "--hostname", "0.0.0.0", "--port", String(port)], {
+    cwd: projectRoot,
+    detached: process.platform !== "win32",
+    env: offlineEnv,
+    stdio: ["ignore", "inherit", "inherit"],
+    windowsHide: true,
+  });
+  server.once("error", (error) => {
+    serverLaunchError = error;
+  });
+
+  await waitForServer(baseUrl, server);
+  const result = spawnSync(process.execPath, [playwrightBin, "test", ...playwrightArgs], {
+    cwd: projectRoot,
+    env: offlineEnv,
+    stdio: "inherit",
+  });
+  const exitCode = childProcessExitCode(result);
+  cleanup();
+  process.exit(exitCode);
 } catch (error) {
-  stop();
+  cleanup();
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
 }
