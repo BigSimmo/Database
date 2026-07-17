@@ -45,7 +45,10 @@ export function DetailScreen() {
         Back to results
       </button>
 
-      <div style={s(`display:grid;grid-template-columns:minmax(0,1fr) 344px;gap:22px;align-items:start;`)}>
+      <div
+        className="tc-stack-sm"
+        style={s(`display:grid;grid-template-columns:minmax(0,1fr) 344px;gap:22px;align-items:start;`)}
+      >
         <div style={s(`display:flex;flex-direction:column;gap:16px;min-width:0;`)}>
           {/* HERO */}
           <div style={s(heroCard + "padding:24px 26px;")}>

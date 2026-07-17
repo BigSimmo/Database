@@ -38,7 +38,7 @@ export function TherapyCompassNav() {
         </span>
         <span style={s(`display:flex;flex-direction:column;line-height:1.15;`)}>
           <span style={s(`font-size:14px;font-weight:650;color:var(--text-heading);letter-spacing:-0.01em;`)}>
-            Therapy Compass
+            Therapy
           </span>
           <span style={s(`font-size:11px;color:var(--text-soft);`)}>Source-grounded decision support</span>
         </span>
@@ -47,7 +47,7 @@ export function TherapyCompassNav() {
       {/* Screen nav — horizontal, scrollable */}
       <nav
         className="tc-scroll"
-        aria-label="Therapy Compass sections"
+        aria-label="Therapy sections"
         style={s(`display:flex;align-items:center;gap:6px;flex:1;min-width:0;overflow-x:auto;padding-bottom:2px;`)}
       >
         <button type="button" className="tc-btn" onClick={b.goHome} style={b.navHome}>
