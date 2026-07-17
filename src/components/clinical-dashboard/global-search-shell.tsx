@@ -593,7 +593,7 @@ function GlobalStandaloneSearchShellClient({
                 ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]"
                 : useCompactBottomSearch
                   ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
-                  : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
+                  : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]",
           )}
         >
           <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col">
