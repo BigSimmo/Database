@@ -16,26 +16,74 @@ const topRevealOffset = 8;
 // Minimum per-event delta (px) before we treat movement as intentional, to
 // avoid jitter from momentum settling and fractional scroll positions.
 const minimumDelta = 4;
+// Require sustained motion before changing chrome state. This filters
+// fractional momentum reversals without making a deliberate reveal feel slow.
+const hideIntentDistance = 24;
+const revealIntentDistance = 12;
+
+type ScrollDirection = "down" | "up" | null;
+
+export interface ScrollMetrics {
+  offset: number;
+  maxOffset?: number;
+}
 
 /** Pure scroll-direction evaluation used by the hook; exported for unit tests. */
-export function computeScrollHideUpdate(params: { offset: number; lastOffset: number; currentlyHidden: boolean }): {
+export function computeScrollHideUpdate(params: {
+  offset: number;
+  lastOffset: number;
+  maxOffset?: number;
+  currentlyHidden: boolean;
+  direction?: ScrollDirection;
+  directionTravel?: number;
+}): {
   hidden: boolean;
   lastOffset: number;
+  direction: ScrollDirection;
+  directionTravel: number;
 } {
-  const { offset, lastOffset, currentlyHidden } = params;
+  const { offset, lastOffset, maxOffset, currentlyHidden, direction = null, directionTravel = 0 } = params;
   // Ignore iOS rubber-band overscroll at the top.
-  if (offset < 0) return { hidden: currentlyHidden, lastOffset };
-  const delta = offset - lastOffset;
+  if (offset < 0) return { hidden: currentlyHidden, lastOffset, direction, directionTravel };
   if (offset <= topRevealOffset) {
-    return { hidden: false, lastOffset: offset };
+    return { hidden: false, lastOffset: offset, direction: null, directionTravel: 0 };
   }
+
+  // Collapsing in-flow chrome grows the scroll viewport. At the bottom the
+  // browser clamps scrollTop to the new maximum and emits an apparent upward
+  // scroll even though the user is still moving down. Keep the chrome hidden
+  // and rebase intent so that layout feedback cannot start a hide/show loop.
+  if (
+    currentlyHidden &&
+    maxOffset !== undefined &&
+    lastOffset > maxOffset + minimumDelta &&
+    Math.abs(offset - maxOffset) <= 1
+  ) {
+    return { hidden: true, lastOffset: offset, direction: null, directionTravel: 0 };
+  }
+
+  const delta = offset - lastOffset;
   if (Math.abs(delta) < minimumDelta) {
-    return { hidden: currentlyHidden, lastOffset };
+    return { hidden: currentlyHidden, lastOffset, direction, directionTravel };
   }
-  if (delta > 0) {
-    return { hidden: offset > hideActivationOffset, lastOffset: offset };
+
+  const nextDirection: Exclude<ScrollDirection, null> = delta > 0 ? "down" : "up";
+  const nextDirectionTravel = nextDirection === direction ? directionTravel + Math.abs(delta) : Math.abs(delta);
+  let hidden = currentlyHidden;
+
+  if (!currentlyHidden && nextDirection === "down" && offset > hideActivationOffset) {
+    const travelPastActivation = Math.min(nextDirectionTravel, offset - hideActivationOffset);
+    hidden = travelPastActivation >= hideIntentDistance;
+  } else if (currentlyHidden && nextDirection === "up" && nextDirectionTravel >= revealIntentDistance) {
+    hidden = false;
   }
-  return { hidden: false, lastOffset: offset };
+
+  return {
+    hidden,
+    lastOffset: offset,
+    direction: nextDirection,
+    directionTravel: nextDirectionTravel,
+  };
 }
 
 function subscribeToPhoneMedia(onChange: () => void) {
@@ -67,10 +115,13 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
   const [hidden, setHidden] = useState(false);
   const hiddenRef = useRef(false);
   const lastOffsetRef = useRef(0);
+  const directionRef = useRef<ScrollDirection>(null);
+  const directionTravelRef = useRef(0);
   const active = usePhoneScrollHideActive(disabled, allowAllBreakpoints);
 
   const reportScroll = useCallback(
-    (offset: number) => {
+    (report: number | ScrollMetrics) => {
+      const { offset, maxOffset } = typeof report === "number" ? { offset: report, maxOffset: undefined } : report;
       if (!active || offset < 0) return;
       const lastOffset = lastOffsetRef.current;
       const delta = offset - lastOffset;
@@ -78,10 +129,15 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
       const update = computeScrollHideUpdate({
         offset,
         lastOffset,
+        maxOffset,
         currentlyHidden: hiddenRef.current,
+        direction: directionRef.current,
+        directionTravel: directionTravelRef.current,
       });
       lastOffsetRef.current = update.lastOffset;
       hiddenRef.current = update.hidden;
+      directionRef.current = update.direction;
+      directionTravelRef.current = update.directionTravel;
       setHidden(update.hidden);
     },
     [active],
@@ -91,6 +147,8 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     if (active) return undefined;
     hiddenRef.current = false;
     lastOffsetRef.current = 0;
+    directionRef.current = null;
+    directionTravelRef.current = 0;
     const frame = window.requestAnimationFrame(() => setHidden(false));
     return () => window.cancelAnimationFrame(frame);
   }, [active]);
@@ -104,6 +162,8 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
   useEffect(() => {
     hiddenRef.current = false;
     lastOffsetRef.current = 0;
+    directionRef.current = null;
+    directionTravelRef.current = 0;
     const frame = window.requestAnimationFrame(() => setHidden(false));
     return () => window.cancelAnimationFrame(frame);
   }, [allowAllBreakpoints]);
@@ -155,14 +215,24 @@ export function useHideOnScroll({
 
     const resolveContainer = () => scrollContainer ?? containerRef?.current ?? null;
 
-    const readOffset = () => {
+    const readMetrics = (): ScrollMetrics => {
       const container = resolveContainer();
-      return container ? container.scrollTop : window.scrollY;
+      if (container) {
+        return {
+          offset: container.scrollTop,
+          maxOffset: Math.max(0, container.scrollHeight - container.clientHeight),
+        };
+      }
+      const scrollingElement = document.scrollingElement ?? document.documentElement;
+      return {
+        offset: window.scrollY,
+        maxOffset: Math.max(0, scrollingElement.scrollHeight - window.innerHeight),
+      };
     };
 
     const evaluate = () => {
       frame = 0;
-      reportScroll(readOffset());
+      reportScroll(readMetrics());
     };
 
     const onScroll = () => {
@@ -180,7 +250,7 @@ export function useHideOnScroll({
       attachedTarget?.removeEventListener("scroll", onScroll);
       attachedTarget = target;
       target.addEventListener("scroll", onScroll, { passive: true });
-      reportScroll(readOffset());
+      reportScroll(readMetrics());
       return true;
     };
 

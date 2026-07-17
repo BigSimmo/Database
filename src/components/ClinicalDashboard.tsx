@@ -440,7 +440,6 @@ export function ClinicalDashboard({
     mainRef.current = node;
     setMainScrollRoot(node);
   }, []);
-  const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
   const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
   const navSyncLockRef = useRef<number | null>(null);
@@ -2784,7 +2783,10 @@ export function ClinicalDashboard({
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         frame = 0;
-        reportPhoneScrollHideRef.current(main.scrollTop);
+        reportPhoneScrollHideRef.current({
+          offset: main.scrollTop,
+          maxOffset: Math.max(0, main.scrollHeight - main.clientHeight),
+        });
       });
     };
 
@@ -3305,7 +3307,6 @@ export function ClinicalDashboard({
               ? { strategy: "overlay", allBreakpoints: true, scrollHidden: phoneScrollHide.hidden }
               : { strategy: "collapse", scrollHidden: phoneScrollHide.hidden }
           }
-          onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
         />
 
         <main
@@ -3331,30 +3332,23 @@ export function ClinicalDashboard({
               ? compactMobileModeHome
                 ? "mb-0"
                 : // Phone answer view: the "Ask a follow-up" dock is fixed to the
-                  // bottom, so <main> reserves room for it. When that dock hides on
-                  // scroll, reclaim the reserved strip too — otherwise the near-black
-                  // shell background shows through as an empty band. (sm+ is inert:
-                  // bottomSearchScrollHidden only ever goes true on phones.) The
-                  // reserve hugs the real dock height (follow-up scroll row + composer
-                  // pill ≈ 6rem measured); the old 18rem reserve just painted extra
-                  // shell background as a black band above the dock.
-                  bottomSearchScrollHidden
-                  ? "mb-0 sm:mb-24"
-                  : answerFollowUpSuggestions.length > 0
-                    ? "mb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:mb-24"
-                    : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+                  // bottom, so <main> reserves room for it. Keep that geometry stable
+                  // while the dock translates off-screen: changing the flex item's
+                  // margin alters its client height and clamps scrollTop near the
+                  // bottom, feeding a false upward movement into hide-on-scroll.
+                  answerFollowUpSuggestions.length > 0
+                  ? "mb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:mb-24"
+                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
               : hasMobileBottomSearch
-                ? bottomSearchScrollHidden
-                  ? "mb-0 sm:mb-0"
-                  : compactMobileBottomSearch
-                    ? differentialsCompareAddonActive
-                      ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
-                      : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
-                    : // Mode homes keep the composer in the hero (in-flow at every
-                      // width), so phones need no bottom-dock clearance on them.
-                      compactMobileModeHome || showDesktopHomeComposer
-                      ? "mb-0"
-                      : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
+                ? compactMobileBottomSearch
+                  ? differentialsCompareAddonActive
+                    ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
+                    : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
+                  : // Mode homes keep the composer in the hero (in-flow at every
+                    // width), so phones need no bottom-dock clearance on them.
+                    compactMobileModeHome || showDesktopHomeComposer
+                    ? "mb-0"
+                    : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
                 : "mb-0",
           )}
         >

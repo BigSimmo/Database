@@ -233,7 +233,6 @@ function GlobalStandaloneSearchShellClient({
     }),
     [query, searchMode, commandScopes, removeCommandScope, clearCommandScopes],
   );
-  const [bottomSearchScrollHidden, setBottomSearchScrollHidden] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
@@ -430,7 +429,11 @@ function GlobalStandaloneSearchShellClient({
   }
 
   function handleMainScroll(event: UIEvent<HTMLDivElement>) {
-    phoneScrollHide.reportScroll(event.currentTarget.scrollTop);
+    const target = event.currentTarget;
+    phoneScrollHide.reportScroll({
+      offset: target.scrollTop,
+      maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
+    });
   }
 
   const mainRefCallback = (node: HTMLDivElement | null) => {
@@ -448,7 +451,10 @@ function GlobalStandaloneSearchShellClient({
       const target = event.target;
       if (!(target instanceof HTMLElement) || !main.contains(target)) return;
       if (target.scrollHeight <= target.clientHeight + 1) return;
-      reportPhoneScrollHideRef.current(target.scrollTop);
+      reportPhoneScrollHideRef.current({
+        offset: target.scrollTop,
+        maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
+      });
     };
 
     main.addEventListener("scroll", onScrollCapture, { capture: true, passive: true });
@@ -564,7 +570,6 @@ function GlobalStandaloneSearchShellClient({
             // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the header/composer to hand space back to content.
             hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
-            onBottomComposerScrollHiddenChange={setBottomSearchScrollHidden}
             queryInputAutoFocus={searchParams.get("focus") === "1"}
           />
         </div>
@@ -582,13 +587,11 @@ function GlobalStandaloneSearchShellClient({
             "min-w-0 focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
             !reservesFloatingComposer
               ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
-              : bottomSearchScrollHidden
-                ? "max-sm:pb-8 sm:pb-8"
-                : searchMode === "answer"
-                  ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]"
-                  : useCompactBottomSearch
-                    ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
-                    : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
+              : searchMode === "answer"
+                ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]"
+                : useCompactBottomSearch
+                  ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
+                  : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))] sm:pb-8",
           )}
         >
           <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col">
