@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { invalidateRagCachesForOwner } from "@/lib/rag";
@@ -44,6 +45,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
+
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "document_admin",
+      allowInMemoryFallbackOnUnavailable: true,
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Too many document administration requests. Retry shortly.", rateLimit);
+    }
+
     const document = await loadOwnedDocument({ supabase, documentId: id, ownerId: user.id });
     if (!document) {
       return NextResponse.json({ error: "Document not found." }, { status: 404 });
@@ -78,6 +90,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
+
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "document_admin",
+      allowInMemoryFallbackOnUnavailable: true,
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Too many document administration requests. Retry shortly.", rateLimit);
+    }
+
     const document = await loadOwnedDocument({ supabase, documentId: id, ownerId: user.id });
     if (!document) {
       return NextResponse.json({ error: "Document not found." }, { status: 404 });

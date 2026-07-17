@@ -315,7 +315,7 @@ function ActiveFilterChips({
           type="button"
           onClick={chip.onClear}
           className={cn(
-            "inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-2xs font-semibold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]/80",
+            "inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-2xs font-semibold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]/80",
             focusRing,
           )}
         >
@@ -361,7 +361,7 @@ function ContinueStrip({ item, onSelect }: { item: FavouriteItem; onSelect: (id:
           <Link
             href={item.href}
             className={cn(
-              "inline-flex h-9 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] sm:w-auto",
+              "inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] sm:min-h-9 sm:w-auto",
               focusRing,
             )}
           >
@@ -419,7 +419,7 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
             href={item.href}
             role="menuitem"
             className={cn(
-              "flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
+              "flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
               focusRing,
             )}
             onClick={() => setOpen(false)}
@@ -431,7 +431,7 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
             type="button"
             role="menuitem"
             className={cn(
-              "flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
+              "flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
               focusRing,
             )}
             onClick={() => setOpen(false)}
@@ -444,7 +444,7 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
             role="menuitem"
             disabled
             title="Coming soon"
-            className="flex w-full cursor-not-allowed items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text-soft)]"
+            className="flex min-h-tap w-full cursor-not-allowed items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text-soft)]"
           >
             <Folder className="h-4 w-4" aria-hidden />
             Move to set
@@ -605,7 +605,7 @@ function FavouritesTable({
               disabled={viewMode === "recent"}
               title={viewMode === "recent" ? "Recently used view is always sorted by last used" : undefined}
               onChange={(event) => onSortModeChange(event.target.value as SortMode)}
-              className="h-9 w-full appearance-none rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 pr-9 text-xs font-bold text-[color:var(--text-muted)] outline-none hover:bg-[color:var(--surface-subtle)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20 disabled:cursor-not-allowed disabled:opacity-60"
+              className="min-h-tap w-full appearance-none rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 pr-9 text-xs font-bold text-[color:var(--text-muted)] outline-none hover:bg-[color:var(--surface-subtle)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20 disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-9"
             >
               <option value="last-used">Sort: Last used</option>
               <option value="title">Sort: Title</option>

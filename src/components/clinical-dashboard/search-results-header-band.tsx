@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, LayoutList, Search, Table2, X } from "lucide-react";
+import { Bookmark, ChevronsUpDown, LayoutList, Search, Table2, X } from "lucide-react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { cn } from "@/components/ui-primitives";
@@ -141,21 +141,27 @@ export function ResultSortControl({
   return (
     <label
       className={cn(
-        "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-xs font-bold text-[color:var(--text-muted)]",
+        "relative inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
         className,
       )}
     >
-      Sort
+      <span className="text-[color:var(--text-soft)]">Sort</span>
+      {/* appearance-none strips the native control chrome so "Relevance" renders at the
+          same size/weight as the rest of the band and the caret sits in a fixed slot. */}
       <select
         value={value}
         onChange={(event) => onChange(readResultSort(event.target.value))}
-        className="bg-transparent text-xs font-bold text-[color:var(--text)] outline-none"
+        className="cursor-pointer appearance-none bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none]"
         aria-label="Sort results"
       >
         <option value="relevance">Relevance</option>
         <option value="alpha">A–Z</option>
       </select>
+      <ChevronsUpDown
+        className="pointer-events-none absolute right-2 h-3.5 w-3.5 text-[color:var(--text-soft)]"
+        aria-hidden
+      />
     </label>
   );
 }
