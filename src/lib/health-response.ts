@@ -3,6 +3,10 @@ import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
 import { env, isDemoMode } from "@/lib/env";
 import type { AnswerSloSnapshot, SloProbeClient } from "@/lib/observability/answer-slo";
 import { cacheMetricsSnapshot, type CacheMetricsSnapshot } from "@/lib/observability/cache-metrics";
+import {
+  answerCoalescingMetricsSnapshot,
+  type AnswerCoalescingMetricsSnapshot,
+} from "@/lib/observability/answer-coalescing-metrics";
 import type { SpendProbeClient, SpendSnapshot } from "@/lib/observability/spend-metrics";
 
 type HealthResponseOptions = {
@@ -10,6 +14,7 @@ type HealthResponseOptions = {
   allowUnauthenticatedDeep?: boolean;
   includeSlo?: boolean;
   includeCache?: boolean;
+  includeCoalescing?: boolean;
   includeSpend?: boolean;
 };
 
@@ -23,6 +28,7 @@ export async function healthResponse(request: Request, options: HealthResponseOp
   };
   let slo: AnswerSloSnapshot | null = null;
   let cache: CacheMetricsSnapshot | null = null;
+  let coalescing: AnswerCoalescingMetricsSnapshot | null = null;
   let spend: SpendSnapshot | null = null;
 
   if (deep) {
@@ -38,6 +44,9 @@ export async function healthResponse(request: Request, options: HealthResponseOp
       // available even in demo mode. Like `slo`, it never flips liveness.
       if (tokenAuthorized && options.includeCache !== false) {
         cache = cacheMetricsSnapshot();
+      }
+      if (tokenAuthorized && options.includeCoalescing !== false) {
+        coalescing = answerCoalescingMetricsSnapshot();
       }
 
       if (supabaseConfigured && !isDemoMode()) {
@@ -103,6 +112,7 @@ export async function healthResponse(request: Request, options: HealthResponseOp
       checks,
       ...(slo ? { slo } : {}),
       ...(cache ? { cache } : {}),
+      ...(coalescing ? { coalescing } : {}),
       ...(spend ? { spend } : {}),
     },
     { status: ready ? 200 : 503, headers: { "Cache-Control": "no-store" } },
