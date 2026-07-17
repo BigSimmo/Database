@@ -41,7 +41,7 @@ function useClientMounted() {
   );
 }
 import { Sheet } from "@/components/ui/sheet";
-import { type AppModeId } from "@/lib/app-modes";
+import { type AppModeId, isAppModeId, isAppModeVisible } from "@/lib/app-modes";
 import { type ResolvedTheme } from "@/lib/theme";
 
 export type SidebarIdentity = {
@@ -84,6 +84,12 @@ const sidebarToolItems = [
   { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
   { id: "therapy-compass", label: "Therapy Compass", icon: appModeIcons["therapy-compass"], href: "/therapy-compass" },
 ] as const;
+
+// Drop any tool whose id is a dev-only app mode from the production nav. Non-mode
+// entries (answer, documents, prescribing, tools) are query-param destinations,
+// not app modes, so they always stay. NODE_ENV is inlined into the client bundle,
+// so this resolves at build time.
+const visibleSidebarToolItems = sidebarToolItems.filter((item) => !isAppModeId(item.id) || isAppModeVisible(item.id));
 
 function sidebarItemBadge(item: (typeof sidebarToolItems)[number]): string | undefined {
   return "badge" in item ? item.badge : undefined;
@@ -236,7 +242,7 @@ export function ClinicalSidebarContent({
             <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">Tools</p>
           </div>
           <nav aria-label="Tools" className="grid gap-0.5">
-            {sidebarToolItems.map((item) => {
+            {visibleSidebarToolItems.map((item) => {
               const Icon = item.icon;
               const active = activeMode === item.id;
               return (
@@ -425,7 +431,7 @@ function ClinicalCollapsedRail({
         >
           <MessageSquarePlus aria-hidden="true" className="h-4 w-4" />
         </button>
-        {sidebarToolItems.map((item) => {
+        {visibleSidebarToolItems.map((item) => {
           const Icon = item.icon;
           const active = activeMode === item.id;
           return (
