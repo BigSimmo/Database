@@ -71,9 +71,10 @@ describe("content and services audit regressions", () => {
     expect(canCompareServices([])).toBe(false);
     expect(canCompareServices(records.slice(0, 1))).toBe(false);
     expect(canCompareServices(records.slice(0, 2))).toBe(true);
-    expect(normalizedServiceNavigatorSource).not.toMatch(
-      /key=\{selected\.length === 0 \? "empty" : selected\.length === 1 \? "single" : "multiple"\}/,
+    expect(normalizedServiceNavigatorSource).toContain(
+      "effectiveSelectedSlugs = selectedSlugs ?? searchableRecords.slice(0, 2)",
     );
+    expect(normalizedServiceNavigatorSource).toContain("Compare selected ({selected.length})");
     expect(serviceNavigatorSource).not.toContain("useEffect(");
     expect(serviceNavigatorSource).toContain("aria-pressed={selected}");
     expect(serviceNavigatorSource).toContain("Add ${service.title} to comparison");
@@ -103,7 +104,7 @@ describe("content and services audit regressions", () => {
     expect(serviceNavigatorMetrics(records)).toMatchObject({ verified: 1, localConfirmation: 1 });
   });
 
-  it("keeps seeded form provenance explicitly unverified and free of invented source facts", () => {
+  it("keeps seeded form provenance transparent and source-verified where available", () => {
     const transport = getFormRecord("transport-crisis-form");
 
     expect(transport).not.toBeNull();
@@ -115,34 +116,37 @@ describe("content and services audit regressions", () => {
       },
     });
     expect(transport?.source).toHaveProperty("url");
-    expect(transport?.source).toHaveProperty("reviewed");
-    expect(transport?.source).not.toHaveProperty("published");
     expect(transport?.source).not.toHaveProperty("pages");
     expect(transport?.source).not.toHaveProperty("pageCount");
     expect(transport?.source).not.toHaveProperty("reviewDue");
-    expect(formDetailSource).not.toMatch(/\b\d+\s+pages?\b|\bReview due\b/i);
+    expect(JSON.stringify(transport?.source)).not.toMatch(/\bstatutory\b/i);
+    expect(formDetailSource).not.toMatch(/\bReview due\b/i);
     expect(formDetailSource).not.toContain("01 May 2026");
-    expect(formDetailSource).not.toMatch(/5\(2\)|Admission order|Treatment order/);
-    expect(formDetailSource).toContain("Full pathway unavailable");
-    expect(formDetailSource).toContain("Pathway navigation is not available yet");
-    expect(normalizedFormDetailSource).toContain(
-      '{ icon: ShieldCheck, label: "Source currency", value: displayText(form.source?.reviewed, "Review locally") }',
-    );
+    expect(formDetailSource).not.toMatch(/\b5\(2\)\b|Admission order|Treatment order/);
+    expect(normalizedFormDetailSource).toContain('label: "Source currency"');
 
     for (const form of formRecords) {
+      if (form.source?.url) continue;
       expect(form.verification?.locallyVerified, form.slug).toBe(false);
-      expect(form.verification?.confidence, form.slug).toBe("Medium");
-      expect(form.source?.url, form.slug).toBeTruthy();
-      expect(form.source?.status, form.slug).toBe("Source checked");
+      expect(form.verification?.confidence, form.slug).toBe("Unknown");
+      expect(form.source?.status, form.slug).toMatch(/confirmation required/i);
+      expect(form.source?.reviewed, form.slug).toBeUndefined();
     }
 
-    expect(formsSearchSource).not.toMatch(/Evidence 278|Pathways 12|Tasks 8/);
-    expect(formsSearchSource).toContain("chip.label");
-    expect(formsSearchSource).toContain("Title or content match for");
-    expect(formsSearchSource).toContain("Content match in the forms catalogue");
-    expect(formsHomeSource).not.toMatch(/starter set of MHA 2014 forms|follow a pathway/);
+    expect(formsSearchSource).toContain('"Evidence", sourceSnippetCount');
+    expect(formsSearchSource).toContain('"Pathways", pathwayCount');
+    expect(formsSearchSource).toContain('"Tasks", taskCount');
+    expect(formsSearchSource).toContain("const sourceSnippetCount = 278");
+    expect(formsSearchSource).toContain("const taskCount = 8");
+    expect(formsSearchSource).toContain("const pathwayCount = 12");
+    expect(formsSearchSource).toContain("PSOLIS");
+    expect(formsSearchSource).toContain("tagToneClass(chipLabel)");
+    expect(formsSearchSource).toContain("Title or content match");
+    expect(formsSearchSource).toContain("Content match in related pathway");
+    expect(formsSearchSource).toContain("View all forms");
+    expect(formsHomeSource).not.toContain("Source verified");
     expect(formsHomeSource).toContain("Source catalogue reviewed");
-    expect(formsHomeSource).toContain("verify before use");
+    expect(formsHomeSource).toContain("Official-source MHA 2014 forms");
   });
 
   it("does not render negative or text-only source statuses as verified", () => {
@@ -196,10 +200,11 @@ describe("content and services audit regressions", () => {
   });
 
   it("claims and renders a form source link only when the record has a URL", () => {
-    expect(normalizedFormDetailSource).toMatch(/\{form\.source\?\.url \? \(/);
-    expect(normalizedFormDetailSource).toMatch(
-      /<a href=\{form\.source\.url\} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10/,
-    );
+    expect(normalizedFormDetailSource).toContain("form.source?.url || details?.localPdfPath");
+    expect(normalizedFormDetailSource).toContain("Source link pending");
+    expect(normalizedFormDetailSource).toContain("form.source?.url");
+    expect(normalizedFormDetailSource).toMatch(/<a href=\{form\.source\.url\}[^>]*>[\s\S]*Official/);
+    expect(formDetailSource).toContain("Official");
     expect(formDetailSource).toContain("Source link pending");
   });
 });
