@@ -44,6 +44,11 @@ function RelatedDocumentCard({
   const imageCount = document.image_count ?? 0;
   const tableCount = document.table_count ?? 0;
   const metaPill = "min-h-6 rounded-md px-2";
+  // Site and document-type are already surfaced by the governance badges above,
+  // so drop them from the tag cloud to avoid showing the same chip twice.
+  const tagCloudLabels = document.labels.filter(
+    (label) => label.label_type !== "site" && label.label_type !== "document_type",
+  );
 
   return (
     <article className={cn(sourceCard, "p-2.5 sm:p-3.5")}>
@@ -95,7 +100,7 @@ function RelatedDocumentCard({
         </p>
       ) : null}
 
-      <DocumentTagCloud labels={document.labels} limit={3} compact className="mt-2" onTagClick={onTagSearch} />
+      <DocumentTagCloud labels={tagCloudLabels} limit={3} compact className="mt-2" onTagClick={onTagSearch} />
     </article>
   );
 }
