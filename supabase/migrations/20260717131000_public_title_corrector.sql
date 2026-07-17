@@ -22,14 +22,6 @@ alter table public.document_title_words enable row level security;
 revoke all on table public.document_title_words from public, anon, authenticated;
 grant select, insert, update, delete on table public.document_title_words to service_role;
 
-insert into public.document_title_words (word, document_id)
-select distinct lower(title_word), d.id
-from public.documents d
-cross join lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as title_word
-where d.owner_id is null and d.status = 'indexed'
-  and length(title_word) between 4 and 40
-on conflict do nothing;
-
 create or replace function public.sync_document_title_words()
 returns trigger
 language plpgsql
@@ -60,6 +52,14 @@ drop trigger if exists documents_sync_title_words on public.documents;
 create trigger documents_sync_title_words
   after insert or update of title, status, owner_id or delete on public.documents
   for each row execute function public.sync_document_title_words();
+
+insert into public.document_title_words (word, document_id)
+select distinct lower(title_word), d.id
+from public.documents d
+cross join lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as title_word
+where d.owner_id is null and d.status = 'indexed'
+  and length(title_word) between 4 and 40
+on conflict do nothing;
 
 create or replace function public.correct_clinical_query_terms(
   input_query text,

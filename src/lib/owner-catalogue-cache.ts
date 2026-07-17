@@ -180,7 +180,11 @@ export async function loadOwnerCatalogue<T>(args: {
 }
 
 /** Remove every cached limit for the catalogue that was mutated. */
-export function invalidateOwnerCatalogueCache(args: { ownerId: string; kind?: OwnerCatalogueKind }) {
+export function invalidateOwnerCatalogueCache(args: {
+  ownerId: string;
+  kind?: OwnerCatalogueKind;
+  preserveSignal?: AbortSignal;
+}) {
   for (const [key, entry] of ownerCatalogueCache) {
     if (entry.ownerId === args.ownerId && (!args.kind || entry.kind === args.kind)) {
       ownerCatalogueCache.delete(key);
@@ -188,6 +192,7 @@ export function invalidateOwnerCatalogueCache(args: { ownerId: string; kind?: Ow
   }
   for (const [key, flight] of ownerCatalogueFlights) {
     if (flight.ownerId === args.ownerId && (!args.kind || flight.kind === args.kind)) {
+      if (flight.controller.signal === args.preserveSignal) continue;
       ownerCatalogueFlights.delete(key);
       flight.controller.abort(new DOMException("Owner catalogue invalidated.", "AbortError"));
     }

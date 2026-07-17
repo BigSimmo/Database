@@ -33,7 +33,7 @@ export async function ensureMedicationsSeeded(
   if (options.signal) query = query.abortSignal(options.signal);
   const { data, error } = await query;
   if (error) throw new Error(`Medication seed failed: ${error.message}`);
-  invalidateOwnerCatalogueCache({ ownerId, kind: "medication" });
+  invalidateOwnerCatalogueCache({ ownerId, kind: "medication", preserveSignal: options.signal });
   throwIfAborted(options.signal);
   const seededRows = (data ?? []) as MedicationRecordRow[];
   const { bestEffortSyncMedicationRows } = await loadRegistryCorpus();

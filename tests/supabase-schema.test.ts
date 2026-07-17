@@ -1247,6 +1247,9 @@ describe("Supabase Preview replay guards", () => {
       expect(sql).toContain(
         "revoke execute on function public.sync_document_title_words() from public, anon, authenticated, service_role;",
       );
+      expect(sql.indexOf("create trigger documents_sync_title_words")).toBeLessThan(
+        sql.indexOf("select distinct lower(title_word), d.id"),
+      );
       expect(sql).toContain("create index if not exists rag_aliases_canonical_trgm_idx");
       expect(correctorStart).toBeGreaterThanOrEqual(0);
       expect(correctorEnd).toBeGreaterThan(correctorStart);
@@ -1258,6 +1261,17 @@ describe("Supabase Preview replay guards", () => {
       expect(corrector).toContain("best_sim >= min_sim");
       expect(corrector).toContain("length(best) >= length(tok)");
     }
+
+    const broadServiceRoleGrant = schema.lastIndexOf(
+      "grant execute on all functions in schema public to service_role;",
+    );
+    expect(broadServiceRoleGrant).toBeGreaterThanOrEqual(0);
+    expect(
+      schema.lastIndexOf("revoke execute on function public.cleanup_registry_corpus_document() from service_role;"),
+    ).toBeGreaterThan(broadServiceRoleGrant);
+    expect(
+      schema.lastIndexOf("revoke execute on function public.sync_document_title_words() from service_role;"),
+    ).toBeGreaterThan(broadServiceRoleGrant);
   });
 
   it("keeps the table-facts trigram index expression identical to the active predicate", () => {

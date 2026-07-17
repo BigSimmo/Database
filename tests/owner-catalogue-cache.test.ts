@@ -192,4 +192,19 @@ describe("owner catalogue cache", () => {
     expect(ownerService).toHaveBeenCalledTimes(1);
     expect(otherMedication).toHaveBeenCalledTimes(1);
   });
+
+  it("preserves the seeding flight while invalidating other medication loads", async () => {
+    const { invalidateOwnerCatalogueCache, loadOwnerCatalogue } = await loadCacheModule();
+    const load = vi.fn(async (signal: AbortSignal) => {
+      invalidateOwnerCatalogueCache({ ownerId: "owner-a", kind: "medication", preserveSignal: signal });
+      return [{ slug: "clozapine" }];
+    });
+
+    await expect(loadOwnerCatalogue({ ownerId: "owner-a", kind: "medication", limit: 500, load })).resolves.toEqual([
+      { slug: "clozapine" },
+    ]);
+    await loadOwnerCatalogue({ ownerId: "owner-a", kind: "medication", limit: 500, load });
+
+    expect(load).toHaveBeenCalledTimes(1);
+  });
 });
