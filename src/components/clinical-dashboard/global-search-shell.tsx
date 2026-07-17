@@ -311,6 +311,12 @@ function GlobalStandaloneSearchShellClient({
   useEffect(() => {
     if (!requestedFocus) return undefined;
     const focusInput = () => {
+      // focus=1 retries must not yank focus back after the user (or a test)
+      // has already moved into header chrome such as the mode menu.
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active !== document.body && active !== inputRef.current) {
+        return;
+      }
       inputRef.current?.focus({ preventScroll: true });
     };
     const frame = window.requestAnimationFrame(focusInput);
