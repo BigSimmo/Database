@@ -311,6 +311,16 @@ function GlobalStandaloneSearchShellClient({
   useEffect(() => {
     if (!requestedFocus) return undefined;
     const focusInput = () => {
+      // The focus=1 hydration retry (rAF + 300ms) can land after a user/test opens
+      // the app-mode menu. Re-focusing the composer then blurs the menu wrapper and
+      // blur-dismiss closes it before a mode option can be chosen.
+      // Guard both: open menu DOM (activeElement is often <body> mid-transition) and
+      // any intentional focus already moved off the composer.
+      if (document.getElementById("app-mode-menu")) return;
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active !== document.body && active !== inputRef.current) {
+        return;
+      }
       inputRef.current?.focus({ preventScroll: true });
     };
     const frame = window.requestAnimationFrame(focusInput);

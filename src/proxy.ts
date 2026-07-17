@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { env } from "@/lib/env";
+import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
 import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
 
 // Next 16 renamed the `middleware` file convention to `proxy` (see
@@ -80,6 +81,9 @@ export async function proxy(request: NextRequest) {
     response.headers.set("content-security-policy", csp);
     return response;
   };
+
+  const legacyHomeTarget = legacyHomeRedirectUrl(request.nextUrl, request.method);
+  if (legacyHomeTarget) return withCsp(NextResponse.redirect(legacyHomeTarget));
 
   const redirectTarget = documentFlowRedirects[pathname];
 
