@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
+import { PwaLifecycle } from "@/components/pwa-lifecycle";
 import { AuthProvider } from "@/lib/supabase/client";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { resolveMetadataBase } from "@/lib/metadata-base";
+import { APP_THEME_COLORS } from "@/lib/theme";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -52,8 +54,8 @@ export const viewport: Viewport = {
   viewportFit: "cover",
   colorScheme: "light dark",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#060708" },
+    { media: "(prefers-color-scheme: light)", color: APP_THEME_COLORS.light },
+    { media: "(prefers-color-scheme: dark)", color: APP_THEME_COLORS.dark },
   ],
 };
 
@@ -70,7 +72,7 @@ export default async function RootLayout({
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     <html
-      lang="en"
+      lang="en-AU"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
@@ -85,7 +87,7 @@ export default async function RootLayout({
           // read it), which reads as a hydration mismatch on this attribute.
           suppressHydrationWarning
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("clinical-kb-theme");var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem("clinical-kb-theme");var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);if(t==="dark"||t==="light"){var c=d?"${APP_THEME_COLORS.dark}":"${APP_THEME_COLORS.light}";document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute("content",c);});}}catch(e){}})();`,
           }}
         />
         <a
@@ -96,6 +98,7 @@ export default async function RootLayout({
           Skip to main content
         </a>
         <WebVitalsReporter />
+        <PwaLifecycle />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

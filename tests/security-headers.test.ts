@@ -53,6 +53,13 @@ describe("security headers", () => {
         expect(byKey.get("X-Frame-Options")).toBe("DENY");
         expect(byKey.get("Cross-Origin-Opener-Policy")).toBe("same-origin");
       });
+
+      it("restricts PWA workers and manifests to this origin", () => {
+        const workerSrc = csp.split(";").find((directive) => directive.trim().startsWith("worker-src"));
+        const manifestSrc = csp.split(";").find((directive) => directive.trim().startsWith("manifest-src"));
+        expect(workerSrc?.trim()).toBe("worker-src 'self'");
+        expect(manifestSrc?.trim()).toBe("manifest-src 'self'");
+      });
     });
   }
 

@@ -27,12 +27,25 @@ const documentFlowRedirects: Record<string, string> = {
   "/mockups/document-search-command": "/documents/search",
 };
 
+const publicPwaPaths = new Set(["/sw.js", "/offline.html", "/manifest.webmanifest", "/apple-icon"]);
+
+export function isPublicPwaPath(pathname: string) {
+  return publicPwaPaths.has(pathname) || pathname.startsWith("/icons/");
+}
+
 // Same runtime flags next.config.ts uses for the static headers, so the nonce'd
 // CSP matches the rest of the policy (unsafe-eval in dev, HTTPS upgrade off local
 // http). Evaluated once at module load.
 const { isDevelopment, isLocalHttpRuntime } = resolveRuntimeFlags();
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // PWA bootstrap assets are public and deliberately independent from a user's
+  // auth session. Let next.config.ts apply their stable resource-specific headers
+  // without generating a page nonce or refreshing Supabase cookies.
+  if (isPublicPwaPath(pathname)) return NextResponse.next();
+
   // A fresh, unguessable nonce per request (see Next.js CSP guide). Buffer+base64
   // matches the documented pattern and keeps the value header-safe.
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
@@ -68,7 +81,6 @@ export async function proxy(request: NextRequest) {
     return response;
   };
 
-  const { pathname } = request.nextUrl;
   const redirectTarget = documentFlowRedirects[pathname];
 
   if (redirectTarget) {
