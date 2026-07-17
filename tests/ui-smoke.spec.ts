@@ -3301,6 +3301,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       spacer.style.height = "2000px";
       node.appendChild(spacer);
     });
+    const expandedMainClientHeight = await main.evaluate((node) => node.clientHeight);
     for (const offset of [40, 80, 120, 160, 200]) {
       await main.evaluate((node, top) => {
         node.scrollTop = top;
@@ -3342,6 +3343,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       node.scrollTop = 0;
     });
     await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect.poll(async () => main.evaluate((node) => node.clientHeight)).toBe(expandedMainClientHeight);
     const visibleGeometry = await main.evaluate((node) => ({
       clientHeight: node.clientHeight,
       maxOffset: node.scrollHeight - node.clientHeight,
@@ -3350,7 +3352,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
       node.scrollTop = top;
     }, visibleGeometry.maxOffset);
     await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
-    await expect.poll(async () => collapseHost.getAttribute("data-scroll-hidden"), { timeout: 1_000 }).toBe("true");
+    await expect
+      .poll(async () => main.evaluate((node) => node.clientHeight))
+      .toBeGreaterThan(visibleGeometry.clientHeight);
     const collapsedGeometry = await main.evaluate((node) => ({
       clientHeight: node.clientHeight,
       maxOffset: node.scrollHeight - node.clientHeight,
