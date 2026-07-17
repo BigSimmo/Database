@@ -75,6 +75,9 @@ describe("deterministic claim support", () => {
     ["Stop clozapine below ANC 1.0 x10^9/L.", "Stop lithium below a level of 1.0 x10^9/L."],
     ["Stop clozapine when fever develops.", "Stop clozapine when myocarditis develops."],
     ["Give lithium 300 mg for bipolar disorder.", "Give lithium 300 mg for major depression."],
+    ["Cease clozapine for neutropenia.", "Cease clozapine for myocarditis."],
+    ["Discontinue clozapine for neutropenia.", "Discontinue clozapine for myocarditis."],
+    ["Escalate urgently for neutropenia.", "Escalate urgently for myocarditis."],
   ])("does not directly support %s from mismatched evidence", (claim, evidence) => {
     const cited = source("c1", evidence);
     expect(assessClaimSupport(answer(claim, [cited])).claims[0]?.supportStatus).not.toBe("direct");
