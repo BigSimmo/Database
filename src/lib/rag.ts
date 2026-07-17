@@ -12,7 +12,6 @@ import {
   searchTextChunkCandidates,
   withMemoryBoostedCandidates,
   type MemoryCardCache,
-  createChunkLoadCache,
 } from "@/lib/rag-candidate-sources";
 export {
   callVersionedRetrievalRpc,
@@ -422,30 +421,9 @@ const confidenceOrder = {
 } as const;
 
 /** Throw if aborted. */
-function abortReason(signal: AbortSignal): Error {
-  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
-}
-
 function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
-    throw abortReason(signal);
-  }
-}
-
-async function awaitWithAbortSignal<T>(pending: Promise<T>, signal?: AbortSignal): Promise<T> {
-  if (!signal) return pending;
-  throwIfAborted(signal);
-
-  let onAbort: (() => void) | undefined;
-  const aborted = new Promise<never>((_resolve, reject) => {
-    onAbort = () => reject(abortReason(signal));
-    signal.addEventListener("abort", onAbort, { once: true });
-    if (signal.aborted) onAbort();
-  });
-  try {
-    return await Promise.race([pending, aborted]);
-  } finally {
-    if (onAbort) signal.removeEventListener("abort", onAbort);
+    throw signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
   }
 }
 
@@ -1316,8 +1294,6 @@ export async function analyzeQueryWithClassifierFallback(
     // owner_filter retrieval will use so grounding can never see documents retrieval cannot.
     corpusGrounding?: { supabase: ReturnType<typeof createAdminClient>; ownerFilter: string | null };
     ownerId?: string | null;
-    signal?: AbortSignal;
-    skipClassifier?: boolean;
   },
 ) {
   if (
@@ -1346,7 +1322,6 @@ export async function analyzeQueryWithClassifierFallback(
       supabase: opts.corpusGrounding.supabase,
       query,
       ownerFilter: opts.corpusGrounding.ownerFilter,
-      signal: opts.signal,
     });
     if (grounding.verdict === "in_corpus_topic") {
       return {
@@ -1372,8 +1347,7 @@ export async function analyzeQueryWithClassifierFallback(
     analysis = { ...analysis, corpusGrounding: "inconclusive" };
   }
 
-  if (!analysis.needsClassifierFallback || !env.OPENAI_API_KEY || opts?.skipClassifier) return analysis;
-  throwIfAborted(opts?.signal);
+  if (!analysis.needsClassifierFallback || !env.OPENAI_API_KEY) return analysis;
 
   const memoKey = classifierVerdictMemoKey(query, analysis);
   const memoized = classifierVerdictMemo.get(memoKey);
@@ -1391,11 +1365,10 @@ export async function analyzeQueryWithClassifierFallback(
   }
 
   try {
-    const verdict = await awaitWithAbortSignal(pending, opts?.signal);
+    const verdict = await pending;
     storeClassifierVerdictMemo(memoKey, verdict);
     return applyClassifierVerdict(analysis, verdict);
   } catch {
-    if (opts?.signal?.aborted) throw abortReason(opts.signal);
     // Transport/parse failures are deliberately NOT memoized: fall back to the deterministic
     // analysis for this request only, and let the next request retry the classifier.
     return analysis;
@@ -1544,7 +1517,6 @@ export async function attachDocumentRankingMetadata(
   results: SearchResult[],
   ownerId?: string,
   cache = createDocumentRankingMetadataCache(),
-  signal?: AbortSignal,
 ) {
   const documentIds = Array.from(new Set(results.map((result) => result.document_id)));
   if (documentIds.length === 0) return results;
@@ -1574,7 +1546,7 @@ export async function attachDocumentRankingMetadata(
         document_summary: metadata.summary,
       };
     });
-    return attachIndexQualityMetadata(supabase, enriched, ownerId, cache, signal);
+    return attachIndexQualityMetadata(supabase, enriched, ownerId, cache);
   }
 
   const [metadataRows, indexedResults] = await Promise.all([
@@ -1582,12 +1554,8 @@ export async function attachDocumentRankingMetadata(
       supabase,
       ownerId,
       documentIds: missingDocumentIds,
-      signal,
-    }).catch(() => {
-      if (signal?.aborted) throw abortReason(signal);
-      return null;
-    }),
-    attachIndexQualityMetadata(supabase, results, ownerId, cache, signal),
+    }).catch(() => null),
+    attachIndexQualityMetadata(supabase, results, ownerId, cache),
   ]);
   if (!metadataRows) return indexedResults;
 
@@ -1624,7 +1592,6 @@ async function attachIndexQualityMetadata(
   results: SearchResult[],
   ownerId?: string,
   cache = createDocumentRankingMetadataCache(),
-  signal?: AbortSignal,
 ): Promise<SearchResult[]> {
   const documentIds = Array.from(new Set(results.map((result) => result.document_id)));
   if (documentIds.length === 0) return results;
@@ -1636,15 +1603,12 @@ async function attachIndexQualityMetadata(
       .select("document_id,owner_id,quality_score,extraction_quality,metrics,issues,updated_at")
       .in("document_id", missingDocumentIds);
     if (ownerId) query = query.eq("owner_id", ownerId);
-    if (signal) query = query.abortSignal(signal);
     const { data, error } = await query;
-    throwIfAborted(signal);
     if (error) return results;
     for (const documentId of missingDocumentIds) cache.indexQuality.set(documentId, null);
     for (const row of data ?? []) cache.indexQuality.set(row.document_id, row as SearchResult["indexing_quality"]);
     return withCachedIndexQuality(results, cache);
   } catch {
-    if (signal?.aborted) throw abortReason(signal);
     return results;
   }
 }
@@ -1653,7 +1617,6 @@ async function attachIndexQualityMetadata(
 export async function attachPageVisualEvidence(
   supabase: ReturnType<typeof createAdminClient>,
   results: SearchResult[],
-  signal?: AbortSignal,
 ): Promise<SearchResult[]> {
   const documentIds = Array.from(new Set(results.map((result) => result.document_id)));
   const pageNumbers = Array.from(
@@ -1673,7 +1636,7 @@ export async function attachPageVisualEvidence(
 
   const selectColumns =
     "id,document_id,page_number,storage_path,caption,bbox,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata";
-  const pageQuery =
+  const [pageData, directData] = await Promise.all([
     pageNumbers.length > 0
       ? supabase
           .from("document_images")
@@ -1684,8 +1647,7 @@ export async function attachPageVisualEvidence(
           .neq("image_type", "logo_decorative")
           .order("clinical_relevance_score", { ascending: false })
           .limit(80)
-      : null;
-  const directQuery =
+      : Promise.resolve({ data: [], error: null }),
     sourceImageIds.length > 0
       ? supabase
           .from("document_images")
@@ -1694,20 +1656,8 @@ export async function attachPageVisualEvidence(
           .eq("searchable", true)
           .neq("image_type", "logo_decorative")
           .limit(sourceImageIds.length)
-      : null;
-  const [pageData, directData] = await Promise.all([
-    pageQuery
-      ? signal && typeof pageQuery.abortSignal === "function"
-        ? pageQuery.abortSignal(signal)
-        : pageQuery
-      : Promise.resolve({ data: [], error: null }),
-    directQuery
-      ? signal && typeof directQuery.abortSignal === "function"
-        ? directQuery.abortSignal(signal)
-        : directQuery
       : Promise.resolve({ data: [], error: null }),
   ]);
-  throwIfAborted(signal);
 
   const data = [...(pageData.data ?? []), ...(directData.data ?? [])];
   if ((pageData.error && directData.error) || data.length === 0) return results;
@@ -2279,8 +2229,6 @@ async function prepareCoverageGateResults(args: {
   queryClass: RagQueryClass;
   telemetry: SearchTelemetry;
   metadataCache: DocumentRankingMetadataCache;
-  includeVisualEvidence?: boolean;
-  signal?: AbortSignal;
 }) {
   const startedAt = Date.now();
   const candidates = await attachDocumentRankingMetadata(
@@ -2288,20 +2236,18 @@ async function prepareCoverageGateResults(args: {
     args.candidates,
     args.ownerId,
     args.metadataCache,
-    args.signal,
   );
-  const rankedResults = selectRankedRetrievalResults({
-    query: args.query,
-    queryClass: args.queryClass,
-    candidates,
-    topK: args.topK,
-    maxResultsPerDocument: args.maxResultsPerDocument,
-    telemetry: args.telemetry,
-  });
-  let results =
-    args.includeVisualEvidence === false
-      ? rankedResults
-      : await attachPageVisualEvidence(args.supabase, rankedResults, args.signal);
+  let results = await attachPageVisualEvidence(
+    args.supabase,
+    selectRankedRetrievalResults({
+      query: args.query,
+      queryClass: args.queryClass,
+      candidates,
+      topK: args.topK,
+      maxResultsPerDocument: args.maxResultsPerDocument,
+      telemetry: args.telemetry,
+    }),
+  );
   results = applySecondStageRerankIfNeeded({
     queryClass: args.queryClass,
     results,
@@ -2420,8 +2366,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   }
   const indexingVersionAtRetrievalStart = await cacheIndexingVersion(args, { forceRefresh: true });
   const supabase = createAdminClient();
-  const attachSearchVisualEvidence = (results: SearchResult[]) =>
-    args.lexicalOnly ? Promise.resolve(results) : attachPageVisualEvidence(supabase, results, args.signal);
   // When the provider is source-only (offline mode, or auto mode without a usable key) we must
   // never call OpenAI for embeddings; retrieval falls back to the lexical text-fast-path only.
   const sourceOnlyRetrieval = isSourceOnlyMode();
@@ -2432,7 +2376,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   // owner/query memory cards are fetched at most once per (query, embedding-present, count).
   const memoryCardCache: MemoryCardCache = new Map();
   const documentRankingMetadataCache = createDocumentRankingMetadataCache();
-  const chunkLoadCache = createChunkLoadCache();
   const modeQueryClass = queryClassForClinicalMode(args.queryMode ?? "auto");
   const documentFilterList = args.documentIds?.length
     ? args.documentIds
@@ -2458,8 +2401,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const queryAnalysis = await analyzeQueryWithClassifierFallback(retrievalQuery, analyzeClinicalQuery(retrievalQuery), {
     corpusGrounding: corpusGroundingScope,
     ownerId: args.ownerId,
-    signal: args.signal,
-    skipClassifier: args.lexicalOnly,
   });
   throwIfAborted(args.signal);
   if (modeQueryClass) queryAnalysis.queryClass = modeQueryClass;
@@ -2471,7 +2412,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const telemetry = createSearchTelemetry(retrievalQuery, queryClassification.queryClass);
   if (queryAnalysis.corpusGrounding) telemetry.corpus_grounding = queryAnalysis.corpusGrounding;
 
-  const ragAliases = await fetchEnabledRagAliases(supabase, args.ownerId, args.accessScope, args.signal);
+  const ragAliases = await fetchEnabledRagAliases(supabase, args.ownerId, args.accessScope);
   const ragAliasExpansions = selectRagAliasExpansions(retrievalQuery, ragAliases);
   telemetry.rag_alias_count = ragAliases.length;
   telemetry.rag_alias_expansion_count = ragAliasExpansions.length;
@@ -2511,13 +2452,10 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     // in searchTextChunkCandidates). Only reached for would-be-unsupported queries, so it adds no
     // hot-path cost; `typoCorrected` guards against recursion.
     if (!args.typoCorrected && !sourceOnlyRetrieval) {
-      let correctionQuery = supabase.rpc("correct_clinical_query_terms", {
+      const { data: corrected } = await supabase.rpc("correct_clinical_query_terms", {
         input_query: retrievalQuery,
         min_sim: 0.45,
       });
-      if (args.signal) correctionQuery = correctionQuery.abortSignal(args.signal);
-      const { data: corrected } = await correctionQuery;
-      throwIfAborted(args.signal);
       if (typeof corrected === "string" && corrected && corrected.toLowerCase() !== retrievalQuery.toLowerCase()) {
         return searchChunksWithTelemetry({ ...args, query: corrected, typoCorrected: true });
       }
@@ -2552,7 +2490,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     allowGlobalSearch: args.allowGlobalSearch,
     matchCount: textCandidateCount,
     telemetry,
-    signal: args.signal,
   });
   telemetry.text_candidate_count = textData.length;
   telemetry.text_fast_path_latency_ms = Date.now() - textRpcStartedAt;
@@ -2570,7 +2507,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       textData as SearchResult[],
       args.ownerId,
       documentRankingMetadataCache,
-      args.signal,
     );
     expandedQuery = expandClinicalQueryWithCandidateMetadata(args.query, expandedQuery, textCandidates);
     const baseTextResults = selectRankedRetrievalResults({
@@ -2584,7 +2520,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
 
     const baseTextFastPath = decideTextFastPath(args.query, baseTextResults, queryClassification.queryClass);
     if (!args.forceEmbedding && shouldReturnBeforeMemory(queryClassification.queryClass, baseTextFastPath)) {
-      textFastResults = await attachSearchVisualEvidence(baseTextResults);
+      textFastResults = await attachPageVisualEvidence(supabase, baseTextResults);
       textFastResults = applySecondStageRerankIfNeeded({
         queryClass: queryClassification.queryClass,
         results: textFastResults,
@@ -2608,7 +2544,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       documentIds: documentFilterList,
       matchCount: candidateCount,
       cardCache: memoryCardCache,
-      signal: args.signal,
     });
     telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
     telemetry.memory_top_score = Math.max(
@@ -2626,7 +2561,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       maxResultsPerDocument,
       telemetry,
     });
-    textFastResults = await attachSearchVisualEvidence(textFastResults);
+    textFastResults = await attachPageVisualEvidence(supabase, textFastResults);
     textFastResults = applySecondStageRerankIfNeeded({
       queryClass: queryClassification.queryClass,
       results: textFastResults,
@@ -2661,7 +2596,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       matchCount: Math.min(candidateCount, 48),
       telemetry,
       cache: chunkLoadCache,
-      signal: args.signal,
     });
     const tableFactLatencyMs = Date.now() - tableFactStartedAt;
     telemetry.supabase_rpc_latency_ms += tableFactLatencyMs;
@@ -2685,7 +2619,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       documentIds: documentFilterList,
       matchCount: candidateCount,
       telemetry,
-      signal: args.signal,
     });
     const documentLookupLatencyMs = Date.now() - documentLookupStartedAt;
     telemetry.supabase_rpc_latency_ms += documentLookupLatencyMs;
@@ -2701,7 +2634,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         mergeSearchResults(documentLookupData, textFastResults),
         args.ownerId,
         documentRankingMetadataCache,
-        args.signal,
       );
       expandedQuery = expandClinicalQueryWithCandidateMetadata(args.query, expandedQuery, documentLookupCandidates);
       const memoryBoost = await withMemoryBoostedCandidates({
@@ -2713,7 +2645,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         documentIds: documentFilterList,
         matchCount: candidateCount,
         cardCache: memoryCardCache,
-        signal: args.signal,
       });
       telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
       telemetry.memory_top_score = Math.max(
@@ -2728,7 +2659,8 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
           topScore: Math.max(telemetry.memory_top_score ?? 0, ...memoryBoost.cards.map(memoryCardChunkScore)),
         },
       );
-      let documentLookupResults = await attachSearchVisualEvidence(
+      let documentLookupResults = await attachPageVisualEvidence(
+        supabase,
         selectRankedRetrievalResults({
           query: retrievalQuery,
           queryClass: queryClassification.queryClass,
@@ -2778,8 +2710,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       queryClass: queryClassification.queryClass,
       telemetry,
       metadataCache: documentRankingMetadataCache,
-      includeVisualEvidence: !args.lexicalOnly,
-      signal: args.signal,
     });
     const coverageGate = evaluateEvidenceCoverageGate(args.query, coverageGateResults, queryClassification.queryClass);
     applyCoverageGateTelemetry(telemetry, coverageGate, !args.forceEmbedding && coverageGate.accepted);
@@ -2853,7 +2783,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         matchCount: Math.min(candidateCount, 48),
         telemetry,
         cache: chunkLoadCache,
-        signal: args.signal,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
@@ -2870,7 +2799,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         matchCount: Math.min(candidateCount, 64),
         telemetry,
         cache: chunkLoadCache,
-        signal: args.signal,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
@@ -2888,7 +2816,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
           document_filters: documentFilterList ?? undefined,
           ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
         },
-        args.signal,
       );
       return { data, error, latencyMs: Date.now() - startedAt };
     })(),
@@ -2939,7 +2866,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       merged,
       args.ownerId,
       documentRankingMetadataCache,
-      args.signal,
     );
     const memoryBoost = await withMemoryBoostedCandidates({
       supabase,
@@ -2951,7 +2877,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       documentIds: documentFilterList,
       matchCount: candidateCount,
       cardCache: memoryCardCache,
-      signal: args.signal,
     });
     telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
     telemetry.memory_top_score = Math.max(
@@ -2968,7 +2893,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         maxResultsPerDocument,
         telemetry,
       }),
-      args.signal,
     );
     results = applySecondStageRerankIfNeeded({
       queryClass: queryClassification.queryClass,
@@ -2999,7 +2923,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
           document_filter: documentFilter ?? undefined,
           ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
         },
-        args.signal,
       );
 
       if (error) throw new Error(error.message);
@@ -3027,7 +2950,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     args.forceEmbedding ? fallbackVectorCandidates : mergeSearchResults(fallbackVectorCandidates, textFastResults),
     args.ownerId,
     documentRankingMetadataCache,
-    args.signal,
   );
   const memoryBoost = await withMemoryBoostedCandidates({
     supabase,
@@ -3039,7 +2961,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     documentIds: documentFilterList,
     matchCount: candidateCount,
     cardCache: memoryCardCache,
-    signal: args.signal,
   });
   telemetry.memory_card_count = Math.max(telemetry.memory_card_count ?? 0, memoryBoost.cards.length);
   telemetry.memory_top_score = Math.max(
@@ -3056,7 +2977,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       maxResultsPerDocument,
       telemetry,
     }),
-    args.signal,
   );
   results = applySecondStageRerankIfNeeded({
     queryClass: queryClassification.queryClass,
