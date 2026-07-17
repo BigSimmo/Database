@@ -1,0 +1,4 @@
+interface:
+  display_name: "Operator Closeout"
+  short_description: "Turn operator debt into safe batches"
+  default_prompt: "Use $operator-closeout to inventory pending operator actions, deduplicate them, and prepare a safe approval-gated execution batch."

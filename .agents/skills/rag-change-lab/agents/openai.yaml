@@ -1,0 +1,4 @@
+interface:
+  display_name: "RAG Change Lab"
+  short_description: "Validate retrieval and answer changes"
+  default_prompt: "Use $rag-change-lab to select and run the safe offline checks for this RAG change and prepare any live evaluation approval request."
