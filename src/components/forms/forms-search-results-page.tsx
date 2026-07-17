@@ -174,7 +174,7 @@ function RefineBar({ open, onToggle, panelId }: { open: boolean; onToggle: () =>
       aria-controls={panelId}
       onClick={onToggle}
       className={cn(
-        "inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border px-3.5 text-sm font-extrabold transition",
+        "inline-flex min-h-tap shrink-0 items-center gap-2 rounded-lg border px-3.5 text-sm font-extrabold transition",
         searchFocusRing,
         open
           ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -500,7 +500,7 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
       <Link
         href="/forms"
         className={cn(
-          "mx-auto mt-2 flex min-h-9 w-fit items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+          "mx-auto mt-2 flex min-h-tap w-fit items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
           searchFocusRing,
         )}
       >
@@ -604,7 +604,7 @@ function RegistryStatusNotice({ status }: { status: RegistryRequestStatus }) {
       {notice.action ? (
         <Link
           href={notice.action.href}
-          className="inline-flex min-h-8 items-center justify-center rounded-md bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
+          className="inline-flex min-h-tap items-center justify-center rounded-md bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
         >
           {notice.action.label}
         </Link>

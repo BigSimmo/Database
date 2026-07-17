@@ -1676,7 +1676,7 @@ export function MasterSearchHeader({
             ) : null}
           </div>
 
-          <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
+          <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-2 justify-self-end">
             {isWorkflowHeader ? (
               <>
                 <button

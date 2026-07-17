@@ -328,7 +328,7 @@ export function FormulationBuilderPage({
                           type="button"
                           onClick={() => toggleMechanism(mechanism.id)}
                           aria-label={`Remove ${mechanism.name}`}
-                          className="inline-flex min-h-9 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)]"
+                          className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-heading)]"
                         >
                           <Check className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" aria-hidden />
                           {mechanism.name}
@@ -516,7 +516,7 @@ export function FormulationBuilderPage({
                             <button
                               type="button"
                               onClick={() => applySuggestions(section.id)}
-                              className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)]"
+                              className="inline-flex min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)]"
                             >
                               <Sparkles className="h-3.5 w-3.5" aria-hidden />
                               Use suggestions
@@ -634,7 +634,7 @@ export function FormulationBuilderPage({
                     <button
                       type="button"
                       onClick={() => setEditedDraft(generatedDraft)}
-                      className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-muted)]"
+                      className="inline-flex min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text-muted)]"
                     >
                       <RotateCcw className="h-3.5 w-3.5" aria-hidden />
                       Regenerate
@@ -642,7 +642,7 @@ export function FormulationBuilderPage({
                     <button
                       type="button"
                       onClick={copyDraft}
-                      className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)]"
+                      className="inline-flex min-h-tap items-center gap-1.5 rounded-md bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)]"
                     >
                       <Clipboard className="h-3.5 w-3.5" aria-hidden />
                       {copied ? "Copied" : "Copy draft"}

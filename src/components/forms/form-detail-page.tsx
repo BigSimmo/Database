@@ -532,7 +532,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               type="button"
               onClick={() => setNotice(null)}
               aria-label="Dismiss form notification"
-              className="grid h-8 w-8 place-items-center rounded-md transition hover:bg-[color:var(--surface)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="grid size-tap place-items-center rounded-md transition hover:bg-[color:var(--surface)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               <X className="h-4 w-4" aria-hidden />
             </button>
