@@ -54,6 +54,25 @@ function documentSummaryRateLimitStream(rateLimit: ApiRateLimitResult) {
   return rateLimitJsonResponse("Too many document summary requests. Retry shortly.", rateLimit);
 }
 
+function mergeAbortSignals(signals: Array<AbortSignal | undefined>) {
+  const controller = new AbortController();
+  for (const signal of signals) {
+    if (!signal) continue;
+    if (signal.aborted) {
+      controller.abort(signal.reason);
+      break;
+    }
+    signal.addEventListener(
+      "abort",
+      () => {
+        if (!controller.signal.aborted) controller.abort(signal.reason);
+      },
+      { once: true },
+    );
+  }
+  return controller.signal;
+}
+
 function streamErrorPayload(error: unknown) {
   if (error instanceof PublicApiError) {
     return {
@@ -128,7 +147,12 @@ function buildDemoStreamAnswer(body: AnswerRequestBody, fallbackReason?: string)
   );
 }
 
-function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope, signal?: AbortSignal) {
+function streamAnswer(
+  body: AnswerRequestBody,
+  accessScope: RetrievalAccessScope,
+  signal?: AbortSignal,
+  streamAbortController?: AbortController,
+) {
   const ownerId = accessScope.ownerId;
   const encoder = new TextEncoder();
   const interactionId = randomUUID();
@@ -254,6 +278,9 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
           }
         }
       },
+      cancel() {
+        streamAbortController?.abort();
+      },
     }),
     {
       headers: {
@@ -268,7 +295,9 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
 export async function POST(request: Request) {
   try {
     const body = await parseJsonBody(request, answerRequestSchema, "Invalid answer request.");
-    if (isDemoMode()) return streamAnswer(body, resolveRetrievalAccessScope(), request.signal);
+    const streamAbortController = new AbortController();
+    const streamSignal = mergeAbortSignals([request.signal, streamAbortController.signal]);
+    if (isDemoMode()) return streamAnswer(body, resolveRetrievalAccessScope(), streamSignal, streamAbortController);
 
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
@@ -293,7 +322,7 @@ export async function POST(request: Request) {
       if (rateLimit.limited) return rateLimitStream(rateLimit);
     }
 
-    return streamAnswer(body, resolveRetrievalAccessScope(access.ownerId), request.signal);
+    return streamAnswer(body, resolveRetrievalAccessScope(access.ownerId), streamSignal, streamAbortController);
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse(error);
