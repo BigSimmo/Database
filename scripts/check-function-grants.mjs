@@ -17,7 +17,11 @@
 //   <name> ... from public`. Otherwise it is reported and CI fails.
 //
 // Scope note: SECURITY INVOKER functions run as the caller and stay bound by RLS,
-// so they are out of scope here; this guard targets the escalation surface.
+// so they are out of scope here; this guard targets the escalation surface. It
+// asserts the invariant against the reconciled snapshot (schema.sql is kept in
+// sync with the migration chain by the drift check) and also flags any explicit
+// GRANT of EXECUTE to PUBLIC/anon; asserting live per-migration ACLs by replaying
+// the whole chain is a deeper follow-up.
 import { readFileSync } from "node:fs";
 
 // Defaults to the committed snapshot; an explicit path is accepted for tests.
@@ -87,23 +91,41 @@ function main() {
   let rm;
   while ((rm = revokeRe.exec(sql))) revoked.add(rm[1].toLowerCase());
 
+  // A later explicit GRANT of EXECUTE to PUBLIC/anon re-opens the function even
+  // after a blanket or per-function revoke — this is what a migration adding an
+  // anon-callable RPC looks like in the reconciled snapshot. Any such grant on a
+  // SECURITY DEFINER function is a violation regardless of earlier revokes.
+  const grantAnonRe =
+    /grant\s+(?:execute|all(?:\s+privileges)?)\s+on\s+function\s+(?:public\.)?"?([a-z0-9_]+)"?[^;]*?\bto\b[^;]*?\b(?:public|anon)\b/gi;
+  const grantedToAnon = new Set();
+  let gm;
+  while ((gm = grantAnonRe.exec(sql))) grantedToAnon.add(gm[1].toLowerCase());
+
   let definerCount = 0;
   const vulnerable = [];
   for (const [name, info] of byName) {
     if (!info.isDefiner) continue;
     definerCount += 1;
+    if (ALLOWLIST.has(name)) continue;
+    if (grantedToAnon.has(name)) {
+      vulnerable.push({ name, idx: info.earliestIdx, reason: "explicitly grants EXECUTE to PUBLIC/anon" });
+      continue;
+    }
     if (coveredByBlanket(info.earliestIdx)) continue;
     if (revoked.has(name)) continue;
-    if (ALLOWLIST.has(name)) continue;
-    vulnerable.push({ name, idx: info.earliestIdx });
+    vulnerable.push({
+      name,
+      idx: info.earliestIdx,
+      reason: "defined after the blanket revoke with no explicit per-function revoke",
+    });
   }
 
   if (vulnerable.length > 0) {
     vulnerable.sort((a, b) => a.idx - b.idx);
     console.error(
       `check:function-grants: FAIL — ${vulnerable.length} SECURITY DEFINER function(s) in ${SCHEMA_PATH} are executable ` +
-        `by PUBLIC/anon (defined after the last blanket revoke with no explicit per-function revoke):\n` +
-        vulnerable.map((v) => `  - public.${v.name}  (schema.sql:${v.idx + 1})`).join("\n") +
+        `by PUBLIC/anon:\n` +
+        vulnerable.map((v) => `  - public.${v.name}  (schema.sql:${v.idx + 1}) — ${v.reason}`).join("\n") +
         `\n\nFix: add \`revoke execute on function public.<name>(<args>) from public, anon, authenticated;\` (and grant ` +
         `execute only to the intended role, e.g. service_role) in the migration that defines it, then reconcile ` +
         `schema.sql. If genuinely safe, allowlist it with a reason in scripts/check-function-grants.mjs.`,

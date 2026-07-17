@@ -542,12 +542,14 @@ async function commitDocumentIndexGeneration(args: {
     p_quality: sanitizeJsonbRecord(args.quality),
   });
   if (!error) return;
-  // Fresh/preview envs may not have the fenced commit RPC yet. Only a genuine
-  // "missing function" error falls back to the client-side commit (Audit M13
-  // preservation rule); every real commit error still fails the stage loudly.
-  if (!isMissingSchemaError(error)) {
-    throw supabaseStageError("commit_document_index_generation", error);
-  }
+  // Fail CLOSED on any commit error, including a missing commit RPC (a
+  // fresh/preview env that has not applied migrations). The client-side path
+  // below cannot fully reproduce the RPC — which also flips documents.status to
+  // indexed, updates counts, and replaces document_pages — so running it as a
+  // fallback would leave the document in `processing` with no pages while its
+  // job reports completed. Surfacing the error is safer than a half-indexed
+  // commit; a complete client-side fallback is tracked separately.
+  throw supabaseStageError("commit_document_index_generation", error);
   await upsertIndexQuality(args.quality);
   await deleteStaleIndexGenerationRows(args.documentId, args.indexGenerationId);
 }

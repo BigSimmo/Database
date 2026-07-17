@@ -68,6 +68,24 @@ describe("check:function-grants", () => {
     expect(result.code).toBe(0);
   });
 
+  it("fails a SECURITY DEFINER function explicitly granted EXECUTE to anon (even after a revoke)", () => {
+    const file = fixture(
+      "reopened.sql",
+      [
+        BLANKET,
+        "create function public.reopened(p_owner uuid)",
+        "returns jsonb language plpgsql security definer set search_path = '' as $$",
+        "begin return '{}'::jsonb; end;",
+        "$$;",
+        "revoke all on function public.reopened(uuid) from public, anon, authenticated;",
+        "grant execute on function public.reopened(uuid) to anon;",
+      ].join("\n"),
+    );
+    const result = run(file);
+    expect(result.code).toBe(1);
+    expect(result.out).toContain("public.reopened");
+  });
+
   it("ignores SECURITY INVOKER functions (bound by RLS, not an escalation surface)", () => {
     const file = fixture(
       "invoker.sql",
