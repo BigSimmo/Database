@@ -101,12 +101,12 @@ export function AnswerEmptyState({
               light text links (not pills) with a hairline divider — this also
               breaks the visual repetition of stacked equal-weight chip rows. */}
           <div className="answer-quick-actions" role="group" aria-label={answerEmptyState.quickActionsLabel}>
-            <button type="button" className="answer-quick-action" onClick={onSearchDocuments}>
+            <button type="button" className="answer-quick-action min-h-tap sm:min-h-7" onClick={onSearchDocuments}>
               <Search className="answer-quick-action-icon" aria-hidden="true" />
               {answerEmptyState.starters.searchDocuments.title}
             </button>
             <span className="answer-quick-action-divider" aria-hidden="true" />
-            <button type="button" className="answer-quick-action" onClick={onUploadDocument}>
+            <button type="button" className="answer-quick-action min-h-tap sm:min-h-7" onClick={onUploadDocument}>
               <Upload className="answer-quick-action-icon" aria-hidden="true" />
               {answerEmptyState.starters.uploadDocument.title}
             </button>
