@@ -128,9 +128,10 @@ export function SheetsScreen() {
               </span>
               <button
                 type="button"
+                role="switch"
                 onClick={b.toggleClinician}
-                aria-pressed={b.sheetClinician}
-                aria-label="Toggle clinician footer"
+                aria-checked={b.sheetClinician}
+                aria-label="Show clinician footer"
                 style={b.clinicianTrack}
               >
                 <span style={b.clinicianKnob} />

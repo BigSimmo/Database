@@ -984,6 +984,76 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("global-search-input")).toBeEnabled();
   });
 
+  test("mobile search focus is singular, visible, and contained at clipped edges", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/?mode=answer");
+    await waitForDemoDashboardReady(page);
+
+    const universalInput = visibleQuestionInput(page);
+    const restingPillBorder = await universalInput.evaluate((element) => {
+      const pill = element.closest(".answer-footer-search-pill");
+      return pill ? getComputedStyle(pill).borderColor : null;
+    });
+    await universalInput.focus();
+    const universalFocus = await universalInput.evaluate((element) => {
+      const inputStyle = getComputedStyle(element);
+      const pill = element.closest(".answer-footer-search-pill");
+      const pillStyle = pill ? getComputedStyle(pill) : null;
+      return {
+        inputOutline: inputStyle.outlineStyle,
+        inputShadow: inputStyle.boxShadow,
+        pillBorder: pillStyle?.borderColor ?? null,
+        pillShadow: pillStyle?.boxShadow ?? null,
+      };
+    });
+    expect(universalFocus.inputOutline).toBe("none");
+    expect(universalFocus.inputShadow).toBe("none");
+    expect(universalFocus.pillBorder).not.toBe(restingPillBorder);
+    expect(universalFocus.pillShadow).not.toBe("none");
+
+    const menu = await openMobileClinicalGuideMenu(page);
+    const closeMenu = menu.getByRole("button", { name: "Close Clinical Guide menu" });
+    const newChat = menu.getByRole("button", { name: "New chat" });
+    const restingButtonShadow = await newChat.evaluate((element) => getComputedStyle(element).boxShadow);
+    await closeMenu.focus();
+    await page.keyboard.press("Tab");
+    await expect(newChat).toBeFocused();
+    const buttonFocus = await newChat.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { outlineStyle: style.outlineStyle, boxShadow: style.boxShadow };
+    });
+    expect(buttonFocus.outlineStyle).toBe("solid");
+    expect(buttonFocus.boxShadow).toBe(restingButtonShadow);
+
+    const chatSearch = menu.getByRole("searchbox", { name: "Search recent chats" });
+    await chatSearch.focus();
+    const fieldFocus = await chatSearch.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      const outlineWidth = Number.parseFloat(style.outlineWidth);
+      const outlineOffset = Number.parseFloat(style.outlineOffset);
+      return {
+        outlineStyle: style.outlineStyle,
+        outlineWidth,
+        outlineOffset,
+        paintedTop: rect.top - outlineOffset - outlineWidth,
+        paintedRight: rect.right + outlineOffset + outlineWidth,
+        paintedBottom: rect.bottom + outlineOffset + outlineWidth,
+        paintedLeft: rect.left - outlineOffset - outlineWidth,
+        rect: { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left },
+      };
+    });
+    expect(fieldFocus.outlineStyle).toBe("solid");
+    expect(fieldFocus.outlineWidth).toBeGreaterThanOrEqual(2);
+    expect(fieldFocus.outlineOffset).toBeLessThan(0);
+    expect(fieldFocus.paintedTop).toBeGreaterThanOrEqual(fieldFocus.rect.top);
+    expect(fieldFocus.paintedRight).toBeLessThanOrEqual(fieldFocus.rect.right);
+    expect(fieldFocus.paintedBottom).toBeLessThanOrEqual(fieldFocus.rect.bottom);
+    expect(fieldFocus.paintedLeft).toBeGreaterThanOrEqual(fieldFocus.rect.left);
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("desktop sidebar defaults to the labelled state for new users", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
@@ -2608,6 +2678,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const workspace = page.getByTestId("favourites-item-workspace");
     await expect(workspace).toBeVisible();
     await expect(workspace.getByRole("heading", { name: "Acamprosate renal screen", level: 3 })).toBeVisible();
+  });
+
+  test("mobile favourite cards keep selection and actions as independent touch controls", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 820 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/favourites");
+
+    const card = page.getByTestId("favourite-mobile-card-acamprosate-renal-screen");
+    const selectCard = card.getByRole("button", { name: "Select Acamprosate renal screen" });
+    const openItem = card.getByRole("link", { name: "Open", exact: true });
+    const moreActions = card.getByRole("button", { name: "More actions for Acamprosate renal screen" });
+
+    await expect(card).toBeVisible();
+    await expect(selectCard).toHaveAttribute("aria-pressed", "false");
+    await expectMinTouchTarget(selectCard);
+    await expectMinTouchTarget(openItem);
+    await expectMinTouchTarget(moreActions);
+
+    await selectCard.click();
+    await expect(selectCard).toHaveAttribute("aria-pressed", "true");
+    await expect(openItem).toBeVisible();
+    await expect(moreActions).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("app mode menu supports keyboard navigation without removed prototype modes", async ({ page }) => {

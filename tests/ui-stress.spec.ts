@@ -1,5 +1,6 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Page } from "playwright/test";
+import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 
 const longTitle =
   "Extremely long synthetic shared-care guideline title covering lithium clozapine perinatal risk ADHD medication review emergency escalation and outpatient monitoring pathways";
@@ -201,6 +202,61 @@ async function mockStressData(page: Page) {
   });
 }
 
+async function mockMedicationStressData(page: Page) {
+  await mockStressData(page);
+
+  const records = loadMedicationSnapshot();
+  const orderedRecords = [
+    ...records.filter((record) => record.slug === "acamprosate"),
+    ...records.filter((record) => record.slug !== "acamprosate"),
+  ].slice(0, 12);
+
+  await page.route(/\/api\/medications(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      json: {
+        records,
+        matches: orderedRecords.map((medication, index) => ({
+          medication,
+          result: {
+            id: medication.slug,
+            name: medication.name,
+            indication: `${medication.subclass || medication.category} with deliberately extended indication text for narrow-screen wrapping`,
+            match: index === 0 ? "Exact clinical fit" : "Related match",
+            dose: "Initial and maintenance dosing with a deliberately extended regimen that must wrap without widening the viewport",
+            ceiling: "Maximum recommended dose with renal and hepatic adjustment",
+            action:
+              "Review contraindications, renal function, hepatic function, interactions, pregnancy status, monitoring requirements, and follow-up before prescribing.",
+            actionTone: index % 2 === 0 ? "danger" : "warning",
+            tone: index === 0 ? "teal" : "slate",
+            href: `/medications/${medication.slug}`,
+          },
+          score: 100 - index,
+          reasons: ["Responsive stress fixture"],
+        })),
+        total: records.length,
+        governance: {},
+        demoMode: true,
+      },
+    });
+  });
+  await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+    const query = new URL(route.request().url()).searchParams.get("q")?.trim() ?? "";
+    await route.fulfill({ json: { query, groups: [], tookMs: 0, domainOrder: [], demoMode: true } });
+  });
+
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    if (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      !["localhost", "127.0.0.1", "::1"].includes(url.hostname)
+    ) {
+      await route.abort("blockedbyclient");
+      return;
+    }
+    await route.fallback();
+  });
+}
+
 async function expectNoPageHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() => {
     const documentWidth = Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0);
@@ -371,4 +427,98 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await expectNoPageHorizontalOverflow(page);
     });
   }
+});
+
+test.describe("Medication responsive stress coverage", () => {
+  test("full-bleed phone rows and tablet cards remain safe across breakpoint boundaries", async ({ page }) => {
+    test.setTimeout(90_000);
+    await mockMedicationStressData(page);
+    await page.setViewportSize({ width: 320, height: 720 });
+    await page.goto("/?mode=prescribing&q=acamprosate%20renal%20dose&run=1", { waitUntil: "domcontentloaded" });
+
+    const phoneResult = page.getByTestId("medication-result-acamprosate-phone");
+    const desktopResult = page.getByTestId("medication-result-acamprosate-desktop");
+    await expect(phoneResult).toBeVisible({ timeout: 30_000 });
+    await expect(phoneResult).toHaveAttribute("data-selected", "true");
+
+    const viewports = [
+      { width: 320, height: 720 },
+      { width: 390, height: 844 },
+      { width: 639, height: 820 },
+      { width: 640, height: 820 },
+      { width: 768, height: 1024 },
+      { width: 1024, height: 900 },
+      { width: 1440, height: 920 },
+      { width: 1920, height: 1080 },
+    ] as const;
+
+    for (const viewport of viewports) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(
+        () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+      );
+      await expectNoPageHorizontalOverflow(page);
+
+      if (viewport.width < 1024) {
+        await expect(phoneResult).toBeVisible();
+        await expect(desktopResult).toBeHidden();
+
+        const metrics = await page.evaluate(() => {
+          const workspace = document.querySelector<HTMLElement>(".medication-results-workspace");
+          const patient = document.querySelector<HTMLElement>(".medication-patient-strip");
+          const filters = document.querySelector<HTMLElement>(".medication-filter-strip");
+          const card = document.querySelector<HTMLElement>('[data-testid="medication-result-acamprosate-phone"]');
+          const firstFilter = filters?.querySelector<HTMLElement>("button");
+          if (!workspace || !patient || !filters || !card || !firstFilter) return null;
+          const workspaceRect = workspace.getBoundingClientRect();
+          const patientRect = patient.getBoundingClientRect();
+          const cardRect = card.getBoundingClientRect();
+          const filterRect = firstFilter.getBoundingClientRect();
+          const cardStyle = getComputedStyle(card);
+          return {
+            workspaceLeft: workspaceRect.left,
+            workspaceRight: workspaceRect.right,
+            patientLeft: patientRect.left,
+            patientRight: patientRect.right,
+            cardLeft: cardRect.left,
+            cardRight: cardRect.right,
+            cardPaddingLeft: Number.parseFloat(cardStyle.paddingLeft),
+            cardPaddingRight: Number.parseFloat(cardStyle.paddingRight),
+            filterLeft: filterRect.left,
+            filterHeight: filterRect.height,
+          };
+        });
+        expect(metrics).not.toBeNull();
+        expect(metrics?.filterHeight ?? 0).toBeGreaterThanOrEqual(42);
+
+        if (viewport.width <= 639) {
+          expect(Math.abs(metrics?.workspaceLeft ?? Number.POSITIVE_INFINITY)).toBeLessThanOrEqual(1);
+          expect(Math.abs((metrics?.workspaceRight ?? 0) - viewport.width)).toBeLessThanOrEqual(1);
+          expect(Math.abs(metrics?.patientLeft ?? Number.POSITIVE_INFINITY)).toBeLessThanOrEqual(1);
+          expect(Math.abs((metrics?.patientRight ?? 0) - viewport.width)).toBeLessThanOrEqual(1);
+          expect(Math.abs(metrics?.cardLeft ?? Number.POSITIVE_INFINITY)).toBeLessThanOrEqual(1);
+          expect(Math.abs((metrics?.cardRight ?? 0) - viewport.width)).toBeLessThanOrEqual(1);
+          expect(metrics?.cardPaddingLeft ?? 0).toBeGreaterThanOrEqual(15);
+          expect(metrics?.cardPaddingRight ?? 0).toBeGreaterThanOrEqual(15);
+          expect(metrics?.filterLeft ?? 0).toBeGreaterThanOrEqual(15);
+        } else {
+          expect(metrics?.cardLeft ?? 0).toBeGreaterThanOrEqual(12);
+          expect((metrics?.cardRight ?? viewport.width) + 12).toBeLessThanOrEqual(viewport.width);
+        }
+      } else {
+        await expect(desktopResult).toBeVisible();
+        await expect(phoneResult).toBeHidden();
+      }
+    }
+
+    await page.setViewportSize({ width: 320, height: 720 });
+    const scrollGeometry = await page.locator("main#main-content").evaluate((main) => ({
+      clientHeight: main.clientHeight,
+      scrollHeight: main.scrollHeight,
+      pageHeight: document.documentElement.scrollHeight,
+      viewportHeight: document.documentElement.clientHeight,
+    }));
+    expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight);
+    expect(scrollGeometry.pageHeight - scrollGeometry.viewportHeight).toBeLessThanOrEqual(2);
+  });
 });
