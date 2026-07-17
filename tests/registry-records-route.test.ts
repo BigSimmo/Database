@@ -429,6 +429,10 @@ describe("registry records API", () => {
               kind: "form",
               slug: "transport-crisis-form",
               title: "Owner title override",
+              status_chips: null,
+              contacts: null,
+              summary_cards: null,
+              criteria: null,
               catalog_payload: {},
             }),
           ])
@@ -439,12 +443,24 @@ describe("registry records API", () => {
 
     const response = await GET(authedRequest("/api/registry/records?kind=form"));
     const payload = (await response.json()) as {
-      records: Array<{ slug: string; title: string; catalogPayload?: { availability?: string } }>;
+      records: Array<{
+        slug: string;
+        title: string;
+        statusChips?: unknown[];
+        contacts?: unknown[];
+        summaryCards?: unknown[];
+        criteria?: unknown[];
+        catalogPayload?: { availability?: string };
+      }>;
     };
     const record = payload.records.find((candidate) => candidate.slug === "transport-crisis-form");
 
     expect(response.status).toBe(200);
     expect(record?.title).toBe("Owner title override");
+    expect(record?.statusChips?.length).toBeGreaterThan(0);
+    expect(record?.contacts?.length).toBeGreaterThan(0);
+    expect(record?.summaryCards?.length).toBeGreaterThan(0);
+    expect(record?.criteria?.length).toBeGreaterThan(0);
     expect(record?.catalogPayload?.availability).toBe("downloadable");
     expect(client.calls.some((call) => call.upsert)).toBe(false);
   });

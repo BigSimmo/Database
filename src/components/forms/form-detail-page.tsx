@@ -611,11 +611,13 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   </button>
                   <button
                     type="button"
+                    disabled={!form.source?.url}
                     onClick={() => {
                       if (form.source?.url) window.open(form.source.url, "_blank", "noopener,noreferrer");
                     }}
-                    aria-label="Open official source for this form"
-                    className="hidden min-h-11 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex"
+                    aria-label={form.source?.url ? "Open official source for this form" : "Official source unavailable"}
+                    title={form.source?.url ? undefined : "Official source unavailable"}
+                    className="hidden min-h-11 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition enabled:hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
                   >
                     <FileText className="h-4 w-4" aria-hidden />
                     <span>Source</span>

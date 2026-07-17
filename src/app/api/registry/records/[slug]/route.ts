@@ -14,10 +14,9 @@ import {
   deriveGovernanceColumns,
   normalizeRegistrySlug,
   rowGovernance,
-  rowToServiceRecord,
   type RegistryRecordRow,
 } from "@/lib/registry-records";
-import { mergeRegistryRecordsWithDefaults } from "@/lib/registry-seed";
+import { mergeRegistryRecordWithDefault } from "@/lib/registry-seed";
 import { getServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -129,10 +128,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       linkedDocuments = (documents ?? []) as typeof linkedDocuments;
     }
 
-    const record =
-      mergeRegistryRecordsWithDefaults(kind, [row]).find(
-        (candidate) => normalizeRegistrySlug(candidate.slug) === normalizedSlug,
-      ) ?? rowToServiceRecord(row);
+    const record = mergeRegistryRecordWithDefault(kind, row);
 
     return registryResponse({
       record,

@@ -45,31 +45,71 @@ export function mergeRegistryRecordsWithDefaults(
   ownerRows: RegistryRecordRow[],
 ): ServiceRecord[] {
   const defaults = defaultRegistryRecords(kind);
-  const ownerRecords = ownerRows.map(rowToServiceRecord);
-  const ownerBySlug = new Map(ownerRecords.map((record) => [normalizeRegistrySlug(record.slug), record] as const));
+  const ownerBySlug = new Map(ownerRows.map((row) => [normalizeRegistrySlug(row.slug), row] as const));
   const defaultSlugs = new Set(defaults.map((record) => normalizeRegistrySlug(record.slug)));
   const merged = defaults.map((record) => {
-    const ownerRecord = ownerBySlug.get(normalizeRegistrySlug(record.slug));
-    if (!ownerRecord) return record;
-    // Database nulls become undefined in rowToServiceRecord. They should not
-    // erase reviewed baseline fields for every viewer; explicit arrays and
-    // strings still override normally.
-    const definedOwnerRecord = Object.fromEntries(
-      Object.entries(ownerRecord).filter(([, value]) => value !== undefined),
-    ) as Partial<ServiceRecord>;
-    return {
-      ...record,
-      ...definedOwnerRecord,
-      catalogPayload: {
-        ...(record.catalogPayload ?? {}),
-        ...(ownerRecord.catalogPayload ?? {}),
-      },
-    };
+    const ownerRow = ownerBySlug.get(normalizeRegistrySlug(record.slug));
+    return ownerRow ? mergeRegistryRecordWithDefault(kind, ownerRow) : record;
   });
-  const ownerAdditions = ownerRecords
-    .filter((record) => !defaultSlugs.has(normalizeRegistrySlug(record.slug)))
+  const ownerAdditions = ownerRows
+    .filter((row) => !defaultSlugs.has(normalizeRegistrySlug(row.slug)))
+    .map(rowToServiceRecord)
     .sort((left, right) => left.title.localeCompare(right.title));
   return [...merged, ...ownerAdditions];
+}
+
+/** Merge one owner row over its shared baseline using the raw database nulls.
+ *  A null means the owner has not supplied that field, while explicit empty
+ *  arrays remain valid overrides. Structured objects are merged so partial
+ *  owner metadata cannot hide reviewed source/catalogue fields. */
+export function mergeRegistryRecordWithDefault(kind: RegistryRecordKind, row: RegistryRecordRow): ServiceRecord {
+  const ownerRecord = rowToServiceRecord(row);
+  const baseline = defaultRegistryRecords(kind).find(
+    (record) => normalizeRegistrySlug(record.slug) === normalizeRegistrySlug(row.slug),
+  );
+  if (!baseline) return ownerRecord;
+
+  const merged: ServiceRecord = { ...baseline, slug: ownerRecord.slug, title: ownerRecord.title };
+  const apply = <Key extends keyof ServiceRecord>(key: Key, value: ServiceRecord[Key], stored: unknown) => {
+    if (stored !== null) merged[key] = value;
+  };
+
+  apply("subtitle", ownerRecord.subtitle, row.subtitle);
+  apply("statusChips", ownerRecord.statusChips, row.status_chips);
+  apply("contacts", ownerRecord.contacts, row.contacts);
+  apply("route", ownerRecord.route, row.route);
+  apply("eligibility", ownerRecord.eligibility, row.eligibility);
+  apply("cost", ownerRecord.cost, row.cost);
+  apply("referral", ownerRecord.referral, row.referral);
+  apply("location", ownerRecord.location, row.location);
+  apply("summaryCards", ownerRecord.summaryCards, row.summary_cards);
+  apply("referralInfo", ownerRecord.referralInfo, row.referral_info);
+  apply("bestUse", ownerRecord.bestUse, row.best_use);
+  apply("criteria", ownerRecord.criteria, row.criteria);
+  apply("tags", ownerRecord.tags, row.tags);
+  apply("catchments", ownerRecord.catchments, row.catchments);
+  apply("catalogueLabel", ownerRecord.catalogueLabel, row.catalogue_label);
+  apply("navigatorQuery", ownerRecord.navigatorQuery, row.navigator_query);
+
+  if (row.primary_contact !== null) {
+    merged.primaryContact = {
+      ...(baseline.primaryContact ?? {}),
+      ...(ownerRecord.primaryContact ?? {}),
+    } as NonNullable<ServiceRecord["primaryContact"]>;
+  }
+  if (row.verification !== null) {
+    merged.verification = { ...(baseline.verification ?? {}), ...(ownerRecord.verification ?? {}) };
+  }
+  if (row.source !== null) {
+    merged.source = { ...(baseline.source ?? {}), ...(ownerRecord.source ?? {}) } as NonNullable<
+      ServiceRecord["source"]
+    >;
+  }
+  if (row.catalog_payload !== null) {
+    merged.catalogPayload = { ...(baseline.catalogPayload ?? {}), ...(ownerRecord.catalogPayload ?? {}) };
+  }
+
+  return merged;
 }
 
 export function mergeRegistryGovernanceWithDefaults(kind: RegistryRecordKind, ownerRows: RegistryRecordRow[]) {

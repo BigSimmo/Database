@@ -1,4 +1,5 @@
-import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -49,11 +50,13 @@ describe("psychiatry form records", () => {
     const downloadable = formRecords.map(formCatalogDetails).filter((entry) => entry?.availability === "downloadable");
     for (const details of downloadable) {
       expect(details?.localPdfPath, details?.form).toBeTruthy();
-      expect(existsSync(join(process.cwd(), "public", details!.localPdfPath!.replace(/^\//, ""))), details?.form).toBe(
-        true,
-      );
+      const pdfPath = join(process.cwd(), "public", details!.localPdfPath!.replace(/^\//, ""));
+      expect(existsSync(pdfPath), details?.form).toBe(true);
       expect(details?.officialPdfUrl, details?.form).toMatch(/^https:\/\/www\.chiefpsychiatrist\.wa\.gov\.au\//);
       expect(details?.localPdfSha256, details?.form).toMatch(/^[a-f0-9]{64}$/);
+      expect(createHash("sha256").update(readFileSync(pdfPath)).digest("hex"), details?.form).toBe(
+        details?.localPdfSha256,
+      );
       expect(details?.localPdfBytes, details?.form).toBeGreaterThan(10_000);
       expect(details?.officialPdfPasswordProtected, details?.form).toBe(true);
     }

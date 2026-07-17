@@ -125,8 +125,8 @@ export function FormsHomePage() {
           hasRegistryRecords ? (
             <ModeHomeVerificationFooter
               icon={ShieldCheck}
-              label="Governance reviewed"
-              body="Official-source MHA 2014 forms"
+              label="Source catalogue reviewed"
+              body="Official-source MHA 2014 forms · verify before use"
               verifiedCount={verifiedCount}
               totalCount={registry.total}
             />
