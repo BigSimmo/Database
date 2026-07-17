@@ -94,7 +94,10 @@ function sampleSearchResult() {
   };
 }
 
-function mockRuntime(options: { demoMode?: boolean } = {}) {
+function mockRuntime(options: {
+  demoMode?: boolean;
+  answerQuestionWithScope?: (args: Record<string, unknown>) => Promise<unknown>;
+} = {}) {
   vi.resetModules();
 
   class MockAuthenticationError extends Error {
@@ -146,13 +149,16 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
       rrf_top_score: 0.03,
     },
   }));
-  const answerQuestionWithScope = vi.fn(async () => ({
-    answer: "Source-backed answer.",
-    grounded: true,
-    confidence: "high",
-    citations: [],
-    sources: [],
-  }));
+  const answerQuestionWithScope = vi.fn(
+    options.answerQuestionWithScope ??
+      (async () => ({
+        answer: "Source-backed answer.",
+        grounded: true,
+        confidence: "high",
+        citations: [],
+        sources: [],
+      })),
+  );
   const fetchRelatedDocuments = vi.fn(async () => []);
   const demoSearch = vi.fn(() => []);
   const demoAnswer = vi.fn(() => ({
@@ -425,6 +431,35 @@ describe("private RAG API access", () => {
     expect(mocks.answerQuestionWithScope).toHaveBeenCalledWith(
       expect.objectContaining({ ownerId, query: "clozapine monitoring" }),
     );
+  });
+
+  it("aborts retrieval and generation when the SSE consumer cancels the response body", async () => {
+    let generationSignal: AbortSignal | undefined;
+    let resolveStarted: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      resolveStarted = resolve;
+    });
+    const mocks = mockRuntime({
+      answerQuestionWithScope: async (args) => {
+        generationSignal = args.signal as AbortSignal;
+        resolveStarted?.();
+        await new Promise<never>((_resolve, reject) => {
+          generationSignal?.addEventListener("abort", () => reject(generationSignal?.reason), { once: true });
+        });
+      },
+    });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(jsonRequest("/api/answer/stream", { query: "clozapine monitoring" }));
+    const reader = response.body?.getReader();
+    expect(reader).toBeDefined();
+    await reader?.read();
+    await started;
+
+    await reader?.cancel("client navigated away");
+
+    expect(generationSignal?.aborted).toBe(true);
+    expect(mocks.answerQuestionWithScope).toHaveBeenCalledTimes(1);
   });
 
   it("silently strips legacy public skipCache from streamed answer requests", async () => {

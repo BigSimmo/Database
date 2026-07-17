@@ -131,6 +131,19 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
   const ownerId = accessScope.ownerId;
   const encoder = new TextEncoder();
   const interactionId = randomUUID();
+  // A Request signal is normally aborted when the HTTP client disconnects, but
+  // a ReadableStream consumer can also cancel its body independently. Combine
+  // both paths so retrieval and generation never continue after either kind of
+  // cancellation (and do not emit a misleading SSE error after cancellation).
+  const streamAbortController = new AbortController();
+  const abortFromRequest = () => {
+    if (!streamAbortController.signal.aborted) {
+      streamAbortController.abort(signal?.reason ?? new DOMException("The request was aborted.", "AbortError"));
+    }
+  };
+  if (signal?.aborted) abortFromRequest();
+  else signal?.addEventListener("abort", abortFromRequest, { once: true });
+  const streamSignal = streamAbortController.signal;
 
   return new Response(
     new ReadableStream({
@@ -202,7 +215,7 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
           }
           const answer =
             body.summaryMode && body.documentId
-              ? await summarizeDocument(body.documentId, ownerId, { signal })
+              ? await summarizeDocument(body.documentId, ownerId, { signal: streamSignal })
               : await answerQuestionWithScope({
                   query: body.query,
                   documentId: singleDocumentScope ? body.documentId : undefined,
@@ -214,7 +227,7 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
                   allowGlobalSearch: !ownerId,
                   queryMode: body.queryMode,
                   onProgress,
-                  signal,
+                  signal: streamSignal,
                 });
           const governedResponse = buildGovernedAnswerClientResponse(answer);
 
@@ -239,11 +252,17 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
             sendFinal({ ...buildDemoStreamAnswer(body, fallbackReason), interactionId });
             return;
           }
-          logStreamError(error, signal);
+          // Cancellation is a terminal client state, not an SSE failure. In
+          // particular, never enqueue an error after the client has cancelled
+          // the body: it can race with a new attempt and appear as a duplicate
+          // visible failure in the browser.
+          if (streamSignal.aborted) return;
+          logStreamError(error, streamSignal);
           const streamError = streamErrorPayload(error);
           send("error", { error: streamError.message, status: streamError.status, details: streamError.details });
         } finally {
           stopHeartbeat();
+          signal?.removeEventListener("abort", abortFromRequest);
           // The client may have already cancelled the stream (Stop button /
           // watchdog abort), in which case close() throws on a closed stream.
           try {
@@ -251,6 +270,11 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
           } catch {
             // Stream already closed or cancelled — nothing left to release.
           }
+        }
+      },
+      cancel(reason) {
+        if (!streamSignal.aborted) {
+          streamAbortController.abort(reason ?? new DOMException("The stream was cancelled.", "AbortError"));
         }
       },
     }),
