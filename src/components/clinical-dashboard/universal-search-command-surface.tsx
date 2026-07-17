@@ -25,6 +25,7 @@ import {
   commandDropdownMinimumWidthMediaQuery,
   commandDropdownPointerMediaQuery,
   differentialRedFlagTerms,
+  commandDropdownDisplayMediaQuery,
   filteredSuggestions,
   isFormCodeQuery,
   searchCommandSurfaceConfig,

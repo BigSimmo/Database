@@ -813,13 +813,13 @@ export function ClinicalDashboard({
   }, [answerThreadOwnerId, authStatus]);
   const uploadReadOnlyMode =
     demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || browserAuthUnavailableDemoFallback;
-  const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
   const canUsePublicSearchApis = localProjectReady && hasReadyPublicSearchSetup(setupChecks);
   const canUseDegradedLocalSearchApis =
     process.env.NODE_ENV !== "production" && localProjectReady && hasReadyRequiredPublicSearchConfig(setupChecks);
   const canUseNonProductionDemoFallback = localProjectReady && hasNonProductionSupabaseApiKeyFallback(setupChecks);
-  const canUsePrivateApis =
-    localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
+  // Local/demo guests can read the public library, but ingestion state and
+  // document-management mutations still require an authenticated session.
+  const canUsePrivateApis = localProjectReady && authStatus === "authenticated";
   const canUploadDocuments = canUsePrivateApis || (publicUploadsEnabled() && canUsePublicSearchApis);
   const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
   const canRunSearch =
@@ -902,11 +902,6 @@ export function ClinicalDashboard({
     },
     [closeDashboardTransientSurfaces],
   );
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(prefetchApplications, 250);
-    return () => window.clearTimeout(timeoutId);
-  }, [prefetchApplications]);
 
   // The dashboard renders directly on "/" without the standalone search shell,
   // so it must purge the legacy unscoped recent-queries key too (2026-07-13
@@ -1014,6 +1009,7 @@ export function ClinicalDashboard({
         const includeDashboardData = options.includeDashboardData ?? true;
         const includeDocumentMeta = options.includeDocumentMeta ?? true;
         let nextDemoMode = clientDemoMode;
+        let serverDemoMode = demoMode;
         let routeIndexingActive = false;
         let routePollDelayMs: number | null = null;
 
@@ -1055,10 +1051,11 @@ export function ClinicalDashboard({
           } else if (setupResponse.ok) {
             const payload = (await setupResponse.json()) as SetupStatusPayload;
             setSetupChecks(payload.checks ?? fallbackSetupChecks);
-            nextDemoMode = Boolean(payload.demoMode);
+            serverDemoMode = Boolean(payload.demoMode);
+            nextDemoMode ||= serverDemoMode;
             routeIndexingActive = Boolean(payload.indexingActive);
             routePollDelayMs = shorterPollDelay(routePollDelayMs, payload.pollAfterMs);
-            if (nextDemoMode) setDemoMode(true);
+            if (serverDemoMode) setDemoMode(true);
           } else if (isDeployedClinicalKb()) {
             setSetupWarning("Setup status could not be loaded. You can still try search.");
           } else {
@@ -1091,7 +1088,10 @@ export function ClinicalDashboard({
         }
 
         const now = Date.now();
-        const shouldRefreshWorkState = now >= nextWorkStatePollRef.current;
+        // The server only exposes ingestion work-state without a user session
+        // when it is itself in demo mode. A browser-only/local demo flag must
+        // not turn protected ingestion routes into anonymous polling targets.
+        const shouldRefreshWorkState = (canUsePrivateApis || serverDemoMode) && now >= nextWorkStatePollRef.current;
         if (shouldRefreshWorkState) nextWorkStatePollRef.current = now + indexingWorkDetailsPollMs;
 
         const [documentsResponse, jobsResponse, batchesResponse, qualityResponse] = await Promise.all([
@@ -1199,6 +1199,7 @@ export function ClinicalDashboard({
       authorizationHeader,
       canUsePrivateApis,
       clientDemoMode,
+      demoMode,
       isAuthEpochCurrent,
       markSessionExpired,
       registerAuthRequest,
@@ -3400,7 +3401,7 @@ export function ClinicalDashboard({
                 : "mb-0",
           )}
         >
-          <h1 className="sr-only">Clinical Guide</h1>
+          <h1 className="sr-only">Clinical KB</h1>
           {privateScopeStatus === "unavailable" ? (
             // Lives inside <main> (not as a header sibling): in the answer view
             // the header is absolute, so a sibling alert would reflow to the

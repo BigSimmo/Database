@@ -62,29 +62,6 @@ function serviceChipLabel(chip: ServiceStatusChip) {
   return label;
 }
 
-function metricCounts(records: ServiceRecord[]) {
-  return records.reduce(
-    (total, service) => {
-      for (const criterion of service.criteria ?? []) {
-        if (criterion.tone === "meet") total.meets += 1;
-        if (criterion.tone === "caution") total.cautions += 1;
-        if (criterion.tone === "reject") total.rejects += 1;
-      }
-      const confidence = service.verification?.confidence ?? "Unknown";
-      if (confidence === "High") total.high += 1;
-      else if (confidence === "Medium") total.medium += 1;
-      else if (confidence === "Low") total.low += 1;
-      else total.unknown += 1;
-      if (service.verification?.locallyVerified || (service.source?.status ?? "").toLowerCase().includes("source")) {
-        total.verified += 1;
-      }
-      if ((service.source?.status ?? "").toLowerCase().includes("confirmation")) total.localConfirmation += 1;
-      return total;
-    },
-    { meets: 0, cautions: 0, rejects: 0, high: 0, medium: 0, low: 0, unknown: 0, verified: 0, localConfirmation: 0 },
-  );
-}
-
 function Stepper() {
   return (
     <div className="hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)] lg:grid lg:grid-cols-4 lg:gap-3">
@@ -220,8 +197,9 @@ function ServiceCard({
         <button
           type="button"
           onClick={() => onToggleSelected(service.slug)}
-          className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          aria-label={selected ? `Remove ${service.title} from selected services` : `Save ${service.title}`}
+          className="grid min-h-tap min-w-tap place-items-center rounded-lg text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:h-9 sm:min-h-0 sm:w-9 sm:min-w-0"
+          aria-label={selected ? `Remove ${service.title} from comparison` : `Add ${service.title} to comparison`}
+          aria-pressed={selected}
         >
           <Bookmark
             className={cn(
@@ -288,7 +266,9 @@ function ServiceCard({
           <button
             type="button"
             onClick={() => onToggleSelected(service.slug)}
-            className="inline-flex h-9 min-w-[94px] items-center justify-center gap-1.5 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="inline-flex min-h-tap min-w-[94px] items-center justify-center gap-1.5 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:h-9 sm:min-h-0"
+            aria-label={selected ? `Remove ${service.title} from comparison` : `Add ${service.title} to comparison`}
+            aria-pressed={selected}
           >
             <Check className="h-4 w-4" aria-hidden />
             {selected ? "Selected" : "Select"}
@@ -310,7 +290,16 @@ function RightRail({
   onClearSelected: () => void;
   onToggleSelected: (slug: string) => void;
 }) {
-  const counts = metricCounts(matches);
+  const [showChecklistDetails, setShowChecklistDetails] = useState(false);
+  const [showConfidenceDetails, setShowConfidenceDetails] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
+  const counts = serviceNavigatorMetrics(matches);
+  const comparisonAvailable = canCompareServices(selected);
+  const checklistExpanded = showChecklistDetails && selected.length > 0;
+  const confidenceExpanded = showConfidenceDetails && matches.length > 0;
+  const comparisonExpanded = showComparison && comparisonAvailable;
+  const confidenceTotal = counts.high + counts.medium + counts.low + counts.unknown;
+
   const rows: Array<[string, number, LucideIcon, string]> = [
     ["Meets", counts.meets, CircleCheck, "text-[color:var(--success)]"],
     ["Caution", counts.cautions, CircleAlert, "text-[color:var(--warning)]"],
@@ -319,15 +308,29 @@ function RightRail({
     ["Local confirmation", counts.localConfirmation, CircleAlert, "text-[color:var(--warning)]"],
   ];
 
+  function clearSelectedServices() {
+    setShowChecklistDetails(false);
+    setShowComparison(false);
+    onClearSelected();
+  }
+
+  function removeSelectedService(slug: string) {
+    const remainingCount = selected.length - 1;
+    if (remainingCount === 0) setShowChecklistDetails(false);
+    if (remainingCount < 2) setShowComparison(false);
+    onToggleSelected(slug);
+  }
+
   return (
     <div className="space-y-4">
       <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Referral decision</h3>
           <button
-            className="text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]"
+            className="inline-flex min-h-tap items-center text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
             type="button"
-            onClick={onClearSelected}
+            onClick={clearSelectedServices}
+            disabled={selected.length === 0}
           >
             Clear
           </button>
@@ -338,7 +341,8 @@ function RightRail({
             <button
               key={service.slug}
               type="button"
-              onClick={() => onToggleSelected(service.slug)}
+              onClick={() => removeSelectedService(service.slug)}
+              aria-label={`Remove ${service.title} from comparison`}
               className="grid min-h-16 grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-left transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               <span className="grid h-7 w-7 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-xs font-bold text-[color:var(--clinical-accent-contrast)]">
@@ -360,12 +364,7 @@ function RightRail({
       <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Checklist</h3>
-          <button
-            className="text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]"
-            type="button"
-          >
-            Edit
-          </button>
+          <span className="text-xs font-semibold text-[color:var(--text-soft)]">Edit via result controls</span>
         </div>
         <div className="mt-4 grid gap-3 text-sm font-semibold text-[color:var(--text-muted)]">
           {rows.map(([label, count, Icon, color]) => (
@@ -379,27 +378,61 @@ function RightRail({
           ))}
         </div>
         <button
-          className="mt-4 inline-flex min-h-9 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]"
+          className="mt-4 inline-flex min-h-tap items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
           type="button"
+          onClick={() => setShowChecklistDetails((current) => !current)}
+          disabled={selected.length === 0}
+          aria-expanded={checklistExpanded}
+          aria-controls={checklistExpanded ? "service-checklist-details" : undefined}
         >
-          Review details <ArrowRight className="h-4 w-4" aria-hidden />
+          {checklistExpanded ? "Hide details" : "Review details"} <ArrowRight className="h-4 w-4" aria-hidden />
         </button>
+        {checklistExpanded ? (
+          <div id="service-checklist-details" className="mt-3 grid gap-3 border-t border-[color:var(--border)] pt-3">
+            {selected.map((service) => (
+              <div key={service.slug}>
+                <p className="text-xs font-bold text-[color:var(--text-heading)]">{service.title}</p>
+                <ul className="mt-1 grid gap-1 text-xs font-medium text-[color:var(--text-muted)]">
+                  {(service.criteria ?? []).map((criterion) => (
+                    <li key={criterion.label}>• {criterion.label}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
       <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Source confidence</h3>
           <button
-            className="text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)]"
+            className="inline-flex min-h-tap items-center text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
             type="button"
+            onClick={() => setShowConfidenceDetails((current) => !current)}
+            disabled={matches.length === 0}
+            aria-expanded={confidenceExpanded}
+            aria-controls={confidenceExpanded ? "service-confidence-details" : undefined}
           >
-            View details
+            {confidenceExpanded ? "Hide details" : "View details"}
           </button>
         </div>
-        <div className="mt-4 grid h-3 grid-cols-[3fr_3fr_1fr_1fr] overflow-hidden rounded-full bg-[color:var(--surface-inset)]">
-          <span className="bg-[color:var(--success)]" />
-          <span className="bg-[color:var(--warning)]" />
-          <span className="bg-[color:var(--danger)]" />
-          <span className="bg-[color:var(--border-strong)]" />
+        <div
+          className="mt-4 flex h-3 overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
+          role="img"
+          aria-label={`Source confidence: ${counts.high} high, ${counts.medium} medium, ${counts.low} low, ${counts.unknown} unknown`}
+        >
+          {confidenceTotal > 0 ? (
+            <>
+              {counts.high ? <span className="bg-[color:var(--success)]" style={{ flexGrow: counts.high }} /> : null}
+              {counts.medium ? (
+                <span className="bg-[color:var(--warning)]" style={{ flexGrow: counts.medium }} />
+              ) : null}
+              {counts.low ? <span className="bg-[color:var(--danger)]" style={{ flexGrow: counts.low }} /> : null}
+              {counts.unknown ? (
+                <span className="bg-[color:var(--border-strong)]" style={{ flexGrow: counts.unknown }} />
+              ) : null}
+            </>
+          ) : null}
         </div>
         <div className="mt-3 grid grid-cols-4 text-center text-xs font-semibold text-[color:var(--text-soft)]">
           <span>
@@ -423,15 +456,68 @@ function RightRail({
             <b className="text-[color:var(--text-heading)]">{counts.unknown}</b>
           </span>
         </div>
+        {confidenceExpanded ? (
+          <div id="service-confidence-details" className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3">
+            {matches.slice(0, 8).map((service) => (
+              <div key={service.slug} className="flex items-start justify-between gap-3 text-xs">
+                <span className="font-semibold text-[color:var(--text-heading)]">{service.title}</span>
+                <span className="shrink-0 text-[color:var(--text-muted)]">
+                  {service.verification?.confidence ?? "Unknown"}
+                </span>
+              </div>
+            ))}
+            {matches.length > 8 ? (
+              <p className="text-xs font-medium text-[color:var(--text-soft)]">+{matches.length - 8} more results</p>
+            ) : null}
+          </div>
+        ) : null}
       </section>
       <button
-        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50"
         type="button"
-        disabled
-        title="Select services before comparing"
+        disabled={!comparisonAvailable}
+        title={comparisonAvailable ? "Compare selected services" : "Select at least two services before comparing"}
+        onClick={() => setShowComparison((current) => !current)}
+        aria-expanded={comparisonExpanded}
+        aria-controls={comparisonExpanded ? "selected-services-comparison" : undefined}
       >
-        Compare selected ({selected.length})
+        {comparisonExpanded ? "Hide comparison" : "Compare selected"} ({selected.length})
       </button>
+      {comparisonExpanded ? (
+        <section
+          id="selected-services-comparison"
+          aria-label="Selected service comparison"
+          className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]"
+        >
+          {selected.map((service) => (
+            <article key={service.slug} className="rounded-lg border border-[color:var(--border)] p-3">
+              <div className="flex items-start justify-between gap-2">
+                <h4 className="text-sm font-bold text-[color:var(--text-heading)]">{service.title}</h4>
+                <Link
+                  href={`/services/${service.slug}`}
+                  className="inline-flex min-h-tap items-center text-xs font-bold text-[color:var(--clinical-accent)] sm:min-h-0"
+                >
+                  Open
+                </Link>
+              </div>
+              <dl className="mt-2 grid gap-2 text-xs">
+                {[
+                  ["Contact", text(service.primaryContact?.value)],
+                  ["Eligibility", text(service.eligibility, "Eligibility pending")],
+                  ["Cost", text(service.cost, "Cost pending")],
+                  ["Source", text(service.source?.status, "Source pending")],
+                  ["Confidence", text(service.verification?.confidence, "Unknown")],
+                ].map(([label, value]) => (
+                  <div key={label} className="grid grid-cols-[5rem_minmax(0,1fr)] gap-2">
+                    <dt className="font-semibold text-[color:var(--text-soft)]">{label}</dt>
+                    <dd className="font-medium text-[color:var(--text-muted)]">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </article>
+          ))}
+        </section>
+      ) : null}
     </div>
   );
 }
@@ -517,6 +603,7 @@ export function ServicesNavigatorPage() {
       }
       sidebar={
         <RightRail
+          key={selected.length === 0 ? "empty" : selected.length === 1 ? "single" : "multiple"}
           matches={displayedMatches}
           selected={selected}
           onClearSelected={() => setSelectedSlugs([])}

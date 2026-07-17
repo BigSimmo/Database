@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { env } from "@/lib/env";
+import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
 import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
 
 // Next 16 renamed the `middleware` file convention to `proxy` (see

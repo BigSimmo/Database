@@ -203,6 +203,27 @@ const retrievalPlanCacheMigration = readFileSync(
   new URL("../supabase/migrations/20260711120000_retrieval_fn_plan_cache_mode.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const patchRagAndCorrectorScalabilityMigration = readFileSync(
+  new URL("../supabase/migrations/20260714180000_patch_rag_and_corrector_scalability.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const documentTableFactsTrgmMigration = readFileSync(
+  new URL("../supabase/migrations/20260714190000_document_table_facts_trgm_idx.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const hardenRagScalabilityPatchMigration = readFileSync(
+  new URL("../supabase/migrations/20260717010000_harden_rag_scalability_patch.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+
+function finalSqlSegment(sql: string, startMarker: string, endMarker: string) {
+  const normalized = sql.toLowerCase();
+  const start = normalized.lastIndexOf(startMarker.toLowerCase());
+  if (start < 0) throw new Error(`Missing SQL marker: ${startMarker}`);
+  const end = normalized.indexOf(endMarker.toLowerCase(), start);
+  if (end < 0) throw new Error(`Missing SQL marker after ${startMarker}: ${endMarker}`);
+  return normalized.slice(start, end);
+}
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -1327,6 +1348,81 @@ describe("Supabase Preview replay guards", () => {
     );
     expect(ingestionRpcPrivilegesDuplicateMigration).toContain("NEUTRALIZED 2026-07-13");
     expect(ingestionRpcPrivilegesDuplicateMigration).toContain("select 1 where false;");
+  });
+
+  it("keeps the document-title vocabulary lifecycle aligned in migration and schema", () => {
+    for (const sql of [schema, patchRagAndCorrectorScalabilityMigration]) {
+      expect(sql).toContain("create table if not exists public.document_title_words");
+      expect(sql).toContain("word text not null");
+      expect(sql).toContain("document_id uuid not null references public.documents(id) on delete cascade");
+      expect(sql).toContain("primary key (word, document_id)");
+      expect(sql).toContain("insert into public.document_title_words (word, document_id)");
+      expect(sql).toContain("drop trigger if exists documents_sync_title_words on public.documents");
+      expect(sql).toContain("create trigger documents_sync_title_words");
+    }
+  });
+
+  it("hardens registry cleanup without UUID casts or cross-registry collisions", () => {
+    for (const sql of [schema, hardenRagScalabilityPatchMigration]) {
+      const cleanup = finalSqlSegment(
+        sql,
+        "create or replace function public.cleanup_registry_corpus_document()",
+        "revoke execute on function public.cleanup_registry_corpus_document()",
+      );
+      expect(cleanup).toContain("metadata->>'registry_record_id' = old.id::text");
+      expect(cleanup).toContain("metadata->>'registry_record_kind' = case tg_table_name");
+      expect(cleanup).toContain("when 'clinical_registry_records' then to_jsonb(old)->>'kind'");
+      expect(cleanup).toContain("when 'medication_records' then 'medication'");
+      expect(cleanup).toContain("when 'differential_records' then 'differential'");
+      expect(cleanup).not.toContain("registry_record_id')::uuid");
+      expect(sql).toContain(
+        "revoke execute on function public.cleanup_registry_corpus_document() from public, anon, authenticated",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.sync_document_title_words() from public, anon, authenticated",
+      );
+    }
+  });
+
+  it("uses bounded indexed probes for clinical query correction", () => {
+    for (const sql of [schema, hardenRagScalabilityPatchMigration]) {
+      const corrector = finalSqlSegment(
+        sql,
+        "create or replace function public.correct_clinical_query_terms",
+        "revoke execute on function public.correct_clinical_query_terms",
+      );
+      expect(corrector).toContain("lower(alias) % tok");
+      expect(corrector).toContain("lower(canonical) % tok");
+      expect(corrector).toContain("word % tok");
+      expect(corrector).toContain("limit 32");
+      expect(corrector).toContain("set pg_trgm.similarity_threshold = 0.3");
+      expect(corrector).toContain("min_sim is null or min_sim < 0.3 or min_sim > 1");
+      expect(corrector).not.toContain("array_agg(distinct term)");
+      expect(corrector).not.toContain("unnest(vocab)");
+      expect(sql).toContain("rag_aliases_canonical_trgm_idx");
+    }
+  });
+
+  it("drops the mismatched wide table-facts trigram index and preserves RPC parity", () => {
+    const indexExpression =
+      "lower(coalesce(table_title, '') || ' ' || coalesce(row_label, '') || ' ' || coalesce(clinical_parameter, ''))";
+    const rpcExpression =
+      "lower(coalesce(f.table_title, '') || ' ' || coalesce(f.row_label, '') || ' ' || coalesce(f.clinical_parameter, ''))";
+    const tableFactsRpc = finalSqlSegment(
+      schema,
+      "create or replace function public.match_document_table_facts_text(",
+      "$function$;",
+    );
+
+    expect(documentTableFactsTrgmMigration).toContain("create index if not exists document_table_facts_text_trgm_idx");
+    expect(hardenRagScalabilityPatchMigration).toContain(
+      "drop index if exists public.document_table_facts_text_trgm_idx",
+    );
+    expect(schema).not.toContain("create index if not exists document_table_facts_text_trgm_idx");
+    expect(schema).toContain(
+      `create index if not exists document_table_facts_title_row_param_trgm_idx on public.document_table_facts using gin (${indexExpression} extensions.gin_trgm_ops)`,
+    );
+    expect(tableFactsRpc).toContain(`${rpcExpression} % q.normalized`);
   });
 });
 

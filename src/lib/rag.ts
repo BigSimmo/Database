@@ -12,6 +12,7 @@ import {
   searchTextChunkCandidates,
   withMemoryBoostedCandidates,
   type MemoryCardCache,
+  createChunkLoadCache,
 } from "@/lib/rag-candidate-sources";
 export {
   callVersionedRetrievalRpc,
@@ -2590,6 +2591,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       allowGlobalSearch: args.allowGlobalSearch,
       matchCount: Math.min(candidateCount, 48),
       telemetry,
+      cache: chunkLoadCache,
     });
     const tableFactLatencyMs = Date.now() - tableFactStartedAt;
     telemetry.supabase_rpc_latency_ms += tableFactLatencyMs;
@@ -2776,6 +2778,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 48),
         telemetry,
+        cache: chunkLoadCache,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
@@ -2791,6 +2794,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 64),
         telemetry,
+        cache: chunkLoadCache,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
