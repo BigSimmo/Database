@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { loadChunksForMemoryCards, loadChunksForSignalMatches } from "../src/lib/rag";
+import { createChunkLoadCache } from "../src/lib/rag-candidate-sources";
 import type { DocumentMemoryCard } from "../src/lib/types";
 
 const chunks = [
@@ -182,5 +183,55 @@ describe("retrieval hydration tenancy", () => {
         .map((row) => row.id)
         .sort(),
     ).toEqual(["owner-chunk", "public-chunk"]);
+  });
+
+  it("keeps shared hydration entries isolated by retrieval access scope", async () => {
+    const cache = createChunkLoadCache();
+
+    expect(
+      (
+        await loadChunksForSignalMatches({
+          supabase: client(),
+          matches,
+          accessScope: { includePublic: true },
+          cache,
+        })
+      ).map((row) => row.id),
+    ).toEqual(["public-chunk"]);
+
+    expect(
+      (
+        await loadChunksForSignalMatches({
+          supabase: client(),
+          matches,
+          ownerId: "owner-a",
+          accessScope: { ownerId: "owner-a", includePublic: true },
+          cache,
+        })
+      )
+        .map((row) => row.id)
+        .sort(),
+    ).toEqual(["owner-chunk", "public-chunk"]);
+  });
+
+  it("deduplicates concurrent hydration queries for the same scope", async () => {
+    const cache = createChunkLoadCache();
+    const supabase = client() as unknown as { from: ReturnType<typeof vi.fn> };
+    const args = {
+      supabase: supabase as never,
+      matches,
+      accessScope: { includePublic: true } as const,
+      cache,
+    };
+
+    const [first, second] = await Promise.all([loadChunksForSignalMatches(args), loadChunksForSignalMatches(args)]);
+
+    expect(first.map((row) => row.id)).toEqual(["public-chunk"]);
+    expect(second.map((row) => row.id)).toEqual(["public-chunk"]);
+    expect(supabase.from.mock.calls.map(([table]) => table)).toEqual([
+      "document_chunks",
+      "documents",
+      "document_chunks",
+    ]);
   });
 });
