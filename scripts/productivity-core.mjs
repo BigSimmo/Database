@@ -14,7 +14,11 @@ const RISK_PATTERNS = {
     /^tests\/ui-.*\.spec\.ts$/,
     /^playwright.*\.ts$/,
   ],
-  database: ["supabase", "src/lib/supabase", /^src\/app\/api\/(?:documents|images|ingestion|jobs|search|upload)/],
+  database: [
+    "supabase",
+    "src/lib/supabase",
+    /^src\/app\/api\/(?:answer|documents|images|ingestion|jobs|search|upload)/,
+  ],
   retrieval: [
     /^src\/lib\/(?:rag|retrieval|ranking|clinical-search|smart-rag|citations|evidence|source|chunking)/,
     /^src\/app\/api\/(?:answer|search)/,

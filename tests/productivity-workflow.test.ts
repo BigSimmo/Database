@@ -39,6 +39,16 @@ describe("productivity workflow planning", () => {
     );
   });
 
+  it("treats answer routes as database-scoped without needing a migration path", () => {
+    const files = ["src/app/api/answer/route.ts"];
+    const plan = buildWorkflowPlan("flightplan", files);
+
+    expect(classifyRisks(files).database).toBe(true);
+    expect(plan.approvalRequired.map((item: { command: string }) => item.command)).toContain(
+      "npm run check:supabase-project",
+    );
+  });
+
   it("keeps the design sweep local and covers the established breakpoint proof", () => {
     const plan = buildWorkflowPlan("design-sweep", ["src/components/ClinicalDashboard.tsx"]);
 
