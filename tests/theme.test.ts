@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextTheme, resolveThemePreference } from "../src/lib/theme";
+import { APP_THEME_COLORS, nextTheme, resolveThemePreference } from "../src/lib/theme";
 
 describe("theme helpers", () => {
   it("uses stored explicit theme before system preference", () => {
@@ -15,5 +15,9 @@ describe("theme helpers", () => {
   it("toggles between light and dark", () => {
     expect(nextTheme("light")).toBe("dark");
     expect(nextTheme("dark")).toBe("light");
+  });
+
+  it("keeps installed-app browser chrome aligned with both application themes", () => {
+    expect(APP_THEME_COLORS).toEqual({ light: "#ffffff", dark: "#060708" });
   });
 });

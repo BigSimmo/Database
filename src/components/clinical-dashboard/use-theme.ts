@@ -2,7 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
-import { DEFAULT_THEME, nextTheme, resolveThemePreference, type ResolvedTheme } from "@/lib/theme";
+import { APP_THEME_COLORS, DEFAULT_THEME, nextTheme, resolveThemePreference, type ResolvedTheme } from "@/lib/theme";
 
 const themeStorageKey = "clinical-kb-theme";
 const themeChangeEvent = "clinical-kb-theme-change";
@@ -16,6 +16,12 @@ function getThemeSnapshot(): ResolvedTheme {
 
 function getServerThemeSnapshot(): ResolvedTheme {
   return DEFAULT_THEME;
+}
+
+function syncThemeColorMetadata(theme: ResolvedTheme) {
+  for (const element of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
+    element.content = APP_THEME_COLORS[theme];
+  }
 }
 
 function subscribeTheme(onStoreChange: () => void) {
@@ -39,12 +45,14 @@ export function useTheme() {
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
+    syncThemeColorMetadata(theme);
   }, [theme]);
 
   function toggleTheme() {
     const resolved = nextTheme(theme);
     window.localStorage.setItem(themeStorageKey, resolved);
     document.documentElement.classList.toggle("dark", resolved === "dark");
+    syncThemeColorMetadata(resolved);
     window.dispatchEvent(new Event(themeChangeEvent));
   }
 

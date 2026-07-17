@@ -78,6 +78,8 @@ export function buildContentSecurityPolicy({
     "img-src 'self' data: blob: https://*.supabase.co; " +
     "media-src 'self' https://*.supabase.co; " +
     "connect-src 'self' https://*.supabase.co; " +
+    "worker-src 'self'; " +
+    "manifest-src 'self'; " +
     scriptSrc +
     "style-src 'self' 'unsafe-inline'"
   );

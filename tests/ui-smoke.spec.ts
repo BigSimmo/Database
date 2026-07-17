@@ -3343,6 +3343,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
       node.scrollTop = 0;
     });
     await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
+    // The state attribute changes before the grid transition has restored the
+    // header's in-flow space, so wait for the original expanded geometry.
     await expect.poll(async () => main.evaluate((node) => node.clientHeight)).toBe(expandedMainClientHeight);
     const visibleGeometry = await main.evaluate((node) => ({
       clientHeight: node.clientHeight,
@@ -3352,9 +3354,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
       node.scrollTop = top;
     }, visibleGeometry.maxOffset);
     await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
+    // The hidden attribute flips before the 240ms grid-row transition has
+    // released the header's layout space. Wait for rendered geometry so this
+    // assertion cannot race the animation on faster or slower CI runners.
     await expect
-      .poll(async () => main.evaluate((node) => node.clientHeight))
-      .toBeGreaterThan(visibleGeometry.clientHeight);
+      .poll(async () =>
+        header.evaluate((node) => {
+          const rect = node.getBoundingClientRect();
+          return Math.max(0, rect.bottom) - Math.max(0, rect.top);
+        }),
+      )
+      .toBe(0);
     const collapsedGeometry = await main.evaluate((node) => ({
       clientHeight: node.clientHeight,
       maxOffset: node.scrollHeight - node.clientHeight,

@@ -1,0 +1,352 @@
+"use client";
+
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+
+const SERVICE_WORKER_URL = "/sw.js";
+const INSTALL_DISMISSAL_KEY = "clinical-kb-pwa-install-dismissed-at";
+const INSTALL_DISMISSAL_MS = 30 * 24 * 60 * 60 * 1000;
+const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+
+type InstallChoice = { outcome: "accepted" | "dismissed"; platform: string };
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<InstallChoice>;
+};
+
+type NavigatorWithStandalone = Navigator & { standalone?: boolean };
+
+function subscribeConnectivity(onStoreChange: () => void) {
+  window.addEventListener("online", onStoreChange);
+  window.addEventListener("offline", onStoreChange);
+  return () => {
+    window.removeEventListener("online", onStoreChange);
+    window.removeEventListener("offline", onStoreChange);
+  };
+}
+
+function getConnectivitySnapshot() {
+  return navigator.onLine;
+}
+
+function getServerConnectivitySnapshot() {
+  return true;
+}
+
+function isStandaloneDisplay() {
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as NavigatorWithStandalone).standalone === true
+  );
+}
+
+function wasInstallRecentlyDismissed() {
+  try {
+    const dismissedAt = Number(window.localStorage.getItem(INSTALL_DISMISSAL_KEY));
+    if (!Number.isFinite(dismissedAt) || dismissedAt <= 0) return false;
+    if (Date.now() - dismissedAt < INSTALL_DISMISSAL_MS) return true;
+    window.localStorage.removeItem(INSTALL_DISMISSAL_KEY);
+  } catch {
+    // Storage can be unavailable in private/restricted contexts. Installation
+    // remains a progressive enhancement, so a storage failure is non-fatal.
+  }
+  return false;
+}
+
+function rememberInstallDismissal() {
+  try {
+    window.localStorage.setItem(INSTALL_DISMISSAL_KEY, String(Date.now()));
+  } catch {
+    // See wasInstallRecentlyDismissed: the prompt can still be dismissed for
+    // this render even when persistence is unavailable.
+  }
+}
+
+const cardClassName =
+  "pointer-events-auto rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-4 text-[color:var(--text)] shadow-[var(--shadow-elevated)]";
+const primaryButtonClassName =
+  "inline-flex min-h-11 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3.5 py-2 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] transition-colors hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+const secondaryButtonClassName =
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-[color:var(--border-lux)] px-3.5 py-2 text-sm font-semibold text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+/**
+ * Owns installability, service-worker updates, and cross-route connectivity UI.
+ * The worker is production-first; `?pwa-dev=1` enables a cache-safe localhost
+ * path for focused browser tests without persisting normal HMR assets.
+ */
+export function PwaLifecycle() {
+  const isOnline = useSyncExternalStore(subscribeConnectivity, getConnectivitySnapshot, getServerConnectivitySnapshot);
+  const [connectionRestored, setConnectionRestored] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
+  const [activatedUpdateReady, setActivatedUpdateReady] = useState(false);
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+  const lastUpdateCheckRef = useRef(0);
+  const updateDismissedRef = useRef(false);
+  const refreshRequestedRef = useRef(false);
+  const reloadingRef = useRef(false);
+  const hasSeenControllerRef = useRef(false);
+
+  useEffect(() => {
+    let restoredTimer: number | undefined;
+
+    const handleOffline = () => {
+      if (restoredTimer) window.clearTimeout(restoredTimer);
+      setConnectionRestored(false);
+    };
+    const handleOnline = () => {
+      if (restoredTimer) window.clearTimeout(restoredTimer);
+      setConnectionRestored(true);
+      restoredTimer = window.setTimeout(() => setConnectionRestored(false), 4_000);
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    return () => {
+      if (restoredTimer) window.clearTimeout(restoredTimer);
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
+
+  useEffect(() => {
+    const displayMode = window.matchMedia("(display-mode: standalone)");
+    const syncDisplayMode = () => {
+      document.documentElement.dataset.pwaDisplayMode = isStandaloneDisplay() ? "standalone" : "browser";
+    };
+    syncDisplayMode();
+    displayMode.addEventListener("change", syncDisplayMode);
+    return () => displayMode.removeEventListener("change", syncDisplayMode);
+  }, []);
+
+  useEffect(() => {
+    const handleInstallPrompt = (event: Event) => {
+      const deferredPrompt = event as BeforeInstallPromptEvent;
+      deferredPrompt.preventDefault();
+      if (!isStandaloneDisplay() && !wasInstallRecentlyDismissed()) setInstallPrompt(deferredPrompt);
+    };
+    const handleInstalled = () => {
+      setInstallPrompt(null);
+      document.documentElement.dataset.pwaDisplayMode = "standalone";
+      try {
+        window.localStorage.removeItem(INSTALL_DISMISSAL_KEY);
+      } catch {
+        // Installation succeeded; storage cleanup is best-effort only.
+      }
+    };
+
+    window.addEventListener("beforeinstallprompt", handleInstallPrompt);
+    window.addEventListener("appinstalled", handleInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleInstallPrompt);
+      window.removeEventListener("appinstalled", handleInstalled);
+    };
+  }, []);
+
+  useEffect(() => {
+    const developmentOptIn = new URLSearchParams(window.location.search).get("pwa-dev") === "1";
+    if (process.env.NODE_ENV !== "production" && !developmentOptIn) return;
+    if (!("serviceWorker" in navigator) || window.isSecureContext === false) return;
+
+    let cancelled = false;
+    let cancelScheduledRegistration: () => void = () => {};
+    const registrationCleanups = new Set<() => void>();
+    hasSeenControllerRef.current = Boolean(navigator.serviceWorker.controller);
+
+    const exposeWaitingWorker = (worker: ServiceWorker | null) => {
+      if (!cancelled && worker && !updateDismissedRef.current) setWaitingWorker(worker);
+    };
+
+    const watchInstallingWorker = (registration: ServiceWorkerRegistration) => {
+      const worker = registration.installing;
+      if (!worker) return;
+      const handleStateChange = () => {
+        if (worker.state === "installed" && navigator.serviceWorker.controller) {
+          exposeWaitingWorker(registration.waiting ?? worker);
+        }
+      };
+      worker.addEventListener("statechange", handleStateChange);
+      registrationCleanups.add(() => worker.removeEventListener("statechange", handleStateChange));
+    };
+
+    const checkForUpdates = () => {
+      const registration = registrationRef.current;
+      if (!registration || document.visibilityState !== "visible" || !navigator.onLine) return;
+      if (Date.now() - lastUpdateCheckRef.current < UPDATE_CHECK_INTERVAL_MS) return;
+      lastUpdateCheckRef.current = Date.now();
+      void registration.update().catch(() => undefined);
+    };
+
+    const handleControllerChange = () => {
+      if (reloadingRef.current) return;
+      const wasPreviouslyControlled = hasSeenControllerRef.current;
+      hasSeenControllerRef.current = true;
+      if (refreshRequestedRef.current) {
+        reloadingRef.current = true;
+        window.location.reload();
+        return;
+      }
+      setWaitingWorker(null);
+      if (!cancelled && wasPreviouslyControlled && !updateDismissedRef.current) setActivatedUpdateReady(true);
+    };
+
+    const register = async () => {
+      try {
+        const registration = await navigator.serviceWorker.register(SERVICE_WORKER_URL, {
+          scope: "/",
+          updateViaCache: "none",
+        });
+        if (cancelled) return;
+        registrationRef.current = registration;
+        exposeWaitingWorker(registration.waiting);
+        watchInstallingWorker(registration);
+        const handleUpdateFound = () => watchInstallingWorker(registration);
+        registration.addEventListener("updatefound", handleUpdateFound);
+        registrationCleanups.add(() => registration.removeEventListener("updatefound", handleUpdateFound));
+        lastUpdateCheckRef.current = Date.now();
+      } catch (error) {
+        if (process.env.NODE_ENV === "development") console.warn("Clinical KB PWA registration failed", error);
+      }
+    };
+
+    const scheduleRegistration = () => {
+      const idleWindow = window as unknown as {
+        cancelIdleCallback?: Window["cancelIdleCallback"];
+        requestIdleCallback?: Window["requestIdleCallback"];
+      };
+      const requestIdle = idleWindow.requestIdleCallback?.bind(window);
+      const cancelIdle = idleWindow.cancelIdleCallback?.bind(window);
+
+      if (requestIdle && cancelIdle) {
+        const idleId = requestIdle(() => void register(), { timeout: 2_000 });
+        cancelScheduledRegistration = () => cancelIdle(idleId);
+      } else {
+        const timeoutId = window.setTimeout(() => void register(), 0);
+        cancelScheduledRegistration = () => window.clearTimeout(timeoutId);
+      }
+    };
+
+    const handleLoad = () => scheduleRegistration();
+    if (document.readyState === "complete") scheduleRegistration();
+    else window.addEventListener("load", handleLoad, { once: true });
+
+    navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
+    document.addEventListener("visibilitychange", checkForUpdates);
+    window.addEventListener("online", checkForUpdates);
+
+    return () => {
+      cancelled = true;
+      cancelScheduledRegistration();
+      for (const cleanup of registrationCleanups) cleanup();
+      registrationCleanups.clear();
+      window.removeEventListener("load", handleLoad);
+      navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+      document.removeEventListener("visibilitychange", checkForUpdates);
+      window.removeEventListener("online", checkForUpdates);
+      registrationRef.current = null;
+    };
+  }, []);
+
+  const dismissInstall = () => {
+    rememberInstallDismissal();
+    setInstallPrompt(null);
+  };
+
+  const requestInstall = async () => {
+    if (!installPrompt) return;
+    try {
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice.outcome === "dismissed") rememberInstallDismissal();
+      setInstallPrompt(null);
+    } catch {
+      // The browser owns this prompt and may withdraw it between eligibility and
+      // the click. Leave the web app usable and hide the stale affordance.
+      setInstallPrompt(null);
+    }
+  };
+
+  const applyUpdate = () => {
+    refreshRequestedRef.current = true;
+    if (activatedUpdateReady) {
+      reloadingRef.current = true;
+      window.location.reload();
+    } else if (waitingWorker) waitingWorker.postMessage({ type: "SKIP_WAITING" });
+    else {
+      reloadingRef.current = true;
+      window.location.reload();
+    }
+  };
+
+  const dismissUpdate = () => {
+    updateDismissedRef.current = true;
+    setWaitingWorker(null);
+    setActivatedUpdateReady(false);
+  };
+
+  const showUpdate = isOnline && (Boolean(waitingWorker) || activatedUpdateReady);
+  const showInstall = isOnline && !showUpdate && Boolean(installPrompt);
+  if (isOnline && !connectionRestored && !showInstall && !showUpdate) return null;
+
+  return (
+    <div className="pwa-notice-stack">
+      {!isOnline ? (
+        <section className={cardClassName} role="region" aria-labelledby="pwa-offline-title" aria-live="polite">
+          <p id="pwa-offline-title" className="text-sm font-semibold">
+            You appear to be offline
+          </p>
+          <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+            Clinical search, answers, private documents, uploads, and account data require a connection.
+          </p>
+          <button type="button" className={`${secondaryButtonClassName} mt-3`} onClick={() => window.location.reload()}>
+            Try again
+          </button>
+        </section>
+      ) : null}
+
+      {connectionRestored ? (
+        <section className={cardClassName} role="status">
+          <p className="text-sm font-semibold">Connection restored</p>
+        </section>
+      ) : null}
+
+      {showUpdate ? (
+        <section className={cardClassName} role="region" aria-labelledby="pwa-update-title" aria-live="polite">
+          <p id="pwa-update-title" className="text-sm font-semibold">
+            An update is ready
+          </p>
+          <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+            Refresh when convenient to use the latest Clinical KB version.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" className={primaryButtonClassName} onClick={applyUpdate}>
+              Refresh now
+            </button>
+            <button type="button" className={secondaryButtonClassName} onClick={dismissUpdate}>
+              Later
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {showInstall ? (
+        <section className={cardClassName} role="region" aria-labelledby="pwa-install-title" aria-live="polite">
+          <p id="pwa-install-title" className="text-sm font-semibold">
+            Install Clinical KB
+          </p>
+          <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+            Open it from your device like an app. Private clinical features still require a connection.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" className={primaryButtonClassName} onClick={() => void requestInstall()}>
+              Install app
+            </button>
+            <button type="button" className={secondaryButtonClassName} onClick={dismissInstall}>
+              Not now
+            </button>
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
