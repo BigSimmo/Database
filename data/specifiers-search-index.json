@@ -2871,7 +2871,7 @@
     },
     {
       "slug": "specifier-dis-trance-disorder-icd-11-features-with-without-possession",
-      "label": "With/without possession",
+      "label": "Possession trance is a separate ICD-11 diagnosis (6B63)",
       "disorder": "Trance Disorder (ICD-11)",
       "categoryId": "dis",
       "category": "8. Dissociative Disorders",
@@ -6402,7 +6402,7 @@
     },
     {
       "slug": "specifier-icd-trance-disorder-features-with-without-possession",
-      "label": "With/without possession",
+      "label": "Possession trance is a separate ICD-11 diagnosis (6B63)",
       "disorder": "Trance Disorder",
       "categoryId": "icd",
       "category": "20. ICD-11 Specifics",
