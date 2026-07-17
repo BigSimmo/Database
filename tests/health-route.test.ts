@@ -85,7 +85,7 @@ describe("GET /api/health", () => {
     expect(body.checks).toMatchObject({ supabaseConfig: "ok", openaiConfig: "skipped" });
   });
 
-  it("gates the deep probe without a token and omits the slo/cache snapshots", async () => {
+  it("gates the deep probe without a token and omits diagnostic snapshots", async () => {
     mockEnv({ configured: true, deepSecret: true });
     const { GET } = await import("../src/app/api/health/route");
 
@@ -96,6 +96,7 @@ describe("GET /api/health", () => {
     expect(body.checks).toMatchObject({ supabase: "unauthorized" });
     expect(body.slo).toBeUndefined();
     expect(body.cache).toBeUndefined();
+    expect(body.coalescing).toBeUndefined();
   });
 
   it("exposes the in-process cache hit-rate counter on an authorized deep probe", async () => {
@@ -115,6 +116,12 @@ describe("GET /api/health", () => {
     expect(cache.misses).toBe(cache.lookups - cache.hits);
     expect(cache.hitRate).toBeGreaterThanOrEqual(0);
     expect(cache.hitRate).toBeLessThanOrEqual(1);
+    const coalescing = body.coalescing as Record<string, number>;
+    expect(typeof coalescing.originations).toBe("number");
+    expect(typeof coalescing.coalescedWaiters).toBe("number");
+    expect(typeof coalescing.activeOriginations).toBe("number");
+    expect(coalescing.coalescingRate).toBeGreaterThanOrEqual(0);
+    expect(coalescing.coalescingRate).toBeLessThanOrEqual(1);
     expect(body.slo).toBeUndefined();
   });
 
@@ -142,7 +149,7 @@ describe("GET /api/health/ready", () => {
     expect(body.checks).toMatchObject({ supabaseConfig: "ok", openaiConfig: "ok", supabase: "skipped" });
   });
 
-  it("exposes no diagnostic details (slo/cache) even to a token-bearing caller", async () => {
+  it("exposes no diagnostic details even to a token-bearing caller", async () => {
     mockEnv({ configured: true, demoMode: true, deepSecret: true });
     const { GET } = await import("../src/app/api/health/ready/route");
 
@@ -153,5 +160,6 @@ describe("GET /api/health/ready", () => {
 
     expect(body.slo).toBeUndefined();
     expect(body.cache).toBeUndefined();
+    expect(body.coalescing).toBeUndefined();
   });
 });
