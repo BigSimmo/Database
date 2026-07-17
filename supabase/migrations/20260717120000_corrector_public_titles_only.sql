@@ -1,16 +1,18 @@
--- Scope the clinical query-term corrector's title vocabulary to the public corpus.
+-- Scope the clinical query-term corrector's vocabulary to the public corpus.
 --
 -- correct_clinical_query_terms() is SECURITY DEFINER and therefore bypasses RLS.
 -- It previously built its spell-correction vocabulary from EVERY indexed document
--- title regardless of owner, while the rest of retrieval is strictly owner-scoped
--- and fail-closed (see docs/tenancy-defense-in-depth-review.md and
--- retrieval_owner_matches). That let a private tenant's title tokens bias — and,
--- via observable query rewriting, leak the existence of — another tenant's private
--- titles: a cross-tenant side-channel.
+-- title AND every enabled rag_aliases row regardless of owner, while the rest of
+-- retrieval is strictly owner-scoped and fail-closed (see
+-- docs/tenancy-defense-in-depth-review.md and retrieval_owner_matches). Both
+-- rag_aliases (owner_id column; deep-memory.ts persists owner-scoped aliases and
+-- canonicals for private documents) and documents carry private rows, so the unscoped
+-- reads let a private tenant's terms bias — and, via observable query rewriting, leak
+-- the existence of — another tenant's private aliases/titles: a cross-tenant side-channel.
 --
--- Fix: restrict the title union to the shared public corpus (owner_id is null). RAG
--- aliases are curated/global and remain unchanged. Signature is unchanged, so callers
--- and generated types need no update. Idempotent CREATE OR REPLACE.
+-- Fix: restrict every vocabulary source (both alias selects and the title scan) to the
+-- shared public corpus (owner_id is null). Signature is unchanged, so callers and
+-- generated types need no update. Idempotent CREATE OR REPLACE.
 --
 -- NOTE ON SEQUENCING: this migration is the forward change. supabase/schema.sql (the
 -- canonical replay reference) and supabase/drift-manifest.json must be updated to
@@ -39,12 +41,15 @@ begin
     return input_query;
   end if;
 
-  -- Build the known-term vocabulary once per call.
+  -- Build the known-term vocabulary once per call. Every source is scoped to the
+  -- public (null-owner) corpus: rag_aliases carries an owner_id (deep-memory persists
+  -- owner-scoped aliases/canonicals for private documents), so an unscoped alias read
+  -- would leak private-document-derived terms across tenants just like the title scan.
   select array_agg(distinct term) into vocab
   from (
-    select lower(alias) as term from public.rag_aliases where enabled and length(alias) between 4 and 40
+    select lower(alias) as term from public.rag_aliases where enabled and owner_id is null and length(alias) between 4 and 40
     union
-    select lower(canonical) from public.rag_aliases where enabled and length(canonical) between 4 and 40
+    select lower(canonical) from public.rag_aliases where enabled and owner_id is null and length(canonical) between 4 and 40
     union
     select w from public.documents d, lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as w
     -- Public (null-owner) titles only: keep the correction vocabulary tenant-safe.

@@ -1211,6 +1211,25 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
     expect(correctorPublicTitlesMigration).not.toContain("where d.status = 'indexed' and length(w) between 4 and 40");
   });
 
+  it("scopes the rag_aliases vocabulary sources to public (null-owner) rows", () => {
+    // rag_aliases carries an owner_id (deep-memory persists owner-scoped aliases for
+    // private documents), so both alias reads must be owner-scoped too — otherwise the
+    // title fix alone still leaks private-document-derived terms across tenants.
+    expect(correctorPublicTitlesMigration).toContain(
+      "select lower(alias) as term from public.rag_aliases where enabled and owner_id is null and length(alias) between 4 and 40",
+    );
+    expect(correctorPublicTitlesMigration).toContain(
+      "select lower(canonical) from public.rag_aliases where enabled and owner_id is null and length(canonical) between 4 and 40",
+    );
+    // Regression guard: the old unscoped alias reads must not survive.
+    expect(correctorPublicTitlesMigration).not.toContain(
+      "from public.rag_aliases where enabled and length(alias) between 4 and 40",
+    );
+    expect(correctorPublicTitlesMigration).not.toContain(
+      "from public.rag_aliases where enabled and length(canonical) between 4 and 40",
+    );
+  });
+
   it("keeps the corrector execute privilege confined to service_role", () => {
     expect(correctorPublicTitlesMigration).toContain(
       "revoke execute on function public.correct_clinical_query_terms(text, real) from public, anon, authenticated;",
