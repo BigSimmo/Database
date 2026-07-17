@@ -120,6 +120,10 @@ const supabaseAdminDefaultPrivilegesMigration = readFileSync(
   new URL("../supabase/migrations/20260713102000_revoke_supabase_admin_default_privileges.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const publicationApprovalMigration = readFileSync(
+  new URL("../supabase/migrations/20260717131000_guard_document_publication_approval.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const scrubLegacyQueryTextMigration = readFileSync(
   new URL("../supabase/migrations/20260713103000_scrub_legacy_rag_query_text.sql", import.meta.url),
   "utf8",
@@ -1119,6 +1123,22 @@ describe("Supabase Preview replay guards", () => {
     expect(supabaseAdminDefaultPrivilegesMigration).toContain(
       "has_sequence_privilege('anon', probe_seq, 'usage, select')",
     );
+  });
+
+  it("requires append-only operator evidence for owned-to-public transitions", () => {
+    for (const sql of [schema, publicationApprovalMigration]) {
+      expect(sql).toContain("create table if not exists public.document_publication_approvals");
+      expect(sql).toContain("check (cardinality(evidence_references) > 0)");
+      expect(sql).toContain("before update or delete on public.document_publication_approvals");
+      expect(sql).toContain("before update of owner_id on public.documents");
+      expect(sql).toContain("old.owner_id is not null and new.owner_id is null");
+      expect(sql).toContain("approval.expected_prior_owner_id = old.owner_id");
+      expect(sql).toContain("create or replace function public.publish_approved_documents(");
+      expect(sql).toContain("for update;");
+      expect(sql).toContain(
+        "grant execute on function public.publish_approved_documents(jsonb, text, integer) to service_role;",
+      );
+    }
   });
 
   it("scrubs legacy plaintext query text with salted irreversible placeholders", () => {
