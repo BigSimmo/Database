@@ -3492,7 +3492,7 @@ export function ClinicalDashboard({
                 : "mb-0",
           )}
         >
-          <h1 className="sr-only">Clinical KB</h1>
+          <h1 className="sr-only">Clinical Guide</h1>
           {privateScopeStatus === "unavailable" ? (
             // Lives inside <main> (not as a header sibling): in the answer view
             // the header is absolute, so a sibling alert would reflow to the
