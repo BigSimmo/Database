@@ -241,6 +241,7 @@ test.describe("universal search typeahead", () => {
         const resultNode = document.querySelector('[data-testid="service-search-results"]');
         return Boolean(resultNode?.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING);
       }),
+      "universal-also-matches panel must appear after primary results in the DOM",
     ).toBe(true);
   });
 
