@@ -10,9 +10,10 @@ type Tone = "neutral" | "purple" | "info" | "success" | "warning" | "accent";
 
 const TONE_STYLE: Record<Tone, string> = {
   neutral: "background:var(--surface-inset);color:var(--text-muted);border:1px solid var(--border);",
-  // The design's "CBT-family" purple is a deliberate category colour with no
-  // token equivalent; keep it verbatim (reads fine in both themes).
-  purple: "background:#f4f0ff;color:#6d3fc4;border:1px solid #e4d9fb;",
+  // The design's "CBT-family" purple is a categorical (non-semantic) colour; it
+  // maps to the --type-source purple triad, which carries proper light/dark
+  // values so the chip inverts in dark mode instead of staying a bright patch.
+  purple: "background:var(--type-source-soft);color:var(--type-source);border:1px solid var(--type-source-border);",
   info: "background:var(--info-bg);color:var(--info-text);border:1px solid var(--info-border);",
   success: "background:var(--success-bg);color:var(--success-text);border:1px solid var(--success-border);",
   warning: "background:var(--warning-bg);color:var(--warning-text);border:1px solid var(--warning-border);",
@@ -88,7 +89,7 @@ export function IconTile({
 }) {
   const bg =
     variant === "accent"
-      ? "background:var(--clinical-accent);color:#fff;"
+      ? "background:var(--clinical-accent);color:var(--clinical-accent-contrast);"
       : "background:var(--clinical-accent-soft);color:var(--clinical-accent);";
   return (
     <span
