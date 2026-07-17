@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -43,6 +43,22 @@ describe("child process results", () => {
 });
 
 describe("repository-wide heavyweight lock", () => {
+  it("uses a workspace-local identity only when a packaged build context has no Git metadata", () => {
+    const projectRoot = temporaryDirectory("clinical-kb-no-git-");
+    const baseDirectory = temporaryDirectory("clinical-kb-no-git-lock-");
+    writeFileSync(
+      path.join(projectRoot, "package.json"),
+      JSON.stringify({ name: "prompt-for-codex-medical-knowledge-base" }),
+    );
+
+    const lock = acquireHeavyRunLock({ projectRoot, baseDirectory, environment: {}, command: "docker build" });
+    const expectedIdentity = path.resolve(projectRoot);
+    expect(lock.owner.repositoryIdentity).toBe(
+      process.platform === "win32" ? expectedIdentity.toLowerCase() : expectedIdentity,
+    );
+    lock.release();
+  });
+
   it("blocks another worktree but permits a nested child with the owner token", () => {
     const baseDirectory = temporaryDirectory("clinical-kb-lock-");
     const repositoryIdentity = path.join(baseDirectory, "shared.git");

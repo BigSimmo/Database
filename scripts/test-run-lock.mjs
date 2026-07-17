@@ -29,10 +29,19 @@ function resolveRepositoryIdentity(projectRoot) {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
   });
-  if (result.status !== 0 || !result.stdout.trim()) {
-    throw new Error("Could not resolve the shared Git directory for the Database heavyweight-run lock.");
+  const gitCommonDirectory = typeof result.stdout === "string" ? result.stdout.trim() : "";
+  if (result.status === 0 && gitCommonDirectory) return normalizeIdentity(gitCommonDirectory);
+
+  // Docker build contexts intentionally omit .git. They cannot share worktrees
+  // with the host, so a validated workspace-local identity keeps nested build
+  // commands safe without weakening the common-directory lock in Git checkouts.
+  try {
+    const manifest = JSON.parse(readFileSync(path.join(projectRoot, "package.json"), "utf8"));
+    if (manifest.name === "prompt-for-codex-medical-knowledge-base") return normalizeIdentity(projectRoot);
+  } catch {
+    // Preserve the explicit error below for an invalid working directory.
   }
-  return normalizeIdentity(result.stdout.trim());
+  throw new Error("Could not resolve the shared Git directory for the Database heavyweight-run lock.");
 }
 
 function lockPathFor(repositoryIdentity, baseDirectory = os.tmpdir()) {
