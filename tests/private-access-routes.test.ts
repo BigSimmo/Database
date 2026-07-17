@@ -4459,6 +4459,55 @@ describe("private document API access", () => {
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
+  it("aborts streamed answer generation when the response body is cancelled", async () => {
+    const answerQuestionWithScope = vi.fn(
+      async ({ signal, onProgress }: { signal?: AbortSignal; onProgress?: (event: unknown) => void }) => {
+        onProgress?.({
+          stage: "ranking",
+          resultCount: 1,
+          selectedContextCount: 0,
+          australianSourceCount: 0,
+          waSourceCount: 0,
+        });
+        await new Promise<void>((resolve) => {
+          signal?.addEventListener(
+            "abort",
+            () => {
+              resolve();
+            },
+            { once: true },
+          );
+        });
+        return {
+          answer: "Owned evidence.",
+          grounded: true,
+          confidence: "medium",
+          citations: [],
+          sources: [],
+        };
+      },
+    );
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({ query: "monitoring", documentId: otherDocumentId }),
+      }),
+    );
+    const reader = response.body?.getReader();
+    await reader?.read();
+    await reader?.cancel();
+
+    expect(response.status).toBe(200);
+    expect(answerQuestionWithScope).toHaveBeenCalledTimes(1);
+    const signal = answerQuestionWithScope.mock.calls.at(0)?.[0]?.signal;
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal?.aborted).toBe(true);
+  });
+
   it("uses an anonymous in-memory limiter for managed local no-auth streaming answers", async () => {
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Owned evidence.",
