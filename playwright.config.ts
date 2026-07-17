@@ -12,14 +12,14 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 // Tag-level filters keep production and prototype journeys disjoint even when
 // they share a spec file.
 const productionSpecPattern =
-  /.*ui-(smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|pwa)\.spec\.ts/;
+  /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|pwa))\.spec\.ts/;
 const mockupSpecPattern = /.*ui-(tools|tools-collapse|tools-task-directory)\.spec\.ts/;
 const mockupTag = /@mockup/;
 
 export default defineConfig({
   testDir: "./tests",
   testMatch:
-    /.*ui-(smoke|stress|accessibility|tools|tools-collapse|tools-task-directory|overlap|universal-search|specifiers|formulation|pwa)\.spec\.ts/,
+    /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|tools-collapse|tools-task-directory|overlap|universal-search|specifiers|formulation|pwa))\.spec\.ts/,
   timeout: 60_000,
   retries: 0,
   // Fail the run if a stray `test.only` is committed: otherwise it silently
