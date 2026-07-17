@@ -43,7 +43,7 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import { FormCodeBadge } from "@/components/forms/form-code-badge";
+import { FormCodeBadge, splitFormCode } from "@/components/forms/form-code-badge";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, type FormRecord } from "@/lib/form-ranker";
 import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/service-ranker";
@@ -203,6 +203,22 @@ function DetailCard({ card }: { card: ServiceSummaryCard }) {
   );
 }
 
+// Compact code cell for the pathway before/parallel/after lists. The full label
+// is shown in the adjacent title column, so the code cell only needs the short
+// head ("6B") — this keeps a qualifier like "6B attachment" from overflowing the
+// fixed-width column while the full string stays available as a tooltip.
+function PathwayStepCode({ code }: { code: string }) {
+  const { head, qualifier } = splitFormCode(code);
+  return (
+    <span
+      className={cn("truncate text-sm font-bold text-[color:var(--text-heading)]", codeText)}
+      title={qualifier ? `${head} ${qualifier}` : undefined}
+    >
+      {head}
+    </span>
+  );
+}
+
 function PathwayContextCard({
   form,
   code,
@@ -253,7 +269,7 @@ function PathwayContextCard({
                 key={`${item.code}-${item.title}`}
                 className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
               >
-                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
+                <PathwayStepCode code={item.code} />
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
             ))}
@@ -280,7 +296,7 @@ function PathwayContextCard({
                 key={`${item.code}-${item.title}`}
                 className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
               >
-                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
+                <PathwayStepCode code={item.code} />
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
             ))}
@@ -295,7 +311,7 @@ function PathwayContextCard({
                 key={`${item.code}-${item.title}`}
                 className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
               >
-                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
+                <PathwayStepCode code={item.code} />
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
             ))}
