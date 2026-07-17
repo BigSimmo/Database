@@ -60,6 +60,23 @@ function createInsertMock(
         expect(table).toBe("rag_query_misses");
         return { insert };
       }),
+      // The route consults the ingestion_admin rate limiter before touching tables.
+      rpc: vi.fn(async (name: string) =>
+        name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit"
+          ? {
+              data: [
+                {
+                  limited: false,
+                  limit_value: 60,
+                  remaining: 59,
+                  retry_after_seconds: 60,
+                  reset_at: new Date(Date.now() + 60_000).toISOString(),
+                },
+              ],
+              error: null,
+            }
+          : { data: [], error: null },
+      ),
     },
   };
 }
