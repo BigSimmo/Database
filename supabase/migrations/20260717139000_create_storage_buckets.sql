@@ -7,8 +7,9 @@
 -- policies for buckets that did not exist and uploads failed until the buckets
 -- were created out-of-band. This migration mirrors schema.sql so a
 -- migrated-from-scratch database (and the CI `supabase db reset` replay) has the
--- buckets. Idempotent: an existing database that already has them only
--- re-affirms public = false, matching schema.sql's on-conflict behaviour.
+-- buckets. Idempotent: an existing database that already has them re-affirms
+-- public = false plus name, file_size_limit, and allowed_mime_types from this
+-- migration (schema.sql only forces public = false on conflict).
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
