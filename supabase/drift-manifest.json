@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-17T06:06:10.141Z",
+  "generated_at": "2026-07-17T11:30:04.370Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "b9faccf4dac098def5d9547ca1b4cf0bb24621f1b76e9aed1b57d2495b65d72b",
-  "replay_seconds": 60,
+  "schema_sha256": "59ee18d0723774416b931bea9f4fef96fa699eb99ba61d218b6870a621dde649",
+  "replay_seconds": 45,
   "snapshot": {
     "views": [
       {
@@ -6481,7 +6481,15 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "698d24f90e3fa5f17ef5898e3ba2d8ff",
+        "def_hash": "2b890b6f6c617f78f41f06293c9f7ade",
+        "signature": "public.match_document_chunks_text_scoped(text,integer,uuid[],uuid,boolean)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "4bf81d62c0953a8d11c80c37de6045e7",
         "signature": "public.match_document_chunks_text_v2(text,integer,uuid[],uuid,boolean)"
       },
       {
@@ -6537,7 +6545,15 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "7e7e5a83bad724a62fdc66a0213b843b",
+        "def_hash": "e802785a1872f92ca4b748c08c57435d",
+        "signature": "public.match_document_index_units_hybrid_scoped(extensions.vector,text,integer,double precision,uuid[],uuid,boolean)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "38282636c4c22a4f01974a943aa20d42",
         "signature": "public.match_document_index_units_hybrid_v2(extensions.vector,text,integer,double precision,uuid[],uuid,boolean)"
       },
       {
