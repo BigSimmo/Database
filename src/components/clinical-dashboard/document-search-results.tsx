@@ -1140,9 +1140,7 @@ function DocumentSearchResultsPanelImpl({
         </>
       )}
 
-      {trimmedQuery && !shouldShowHome ? (
-        <UniversalSearchAlsoMatches modeId="documents" query={trimmedQuery} />
-      ) : null}
+      {trimmedQuery && !shouldShowHome ? <UniversalSearchAlsoMatches modeId="documents" query={trimmedQuery} /> : null}
     </div>
   );
 }
