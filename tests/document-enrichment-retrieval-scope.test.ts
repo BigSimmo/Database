@@ -35,4 +35,27 @@ describe("related-document metadata RPC rollout", () => {
     });
     expect(rpc).toHaveBeenCalledTimes(1);
   });
+
+  it.each(["document_labels", "document_summaries"])("propagates %s fallback query errors", async (failedTable) => {
+    const rpc = vi.fn(async () => ({ data: null, error: { code: "42501", message: "permission denied" } }));
+    const fallbackError = Object.assign(new Error(`${failedTable} fallback failed`), { code: "PGRST000" });
+    const from = vi.fn((table: string) => {
+      const result = table === failedTable ? { data: null, error: fallbackError } : { data: [], error: null };
+      const query = {
+        select: () => query,
+        in: () => query,
+        is: () => query,
+        then: (resolve: (value: typeof result) => unknown) => Promise.resolve(result).then(resolve),
+      };
+      return query;
+    });
+
+    await expect(
+      fetchRelatedDocumentMetadata({
+        supabase: { rpc, from } as never,
+        accessScope: { includePublic: true },
+        documentIds: ["public-doc"],
+      }),
+    ).rejects.toBe(fallbackError);
+  });
 });

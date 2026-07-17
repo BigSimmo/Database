@@ -1,9 +1,5 @@
 "use client";
 
-import dynamic from "next/dynamic";
-
-// `ssr: false` requires a Client Component in the App Router; this wrapper
-// keeps the viewer bundle browser-only for the server-rendered document page.
-export const DocumentViewerLazy = dynamic(() => import("@/components/DocumentViewer").then((m) => m.DocumentViewer), {
-  ssr: false,
-});
+// Retain the compatibility export while allowing Next.js to prerender the
+// browser-guarded Client Component with the Server Component's initial detail.
+export { DocumentViewer as DocumentViewerLazy } from "@/components/DocumentViewer";

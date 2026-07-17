@@ -1,5 +1,17 @@
 # Ingestion-concurrency phase-3 — fix work-order
 
+**Status refresh 2026-07-17:** the last remaining repository design item below —
+deep-memory section ownership / delete-scoping — is now **RESOLVED**, so this document has
+**no open repository items**. It shipped as the producer-scoped replacement model: migration
+`20260713030000_producer_scoped_deep_memory.sql` adds `producer` + `artifact_generation_id`
+columns with **disjoint** unique indexes (`document_sections_legacy_section_index_key` for
+`artifact_generation_id is null` vs `document_sections_producer_generation_section_index_key`),
+so the enrichment agent and deep-memory can no longer collide on `section_index`; the
+service-role commit RPC removes only older artifacts owned by the same producer; and
+`src/lib/deep-memory.ts` stages and deletes strictly scoped by `producer = local-deep-memory` +
+`artifact_generation_id` (`cleanupStagedArtifacts`), with the commit body reconciled in #569. No
+unscoped cross-producer delete remains. The design section at the bottom is retained as provenance.
+
 **Status refresh 2026-07-15:** the July-8 migration batch is applied and verified live. The only
 remaining repository design item in this document is deep-memory section ownership/delete scoping
 (see the final section); it is intentionally blocked on an explicit ownership model and a
@@ -32,7 +44,9 @@ nothing here was applied to live at author time. **Historical status (2026-07-09
 
 ## Still open (not merged or needs design)
 
-- **deep-memory delete-scoping** — design required (see bottom of this doc).
+- _None._ **deep-memory delete-scoping** landed via the producer-scoped model (migration
+  `20260713030000` + commit #569 + `src/lib/deep-memory.ts`) — see the 2026-07-17 status refresh
+  at the top. The design section at the bottom of this doc is retained as provenance only.
 
 ## Global rules for this release
 
@@ -318,7 +332,10 @@ for live apply of R24e → RPC hardening → fail-closed → R5 → R17 (`202607
 
 Remaining repo work:
 
-1. **deep-memory scoping** — only after the section-ownership design is agreed.
+1. ~~**deep-memory scoping**~~ — **DONE (2026-07-17)** via the producer-scoped model
+   (`20260713030000` + #569 + `src/lib/deep-memory.ts`). The section-ownership question was
+   settled by giving each producer a disjoint `(document_id, producer, artifact_generation_id,
+section_index)` key. No remaining repo work in this document.
 
 Every DB item ends with `npm run check:drift` green and (for retrieval-affecting
 items) `npm run eval:retrieval:quality` unchanged.

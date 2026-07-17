@@ -22,6 +22,7 @@ import {
   type DifferentialRecordMatch,
 } from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
+import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -43,8 +44,11 @@ const differentialListQuerySchema = z.object({
   limit: queryInteger({ fallback: 100, min: 1, max: 200 }),
 });
 
-function differentialResponse(payload: Record<string, unknown>) {
-  return NextResponse.json(payload, { headers: { "Cache-Control": "private, no-store" } });
+function differentialResponse(
+  payload: Record<string, unknown>,
+  options: { request?: Request; fixture?: boolean } = {},
+) {
+  return NextResponse.json(payload, { headers: fixtureResponseHeaders(options.request, options) });
 }
 
 function recordMatchesPayload(matches: DifferentialRecordMatch[]) {
@@ -82,10 +86,13 @@ export async function GET(request: Request) {
     const { kind, q, limit } = parseRequestQuery(request, differentialListQuerySchema, "Invalid differential query.");
 
     if (isDemoMode() || isLocalNoAuthMode()) {
-      return differentialResponse({
-        ...publicDifferentialPayload(kind, q, limit),
-        demoMode: true,
-      });
+      return differentialResponse(
+        {
+          ...publicDifferentialPayload(kind, q, limit),
+          demoMode: true,
+        },
+        { request, fixture: true },
+      );
     }
 
     // Anonymous callers still resolve access + rate limit: publicAccessContext skips the
@@ -105,10 +112,13 @@ export async function GET(request: Request) {
     }
 
     if (!access.ownerId) {
-      return differentialResponse({
-        ...publicDifferentialPayload(kind, q, limit),
-        publicAccess: true,
-      });
+      return differentialResponse(
+        {
+          ...publicDifferentialPayload(kind, q, limit),
+          publicAccess: true,
+        },
+        { request, fixture: true },
+      );
     }
 
     const rows = await fetchOwnerDifferentialRowsWithSeed(supabase, access.ownerId, kind, DIFFERENTIAL_MAX_RECORDS);

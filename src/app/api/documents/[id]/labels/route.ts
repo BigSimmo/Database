@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
@@ -110,6 +111,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
+
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "document_admin",
+      allowInMemoryFallbackOnUnavailable: true,
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Too many document administration requests. Retry shortly.", rateLimit);
+    }
+
     await requireOwnedDocument(supabase, id, user.id);
 
     const { data: existing, error: existingError } = await supabase
@@ -145,7 +157,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .single();
 
     if (error) throw new Error(error.message);
-    invalidateRagCachesForDocumentMutation(user.id);
+    invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
     return NextResponse.json({ label, labels: await selectLabels(supabase, id) }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) {
@@ -167,6 +179,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
+
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "document_admin",
+      allowInMemoryFallbackOnUnavailable: true,
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Too many document administration requests. Retry shortly.", rateLimit);
+    }
+
     await requireOwnedDocument(supabase, id, user.id);
 
     if ("action" in parsed) {
@@ -200,7 +223,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         .single();
 
       if (error) throw new Error(error.message);
-      invalidateRagCachesForDocumentMutation(user.id);
+      invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
       return NextResponse.json({ label });
     }
 
@@ -243,7 +266,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .single();
 
     if (error) throw new Error(error.message);
-    invalidateRagCachesForDocumentMutation(user.id);
+    invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
     return NextResponse.json({ label, labels: await selectLabels(supabase, id) });
   } catch (error) {
     if (error instanceof AuthenticationError) {
@@ -265,6 +288,17 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
+
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "document_admin",
+      allowInMemoryFallbackOnUnavailable: true,
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Too many document administration requests. Retry shortly.", rateLimit);
+    }
+
     await requireOwnedDocument(supabase, id, user.id);
 
     const { data: existing, error: existingError } = await supabase
@@ -288,7 +322,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .eq("source", "manual");
 
     if (error) throw new Error(error.message);
-    invalidateRagCachesForDocumentMutation(user.id);
+    invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
     return NextResponse.json({ deleted: true, labelId: parsed.labelId, labels: await selectLabels(supabase, id) });
   } catch (error) {
     if (error instanceof AuthenticationError) {

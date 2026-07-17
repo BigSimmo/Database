@@ -15,6 +15,7 @@ import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import {
   runUniversalSearch,
   universalSearchDomains,
+  type RunUniversalSearchArgs,
   type UniversalSearchDomain,
   type UniversalSearchResponse,
 } from "@/lib/universal-search";
@@ -35,6 +36,7 @@ const universalSearchQuerySchema = z.object({
   q: z.string().trim().min(2).max(200),
   limit: queryInteger({ fallback: 5, min: 1, max: 10 }),
   mode: z.enum(appModeIds).optional(),
+  stream: z.enum(["ndjson"]).optional(),
   domains: z
     .string()
     .trim()
@@ -64,22 +66,84 @@ function universalResponse(
   return NextResponse.json(payload, { headers });
 }
 
+function universalStreamResponse(
+  request: Request,
+  searchArgs: RunUniversalSearchArgs,
+  decoration: { demoMode?: true; publicAccess?: true } = {},
+) {
+  const encoder = new TextEncoder();
+  const searchController = new AbortController();
+  const abortFromRequest = () => searchController.abort(request.signal.reason);
+  if (request.signal.aborted) abortFromRequest();
+  else request.signal.addEventListener("abort", abortFromRequest, { once: true });
+
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const enqueue = (event: Record<string, unknown>) => {
+        if (!searchController.signal.aborted) {
+          controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        }
+      };
+
+      void runUniversalSearch({
+        ...searchArgs,
+        signal: searchController.signal,
+        onGroup: (group) => enqueue({ type: "group", query: searchArgs.query, group }),
+      })
+        .then((response) => {
+          if (searchController.signal.aborted) return;
+          enqueue({ type: "complete", response: { ...response, ...decoration } });
+          controller.close();
+        })
+        .catch((error: unknown) => {
+          if (searchController.signal.aborted) {
+            try {
+              controller.close();
+            } catch {
+              // The consumer may already have cancelled the stream.
+            }
+            return;
+          }
+          controller.error(error);
+        })
+        .finally(() => request.signal.removeEventListener("abort", abortFromRequest));
+    },
+    cancel(reason) {
+      searchController.abort(
+        reason instanceof Error ? reason : new DOMException("The search stream was cancelled.", "AbortError"),
+      );
+      request.signal.removeEventListener("abort", abortFromRequest);
+    },
+  });
+
+  return new Response(body, {
+    headers: {
+      "Cache-Control": "private, no-store",
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "X-Accel-Buffering": "no",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
 export async function GET(request: Request) {
   try {
-    const { q, limit, domains, mode } = parseRequestQuery(
+    const { q, limit, domains, mode, stream } = parseRequestQuery(
       request,
       universalSearchQuerySchema,
       "Invalid universal query.",
     );
 
     if (isDemoMode() || isLocalNoAuthMode()) {
-      const payload = await runUniversalSearch({
+      const searchArgs: RunUniversalSearchArgs = {
         query: q,
         limitPerDomain: limit,
         domains,
         contextMode: mode,
         demo: true,
-      });
+      };
+      if (stream === "ndjson") return universalStreamResponse(request, searchArgs, { demoMode: true });
+      const payload = await runUniversalSearch({ ...searchArgs, signal: request.signal });
       return universalResponse({ ...payload, demoMode: true });
     }
 
@@ -99,7 +163,7 @@ export async function GET(request: Request) {
     // demo:false + supabase always run the live pipeline. An anonymous caller (ownerId
     // undefined) is scoped to the public corpus via allowGlobalSearch and the real default
     // catalogues — never the synthetic demo fixtures.
-    const payload = await runUniversalSearch({
+    const searchArgs: RunUniversalSearchArgs = {
       query: q,
       limitPerDomain: limit,
       domains,
@@ -107,7 +171,11 @@ export async function GET(request: Request) {
       supabase,
       ownerId: access.ownerId,
       demo: false,
-    });
+    };
+    if (stream === "ndjson") {
+      return universalStreamResponse(request, searchArgs, access.ownerId ? {} : { publicAccess: true });
+    }
+    const payload = await runUniversalSearch({ ...searchArgs, signal: request.signal });
     return universalResponse(access.ownerId ? payload : { ...payload, publicAccess: true });
   } catch (error) {
     if (error instanceof AuthenticationError) {
