@@ -424,7 +424,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       action: "document_rename",
       resourceType: "document",
       resourceId: id,
-      metadata: { previousTitle: document.title, newTitle: body.title },
+      // Audit the rename event and resource without retaining user-controlled
+      // titles indefinitely in the service-role audit log.
+      metadata: {},
     });
     return NextResponse.json({ document: updated });
   } catch (error) {
@@ -487,7 +489,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       action: "document_delete",
       resourceType: "document",
       resourceId: id,
-      metadata: { title: result.document_title, storageRemoved: cleanup.storageRemoved },
+      // The deleted title can contain patient information. Retain only the
+      // operational cleanup result alongside the resource id and action.
+      metadata: { storageRemoved: cleanup.storageRemoved },
     });
     return NextResponse.json({
       deleted: true,

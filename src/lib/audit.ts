@@ -15,6 +15,34 @@ export type AuditLogEntry = {
   metadata?: Record<string, unknown>;
 };
 
+/**
+ * Audit rows are retained indefinitely, so their metadata must be an operational
+ * event summary rather than a second copy of document metadata. In particular,
+ * upload filenames and rename/delete titles are user-controlled and can contain
+ * patient identifiers. Keep this allowlist at the durable-write boundary so a
+ * future caller cannot accidentally reintroduce free text into `audit_logs`.
+ */
+function minimumAuditMetadata(entry: AuditLogEntry): Record<string, boolean | number | string> {
+  const metadata = entry.metadata ?? {};
+
+  switch (entry.action) {
+    case "document_upload": {
+      const fileType = typeof metadata.fileType === "string" ? metadata.fileType : undefined;
+      const fileSize =
+        typeof metadata.fileSize === "number" && Number.isFinite(metadata.fileSize) ? metadata.fileSize : undefined;
+      return {
+        ...(fileType ? { fileType } : {}),
+        ...(fileSize !== undefined ? { fileSize } : {}),
+      };
+    }
+    case "document_delete":
+      return typeof metadata.storageRemoved === "boolean" ? { storageRemoved: metadata.storageRemoved } : {};
+    case "document_rename":
+    case "document_label_change":
+      return {};
+  }
+}
+
 // Minimal structural type so we do not couple to the full Supabase client type.
 type AuditInsertClient = {
   from: (table: string) => {
@@ -29,7 +57,7 @@ export async function writeAuditLog(supabase: AuditInsertClient, entry: AuditLog
       action: entry.action,
       resource_type: entry.resourceType ?? null,
       resource_id: entry.resourceId ?? null,
-      metadata: entry.metadata ?? {},
+      metadata: minimumAuditMetadata(entry),
     });
     if (error) {
       logger.error("Audit log write failed", { action: entry.action, message: error.message });
