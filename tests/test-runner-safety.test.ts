@@ -178,6 +178,9 @@ describe("provider-safe test environment", () => {
     expect(runner).toContain('PLAYWRIGHT_OFFLINE_MODE: "true"');
     expect(runner).toContain('NEXT_PUBLIC_MOCKUPS_ENABLED: mockupProjectRequested ? "true" : "false"');
     expect(runner).toContain("!explicitProjectRequested ||");
+    // Empty 3xx bodies from legacy redirect route handlers must not fail readiness.
+    expect(runner).toContain("body === null || body.includes(missingErrorComponentsNeedle)");
+    expect(runner).not.toContain("if (!body || body.includes(missingErrorComponentsNeedle))");
     expect(runner).not.toContain("supabase.co");
     expect(packageJson.scripts["test:e2e:pr"]).toContain('--grep-invert "@quarantine|@mockup"');
     expect(packageJson.scripts["test:e2e:regression"]).toContain('--grep-invert "@critical|@quarantine|@mockup"');
