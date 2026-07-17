@@ -21,7 +21,9 @@ import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import {
-  commandDropdownDisplayMediaQuery,
+  commandDropdownCanDisplay,
+  commandDropdownMinimumWidthMediaQuery,
+  commandDropdownPointerMediaQuery,
   differentialRedFlagTerms,
   filteredSuggestions,
   isFormCodeQuery,
@@ -382,22 +384,32 @@ export function UniversalSearchCommandSurface({
   const mode = appModeDefinition(modeId);
   // The dropdown is a fine-pointer desktop enhancement. Width-only checks let
   // wide, zoomed, or desktop-mode phones open it over the page.
-  const dropdownMediaQuery = commandDropdownDisplayMediaQuery(placement);
+  const dropdownMinimumWidthQuery = commandDropdownMinimumWidthMediaQuery(placement);
   const [dropdownDisplayable, setDropdownDisplayable] = useState(false);
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
-    const mediaQuery = window.matchMedia(dropdownMediaQuery);
+    const minimumWidthMedia = window.matchMedia(dropdownMinimumWidthQuery);
+    const pointerMedia = window.matchMedia(commandDropdownPointerMediaQuery);
     const sync = () => {
-      setDropdownDisplayable(mediaQuery.matches);
-      if (!mediaQuery.matches) {
+      const displayable = commandDropdownCanDisplay({
+        minimumWidthMatches: minimumWidthMedia.matches,
+        pointerMatches: pointerMedia.matches,
+        maxTouchPoints: navigator.maxTouchPoints,
+      });
+      setDropdownDisplayable(displayable);
+      if (!displayable) {
         onDropdownOpenChange(false);
         setActiveIndex(-1);
       }
     };
     sync();
-    mediaQuery.addEventListener("change", sync);
-    return () => mediaQuery.removeEventListener("change", sync);
-  }, [dropdownMediaQuery, onDropdownOpenChange]);
+    minimumWidthMedia.addEventListener("change", sync);
+    pointerMedia.addEventListener("change", sync);
+    return () => {
+      minimumWidthMedia.removeEventListener("change", sync);
+      pointerMedia.removeEventListener("change", sync);
+    };
+  }, [dropdownMinimumWidthQuery, onDropdownOpenChange]);
   // A true "everything" view: the active mode's own domain is included (no excludeDomain) so
   // the palette surfaces every entity type, ordered by the server's intent-aware domainOrder.
   const universal = useUniversalSearch({
