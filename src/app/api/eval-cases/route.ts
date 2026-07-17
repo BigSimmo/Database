@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { clinicalQueryModeSchema } from "@/lib/clinical-query-mode";
 import { env, isDemoMode } from "@/lib/env";
@@ -124,6 +125,17 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
+
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "ingestion_admin",
+      allowInMemoryFallbackOnUnavailable: true,
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Too many ingestion administration requests. Retry shortly.", rateLimit);
+    }
+
     const normalizedQuery = normalizedQueryTextForStorage(parsed.query);
     const sourceChunkIds = uniqueUuidValues(parsed.sourceChunkIds);
     const citedChunkIds = uniqueUuidValues(parsed.citedChunkIds);
