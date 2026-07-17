@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
-import { PwaLifecycle } from "@/components/pwa-lifecycle";
 import { AuthProvider } from "@/lib/supabase/client";
 import { PwaLifecycle } from "@/components/pwa-lifecycle";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
