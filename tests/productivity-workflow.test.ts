@@ -62,6 +62,18 @@ describe("productivity workflow planning", () => {
     );
   });
 
+  it.each(["differentials", "eval-cases", "health", "medications", "registry", "setup-status"])(
+    "treats the %s API route as database-scoped",
+    (route) => {
+      const plan = buildWorkflowPlan("flightplan", [`src/app/api/${route}/route.ts`]);
+
+      expect(plan.risks.database).toBe(true);
+      expect(plan.approvalRequired.map((item: { command: string }) => item.command)).toContain(
+        "npm run check:supabase-project",
+      );
+    },
+  );
+
   it("preserves database and clinical approval gates in the RAG lab", () => {
     const plan = buildWorkflowPlan("rag-lab", ["src/app/api/answer/route.ts"]);
     const commands = plan.approvalRequired.map((item: { command: string }) => item.command);

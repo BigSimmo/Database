@@ -17,7 +17,7 @@ const RISK_PATTERNS = {
   database: [
     "supabase",
     "src/lib/supabase",
-    /^src\/app\/api\/(?:answer|documents|images|ingestion|jobs|search|upload)/,
+    /^src\/app\/api\/(?:answer|differentials|documents|eval-cases|health|images|ingestion|jobs|medications|registry|search|setup-status|upload)/,
   ],
   retrieval: [
     /^src\/lib\/(?:rag|retrieval|ranking|clinical-search|smart-rag|citations|evidence|source|chunking)/,
