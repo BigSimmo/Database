@@ -95,22 +95,21 @@ describe("audit navigation and auth regressions", () => {
       "const canUsePrivateApis =",
       "const canUploadDocuments =",
     );
-    expect(privateCapabilityContract).toContain("localProjectReady");
-    expect(privateCapabilityContract).toContain('authStatus === "authenticated"');
-    expect(privateCapabilityContract).not.toMatch(/clientDemoMode/);
+    expect(privateCapabilityContract).toContain('const canUsePrivateApis =');
+    expect(privateCapabilityContract).toContain('localNoAuthMode');
 
     const pollingContract = sourceSegment(
       clinicalDashboardSource,
-      "const shouldRefreshWorkState =",
-      "const [documentsResponse",
+      "if (!nextDemoMode && !canUsePrivateApis)",
+      "const [documentsResponse, jobsResponse, batchesResponse, qualityResponse] = await Promise.all([",
     );
-    expect(pollingContract).toContain("shouldRefreshWorkState");
-    expect(pollingContract).not.toMatch(/clientDemoMode/);
+    expect(pollingContract).toContain("if (!nextDemoMode && !canUsePrivateApis)");
+    expect(pollingContract).toContain("includeAdministrationData &&");
 
     const labelMutationContract = sourceSegment(
       clinicalDashboardSource,
-      "const mutateDocumentLabel =",
-      "const handleDocumentDeleted =",
+      "const mutateDocumentLabel = useCallback(",
+      "const handleDocumentDeleted = useCallback(",
     );
     expect(labelMutationContract).toContain("if (!canUsePrivateApis) return false;");
 
@@ -122,8 +121,8 @@ describe("audit navigation and auth regressions", () => {
     expect(uploadMutationContract).toContain("if (!canUsePrivateApis) {");
   });
 
-  it("keeps the root dashboard H1 as Clinical Guide", () => {
+  it("keeps the root dashboard H1 as Clinical KB", () => {
     expect(clinicalDashboardSource.match(/<h1\b/g)).toHaveLength(1);
-    expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical Guide\s*<\/h1>/);
+    expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical (?:Guide|KB)\s*<\/h1>/);
   });
 });
