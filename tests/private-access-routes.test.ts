@@ -16,7 +16,7 @@ function expectFeedbackTokenBoundToAnswer(payload: Record<string, unknown>) {
   expect(claims.answerHash).toBe(createHash("sha256").update(String(payload.answer), "utf8").digest("hex"));
 }
 
-type QueryError = { message: string };
+type QueryError = { message: string; code?: string };
 type QueryResult = { data: unknown; error: QueryError | null };
 type QueryFilter = { column: string; value: unknown };
 type QueryInFilter = { column: string; values: unknown[] };
@@ -41,8 +41,8 @@ function ok(data: unknown): QueryResult {
   return { data, error: null };
 }
 
-function fail(message: string): QueryResult {
-  return { data: null, error: { message } };
+function fail(message: string, code?: string): QueryResult {
+  return { data: null, error: { message, ...(code ? { code } : {}) } };
 }
 
 function rateLimitRow(overrides: Partial<Record<string, unknown>> = {}) {
@@ -2421,6 +2421,49 @@ describe("private document API access", () => {
     expect(documentUpdates[1]?.filters).toContainEqual({ column: "updated_at", value: fence });
   });
 
+  it("returns 409 without rollback when deletion wins the single-document reindex race", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Deleted During Reindex",
+      file_name: "deleted.pdf",
+      source_path: null,
+      import_batch_id: null,
+      status: "failed",
+      error_message: "older failure",
+      page_count: 2,
+      chunk_count: 4,
+      image_count: 0,
+      metadata: {},
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "documents" && call.operation === "update") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "insert") {
+        return fail("ingestion_jobs_document_id_fkey", "23503");
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "full" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await payload(response)).toMatchObject({
+      error: "Document was deleted while reindexing. Refresh the document list and retry.",
+    });
+    expect(client.calls.filter((call) => call.table === "documents" && call.operation === "update")).toHaveLength(1);
+  });
+
   it("skips single-document rollback when a competing active job appears after the safety check", async () => {
     const document = {
       id: documentId,
@@ -2540,6 +2583,55 @@ describe("private document API access", () => {
     // reindex route — the rollback matches on the stamp this request wrote.
     const fence = (documentUpdates[0]?.updatePayload as { updated_at?: string }).updated_at;
     expect(documentUpdates[1]?.filters).toContainEqual({ column: "updated_at", value: fence });
+  });
+
+  it("returns 409 without rollback when deletion wins a bulk reindex race", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Bulk Deleted During Reindex",
+      file_name: "bulk-deleted.pdf",
+      source_path: null,
+      import_batch_id: null,
+      status: "failed",
+      error_message: "older failure",
+      page_count: 2,
+      chunk_count: 4,
+      image_count: 0,
+      metadata: {},
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok([document]);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "documents" && call.operation === "update") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "insert") {
+        return fail("ingestion_jobs_document_id_fkey", "23503");
+      }
+      return ok([]);
+    });
+    mockRuntime(client, { invalidateRagCachesForOwner: vi.fn() });
+    const { POST } = await import("../src/app/api/documents/bulk/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/documents/bulk/reindex", {
+        method: "POST",
+        body: JSON.stringify({ documentIds: [documentId], mode: "full" }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await payload(response)).toMatchObject({
+      ok: false,
+      results: [
+        {
+          documentId,
+          ok: false,
+          error: "Document was deleted while reindexing. Refresh the document list and retry.",
+        },
+      ],
+    });
+    expect(client.calls.filter((call) => call.table === "documents" && call.operation === "update")).toHaveLength(1);
   });
 
   it("skips bulk rollback when a competing active job appears after the safety check", async () => {
@@ -3281,14 +3373,13 @@ describe("private document API access", () => {
   it("permanently deletes an owned document, indexing traces, and storage objects", async () => {
     const sourcePath = `${userId}/documents/${documentId}/source.pdf`;
     const imagePath = `${userId}/images/${imageId}.png`;
-    const chunkId = "44444444-4444-4444-8444-444444444444";
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select") {
         return ok({ id: documentId, owner_id: userId, title: "Owned", storage_path: sourcePath });
       }
       if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
       if (call.table === "document_images" && call.operation === "select") return ok([{ storage_path: imagePath }]);
-      if (call.table === "document_chunks" && call.operation === "select") return ok([{ id: chunkId }]);
+      if (call.table === "document_chunks" && call.operation === "select") return ok([]);
       if (call.table === "storage_cleanup_jobs" && call.operation === "insert") return ok({ id: "cleanup-1" });
       if (call.table === "storage_cleanup_jobs" && call.operation === "update") return ok([]);
       if (call.table === "rag_queries" && call.operation === "delete") return ok([]);
@@ -3297,6 +3388,17 @@ describe("private document API access", () => {
       if (call.table === "documents" && call.operation === "delete") return ok([]);
       return ok([]);
     });
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "delete_document_if_idle"
+        ? ok({
+            outcome: "deleted",
+            cleanup_job_id: "55555555-5555-4555-8555-555555555555",
+            document_title: "Owned",
+            source_path: sourcePath,
+            image_paths: [imagePath],
+          })
+        : ok([]),
+    );
     mockRuntime(client);
     const { DELETE } = await import("../src/app/api/documents/[id]/route");
 
@@ -3304,58 +3406,31 @@ describe("private document API access", () => {
       params: Promise.resolve({ id: documentId }),
     });
     const body = await payload(response);
-    const ragDelete = client.calls.find((call) => call.table === "rag_queries" && call.operation === "delete");
-    const missDeletes = client.calls.filter((call) => call.table === "rag_query_misses" && call.operation === "delete");
-    const cacheDelete = client.calls.find((call) => call.table === "rag_response_cache" && call.operation === "delete");
-    const documentDelete = client.calls.find((call) => call.table === "documents" && call.operation === "delete");
-    const cleanupInsert = client.calls.find(
-      (call) => call.table === "storage_cleanup_jobs" && call.operation === "insert",
-    );
     const cleanupUpdate = client.calls.find(
       (call) => call.table === "storage_cleanup_jobs" && call.operation === "update",
     );
 
     expect(response.status).toBe(200);
     expect(body).toMatchObject({ deleted: true, documentId, storageWarnings: [] });
-    expect(cleanupInsert?.insertPayload).toMatchObject({
-      owner_id: userId,
-      document_id: documentId,
-      document_paths: [sourcePath],
-      image_paths: [imagePath],
-      status: "pending",
+    expect(client.rpc).toHaveBeenCalledWith("delete_document_if_idle", {
+      p_document_id: documentId,
+      p_owner_id: userId,
+      p_document_bucket: "clinical-documents",
+      p_image_bucket: "clinical-images",
     });
     expect(cleanupUpdate?.updatePayload).toMatchObject({ status: "completed", storage_removed: 0 });
-    expect(ragDelete?.filters).not.toContainEqual({ column: "owner_id", value: userId });
-    expect(ragDelete?.overlapsFilters).toContainEqual({ column: "source_chunk_ids", values: [chunkId] });
-    expect(missDeletes.map((call) => call.overlapsFilters[0])).toEqual(
-      expect.arrayContaining([
-        { column: "top_chunk_ids", values: [chunkId] },
-        { column: "cited_chunk_ids", values: [chunkId] },
-      ]),
-    );
-    expect(
-      missDeletes.some((call) =>
-        call.orFilters.includes(`clicked_document_id.eq.${documentId},expected_document_id.eq.${documentId}`),
-      ),
-    ).toBe(true);
-    expect(cacheDelete?.filters).toContainEqual({ column: "owner_id", value: userId });
-    expect(cacheDelete?.inFilters).toContainEqual({ column: "cache_kind", values: ["search", "answer"] });
-    expect(documentDelete?.filters).toContainEqual({ column: "id", value: documentId });
-    expect(documentDelete?.filters).toContainEqual({ column: "owner_id", value: userId });
     expect(client.storageMocks.storageFrom).toHaveBeenCalledWith("clinical-documents");
     expect(client.storageMocks.storageFrom).toHaveBeenCalledWith("clinical-images");
     expect(client.storageMocks.remove).toHaveBeenCalledWith([sourcePath]);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([imagePath]);
   });
 
-  it("paginates delete cleanup rows before removing the document", async () => {
+  it("removes transactionally snapshotted image paths in storage batches", async () => {
     const sourcePath = `${userId}/documents/${documentId}/source.pdf`;
     const firstImagePage = Array.from({ length: 1000 }, (_, index) => ({
       storage_path: `${userId}/images/${index}.png`,
     }));
     const finalImage = { storage_path: `${userId}/images/final.png` };
-    const firstChunkPage = Array.from({ length: 1000 }, (_, index) => ({ id: `chunk-${index}` }));
-    const finalChunk = { id: "chunk-final" };
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select") {
         return ok({ id: documentId, owner_id: userId, title: "Owned", storage_path: sourcePath });
@@ -3364,9 +3439,7 @@ describe("private document API access", () => {
       if (call.table === "document_images" && call.operation === "select") {
         return call.range?.from === 0 ? ok(firstImagePage) : ok([finalImage]);
       }
-      if (call.table === "document_chunks" && call.operation === "select") {
-        return call.range?.from === 0 ? ok(firstChunkPage) : ok([finalChunk]);
-      }
+      if (call.table === "document_chunks" && call.operation === "select") return ok([]);
       if (call.table === "storage_cleanup_jobs" && call.operation === "insert") return ok({ id: "cleanup-1" });
       if (call.table === "storage_cleanup_jobs" && call.operation === "update") return ok([]);
       if (call.table === "rag_queries" && call.operation === "delete") return ok([]);
@@ -3375,39 +3448,38 @@ describe("private document API access", () => {
       if (call.table === "documents" && call.operation === "delete") return ok([]);
       return ok([]);
     });
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "delete_document_if_idle"
+        ? ok({
+            outcome: "deleted",
+            cleanup_job_id: "55555555-5555-4555-8555-555555555555",
+            document_title: "Owned",
+            source_path: sourcePath,
+            image_paths: [...firstImagePage.map((image) => image.storage_path), finalImage.storage_path],
+          })
+        : ok([]),
+    );
     mockRuntime(client);
     const { DELETE } = await import("../src/app/api/documents/[id]/route");
 
     const response = await DELETE(authenticatedRequest(`/api/documents/${documentId}`, { method: "DELETE" }), {
       params: Promise.resolve({ id: documentId }),
     });
-    const imageSelects = client.calls.filter((call) => call.table === "document_images" && call.operation === "select");
-    const chunkSelects = client.calls.filter((call) => call.table === "document_chunks" && call.operation === "select");
-    const ragDelete = client.calls.find((call) => call.table === "rag_queries" && call.operation === "delete");
-
     expect(response.status).toBe(200);
-    expect(imageSelects.map((call) => call.range)).toEqual([
-      { from: 0, to: 999 },
-      { from: 1000, to: 1999 },
-    ]);
-    expect(chunkSelects.map((call) => call.range)).toEqual([
-      { from: 0, to: 999 },
-      { from: 1000, to: 1999 },
-    ]);
-    expect(ragDelete?.overlapsFilters[0]?.values).toContain("chunk-final");
-    expect(client.storageMocks.remove).toHaveBeenCalledWith(expect.arrayContaining([finalImage.storage_path]));
+    expect(client.storageMocks.remove).toHaveBeenCalledWith(firstImagePage.map((image) => image.storage_path));
+    expect(client.storageMocks.remove).toHaveBeenCalledWith([finalImage.storage_path]);
+    expect(client.calls.some((call) => call.table === "document_images")).toBe(false);
+    expect(client.calls.some((call) => call.table === "document_chunks")).toBe(false);
   });
 
-  it("does not delete the document if index trace cleanup fails", async () => {
-    const sourcePath = `${userId}/documents/${documentId}/source.pdf`;
-    const chunkId = "44444444-4444-4444-8444-444444444444";
+  it("does not touch storage when transactional deletion fails", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select") {
-        return ok({ id: documentId, owner_id: userId, title: "Owned", storage_path: sourcePath });
+        return ok({ id: documentId, owner_id: userId, title: "Owned", storage_path: "source.pdf" });
       }
       if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
       if (call.table === "document_images" && call.operation === "select") return ok([]);
-      if (call.table === "document_chunks" && call.operation === "select") return ok([{ id: chunkId }]);
+      if (call.table === "document_chunks" && call.operation === "select") return ok([]);
       if (call.table === "storage_cleanup_jobs" && call.operation === "insert") return ok({ id: "cleanup-1" });
       if (call.table === "storage_cleanup_jobs" && call.operation === "update") return ok([]);
       if (call.table === "rag_queries" && call.operation === "delete") return fail("query log delete failed");
@@ -3416,23 +3488,17 @@ describe("private document API access", () => {
       if (call.table === "documents" && call.operation === "delete") return ok([]);
       return ok([]);
     });
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "delete_document_if_idle" ? fail("index trace cleanup failed") : ok([]),
+    );
     mockRuntime(client);
     const { DELETE } = await import("../src/app/api/documents/[id]/route");
 
     const response = await DELETE(authenticatedRequest(`/api/documents/${documentId}`, { method: "DELETE" }), {
       params: Promise.resolve({ id: documentId }),
     });
-    const cleanupUpdate = client.calls.find(
-      (call) => call.table === "storage_cleanup_jobs" && call.operation === "update",
-    );
-
     expect(response.status).toBe(500);
     expect(await payload(response)).toMatchObject({ error: "Request failed." });
-    expect(cleanupUpdate?.updatePayload).toMatchObject({
-      status: "failed",
-      last_error: "Index trace cleanup failed: query log delete failed",
-    });
-    expect(client.calls.some((call) => call.table === "documents" && call.operation === "delete")).toBe(false);
     expect(client.storageMocks.remove).not.toHaveBeenCalled();
   });
 
@@ -3450,6 +3516,15 @@ describe("private document API access", () => {
         }
         return ok([]);
       });
+      client.rpc.mockImplementation(async (name: string) =>
+        name === "delete_document_if_idle"
+          ? ok({
+              outcome: "active_job",
+              job_id: "66666666-6666-4666-8666-666666666666",
+              job_status: jobStatus,
+            })
+          : ok([]),
+      );
       mockRuntime(client);
       const { DELETE } = await import("../src/app/api/documents/[id]/route");
 

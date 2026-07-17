@@ -124,6 +124,10 @@ const publicationApprovalMigration = readFileSync(
   new URL("../supabase/migrations/20260717131000_guard_document_publication_approval.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const deleteDocumentIfIdleMigration = readFileSync(
+  new URL("../supabase/migrations/20260717132000_delete_document_if_idle.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const scrubLegacyQueryTextMigration = readFileSync(
   new URL("../supabase/migrations/20260713103000_scrub_legacy_rag_query_text.sql", import.meta.url),
   "utf8",
@@ -1137,6 +1141,24 @@ describe("Supabase Preview replay guards", () => {
       expect(sql).toContain("for update;");
       expect(sql).toContain(
         "grant execute on function public.publish_approved_documents(jsonb, text, integer) to service_role;",
+      );
+    }
+  });
+
+  it("serializes permanent deletion against ingestion job creation", () => {
+    for (const sql of [schema, deleteDocumentIfIdleMigration]) {
+      const functionStart = sql.indexOf("create or replace function public.delete_document_if_idle(");
+      const functionBody = sql.slice(functionStart, sql.indexOf("$$;", functionStart));
+      const rowLock = functionBody.indexOf("for update;");
+      const activeJobCheck = functionBody.indexOf("from public.ingestion_jobs j");
+      const ledgerInsert = functionBody.indexOf("insert into public.storage_cleanup_jobs");
+      const parentDelete = functionBody.indexOf("delete from public.documents");
+      expect(rowLock).toBeGreaterThanOrEqual(0);
+      expect(rowLock).toBeLessThan(activeJobCheck);
+      expect(activeJobCheck).toBeLessThan(ledgerInsert);
+      expect(ledgerInsert).toBeLessThan(parentDelete);
+      expect(sql).toContain(
+        "grant execute on function public.delete_document_if_idle(uuid, uuid, text, text) to service_role;",
       );
     }
   });

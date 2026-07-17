@@ -2316,6 +2316,15 @@ export type Database = {
         Args: { input_query: string; min_sim?: number };
         Returns: string;
       };
+      delete_document_if_idle: {
+        Args: {
+          p_document_bucket: string;
+          p_document_id: string;
+          p_image_bucket: string;
+          p_owner_id: string;
+        };
+        Returns: Json;
+      };
       detect_legacy_ivfflat_indexes: { Args: never; Returns: string[] };
       document_label_metadata: {
         Args: { p_document_id: string };
