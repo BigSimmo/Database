@@ -1,38 +1,10 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { validateActionReference } from "./github-action-pins.mjs";
 import { yamlBlock } from "./yaml-contract.mjs";
 
 const workflowDir = path.join(process.cwd(), ".github", "workflows");
 
-const supportedMajorRanges = new Map([
-  [
-    "actions/checkout",
-    {
-      min: 4,
-      max: 6,
-      reason:
-        "v6 is the currently supported and documented major that this repo has vetted; upgrading to v7 should be a deliberate, reviewed decision.",
-    },
-  ],
-  [
-    "peter-evans/create-or-update-comment",
-    {
-      min: 5,
-      max: 5,
-      reason: "create-or-update-comment v6 is not a documented published major for this workflow.",
-    },
-  ],
-  [
-    "actions/github-script",
-    {
-      min: 8,
-      max: 9,
-      reason: "v7 uses the end-of-life Node 20 action runtime; use a Node 24 based release.",
-    },
-  ],
-]);
-
-const usesPattern = /^\s*uses:\s*([^@\s]+)@v(\d+)\s*(?:#.*)?$/;
 const runsOnLatestPattern = /^\s*runs-on:\s*ubuntu-latest\s*(?:#.*)?$/;
 const failures = [];
 const expectedSupabaseCliVersion = "2.108.0";
@@ -51,19 +23,8 @@ for (const fileName of readdirSync(workflowDir)
       );
     }
 
-    const match = line.match(usesPattern);
-    if (!match) return;
-
-    const [, action, rawMajor] = match;
-    const range = supportedMajorRanges.get(action);
-    if (!range) return;
-
-    const major = Number(rawMajor);
-    if (!Number.isInteger(major) || major < range.min || major > range.max) {
-      failures.push(
-        `${fileName}:${index + 1}: ${action}@v${rawMajor} is outside supported range v${range.min}-v${range.max}. ${range.reason}`,
-      );
-    }
+    const actionFailure = validateActionReference(line);
+    if (actionFailure) failures.push(`${fileName}:${index + 1}: ${actionFailure}`);
   });
 }
 

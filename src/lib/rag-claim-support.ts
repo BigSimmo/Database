@@ -45,6 +45,32 @@ const topicStopwords = new Set([
   "source",
 ]);
 
+const triggerTopicStopwords = new Set([
+  "clinical",
+  "clinically",
+  "develop",
+  "developed",
+  "developing",
+  "develops",
+  "indicated",
+  "indication",
+  "necessary",
+  "needed",
+  "occur",
+  "occurred",
+  "occurring",
+  "occurs",
+  "patient",
+  "patients",
+  "present",
+  "presenting",
+  "required",
+  "sign",
+  "signs",
+  "symptom",
+  "symptoms",
+]);
+
 function cleanText(value: string) {
   return value
     .replace(/[*_`#>]/g, "")
@@ -99,6 +125,30 @@ function topicTokens(value: string) {
       .split(/\s+/)
       .filter((token) => token.length >= 4 && !topicStopwords.has(token) && !/^\d/.test(token)),
   );
+}
+
+function highRiskTriggerTokens(value: string) {
+  const tokens = new Set<string>();
+  const triggerPatterns = [
+    /\b(?:when|if|unless|during|after|before)\b\s*([^,;.!?]+?)(?=\s*,|\s+\b(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|start|stop|use|withhold)\b|[;.!?]|$)/gi,
+    /\b(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|start|stop|use|withhold)\b[^,;.!?]{0,80}?\bfor\b\s*([^,;.!?]+?)(?=\s+\bfor\b|\s*,|[;.!?]|$)/gi,
+  ];
+  for (const pattern of triggerPatterns) {
+    for (const match of value.matchAll(pattern)) {
+      for (const token of topicTokens(match[1] ?? "")) {
+        if (!triggerTopicStopwords.has(token)) tokens.add(token);
+      }
+    }
+  }
+  return tokens;
+}
+
+function compatibleHighRiskTrigger(claim: string, evidence: string) {
+  if (!isHighRiskClaim(claim)) return true;
+  const triggerTokens = highRiskTriggerTokens(claim);
+  if (triggerTokens.size === 0) return true;
+  const evidenceTopics = topicTokens(evidence);
+  return [...triggerTokens].every((token) => evidenceTopics.has(token));
 }
 
 function isHighRiskClaim(value: string) {
@@ -191,6 +241,7 @@ function sourceSupportsClaim(claim: string, source: SearchResult) {
   if (claimEntities.size > 0 && [...claimEntities].some((entity) => !evidenceEntities.has(entity))) return false;
   if (!compatiblePolarity(claim, evidence)) return false;
   if (!compatibleSafetyDimensions(claim, evidence)) return false;
+  if (!compatibleHighRiskTrigger(claim, evidence)) return false;
 
   const evidenceAtoms = new Set(extractClinicalValueAtoms(evidence).map(atomKey));
   if (extractClinicalValueAtoms(claim).some((atom) => !evidenceAtoms.has(atomKey(atom)))) return false;

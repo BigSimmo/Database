@@ -22,6 +22,10 @@ export default defineConfig({
     /.*ui-(smoke|stress|accessibility|tools|tools-collapse|tools-task-directory|overlap|universal-search|specifiers|formulation)\.spec\.ts/,
   timeout: 60_000,
   retries: 0,
+  // Fail the run if a stray `test.only` is committed: otherwise it silently
+  // narrows CI to that one test (and skips the whole release matrix) while the
+  // required check still reports green.
+  forbidOnly: !!process.env.CI,
   expect: {
     timeout: 10_000,
   },
