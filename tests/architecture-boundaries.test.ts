@@ -116,7 +116,9 @@ function resolveModule(fromFile: string, specifier: string, fileSet: Set<string>
   return candidates.map((candidate) => path.resolve(candidate)).find((candidate) => fileSet.has(candidate)) ?? null;
 }
 
-function runtimeGraph() {
+let runtimeGraphCache: ReturnType<typeof buildRuntimeGraph> | undefined;
+
+function buildRuntimeGraph() {
   const files = sourceFiles();
   const fileSet = new Set(files);
   const graph = new Map<string, string[]>();
@@ -132,6 +134,11 @@ function runtimeGraph() {
   }
 
   return { files, fileSet, graph, parsed };
+}
+
+function runtimeGraph() {
+  runtimeGraphCache ??= buildRuntimeGraph();
+  return runtimeGraphCache;
 }
 
 function runtimeCycles(graph: Map<string, string[]>) {
@@ -195,7 +202,7 @@ describe("architecture boundaries", () => {
     expect(runtimeCycles(new Map([[file, [file]]]))).toEqual([[file]]);
   });
 
-  it("has no runtime import cycles", () => {
+  it("has no runtime import cycles", { timeout: 60_000 }, () => {
     const { graph } = runtimeGraph();
     const cycles = runtimeCycles(graph).map((cycle) => cycle.map(relative).sort());
     expect(cycles).toEqual([]);
@@ -229,8 +236,9 @@ describe("architecture boundaries", () => {
   });
 
   it("does not make runtime source modules depend on operational scripts", () => {
-    const scriptImports = sourceFiles().flatMap((file) => {
-      const modules = moduleSpecifiers(file);
+    const { files, parsed } = runtimeGraph();
+    const scriptImports = files.flatMap((file) => {
+      const modules = parsed.get(file)!;
       return [...modules.staticImports, ...modules.dynamicImports]
         .filter((specifier) =>
           path.resolve(path.dirname(file), specifier).startsWith(path.join(projectRoot, "scripts")),

@@ -81,7 +81,7 @@ function findExistingLocalProjectUrl() {
   );
 }
 
-export function getPlaywrightBaseUrl() {
+export function getPlaywrightBaseUrl({ allowEnsure = true }: { allowEnsure?: boolean } = {}) {
   const configuredBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
   if (configuredBaseUrl) {
     if (!localUrlPattern.test(configuredBaseUrl)) {
@@ -89,6 +89,12 @@ export function getPlaywrightBaseUrl() {
     }
     verifyLocalProjectIdentity(configuredBaseUrl);
     return configuredBaseUrl;
+  }
+
+  if (!allowEnsure) {
+    throw new Error(
+      "Playwright requires a runner-owned local server. Use the repository npm scripts instead of invoking the Playwright CLI directly.",
+    );
   }
 
   const existingUrl = findExistingLocalProjectUrl();

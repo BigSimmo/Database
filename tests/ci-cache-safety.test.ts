@@ -15,11 +15,12 @@ describe("CI cache safety", () => {
     expect(cacheKey).toContain(".npmrc");
   });
 
-  it("keeps quarantined UI specs in an advisory lane without unconditional browser setup", () => {
-    expect(workflow).toContain("ui-quarantine:");
-    expect(workflow).toContain("git grep -q '@quarantine'");
-    expect(workflow).toContain("run: npm run test:e2e:quarantine");
-    expect(workflow).toContain("if: steps.quarantine.outputs.present == 'true'");
+  it("keeps quarantined and mockup UI specs in one advisory lane", () => {
+    expect(workflow).toContain("ui-advisory:");
+    expect(workflow).toContain("uses: ./.github/actions/setup-ui-e2e");
+    expect(workflow).toContain("run: npm run test:e2e:advisory");
+    expect(workflow).not.toContain("ui-quarantine:");
+    expect(workflow).not.toContain("ui-mockups:");
   });
 
   it("installs Playwright system dependencies when browser caches hit", () => {

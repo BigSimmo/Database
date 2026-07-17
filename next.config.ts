@@ -4,6 +4,14 @@ import { fileURLToPath } from "node:url";
 import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
+const requestedDistDir = process.env.NEXT_DIST_DIR?.trim();
+if (requestedDistDir && !/^\.next-playwright\/[a-z0-9-]+\/dist$/i.test(requestedDistDir)) {
+  throw new Error("NEXT_DIST_DIR must be an owned .next-playwright/<run-id>/dist directory.");
+}
+const requestedTsConfigPath = process.env.NEXT_TSCONFIG_PATH?.trim();
+if (requestedTsConfigPath && !/^\.next-playwright\/[a-z0-9-]+\/tsconfig\.json$/i.test(requestedTsConfigPath)) {
+  throw new Error("NEXT_TSCONFIG_PATH must be an owned .next-playwright/<run-id>/tsconfig.json file.");
+}
 
 // Static (non-CSP) headers for every route. The nonce'd CSP is emitted per
 // request from src/proxy.ts; both derive their runtime flags from the same helper.
@@ -18,6 +26,8 @@ async function withOptionalBundleAnalyzer(config: NextConfig): Promise<NextConfi
 }
 
 const nextConfig: NextConfig = {
+  distDir: requestedDistDir || ".next",
+  ...(requestedTsConfigPath ? { typescript: { tsconfigPath: requestedTsConfigPath } } : {}),
   // Playwright and some local tooling hit the dev server via 127.0.0.1; without
   // this, Next blocks HMR/client hydration from that host and phone scroll-hide
   // never wires up its listeners.

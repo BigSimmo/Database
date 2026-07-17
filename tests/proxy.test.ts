@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { proxy } from "../src/proxy";
+import { proxy, shouldBlockProductionMockups } from "../src/proxy";
 
 // The proxy owns the per-request nonce CSP (see src/proxy.ts). CI's verify:ui
 // only exercises the *dev* CSP path (Turbopack keeps 'unsafe-inline'); these
@@ -73,5 +73,31 @@ describe("proxy content-security-policy", () => {
     const overridden = res.headers.get("x-middleware-override-headers") ?? "";
     expect(overridden).toContain("x-nonce");
     expect(res.headers.get("x-middleware-request-x-nonce")).toBe(cspNonce);
+  });
+});
+
+describe("production mockup boundary", () => {
+  it("blocks ordinary production traffic and permits only the explicit isolated Playwright advisory profile", () => {
+    expect(shouldBlockProductionMockups("/mockups/tools-workflow-board", { NODE_ENV: "production" })).toBe(true);
+    expect(
+      shouldBlockProductionMockups("/mockups/tools-workflow-board", {
+        NODE_ENV: "production",
+        PLAYWRIGHT_OFFLINE_MODE: "true",
+      }),
+    ).toBe(true);
+    expect(
+      shouldBlockProductionMockups("/mockups/tools-workflow-board", {
+        NODE_ENV: "production",
+        NEXT_PUBLIC_MOCKUPS_ENABLED: "true",
+      }),
+    ).toBe(true);
+    expect(
+      shouldBlockProductionMockups("/mockups/tools-workflow-board", {
+        NODE_ENV: "production",
+        PLAYWRIGHT_OFFLINE_MODE: "true",
+        NEXT_PUBLIC_MOCKUPS_ENABLED: "true",
+      }),
+    ).toBe(false);
+    expect(shouldBlockProductionMockups("/applications", { NODE_ENV: "production" })).toBe(false);
   });
 });

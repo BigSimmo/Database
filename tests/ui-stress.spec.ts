@@ -331,12 +331,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
       await mockStressData(page);
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto("/?mode=documents", { waitUntil: "domcontentloaded" });
-      // Deterministic app-shell mount wait, not networkidle (persistent fetches).
-      await page
-        .locator("#main-content")
-        .first()
-        .waitFor({ state: "visible", timeout: 15_000 })
-        .catch(() => undefined);
+      await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
 
       if (viewport.name === "mobile") {
         const dailyActions = await openDailyActions(page);
@@ -344,37 +339,18 @@ test.describe("Clinical KB long-content stress coverage", () => {
         // the tap lands on Upload rather than an adjacent row mid-animation.
         await dailyActions.getByRole("menuitem", { name: /Upload(?: PDF)?/ }).click();
         await expect(dailyActions).toBeHidden();
-        const uploadSurface = page.getByRole("dialog", { name: "Upload and indexing" });
-        await expect(uploadSurface).toBeVisible();
-        await expect(uploadSurface.getByRole("button", { name: "Show indexed document files" })).toContainText(
-          "24 indexed",
-          { timeout: 20_000 },
-        );
-        const closeUploadSheet = page.getByRole("button", { name: "Close Upload and indexing" });
-        if (await closeUploadSheet.isVisible().catch(() => false)) {
-          await closeUploadSheet.click();
-        }
+        await expect(
+          page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only." }),
+        ).toContainText("Use the source library to open indexed documents.");
+        await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
       }
       await expectNoPageHorizontalOverflow(page);
 
-      const legacyAnswerModeToggle = page.getByRole("button", { name: "Switch to answer mode" });
-      if (await legacyAnswerModeToggle.isVisible().catch(() => false)) {
-        await legacyAnswerModeToggle.click();
-      } else {
-        const appModeMenu = page.getByRole("button", { name: /^Mode / });
-        const appModeGroup = page.getByRole("menu", { name: "Choose app mode" });
-        await expect(appModeMenu).toBeVisible();
-        await expect(appModeMenu).toBeEnabled();
-        await expect(async () => {
-          if (await appModeGroup.isVisible().catch(() => false)) return;
-          await appModeMenu.click();
-          await expect(appModeGroup).toBeVisible({ timeout: 5_000 });
-        }).toPass({ timeout: 20_000 });
-        const answerMode = appModeGroup.getByRole("menuitemradio", { name: /^Answer\b/ });
-        await expect(answerMode).toBeVisible();
-        await answerMode.click();
-        await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
-      }
+      // Mode-menu behavior is covered by the launcher suites. This stress test
+      // owns only dense answer rendering, so enter that route directly rather
+      // than making its result depend on an unrelated menu transition.
+      await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+      await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
 
       await page
         .locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible')
