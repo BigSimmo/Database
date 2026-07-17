@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
 import { cn } from "@/components/ui-primitives";
@@ -32,6 +32,18 @@ export function UniversalSearchAlsoMatches({
   // primary results down; desktop always shows the grid (see the sm: rules below),
   // so the toggle state only governs the narrow-viewport disclosure.
   const [expanded, setExpanded] = useState(false);
+  // Track the sm breakpoint (640px) so the header's disclosure semantics match
+  // reality: on desktop the grid is always visible, so the button reports
+  // expanded and drops out of the interaction/tab flow rather than claiming to
+  // be a collapsed control the user can toggle to no effect.
+  const [isWide, setIsWide] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 640px)");
+    const sync = () => setIsWide(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
   const preferred = new Set(universal.preferredDomains ?? []);
   const groups = (() => {
     const groupByDomain = new Map(universal.groups.map((group) => [group.kind, group]));
@@ -72,14 +84,17 @@ export function UniversalSearchAlsoMatches({
     >
       <button
         type="button"
-        onClick={() => setExpanded((value) => !value)}
-        aria-expanded={expanded}
+        onClick={() => {
+          if (!isWide) setExpanded((value) => !value);
+        }}
+        aria-expanded={isWide ? true : expanded}
         aria-controls={panelId}
+        tabIndex={isWide ? -1 : undefined}
         className={cn(
           "flex w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors",
           "hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
           // On desktop the panel is always open, so the header is inert copy rather than a control.
-          "sm:mb-2 sm:cursor-default sm:py-0 sm:hover:bg-transparent",
+          "sm:pointer-events-none sm:mb-2 sm:cursor-default sm:py-0 sm:hover:bg-transparent",
         )}
       >
         <span className="flex min-w-0 items-center gap-2">
