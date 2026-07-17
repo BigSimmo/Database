@@ -2,9 +2,10 @@ import { expect, test, type Locator, type Page } from "playwright/test";
 import type { Route } from "playwright-core";
 import { acuteConfusionPresentationWorkflow, differentialRecords } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
-import { formRecords } from "../src/lib/forms";
+import { formRecords, rankFormRecords } from "../src/lib/forms";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
+import { sortResultItems } from "../src/lib/result-sort";
 import { scrollPrimarySurface } from "./playwright-scroll";
 
 const readySetupChecks = [
@@ -909,6 +910,10 @@ test.describe("Clinical KB tools launcher", () => {
 
     const results = page.getByTestId("form-search-results");
     const visibleSort = page.locator('select[aria-label="Sort results"]:visible');
+    const expectedAlphaFirstTestId = `form-search-result-${
+      sortResultItems(rankFormRecords(formRecords, "transport forms"), "alpha", (match) => match.service.title)[0]
+        ?.service.slug
+    }`;
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
       "form-search-result-transport-crisis-form",
@@ -918,7 +923,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/\bsort=alpha\b/);
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
-      "form-search-result-detention-examination-movement",
+      expectedAlphaFirstTestId,
     );
 
     await page.goBack();
@@ -932,7 +937,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(visibleSort).toHaveValue("alpha");
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
-      "form-search-result-detention-examination-movement",
+      expectedAlphaFirstTestId,
     );
     await expectNoPageHorizontalOverflow(page);
   });

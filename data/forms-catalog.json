@@ -29,18 +29,9 @@
       "destination": "Examination place must be clear and align with any detention or transport authority.",
       "authorises": "Referral for examination by a psychiatrist.",
       "doesNotAuthorise": "Treatment, detention, transport, restraint, seclusion or force by itself.",
-      "before": [
-        "2"
-      ],
-      "parallel": [
-        "3A",
-        "4A"
-      ],
-      "after": [
-        "5A",
-        "6A",
-        "6B"
-      ],
+      "before": ["2"],
+      "parallel": ["3A", "4A"],
+      "after": ["5A", "6A", "6B"],
       "copies": "Use approved form pathway; include confidential attachment only where required.",
       "documentationStem": "Assessed at [time/place]. Reasonably suspect need for involuntary treatment order because [illness features], [risk], [capacity issue] and [least restrictive reasoning]. Examination destination: [place].",
       "traps": [
@@ -50,21 +41,8 @@
       ],
       "safetyPearl": "Separate referral authority from any detention, transport or treatment authority.",
       "sourceNote": "Source-derived summary from supplied Form 1A guide and WA MHA forms workflow notes.",
-      "aliases": [
-        "referral",
-        "psychiatrist exam",
-        "1a referral",
-        "assessment referral"
-      ],
-      "searchTerms": [
-        "capacity",
-        "threshold",
-        "destination",
-        "expiry",
-        "transport",
-        "force",
-        "refused"
-      ],
+      "aliases": ["referral", "psychiatrist exam", "1a referral", "assessment referral"],
+      "searchTerms": ["capacity", "threshold", "destination", "expiry", "transport", "force", "refused"],
       "riskLevel": "high",
       "sourceDocumentId": "1a-9c7312b9",
       "indexedClock": "within 48 hours, 72 hours",
@@ -97,10 +75,7 @@
         "documentTitle": "Referral For Examination By Psychiatrist",
         "fileName": "📋 Form 1A.pdf",
         "pages": 2,
-        "timings": [
-          "within 48 hours",
-          "72 hours"
-        ],
+        "timings": ["within 48 hours", "72 hours"],
         "sectionCue": "sections 26, 31, 36, 37, 41, 42",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -118,15 +93,9 @@
       "destination": "Updated destination must be visible to the receiving team.",
       "authorises": "Variation or extension of the referral pathway as specified.",
       "doesNotAuthorise": "A new detention or transport power by itself.",
-      "before": [
-        "1A"
-      ],
-      "parallel": [
-        "4B"
-      ],
-      "after": [
-        "Psychiatrist examination"
-      ],
+      "before": ["1A"],
+      "parallel": ["4B"],
+      "after": ["Psychiatrist examination"],
       "copies": "Update receiving service and records with changed referral details.",
       "documentationStem": "Existing referral reviewed at [time]. Variation/extension required because [reason]. Updated destination/expiry: [details].",
       "traps": [
@@ -135,19 +104,8 @@
       ],
       "safetyPearl": "Variation is only useful while the underlying pathway is still lawful.",
       "sourceNote": "Representative summary from master forms workflow.",
-      "aliases": [
-        "extension",
-        "variation",
-        "rural referral",
-        "non metro"
-      ],
-      "searchTerms": [
-        "expired",
-        "destination",
-        "transport",
-        "rural",
-        "extension"
-      ],
+      "aliases": ["extension", "variation", "rural referral", "non metro"],
+      "searchTerms": ["expired", "destination", "transport", "rural", "extension"],
       "riskLevel": "medium",
       "sourceDocumentId": "1b-32b32a6c",
       "indexedClock": "72 hours",
@@ -179,9 +137,7 @@
         "documentTitle": "Variation Of Referral",
         "fileName": "📋 Form 1B.pdf",
         "pages": 2,
-        "timings": [
-          "72 hours"
-        ],
+        "timings": ["72 hours"],
         "sectionCue": "sections 45, 46",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -200,14 +156,8 @@
       "authorises": "Short assessment hold for the voluntary inpatient pathway.",
       "doesNotAuthorise": "Ongoing detention beyond the maximum period or treatment without separate authority.",
       "before": [],
-      "parallel": [
-        "1A"
-      ],
-      "after": [
-        "Release",
-        "1A",
-        "3A"
-      ],
+      "parallel": ["1A"],
+      "after": ["Release", "1A", "3A"],
       "copies": "Hand over expiry and next owner clearly.",
       "documentationStem": "Voluntary inpatient requested discharge at [time]. Form 2 commenced because [assessment reason]. Expiry and next lawful step documented.",
       "traps": [
@@ -217,18 +167,8 @@
       ],
       "safetyPearl": "The expiry is the clinical priority. Decide and document the next lawful step early.",
       "sourceNote": "Representative summary from supplied forms guide.",
-      "aliases": [
-        "voluntary inpatient",
-        "wants to leave",
-        "assessment hold"
-      ],
-      "searchTerms": [
-        "6 hours",
-        "expired",
-        "hard stop",
-        "leave ward",
-        "discharge"
-      ],
+      "aliases": ["voluntary inpatient", "wants to leave", "assessment hold"],
+      "searchTerms": ["6 hours", "expired", "hard stop", "leave ward", "discharge"],
       "riskLevel": "high",
       "sourceDocumentId": "2-0fdd193c",
       "indexedClock": "6 hours, up to 6 hours",
@@ -261,10 +201,7 @@
         "documentTitle": "Order To Detain Voluntary Inpatient In Authorised Hospital For Assessment",
         "fileName": "📋 Form 2.pdf",
         "pages": 2,
-        "timings": [
-          "6 hours",
-          "up to 6 hours"
-        ],
+        "timings": ["6 hours", "up to 6 hours"],
         "sectionCue": "sections 34, 35",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -282,16 +219,9 @@
       "destination": "Must align with the live referral and examination place.",
       "authorises": "Detention for the specified pre-examination pathway.",
       "doesNotAuthorise": "Transport by itself unless transport authority also exists.",
-      "before": [
-        "1A"
-      ],
-      "parallel": [
-        "4A"
-      ],
-      "after": [
-        "Psychiatrist examination",
-        "3B"
-      ],
+      "before": ["1A"],
+      "parallel": ["4A"],
+      "after": ["Psychiatrist examination", "3B"],
       "copies": "Make expiry and destination visible in handover.",
       "documentationStem": "Live referral confirmed. Detention required because [reason]. Destination, expiry and responsible team documented.",
       "traps": [
@@ -301,18 +231,8 @@
       ],
       "safetyPearl": "Detention and transport authorities are separate checks.",
       "sourceNote": "Representative summary from supplied workflow guide.",
-      "aliases": [
-        "detain before exam",
-        "pre exam detention",
-        "3a detention"
-      ],
-      "searchTerms": [
-        "transport",
-        "destination",
-        "expiry",
-        "referral",
-        "force"
-      ],
+      "aliases": ["detain before exam", "pre exam detention", "3a detention"],
+      "searchTerms": ["transport", "destination", "expiry", "referral", "force"],
       "riskLevel": "high",
       "sourceDocumentId": "3a-9518af5b",
       "indexedClock": "Up to 24 hours, 24 hours, 72 hours, 144 hours",
@@ -347,12 +267,7 @@
         "documentTitle": "Detention Order",
         "fileName": "📋 Form 3A.pdf",
         "pages": 2,
-        "timings": [
-          "Up to 24 hours",
-          "24 hours",
-          "72 hours",
-          "144 hours"
-        ],
+        "timings": ["Up to 24 hours", "24 hours", "72 hours", "144 hours"],
         "sectionCue": "sections 28",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -381,11 +296,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 3B.pdf.",
-      "aliases": [
-        "3b",
-        "continuation of detention",
-        "detention"
-      ],
+      "aliases": ["3b", "continuation of detention", "detention"],
       "searchTerms": [
         "detention",
         "hospital",
@@ -420,13 +331,7 @@
         "documentTitle": "Continuation Of Detention",
         "fileName": "📋 Form 3B.pdf",
         "pages": 2,
-        "timings": [
-          "24 hours",
-          "72 hours",
-          "144 hours",
-          "48 hours",
-          "up to 24 hours"
-        ],
+        "timings": ["24 hours", "72 hours", "144 hours", "48 hours", "up to 24 hours"],
         "sectionCue": "sections 28, 59, 62",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -455,11 +360,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 3C.pdf.",
-      "aliases": [
-        "3c",
-        "continuation of detention to enable a further examination by a psychiatrist",
-        "detention"
-      ],
+      "aliases": ["3c", "continuation of detention to enable a further examination by a psychiatrist", "detention"],
       "searchTerms": [
         "hospital",
         "authorised",
@@ -492,11 +393,7 @@
         "documentTitle": "Continuation Of Detention To Enable A Further Examination By A Psychiatrist",
         "fileName": "📋 Form 3C.pdf",
         "pages": 2,
-        "timings": [
-          "24 hours",
-          "up to 72 hours",
-          "72 hours"
-        ],
+        "timings": ["24 hours", "up to 72 hours", "72 hours"],
         "sectionCue": "sections 55, 56",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -559,10 +456,7 @@
         "documentTitle": "Order Authorising Reception And Detention In An Authorised Hospital For Further Examination",
         "fileName": "📋 Form 3D.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 61",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -591,11 +485,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 3E.pdf.",
-      "aliases": [
-        "3e",
-        "order that person cannot continue to be detained",
-        "detention"
-      ],
+      "aliases": ["3e", "order that person cannot continue to be detained", "detention"],
       "searchTerms": [
         "continue",
         "detained",
@@ -625,10 +515,7 @@
         "documentTitle": "Order That Person Cannot Continue To Be Detained",
         "fileName": "📋 Form 3E.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 72",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -646,16 +533,9 @@
       "destination": "Exact destination is essential and must match the referral pathway.",
       "authorises": "Transport/conveyance according to the order.",
       "doesNotAuthorise": "Psychiatric treatment or detention beyond the linked authority.",
-      "before": [
-        "1A"
-      ],
-      "parallel": [
-        "3A",
-        "4B"
-      ],
-      "after": [
-        "Examination at destination"
-      ],
+      "before": ["1A"],
+      "parallel": ["3A", "4B"],
+      "after": ["Examination at destination"],
       "copies": "Notify transport and receiving service of destination and authority limits.",
       "documentationStem": "Transport required because [reason] and no other safe means is reasonably available. Destination: [place]. Linked authority: [form].",
       "traps": [
@@ -665,18 +545,8 @@
       ],
       "safetyPearl": "Transport is a separate legal step, not an automatic consequence of referral.",
       "sourceNote": "Representative summary from supplied workflow guide.",
-      "aliases": [
-        "transport",
-        "convey",
-        "ambulance",
-        "police transport"
-      ],
-      "searchTerms": [
-        "destination",
-        "force",
-        "least restrictive",
-        "referral"
-      ],
+      "aliases": ["transport", "convey", "ambulance", "police transport"],
+      "searchTerms": ["destination", "force", "least restrictive", "referral"],
       "riskLevel": "high",
       "sourceDocumentId": "4a-ca3318c8",
       "indexedClock": "72 hours",
@@ -708,9 +578,7 @@
         "documentTitle": "Transport Order",
         "fileName": "📋 Form 4A.pdf",
         "pages": 2,
-        "timings": [
-          "72 hours"
-        ],
+        "timings": ["72 hours"],
         "sectionCue": "sections 29,63,67,92,112,129,133,148, 154",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -739,11 +607,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 4B.pdf.",
-      "aliases": [
-        "4b",
-        "extension of transport order",
-        "transport and transfer"
-      ],
+      "aliases": ["4b", "extension of transport order", "transport and transfer"],
       "searchTerms": [
         "transport",
         "extension",
@@ -774,9 +638,7 @@
         "documentTitle": "Extension Of Transport Order",
         "fileName": "📋 Form 4B.pdf",
         "pages": 2,
-        "timings": [
-          "72 hours"
-        ],
+        "timings": ["72 hours"],
         "sectionCue": "sections 152",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -805,11 +667,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 4C.pdf.",
-      "aliases": [
-        "4c",
-        "transfer order",
-        "transport and transfer"
-      ],
+      "aliases": ["4c", "transfer order", "transport and transfer"],
       "searchTerms": [
         "hospital",
         "inpatient",
@@ -839,10 +697,7 @@
         "documentTitle": "Transfer Order",
         "fileName": "📋 Form 4C.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 66, 91",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -860,36 +715,16 @@
       "destination": "Community treatment setting and responsible service must be clear.",
       "authorises": "Compulsory treatment in the community according to CTO conditions.",
       "doesNotAuthorise": "Inpatient detention unless a separate pathway applies.",
-      "before": [
-        "1A"
-      ],
-      "parallel": [
-        "5F"
-      ],
-      "after": [
-        "Continuation",
-        "variation",
-        "revocation"
-      ],
+      "before": ["1A"],
+      "parallel": ["5F"],
+      "after": ["Continuation", "variation", "revocation"],
       "copies": "Provide order details and conditions to relevant parties according to local process.",
       "documentationStem": "CTO considered least restrictive because [community supports/risks]. Conditions and responsible service documented.",
-      "traps": [
-        "Using inpatient logic without community feasibility analysis.",
-        "Conditions not communicated."
-      ],
+      "traps": ["Using inpatient logic without community feasibility analysis.", "Conditions not communicated."],
       "safetyPearl": "Least restrictive reasoning should be visible, not implied.",
       "sourceNote": "Representative summary from supplied forms master guide.",
-      "aliases": [
-        "CTO",
-        "community treatment",
-        "5a order"
-      ],
-      "searchTerms": [
-        "least restrictive",
-        "community",
-        "breach",
-        "conditions"
-      ],
+      "aliases": ["CTO", "community treatment", "5a order"],
+      "searchTerms": ["least restrictive", "community", "breach", "conditions"],
       "riskLevel": "medium",
       "sourceDocumentId": "5a-fd93268e",
       "indexedClock": "Up to 3 months, within 72 hours, not more than 3 months, within 14 days, 7 days, within 7 days",
@@ -962,11 +797,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 5B.pdf.",
-      "aliases": [
-        "5b",
-        "continuation of community treatment order",
-        "community treatment order"
-      ],
+      "aliases": ["5b", "continuation of community treatment order", "community treatment order"],
       "searchTerms": [
         "community",
         "treatment",
@@ -1000,12 +831,7 @@
         "documentTitle": "Continuation Of Community Treatment Order",
         "fileName": "📋 Form 5B.pdf",
         "pages": 2,
-        "timings": [
-          "Up to 3 months",
-          "within 7 days",
-          "3 months",
-          "within 14 days"
-        ],
+        "timings": ["Up to 3 months", "within 7 days", "3 months", "within 14 days"],
         "sectionCue": "sections 121",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1034,11 +860,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 5C.pdf.",
-      "aliases": [
-        "5c",
-        "variation of terms of community treatment order",
-        "community treatment order"
-      ],
+      "aliases": ["5c", "variation of terms of community treatment order", "community treatment order"],
       "searchTerms": [
         "psychiatrist",
         "community",
@@ -1071,11 +893,7 @@
         "documentTitle": "Variation Of Terms Of Community Treatment Order",
         "fileName": "📋 Form 5C.pdf",
         "pages": 2,
-        "timings": [
-          "within 7 days",
-          "3 months",
-          "7 days"
-        ],
+        "timings": ["within 7 days", "3 months", "7 days"],
         "sectionCue": "sections 122, 135, 137",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1140,10 +958,7 @@
         "documentTitle": "Request For Practitioner To Conduct Monthly Examination Of A Patient",
         "fileName": "📋 Form 5D.pdf",
         "pages": 2,
-        "timings": [
-          "within 14 days",
-          "2 MONTHS"
-        ],
+        "timings": ["within 14 days", "2 MONTHS"],
         "sectionCue": "sections 118, 119",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1172,21 +987,8 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 5E.pdf.",
-      "aliases": [
-        "5e",
-        "notice and record of breach of community treatment order",
-        "community treatment order"
-      ],
-      "searchTerms": [
-        "community",
-        "treatment",
-        "patient",
-        "notice",
-        "breach",
-        "psychiatrist",
-        "record",
-        "your"
-      ],
+      "aliases": ["5e", "notice and record of breach of community treatment order", "community treatment order"],
+      "searchTerms": ["community", "treatment", "patient", "notice", "breach", "psychiatrist", "record", "your"],
       "riskLevel": "medium",
       "sourceDocumentId": "5e-71586edc",
       "legalNote": "Community treatment order forms should make conditions, responsible service, review timing and breach/off-ramp steps explicit. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
@@ -1206,10 +1008,7 @@
         "documentTitle": "Notice And Record Of Breach Of Community Treatment Order",
         "fileName": "📋 Form 5E.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 127",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1238,11 +1037,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 5F.pdf.",
-      "aliases": [
-        "5f",
-        "order to attend",
-        "community treatment order"
-      ],
+      "aliases": ["5f", "order to attend", "community treatment order"],
       "searchTerms": [
         "patient",
         "community",
@@ -1272,10 +1067,7 @@
         "documentTitle": "Order To Attend",
         "fileName": "📋 Form 5F.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 128",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1293,37 +1085,16 @@
       "destination": "Authorised hospital.",
       "authorises": "Inpatient compulsory treatment according to the order.",
       "doesNotAuthorise": "General hospital pathway unless 6B criteria and consent pathway apply.",
-      "before": [
-        "1A"
-      ],
-      "parallel": [
-        "7A"
-      ],
-      "after": [
-        "Continuation",
-        "leave",
-        "revocation",
-        "CTO"
-      ],
+      "before": ["1A"],
+      "parallel": ["7A"],
+      "after": ["Continuation", "leave", "revocation", "CTO"],
       "copies": "Notify and file according to approved form process.",
       "documentationStem": "Inpatient order criteria met because [facts]. Less restrictive options insufficient because [reason]. Review timing documented.",
-      "traps": [
-        "Weak least restrictive reasoning.",
-        "Static status without active review."
-      ],
+      "traps": ["Weak least restrictive reasoning.", "Static status without active review."],
       "safetyPearl": "Name why inpatient care is needed now, not just diagnosis or risk label.",
       "sourceNote": "Representative summary from supplied forms guide.",
-      "aliases": [
-        "inpatient order",
-        "authorised hospital",
-        "6a"
-      ],
-      "searchTerms": [
-        "least restrictive",
-        "review",
-        "inpatient",
-        "authorised hospital"
-      ],
+      "aliases": ["inpatient order", "authorised hospital", "6a"],
+      "searchTerms": ["least restrictive", "review", "inpatient", "authorised hospital"],
       "riskLevel": "medium",
       "sourceDocumentId": "6a-91096464",
       "indexedClock": "Up to 21 days, 14 days, 21 days, within 7 days",
@@ -1358,12 +1129,7 @@
         "documentTitle": "Inpatient Treatment Order In Authorised Hospital",
         "fileName": "📋 Form 6A.pdf",
         "pages": 2,
-        "timings": [
-          "Up to 21 days",
-          "14 days",
-          "21 days",
-          "within 7 days"
-        ],
+        "timings": ["Up to 21 days", "14 days", "21 days", "within 7 days"],
         "sectionCue": "sections 55, 56, 72, 89, 90, 120, 123, 131",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1381,37 +1147,16 @@
       "destination": "General hospital, with physical-health reason documented.",
       "authorises": "Inpatient treatment in a general hospital according to the specific pathway.",
       "doesNotAuthorise": "Bypass of consent/reporting requirements.",
-      "before": [
-        "1A"
-      ],
-      "parallel": [
-        "6B attachment"
-      ],
-      "after": [
-        "6A",
-        "continuation",
-        "revocation"
-      ],
+      "before": ["1A"],
+      "parallel": ["6B attachment"],
+      "after": ["6A", "continuation", "revocation"],
       "copies": "Chief Psychiatrist consent and ongoing attachment/reporting steps must be documented.",
       "documentationStem": "Criteria met. Chief Psychiatrist consent obtained. Authorised-hospital transfer/detention poses significant physical-health risk because [reason]. General hospital and expiry documented.",
-      "traps": [
-        "Missing consent pathway.",
-        "Not reviewing ongoing general hospital justification."
-      ],
+      "traps": ["Missing consent pathway.", "Not reviewing ongoing general hospital justification."],
       "safetyPearl": "The physical-health transfer risk is the hinge point.",
       "sourceNote": "Representative summary from supplied forms master guide.",
-      "aliases": [
-        "general hospital",
-        "medical ward",
-        "6b",
-        "physical health"
-      ],
-      "searchTerms": [
-        "consent",
-        "7 days",
-        "general hospital",
-        "attachment"
-      ],
+      "aliases": ["general hospital", "medical ward", "6b", "physical health"],
+      "searchTerms": ["consent", "7 days", "general hospital", "attachment"],
       "riskLevel": "high",
       "sourceDocumentId": "6b-91ac5a1b",
       "indexedClock": "Up to 21 days, 14 days, 21 days, within 7 days, 7 days",
@@ -1447,13 +1192,7 @@
         "documentTitle": "Inpatient Treatment Order In General Hospital",
         "fileName": "📋 Form 6B.pdf",
         "pages": 2,
-        "timings": [
-          "Up to 21 days",
-          "14 days",
-          "21 days",
-          "within 7 days",
-          "7 days"
-        ],
+        "timings": ["Up to 21 days", "14 days", "21 days", "within 7 days", "7 days"],
         "sectionCue": "sections 61, 89, 90, 131",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1517,9 +1256,7 @@
         "documentTitle": "Inpatient Treatment Order In General Hospital Attachment",
         "fileName": "📋 Form 6B Attachment.pdf",
         "pages": 2,
-        "timings": [
-          "7 days"
-        ],
+        "timings": ["7 days"],
         "sectionCue": "sections 65",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1548,11 +1285,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 6C.pdf.",
-      "aliases": [
-        "6c",
-        "continuation of inpatient treatment order",
-        "inpatient treatment order"
-      ],
+      "aliases": ["6c", "continuation of inpatient treatment order", "inpatient treatment order"],
       "searchTerms": [
         "inpatient",
         "treatment",
@@ -1587,13 +1320,7 @@
         "documentTitle": "Continuation Of Inpatient Treatment Order",
         "fileName": "📋 Form 6C.pdf",
         "pages": 2,
-        "timings": [
-          "Up to 3 months",
-          "28 days",
-          "within 7 days",
-          "7 days",
-          "3 months"
-        ],
+        "timings": ["Up to 3 months", "28 days", "within 7 days", "7 days", "3 months"],
         "sectionCue": "sections 89",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1622,11 +1349,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 6D.pdf.",
-      "aliases": [
-        "6d",
-        "confirmation of inpatient treatment order",
-        "inpatient treatment order"
-      ],
+      "aliases": ["6d", "confirmation of inpatient treatment order", "inpatient treatment order"],
       "searchTerms": [
         "treatment",
         "inpatient",
@@ -1658,10 +1381,7 @@
         "documentTitle": "Confirmation Of Inpatient Treatment Order",
         "fileName": "📋 Form 6D.pdf",
         "pages": 2,
-        "timings": [
-          "within 24 hours",
-          "within 24 hour"
-        ],
+        "timings": ["within 24 hours", "within 24 hour"],
         "sectionCue": "sections 68, 124",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1679,54 +1399,20 @@
       "destination": "Leave destination and return plan should be visible.",
       "authorises": "Specified leave episode and conditions.",
       "doesNotAuthorise": "Unbounded leave or change in underlying treatment order.",
-      "before": [
-        "6A",
-        "6B"
-      ],
-      "parallel": [
-        "7B",
-        "Form 7C workflow",
-        "7D"
-      ],
-      "after": [
-        "Return",
-        "variation",
-        "cancellation"
-      ],
+      "before": ["6A", "6B"],
+      "parallel": ["7B", "Form 7C workflow", "7D"],
+      "after": ["Return", "variation", "cancellation"],
       "copies": "Conditions and return plan communicated to ward and supports where required.",
       "documentationStem": "Leave authorised for [purpose] from [time] to [return]. Conditions, destination and risk plan documented.",
-      "traps": [
-        "No return time.",
-        "Leave repeated without review.",
-        "Conditions not communicated."
-      ],
+      "traps": ["No return time.", "Leave repeated without review.", "Conditions not communicated."],
       "safetyPearl": "Each leave episode needs its own lawful plan.",
       "sourceNote": "Representative summary from supplied forms guide.",
-      "aliases": [
-        "leave",
-        "absence",
-        "AWOL",
-        "return"
-      ],
-      "searchTerms": [
-        "return",
-        "conditions",
-        "leave",
-        "ward"
-      ],
+      "aliases": ["leave", "absence", "AWOL", "return"],
+      "searchTerms": ["return", "conditions", "leave", "ward"],
       "riskLevel": "medium",
       "sourceDocumentId": "7a-d51ce1f2",
       "indexedClock": "Check timing, expiry and review requirements in the source.",
-      "indexedTerms": [
-        "inpatient",
-        "leave",
-        "involuntary",
-        "psychiatrist",
-        "patient",
-        "granting",
-        "make",
-        "treatment"
-      ],
+      "indexedTerms": ["inpatient", "leave", "involuntary", "psychiatrist", "patient", "granting", "make", "treatment"],
       "legalNote": "Leave and absent-patient forms should state the episode, dates/times, conditions, destination, return plan and escalation path. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
       "practicePearls": [
         "Each leave episode needs its own lawful plan.",
@@ -1744,10 +1430,7 @@
         "documentTitle": "Grant Of Leave To Involuntary Inpatient",
         "fileName": "📋 Form 7A.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 105",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1776,11 +1459,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 7B.pdf.",
-      "aliases": [
-        "7b",
-        "extension and/or variation of grant of leave",
-        "leave and absent patient"
-      ],
+      "aliases": ["7b", "extension and/or variation of grant of leave", "leave and absent patient"],
       "searchTerms": [
         "leave",
         "inpatient",
@@ -1810,10 +1489,7 @@
         "documentTitle": "Extension And/Or Variation Of Grant Of Leave",
         "fileName": "📋 Form 7B.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 106",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1842,22 +1518,8 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 7D.pdf.",
-      "aliases": [
-        "7d",
-        "apprehension and return order",
-        "leave and absent patient"
-      ],
-      "searchTerms": [
-        "place",
-        "hospital",
-        "other",
-        "apprehension",
-        "return",
-        "leave",
-        "without",
-        "date",
-        "14 days"
-      ],
+      "aliases": ["7d", "apprehension and return order", "leave and absent patient"],
+      "searchTerms": ["place", "hospital", "other", "apprehension", "return", "leave", "without", "date", "14 days"],
       "riskLevel": "medium",
       "sourceDocumentId": "7d-79cf7001",
       "legalNote": "Leave and absent-patient forms should state the episode, dates/times, conditions, destination, return plan and escalation path. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
@@ -1877,9 +1539,7 @@
         "documentTitle": "Apprehension And Return Order",
         "fileName": "📋 Form 7D.pdf",
         "pages": 2,
-        "timings": [
-          "14 days"
-        ],
+        "timings": ["14 days"],
         "sectionCue": "sections 98, 101",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1908,21 +1568,8 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 8A.pdf.",
-      "aliases": [
-        "8a",
-        "record of search and seizure",
-        "treatment, ect and psychosurgery"
-      ],
-      "searchTerms": [
-        "search",
-        "record",
-        "seized",
-        "article",
-        "service",
-        "seizure",
-        "conducted",
-        "place"
-      ],
+      "aliases": ["8a", "record of search and seizure", "treatment, ect and psychosurgery"],
+      "searchTerms": ["search", "record", "seized", "article", "service", "seizure", "conducted", "place"],
       "riskLevel": "medium",
       "sourceDocumentId": "8a-81fd9e32",
       "legalNote": "Check the approved form wording, Act sections, maker authority, time limit, copies and local policy before relying on this reference. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
@@ -1942,10 +1589,7 @@
         "documentTitle": "Record Of Search And Seizure",
         "fileName": "📋 Form 8A.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 165, 166",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -1974,22 +1618,8 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 8B.pdf.",
-      "aliases": [
-        "8b",
-        "record of dealing with seized article",
-        "treatment, ect and psychosurgery"
-      ],
-      "searchTerms": [
-        "article",
-        "other",
-        "returned",
-        "seized",
-        "service",
-        "place",
-        "time",
-        "record",
-        "6 months"
-      ],
+      "aliases": ["8b", "record of dealing with seized article", "treatment, ect and psychosurgery"],
+      "searchTerms": ["article", "other", "returned", "seized", "service", "place", "time", "record", "6 months"],
       "riskLevel": "medium",
       "sourceDocumentId": "8b-a0b2379a",
       "legalNote": "Check the approved form wording, Act sections, maker authority, time limit, copies and local policy before relying on this reference. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
@@ -2009,9 +1639,7 @@
         "documentTitle": "Record Of Dealing With Seized Article",
         "fileName": "📋 Form 8B.pdf",
         "pages": 2,
-        "timings": [
-          "6 months"
-        ],
+        "timings": ["6 months"],
         "sectionCue": "sections 167",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2029,35 +1657,16 @@
       "destination": "Current clinical setting.",
       "authorises": "Emergency psychiatric treatment under the specified pathway.",
       "doesNotAuthorise": "Ongoing non-consensual treatment outside the emergency basis.",
-      "before": [
-        "Treatment order pathway"
-      ],
-      "parallel": [
-        "Observation record"
-      ],
-      "after": [
-        "Review",
-        "ongoing treatment decision"
-      ],
+      "before": ["Treatment order pathway"],
+      "parallel": ["Observation record"],
+      "after": ["Review", "ongoing treatment decision"],
       "copies": "Record treatment, reason, review and notifications according to approved process.",
       "documentationStem": "Emergency psychiatric treatment given at [time] because [risk/reason]. Less restrictive options and follow-up review documented.",
-      "traps": [
-        "Emergency basis used for routine treatment.",
-        "No aftercare/review documentation."
-      ],
+      "traps": ["Emergency basis used for routine treatment.", "No aftercare/review documentation."],
       "safetyPearl": "Emergency treatment reasoning must be time-specific.",
       "sourceNote": "Representative summary from supplied forms guide.",
-      "aliases": [
-        "urgent treatment",
-        "emergency treatment",
-        "9a"
-      ],
-      "searchTerms": [
-        "without consent",
-        "urgent",
-        "review",
-        "risk"
-      ],
+      "aliases": ["urgent treatment", "emergency treatment", "9a"],
+      "searchTerms": ["without consent", "urgent", "review", "risk"],
       "riskLevel": "high",
       "sourceDocumentId": "9a-61edb474",
       "indexedClock": "Check timing, expiry and review requirements in the source.",
@@ -2088,10 +1697,7 @@
         "documentTitle": "Record Of Emergency Psychiatric Treatment",
         "fileName": "📋 Form 9A.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 204",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2154,10 +1760,7 @@
         "documentTitle": "Report To Chief Psychiatrist About Provision Of Urgent Non-Psychiatric Treatment",
         "fileName": "📋 Form 9B.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 242",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2175,39 +1778,16 @@
       "destination": "Current ward or clinical area.",
       "authorises": "Bodily restraint episode according to the order.",
       "doesNotAuthorise": "Seclusion or ongoing restraint without review/order requirements.",
-      "before": [
-        "Clinical de-escalation"
-      ],
-      "parallel": [
-        "10B",
-        "10I"
-      ],
-      "after": [
-        "Release",
-        "post-restraint examination",
-        "debrief"
-      ],
+      "before": ["Clinical de-escalation"],
+      "parallel": ["10B", "10I"],
+      "after": ["Release", "post-restraint examination", "debrief"],
       "copies": "Observation, release, injury and examination records as required.",
       "documentationStem": "Bodily restraint authorised at [time] because [reason], no less restrictive option sufficient, physical-health risk considered.",
-      "traps": [
-        "Missing written confirmation timing.",
-        "No post-release examination or aftercare check."
-      ],
+      "traps": ["Missing written confirmation timing.", "No post-release examination or aftercare check."],
       "safetyPearl": "Restrictive practice documentation is a clocked safety workflow, not just an event note.",
       "sourceNote": "Representative summary from supplied forms master guide.",
-      "aliases": [
-        "restraint",
-        "bodily restraint",
-        "10a",
-        "restrictive practice"
-      ],
-      "searchTerms": [
-        "30 minutes",
-        "force",
-        "injury",
-        "examination",
-        "6 hours"
-      ],
+      "aliases": ["restraint", "bodily restraint", "10a", "restrictive practice"],
+      "searchTerms": ["30 minutes", "force", "injury", "examination", "6 hours"],
       "riskLevel": "high",
       "sourceDocumentId": "10a-a3de7c3f",
       "indexedClock": "within 30 minutes",
@@ -2239,9 +1819,7 @@
         "documentTitle": "Record Of Oral Authorisation Of Bodily Restraint",
         "fileName": "📋 Form 10A.pdf",
         "pages": 2,
-        "timings": [
-          "within 30 minutes"
-        ],
+        "timings": ["within 30 minutes"],
         "sectionCue": "sections 230",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2270,11 +1848,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 10B.pdf.",
-      "aliases": [
-        "10b",
-        "written bodily restraint order",
-        "search and seizure"
-      ],
+      "aliases": ["10b", "written bodily restraint order", "search and seizure"],
       "searchTerms": [
         "restraint",
         "bodily",
@@ -2306,10 +1880,7 @@
         "documentTitle": "Written Bodily Restraint Order",
         "fileName": "📋 Form 10B.pdf",
         "pages": 2,
-        "timings": [
-          "30 minutes",
-          "within 30 minutes"
-        ],
+        "timings": ["30 minutes", "within 30 minutes"],
         "sectionCue": "sections 231",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2373,9 +1944,7 @@
         "documentTitle": "Record Of Informing Medical Practitioner And Treating Psychiatrist Of Bodily Restraint",
         "fileName": "📋 Form 10C.pdf",
         "pages": 2,
-        "timings": [
-          "within 30 minutes"
-        ],
+        "timings": ["within 30 minutes"],
         "sectionCue": "sections 230, 231, 233",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2404,21 +1973,8 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 10D.pdf.",
-      "aliases": [
-        "10d",
-        "record of observations made of restrained person",
-        "search and seizure"
-      ],
-      "searchTerms": [
-        "restraint",
-        "record",
-        "observations",
-        "position",
-        "name",
-        "restrained",
-        "designation",
-        "time"
-      ],
+      "aliases": ["10d", "record of observations made of restrained person", "search and seizure"],
+      "searchTerms": ["restraint", "record", "observations", "position", "name", "restrained", "designation", "time"],
       "riskLevel": "medium",
       "sourceDocumentId": "10d-4e1aa095",
       "legalNote": "Search and seizure records should state the specific authority, person/place/items, handling of seized property and required records or notices. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
@@ -2438,10 +1994,7 @@
         "documentTitle": "Record Of Observations Made Of Restrained Person",
         "fileName": "📋 Form 10D.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 238",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2470,11 +2023,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 10E.pdf.",
-      "aliases": [
-        "10e",
-        "record of examination of restrained person",
-        "search and seizure"
-      ],
+      "aliases": ["10e", "record of examination of restrained person", "search and seizure"],
       "searchTerms": [
         "restraint",
         "bodily",
@@ -2507,11 +2056,7 @@
         "documentTitle": "Record Of Examination Of Restrained Person",
         "fileName": "📋 Form 10E.pdf",
         "pages": 2,
-        "timings": [
-          "within 30 minutes",
-          "6 hours",
-          "30 minutes"
-        ],
+        "timings": ["within 30 minutes", "6 hours", "30 minutes"],
         "sectionCue": "sections 234, 238",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2540,21 +2085,8 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 10F.pdf.",
-      "aliases": [
-        "10f",
-        "variation of bodily restraint order",
-        "search and seizure"
-      ],
-      "searchTerms": [
-        "variation",
-        "bodily",
-        "restraint",
-        "practitioner",
-        "time",
-        "date",
-        "device",
-        "authorised"
-      ],
+      "aliases": ["10f", "variation of bodily restraint order", "search and seizure"],
+      "searchTerms": ["variation", "bodily", "restraint", "practitioner", "time", "date", "device", "authorised"],
       "riskLevel": "medium",
       "sourceDocumentId": "10f-091d5490",
       "legalNote": "Search and seizure records should state the specific authority, person/place/items, handling of seized property and required records or notices. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
@@ -2574,10 +2106,7 @@
         "documentTitle": "Variation Of Bodily Restraint Order",
         "fileName": "📋 Form 10F.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 234",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2606,21 +2135,8 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 10G.pdf.",
-      "aliases": [
-        "10g",
-        "revocation or expiry of bodily restraint order",
-        "search and seizure"
-      ],
-      "searchTerms": [
-        "bodily",
-        "restraint",
-        "practitioner",
-        "expiry",
-        "record",
-        "revocation",
-        "medical",
-        "date"
-      ],
+      "aliases": ["10g", "revocation or expiry of bodily restraint order", "search and seizure"],
+      "searchTerms": ["bodily", "restraint", "practitioner", "expiry", "record", "revocation", "medical", "date"],
       "riskLevel": "medium",
       "sourceDocumentId": "10g-28b7c8a4",
       "legalNote": "Search and seizure records should state the specific authority, person/place/items, handling of seized property and required records or notices. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
@@ -2640,10 +2156,7 @@
         "documentTitle": "Revocation Or Expiry Of Bodily Restraint Order",
         "fileName": "📋 Form 10G.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 235, 237",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2672,11 +2185,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 10I.pdf.",
-      "aliases": [
-        "10i",
-        "record of post-bodily restraint examination",
-        "search and seizure"
-      ],
+      "aliases": ["10i", "record of post-bodily restraint examination", "search and seizure"],
       "searchTerms": [
         "record",
         "medical",
@@ -2707,9 +2216,7 @@
         "documentTitle": "Record Of Post-Bodily Restraint Examination",
         "fileName": "📋 Form 10I.pdf",
         "pages": 2,
-        "timings": [
-          "within 6 hours"
-        ],
+        "timings": ["within 6 hours"],
         "sectionCue": "sections 239",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2727,38 +2234,16 @@
       "destination": "Seclusion area with observation requirements.",
       "authorises": "Seclusion episode according to the order.",
       "doesNotAuthorise": "Bodily restraint or indefinite seclusion without review.",
-      "before": [
-        "Clinical de-escalation"
-      ],
-      "parallel": [
-        "11B",
-        "11G"
-      ],
-      "after": [
-        "Release",
-        "review",
-        "debrief"
-      ],
+      "before": ["Clinical de-escalation"],
+      "parallel": ["11B", "11G"],
+      "after": ["Release", "review", "debrief"],
       "copies": "Observation, order and review records as required.",
       "documentationStem": "Seclusion authorised at [time] because [reason], less restrictive options insufficient, observation/review plan documented.",
-      "traps": [
-        "Missing written order timing.",
-        "Review not diarised.",
-        "Confusing seclusion with restraint pathway."
-      ],
+      "traps": ["Missing written order timing.", "Review not diarised.", "Confusing seclusion with restraint pathway."],
       "safetyPearl": "Seclusion has its own clock and review pathway.",
       "sourceNote": "Representative summary from supplied forms guide.",
-      "aliases": [
-        "seclusion",
-        "11a",
-        "restrictive practice"
-      ],
-      "searchTerms": [
-        "2 hours",
-        "review",
-        "observation",
-        "restrictive"
-      ],
+      "aliases": ["seclusion", "11a", "restrictive practice"],
+      "searchTerms": ["2 hours", "review", "observation", "restrictive"],
       "riskLevel": "high",
       "sourceDocumentId": "11a-0b17715c",
       "indexedClock": "within 2 hours",
@@ -2790,9 +2275,7 @@
         "documentTitle": "Record Of Oral Authorisation Of Seclusion",
         "fileName": "📋 Form 11A.pdf",
         "pages": 2,
-        "timings": [
-          "within 2 hours"
-        ],
+        "timings": ["within 2 hours"],
         "sectionCue": "sections 214",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2821,11 +2304,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 11B.pdf.",
-      "aliases": [
-        "11b",
-        "written seclusion order",
-        "restrictive practices"
-      ],
+      "aliases": ["11b", "written seclusion order", "restrictive practices"],
       "searchTerms": [
         "seclusion",
         "secluded",
@@ -2857,10 +2336,7 @@
         "documentTitle": "Written Seclusion Order",
         "fileName": "📋 Form 11B.pdf",
         "pages": 2,
-        "timings": [
-          "2 hours",
-          "within 2 hours"
-        ],
+        "timings": ["2 hours", "within 2 hours"],
         "sectionCue": "sections 215",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2924,9 +2400,7 @@
         "documentTitle": "Record Of Informing Medical Practitioner And Treating Psychiatrist Of Seclusion",
         "fileName": "📋 Form 11C.pdf",
         "pages": 2,
-        "timings": [
-          "within 2 hours"
-        ],
+        "timings": ["within 2 hours"],
         "sectionCue": "sections 214, 215, 217",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -2955,11 +2429,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 11D.pdf.",
-      "aliases": [
-        "11d",
-        "record of observations made of secluded person",
-        "restrictive practices"
-      ],
+      "aliases": ["11d", "record of observations made of secluded person", "restrictive practices"],
       "searchTerms": [
         "date",
         "time",
@@ -2990,9 +2460,7 @@
         "documentTitle": "Record Of Observations Made Of Secluded Person",
         "fileName": "📋 Form 11D.pdf",
         "pages": 2,
-        "timings": [
-          "15 minutes"
-        ],
+        "timings": ["15 minutes"],
         "sectionCue": "sections 222",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -3021,11 +2489,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 11E.pdf.",
-      "aliases": [
-        "11e",
-        "record of examination of secluded person",
-        "restrictive practices"
-      ],
+      "aliases": ["11e", "record of examination of secluded person", "restrictive practices"],
       "searchTerms": [
         "seclusion",
         "medical",
@@ -3057,10 +2521,7 @@
         "documentTitle": "Record Of Examination Of Secluded Person",
         "fileName": "📋 Form 11E.pdf",
         "pages": 2,
-        "timings": [
-          "within 2 hours",
-          "2 hours"
-        ],
+        "timings": ["within 2 hours", "2 hours"],
         "sectionCue": "sections 218, 222",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -3089,21 +2550,8 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 11F.pdf.",
-      "aliases": [
-        "11f",
-        "revocation or expiry of seclusion",
-        "restrictive practices"
-      ],
-      "searchTerms": [
-        "seclusion",
-        "practitioner",
-        "expiry",
-        "record",
-        "revocation",
-        "medical",
-        "date",
-        "time"
-      ],
+      "aliases": ["11f", "revocation or expiry of seclusion", "restrictive practices"],
+      "searchTerms": ["seclusion", "practitioner", "expiry", "record", "revocation", "medical", "date", "time"],
       "riskLevel": "medium",
       "sourceDocumentId": "11f-7fda3297",
       "legalNote": "Restrictive-practice forms should be episode-specific and show reason, least restrictive alternatives, observation, review and post-event checks. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
@@ -3123,10 +2571,7 @@
         "documentTitle": "Revocation Or Expiry Of Seclusion",
         "fileName": "📋 Form 11F.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 219, 221",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -3155,11 +2600,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 11G.pdf.",
-      "aliases": [
-        "11g",
-        "record of post-seclusion examination",
-        "restrictive practices"
-      ],
+      "aliases": ["11g", "record of post-seclusion examination", "restrictive practices"],
       "searchTerms": [
         "record",
         "medical",
@@ -3190,9 +2631,7 @@
         "documentTitle": "Record Of Post-Seclusion Examination",
         "fileName": "📋 Form 11G.pdf",
         "pages": 2,
-        "timings": [
-          "within 6 hours"
-        ],
+        "timings": ["within 6 hours"],
         "sectionCue": "sections 223",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -3221,11 +2660,7 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 12A.pdf.",
-      "aliases": [
-        "12a",
-        "nomination of nominated person",
-        "rights and notifications"
-      ],
+      "aliases": ["12a", "nomination of nominated person", "rights and notifications"],
       "searchTerms": [
         "nomination",
         "nominated",
@@ -3256,9 +2691,7 @@
         "documentTitle": "Nomination Of Nominated Person",
         "fileName": "📋 Form 12A.pdf",
         "pages": 2,
-        "timings": [
-          "18 years"
-        ],
+        "timings": ["18 years"],
         "sectionCue": "sections 275",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -3287,21 +2720,8 @@
       ],
       "safetyPearl": "Open the source snippets before relying on the pathway.",
       "sourceNote": "Indexed from 📋 Form 12B.pdf.",
-      "aliases": [
-        "12b",
-        "record of refusal of patient's request to access document",
-        "rights and notifications"
-      ],
-      "searchTerms": [
-        "document",
-        "information",
-        "access",
-        "request",
-        "relevant",
-        "refusal",
-        "refused",
-        "disclosure"
-      ],
+      "aliases": ["12b", "record of refusal of patient's request to access document", "rights and notifications"],
+      "searchTerms": ["document", "information", "access", "request", "relevant", "refusal", "refused", "disclosure"],
       "riskLevel": "medium",
       "sourceDocumentId": "12b-50bb9524",
       "legalNote": "Rights, notification and communication forms should be specific about the right affected, reason, review time, copies and advocacy/support-person communication. Use only the current approved form or PSOLIS pathway where available; only appropriately authorised people should complete MHA 2014 forms. Authority is limited to the Act sections, signature block, time limits and wording on the approved form.",
@@ -3321,10 +2741,7 @@
         "documentTitle": "Record Of Refusal Of Patient's Request To Access Document",
         "fileName": "📋 Form 12B.pdf",
         "pages": 2,
-        "timings": [
-          "Check timing",
-          "expiry and review requirements in the source."
-        ],
+        "timings": ["Check timing", "expiry and review requirements in the source."],
         "sectionCue": "sections 248",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -3343,13 +2760,8 @@
       "authorises": "Specified communication restriction for the relevant period.",
       "doesNotAuthorise": "Blanket or indefinite restriction without review.",
       "before": [],
-      "parallel": [
-        "Communication restriction attachment"
-      ],
-      "after": [
-        "Review",
-        "cease or renew pathway"
-      ],
+      "parallel": ["Communication restriction attachment"],
+      "after": ["Review", "cease or renew pathway"],
       "copies": "Patient informed, notifications completed and next review diarised.",
       "documentationStem": "Restriction applies to [right]. Basis and reasons documented. Patient informed, required notifications completed and next 24-hour review diarised.",
       "traps": [
@@ -3359,20 +2771,8 @@
       ],
       "safetyPearl": "The next review time is part of the right, not admin detail.",
       "sourceNote": "Representative summary from supplied forms guide.",
-      "aliases": [
-        "communication",
-        "rights",
-        "phone",
-        "12c",
-        "restriction"
-      ],
-      "searchTerms": [
-        "24 hours",
-        "notification",
-        "family",
-        "copy",
-        "review"
-      ],
+      "aliases": ["communication", "rights", "phone", "12c", "restriction"],
+      "searchTerms": ["24 hours", "notification", "family", "copy", "review"],
       "riskLevel": "high",
       "sourceDocumentId": "12c-6a028fff",
       "indexedClock": "24 HOURS, Within 24 hours",
@@ -3405,10 +2805,7 @@
         "documentTitle": "Restriction On Freedom Of Communication",
         "fileName": "📋 Form 12C.pdf",
         "pages": 2,
-        "timings": [
-          "24 HOURS",
-          "Within 24 hours"
-        ],
+        "timings": ["24 HOURS", "Within 24 hours"],
         "sectionCue": "sections 262",
         "indexedAt": "Official form PDF indexed locally"
       }
@@ -3419,60 +2816,35 @@
       "id": "referral-exam",
       "title": "Referral for psychiatrist examination",
       "scenario": "Need psychiatrist exam after assessment in community, ED or ward.",
-      "chain": [
-        "1A",
-        "3A",
-        "4A",
-        "5A / 6A"
-      ],
+      "chain": ["1A", "3A", "4A", "5A / 6A"],
       "risk": "Do not treat Form 1A as detention, transport or force authority."
     },
     {
       "id": "voluntary-leave",
       "title": "Voluntary inpatient wants to leave",
       "scenario": "Voluntary inpatient requests discharge and urgent assessment is required.",
-      "chain": [
-        "2",
-        "1A",
-        "3A",
-        "Examination"
-      ],
+      "chain": ["2", "1A", "3A", "Examination"],
       "risk": "Form 2 maximum 6 hours. Decide and document the next lawful step early."
     },
     {
       "id": "general-hospital",
       "title": "General hospital pathway",
       "scenario": "Inpatient treatment in a general hospital due physical-health transfer risk.",
-      "chain": [
-        "1A",
-        "6B",
-        "Consent",
-        "7-day review"
-      ],
+      "chain": ["1A", "6B", "Consent", "7-day review"],
       "risk": "Chief Psychiatrist consent and physical-health transfer risk are the hinge points."
     },
     {
       "id": "restrictive-practice",
       "title": "Restrictive practice event",
       "scenario": "Bodily restraint or seclusion episode requiring order, observation and follow-up.",
-      "chain": [
-        "10A / 11A",
-        "Written order",
-        "Observation",
-        "Post-event review"
-      ],
+      "chain": ["10A / 11A", "Written order", "Observation", "Post-event review"],
       "risk": "Keep restraint and seclusion clocks separate."
     },
     {
       "id": "communication",
       "title": "Communication restriction",
       "scenario": "Need to restrict a communication right and review before the next 24-hour period.",
-      "chain": [
-        "12C",
-        "Notify",
-        "Review",
-        "Cease / renew"
-      ],
+      "chain": ["12C", "Notify", "Review", "Cease / renew"],
       "risk": "A restriction should not drift past the review clock."
     }
   ],

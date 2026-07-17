@@ -465,6 +465,40 @@ describe("registry records API", () => {
     expect(client.calls.some((call) => call.upsert)).toBe(false);
   });
 
+  it("merges shared form metadata into an older owner row on detail routes", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "clinical_registry_records") {
+        return ok(
+          registryRow({
+            kind: "form",
+            slug: "transport-crisis-form",
+            title: "Owner title override",
+            catalog_payload: {},
+          }),
+        );
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/[slug]/route");
+
+    const response = await GET(authedRequest("/api/registry/records/transport-crisis-form?kind=form"), {
+      params: Promise.resolve({ slug: "transport-crisis-form" }),
+    });
+    const payload = (await response.json()) as {
+      record: { title: string; catalogPayload?: { availability?: string; localPdfPath?: string } };
+      governance: { sourceStatus: string };
+      linkedDocuments: unknown[];
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.record.title).toBe("Owner title override");
+    expect(payload.record.catalogPayload?.availability).toBe("downloadable");
+    expect(payload.record.catalogPayload?.localPdfPath).toBeTruthy();
+    expect(payload.governance.sourceStatus).toBe("current");
+    expect(payload.linkedDocuments).toEqual([]);
+  });
+
   it("does not seed when the owner already has registry records", async () => {
     const client = createSupabaseMock((call) =>
       call.table === "clinical_registry_records" ? ok([registryRow()]) : ok([]),
