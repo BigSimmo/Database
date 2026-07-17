@@ -236,7 +236,7 @@ export function BriefScreen() {
                     <div key={i} style={s(`display:flex;gap:14px;`)}>
                       <span
                         style={s(
-                          `display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:${i === steps.length - 1 ? "var(--clinical-accent)" : "var(--clinical-accent-soft)"};color:${i === steps.length - 1 ? "#fff" : "var(--clinical-accent)"};font-size:12px;font-weight:700;flex:none;`,
+                          `display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:${i === steps.length - 1 ? "var(--clinical-accent)" : "var(--clinical-accent-soft)"};color:${i === steps.length - 1 ? "var(--clinical-accent-contrast)" : "var(--clinical-accent)"};font-size:12px;font-weight:700;flex:none;`,
                         )}
                       >
                         {i + 1}

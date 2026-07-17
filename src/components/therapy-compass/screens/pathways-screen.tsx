@@ -76,7 +76,7 @@ export function PathwaysScreen() {
                 >
                   <span
                     style={s(
-                      `display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:${active ? "#fff" : "var(--surface-inset)"};color:${active ? "var(--clinical-accent)" : "var(--text-muted)"};flex:none;`,
+                      `display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:${active ? "var(--surface)" : "var(--surface-inset)"};color:${active ? "var(--clinical-accent)" : "var(--text-muted)"};flex:none;`,
                     )}
                   >
                     <PathwayIcon size={20} strokeWidth={1.6} />
@@ -153,7 +153,7 @@ export function PathwaysScreen() {
                 <div key={i} style={s(`display:flex;align-items:center;gap:16px;`)}>
                   <span
                     style={s(
-                      `display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px solid var(--clinical-accent);background:${last ? "var(--clinical-accent)" : "var(--surface)"};color:${last ? "#fff" : "var(--clinical-accent)"};font-size:12px;font-weight:700;flex:none;`,
+                      `display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px solid var(--clinical-accent);background:${last ? "var(--clinical-accent)" : "var(--surface)"};color:${last ? "var(--clinical-accent-contrast)" : "var(--clinical-accent)"};font-size:12px;font-weight:700;flex:none;`,
                     )}
                   >
                     {i + 1}
@@ -233,7 +233,7 @@ export function PathwaysScreen() {
             className="tc-btn"
             onClick={copyPathway}
             style={s(
-              `display:flex;align-items:center;gap:7px;height:40px;padding:0 14px;border:1px solid var(--warning-border);border-radius:10px;background:#fff;color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;`,
+              `display:flex;align-items:center;gap:7px;height:40px;padding:0 14px;border:1px solid var(--warning-border);border-radius:10px;background:var(--surface);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;`,
             )}
           >
             <CopyIcon size={15} />
