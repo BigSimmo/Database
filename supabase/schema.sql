@@ -3478,6 +3478,7 @@ CREATE OR REPLACE FUNCTION public.correct_clinical_query_terms(input_query text,
  SET pg_trgm.similarity_threshold = 0.3
 AS $function$
 declare
+  vocab text[];
   tokens text[];
   tok text;
   best text;
@@ -5030,13 +5031,13 @@ create or replace function public.cleanup_registry_corpus_document()
 returns trigger
 language plpgsql
 security definer
-set search_path = ''
+set search_path = public, pg_catalog, pg_temp
 as $$
 begin
   delete from public.documents
   where metadata->>'source_kind' = 'registry_record'
-    and metadata->>'registry_record_kind' = case tg_table_name
-      when 'clinical_registry_records' then pg_catalog.to_jsonb(old)->>'kind'
+    and metadata->>'registry_record_kind' = case TG_TABLE_NAME
+      when 'clinical_registry_records' then to_jsonb(OLD)->>'kind'
       when 'medication_records' then 'medication'
       when 'differential_records' then 'differential'
       else null
@@ -5114,7 +5115,8 @@ returns text
 language plpgsql
 stable
 security definer
-set search_path = pg_catalog, extensions
+set search_path = 'public', 'extensions', 'pg_temp'
+set pg_trgm.similarity_threshold = 0.3
 as $$
 declare
   tokens text[];
@@ -5128,6 +5130,10 @@ begin
     return input_query;
   end if;
   tokens := regexp_split_to_array(lower(input_query), '\s+');
+  if min_sim is null or min_sim < 0.3 or min_sim > 1 then
+    raise exception 'min_sim must be between 0.3 and 1.0' using errcode = '22023';
+  end if;
+
   foreach tok in array tokens loop
     if length(tok) < 4 then
       corrected := corrected || tok;
