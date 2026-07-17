@@ -94,13 +94,12 @@ describe("specifiers content catalog", () => {
     }
   });
 
-  it("only source-verified rows carry displayed definition text, free of cross-domain templates", () => {
-    const shown = specifierIndexItems.filter((item) => item.meaning);
-    expect(shown.length).toBe(specifierVerifiedCount);
-    for (const item of shown) {
-      expect(item.src).toBe("source-verified");
-      expect(item.meaning).not.toMatch(/tic frequency|sexual-dysfunction context|personality change presentation/i);
-    }
+  it("withholds all generated definition text from the client index", () => {
+    // Generated definitions — even on source-verified rows — are withheld pending
+    // qualified clinician review (automated review found scattered clinical errors
+    // among the "source-verified" subset), so the compact search index carries no
+    // meaning text: nothing generated is displayed or ranked on.
+    expect(specifierIndexItems.some((item) => item.meaning)).toBe(false);
   });
 
   it("does not mislabel timing/onset specifiers as symptom-count thresholds", () => {

@@ -4,7 +4,6 @@ import {
   ArrowRight,
   BookOpenCheck,
   Check,
-  CircleHelp,
   FileCheck2,
   Layers,
   ListChecks,
@@ -120,17 +119,18 @@ function ReasoningList({
 export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem }) {
   const enrichment = curatedEnrichmentFor(item);
   const related = relatedCatalogItems(item);
-  // Only source-verified definitions are trusted for display. Unverified generated
-  // text was systematically mis-templated in the source export, so it is withheld
-  // pending clinician review (see the verification gate in the data build).
-  const trusted = item.review.sourceVerificationStatus === "source-verified" && Boolean(item.definition);
-  const pendingVerification = item.definitionStatus === "needs-manual-or-clinician-verification";
+  // Generated definition text is withheld for ALL rows — including those whose
+  // SOURCE was verified. Automated review repeatedly found scattered clinical
+  // errors among the "source-verified" generated definitions, so none of the
+  // generated meaning/clinical-note is displayed as trusted; the catalogue shows
+  // only the specifier's structural facts (label, disorder, group, ICD-11 context),
+  // its review status, and hand-authored curated guidance, pending qualified
+  // clinician-authored definitions.
+  const hasWithheldDefinition = Boolean(item.definition);
   const sourceManual = sourceManualLabel(item);
-  const description = trusted
-    ? item.definition!.meaning
-    : pendingVerification
-      ? `“${item.label}” is recorded for ${item.disorderName}; its generated definition is pending clinician verification — confirm against the current DSM-5-TR / ICD-11 text.`
-      : `“${item.label}” is recorded for ${item.disorderName} without a separate definition — read it against the current DSM-5-TR text.`;
+  const description = hasWithheldDefinition
+    ? `“${item.label}” is recorded for ${item.disorderName}; its definition is pending qualified clinician verification — confirm against the current DSM-5-TR / ICD-11 text.`
+    : `“${item.label}” is recorded for ${item.disorderName} without a separate definition — read it against the current DSM-5-TR text.`;
 
   return (
     <SpecifierPageShell>
@@ -213,23 +213,11 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
             body="Aide-memoire content for the specifier and how it sits within its diagnosis. Confirm against current DSM-5-TR / ICD-11 materials before documenting."
           />
 
-          {trusted ? (
-            <InfoCard icon={BookOpenCheck} eyebrow="At a glance" title="Meaning">
-              <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">{item.definition!.meaning}</p>
-            </InfoCard>
-          ) : pendingVerification ? (
+          {hasWithheldDefinition ? (
             <InfoCard icon={ShieldAlert} eyebrow="At a glance" title="Definition pending verification">
               <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
                 The generated definition for this specifier is withheld pending qualified clinician review. Confirm the
                 specifier against current DSM-5-TR / ICD-11 materials before documenting.
-              </p>
-            </InfoCard>
-          ) : null}
-
-          {trusted && item.definition?.clinicalNote ? (
-            <InfoCard icon={CircleHelp} eyebrow="Clinical note" title="How to use it">
-              <p className="text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                {item.definition.clinicalNote}
               </p>
             </InfoCard>
           ) : null}
