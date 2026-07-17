@@ -176,6 +176,13 @@ const searchDocumentChunksOwnerScopeMigration = readFileSync(
   new URL("../supabase/migrations/20260705133000_tighten_search_document_chunks_owner_scope.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const searchDocumentChunksCommittedGenerationMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260717130000_filter_search_document_chunks_committed_generation.sql",
+    import.meta.url,
+  ),
+  "utf8",
+).replace(/\s+/g, " ");
 const retrievalPlanCacheMigration = readFileSync(
   new URL("../supabase/migrations/20260711120000_retrieval_fn_plan_cache_mode.sql", import.meta.url),
   "utf8",
@@ -932,6 +939,39 @@ describe("Supabase schema Data API grants", () => {
     expect(schema).toContain(
       "revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated",
     );
+  });
+
+  it("filters per-document search to the committed generation before matching and limiting", () => {
+    for (const sql of [schema, searchDocumentChunksCommittedGenerationMigration]) {
+      const functionStart = sql.indexOf("create or replace function public.search_document_chunks(");
+      const functionEnd = sql.indexOf("$$;", functionStart);
+      const definition = sql.slice(functionStart, functionEnd);
+      const generationFilter = definition.indexOf(
+        "public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)",
+      );
+
+      expect(generationFilter).toBeGreaterThanOrEqual(0);
+      expect(generationFilter).toBeLessThan(definition.indexOf("c.search_tsv @@ normalized.query_tsv"));
+      expect(generationFilter).toBeLessThan(definition.indexOf("limit least(greatest(match_count, 1), 80)"));
+    }
+
+    const g0 = "00000000-0000-0000-0000-000000000001";
+    const g1 = "00000000-0000-0000-0000-000000000002";
+    const candidates = [
+      { id: "committed", chunkGeneration: g0, documentGeneration: g0, rank: 0.5 },
+      { id: "staged-higher-rank", chunkGeneration: g1, documentGeneration: g0, rank: 0.99 },
+      { id: "legacy-null", chunkGeneration: null, documentGeneration: null, rank: 0.4 },
+    ];
+    const visible = candidates
+      .filter(
+        (row) =>
+          row.chunkGeneration === row.documentGeneration &&
+          (row.chunkGeneration !== null || row.documentGeneration === null),
+      )
+      .sort((left, right) => right.rank - left.rank)
+      .map((row) => row.id);
+
+    expect(visible).toEqual(["committed", "legacy-null"]);
   });
 
   it("surfaces stale commit generation RPCs through search_schema_health", () => {

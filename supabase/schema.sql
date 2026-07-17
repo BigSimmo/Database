@@ -4108,6 +4108,7 @@ as $$
   cross join normalized
   where c.document_id = p_document_id
     and d.status = 'indexed'
+    and public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
     and (
       (p_owner_id is null and d.owner_id is null)
       or (p_owner_id is not null and (d.owner_id is null or d.owner_id = p_owner_id))
