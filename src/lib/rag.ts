@@ -2847,8 +2847,8 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 48),
         telemetry,
-      cache: chunkLoadCache,
-      signal: args.signal,
+        cache: chunkLoadCache,
+        signal: args.signal,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
@@ -2864,8 +2864,8 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 64),
         telemetry,
-      cache: chunkLoadCache,
-      signal: args.signal,
+        cache: chunkLoadCache,
+        signal: args.signal,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
