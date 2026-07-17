@@ -81,15 +81,26 @@ export async function callVersionedRetrievalRpc<T extends unknown[] = unknown[]>
   versionedName: string,
   legacyName: string,
   args: Record<string, unknown>,
+  signal?: AbortSignal,
 ): Promise<{ data: T | null; error: SupabaseRpcError }> {
   const client = supabase as unknown as {
-    rpc: (name: string, rpcArgs: Record<string, unknown>) => Promise<{ data: T | null; error: SupabaseRpcError }>;
+    rpc: (
+      name: string,
+      rpcArgs: Record<string, unknown>,
+    ) => { abortSignal: (s: AbortSignal) => Promise<{ data: T | null; error: SupabaseRpcError }> } & Promise<{
+      data: T | null;
+      error: SupabaseRpcError;
+    }>;
   };
-  const versioned = await client.rpc(versionedName, args);
+  const callRpc = (name: string, rpcArgs: Record<string, unknown>) => {
+    const builder = client.rpc(name, rpcArgs);
+    return signal ? builder.abortSignal(signal) : builder;
+  };
+  const versioned = await callRpc(versionedName, args);
   if (versioned && !isMissingRetrievalRpcError(versioned.error)) return versioned;
   const legacyArgs = { ...args };
   delete legacyArgs.include_public;
-  const ownerResult = await client.rpc(legacyName, legacyArgs);
+  const ownerResult = await callRpc(legacyName, legacyArgs);
   const ownerFilter = String(args.owner_filter ?? "");
   if (
     ownerResult.error ||
@@ -99,7 +110,7 @@ export async function callVersionedRetrievalRpc<T extends unknown[] = unknown[]>
   ) {
     return ownerResult;
   }
-  const publicResult = await client.rpc(legacyName, {
+  const publicResult = await callRpc(legacyName, {
     ...legacyArgs,
     owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
   });

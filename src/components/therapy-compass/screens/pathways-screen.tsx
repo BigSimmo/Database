@@ -53,6 +53,7 @@ export function PathwaysScreen() {
       </div>
 
       <div
+        className="tc-stack-sm"
         style={s(
           `display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-soft);overflow:hidden;`,
         )}

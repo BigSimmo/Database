@@ -108,6 +108,11 @@ jobs:
       - name: Function-grant guard
         run: npm run check:function-grants
 
+      # Fails if a src/app/api handler queries an owner-scoped table without a
+      # recognised owner filter (defense-in-depth tenancy guard; audit D2).
+      - name: Owner-scope guard
+        run: npm run check:owner-scope
+
       - name: Lint
         run: npm run lint
 

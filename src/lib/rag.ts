@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
   callVersionedRetrievalRpc,
+  createChunkLoadCache,
   memoryCardChunkScore,
   mergeSearchResults,
   recordHybridRpcError,
@@ -1289,6 +1290,9 @@ export async function analyzeQueryWithClassifierFallback(
     // owner_filter retrieval will use so grounding can never see documents retrieval cannot.
     corpusGrounding?: { supabase: ReturnType<typeof createAdminClient>; ownerFilter: string | null };
     ownerId?: string | null;
+    // When provided, aborting this signal causes this caller's await to reject with AbortError
+    // without cancelling the shared inflight classifier request (other callers continue).
+    signal?: AbortSignal;
   },
 ) {
   if (
@@ -1360,10 +1364,29 @@ export async function analyzeQueryWithClassifierFallback(
   }
 
   try {
-    const verdict = await pending;
+    // Race the shared inflight promise against the caller's own abort signal so that aborting
+    // one caller does not cancel the shared request (other callers continue to wait for it).
+    const verdict = await (opts?.signal
+      ? Promise.race([
+          pending,
+          new Promise<never>((_, reject) => {
+            if (opts.signal!.aborted) {
+              reject(opts.signal!.reason ?? new DOMException("The operation was aborted.", "AbortError"));
+              return;
+            }
+            opts.signal!.addEventListener(
+              "abort",
+              () => reject(opts.signal!.reason ?? new DOMException("The operation was aborted.", "AbortError")),
+              { once: true },
+            );
+          }),
+        ])
+      : pending);
     storeClassifierVerdictMemo(memoKey, verdict);
     return applyClassifierVerdict(analysis, verdict);
-  } catch {
+  } catch (err) {
+    // Re-throw AbortErrors so callers can react to their own cancellation.
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
     // Transport/parse failures are deliberately NOT memoized: fall back to the deterministic
     // analysis for this request only, and let the next request retry the classifier.
     return analysis;
@@ -2370,6 +2393,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   // A3: shared across every withMemoryBoostedCandidates call in this request so the same
   // owner/query memory cards are fetched at most once per (query, embedding-present, count).
   const memoryCardCache: MemoryCardCache = new Map();
+  const chunkLoadCache = createChunkLoadCache();
   const documentRankingMetadataCache = createDocumentRankingMetadataCache();
   const modeQueryClass = queryClassForClinicalMode(args.queryMode ?? "auto");
   const documentFilterList = args.documentIds?.length
