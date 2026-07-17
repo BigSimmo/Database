@@ -34,7 +34,6 @@ import { appModeHomeHref } from "@/lib/app-modes";
 import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
-import { canCompareServices, serviceNavigatorMetrics } from "@/lib/service-navigator-metrics";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
@@ -300,10 +299,6 @@ function RightRail({
   const confidenceExpanded = showConfidenceDetails && matches.length > 0;
   const comparisonExpanded = showComparison && comparisonAvailable;
   const confidenceTotal = counts.high + counts.medium + counts.low + counts.unknown;
-
-  // Keep rail toggles mounted across selection-count changes. Derived expanded
-  // flags below already hide checklist/comparison when the current selection
-  // cannot support them, so no effect-driven setState is required.
 
   const rows: Array<[string, number, LucideIcon, string]> = [
     ["Meets", counts.meets, CircleCheck, "text-[color:var(--success)]"],
@@ -605,10 +600,12 @@ export function ServicesNavigatorPage() {
             sortValue={sortValue}
             onSortChange={setSortValue}
           />
+          <UniversalSearchAlsoMatches modeId="services" query={query} />
         </>
       }
       sidebar={
         <RightRail
+          key={selected.length === 0 ? "empty" : selected.length === 1 ? "single" : "multiple"}
           matches={displayedMatches}
           selected={selected}
           onClearSelected={() => setSelectedSlugs([])}
@@ -733,7 +730,6 @@ export function ServicesNavigatorPage() {
           </div>
         </>
       )}
-      <UniversalSearchAlsoMatches modeId="services" query={query} />
     </SearchResultsLayout>
   );
 }
