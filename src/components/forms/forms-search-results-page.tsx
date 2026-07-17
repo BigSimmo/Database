@@ -108,10 +108,7 @@ function FormCodeBadge({ code, variant = "md" }: { code: string; variant?: "md" 
       {qualifier ? (
         <span
           title={qualifier}
-          className={cn(
-            "w-full truncate text-center font-bold uppercase leading-none tracking-tight opacity-75",
-            "text-[0.5rem]",
-          )}
+          className="w-full truncate text-center text-4xs font-bold uppercase leading-none tracking-tight opacity-75"
         >
           {qualifier}
         </span>
