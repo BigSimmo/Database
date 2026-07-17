@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
+import { useEffect, useId, useState } from "react";
 
 import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
 import { cn } from "@/components/ui-primitives";
@@ -25,6 +27,23 @@ export function UniversalSearchAlsoMatches({
     excludeDomains: universalSearchPreferredDomains(modeId),
     limitPerDomain: 2,
   });
+  const panelId = useId();
+  // Collapsed by default on phones so this cross-mode panel does not push the
+  // primary results down; desktop always shows the grid (see the sm: rules below),
+  // so the toggle state only governs the narrow-viewport disclosure.
+  const [expanded, setExpanded] = useState(false);
+  // Track the sm breakpoint (640px) so the header's disclosure semantics match
+  // reality: on desktop the grid is always visible, so the button reports
+  // expanded and drops out of the interaction/tab flow rather than claiming to
+  // be a collapsed control the user can toggle to no effect.
+  const [isWide, setIsWide] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 640px)");
+    const sync = () => setIsWide(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
   const preferred = new Set(universal.preferredDomains ?? []);
   const groups = (() => {
     const groupByDomain = new Map(universal.groups.map((group) => [group.kind, group]));
@@ -63,11 +82,40 @@ export function UniversalSearchAlsoMatches({
       aria-label="Matches in other modes"
       data-testid="universal-also-matches"
     >
-      <div className="mb-2 flex items-center justify-between gap-3 px-1">
-        <p className="text-xs font-extrabold text-[color:var(--text-heading)]">Also matches in other modes</p>
-        <span className="text-2xs font-bold text-[color:var(--text-soft)]">Across Clinical KB</span>
-      </div>
-      <div className="grid gap-1 sm:grid-cols-2 xl:grid-cols-4">
+      <button
+        type="button"
+        onClick={() => {
+          if (!isWide) setExpanded((value) => !value);
+        }}
+        aria-expanded={isWide ? true : expanded}
+        aria-controls={panelId}
+        tabIndex={isWide ? -1 : undefined}
+        className={cn(
+          "flex w-full items-center justify-between gap-3 rounded-md px-1 py-1 text-left transition-colors",
+          "hover:bg-[color:var(--surface)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+          // On desktop the panel is always open, so the header is inert copy rather than a control.
+          "sm:pointer-events-none sm:mb-2 sm:cursor-default sm:py-0 sm:hover:bg-transparent",
+        )}
+      >
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="text-xs font-extrabold text-[color:var(--text-heading)]">Also matches in other modes</span>
+          <span className="inline-flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-[color:var(--clinical-accent-soft)] px-1 text-2xs font-bold text-[color:var(--clinical-accent)] sm:hidden">
+            {groups.length}
+          </span>
+        </span>
+        <span className="hidden text-2xs font-bold text-[color:var(--text-soft)] sm:inline">Across Clinical KB</span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition-transform sm:hidden",
+            expanded && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </button>
+      <div
+        id={panelId}
+        className={cn("gap-1 sm:grid sm:grid-cols-2 xl:grid-cols-4", expanded ? "mt-2 grid sm:mt-0" : "hidden")}
+      >
         {groups.map((group) => {
           const targetModeId = group.modeId;
           const targetMode = appModeDefinition(targetModeId);
