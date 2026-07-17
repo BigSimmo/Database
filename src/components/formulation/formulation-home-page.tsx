@@ -213,7 +213,7 @@ function FormulationResults({ query }: { query: string }) {
             <Link
               key={preset.label}
               href={presetHref(preset.query)}
-              className="inline-flex min-h-9 shrink-0 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-muted)] hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
+              className="inline-flex min-h-tap shrink-0 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--text-muted)] hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)] lg:min-h-9"
             >
               {preset.label}
             </Link>
