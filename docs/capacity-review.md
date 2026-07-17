@@ -67,6 +67,14 @@ round, coalescing + cache absorb roughly a third of the fan-out at exactly the
 moment load is highest. This only works while the app is a **single process**
 (see deployment doc §2).
 
+The authorized deep health probe now exposes privacy-safe process-local
+`coalescing` counters (`originations`, `coalescedWaiters`, and
+`activeOriginations`). Before changing replica count, compare their deltas with
+the retrieval cache counters over a duplicate-heavy period. A sustained low
+coalescing rate may be expected for unique queries, but is a capacity/cost
+regression signal when the ward-round duplicate hypothesis holds; it is not a
+reason to make readiness fail.
+
 ### OpenAI: rate limits and generation concurrency
 
 Per answer: 1 embedding call (unless the lexical fast path skips it) + 1–2
