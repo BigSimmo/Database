@@ -31,6 +31,14 @@ const cacheIndexingVersionTtlMs = 5000;
 const cacheIndexingVersionMaxEntries = 512;
 const cacheIndexingVersionCache = new Map<string, { expiresAt: number; value: string }>();
 
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) throw abortReason(signal);
+}
+
 function documentScopeKey(args: Pick<SearchChunksArgs, "documentId" | "documentIds">) {
   const scope = args.documentIds?.length
     ? [...args.documentIds].sort().join(",")
@@ -264,6 +272,7 @@ export async function getCachedSearch(
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
 ): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry } | null> {
+  throwIfAborted(args.signal);
   if (!isSearchCacheEnabled(args)) return null;
 
   const key = scopedSearchCacheKey(args, queryClass, queryVariants);
@@ -274,6 +283,7 @@ export async function getCachedSearch(
     return null;
   }
   const indexingVersion = await cacheIndexingVersion(args);
+  throwIfAborted(args.signal);
   if (cached.indexingVersion !== indexingVersion) {
     searchCache.delete(key);
     return null;
@@ -303,10 +313,12 @@ export async function setCachedSearch(
   queryVariants: string[] = [],
   options?: { indexingVersionAtRetrievalStart?: string | null },
 ): Promise<void> {
+  throwIfAborted(args.signal);
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0 || env.RAG_SEARCH_CACHE_SIZE <= 0) return;
   const cacheTelemetry = normalizeCacheStorageTelemetry(telemetry);
 
   const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
+  throwIfAborted(args.signal);
   if (options?.indexingVersionAtRetrievalStart && indexingVersion !== options.indexingVersionAtRetrievalStart) return;
   const key = scopedSearchCacheKey(args, telemetry.query_class, queryVariants);
   searchCache.set(key, {
@@ -333,7 +345,7 @@ function sharedCacheSelector(
   kind: SharedCacheKind,
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "forceEmbedding"
+    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "forceEmbedding" | "signal"
   >,
   indexingVersion: string,
   normalizedQuery: string = queryCacheKeyForStorage(normalizedCacheQuery(`${modeKey(args)} ${args.query}`)),
@@ -354,9 +366,10 @@ function sharedCacheSelector(
 }
 
 export async function cacheIndexingVersion(
-  args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId" | "accessScope">,
+  args: Pick<SearchChunksArgs, "documentId" | "documentIds" | "ownerId" | "accessScope" | "signal">,
   options?: { forceRefresh?: boolean },
 ) {
+  throwIfAborted(args.signal);
   const cacheKey = cacheIndexingVersionCacheKey(args);
   if (options?.forceRefresh) cacheIndexingVersionCache.delete(cacheKey);
   const cached = readExpiringCacheEntry(cacheIndexingVersionCache, cacheKey);
@@ -381,7 +394,9 @@ export async function cacheIndexingVersion(
       query = query.is("owner_id", null);
     }
     if (documentFilters?.length) query = query.in("id", documentFilters);
+    if (args.signal) query = query.abortSignal(args.signal);
     const { data, error } = await query;
+    throwIfAborted(args.signal);
     if (error || !data?.length) {
       value = `${ragDeepMemoryVersion}:no-indexed-documents`;
     } else {
@@ -395,8 +410,10 @@ export async function cacheIndexingVersion(
       value = `${ragDeepMemoryVersion}:${latest.id ?? "all"}:${indexedAt}:${generationId}`;
     }
   } catch {
+    if (args.signal?.aborted) throw abortReason(args.signal);
     value = `${ragDeepMemoryVersion}:index-stamp-unavailable`;
   }
+  throwIfAborted(args.signal);
   writeBoundedExpiringCacheEntry(
     cacheIndexingVersionCache,
     cacheKey,
@@ -415,17 +432,15 @@ export async function getSharedCachedSearch(
   | { kind: "miss"; reason: SharedCacheMissReason }
   | null
 > {
+  throwIfAborted(args.signal);
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return null;
   const normalizedQuery = retrievalPlanCacheQuery(args, queryClass, queryVariants);
   const indexingVersion = await cacheIndexingVersion(args);
   try {
-    const { data, error } = await sharedCacheSelector(
-      createAdminClient(),
-      "search",
-      args,
-      indexingVersion,
-      normalizedQuery,
-    ).maybeSingle();
+    let query = sharedCacheSelector(createAdminClient(), "search", args, indexingVersion, normalizedQuery);
+    if (args.signal) query = query.abortSignal(args.signal);
+    const { data, error } = await query.maybeSingle();
+    throwIfAborted(args.signal);
     if (error) return { kind: "miss", reason: "cache_lookup_error" };
     // The selector deliberately folds TTL, dependency, and indexing-version
     // validity into the hit query. Keep a filtered miss coarse rather than pay
@@ -482,6 +497,7 @@ export async function getSharedCachedSearch(
       },
     };
   } catch {
+    if (args.signal?.aborted) throw abortReason(args.signal);
     return { kind: "miss", reason: "cache_lookup_exception" };
   }
 }
@@ -526,7 +542,7 @@ async function replaceSharedCacheRow(
   kind: SharedCacheKind,
   args: Pick<
     SearchChunksArgs,
-    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "forceEmbedding"
+    "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "queryMode" | "forceEmbedding" | "signal"
   >,
   payload: unknown,
   ttlMs: number,
@@ -534,6 +550,7 @@ async function replaceSharedCacheRow(
 ) {
   if (ttlMs <= 0) return;
   try {
+    if (args.signal?.aborted) return;
     const supabase = createAdminClient();
     const indexingVersion = await cacheIndexingVersion(args);
     let deleteQuery = supabase
@@ -545,8 +562,10 @@ async function replaceSharedCacheRow(
       .eq("indexing_version", indexingVersion)
       .eq("dependency_version", ragCacheDependencyVersion);
     deleteQuery = args.ownerId ? deleteQuery.eq("owner_id", args.ownerId) : deleteQuery.is("owner_id", null);
+    if (args.signal) deleteQuery = deleteQuery.abortSignal(args.signal);
     await deleteQuery;
-    await supabase.from("rag_response_cache").insert({
+    if (args.signal?.aborted) return;
+    let insertQuery = supabase.from("rag_response_cache").insert({
       owner_id: args.ownerId ?? null,
       cache_kind: kind,
       scope_key: scopeKey(args),
@@ -557,6 +576,8 @@ async function replaceSharedCacheRow(
       payload: payload as Json,
       expires_at: new Date(Date.now() + ttlMs).toISOString(),
     });
+    if (args.signal) insertQuery = insertQuery.abortSignal(args.signal);
+    await insertQuery;
   } catch {
     // Shared cache must never be part of the correctness path.
   }
@@ -654,9 +675,12 @@ function invalidateAnonymousSharedRagCaches() {
   })();
 }
 
-export function invalidateRagCachesForDocumentMutation(ownerId: string) {
+export function invalidateRagCachesForDocumentMutation(
+  ownerId: string,
+  options: { affectsPublicCorpus?: boolean } = {},
+) {
   invalidateRagCachesForOwner(ownerId);
-  invalidateAnonymousSharedRagCaches();
+  if (options.affectsPublicCorpus !== false) invalidateAnonymousSharedRagCaches();
 }
 
 function sourceContextPackLimit(queryClass: RagQueryClass, options: { crossDocument?: boolean } = {}) {

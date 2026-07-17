@@ -201,7 +201,8 @@ function mockRuntime(options: {
     buildVisualEvidence: vi.fn(() => []),
     diversifySearchResults: vi.fn((results: unknown[]) => results),
   }));
-  vi.doMock("@/lib/evidence-relevance", () => ({
+  vi.doMock("@/lib/evidence-relevance", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../src/lib/evidence-relevance")>()),
     annotateDocumentMatches: vi.fn((_query: string, documents: unknown[]) => documents),
     annotateSearchResults: vi.fn((_query: string, results: unknown[]) => results),
     buildEvidenceRelevance: vi.fn(() => ({

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { toClientAnswerPayload } from "@/lib/answer-client-payload";
+import { buildGovernedAnswerClientResponse, buildGovernedDemoAnswerClientResponse } from "@/lib/answer-response";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import type { RagAnswer, SearchResult } from "@/lib/types";
 
@@ -32,6 +33,23 @@ function answerWith(sources: SearchResult[]): Pick<RagAnswer, "sources"> {
 }
 
 describe("toClientAnswerPayload", () => {
+  it("governs empty-source real and demo answers without requiring source fields", () => {
+    const answer = {
+      answer: "No source details.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [],
+    } as RagAnswer;
+
+    expect(buildGovernedAnswerClientResponse(answer).payload).toMatchObject({ sources: [], safetyWarnings: [] });
+    expect(buildGovernedDemoAnswerClientResponse(answer)).toMatchObject({
+      sources: [],
+      safetyWarnings: [],
+      demoMode: true,
+    });
+  });
+
   it("drops server-only per-source fields the client never renders", () => {
     const trimmed = toClientAnswerPayload(answerWith([fullSource()])).sources![0];
     expect(trimmed.adjacent_context).toBeUndefined();
@@ -39,6 +57,22 @@ describe("toClientAnswerPayload", () => {
     expect(trimmed.table_facts).toBeUndefined();
     expect(trimmed.index_unit).toBeUndefined();
     expect(trimmed.document_summary).toBeUndefined();
+    expect(trimmed.images).toEqual([]);
+  });
+
+  it("does not serialize bulky source image objects", () => {
+    const image = {
+      id: "image-1",
+      storage_path: "private/source/page-4.png",
+      metadata: { raw: "x".repeat(8_000) },
+      table_markdown: `| heading |\n| --- |\n| ${"cell ".repeat(1_000)} |`,
+    } as never;
+    const source = fullSource({ image_ids: ["image-1"], images: [image] });
+    const trimmed = toClientAnswerPayload(answerWith([source])).sources![0];
+
+    expect(trimmed.image_ids).toEqual(["image-1"]);
+    expect(trimmed.images).toEqual([]);
+    expect(JSON.stringify(trimmed)).not.toContain("private/source/page-4.png");
   });
 
   it("does not pass unclassified runtime fields through the route boundary", () => {
@@ -54,27 +88,32 @@ describe("toClientAnswerPayload", () => {
     expect(trimmed.id).toBe("chunk-1");
     expect(trimmed.title).toBe("Clozapine monitoring guideline");
     expect(trimmed.retrieval_synopsis).toBe("FBC weekly for 18 weeks, then monthly.");
+    expect(trimmed.content).toBe("FBC weekly for 18 weeks, then monthly.");
     expect(trimmed.similarity).toBe(0.82);
     expect(trimmed.source_metadata).toEqual({ document_status: "current" });
     expect(trimmed.page_number).toBe(4);
   });
 
-  it("preserves full source content so client-side safety scanning cannot miss later warnings", () => {
+  it("derives safety warnings before replacing full source content with the rendered snippet", () => {
     const source = fullSource({ content: `${"Routine context. ".repeat(60)}Contraindicated in severe disease.` });
-    const payload = toClientAnswerPayload({
+    const response = buildGovernedAnswerClientResponse({
       answer: "Review the source.",
       grounded: true,
       confidence: "medium",
       citations: [],
       sources: [source],
     } as RagAnswer);
+    const payload = response.payload;
 
-    expect(payload.sources![0].content).toBe(source.content);
+    expect(payload.sources![0].content).toBe(source.retrieval_synopsis);
+    expect(payload.sources![0].content.length).toBeLessThan(source.content.length);
+    expect(payload.safetyWarnings).toHaveLength(1);
+    expect(payload.safetyWarnings![0].citation).not.toHaveProperty("source_metadata");
     expect(extractSafetyFindings(payload)).toHaveLength(1);
   });
 
   it("leaves short content untouched", () => {
-    const short = fullSource({ content: "Short snippet." });
+    const short = fullSource({ content: "Short snippet.", retrieval_synopsis: undefined });
     expect(toClientAnswerPayload(answerWith([short])).sources![0].content).toBe("Short snippet.");
   });
 

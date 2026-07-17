@@ -1438,7 +1438,7 @@ export function MasterSearchHeader({
           closeButtonClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           contentClassName={cn(
             "bg-[color:var(--surface-lux)]",
-            scopeSheetFullscreen ? "max-h-dvh" : "max-h-[min(84dvh,42rem)]",
+            scopeSheetFullscreen ? "max-h-full" : "max-h-[min(84dvh,42rem)]",
             "sm:max-h-[min(88dvh,44rem)] sm:max-w-xl",
           )}
           bodyClassName={cn(
@@ -1676,7 +1676,7 @@ export function MasterSearchHeader({
             ) : null}
           </div>
 
-          <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
+          <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-2 justify-self-end">
             {isWorkflowHeader ? (
               <>
                 <button

@@ -5,6 +5,7 @@ import { isDemoMode } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
+  consumeSummaryRateLimits,
   consumeSubjectApiRateLimit,
   rateLimitJsonResponse,
   type ApiRateLimitResult,
@@ -296,24 +297,24 @@ export async function POST(request: Request) {
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
 
-    const rateLimit = await consumeSubjectApiRateLimit({
-      supabase,
-      subject: access.rateLimitSubject,
-      bucket: "answer",
-      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
-    });
-    if (rateLimit.limited) return rateLimitStream(rateLimit);
-
     if (body.summaryMode) {
-      // Streamed full-document summaries use the same paid provider path as the
-      // legacy summary endpoint. Preserve the general answer ceiling, then also
-      // enforce the stricter summary quota before the SSE stream can start.
-      const summaryRateLimit = await consumeSubjectApiRateLimit({
+      const decision = await consumeSummaryRateLimits({
         supabase,
         subject: access.rateLimitSubject,
-        bucket: "document_summarize",
       });
-      if (summaryRateLimit.limited) return documentSummaryRateLimitStream(summaryRateLimit);
+      if (decision.rateLimit.limited) {
+        return decision.bucket === "document_summarize"
+          ? documentSummaryRateLimitStream(decision.rateLimit)
+          : rateLimitStream(decision.rateLimit);
+      }
+    } else {
+      const rateLimit = await consumeSubjectApiRateLimit({
+        supabase,
+        subject: access.rateLimitSubject,
+        bucket: "answer",
+        allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
+      });
+      if (rateLimit.limited) return rateLimitStream(rateLimit);
     }
 
     return streamAnswer(body, resolveRetrievalAccessScope(access.ownerId), request.signal);

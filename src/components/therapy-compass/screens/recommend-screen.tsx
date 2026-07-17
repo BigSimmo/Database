@@ -215,6 +215,7 @@ export function RecommendScreen() {
             {rest.map(({ therapy: t }, i) => (
               <div
                 key={t.slug}
+                className="tc-stack-sm"
                 style={s(
                   `display:grid;grid-template-columns:auto minmax(220px,1.3fr) 1.1fr 1.1fr auto;gap:20px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-tight);padding:16px 20px;`,
                 )}

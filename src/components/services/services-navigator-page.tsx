@@ -33,7 +33,7 @@ import { useSearchCommand } from "@/components/clinical-dashboard/search-command
 import { appModeHomeHref } from "@/lib/app-modes";
 import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { rankServiceRecords, serviceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/services";
+import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 import { sortResultItems } from "@/lib/result-sort";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
@@ -220,7 +220,7 @@ function ServiceCard({
         <button
           type="button"
           onClick={() => onToggleSelected(service.slug)}
-          className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className="grid size-tap place-items-center rounded-lg text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           aria-label={selected ? `Remove ${service.title} from selected services` : `Save ${service.title}`}
         >
           <Bookmark
@@ -280,7 +280,7 @@ function ServiceCard({
           <Link
             href={`/services/${service.slug}`}
             aria-label={`Open ${service.title}`}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <ExternalLink className="h-3.5 w-3.5" aria-hidden />
             Open
@@ -288,7 +288,7 @@ function ServiceCard({
           <button
             type="button"
             onClick={() => onToggleSelected(service.slug)}
-            className="inline-flex h-9 min-w-[94px] items-center justify-center gap-1.5 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="inline-flex min-h-tap min-w-[94px] items-center justify-center gap-1.5 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <Check className="h-4 w-4" aria-hidden />
             {selected ? "Selected" : "Select"}
@@ -475,13 +475,15 @@ export function ServicesNavigatorPage() {
     });
     return map;
   }, [scopedMatches]);
-  const [selectedSlugs, setSelectedSlugs] = useState(() => serviceRecords.slice(0, 2).map((service) => service.slug));
-  const selected = searchableRecords.filter((service) => selectedSlugs.includes(service.slug));
+  const [selectedSlugs, setSelectedSlugs] = useState<string[] | null>(null);
+  const effectiveSelectedSlugs = selectedSlugs ?? searchableRecords.slice(0, 2).map((service) => service.slug);
+  const selected = searchableRecords.filter((service) => effectiveSelectedSlugs.includes(service.slug));
 
   function toggleSelected(slug: string) {
-    setSelectedSlugs((current) =>
-      current.includes(slug) ? current.filter((item) => item !== slug) : [slug, ...current].slice(0, 5),
-    );
+    setSelectedSlugs((current) => {
+      const selected = current ?? effectiveSelectedSlugs;
+      return selected.includes(slug) ? selected.filter((item) => item !== slug) : [slug, ...selected].slice(0, 5);
+    });
   }
 
   function applyServiceQuery(nextQuery: string) {
@@ -634,7 +636,7 @@ export function ServicesNavigatorPage() {
                 service={service}
                 index={index}
                 relevanceRank={sortValue === "alpha" ? null : (relevanceRankMap.get(service.slug) ?? null)}
-                selected={selectedSlugs.includes(service.slug)}
+                selected={effectiveSelectedSlugs.includes(service.slug)}
                 onToggleSelected={toggleSelected}
               />
             ))}
