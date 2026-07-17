@@ -24,6 +24,7 @@ export type TcBindings = {
   // ---- data -----------------------------------------------------------
   loading: boolean;
   error: string | null;
+  retryData: () => void;
   therapies: Therapy[];
   unreviewedTherapies: Therapy[];
   reviewCount: number;
@@ -207,7 +208,7 @@ export function TcProvider({
   initialQuery?: string;
   autoRunSearch?: boolean;
 }) {
-  const { data, loading, error } = useTherapyData();
+  const { data, loading, error, retry } = useTherapyData();
   const therapies = useMemo(() => data?.therapies ?? [], [data]);
   const pathways = useMemo(() => data?.pathways ?? [], [data]);
 
@@ -271,6 +272,7 @@ export function TcProvider({
     return {
       loading,
       error,
+      retryData: retry,
       therapies,
       unreviewedTherapies,
       reviewCount: unreviewedTherapies.length,
@@ -429,6 +431,7 @@ export function TcProvider({
   }, [
     loading,
     error,
+    retry,
     data,
     therapies,
     unreviewedTherapies,
