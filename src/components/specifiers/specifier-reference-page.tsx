@@ -130,7 +130,7 @@ export function SpecifierReferencePage({ item }: { item: SpecifierCatalogItem })
   const sourceManual = sourceManualLabel(item);
   const description = hasWithheldDefinition
     ? `“${item.label}” is recorded for ${item.disorderName}; its definition is pending qualified clinician verification — confirm against the current DSM-5-TR / ICD-11 text.`
-    : `“${item.label}” is recorded for ${item.disorderName} without a separate definition — read it against the current DSM-5-TR text.`;
+    : `“${item.label}” is recorded for ${item.disorderName} without a separate definition — read it against the current ${sourceManual} text.`;
 
   return (
     <SpecifierPageShell>
