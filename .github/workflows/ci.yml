@@ -347,7 +347,7 @@ jobs:
             < supabase/roles.sql
 
       - name: Verify Migration Replay
-        run: supabase db reset
+        run: supabase migration up --local
 
       - name: Save Supabase Docker images
         if: success() && steps.supabase-docker-cache.outputs.cache-hit != 'true'
