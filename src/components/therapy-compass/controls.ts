@@ -3,7 +3,7 @@
 // tweaks: s(primaryControl + "height:52px;").
 
 export const accentControl =
-  "display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border:none;border-radius:11px;background:var(--clinical-accent);color:#fff;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;";
+  "display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border:none;border-radius:11px;background:var(--clinical-accent);color:var(--clinical-accent-contrast);font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;";
 
 export const commandControl =
   "display:inline-flex;align-items:center;justify-content:center;gap:9px;height:44px;padding:0 20px;border:none;border-radius:11px;background:var(--command);color:var(--command-contrast);font-size:14px;font-weight:600;box-shadow:var(--shadow-tight);cursor:pointer;font-family:inherit;";

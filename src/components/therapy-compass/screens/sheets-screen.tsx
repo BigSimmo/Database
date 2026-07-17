@@ -161,7 +161,9 @@ export function SheetsScreen() {
           >
             <div
               style={s(
-                `display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid var(--clinical-accent);padding-bottom:16px;margin-bottom:24px;`,
+                // Fixed ink (light-mode --clinical-accent): the paper is pinned white in
+                // both themes, so a theme-reactive accent would turn bright cyan in dark.
+                `display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0b6f86;padding-bottom:16px;margin-bottom:24px;`,
               )}
             >
               <div style={s(`display:flex;align-items:center;gap:11px;`)}>
@@ -205,9 +207,7 @@ export function SheetsScreen() {
                 <h2
                   contentEditable
                   suppressContentEditableWarning
-                  style={s(
-                    `margin:0 0 10px;font-size:16px;font-weight:680;color:var(--clinical-accent-hover);outline:none;`,
-                  )}
+                  style={s(`margin:0 0 10px;font-size:16px;font-weight:680;color:#095d70;outline:none;`)}
                 >
                   Your plan
                 </h2>
@@ -243,9 +243,7 @@ export function SheetsScreen() {
                 <h2
                   contentEditable
                   suppressContentEditableWarning
-                  style={s(
-                    `margin:0 0 8px;font-size:15px;font-weight:680;color:var(--clinical-accent-hover);outline:none;`,
-                  )}
+                  style={s(`margin:0 0 8px;font-size:15px;font-weight:680;color:#095d70;outline:none;`)}
                 >
                   Practice at home
                 </h2>
@@ -323,7 +321,7 @@ function PaperSection({ title, children }: { title: string; children: ReactNode 
       <h2
         contentEditable
         suppressContentEditableWarning
-        style={s(`margin:0 0 8px;font-size:16px;font-weight:680;color:var(--clinical-accent-hover);outline:none;`)}
+        style={s(`margin:0 0 8px;font-size:16px;font-weight:680;color:#095d70;outline:none;`)}
       >
         {title}
       </h2>
