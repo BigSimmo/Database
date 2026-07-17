@@ -30,7 +30,8 @@ That said, this is a **single-layer** design with one structural weakness that *
 > any RPC is called.
 
 **Historical note (pre-#409):** the review below describes the fail-open edge that existed at audit
-time. Item 1 in §6 is **DONE**; items 2–4 remain the recommended follow-ups.
+time. Items 1 (fail-closed RPC) and 2 (CI owner-scope guard) in §6 are **DONE**; items 3–4 remain the
+recommended follow-ups.
 
 **The one non-clean finding** is a **low-severity information disclosure**, not a tenancy leak:
 `setup-status` interpolates a raw Postgres RPC error string into its response
@@ -273,11 +274,17 @@ small, largely-cooperative user set with a public shared corpus.
 1. **Make the retrieval RPCs fail-_closed_ on a null owner filter — DONE (2026-07-08, PR #409).**
    `retrieval_owner_matches` now returns no rows when `owner_filter IS NULL`; the app uses the public
    sentinel for legitimate unauthenticated paths. Verify: `npm run check:july8-live-batch`.
-2. **Add a CI guard against un-scoped owner tables (cheap, high value).** A lint/test that fails when a
-   new `src/app/api/**` handler queries an owner-scoped table without a recognised scoping construct
-   (`withOwnerReadScope`, `.eq('owner_id'`, `requireOwnerScope`, `documents!inner`+`documents.owner_id`).
-   This directly guards the regression class the single-layer model is exposed to — a future PR
-   dropping the filter.
+2. **Add a CI guard against un-scoped owner tables (cheap, high value) — DONE (2026-07-17).**
+   [`scripts/check-owner-scope-api.mjs`](../scripts/check-owner-scope-api.mjs) fails when a
+   `src/app/api/**` handler queries an owner-scoped table (any table with an `owner_id` column in
+   `supabase/schema.sql`) without a recognised scoping construct in the enclosing handler —
+   `.eq('owner_id'`, `withOwnerReadScope`, `requireOwnerScope`, `requireOwnedDocument`/`loadOwnedDocument`,
+   a `documents!inner`+`documents.owner_id` join, or an `owner_id:` write payload. Confirmed-safe
+   indirect-scope cases live in a documented `OWNER_SCOPE_ALLOWLIST` (today only the two local-origin
+   `setup-status` existence probes, §3 / TEN-N1). Wired into `npm run check:owner-scope`,
+   `npm run verify:cheap`, and the CI `static-pr` job; regression-locked by
+   [`tests/owner-scope-guard.test.ts`](../tests/owner-scope-guard.test.ts). This directly guards the
+   regression class the single-layer model is exposed to — a future PR dropping the filter.
 3. **Add a live cross-tenant integration test (medium value).** Fixtures for user A + user B; for each
    route family assert B cannot read/mutate A's non-null rows and gets 404/empty. This is the
    regression harness for the exact property the whole model depends on, and it is what would have
@@ -291,8 +298,30 @@ small, largely-cooperative user set with a public shared corpus.
 
 **Bottom line:** the current single-layer enforcement is correct today (0/33 gaps). Item 1 (fail-closed
 RPC) is live in the repo (#409); **apply to production** per
-[`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md). Items 2–3 close the remaining
-app-layer regression exposure; full RLS (item 4) is justified before multi-tenant scale.
+[`docs/operator-apply-july8-batch.md`](operator-apply-july8-batch.md). Item 2 (CI owner-scope guard) is
+now landed and blocks the regression class in CI. Item 3 (live cross-tenant integration test) closes the
+remaining app-layer regression exposure; full RLS (item 4) is justified before multi-tenant scale.
+
+### Owner-scope guard allowlist (item 2)
+
+`scripts/check-owner-scope-api.mjs` flags any `src/app/api/**` query on an owner-scoped table that
+lacks an owner filter in its enclosing handler. A query is scoped either **on its own chain**
+(`.eq("owner_id"…)`, `withOwnerReadScope`) or by a **handler-level ownership proof** that precedes it
+(`requireOwnedDocument`, an owner-checked `.select(...).eq("owner_id"…)`, or an `owner_id:` write
+payload) — the guard checks the whole enclosing handler body, so the dominant "prove ownership, then
+mutate/read by the proven id" idiom (e.g. `documents` PATCH selects `.eq("owner_id", user.id)` then
+updates by `id`; `ingestion/quality` fetches owner-scoped document ids then reads child tables by
+`document_id IN (…)`) is recognised without a per-statement dataflow analysis. Queries inside in-file
+helpers fall back to whole-file scope because their caller proves ownership first (e.g. `selectLabels`
+runs only after `requireOwnedDocument`).
+
+The guard's `OWNER_SCOPE_ALLOWLIST` holds **exactly** these reviewed indirect-scope exceptions (any
+new entry must be added here and to the list in the guard, or the regression test fails):
+
+| File                                | Table            | Why it is safe                                                                                                                                   |
+| ----------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/app/api/setup-status/route.ts` | `documents`      | Local-origin-gated `.limit(1)` existence probe ("is any document indexed?"); returns only status booleans, not an owner-data read (§3 / TEN-N1). |
+| `src/app/api/setup-status/route.ts` | `import_batches` | Local-origin-gated `.limit(1)` existence probe for schema provisioning; returns only status booleans, not an owner-data read (§3 / TEN-N1).      |
 
 ---
 
