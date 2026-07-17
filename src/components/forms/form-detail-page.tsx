@@ -202,18 +202,21 @@ function DetailCard({ card }: { card: ServiceSummaryCard }) {
   );
 }
 
-// Compact code cell for the pathway before/parallel/after lists. The full label
-// is shown in the adjacent title column, so the code cell only needs the short
-// head ("6B") — this keeps a qualifier like "6B attachment" from overflowing the
-// fixed-width column while the full string stays available as a tooltip.
+// Compact code cell for the pathway before/parallel/after lists. Visually it
+// shows only the short head ("6B") so a qualifier like "6B attachment" can't
+// overflow the fixed-width column, but the full code is exposed to assistive
+// tech via an sr-only label (the decorative head is aria-hidden) and to sighted
+// users via a tooltip — matching FormCodeBadge's pattern.
 function PathwayStepCode({ code }: { code: string }) {
   const { head, qualifier } = splitFormCode(code);
+  const fullCode = qualifier ? `${head} ${qualifier}` : head;
   return (
     <span
       className={cn("truncate text-sm font-bold text-[color:var(--text-heading)]", codeText)}
-      title={qualifier ? `${head} ${qualifier}` : undefined}
+      title={qualifier ? fullCode : undefined}
     >
-      {head}
+      <span className="sr-only">{fullCode}</span>
+      <span aria-hidden>{head}</span>
     </span>
   );
 }
