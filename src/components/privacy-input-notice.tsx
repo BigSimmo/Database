@@ -24,7 +24,7 @@ export function PrivacyInputNotice({ className, id, testId }: { className?: stri
       <span>Do not enter patient-identifiable information.</span>
       <Link
         href="/privacy"
-        className="rounded-sm font-medium underline decoration-[color:var(--border-strong)] underline-offset-2 transition-colors hover:text-[color:var(--clinical-accent)] hover:decoration-current focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+        className="inline-flex min-h-tap items-center rounded-sm font-medium underline decoration-[color:var(--border-strong)] underline-offset-2 transition-colors hover:text-[color:var(--clinical-accent)] hover:decoration-current focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-0"
       >
         Privacy and data processing
       </Link>
