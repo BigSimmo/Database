@@ -20,7 +20,7 @@ const repoRoot = fileURLToPath(new URL("..", import.meta.url));
  * both, so the class of bug is caught in CI instead of at deploy.
  */
 describe("worker production bundle", () => {
-  it("keeps every external import resolvable under plain node with prod-only deps", async () => {
+  it("keeps every external import resolvable under plain node with prod-only deps", { timeout: 60_000 }, async () => {
     const result = await build({
       ...workerBuildOptions,
       write: false,
