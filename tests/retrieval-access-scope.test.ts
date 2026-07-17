@@ -9,7 +9,7 @@ const optimizedRetrievalMigration = readFileSync(
   "utf8",
 );
 const boundedRetrievalMigration = readFileSync(
-  join(root, "supabase/migrations/20260717170000_bound_versioned_retrieval_match_count.sql"),
+  join(root, "supabase/migrations/20260717174000_bound_versioned_retrieval_match_count.sql"),
   "utf8",
 );
 const canonicalSchema = readFileSync(join(root, "supabase/schema.sql"), "utf8");
@@ -126,9 +126,7 @@ describe("owner-plus-public retrieval contract", () => {
     expect(boundedRetrievalMigration).toContain(
       "revoke all on function public.match_document_chunks_text_v2(text, integer, uuid[], uuid, boolean)",
     );
-    expect(boundedRetrievalMigration).toContain(
-      "revoke all on function public.match_document_index_units_hybrid_v2(",
-    );
+    expect(boundedRetrievalMigration).toContain("revoke all on function public.match_document_index_units_hybrid_v2(");
   });
 
   it("merges exact-owner and public rows when a versioned RPC is not deployed yet", async () => {
