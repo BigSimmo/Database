@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
@@ -51,13 +51,17 @@ describe("owner-scope tenancy guard", () => {
   });
 
   it("checks each handler independently — a scoped sibling does not excuse an unscoped one", () => {
-    const src = `export async function GET(request) {
-      const user = await requireAuthenticatedUser(request, supabase);
-      return supabase.from("documents").select("*").eq("owner_id", user.id);
-    }
-    export async function POST(request) {
-      return supabase.from("medication_records").select("*");
-    }`;
+    // Column-0 (top-level) handler boundaries: each `export async function` starts at column 0
+    // exactly as Prettier formats real route files.
+    const src = [
+      "export async function GET(request) {",
+      "  const user = await requireAuthenticatedUser(request, supabase);",
+      '  return supabase.from("documents").select("*").eq("owner_id", user.id);',
+      "}",
+      "export async function POST(request) {",
+      '  return supabase.from("medication_records").select("*");',
+      "}",
+    ].join("\n");
     const violations = analyzeFile("c/route.ts", src, OWNER_TABLES);
     expect(violations).toHaveLength(1);
     expect(violations[0]).toMatchObject({ table: "medication_records" });
@@ -84,9 +88,42 @@ describe("owner-scope tenancy guard", () => {
     expect(analyzeFile("e/route.ts", src, OWNER_TABLES)).toHaveLength(0);
   });
 
+  it("keeps a query inside a handler with a nested helper scoped (no false positive)", () => {
+    // A nested arrow function inside the handler must not split the handler body: the
+    // owner-scoped query below the nested helper is still covered by the handler's owner filter.
+    const src = [
+      "export async function POST(request) {",
+      "  const user = await requireAuthenticatedUser(request, supabase);",
+      "  const rows = items.map((item) => ({ owner_id: user.id, document_id: item.id }));",
+      '  await supabase.from("documents").insert(rows).eq("owner_id", user.id);',
+      "}",
+    ].join("\n");
+    expect(analyzeFile("nested-ok/route.ts", src, OWNER_TABLES)).toHaveLength(0);
+  });
+
+  it("does not let an owner token in another top-level function mask an unscoped handler query", () => {
+    // The unscoped query lives in POST; the only owner_id token is in a SEPARATE top-level
+    // handler (GET), and POST has a nested arrow helper. A whole-file fallback (or a nested
+    // function splitting POST's body) would wrongly pass POST — column-0 handler boundaries
+    // must keep POST scoped to its own body and flag it.
+    const src = [
+      "export async function GET(request) {",
+      "  const user = await requireAuthenticatedUser(request, supabase);",
+      '  return supabase.from("documents").select("*").eq("owner_id", user.id);',
+      "}",
+      "export async function POST(request) {",
+      "  const helper = (row) => normalize(row);",
+      '  return supabase.from("medication_records").select("*");',
+      "}",
+    ].join("\n");
+    const violations = analyzeFile("leak/route.ts", src, OWNER_TABLES);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ table: "medication_records" });
+  });
+
   it("regression lock: the real src/app/api surface is fully owner-scoped (0 violations)", () => {
     const schemaText = readFileSync("supabase/schema.sql", "utf8");
-    const files = execSync("git ls-files src/app/api", { encoding: "utf8" })
+    const files = execFileSync("git", ["ls-files", "src/app/api"], { encoding: "utf8" })
       .split("\n")
       .filter((f) => /\.tsx?$/.test(f))
       .map((path) => ({ path, text: readFileSync(path, "utf8") }));
@@ -94,10 +131,17 @@ describe("owner-scope tenancy guard", () => {
     expect(violations, JSON.stringify(violations, null, 2)).toHaveLength(0);
   });
 
-  it("keeps every allowlist exception documented against the tenancy review", () => {
+  it("documents every allowlist exception explicitly in the tenancy review", () => {
+    // The review doc must list each exact file/table pair (not just a reason string mentioning
+    // the doc), so a new bypass entry cannot pass without the reviewer actually recording it.
+    const review = readFileSync("docs/tenancy-defense-in-depth-review.md", "utf8");
+    const lines = review.split("\n");
     for (const entry of OWNER_SCOPE_ALLOWLIST) {
       expect(entry.file).toMatch(/^src\/app\/api\//);
-      expect(entry.reason).toMatch(/tenancy-defense-in-depth-review/);
+      const documented = lines.some((line) => line.includes(entry.file) && line.includes(entry.table));
+      expect(documented, `allowlist entry ${entry.file} / ${entry.table} is not documented in the tenancy review`).toBe(
+        true,
+      );
     }
   });
 });

@@ -302,6 +302,27 @@ RPC) is live in the repo (#409); **apply to production** per
 now landed and blocks the regression class in CI. Item 3 (live cross-tenant integration test) closes the
 remaining app-layer regression exposure; full RLS (item 4) is justified before multi-tenant scale.
 
+### Owner-scope guard allowlist (item 2)
+
+`scripts/check-owner-scope-api.mjs` flags any `src/app/api/**` query on an owner-scoped table that
+lacks an owner filter in its enclosing handler. A query is scoped either **on its own chain**
+(`.eq("owner_id"…)`, `withOwnerReadScope`) or by a **handler-level ownership proof** that precedes it
+(`requireOwnedDocument`, an owner-checked `.select(...).eq("owner_id"…)`, or an `owner_id:` write
+payload) — the guard checks the whole enclosing handler body, so the dominant "prove ownership, then
+mutate/read by the proven id" idiom (e.g. `documents` PATCH selects `.eq("owner_id", user.id)` then
+updates by `id`; `ingestion/quality` fetches owner-scoped document ids then reads child tables by
+`document_id IN (…)`) is recognised without a per-statement dataflow analysis. Queries inside in-file
+helpers fall back to whole-file scope because their caller proves ownership first (e.g. `selectLabels`
+runs only after `requireOwnedDocument`).
+
+The guard's `OWNER_SCOPE_ALLOWLIST` holds **exactly** these reviewed indirect-scope exceptions (any
+new entry must be added here and to the list in the guard, or the regression test fails):
+
+| File                                | Table            | Why it is safe                                                                                                                                   |
+| ----------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/app/api/setup-status/route.ts` | `documents`      | Local-origin-gated `.limit(1)` existence probe ("is any document indexed?"); returns only status booleans, not an owner-data read (§3 / TEN-N1). |
+| `src/app/api/setup-status/route.ts` | `import_batches` | Local-origin-gated `.limit(1)` existence probe for schema provisioning; returns only status booleans, not an owner-data read (§3 / TEN-N1).      |
+
 ---
 
 ## 7. Non-blocking findings

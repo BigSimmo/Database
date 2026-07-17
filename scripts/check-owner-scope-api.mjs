@@ -21,7 +21,7 @@
 //   node scripts/check-owner-scope-api.mjs --self-test run the synthetic pass/fail fixtures
 
 import { readFileSync, realpathSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 // Recognised owner-scoping constructs. If any appears in the enclosing handler of an
@@ -82,23 +82,32 @@ export function ownerScopedTablesFromSchema(schemaText) {
 }
 
 /**
- * Split source into top-level handler/function segments so a `.from(...)` can be checked
- * against only its enclosing handler's text. Boundaries are function-start lines; this
- * intentionally avoids brace matching (robust to strings/comments) at the cost of a segment
- * possibly trailing into the next function — harmless for presence-of-token detection.
+ * Split source into top-level declaration segments so a `.from(...)` can be checked against only
+ * its enclosing handler's text.
+ *
+ * Boundaries are **column-0 (top-level) declarations only** — nested functions are indented in
+ * this Prettier-formatted codebase and therefore never split a handler body. This is the fix for
+ * the finding that a nested helper inside a handler used to spill the code after it into a
+ * separate non-handler segment, which then fell back to whole-file scope and let an `owner_id`
+ * token elsewhere in the file mask a genuinely-unscoped query. Anchoring to column 0 keeps every
+ * statement lexically inside the handler that encloses it, without fragile brace/string matching.
  */
-const HANDLER_START = /^\s*export\s+(async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/;
+const HANDLER_START = /^export\s+(async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b/;
+
+// A top-level `function`/`const` declaration (no leading indentation → column 0). Nested
+// declarations are indented and are intentionally NOT boundaries.
+const TOP_LEVEL_DECL = /^(export\s+)?(async\s+)?function\s+\w+|^(export\s+)?const\s+\w+\s*=/;
 
 function functionSegments(text) {
   const lines = text.split("\n");
-  const START =
-    /^\s*(export\s+)?(async\s+)?function\s+\w+|^\s*(export\s+)?const\s+\w+\s*=\s*(async\s*)?(\([^)]*\)|\w+)\s*(:[^=]+)?=>/;
   const starts = [];
   lines.forEach((line, i) => {
-    if (START.test(line)) starts.push(i);
+    if (TOP_LEVEL_DECL.test(line)) starts.push(i);
   });
   if (starts.length === 0) return [{ startLine: 0, text, isHandler: false }];
   const segments = [];
+  // Anything before the first declaration (imports/consts) — its own segment.
+  if (starts[0] > 0) segments.push({ startLine: 0, text: lines.slice(0, starts[0]).join("\n"), isHandler: false });
   for (let s = 0; s < starts.length; s++) {
     const from = starts[s];
     const to = s + 1 < starts.length ? starts[s + 1] : lines.length;
@@ -108,8 +117,6 @@ function functionSegments(text) {
       isHandler: HANDLER_START.test(lines[from]),
     });
   }
-  // Anything before the first function (imports/consts) — its own segment.
-  if (starts[0] > 0) segments.unshift({ startLine: 0, text: lines.slice(0, starts[0]).join("\n"), isHandler: false });
   return segments;
 }
 
@@ -135,9 +142,11 @@ export function analyzeFile(file, text, ownerTables) {
       const segEndLine = seg.startLine + seg.text.split("\n").length;
       return lineNo - 1 >= seg.startLine && lineNo - 1 < segEndLine;
     });
-    // Route handlers are checked strictly against their own body. Queries inside
-    // in-file helpers (or top-level) fall back to the whole file, because their
-    // ownership is enforced by the handler(s) that call them within the same file.
+    // Route handlers are checked strictly against their own (column-0-bounded) body, so a
+    // scoping construct in one handler cannot excuse an unscoped query in a sibling handler.
+    // Queries inside in-file helpers (or top-level) fall back to the whole file, because their
+    // ownership is enforced by the handler(s) that call them within the same file (e.g. a
+    // `selectLabels` helper reached only after `requireOwnedDocument`).
     const scopeText = segment && segment.isHandler ? segment.text : text;
     const scoped = SCOPE_TOKENS.some((tok) => scopeText.includes(tok));
     if (!scoped) violations.push({ file, table, line: lineNo });
@@ -156,7 +165,8 @@ export function scanRepo({ schemaText, files }) {
 }
 
 function readTrackedApiFiles() {
-  const listed = execSync("git ls-files src/app/api", { encoding: "utf8" })
+  // execFile (fixed argv, no shell) rather than execSync with a command string.
+  const listed = execFileSync("git", ["ls-files", "src/app/api"], { encoding: "utf8" })
     .split("\n")
     .filter((f) => /\.tsx?$/.test(f));
   return listed
@@ -210,6 +220,23 @@ function runSelfTest() {
   expect(
     analyzeFile("fixture-two.ts", twoHandlers, ownerTables).length === 1,
     "per-handler: sibling unscoped query still flagged",
+  );
+
+  // Column-0 handler boundaries: a nested arrow helper inside POST must not split the handler
+  // body into a whole-file fallback that GET's owner filter would satisfy.
+  const nestedLeak = [
+    "export async function GET(request) {",
+    "  const user = await auth(request);",
+    '  return supabase.from("documents").select("*").eq("owner_id", user.id);',
+    "}",
+    "export async function POST(request) {",
+    "  const helper = (row) => row;",
+    '  return supabase.from("documents").select("*");',
+    "}",
+  ].join("\n");
+  expect(
+    analyzeFile("fixture-nested.ts", nestedLeak, ownerTables).length === 1,
+    "nested helper / sibling handler must not mask an unscoped query",
   );
 
   // A non-owner-scoped table is not the guard's concern.
