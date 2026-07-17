@@ -99,10 +99,7 @@ export function UniversalSearchAlsoMatches({
       </button>
       <div
         id={panelId}
-        className={cn(
-          "gap-1 sm:grid sm:grid-cols-2 xl:grid-cols-4",
-          expanded ? "mt-2 grid sm:mt-0" : "hidden",
-        )}
+        className={cn("gap-1 sm:grid sm:grid-cols-2 xl:grid-cols-4", expanded ? "mt-2 grid sm:mt-0" : "hidden")}
       >
         {groups.map((group) => {
           const targetModeId = group.modeId;
