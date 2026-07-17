@@ -2329,6 +2329,17 @@ export type Database = {
         };
         Returns: Json;
       };
+      retry_ingestion_job_if_idle: {
+        Args: {
+          p_document_updated_at: string;
+          p_job_id: string;
+          p_max_attempts: number;
+          p_next_run_at: string;
+          p_owner_id: string;
+          p_stale_before: string;
+        };
+        Returns: Json;
+      };
       detect_legacy_ivfflat_indexes: { Args: never; Returns: string[] };
       document_label_metadata: {
         Args: { p_document_id: string };

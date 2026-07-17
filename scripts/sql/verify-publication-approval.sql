@@ -61,6 +61,39 @@ begin
   end;
 
   begin
+    insert into public.documents (id, owner_id, title, file_name, file_type, storage_path, status)
+    values (
+      '10000000-0000-4000-8000-000000000005',
+      null,
+      'Direct public insert fixture',
+      'direct-public.pdf',
+      'application/pdf',
+      'fixtures/direct-public.pdf',
+      'indexed'
+    );
+    raise exception 'direct public document insert unexpectedly succeeded';
+  exception when others then
+    if sqlerrm = 'direct public document insert unexpectedly succeeded' then raise; end if;
+  end;
+
+  begin
+    insert into public.document_publication_approvals (
+      document_id, expected_prior_owner_id, approving_operator_id, decision, reason, evidence_references, manifest_digest
+    ) values (
+      '10000000-0000-4000-8000-000000000001',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      'quarantine',
+      'Contradictory decision fixture.',
+      array['fixture:contradictory'],
+      repeat('a', 64)
+    );
+    raise exception 'contradictory publication approval unexpectedly succeeded';
+  exception when unique_violation then
+    null;
+  end;
+
+  begin
     update public.document_publication_approvals set reason = 'mutated'
     where document_id = '10000000-0000-4000-8000-000000000001';
     raise exception 'publication approval ledger unexpectedly allowed mutation';

@@ -851,6 +851,7 @@ def extract(pdf_path, output_dir, budget=None):
         page_number = page_index + 1
         text = page.get_text("text", sort=True) or ""
         ocr_used = False
+        needs_ocr = False
         image_coverage = page_image_coverage_ratio(page)
 
         # IDX-H4: trigger OCR by text-density relative to image coverage, not only a flat
@@ -864,6 +865,8 @@ def extract(pdf_path, output_dir, budget=None):
             if ocr_text.strip():
                 text = merge_ocr_text(text, ocr_text)
                 ocr_used = True
+            else:
+                needs_ocr = True
 
         budget.add_text(text)
         pages.append(
@@ -871,6 +874,7 @@ def extract(pdf_path, output_dir, budget=None):
                 "pageNumber": page_number,
                 "text": text,
                 "ocrUsed": ocr_used,
+                "needsOcr": needs_ocr,
                 "metadata": {
                     "image_coverage_ratio": round(image_coverage, 4),
                 },

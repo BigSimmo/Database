@@ -30,8 +30,8 @@ insert into public.ingestion_jobs (id, document_id, status, stage, progress)
 values (
   'd3000000-0000-4000-8000-000000000003',
   'd2000000-0000-4000-8000-000000000002',
-  'pending',
-  'queued',
+  'failed',
+  'failed',
   0
 );
 
@@ -39,6 +39,18 @@ do $$
 declare
   result jsonb;
 begin
+  result := public.retry_ingestion_job_if_idle(
+    'd3000000-0000-4000-8000-000000000003',
+    'd1000000-0000-4000-8000-000000000001',
+    now() - interval '15 minutes',
+    3,
+    now(),
+    now()
+  );
+  if result->>'outcome' <> 'queued' then
+    raise exception 'retry-first ordering did not queue atomically: %', result;
+  end if;
+
   result := public.delete_document_if_idle(
     'd2000000-0000-4000-8000-000000000002',
     'd1000000-0000-4000-8000-000000000001',

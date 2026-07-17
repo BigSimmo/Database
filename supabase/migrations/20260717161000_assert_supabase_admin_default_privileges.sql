@@ -65,8 +65,10 @@ begin
   v_safe :=
     not exists (
       select 1 from unnest(v_entries) entry
-       where entry like 'table:anon:%'
+       where entry like 'table:PUBLIC:%'
+          or entry like 'table:anon:%'
           or entry like 'table:authenticated:%'
+          or entry like 'sequence:PUBLIC:%'
           or entry like 'sequence:anon:%'
           or entry like 'sequence:authenticated:%'
           or entry = 'function:PUBLIC:execute'
@@ -131,13 +133,13 @@ begin
     -- Revokes must be global: per-schema ACLs cannot subtract privileges from
     -- built-in or previously granted global defaults.
     alter default privileges for role supabase_admin
-      revoke all privileges on tables from anon, authenticated, service_role;
+      revoke all privileges on tables from public, anon, authenticated, service_role;
     alter default privileges for role supabase_admin in schema public
-      revoke all privileges on tables from anon, authenticated, service_role;
+      revoke all privileges on tables from public, anon, authenticated, service_role;
     alter default privileges for role supabase_admin
-      revoke all privileges on sequences from anon, authenticated, service_role;
+      revoke all privileges on sequences from public, anon, authenticated, service_role;
     alter default privileges for role supabase_admin in schema public
-      revoke all privileges on sequences from anon, authenticated, service_role;
+      revoke all privileges on sequences from public, anon, authenticated, service_role;
     alter default privileges for role supabase_admin
       revoke execute on functions from public, anon, authenticated, service_role;
     alter default privileges for role supabase_admin in schema public
@@ -161,8 +163,8 @@ begin
       message = 'Unsafe supabase_admin default privileges; migration blocked.',
       detail = v_status::text,
       hint = E'Run these six statements as supabase_admin, then retry the migration:\n'
-        'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE ALL PRIVILEGES ON TABLES FROM anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL PRIVILEGES ON TABLES FROM anon, authenticated, service_role; END $remediate$;\n'
-        'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE ALL PRIVILEGES ON SEQUENCES FROM anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL PRIVILEGES ON SEQUENCES FROM anon, authenticated, service_role; END $remediate$;\n'
+        'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC, anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC, anon, authenticated, service_role; END $remediate$;\n'
+        'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC, anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC, anon, authenticated, service_role; END $remediate$;\n'
         'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated, service_role; END $remediate$;\n'
         'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO service_role;\n'
         'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO service_role;\n'

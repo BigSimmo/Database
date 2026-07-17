@@ -1822,25 +1822,8 @@ describe("private document API access", () => {
   });
 
   it("refuses to retry a job a live worker still holds (IDX-C3, B6)", async () => {
-    // B6: the reset is a single conditional UPDATE guarded on status/locked_at.
-    // A fresh 'processing' lock means the WHERE clause matches 0 rows, so the
-    // update resolves with no row → refuse with 409.
-    const client = createSupabaseMock((call) => {
-      if (call.table === "ingestion_jobs" && call.operation === "select") {
-        return ok({
-          id: "99999999-9999-4999-8999-999999999999",
-          document_id: documentId,
-          batch_id: null,
-          status: "processing",
-          locked_at: null,
-        });
-      }
-      if (call.table === "ingestion_jobs" && call.operation === "update") {
-        // Guard rejected the reset: no row affected.
-        return ok(null);
-      }
-      return ok([]);
-    });
+    const client = createSupabaseMock();
+    client.rpc.mockResolvedValueOnce(ok({ outcome: "active_worker" }));
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
@@ -1853,32 +1836,25 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(409);
     expect(String((await payload(response)).error)).toContain("still being processed");
-    // The guarded update must carry the status/stale-lock filter atomically.
-    const jobUpdate = client.calls.find((call) => call.table === "ingestion_jobs" && call.operation === "update");
-    expect(jobUpdate?.filters.some((f) => f.column === "id")).toBe(true);
-    expect(jobUpdate?.orFilters.some((f) => f.includes("status.neq.processing") && f.includes("locked_at"))).toBe(true);
-    // Must NOT reset the document when the guard refused the job reset.
-    expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
+    expect(client.rpc).toHaveBeenCalledWith(
+      "retry_ingestion_job_if_idle",
+      expect.objectContaining({
+        p_job_id: "99999999-9999-4999-8999-999999999999",
+        p_owner_id: userId,
+        p_stale_before: expect.any(String),
+      }),
+    );
+    expect(client.calls).toHaveLength(0);
   });
 
   it("re-queues a stale/non-processing job without resetting the live index (IDX-C3, IDX-H1, B6)", async () => {
-    const client = createSupabaseMock((call) => {
-      if (call.table === "ingestion_jobs" && call.operation === "select") {
-        return ok({
-          id: "99999999-9999-4999-8999-999999999999",
-          document_id: documentId,
-          batch_id: null,
-          status: "failed",
-          locked_at: null,
-        });
-      }
-      if (call.table === "documents" && call.operation === "update") return ok([]);
-      if (call.table === "ingestion_jobs" && call.operation === "update") {
-        // Guard allowed the reset: one row affected.
-        return ok({ id: "99999999-9999-4999-8999-999999999999", document_id: documentId, status: "pending" });
-      }
-      return ok([]);
-    });
+    const client = createSupabaseMock();
+    client.rpc.mockResolvedValueOnce(
+      ok({
+        outcome: "queued",
+        job: { id: "99999999-9999-4999-8999-999999999999", document_id: documentId, status: "pending" },
+      }),
+    );
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
@@ -1888,52 +1864,25 @@ describe("private document API access", () => {
         params: Promise.resolve({ id: "99999999-9999-4999-8999-999999999999" }),
       },
     );
-    const documentUpdate = client.calls.find((call) => call.table === "documents" && call.operation === "update");
-
     expect(response.status).toBe(200);
-    // IDX-H1: only re-queue; never zero the chunk/page counts here (the worker resets at start).
-    // updated_at is the rollback-fence stamp shared with the reindex routes.
-    expect(documentUpdate?.updatePayload).toEqual({
-      status: "queued",
-      error_message: null,
-      updated_at: expect.any(String),
-    });
-    expect(client.rpc).not.toHaveBeenCalled();
+    expect(await payload(response)).toMatchObject({ job: { status: "pending", document_id: documentId } });
+    expect(client.rpc).toHaveBeenCalledWith(
+      "retry_ingestion_job_if_idle",
+      expect.objectContaining({
+        p_job_id: "99999999-9999-4999-8999-999999999999",
+        p_owner_id: userId,
+        p_max_attempts: expect.any(Number),
+        p_next_run_at: expect.any(String),
+        p_document_updated_at: expect.any(String),
+      }),
+    );
+    expect(client.calls).toHaveLength(0);
   });
 
-  it("rolls back the job retry when document queue status update fails", async () => {
+  it("returns failure when the transactional retry RPC rolls back", async () => {
     const retryJobId = "99999999-9999-4999-8999-999999999999";
-    const previousJob = {
-      id: retryJobId,
-      document_id: documentId,
-      batch_id: null,
-      status: "failed",
-      stage: "failed",
-      progress: 42,
-      error_message: "OCR failed",
-      attempt_count: 2,
-      max_attempts: 3,
-      locked_at: null,
-      locked_by: null,
-      next_run_at: null,
-      completed_at: "2024-01-01T00:00:00.000Z",
-    };
-
-    let ingestionUpdateCount = 0;
-    const client = createSupabaseMock((call) => {
-      if (call.table === "ingestion_jobs" && call.operation === "select") {
-        return ok(previousJob);
-      }
-      if (call.table === "ingestion_jobs" && call.operation === "update") {
-        ingestionUpdateCount += 1;
-        if (ingestionUpdateCount === 1) {
-          return ok({ id: retryJobId, document_id: documentId, status: "pending" });
-        }
-        return ok({ id: retryJobId });
-      }
-      if (call.table === "documents" && call.operation === "update") return fail("documents update failed");
-      return ok([]);
-    });
+    const client = createSupabaseMock();
+    client.rpc.mockResolvedValueOnce(fail("transaction rolled back"));
     mockRuntime(client);
     const { POST } = await import("../src/app/api/ingestion/jobs/[id]/retry/route");
 
@@ -1943,26 +1892,8 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(500);
     expect(String((await payload(response)).error)).toBe("Request failed.");
-    const jobUpdates = client.calls.filter((call) => call.table === "ingestion_jobs" && call.operation === "update");
-    expect(jobUpdates).toHaveLength(2);
-    expect(jobUpdates[1]?.updatePayload).toEqual({
-      status: previousJob.status,
-      stage: previousJob.stage,
-      progress: previousJob.progress,
-      error_message: previousJob.error_message,
-      attempt_count: previousJob.attempt_count,
-      max_attempts: previousJob.max_attempts,
-      locked_at: previousJob.locked_at,
-      locked_by: previousJob.locked_by,
-      next_run_at: previousJob.next_run_at,
-      completed_at: previousJob.completed_at,
-    });
-    // Rollback fence: the rollback must be conditional on the exact
-    // next_run_at this reset wrote, so it cannot revert a concurrent retry's
-    // newer reset that re-wrote the same generic pending/queued fields.
-    const resetNextRunAt = (jobUpdates[0]?.updatePayload as { next_run_at?: string }).next_run_at;
-    expect(typeof resetNextRunAt).toBe("string");
-    expect(jobUpdates[1]?.filters).toContainEqual({ column: "next_run_at", value: resetNextRunAt });
+    expect(client.rpc).toHaveBeenCalledWith("retry_ingestion_job_if_idle", expect.any(Object));
+    expect(client.calls).toHaveLength(0);
   });
 
   it("runs enrichment-only reindex for owned indexed documents using generic metadata", async () => {

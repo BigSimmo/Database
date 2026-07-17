@@ -1141,8 +1141,11 @@ describe("Supabase Preview replay guards", () => {
     for (const sql of [schema, publicationApprovalMigration]) {
       expect(sql).toContain("create table if not exists public.document_publication_approvals");
       expect(sql).toContain("check (cardinality(evidence_references) > 0)");
+      expect(sql).toContain("unique (document_id, expected_prior_owner_id, manifest_digest)");
       expect(sql).toContain("before update or delete on public.document_publication_approvals");
-      expect(sql).toContain("before update of owner_id on public.documents");
+      expect(sql).toContain("before insert or update on public.documents");
+      expect(sql).toContain("if tg_op = 'INSERT' then");
+      expect(sql).toContain("public documents must be created as owned rows before approved publication");
       expect(sql).toContain("old.owner_id is not null and new.owner_id is null");
       expect(sql).toContain("approval.expected_prior_owner_id = old.owner_id");
       expect(sql).toContain("create or replace function public.publish_approved_documents(");
@@ -1168,6 +1171,14 @@ describe("Supabase Preview replay guards", () => {
       expect(sql).toContain(
         "grant execute on function public.delete_document_if_idle(uuid, uuid, text, text) to service_role;",
       );
+      const retryStart = sql.indexOf("create or replace function public.retry_ingestion_job_if_idle(");
+      const retryBody = sql.slice(retryStart, sql.indexOf("$$;", retryStart));
+      expect(retryBody).toContain("for update of d, j;");
+      expect(retryBody.indexOf("for update of d, j;")).toBeLessThan(retryBody.indexOf("update public.ingestion_jobs"));
+      expect(retryBody).toContain("update public.documents");
+      expect(sql).toContain(
+        "grant execute on function public.retry_ingestion_job_if_idle(uuid, uuid, timestamptz, integer, timestamptz, timestamptz) to service_role;",
+      );
     }
   });
 
@@ -1176,6 +1187,8 @@ describe("Supabase Preview replay guards", () => {
       expect(sql).toContain("create or replace function public.default_privileges_status(");
       expect(sql).toContain("pg_catalog.acldefault(ot.object_code, v_role_oid)");
       expect(sql).toContain("pg_catalog.aclexplode(ea.acl)");
+      expect(sql).toContain("entry like 'table:PUBLIC:%'");
+      expect(sql).toContain("entry like 'sequence:PUBLIC:%'");
       expect(sql).toContain("entry = 'function:PUBLIC:execute'");
       expect(sql).toContain("message = 'Unsafe supabase_admin default privileges; migration blocked.'");
       expect(sql).toContain("Run these six statements as supabase_admin, then retry the migration:");
@@ -1189,7 +1202,10 @@ describe("Supabase Preview replay guards", () => {
 
   it("bootstraps safe default ACLs before fresh local and preview migration replay", () => {
     expect(defaultAclRoleBootstrap).toContain(
-      "alter default privileges for role supabase_admin revoke all privileges on tables from anon, authenticated, service_role;",
+      "alter default privileges for role supabase_admin revoke all privileges on tables from public, anon, authenticated, service_role;",
+    );
+    expect(defaultAclRoleBootstrap).toContain(
+      "alter default privileges for role supabase_admin revoke all privileges on sequences from public, anon, authenticated, service_role;",
     );
     expect(defaultAclRoleBootstrap).toContain(
       "alter default privileges for role supabase_admin revoke execute on functions from public, anon, authenticated, service_role;",

@@ -4,14 +4,14 @@
 -- fail-closed catalog assertion.
 
 alter default privileges for role supabase_admin
-  revoke all privileges on tables from anon, authenticated, service_role;
+  revoke all privileges on tables from public, anon, authenticated, service_role;
 alter default privileges for role supabase_admin in schema public
-  revoke all privileges on tables from anon, authenticated, service_role;
+  revoke all privileges on tables from public, anon, authenticated, service_role;
 
 alter default privileges for role supabase_admin
-  revoke all privileges on sequences from anon, authenticated, service_role;
+  revoke all privileges on sequences from public, anon, authenticated, service_role;
 alter default privileges for role supabase_admin in schema public
-  revoke all privileges on sequences from anon, authenticated, service_role;
+  revoke all privileges on sequences from public, anon, authenticated, service_role;
 
 alter default privileges for role supabase_admin
   revoke execute on functions from public, anon, authenticated, service_role;

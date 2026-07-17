@@ -126,3 +126,85 @@ revoke all on function public.delete_document_if_idle(uuid, uuid, text, text)
   from public, anon, authenticated;
 grant execute on function public.delete_document_if_idle(uuid, uuid, text, text)
   to service_role;
+
+
+create or replace function public.retry_ingestion_job_if_idle(
+  p_job_id uuid,
+  p_owner_id uuid,
+  p_stale_before timestamptz,
+  p_max_attempts integer,
+  p_next_run_at timestamptz,
+  p_document_updated_at timestamptz
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_job public.ingestion_jobs%rowtype;
+  v_document_status text;
+begin
+  if p_job_id is null or p_owner_id is null or p_stale_before is null
+     or p_next_run_at is null or p_document_updated_at is null
+     or p_max_attempts is null or p_max_attempts < 1 then
+    raise exception 'Retry identifiers, timestamps, and max attempts are required.' using errcode = '22023';
+  end if;
+
+  select j.*
+    into v_job
+  from public.ingestion_jobs j
+  join public.documents d on d.id = j.document_id
+   where j.id = p_job_id
+     and d.owner_id = p_owner_id
+   for update of d, j;
+
+  if not found then
+    return jsonb_build_object('outcome', 'not_found');
+  end if;
+
+  select status
+    into v_document_status
+  from public.documents
+  where id = v_job.document_id;
+  if v_job.status = 'completed' then
+    return jsonb_build_object('outcome', 'completed');
+  end if;
+  if v_job.status = 'processing'
+     and v_job.locked_at is not null
+     and v_job.locked_at >= p_stale_before then
+    return jsonb_build_object('outcome', 'active_worker');
+  end if;
+
+  update public.ingestion_jobs
+     set status = 'pending',
+         stage = 'queued',
+         progress = 0,
+         error_message = null,
+         attempt_count = 0,
+         max_attempts = p_max_attempts,
+         locked_at = null,
+         locked_by = null,
+         next_run_at = p_next_run_at,
+         completed_at = null
+   where id = p_job_id
+  returning * into v_job;
+
+  update public.documents
+     set status = case when v_document_status = 'indexed' then status else 'queued' end,
+         error_message = null,
+         updated_at = p_document_updated_at
+   where id = v_job.document_id
+     and owner_id = p_owner_id;
+  if not found then
+    raise exception 'Retry document disappeared while its row lock was held.' using errcode = '23503';
+  end if;
+
+  return jsonb_build_object('outcome', 'queued', 'job', to_jsonb(v_job));
+end;
+$$;
+
+revoke all on function public.retry_ingestion_job_if_idle(uuid, uuid, timestamptz, integer, timestamptz, timestamptz)
+  from public, anon, authenticated;
+grant execute on function public.retry_ingestion_job_if_idle(uuid, uuid, timestamptz, integer, timestamptz, timestamptz)
+  to service_role;

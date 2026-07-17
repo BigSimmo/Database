@@ -11,7 +11,7 @@ create table if not exists public.document_publication_approvals (
   evidence_references text[] not null check (cardinality(evidence_references) > 0),
   manifest_digest text not null check (manifest_digest ~ '^[0-9a-f]{64}$'),
   approved_at timestamptz not null default now(),
-  unique (document_id, expected_prior_owner_id, decision, manifest_digest)
+  unique (document_id, expected_prior_owner_id, manifest_digest)
 );
 
 create index if not exists document_publication_approvals_document_idx
@@ -51,6 +51,13 @@ declare
   v_approval_id uuid;
   v_manifest_digest text;
 begin
+  if tg_op = 'INSERT' then
+    if new.owner_id is null then
+      raise exception 'public documents must be created as owned rows before approved publication';
+    end if;
+    return new;
+  end if;
+
   if old.owner_id is not null and new.owner_id is null then
     begin
       v_approval_id := nullif(new.metadata->>'publication_approval_id', '')::uuid;
@@ -83,7 +90,7 @@ revoke all on function public.guard_document_publication_transition() from publi
 
 drop trigger if exists documents_require_publication_approval on public.documents;
 create trigger documents_require_publication_approval
-before update of owner_id on public.documents
+before insert or update on public.documents
 for each row execute function public.guard_document_publication_transition();
 
 create or replace function public.publish_approved_documents(

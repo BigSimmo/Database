@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-17T12:55:33.623Z",
+  "generated_at": "2026-07-17T13:17:09.891Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "e9104088ee8b3f2e7c75eea8101f8eb16a9ad5e46b69687b894f5c2812cd3c38",
-  "replay_seconds": 144,
+  "schema_sha256": "27d5d6ec4cb6b07e291fab0482f544f37e6a423488595a5502ce44529eaf98b6",
+  "replay_seconds": 104,
   "snapshot": {
     "views": [
       {
@@ -5113,10 +5113,10 @@
         "def_hash": "001064d4f85791f720b56615ca14500f"
       },
       {
-        "def": "CREATE UNIQUE INDEX document_publication_approval_document_id_expected_prior_ow_key ON public.document_publication_approvals USING btree (document_id, expected_prior_owner_id, decision, manifest_digest)",
+        "def": "CREATE UNIQUE INDEX document_publication_approval_document_id_expected_prior_ow_key ON public.document_publication_approvals USING btree (document_id, expected_prior_owner_id, manifest_digest)",
         "name": "document_publication_approval_document_id_expected_prior_ow_key",
         "table": "document_publication_approvals",
-        "def_hash": "5225a5fd10f4f3c362d72877861e1154"
+        "def_hash": "b9adf9d81f711d3cead9d3e44e734995"
       },
       {
         "def": "CREATE INDEX document_publication_approvals_document_idx ON public.document_publication_approvals USING btree (document_id, approved_at DESC)",
@@ -6268,7 +6268,7 @@
         "table": "document_sections"
       },
       {
-        "def": "CREATE TRIGGER documents_require_publication_approval BEFORE UPDATE OF owner_id ON public.documents FOR EACH ROW EXECUTE FUNCTION public.guard_document_publication_transition()",
+        "def": "CREATE TRIGGER documents_require_publication_approval BEFORE INSERT OR UPDATE ON public.documents FOR EACH ROW EXECUTE FUNCTION public.guard_document_publication_transition()",
         "name": "documents_require_publication_approval",
         "table": "documents"
       },
@@ -6469,7 +6469,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "e308693cb5f1ad4f412082162cdeef69",
+        "def_hash": "93e251daff996ba8e8c3fbbd325c1bbe",
         "signature": "public.default_privileges_status(text,text)"
       },
       {
@@ -6549,7 +6549,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "19ba03de7bfa2c3814df183117f85a28",
+        "def_hash": "2fef16fbe1d1e07658b5ce051f6e7d7a",
         "signature": "public.guard_document_publication_transition()"
       },
       {
@@ -6904,6 +6904,14 @@
         ],
         "def_hash": "ca2877374851b432c4ca971e1e15f746",
         "signature": "public.retrieval_owner_matches(uuid,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "39b1d8de34c4ac584dee044282e7481b",
+        "signature": "public.retry_ingestion_job_if_idle(uuid,uuid,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone)"
       },
       {
         "acl": [
@@ -7389,7 +7397,7 @@
         "table": "document_pages"
       },
       {
-        "def": "UNIQUE (document_id, expected_prior_owner_id, decision, manifest_digest)",
+        "def": "UNIQUE (document_id, expected_prior_owner_id, manifest_digest)",
         "name": "document_publication_approval_document_id_expected_prior_ow_key",
         "table": "document_publication_approvals"
       },
