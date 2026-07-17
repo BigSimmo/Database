@@ -118,4 +118,55 @@ describe("computeScrollHideUpdate", () => {
       directionTravel: 4,
     });
   });
+
+  it("rebases intent when scroll events switch containers", () => {
+    expect(
+      computeScrollHideUpdate({
+        offset: 4,
+        lastOffset: 500,
+        sourceChanged: true,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 300,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 4,
+      direction: null,
+      directionTravel: 0,
+    });
+  });
+
+  it("ignores an upward clamp caused by the viewport growing at the bottom", () => {
+    const clamped = computeScrollHideUpdate({
+      offset: 900,
+      lastOffset: 972,
+      maxOffset: 900,
+      currentlyHidden: true,
+      direction: "down",
+      directionTravel: 140,
+    });
+    expect(clamped).toEqual({
+      hidden: true,
+      lastOffset: 900,
+      direction: null,
+      directionTravel: 0,
+    });
+
+    expect(
+      computeScrollHideUpdate({
+        offset: 884,
+        lastOffset: clamped.lastOffset,
+        maxOffset: 900,
+        currentlyHidden: clamped.hidden,
+        direction: clamped.direction,
+        directionTravel: clamped.directionTravel,
+      }),
+    ).toEqual({
+      hidden: false,
+      lastOffset: 884,
+      direction: "up",
+      directionTravel: 16,
+    });
+  });
 });
