@@ -57,7 +57,10 @@ export function SheetsScreen() {
         </div>
       </div>
 
-      <div style={s(`display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;align-items:start;`)}>
+      <div
+        className="tc-stack-sm"
+        style={s(`display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;align-items:start;`)}
+      >
         {/* BUILDER */}
         <div
           className="tc-builder-panel"
@@ -383,7 +386,7 @@ function TherapyPicker() {
               aria-label="Search therapies for the patient sheet"
               autoFocus
               style={s(
-                `width:100%;height:36px;padding:0 12px 0 34px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;outline:none;`,
+                `width:100%;height:44px;padding:0 12px 0 34px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;outline:none;`,
               )}
             />
           </label>
