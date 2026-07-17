@@ -11,5 +11,6 @@ export async function GET(request: Request) {
     allowUnauthenticatedDeep: true,
     includeSlo: false,
     includeCache: false,
+    includeCoalescing: false,
   });
 }
