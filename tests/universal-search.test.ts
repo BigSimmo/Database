@@ -171,50 +171,52 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
 
   it("keeps registry hrefs when document search uses related-document mapping", async () => {
     isolateNextModuleImport();
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [
+        {
+          id: "registry-chunk",
+          document_id: "registry-doc",
+          title: "Crisis service",
+          file_name: "service-crisis-service.registry.json",
+          page_number: 1,
+          hybrid_score: 0.92,
+          similarity: 0.9,
+          images: [],
+          source_metadata: {
+            source_kind: "registry_record",
+            registry_record_kind: "service",
+            registry_record_slug: "crisis-service",
+          },
+        },
+      ],
+    }));
     vi.doMock("@/lib/rag", async (importOriginal) => {
       const actual = await importOriginal<typeof import("../src/lib/rag")>();
       return {
         ...actual,
-        searchChunksWithTelemetry: vi.fn(async () => ({
-          results: [
-            {
-              id: "registry-chunk",
-              document_id: "registry-doc",
-              title: "Crisis service",
-              file_name: "service-crisis-service.registry.json",
-              page_number: 1,
-              hybrid_score: 0.92,
-              similarity: 0.9,
-              images: [],
-              source_metadata: {
-                source_kind: "registry_record",
-                registry_record_kind: "service",
-                registry_record_slug: "crisis-service",
-              },
-            },
-          ],
-        })),
+        searchChunksWithTelemetry,
       };
     });
+    const fetchRelatedDocuments = vi.fn(async () => [
+      {
+        document_id: "registry-doc",
+        title: "Crisis service",
+        file_name: "service-crisis-service.registry.json",
+        labels: [],
+        summary: null,
+        best_pages: [1],
+        best_chunk_ids: ["registry-chunk"],
+        image_count: 0,
+        table_count: 0,
+        match_reason: "Matched 1 indexed passage",
+        score: 0.92,
+      },
+    ]);
     vi.doMock("@/lib/document-enrichment", async (importOriginal) => {
       const actual = await importOriginal<typeof import("../src/lib/document-enrichment")>();
       return {
         ...actual,
-        fetchRelatedDocuments: vi.fn(async () => [
-          {
-            document_id: "registry-doc",
-            title: "Crisis service",
-            file_name: "service-crisis-service.registry.json",
-            labels: [],
-            summary: null,
-            best_pages: [1],
-            best_chunk_ids: ["registry-chunk"],
-            image_count: 0,
-            table_count: 0,
-            match_reason: "Matched 1 indexed passage",
-            score: 0.92,
-          },
-        ]),
+        fetchRelatedDocuments,
       };
     });
 
@@ -228,6 +230,12 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
     });
 
     expect(response.groups[0]?.items[0]?.href).toBe("/services/crisis-service");
+    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(fetchRelatedDocuments).toHaveBeenCalledWith(
+      expect.objectContaining({ includeVisualCounts: false, signal: expect.any(AbortSignal) }),
+    );
   });
 });
 
@@ -298,6 +306,38 @@ describe("GET /api/search/universal (demo mode)", () => {
 
     const invalid = await GET(new Request("http://localhost/api/search/universal?q=transport&mode=bogus"));
     expect(invalid.status).toBe(400);
+  });
+
+  it("streams ready groups as NDJSON and finishes with the canonical response", async () => {
+    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "true");
+    const { GET } = await import("../src/app/api/search/universal/route");
+    const response = await GET(
+      new Request(
+        "http://localhost/api/search/universal?q=acamprosate&limit=3&domains=medications,tools&stream=ndjson",
+      ),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toContain("application/x-ndjson");
+    const events = (await response.text())
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    const groupEvents = events.filter((event) => event.type === "group") as Array<{
+      query: string;
+      group: { kind: string };
+    }>;
+    const complete = events.at(-1) as {
+      type: string;
+      response: { query: string; groups: Array<{ kind: string }>; demoMode?: boolean };
+    };
+
+    expect(groupEvents).toHaveLength(2);
+    expect(groupEvents.every((event) => event.query === "acamprosate")).toBe(true);
+    expect(complete.type).toBe("complete");
+    expect(complete.response.demoMode).toBe(true);
+    expect(complete.response.groups.map((group) => group.kind)).toEqual(["medications", "tools"]);
+    expect(new Set(groupEvents.map((event) => event.group.kind))).toEqual(new Set(["medications", "tools"]));
   });
 });
 
@@ -452,6 +492,99 @@ describe("runUniversalSearch (query intelligence & ranking)", () => {
     // diagnosis page ahead of the umbrella.
     expect(response.topHit?.kind).toBe("differentials");
     expect(response.domainOrder?.slice(0, 2)).toEqual(["differentials", "presentations"]);
+  });
+});
+
+describe("runUniversalSearch (owner catalogue cache)", () => {
+  it("reads each owner catalogue once and reuses it across warmer prefixes", async () => {
+    isolateNextModuleImport();
+    const fetchOwnerMedicationRowsWithSeed = vi.fn<
+      (supabase: unknown, ownerId: string, limit: number, options: { select?: string }) => Promise<unknown[]>
+    >(async () => [
+      {
+        slug: "clozapine",
+        name: "Clozapine",
+        class: "Antipsychotic",
+        subclass: "Second generation",
+        category: "Psychosis",
+        tag: "High monitoring",
+        schedule: "S4",
+        stats: [],
+        sections: [],
+        quick: [],
+      },
+    ]);
+    const fetchOwnerRegistryRows = vi.fn<
+      (
+        supabase: unknown,
+        ownerId: string,
+        kind: string,
+        limit: number,
+        options: { select?: string },
+      ) => Promise<unknown[]>
+    >(async () => [
+      {
+        slug: "clozapine-clinic",
+        title: "Clozapine clinic",
+        subtitle: null,
+        status_chips: [],
+        primary_contact: null,
+        contacts: [],
+        route: null,
+        eligibility: null,
+        cost: null,
+        referral: null,
+        location: null,
+        summary_cards: [],
+        referral_info: [],
+        best_use: null,
+        criteria: [],
+        verification: {},
+        tags: [],
+        catchments: [],
+        catalogue_label: null,
+        navigator_query: null,
+        source: {},
+        catalog_payload: {},
+      },
+    ]);
+    vi.doMock("@/lib/medication-seed", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("../src/lib/medication-seed")>()),
+      fetchOwnerMedicationRowsWithSeed,
+    }));
+    vi.doMock("@/lib/registry-seed", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("../src/lib/registry-seed")>()),
+      fetchOwnerRegistryRows,
+    }));
+
+    const { runUniversalSearch } = await loadUniversalSearch();
+    const args = {
+      limitPerDomain: 3,
+      domains: ["medications", "services"] as Array<"medications" | "services">,
+      demo: false,
+      ownerId: "owner-a",
+      supabase: {} as never,
+    };
+    await runUniversalSearch({ ...args, query: "clo" });
+    await runUniversalSearch({ ...args, query: "cloz" });
+
+    expect(fetchOwnerMedicationRowsWithSeed).toHaveBeenCalledTimes(1);
+    expect(fetchOwnerRegistryRows).toHaveBeenCalledTimes(1);
+    expect(fetchOwnerMedicationRowsWithSeed).toHaveBeenCalledWith(
+      args.supabase,
+      "owner-a",
+      500,
+      expect.objectContaining({ select: expect.any(String), signal: expect.any(AbortSignal) }),
+    );
+    expect(fetchOwnerRegistryRows).toHaveBeenCalledWith(
+      args.supabase,
+      "owner-a",
+      "service",
+      500,
+      expect.objectContaining({ select: expect.any(String), signal: expect.any(AbortSignal) }),
+    );
+    expect(fetchOwnerMedicationRowsWithSeed.mock.calls[0]?.[3]?.select).not.toBe("*");
+    expect(fetchOwnerRegistryRows.mock.calls[0]?.[4]?.select).not.toBe("*");
   });
 });
 

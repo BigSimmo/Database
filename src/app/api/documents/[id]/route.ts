@@ -2,19 +2,21 @@ import { NextResponse } from "next/server";
 import type { Json } from "@/lib/supabase/database.types";
 import { z } from "zod";
 import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
-import { getDemoDocumentPayload } from "@/lib/demo-data";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { buildStorageCleanupJobUpdate } from "@/lib/ingestion";
 import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
-import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
-import { callerOwnsDocumentRow, enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
 import { writeAuditLog } from "@/lib/audit";
+import {
+  DocumentDetailRateLimitError,
+  documentDetailQuerySchema,
+  loadAuthorizedDocumentDetail,
+} from "@/lib/document-detail";
 import { parseJsonBody } from "@/lib/validation/body";
 import { parseRouteParams } from "@/lib/validation/params";
-import { optionalQueryString, parseRequestQuery, queryInteger } from "@/lib/validation/query";
+import { parseRequestQuery } from "@/lib/validation/query";
 
 export const runtime = "nodejs";
 
@@ -42,83 +44,8 @@ const deleteDocumentResultSchema = z.discriminatedUnion("outcome", [
   }),
 ]);
 
-const defaultPageWindow = 9;
-const maxPageWindow = 40;
-const defaultChunkWindow = 16;
-const maxChunkWindow = 80;
-const selectedChunkNeighborCount = 3;
-
-const documentDetailQuerySchema = z.object({
-  chunk: optionalQueryString({ maxLength: 80 }),
-  page: queryInteger({ fallback: 1, min: 1, max: 1_000_000 }),
-  pageLimit: queryInteger({ fallback: defaultPageWindow, min: 1, max: maxPageWindow }),
-  chunkLimit: queryInteger({ fallback: defaultChunkWindow, min: 1, max: maxChunkWindow }),
-  chunkOffset: queryInteger({ fallback: 0, min: 0, max: 1_000_000 }),
-});
-
-function pageWindowAround(pageNumber: number, limit: number, maxPage?: number | null) {
-  const half = Math.floor(limit / 2);
-  const max = Math.max(1, maxPage ?? Number.MAX_SAFE_INTEGER);
-  const from = Math.max(1, Math.min(pageNumber - half, Math.max(1, max - limit + 1)));
-  const to = Math.min(max, from + limit - 1);
-  return { from, to };
-}
-
 function safeMetadata(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-function metadataText(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
-
-function compactTableText(value: string | null, limit = 500) {
-  if (!value) return null;
-  const compact = value.replace(/\s+/g, " ").trim();
-  if (!compact) return null;
-  return compact.length > limit ? `${compact.slice(0, limit - 3).trim()}...` : compact;
-}
-
-function metadataStringArrayRows(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  if (!Array.isArray(value)) return null;
-  const rows = value
-    .filter((row): row is unknown[] => Array.isArray(row))
-    .map((row) => row.map((cell) => String(cell ?? "").trim()));
-  return rows.length ? rows : null;
-}
-
-function metadataStringArray(metadata: Record<string, unknown>, key: string) {
-  const value = metadata[key];
-  if (!Array.isArray(value)) return null;
-  const items = value.map((item) => String(item ?? "").trim()).filter(Boolean);
-  return items.length ? items : null;
-}
-
-function withImageTableMetadata<T extends { metadata?: unknown }>(image: T) {
-  const metadata = safeMetadata(image.metadata);
-  const rawTableText = metadataText(metadata, "table_text");
-  const tableText = rawTableText ?? metadataText(metadata, "table_text_snippet");
-  const publicImage = { ...image };
-  delete publicImage.metadata;
-  return {
-    ...publicImage,
-    tableLabel: metadataText(metadata, "table_label"),
-    tableTitle: metadataText(metadata, "table_title"),
-    tableRole: metadataText(metadata, "table_role"),
-    tableTextSnippet: compactTableText(tableText),
-    clinicalUseClass: metadataText(metadata, "clinical_use_class"),
-    clinicalUseReason: metadataText(metadata, "clinical_use_reason"),
-    accessibleTableMarkdown: metadataText(metadata, "accessible_table_markdown") ?? rawTableText,
-    tableRows: metadataStringArrayRows(metadata, "table_rows"),
-    tableColumns: metadataStringArray(metadata, "table_columns"),
-  };
-}
-
-function committedRows<T extends { metadata?: unknown }>(document: { metadata?: unknown }, rows: T[]) {
-  const committedGeneration = committedIndexGeneration(document.metadata);
-  return rows.filter((row) => isCommittedGenerationMetadata({ rowMetadata: row.metadata, committedGeneration }));
 }
 
 function storageWarningsFrom(error: unknown, label: string) {
@@ -188,185 +115,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   try {
     const { id: rawId } = await params;
     const detailQuery = parseRequestQuery(request, documentDetailQuerySchema, "Invalid document detail query.");
-    if (isDemoMode()) {
-      const payload = getDemoDocumentPayload(rawId, detailQuery.chunk ?? null);
-      if (!payload) {
-        return NextResponse.json({ error: "Demo document not found." }, { status: 404 });
-      }
-      return NextResponse.json({ ...payload, demoMode: true });
-    }
-
-    const { id } = parseRouteParams({ id: rawId }, documentRouteParamsSchema, "Invalid document id.");
-    const supabase = createAdminClient();
-    const { access, rateLimit } = await enforceDocumentReadRateLimit(request, supabase);
-    if (rateLimit.limited) {
-      return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", rateLimit);
-    }
-    const { data: document, error } = await withOwnerReadScope(
-      supabase.from("documents").select("*").eq("id", id),
-      access.ownerId,
-    ).maybeSingle();
-
-    if (error) throw new Error(error.message);
-    if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
-
-    // withOwnerReadScope also returns PUBLIC (owner_id IS NULL) documents to an authenticated
-    // caller. The owner-only projection (raw metadata, storage_path/content_hash, index health,
-    // image storage paths) must be gated on OWNERSHIP, not merely on being authenticated, so an
-    // authed non-owner viewing a shared public document gets the same redacted view as an
-    // anonymous caller (S1/D1).
-    const isOwner = callerOwnsDocumentRow(document, access.ownerId);
-
-    const chunkId = detailQuery.chunk ?? null;
-    const requestedPage = Math.min(detailQuery.page, Math.max(1, document.page_count ?? 1));
-    const pageLimit = detailQuery.pageLimit;
-    const chunkLimit = detailQuery.chunkLimit;
-    const chunkOffset = detailQuery.chunkOffset;
-
-    let selectedChunk: {
-      id: string;
-      page_number: number | null;
-      chunk_index: number;
-      section_heading: string | null;
-      content: string;
-      image_ids: string[];
-    } | null = null;
-
-    if (chunkId) {
-      const { data, error: selectedChunkError } = await supabase
-        .from("document_chunks")
-        .select("id,page_number,chunk_index,section_heading,content,image_ids,metadata")
-        .eq("document_id", id)
-        .eq("id", chunkId)
-        .maybeSingle();
-
-      if (selectedChunkError) throw new Error(selectedChunkError.message);
-      selectedChunk = data && committedRows(document, [data]).length > 0 ? data : null;
-    }
-
-    const effectivePage = selectedChunk?.page_number ?? requestedPage;
-    const pageWindow = pageWindowAround(effectivePage, pageLimit, document.page_count);
-    const { data: pages, error: pagesError } = await supabase
-      .from("document_pages")
-      .select("id,page_number,text,ocr_used,metadata")
-      .eq("document_id", id)
-      .gte("page_number", pageWindow.from)
-      .lte("page_number", pageWindow.to)
-      .order("page_number", { ascending: true });
-
-    if (pagesError) throw new Error(pagesError.message);
-
-    const { data: images, error: imagesError } = await supabase
-      .from("document_images")
-      .select(
-        "id,page_number,storage_path,caption,bbox,mime_type,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata",
-      )
-      .eq("document_id", id)
-      .neq("image_type", "logo_decorative")
-      .or("searchable.eq.true,source_kind.eq.table_crop")
-      .order("page_number", { ascending: true });
-
-    if (imagesError) throw new Error(imagesError.message);
-
-    const chunkQuery = supabase
-      .from("document_chunks")
-      .select("id,page_number,chunk_index,section_heading,content,image_ids,metadata")
-      .eq("document_id", id)
-      .order("chunk_index", { ascending: true });
-
-    const chunkRangeStart = selectedChunk
-      ? Math.max(0, selectedChunk.chunk_index - selectedChunkNeighborCount)
-      : chunkOffset;
-    const chunkRangeEnd = selectedChunk
-      ? selectedChunk.chunk_index + selectedChunkNeighborCount
-      : chunkOffset + chunkLimit - 1;
-
-    const { data: chunks, error: chunksError } = selectedChunk
-      ? await chunkQuery.gte("chunk_index", chunkRangeStart).lte("chunk_index", chunkRangeEnd)
-      : await chunkQuery.range(chunkRangeStart, chunkRangeEnd);
-
-    if (chunksError) throw new Error(chunksError.message);
-
-    const [labelsResult, summaryResult, tableFactsResult] = await Promise.all([
-      supabase.from("document_labels").select("*").eq("document_id", id).order("confidence", { ascending: false }),
-      supabase.from("document_summaries").select("*").eq("document_id", id).maybeSingle(),
-      supabase
-        .from("document_table_facts")
-        .select("*")
-        .eq("document_id", id)
-        .order("page_number", { ascending: true })
-        .limit(200),
-    ]);
-
-    if (labelsResult.error) throw new Error(labelsResult.error.message);
-    if (summaryResult.error) throw new Error(summaryResult.error.message);
-    if (tableFactsResult.error) throw new Error(tableFactsResult.error.message);
-
-    const omitPublicInternalFields = (row: Record<string, unknown>) => {
-      const internalKeys = new Set([
-        "owner_id",
-        "storage_path",
-        "content_hash",
-        "source_path",
-        "import_batch_id",
-        "error_message",
-        "metadata",
-        // Summary provenance: only present on document_summaries rows (fetched with select("*")).
-        // A non-owner viewing a public document's summary must not see the owner's chunk/image
-        // source IDs or the generation model, matching the list route's PUBLIC_SUMMARY projection.
-        "source_chunk_ids",
-        "source_image_ids",
-        "model",
-      ]);
-      return Object.fromEntries(Object.entries(row).filter(([key]) => !internalKeys.has(key)));
-    };
-    const publicRows = <T extends Record<string, unknown>>(rows: T[]) =>
-      isOwner ? rows : rows.map(omitPublicInternalFields);
-    const responseDocument = isOwner ? document : omitPublicInternalFields(document as Record<string, unknown>);
-
-    return NextResponse.json({
-      document: {
-        ...responseDocument,
-        labels: publicRows((labelsResult.data ?? []) as Record<string, unknown>[]),
-        summary:
-          isOwner || !summaryResult.data
-            ? (summaryResult.data ?? null)
-            : omitPublicInternalFields(summaryResult.data as Record<string, unknown>),
-      },
-      pages: publicRows((pages ?? []) as Record<string, unknown>[]),
-      images: publicRows(
-        committedRows(document, images ?? []).map(withImageTableMetadata) as Record<string, unknown>[],
-      ),
-      tableFacts: publicRows(committedRows(document, tableFactsResult.data ?? []) as Record<string, unknown>[]),
-      chunks: publicRows(committedRows(document, chunks ?? []) as Record<string, unknown>[]),
-      pageWindow: {
-        from: pageWindow.from,
-        to: pageWindow.to,
-        limit: pageLimit,
-        total: document.page_count ?? null,
-        hasBefore: pageWindow.from > 1,
-        hasAfter: Boolean(document.page_count && pageWindow.to < document.page_count),
-      },
-      chunkWindow: {
-        offset: chunkRangeStart,
-        limit: selectedChunk ? chunkRangeEnd - chunkRangeStart + 1 : chunkLimit,
-        total: document.chunk_count ?? null,
-        hasBefore: chunkRangeStart > 0,
-        hasAfter: Boolean(document.chunk_count && chunkRangeEnd + 1 < document.chunk_count),
-        selectedChunkId: selectedChunk?.id ?? null,
-      },
-      ...(isOwner
-        ? {
-            indexHealth: {
-              extractionQuality: safeMetadata(document.metadata).extraction_quality ?? null,
-              indexedAt: safeMetadata(document.metadata).indexed_at ?? null,
-              indexVersion: safeMetadata(document.metadata).rag_indexing_version ?? null,
-              warnings: safeMetadata(document.metadata).extraction_warnings ?? [],
-            },
-          }
-        : {}),
-    });
+    const payload = await loadAuthorizedDocumentDetail({ request, rawId, query: detailQuery });
+    return NextResponse.json(payload);
   } catch (error) {
+    if (error instanceof DocumentDetailRateLimitError) {
+      return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", error.rateLimit);
+    }
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse();
     }
@@ -418,7 +172,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .single();
 
     if (updateError) throw new Error(updateError.message);
-    invalidateRagCachesForDocumentMutation(user.id);
+    invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
     await writeAuditLog(supabase, {
       ownerId: user.id,
       action: "document_rename",
@@ -483,7 +237,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     });
     if (ledgerWarning) cleanup.storageWarnings.push(ledgerWarning);
 
-    invalidateRagCachesForDocumentMutation(user.id);
+    invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
     await writeAuditLog(supabase, {
       ownerId: user.id,
       action: "document_delete",
