@@ -12,7 +12,6 @@ import {
   searchTableFactCandidates,
   searchTextChunkCandidates,
   withMemoryBoostedCandidates,
-  createChunkLoadCache,
   type MemoryCardCache,
 } from "@/lib/rag-candidate-sources";
 export {
