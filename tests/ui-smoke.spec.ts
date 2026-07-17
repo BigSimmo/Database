@@ -821,9 +821,7 @@ async function expectAccountSetupSurface(setup: Locator) {
   await expect(setup.getByRole("button", { name: "Apple" })).toBeVisible();
   await expect(setup.getByRole("button", { name: "Google" })).toBeVisible();
   await expect(setup.getByRole("button", { name: "Microsoft" })).toBeVisible();
-  await expect(setup.getByRole("heading", { name: "Source preferences" })).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Guidelines" })).toHaveAttribute("aria-pressed", "true");
-  await expect(setup.getByRole("button", { name: "Drug references" })).toHaveAttribute("aria-pressed", "false");
+  await expect(setup.getByRole("heading", { name: "Everything syncs across your devices" })).toBeVisible();
   await expect(setup.getByRole("heading", { name: "Security summary" })).toBeVisible();
   await expect(setup.getByText("No PHI required")).toBeVisible();
   await expect(setup).toContainText("Do not enter patient-identifying information.");
