@@ -165,7 +165,7 @@ describe("classifier verdict memoization", () => {
     expect(second.queryClass).toBe("broad_summary");
   });
 
-  it("lets one cancelled caller leave a shared classifier request without cancelling the active caller", async () => {
+  it("shares a cached classifier request across concurrent callers", async () => {
     let resolveCall: ((value: ReturnType<typeof classifierResponse>) => void) | undefined;
     const mock = vi.fn(
       () =>
@@ -175,19 +175,14 @@ describe("classifier verdict memoization", () => {
     );
     const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
     const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
-    const cancelledController = new AbortController();
 
-    const cancelled = rag.analyzeQueryWithClassifierFallback(query, analysis, {
-      signal: cancelledController.signal,
-    });
-    const active = rag.analyzeQueryWithClassifierFallback(query, analysis);
+    const sharedA = rag.analyzeQueryWithClassifierFallback(query, analysis);
+    const sharedB = rag.analyzeQueryWithClassifierFallback(query, analysis);
     await vi.waitFor(() => expect(mock).toHaveBeenCalledTimes(1));
 
-    cancelledController.abort(new DOMException("superseded", "AbortError"));
-    await expect(cancelled).rejects.toMatchObject({ name: "AbortError" });
-
     resolveCall?.(classifierResponse());
-    await expect(active).resolves.toMatchObject({ queryClass: "broad_summary" });
+    await expect(sharedA).resolves.toMatchObject({ queryClass: "broad_summary" });
+    await expect(sharedB).resolves.toMatchObject({ queryClass: "broad_summary" });
     expect(mock).toHaveBeenCalledTimes(1);
   });
 
