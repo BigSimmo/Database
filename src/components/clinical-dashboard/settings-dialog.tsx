@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { type SidebarIdentity } from "@/components/clinical-dashboard/ClinicalSidebar";
+import { ProviderBrandIcon } from "@/components/clinical-dashboard/provider-brand-icons";
 import { cn, fieldControlWithIcon, fieldIcon, floatingControl, primaryControl } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 import { useAuthSession } from "@/lib/supabase/client";
@@ -423,29 +424,14 @@ function SettingsProviderRow({
 }
 
 function SettingsProviderMark({ provider }: { provider: "Apple" | "Google" | "Microsoft" }) {
-  if (provider === "Microsoft") {
-    return (
-      <span
-        className="grid h-7 w-7 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
-        aria-hidden="true"
-      >
-        <span className="bg-[#f25022]" />
-        <span className="bg-[#7fba00]" />
-        <span className="bg-[#00a4ef]" />
-        <span className="bg-[#ffb900]" />
-      </span>
-    );
-  }
-
   return (
     <span
-      aria-hidden="true"
       className={cn(
-        "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-base font-bold leading-none shadow-[var(--shadow-inset)]",
-        provider === "Apple" ? "text-[color:var(--text-heading)]" : "text-[#4285f4]",
+        "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]",
+        provider === "Apple" ? "text-[color:var(--text-heading)]" : undefined,
       )}
     >
-      {provider === "Apple" ? "A" : "G"}
+      <ProviderBrandIcon provider={provider} className="h-4 w-4" />
     </span>
   );
 }
