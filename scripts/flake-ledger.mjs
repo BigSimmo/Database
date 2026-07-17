@@ -1,77 +1,113 @@
 #!/usr/bin/env node
-/**
- * flake-ledger — loader + matcher for the known-flaky Playwright specs recorded in
- * tests/flake-ledger.json.
- *
- * Purpose: stop re-diagnosing the same flakes from memory every time CI goes red.
- * The CI failure-triage workflow uses isKnownFlake() to attribute a failed test to
- * a known flake; a serial re-run of only-flaky failures can be layered on top.
- *
- * CLI:
- *   node scripts/flake-ledger.mjs --list        print the ledger
- *   node scripts/flake-ledger.mjs --self-test   validate shape + matcher
- *   node scripts/flake-ledger.mjs --match "<test title>"   → prints matching id or "none"
- */
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const LEDGER_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "tests", "flake-ledger.json");
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const ledgerPath = path.join(projectRoot, "tests", "flake-ledger.json");
+const requiredFields = [
+  "id",
+  "title",
+  "spec",
+  "reason",
+  "owner",
+  "reproduction",
+  "firstSeen",
+  "lastSeen",
+  "expires",
+  "tracking",
+];
+const dayMs = 24 * 60 * 60 * 1000;
 
-export function loadFlakeLedger(ledgerPath = LEDGER_PATH) {
-  const raw = JSON.parse(readFileSync(ledgerPath, "utf8"));
-  const flakes = Array.isArray(raw.flakes) ? raw.flakes : [];
+function dateValue(value, field, id) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${id}: ${field} must be YYYY-MM-DD`);
+  const parsed = Date.parse(`${value}T23:59:59Z`);
+  if (!Number.isFinite(parsed) || new Date(parsed).toISOString().slice(0, 10) !== value) {
+    throw new Error(`${id}: ${field} is not a valid date`);
+  }
+  return parsed;
+}
+
+export function validateFlakeLedgerEntries(flakes, { root = projectRoot, now = Date.now() } = {}) {
+  const ids = new Set();
+  const today = Date.parse(`${new Date(now).toISOString().slice(0, 10)}T00:00:00Z`);
+  const latestAllowedExpiry = today + 31 * dayMs - 1;
   for (const flake of flakes) {
-    if (!flake.id || !flake.match || !flake.spec || !flake.reason) {
-      throw new Error(`flake-ledger entry missing required field (id/match/spec/reason): ${JSON.stringify(flake)}`);
-    }
+    const missing = requiredFields.filter((field) => typeof flake[field] !== "string" || !flake[field].trim());
+    if (missing.length) throw new Error(`flake-ledger ${flake.id ?? "entry"} missing: ${missing.join(", ")}`);
+    if (ids.has(flake.id)) throw new Error(`duplicate flake-ledger id: ${flake.id}`);
+    ids.add(flake.id);
+
+    const firstSeen = dateValue(flake.firstSeen, "firstSeen", flake.id);
+    const lastSeen = dateValue(flake.lastSeen, "lastSeen", flake.id);
+    const expires = dateValue(flake.expires, "expires", flake.id);
+    if (firstSeen > lastSeen) throw new Error(`${flake.id}: firstSeen cannot be after lastSeen`);
+    if (lastSeen > expires) throw new Error(`${flake.id}: lastSeen cannot be after expires`);
+    if (expires < now) throw new Error(`${flake.id}: ledger entry expired ${flake.expires}`);
+    if (expires > latestAllowedExpiry) throw new Error(`${flake.id}: expiry must be within 30 days`);
+    if (!flake.title.includes("@quarantine")) throw new Error(`${flake.id}: exact title must include @quarantine`);
+    if (flake.title.includes("@critical"))
+      throw new Error(`${flake.id}: a test cannot be both @quarantine and @critical`);
+
+    const specPath = path.join(root, flake.spec);
+    const spec = readFileSync(specPath, "utf8");
+    if (!spec.includes(flake.title)) throw new Error(`${flake.id}: exact title is not present in ${flake.spec}`);
   }
   return flakes;
 }
 
-/** Return the matching flake entry for a test title, or null. Case-insensitive substring. */
-export function matchFlake(testTitle, flakes = loadFlakeLedger()) {
-  if (!testTitle) return null;
-  const haystack = String(testTitle).toLowerCase();
-  return flakes.find((flake) => haystack.includes(String(flake.match).toLowerCase())) ?? null;
+export function loadFlakeLedger(sourcePath = ledgerPath) {
+  const raw = JSON.parse(readFileSync(sourcePath, "utf8"));
+  return validateFlakeLedgerEntries(Array.isArray(raw.flakes) ? raw.flakes : []);
 }
 
-export function isKnownFlake(testTitle, flakes = loadFlakeLedger()) {
-  return matchFlake(testTitle, flakes) !== null;
+function normalizeSpec(spec) {
+  return String(spec ?? "")
+    .trim()
+    .replaceAll("\\", "/")
+    .replace(/^\.\//, "")
+    .toLowerCase();
+}
+
+export function matchFlake(spec, testTitle, flakes = loadFlakeLedger()) {
+  const normalizedSpec = normalizeSpec(spec);
+  const title = String(testTitle ?? "")
+    .trim()
+    .toLowerCase();
+  if (!normalizedSpec || !title) return null;
+  return (
+    flakes.find(
+      (flake) => normalizeSpec(flake.spec) === normalizedSpec && flake.title.trim().toLowerCase() === title,
+    ) ?? null
+  );
 }
 
 function selfTest() {
   const flakes = loadFlakeLedger();
-  const assert = (cond, label) => {
-    if (!cond) {
-      console.error(`✖ self-test failed: ${label}`);
-      process.exitCode = 1;
-      throw new Error(label);
-    }
-  };
-  assert(flakes.length > 0, "ledger is non-empty");
-  const ids = new Set(flakes.map((f) => f.id));
-  assert(ids.size === flakes.length, "flake ids are unique");
-  assert(isKnownFlake("composer hero renders on hydrate", flakes), "matches a known flake by title substring");
-  assert(!isKnownFlake("a totally unrelated passing test", flakes), "does not match an unrelated title");
-  assert(matchFlake("", flakes) === null, "empty title matches nothing");
-  if (process.exitCode !== 1) console.error("[flake-ledger] self-test passed");
+  if (new Set(flakes.map((flake) => flake.id)).size !== flakes.length) throw new Error("flake ids are not unique");
+  const sample = [{ spec: "tests/example.spec.ts", title: "exact quarantined title @quarantine", id: "sample" }];
+  if (matchFlake("tests/example.spec.ts", "EXACT QUARANTINED TITLE @QUARANTINE", sample)?.id !== "sample")
+    throw new Error("exact title did not match");
+  if (matchFlake("tests/example.spec.ts", "prefix exact quarantined title @quarantine", sample))
+    throw new Error("partial title unexpectedly matched");
+  if (matchFlake("tests/other.spec.ts", "exact quarantined title @quarantine", sample))
+    throw new Error("cross-spec title unexpectedly matched");
+  console.error(`[flake-ledger] self-test passed (${flakes.length} active entries)`);
 }
 
 function main() {
   if (process.argv.includes("--self-test")) return selfTest();
   if (process.argv.includes("--list")) {
-    for (const flake of loadFlakeLedger()) console.log(`${flake.id}\t${flake.spec}\t"${flake.match}"`);
+    for (const flake of loadFlakeLedger()) console.log(`${flake.id}\t${flake.spec}\t${flake.title}`);
     return;
   }
   const matchIndex = process.argv.indexOf("--match");
   if (matchIndex >= 0) {
-    const hit = matchFlake(process.argv[matchIndex + 1], loadFlakeLedger());
-    console.log(hit ? hit.id : "none");
+    console.log(matchFlake(process.argv[matchIndex + 1], process.argv[matchIndex + 2])?.id ?? "none");
     return;
   }
-  console.error('usage: flake-ledger.mjs [--list | --self-test | --match "<title>"]');
+  console.error('usage: flake-ledger.mjs [--list | --self-test | --match "<exact spec>" "<exact title>"]');
+  process.exitCode = 1;
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (invokedDirectly) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();

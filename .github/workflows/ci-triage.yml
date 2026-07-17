@@ -4,12 +4,11 @@
 #   - main-side: the same job is also failing on the latest default-branch run
 #     (CI merges the PR branch with current main, so a main regression surfaces on
 #     every open PR — this has cost debugging time before).
-#   - possible known flake: a UI/Playwright job failed — check tests/flake-ledger.json.
 #   - needs investigation: everything else.
 #
 # SHIPPED INERT: this event-triggered workflow does nothing until the repo variable
 # CI_TRIAGE_ENABLED == "true". It never runs PR-authored code — it only reads job
-# metadata + the committed flake ledger via the trusted default-branch checkout, and
+# metadata via the trusted default-branch checkout, and
 # posts a comment with the built-in token.
 name: CI Triage
 
@@ -45,7 +44,6 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const fs = require("fs");
             const run = context.payload.workflow_run;
 
             // Resolve the PR for this run (empty for fork PRs → skip quietly).
@@ -93,13 +91,11 @@ jobs:
               core.info(`main-side check skipped: ${e.message}`);
             }
 
-            const flakes = JSON.parse(fs.readFileSync("tests/flake-ledger.json", "utf8")).flakes || [];
-            const uiFlakeSpecs = flakes.map((f) => f.spec).filter((s) => /ui-/.test(s));
             const looksUi = (name) => /ui|playwright|browser|e2e/i.test(name);
 
             const lines = failed.map((name) => {
               if (mainFailingJobs.has(name)) return `- \`${name}\` — **main-side**: also failing on the latest \`main\` run, likely not your change.`;
-              if (looksUi(name)) return `- \`${name}\` — **possible known flake**: UI/Playwright job; check \`tests/flake-ledger.json\`${uiFlakeSpecs.length ? ` (${uiFlakeSpecs.join(", ")})` : ""} and re-run before bisecting.`;
+              if (looksUi(name)) return `- \`${name}\` — **needs investigation**: use the uploaded JUnit classification and trace; job type alone is not evidence of a known flake.`;
               return `- \`${name}\` — **needs investigation**.`;
             });
 

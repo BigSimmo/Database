@@ -110,6 +110,7 @@ describe("demoSearch production safety guard", () => {
 
   it("refuses to serve synthetic demo data to a live production request", async () => {
     vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false");
     const { demoSearch: guarded } = await import("../src/lib/demo-data");
     expect(() => guarded("lithium toxicity")).toThrow(/synthetic demo data/i);
   });

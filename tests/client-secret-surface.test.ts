@@ -144,7 +144,8 @@ describe("client environment isolation", () => {
       scripts: Record<string, string>;
     };
     expect(packageJson.scripts["check:client-bundle-secrets"]).toContain("check-client-bundle-secrets.mjs");
-    expect(packageJson.scripts.build).toContain("check-client-bundle-secrets.mjs");
+    expect(packageJson.scripts.build).toContain("run-heavy.mjs");
+    expect(packageJson.scripts["build:internal"]).toContain("check-client-bundle-secrets.mjs");
 
     const fixtureRoot = mkdtempSync(join(tmpdir(), "clinical-kb-client-bundle-"));
     try {

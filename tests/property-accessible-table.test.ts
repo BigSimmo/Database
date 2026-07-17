@@ -1,4 +1,5 @@
 import fc from "fast-check";
+import "./property-seed";
 import { describe, expect, it } from "vitest";
 import { normalizeAccessibleTable } from "../src/lib/accessible-table-normalization";
 import { formatAnswerForClipboard, formatWardNote } from "../src/lib/ward-output";
