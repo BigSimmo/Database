@@ -129,7 +129,7 @@ const deleteDocumentIfIdleMigration = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclAssertionMigration = readFileSync(
-  new URL("../supabase/migrations/20260717133000_assert_supabase_admin_default_privileges.sql", import.meta.url),
+  new URL("../supabase/migrations/20260717161000_assert_supabase_admin_default_privileges.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const scrubLegacyQueryTextMigration = readFileSync(
@@ -1180,7 +1180,7 @@ describe("Supabase Preview replay guards", () => {
     const migrationFiles = readdirSync(migrationDirectoryUrl)
       .filter((fileName) => /^\d+_.+\.sql$/.test(fileName))
       .sort();
-    expect(migrationFiles.at(-1)).toBe("20260717133000_assert_supabase_admin_default_privileges.sql");
+    expect(migrationFiles.at(-1)).toBe("20260717161000_assert_supabase_admin_default_privileges.sql");
   });
 
   it("scrubs legacy plaintext query text with salted irreversible placeholders", () => {
