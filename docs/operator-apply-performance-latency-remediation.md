@@ -5,7 +5,7 @@ explicitly authorized operation after local replay, review, and backups.
 
 ## Registry projection index on a busy database
 
-`20260717130000_registry_projection_cleanup.sql` creates
+`20260717170000_registry_projection_cleanup.sql` creates
 `documents_registry_projection_lookup_idx` transactionally so clean local
 replay remains deterministic. On a busy production database, pre-create the
 exact index outside a transaction:

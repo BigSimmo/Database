@@ -169,15 +169,15 @@ const responseCacheRetentionReconciliationMigration = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const registryProjectionCleanupMigration = readFileSync(
-  new URL("../supabase/migrations/20260717130000_registry_projection_cleanup.sql", import.meta.url),
+  new URL("../supabase/migrations/20260717170000_registry_projection_cleanup.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const publicTitleCorrectorMigration = readFileSync(
-  new URL("../supabase/migrations/20260717131000_public_title_corrector.sql", import.meta.url),
+  new URL("../supabase/migrations/20260717171000_public_title_corrector.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const atomicSummaryRateLimitsMigration = readFileSync(
-  new URL("../supabase/migrations/20260717132000_atomic_summary_rate_limits.sql", import.meta.url),
+  new URL("../supabase/migrations/20260717172000_atomic_summary_rate_limits.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const liveDatabaseDriftMigration = readFileSync(

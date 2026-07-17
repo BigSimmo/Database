@@ -2865,12 +2865,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await waitForDemoDashboardReady(page);
     expect(requestCounts).toEqual({ documents: 0, jobs: 0, batches: 0, quality: 0 });
 
+    await openScopeControl(page);
+    await expect.poll(() => requestCounts.documents).toBe(1);
+    expect(requestCounts.jobs).toBe(0);
+    expect(requestCounts.batches).toBe(0);
+    expect(requestCounts.quality).toBe(0);
+    await page.keyboard.press("Escape");
+
     await switchToDocumentSearchMode(page);
     await page
       .getByRole("button", { name: /Browse library/i })
       .first()
       .click();
-    await expect.poll(() => requestCounts.documents).toBeGreaterThan(0);
+    await expect.poll(() => requestCounts.documents).toBe(1);
     expect(requestCounts.jobs).toBe(0);
     expect(requestCounts.batches).toBe(0);
     expect(requestCounts.quality).toBe(0);
@@ -2914,10 +2921,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { name: "No matching documents" }).first()).toBeVisible();
 
     const demoDocId = "11111111-1111-4111-8111-111111111111";
-    await gotoApp(page, `/documents/${demoDocId}?chunk=55555555-5555-4555-8555-555555555555`);
-    await expect(page).toHaveURL(/chunk=55555555-5555-4555-8555-555555555555/);
+    await gotoApp(page, `/documents/${demoDocId}?chunk=44444444-4444-4444-8444-444444444442`);
+    await expect(page).toHaveURL(/chunk=44444444-4444-4444-8444-444444444442/);
     await expect(page.locator("#source-evidence").getByTestId("highlighted-source-passage")).toContainText(
-      "Patient safety plan should include",
+      "Escalate review when there is vomiting",
     );
     await expect(
       page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
@@ -2927,6 +2934,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await sourceSearch.fill("safety plan include");
     const desktopTextPanel = page.getByTestId("source-chunk-indexed-text-panel");
     await expect(desktopTextPanel.getByText("Hit 1 of 2").first()).toBeVisible();
+    await expect(desktopTextPanel.locator("mark").filter({ hasText: "safety" }).first()).toBeVisible();
     const previousHit = desktopTextPanel.getByRole("button", { name: "Previous document search hit" });
     const nextHit = desktopTextPanel.getByRole("button", { name: "Next document search hit" });
     await expect(previousHit).toHaveAttribute("title", "Previous document search hit");
@@ -2935,7 +2943,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(nextHit).toHaveText("");
     await nextHit.click();
     await expect(desktopTextPanel.getByText("Hit 2 of 2")).toBeVisible();
-    await expect(desktopTextPanel.locator("mark").filter({ hasText: "safety" }).first()).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -3023,7 +3030,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const evidenceBox = await evidence.boundingBox();
     const previewBox = await preview.boundingBox();
-    const indexedTextBox = await page.getByText("Indexed page text", { exact: true }).boundingBox();
+    const indexedTextHeading = page
+      .getByTestId("source-chunk-indexed-text-panel")
+      .getByRole("heading", { name: "Indexed source text", exact: true });
+    const indexedTextBox = await indexedTextHeading.boundingBox();
     const imagesBox = await page.getByRole("heading", { name: "Tables and diagrams" }).boundingBox();
 
     expect(evidenceBox).not.toBeNull();
@@ -3047,7 +3057,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await activateFocusedControl(page, viewerNav.getByRole("link", { name: "PDF" }));
     await expect(preview).toBeInViewport();
     await activateFocusedControl(page, viewerNav.getByRole("link", { name: "Text" }));
-    await expect(page.getByText("Indexed page text", { exact: true })).toBeInViewport();
+    await expect(indexedTextHeading).toBeInViewport();
     await activateFocusedControl(page, viewerNav.getByRole("link", { name: "PDF" }));
     await expect(preview).toBeInViewport();
 
@@ -3513,15 +3523,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("document viewer private missing source state is coherent", async ({ page }) => {
+  test("document viewer missing source state is coherent", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
-    await page.route(/\/api\/documents\/[^/]+(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        status: 404,
-        json: { error: "Document not found." },
-      });
-    });
     await page.route(/\/api\/documents\/[^/]+\/signed-url(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 404,
@@ -3530,15 +3534,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(
       page,
-      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
+      "/documents/99999999-9999-4999-8999-999999999999?page=1&chunk=99999999-9999-4999-8999-999999999998",
     );
 
-    await expect(page.getByRole("heading", { level: 1, name: /Sign in required|Source unavailable/ })).toBeVisible({
+    await expect(page.getByRole("heading", { level: 1, name: "Source unavailable" })).toBeVisible({
       timeout: 30000,
     });
-    await expect(page.locator("body")).toContainText(
-      /Sign in to open private source documents\.|Document not found\.|Supabase browser authentication is not configured for private source documents\./,
-    );
+    await expect(page.locator("body")).toContainText(/Demo document not found\./i);
     await expect(page.getByRole("button", { name: /^Answer from this(?: document)?$/ }).first()).toBeDisabled();
     await expect(page.locator("body")).not.toContainText("loading source");
     await expect(page.locator("body")).not.toContainText("Loading source metadata");

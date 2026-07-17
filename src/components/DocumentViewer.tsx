@@ -600,6 +600,11 @@ function DocumentViewerAnchors({
             href={anchor.href}
             onClick={() => {
               const target = window.document.querySelector(anchor.href);
+              window.document
+                .querySelectorAll<HTMLDetailsElement>('details[name="document-viewer-section"]')
+                .forEach((disclosure) => {
+                  if (disclosure !== target) disclosure.open = false;
+                });
               if (target instanceof HTMLDetailsElement) target.open = true;
             }}
             className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"

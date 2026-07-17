@@ -648,6 +648,7 @@ export function ClinicalDashboard({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
+  const [documentScopeOpen, setDocumentScopeOpen] = useState(false);
   const [documentsDrawerMode, setDocumentsDrawerMode] = useState<DocumentDrawerMode>("library");
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [uploadMobileTab, setUploadMobileTab] = useState<UploadIndexingTab>("upload");
@@ -1513,7 +1514,7 @@ export function ClinicalDashboard({
     [documents, jobs, batches, indexingActive],
   );
   const needsSetupRecheck = useMemo(() => setupNeedsSlowRecheck(setupChecks), [setupChecks]);
-  const dashboardDataSurfaceVisible = documentsDrawerOpen || uploadDrawerOpen;
+  const dashboardDataSurfaceVisible = documentScopeOpen || documentsDrawerOpen || uploadDrawerOpen;
   const administrationSurfaceVisible = uploadDrawerOpen || (documentsDrawerOpen && documentsDrawerMode === "admin");
 
   useEffect(() => {
@@ -3403,6 +3404,7 @@ export function ClinicalDashboard({
           onClearScope={() => setSelectedDocumentIds([])}
           onQueryModeChange={setQueryMode}
           onScopeFiltersChange={setScopeFilters}
+          onScopeOpenChange={setDocumentScopeOpen}
           onToggleScope={toggleDocumentScope}
           onOpenUpload={openUploadDrawer}
           onOpenEvidence={openEvidenceDrawer}
