@@ -882,7 +882,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("forms mode shows source-backed form records in search results", async ({ page }) => {
+  test("forms mode shows registry-backed form records without unsupported pathway claims", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
@@ -902,6 +902,9 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(
       page.getByTestId("form-search-result-transport-crisis-form").getByLabel("Open Transport order"),
     ).toHaveAttribute("href", "/forms/transport-crisis-form");
+    await expect(page.getByRole("button", { name: "Refine" })).toHaveCount(0);
+    await expect(page.getByText(/Evidence 278|Pathways 12|Tasks 8|Source verified|Aligned to MHA 2014/)).toHaveCount(0);
+    await expect(page.getByText(/PSOLIS Transport|View full pathway/)).toHaveCount(0);
     await expect(page.getByTestId("service-search-results")).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
@@ -1002,6 +1005,7 @@ test.describe("Clinical KB tools launcher", () => {
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
     await expect(page.getByTestId("form-search-mobile-result-transport-crisis-form")).toContainText("Transport order");
+    await expect(page.getByText(/PSOLIS Transport|View full pathway|Source verified/)).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("transport");
     await expectNoPageHorizontalOverflow(page);
   });
@@ -1014,6 +1018,19 @@ test.describe("Clinical KB tools launcher", () => {
     const dock = page.locator("form.answer-footer-search-dock");
     await expect(dock).toBeVisible();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    const transition = await dock.evaluate((node) => {
+      const style = window.getComputedStyle(node);
+      const durationMs = Math.max(
+        ...style.transitionDuration.split(",").map((value) => {
+          const normalized = value.trim();
+          const duration = Number.parseFloat(normalized);
+          return normalized.endsWith("ms") ? duration : duration * 1000;
+        }),
+      );
+      return { durationMs, property: style.transitionProperty };
+    });
+    expect(transition.property).toMatch(/transform|all/);
+    expect(transition.durationMs).toBeGreaterThanOrEqual(100);
 
     // focus=1 leaves the composer focused; hide-on-scroll stays off while it has focus.
     const input = visibleGlobalSearchInput(page).first();
@@ -1603,6 +1620,7 @@ test.describe("Clinical KB service detail page", () => {
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {
     test(`13YARN service detail is usable at ${viewport.name}`, async ({ page }) => {
+      await mockAnswerDashboardApi(page);
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await gotoLauncher(page, "/services/13yarn");
 
@@ -1623,7 +1641,40 @@ test.describe("Clinical KB service detail page", () => {
     });
   }
 
+  test("long mobile service details clear the bottom search dock at the scroll endpoint", async ({ page }) => {
+    await mockAnswerDashboardApi(page);
+    await page.setViewportSize({ width: 390, height: 820 });
+    await gotoLauncher(page, "/services/city-east-community-mental-health-service");
+
+    const servicePage = page.getByTestId("service-detail-page");
+    const footer = servicePage.getByText("Information accuracy may vary. Confirm locally before use.");
+    const scrollport = page.locator("#main-content");
+    await expect(servicePage).toBeVisible();
+    await scrollport.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
+
+    await expect
+      .poll(() => scrollport.evaluate((element) => element.scrollHeight - element.clientHeight - element.scrollTop))
+      .toBeLessThanOrEqual(1);
+
+    const clearance = await footer.evaluate((element) => {
+      const scrollElement = document.querySelector<HTMLElement>("#main-content");
+      const dock = document.querySelector<HTMLElement>(
+        "form.answer-footer-search-dock, form.answer-footer-search-edge",
+      );
+      if (!scrollElement || !dock) return null;
+      return {
+        footerBottom: element.getBoundingClientRect().bottom,
+        scrollBottom: scrollElement.getBoundingClientRect().bottom,
+        dockHeight: dock.getBoundingClientRect().height,
+      };
+    });
+
+    expect(clearance).not.toBeNull();
+    expect(clearance!.footerBottom).toBeLessThanOrEqual(clearance!.scrollBottom - clearance!.dockHeight - 8);
+  });
+
   test("service navigator action uses the shared global search route", async ({ page }) => {
+    await mockAnswerDashboardApi(page);
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services/13yarn");
 
@@ -1634,6 +1685,7 @@ test.describe("Clinical KB service detail page", () => {
   });
 
   test("service detail actions save, copy, and back from direct entry", async ({ page }) => {
+    await mockAnswerDashboardApi(page);
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services/13yarn");
 
