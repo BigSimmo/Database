@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 function retrievalRpcBaseName(name: string) {
@@ -138,6 +138,12 @@ async function answerFromTextSources(
     skipCache: true,
   });
 }
+
+beforeEach(() => {
+  // The default runner removes real provider credentials and selects offline mode.
+  // This suite supplies a fully mocked provider and must exercise those fake paths.
+  vi.stubEnv("RAG_PROVIDER_MODE", "auto");
+});
 
 afterEach(() => {
   vi.restoreAllMocks();

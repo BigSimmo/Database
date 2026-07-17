@@ -77,7 +77,7 @@ export async function proxy(request: NextRequest) {
     return withCsp(NextResponse.redirect(url));
   }
 
-  if (pathname.startsWith("/mockups") && process.env.NODE_ENV === "production") {
+  if (shouldBlockProductionMockups(pathname)) {
     return withCsp(new NextResponse(null, { status: 404 }));
   }
 
@@ -107,6 +107,20 @@ export async function proxy(request: NextRequest) {
   // user out on the next request.
   await supabase.auth.getUser();
   return withCsp(response);
+}
+
+export function shouldBlockProductionMockups(
+  pathname: string,
+  environment: Record<string, string | undefined> = process.env,
+) {
+  if (!pathname.startsWith("/mockups") || environment.NODE_ENV !== "production") return false;
+
+  // Mockups remain unavailable in every normal production process. The one
+  // exception is the repository-owned, isolated Playwright server when its
+  // advisory project explicitly opts into mockup coverage. Instrumentation
+  // separately refuses PLAYWRIGHT_OFFLINE_MODE outside the inert loopback and
+  // isolated .next-playwright profile.
+  return !(environment.PLAYWRIGHT_OFFLINE_MODE === "true" && environment.NEXT_PUBLIC_MOCKUPS_ENABLED === "true");
 }
 
 export const config = {

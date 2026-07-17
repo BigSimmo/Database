@@ -7,7 +7,7 @@ const PATH = "/mockups/tools-task-directory";
 
 async function goto(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+  await expect(page.locator("body")).toBeVisible();
 }
 
 async function expectNoHorizontalOverflow(page: Page) {

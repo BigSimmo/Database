@@ -97,9 +97,6 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Unit tests
-        run: npm run test
-
   safety:
     name: Safety and config checks
     needs: changes
@@ -140,9 +137,9 @@ jobs:
         if: needs.changes.outputs.codex_autofix_changed == 'true'
         run: npm run check:codex-autofix-workflow
 
-      - name: Offline RAG preflight
+      - name: Offline RAG fixture and manifest validation
         if: needs.changes.outputs.rag_eval_changed == 'true'
-        run: npm run eval:rag:offline
+        run: npm run check:rag:fixtures
 
   coverage:
     name: Unit coverage
@@ -150,6 +147,8 @@ jobs:
     if: needs.changes.outputs.coverage_changed == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      FAST_CHECK_SEED: ${{ github.event_name == 'schedule' && github.run_id || '424242' }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -206,11 +205,11 @@ jobs:
         run: npm run check:deployment-readiness
 
   ui-critical:
-    name: Critical UI smoke
+    name: Production UI
     needs: changes
     if: needs.changes.outputs.ui_changed == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -236,26 +235,30 @@ jobs:
       - name: Install Chromium browser
         run: npx playwright install --with-deps chromium
 
-      - name: Chromium critical UI smoke
-        run: npm run test:e2e:critical
+      - name: Chromium production journeys
+        run: npm run test:e2e:pr
+
+      - name: Classify exact failed test identities
+        if: failure()
+        run: node scripts/classify-playwright-failures.mjs
 
       - name: Upload UI diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: critical-ui-diagnostics-${{ github.run_id }}
+          name: production-ui-diagnostics-${{ github.run_id }}
           path: |
             test-results/
             playwright-report/
           if-no-files-found: ignore
 
-  # Production-journey regression suite. Blocking (PT-05): a red production
-  # journey must fail pr-required instead of normalising as an advisory red.
-  # Prototype /mockups specs run separately in ui-mockups below.
-  ui-regression:
-    name: UI regression
+  # Quarantined production tests and mockup-only journeys share one advisory
+  # install/server without weakening the required production-ui job above.
+  ui-advisory:
+    name: Advisory UI
     needs: changes
-    if: needs.changes.outputs.ui_changed == 'true'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.ui_changed == 'true'
+    continue-on-error: true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -275,7 +278,7 @@ jobs:
         run: npm ci
 
       - name: Restore Chromium browser cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -283,106 +286,18 @@ jobs:
       - name: Install Chromium browser
         run: npx playwright install --with-deps chromium
 
-      - name: Chromium stable regression suite
-        run: npm run test:e2e:regression
+      - name: Chromium quarantined and mockup journeys (advisory)
+        run: npm run test:e2e:advisory
 
-      - name: Upload UI regression diagnostics
+      - name: Classify exact failed test identities
         if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: ui-regression-diagnostics-${{ github.run_id }}
-          path: |
-            test-results/
-            playwright-report/
-          if-no-files-found: ignore
+        run: node scripts/classify-playwright-failures.mjs
 
-  ui-quarantine:
-    name: Advisory quarantined UI tests
-    needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.ui_changed == 'true'
-    continue-on-error: true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
-        with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: ".nvmrc"
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Restore Chromium browser cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Chromium browser
-        run: npx playwright install --with-deps chromium
-
-      - name: Chromium quarantined tests (advisory)
-        run: npm run test:e2e:quarantine
-
-      - name: Upload quarantine diagnostics
+      - name: Upload advisory UI diagnostics
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: quarantine-ui-diagnostics-${{ github.run_id }}
-          path: |
-            test-results/
-            playwright-report/
-          if-no-files-found: ignore
-
-  # Prototype /mockups specs live in their own advisory lane so a red mockup
-  # can never mask (or block on) a production-journey regression (PT-05).
-  ui-mockups:
-    name: Advisory mockup UI
-    needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.ui_changed == 'true'
-    continue-on-error: true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version-file: ".nvmrc"
-          cache: npm
-          cache-dependency-path: package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Restore Chromium browser cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Chromium browser
-        run: npx playwright install --with-deps chromium
-
-      - name: Chromium mockup regression
-        run: npm run test:e2e:mockups
-
-      - name: Upload mockup UI diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: mockup-ui-diagnostics-${{ github.run_id }}
+          name: advisory-ui-diagnostics-${{ github.run_id }}
           path: |
             test-results/
             playwright-report/
@@ -438,7 +353,7 @@ jobs:
 
   pr-required:
     name: PR required
-    needs: [changes, static-pr, safety, coverage, build, ui-critical, ui-regression, db-reset-verify]
+    needs: [changes, static-pr, safety, coverage, build, ui-critical, db-reset-verify]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -456,7 +371,6 @@ jobs:
           COVERAGE_RESULT: ${{ needs.coverage.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           UI_RESULT: ${{ needs.ui-critical.result }}
-          UI_REGRESSION_RESULT: ${{ needs.ui-regression.result }}
           DB_RESULT: ${{ needs.db-reset-verify.result }}
         run: |
           set -euo pipefail
@@ -501,11 +415,9 @@ jobs:
           fi
 
           if [ "$UI_CHANGED" = "true" ]; then
-            require_success "ui-critical" "$UI_RESULT"
-            require_success "ui-regression" "$UI_REGRESSION_RESULT"
+            require_success "production-ui" "$UI_RESULT"
           else
-            require_skipped_or_success "ui-critical" "$UI_RESULT"
-            require_skipped_or_success "ui-regression" "$UI_REGRESSION_RESULT"
+            require_skipped_or_success "production-ui" "$UI_RESULT"
           fi
 
           if [ "$DB_CHANGED" = "true" ]; then

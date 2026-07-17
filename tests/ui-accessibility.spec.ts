@@ -35,7 +35,7 @@ async function mockMinimalDashboardApi(page: Page) {
 
 async function gotoApp(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+  await expect(page.locator("body")).toBeVisible();
 }
 
 async function expectNoPageHorizontalOverflow(page: Page) {

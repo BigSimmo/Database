@@ -47,11 +47,11 @@ describe("standalone TSX server-only compatibility", () => {
     );
   });
 
-  it("bounds Vitest workers and scopes stale-process cleanup to this checkout", () => {
+  it("bounds Vitest workers and uses the shared non-destructive run lock", () => {
     const runner = readFileSync(new URL("../scripts/run-vitest.mjs", import.meta.url), "utf8");
     const config = readFileSync(new URL("../vitest.config.mts", import.meta.url), "utf8");
-    expect(runner).toContain("const vitestNeedle = vitestBin.toLowerCase()");
-    expect(runner).not.toContain("repoNeedle");
+    expect(runner).toContain("acquireHeavyRunLock");
+    expect(runner).not.toContain("taskkill");
     expect(config).toContain("maxWorkers: 2");
     expect(config).toContain("testTimeout: 30_000");
   });

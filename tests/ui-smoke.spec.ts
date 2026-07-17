@@ -50,10 +50,10 @@ async function installClipboardMock(page: Page) {
 
 async function gotoApp(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+  await expect(page.locator("body")).toBeVisible();
 }
 
-async function waitForReactEventHandler(locator: Locator, eventName: "onScroll") {
+async function waitForReactEventHandler(locator: Locator, eventName: "onChange" | "onClick" | "onScroll" | "onSubmit") {
   await expect
     .poll(
       async () =>
@@ -102,6 +102,20 @@ function visibleAnswerSubmitButton(page: Page) {
   return page.locator('[aria-label="Generate source-backed answer"]:visible').first();
 }
 
+async function submitDocumentSearch(page: Page) {
+  const submit = page.getByRole("button", { name: "Find matching documents" });
+  await expect(submit).toBeEnabled();
+  await waitForReactEventHandler(submit.locator("xpath=ancestor::form[1]"), "onSubmit");
+  const response = page.waitForResponse(
+    (candidate) => new URL(candidate.url()).pathname === "/api/search" && candidate.ok(),
+    { timeout: 30_000 },
+  );
+  await Promise.all([response, submit.click()]);
+  await expect(page.getByRole("heading", { name: "Finding matching documents" })).toHaveCount(0, {
+    timeout: 30_000,
+  });
+}
+
 function visibleAnswerFollowUpSuggestions(page: Page) {
   return page
     .locator(
@@ -135,10 +149,9 @@ async function switchToDocumentSearchMode(page: Page) {
   const legacyDocumentsMode = page.getByRole("button", { name: "Switch to document search mode" });
   if (await isVisibleWithoutThrow(legacyDocumentsMode)) {
     await expect(legacyDocumentsMode).toBeEnabled();
-    await expect(async () => {
-      await legacyDocumentsMode.click();
-      await expect(legacyDocumentsMode).toHaveAttribute("aria-pressed", "true", { timeout: uiAssertionTimeoutMs });
-    }).toPass({ timeout: 8_000 });
+    await waitForReactEventHandler(legacyDocumentsMode, "onClick");
+    await legacyDocumentsMode.click();
+    await expect(legacyDocumentsMode).toHaveAttribute("aria-pressed", "true", { timeout: uiAssertionTimeoutMs });
     return;
   }
 
@@ -149,18 +162,15 @@ async function switchToDocumentSearchMode(page: Page) {
     );
   }
   await expect(appModeMenu).toBeEnabled();
-
-  await expect(async () => {
-    if ((await appModeMenu.getAttribute("aria-expanded")) !== "true") {
-      await appModeMenu.click({ force: true });
-    }
-    const appModeGroup = page.getByRole("menu", { name: "Choose app mode" });
-    await expect(appModeGroup).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    const documentsMode = appModeGroup.getByRole("menuitemradio", { name: /^Documents\b/ });
-    await expect(documentsMode).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    await documentsMode.click({ force: true });
-    await expect(appModeMenu).toHaveAccessibleName("Mode Documents", { timeout: uiAssertionTimeoutMs });
-  }).toPass({ timeout: 8_000 });
+  await waitForReactEventHandler(appModeMenu, "onClick");
+  await appModeMenu.click({ force: true });
+  const appModeGroup = page.getByRole("menu", { name: "Choose app mode" });
+  await expect(appModeGroup).toBeVisible({ timeout: uiAssertionTimeoutMs });
+  const documentsMode = appModeGroup.getByRole("menuitemradio", { name: /^Documents\b/ });
+  await expect(documentsMode).toBeVisible({ timeout: uiAssertionTimeoutMs });
+  await waitForReactEventHandler(documentsMode, "onClick");
+  await documentsMode.click({ force: true });
+  await expect(appModeMenu).toHaveAccessibleName("Mode Documents", { timeout: uiAssertionTimeoutMs });
 }
 
 const readySetupChecks = [
@@ -652,23 +662,20 @@ async function openScopeControl(page: Page) {
 
   const composer = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
 
-  await expect(async () => {
-    await composer.click();
-    const scopeOption = page.getByRole("option", { name: /Scope sources/i });
-    if (await scopeOption.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await scopeOption.click();
-    } else {
-      const actionMenu = page.getByRole("button", { name: "Open answer options" });
-      await expect(actionMenu).toBeVisible();
-      await actionMenu.click();
-      const actionsMenu = page.getByTestId("daily-actions-menu");
-      await expect(actionsMenu).toBeVisible({ timeout: uiAssertionTimeoutMs });
-      await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
-    }
-    await expect(page.getByTestId("scope-command-popover")).toBeVisible({
-      timeout: uiAssertionTimeoutMs,
-    });
-  }).toPass({ timeout: 15_000 });
+  await composer.click();
+  const scopeOption = page.getByRole("option", { name: /Scope sources/i });
+  if (await scopeOption.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await scopeOption.click();
+  } else {
+    const actionMenu = page.getByRole("button", { name: "Open answer options" });
+    await expect(actionMenu).toBeVisible();
+    await waitForReactEventHandler(actionMenu, "onClick");
+    await actionMenu.click();
+    const actionsMenu = page.getByTestId("daily-actions-menu");
+    await expect(actionsMenu).toBeVisible({ timeout: uiAssertionTimeoutMs });
+    await actionsMenu.getByRole("menuitem", { name: /^Scope\b/ }).click();
+  }
+  await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: uiAssertionTimeoutMs });
 }
 
 async function expectMinTouchTarget(locator: Locator, minSize = 44) {
@@ -707,18 +714,17 @@ async function openMobileTableFullscreen(page: Page, clinicalTable: Locator) {
   await scrollMobileTableExpandClearOfFooter(page, clinicalTable);
   const expandButton = clinicalTable.getByTestId("table-expand-button");
   const tableDialog = page.getByTestId("table-fullscreen-dialog");
-  await expect(async () => {
-    if (await tableDialog.isVisible().catch(() => false)) return;
-    await expect(expandButton).toBeVisible();
-    await expandButton.click();
-    await expect(tableDialog).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 15_000 });
+  await expect(expandButton).toBeVisible();
+  await waitForReactEventHandler(expandButton, "onClick");
+  await expandButton.click();
+  await expect(tableDialog).toBeVisible({ timeout: 15_000 });
   return tableDialog;
 }
 
 async function openMobileClinicalGuideMenu(page: Page) {
   const trigger = page.getByRole("button", { name: "Open Clinical Guide menu" });
   await expect(trigger).toBeVisible();
+  await waitForReactEventHandler(trigger, "onClick");
   await trigger.click();
 
   const menu = page.getByRole("dialog", { name: "Clinical Guide" });
@@ -770,11 +776,9 @@ async function openGuide(page: Page) {
     const trigger = (await expandedGuide.isVisible().catch(() => false)) ? expandedGuide : railGuide;
     await expect(trigger).toBeVisible();
     await expect(trigger).toBeEnabled();
-    await expect(async () => {
-      if (await dialog.isVisible().catch(() => false)) return;
-      await trigger.click();
-      await expect(dialog).toBeVisible({ timeout: uiAssertionTimeoutMs });
-    }).toPass({ timeout: 10_000 });
+    await waitForReactEventHandler(trigger, "onClick");
+    await trigger.click();
+    await expect(dialog).toBeVisible({ timeout: uiAssertionTimeoutMs });
   } else {
     const menu = await openMobileClinicalGuideMenu(page);
     await menu.getByRole("button", { name: "Guide & help" }).click();
@@ -825,59 +829,15 @@ async function expectAccountSetupSurface(setup: Locator) {
   await expect(setup).toContainText("Do not enter patient-identifying information.");
 }
 
-async function openUploadDrawer(page: Page) {
+async function expectAdminOnlyUploadNotice(page: Page) {
   const uploadButton = page.getByRole("button", { name: /Upload document/i });
-  const uploadDrawer = page.getByRole("dialog", { name: "Upload and indexing" });
   await expect(uploadButton).toBeVisible();
-
-  await expect(async () => {
-    if (await uploadDrawer.isVisible().catch(() => false)) return;
-    await uploadButton.click();
-    await expect(uploadDrawer).toBeVisible({ timeout: uiAssertionTimeoutMs });
-  }).toPass({ timeout: 8_000 });
-
-  return uploadDrawer;
-}
-
-async function openUploadSurface(page: Page) {
-  const uploadButton = page.getByRole("button", { name: /Upload document/i });
-  const uploadDialog = page.getByRole("dialog", { name: "Upload and indexing" });
-  const inlineUploadPanel = page.getByRole("tabpanel", { name: "Upload", exact: true });
-  const visibleUploadTab = page
-    .locator('[role="tab"]:visible')
-    .filter({ hasText: /^Upload\b/ })
-    .first();
-  await expect(uploadButton).toBeVisible();
-  await expect(async () => {
-    if (
-      (await uploadDialog.isVisible().catch(() => false)) ||
-      (await inlineUploadPanel.isVisible().catch(() => false)) ||
-      (await visibleUploadTab.isVisible().catch(() => false))
-    ) {
-      return;
-    }
-    await uploadButton.click();
-    await expect
-      .poll(
-        async () =>
-          (await uploadDialog.isVisible().catch(() => false)) ||
-          (await inlineUploadPanel.isVisible().catch(() => false)) ||
-          (await visibleUploadTab.isVisible().catch(() => false)),
-      )
-      .toBe(true);
-  }).toPass({ timeout: 8_000 });
-
-  if (await uploadDialog.isVisible().catch(() => false)) {
-    const uploadTab = uploadDialog.getByRole("tab", { name: /^Upload\b/ });
-    if (await uploadTab.isVisible().catch(() => false)) await uploadTab.click();
-    const dialogUploadPanel = uploadDialog.getByRole("tabpanel", { name: "Upload", exact: true });
-    await expect(dialogUploadPanel).toBeVisible();
-    return dialogUploadPanel;
-  }
-
-  if (!(await inlineUploadPanel.isVisible().catch(() => false))) await visibleUploadTab.click();
-  await expect(inlineUploadPanel).toBeVisible();
-  return inlineUploadPanel;
+  await waitForReactEventHandler(uploadButton, "onClick");
+  await uploadButton.click();
+  await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only." })).toContainText(
+    "Use the source library to open indexed documents.",
+  );
+  await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
 }
 
 async function dismissOverlayByHeaderClick(page: Page) {
@@ -892,11 +852,9 @@ async function openDailyActions(page: Page, triggerName: string | RegExp = /^Ope
 
   await expect(trigger).toBeVisible();
   await expect(trigger).toBeEnabled();
-  await expect(async () => {
-    if (await menu.isVisible().catch(() => false)) return;
-    await trigger.click();
-    await expect(menu).toBeVisible({ timeout: uiAssertionTimeoutMs });
-  }).toPass({ timeout: 20_000 });
+  await waitForReactEventHandler(trigger, "onClick");
+  await trigger.click();
+  await expect(menu).toBeVisible({ timeout: uiAssertionTimeoutMs });
 
   return menu;
 }
@@ -1075,8 +1033,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await gotoApp(page, route.path);
       if (route.path.includes("mode=answer")) {
         await waitForDemoDashboardReady(page);
-      } else {
-        await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
       }
 
       const activeLink = page.getByRole("link", { name: route.label, exact: true });
@@ -1205,7 +1161,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("private mode unauthenticated dashboard gates real-mode search", async ({ page }) => {
+  test("offline browser gate remains in demo mode when private endpoints are mocked", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     const answerRequests: string[] = [];
     const unsafeLocalProjectPayload = {
@@ -1235,7 +1191,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const questionInput = visibleQuestionInput(page);
     await questionInput.fill("lithium monitoring");
-    await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeEnabled();
     await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
     expect(answerRequests).toEqual([]);
     await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
@@ -1657,14 +1613,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await composerPrivacyLink.focus();
       await expect(composerPrivacyLink).toBeFocused();
 
-      const uploadSurface = await openUploadSurface(page);
-      await expect(uploadSurface.getByRole("note")).toBeVisible();
-      await expect(uploadSurface.getByText("Do not enter patient-identifiable information.")).toBeVisible();
-      const uploadPrivacyLink = uploadSurface.getByRole("link", { name: "Privacy and data processing" });
-      await expect(uploadPrivacyLink).toBeVisible();
-      await uploadPrivacyLink.focus();
-      await expect(uploadPrivacyLink).toBeFocused();
-
       await page.goto("/privacy", { waitUntil: "domcontentloaded" });
       await expect(page.getByRole("main")).toBeVisible();
       await expect(page.getByRole("heading", { level: 1, name: "Privacy & data handling" })).toBeVisible();
@@ -1989,16 +1937,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const medicationLink = strip.getByRole("link", { name: "Clozapine", exact: true });
     await expect(medicationLink).toHaveAttribute("href", "/medications/clozapine");
-    // Re-click on each retry: a single click can be swallowed while the answer
-    // surface is still hydrating (same guard as the launcher mode switches), and
-    // app-router URLs only commit after the destination responds — a cold dev
-    // compile of /medications/[slug] can take ~30s when this spec runs without
-    // the @critical warm-up journeys.
-    await expect(async () => {
-      if (/\/medications\/clozapine/.test(page.url())) return;
-      await medicationLink.click();
-      await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 5_000 });
-    }).toPass({ timeout: 45_000 });
+    await waitForReactEventHandler(medicationLink, "onClick");
+    await medicationLink.click();
+    await expect(page).toHaveURL(/\/medications\/clozapine/, { timeout: 45_000 });
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -2666,9 +2607,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByText("Source library workspace")).toHaveCount(0);
     await expect(page.getByText("Document display")).toHaveCount(0);
 
+    // The mode switch above is covered independently. Submit from the canonical
+    // route so a dev-only cross-segment remount cannot abort the mocked POST.
+    await gotoApp(page, "/documents/search?mode=documents");
     const questionInput = visibleQuestionInput(page);
+    await expect(questionInput).toBeVisible();
+    await waitForReactEventHandler(questionInput, "onChange");
     await questionInput.fill("lithium monitoring");
-    await page.getByRole("button", { name: "Find matching documents" }).click();
+    await submitDocumentSearch(page);
 
     await expect(page).toHaveURL(/\/documents\/search\?.*q=lithium\+monitoring/);
     const documentResults = page.getByRole("article").filter({ hasText: "Synthetic Lithium Monitoring Protocol" });
@@ -2715,11 +2661,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/");
     await waitForDemoDashboardReady(page);
 
-    await switchToDocumentSearchMode(page);
+    await gotoApp(page, "/documents/search?mode=documents");
     const questionInput = visibleQuestionInput(page);
+    await expect(questionInput).toBeVisible();
+    await waitForReactEventHandler(questionInput, "onChange");
 
     await questionInput.fill("what is the best coffee machine for my kitchen");
-    await page.getByRole("button", { name: "Find matching documents" }).click();
+    await submitDocumentSearch(page);
     await expect(page).toHaveURL(/\/documents\/search\?/);
     await expect(page.locator("body")).not.toContainText(/failed to fetch|Search failed/i);
     await expect(page.getByRole("heading", { name: "No matching documents" }).first()).toBeVisible();
@@ -3226,58 +3174,26 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(JSON.stringify(payload)).not.toMatch(/sk-|service_role|eyJ/i);
   });
 
-  test("upload drawer exposes setup checklist and explicit upload labels", async ({ page, request }) => {
+  test("production upload action remains admin-only for unauthenticated users", async ({ page, request }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
-    // Upload availability depends on the checkout's env config: env-less servers run in
-    // read-only demo mode while .env.local local-auth servers accept uploads. The browser
-    // mocks above do not decide enablement, so read the real server flag and branch the
-    // enablement assertions on it to keep this test green in both configurations.
     const setupStatusResponse = await request.get("/api/setup-status");
     expect(setupStatusResponse.ok()).toBe(true);
-    const serverDemoMode = (await setupStatusResponse.json()).demoMode === true;
+    expect((await setupStatusResponse.json()).demoMode).toBe(true);
 
     await gotoApp(page, "/");
     await expect(visibleQuestionInput(page)).toBeVisible();
 
-    const uploadDrawer = await openUploadDrawer(page);
-
-    await uploadDrawer.getByRole("tab", { name: /Setup/ }).click();
-    await expect(uploadDrawer.getByText("First-run setup checklist")).toBeVisible();
-    await expect(uploadDrawer.getByText(".env.local configured")).toBeVisible();
-    await expect(uploadDrawer.getByText("Clinical KB Database target")).toBeVisible();
-    await expect(uploadDrawer.getByText("supabase/schema.sql applied")).toBeVisible();
-    await expect(uploadDrawer.getByText("Search RPC and vector indexes")).toBeVisible();
-    await expect(uploadDrawer.getByText("OpenAI API key available")).toBeVisible();
-    await expect(uploadDrawer.getByText("npm run worker running")).toBeVisible();
-    const uploadTab = uploadDrawer.getByRole("tab", { name: /Upload/ });
-    await uploadTab.click();
-    await expect(uploadDrawer.getByText("Clinical upload")).toBeVisible();
-    await expect(uploadDrawer.getByText("Guideline PDF files")).toBeVisible();
-    if (serverDemoMode) {
-      await expect(uploadTab).toContainText("Locked");
-      await expect(uploadDrawer.getByRole("button", { name: "Guideline PDF files" })).toBeDisabled();
-    } else {
-      await expect(uploadTab).toContainText("Ready");
-      await expect(uploadDrawer.getByRole("button", { name: "Guideline PDF files" })).toBeEnabled();
-    }
-    await expect(uploadDrawer.getByRole("button", { name: "Upload guidelines" })).toBeVisible();
+    await expectAdminOnlyUploadNotice(page);
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("upload drawer disables uploads in demo mode", async ({ page }) => {
+  test("demo upload action cannot bypass the production admin gate", async ({ page }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockDemoApi(page);
     await gotoApp(page, "/");
 
-    const uploadDrawer = await openUploadDrawer(page);
-
-    await uploadDrawer.getByRole("tab", { name: /Jobs/ }).click();
-    await expect(uploadDrawer.getByText("Indexing progress")).toBeVisible();
-    await uploadDrawer.getByRole("tab", { name: /Upload/ }).click();
-    await expect(uploadDrawer.getByText("Read-only status")).toBeVisible();
-    await expect(uploadDrawer.getByRole("button", { name: "Guideline PDF files" })).toBeDisabled();
-    await expect(uploadDrawer.getByRole("button", { name: "Upload guidelines" })).toBeVisible();
+    await expectAdminOnlyUploadNotice(page);
     await expectNoPageHorizontalOverflow(page);
   });
 

@@ -6,7 +6,7 @@ import { expect, test, type Page } from "playwright/test";
 
 async function goto(page: Page, path: string) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => undefined);
+  await expect(page.locator("body")).toBeVisible();
 }
 
 // The shell's expanded sidebar (now the desktop default) contributes its own

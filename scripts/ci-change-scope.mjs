@@ -118,6 +118,7 @@ const ragEvalPatterns = [
   "src/app/api/search",
   /^src\/lib\/(?:rag(?:-[^/]+)?|smart-rag-api|clinical-search|clinical-query-mode|retrieval(?:-[^/]+)?|answer(?:-[^/]+)?|citations|cross-document-synthesis|evidence(?:-[^/]+)?|ranking-config|source(?:-[^/]+)?|chunking|document-index-units|query-privacy|owner-scope|corpus-grounding|indexed-source-formatting)\.ts$/,
   /^src\/components\/(?:.*\/)?(?:answer|source|citation)[^/]*\.tsx?$/i,
+  /^scripts\/(?:check-rag-fixtures|test-rag-offline)\.mjs$/,
   /^scripts\/(eval-|run-eval-safe|compare-retrieval-eval|retrieval-health|profile-retrieval|warm-retrieval-cache|tune-search-weights)/,
   /^tests\/(rag|retrieval|answer|citations|evidence|eval|clinical-safety|source).*\.test\.ts$/,
 ];
@@ -139,7 +140,14 @@ const containerPatterns = [
 
 const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
 
-const coveragePatterns = ["data", "src", "tests", "vitest.config.mts"];
+const coveragePatterns = [
+  "data",
+  "src",
+  "tests",
+  "package.json",
+  "vitest.config.mts",
+  /^scripts\/(?:child-process-result|run-heavy|run-live-tests|run-vitest|test-environment|test-focused|test-run-lock)\.mjs$/,
+];
 
 const buildPatterns = [
   "bundle-budget.json",
@@ -374,6 +382,11 @@ function selfTest() {
     source_changed: true,
     coverage_changed: true,
   });
+  assertScope("test-runner", ["scripts/run-vitest.mjs", "scripts/run-playwright.mjs"], {
+    source_changed: true,
+    coverage_changed: true,
+    ui_changed: true,
+  });
   assertScope("runtime-data", ["data/medications-snapshot.json"], {
     source_changed: true,
     coverage_changed: true,
@@ -407,6 +420,10 @@ function selfTest() {
     rag_eval_changed: true,
     source_changed: true,
   });
+  assertScope("rag-fixture-checker", ["scripts/check-rag-fixtures.mjs"], {
+    rag_eval_changed: true,
+    source_changed: true,
+  });
   assertScope("database-access", ["src/app/api/documents/route.ts"], {
     db_changed: true,
     source_changed: true,
@@ -427,7 +444,7 @@ function selfTest() {
   );
   assertScope("package", ["package.json"], {
     source_changed: false,
-    coverage_changed: false,
+    coverage_changed: true,
     container_changed: true,
     workflow_changed: false,
     build_changed: true,
