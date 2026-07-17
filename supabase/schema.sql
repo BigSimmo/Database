@@ -3487,15 +3487,19 @@ begin
     return input_query;
   end if;
 
-  -- Build the known-term vocabulary once per call.
+  -- Build the known-term vocabulary once per call. Every source is scoped to the
+  -- public (null-owner) corpus: this function is SECURITY DEFINER and bypasses RLS, and
+  -- both rag_aliases and documents carry owner-scoped private rows (deep-memory persists
+  -- owner-scoped aliases/canonicals), so an unscoped read would leak private-document
+  -- terms across tenants. Mirrors migration 20260717120000_corrector_public_titles_only.
   select array_agg(distinct term) into vocab
   from (
-    select lower(alias) as term from public.rag_aliases where enabled and length(alias) between 4 and 40
+    select lower(alias) as term from public.rag_aliases where enabled and owner_id is null and length(alias) between 4 and 40
     union
-    select lower(canonical) from public.rag_aliases where enabled and length(canonical) between 4 and 40
+    select lower(canonical) from public.rag_aliases where enabled and owner_id is null and length(canonical) between 4 and 40
     union
     select w from public.documents d, lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as w
-    where d.status = 'indexed' and length(w) between 4 and 40
+    where d.status = 'indexed' and d.owner_id is null and length(w) between 4 and 40
   ) t;
 
   tokens := regexp_split_to_array(lower(input_query), '\s+');
