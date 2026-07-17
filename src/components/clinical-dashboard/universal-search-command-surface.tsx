@@ -984,7 +984,17 @@ export function UniversalSearchCommandSurface({
           }
         }}
         onFocusCapture={() => {
-          if (dropdownDisplayable) onDropdownOpenChange(true);
+          // Focus can arrive before the post-hydration effect has synchronized
+          // the conservative false initial state. Re-evaluate synchronously so
+          // desktop input never loses its first command-panel interaction.
+          if (typeof window.matchMedia !== "function") return;
+          const displayable = commandDropdownCanDisplay({
+            minimumWidthMatches: window.matchMedia(dropdownMinimumWidthQuery).matches,
+            pointerMatches: window.matchMedia(commandDropdownPointerMediaQuery).matches,
+            maxTouchPoints: navigator.maxTouchPoints,
+          });
+          setDropdownDisplayable(displayable);
+          if (displayable) onDropdownOpenChange(true);
         }}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
