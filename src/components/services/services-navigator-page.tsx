@@ -220,14 +220,9 @@ function ServiceCard({
         <button
           type="button"
           onClick={() => onToggleSelected(service.slug)}
-<<<<<<< HEAD
-          className="grid h-9 w-9 place-items-center rounded-lg text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className="grid size-tap place-items-center rounded-lg text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           aria-label={selected ? `Remove ${service.title} from comparison` : `Add ${service.title} to comparison`}
           aria-pressed={selected}
-=======
-          className="grid size-tap place-items-center rounded-lg text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-          aria-label={selected ? `Remove ${service.title} from selected services` : `Save ${service.title}`}
->>>>>>> origin/main
         >
           <Bookmark
             className={cn(
