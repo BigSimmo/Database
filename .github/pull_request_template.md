@@ -18,6 +18,16 @@ For retrieval, ranking, selection, chunking, source/citation rendering, or answe
 - [ ] `npm run check:production-readiness` when clinical workflow, privacy, environment, Supabase, source governance, or deployment behavior changed
 - [ ] `npm run check:deployment-readiness` when deployment startup, hosting, or rollout behavior changed
 
+<!-- Use `Verification not run: <reason>` or `UI verification not run: <reason>` when a required local gate cannot be run; do not leave an unchecked box as the only evidence. -->
+
+## Risk and rollout
+
+Complete this section for clinical, data, API, auth/privacy, workflow, dependency, build, or deployment changes.
+
+- Risk:
+- Rollback:
+- Provider or production effects: None / describe the explicitly authorized effect
+
 ## Clinical Governance Preflight
 
 Complete this section when the change touches ingestion, answer generation, search/ranking, source rendering, document access, privacy, production env, or clinical output.
