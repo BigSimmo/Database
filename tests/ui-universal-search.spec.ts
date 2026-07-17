@@ -229,8 +229,21 @@ test.describe("universal search typeahead", () => {
   });
 
   test("places submitted cross-mode matches after the owning mode results", async ({ page }) => {
-    await mockUniversalSearch(page);
-    await page.goto("/services?q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
+    // "13YARN" matches the demo service fixture so service-search-results renders.
+    // Use an inline mock that echoes back the same query so universal-also-matches renders.
+    await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+      const url = new URL(route.request().url());
+      const mode = url.searchParams.get("mode") ?? "services";
+      const q = url.searchParams.get("q") ?? "13YARN";
+      await fulfillUniversalSearch(route, {
+        ...universalPayload,
+        query: q,
+        contextMode: mode,
+        preferredDomains: [],
+        domainOrder: universalPayload.groups.map((g) => g.kind),
+      });
+    });
+    await page.goto("/services?q=13YARN&run=1", { waitUntil: "domcontentloaded" });
 
     const results = page.getByTestId("service-search-results");
     const alsoMatches = page.getByTestId("universal-also-matches");
