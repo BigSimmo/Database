@@ -43,6 +43,7 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
+import { FormCodeBadge } from "@/components/forms/form-code-badge";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, type FormRecord } from "@/lib/form-ranker";
 import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/service-ranker";
@@ -260,9 +261,9 @@ function PathwayContextCard({
         <div className="relative rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35 p-3">
           <span className="absolute -left-[1.55rem] top-4 h-4 w-4 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-accent)]" />
           <p className="mb-2 text-2xs font-bold uppercase text-[color:var(--text-soft)]">Current</p>
-          <div className="flex items-center gap-2">
-            <span className={cn("text-2xl font-bold text-[color:var(--clinical-accent)]", codeText)}>{code}</span>
-            <p className="text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
+          <div className="flex items-center gap-2.5">
+            <FormCodeBadge code={code} variant="sm" />
+            <p className="min-w-0 text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
           </div>
           <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)]">
             You are here
@@ -561,14 +562,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
           <div className="min-w-0 space-y-4">
             <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
               <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
-                <div
-                  className={cn(
-                    "grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-xl font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-24 sm:w-24 sm:text-4xl",
-                    codeText,
-                  )}
-                >
-                  {code}
-                </div>
+                <FormCodeBadge code={code} variant="hero" />
                 <div className="min-w-0">
                   <h1 className="max-w-4xl text-3xl font-extrabold leading-[1.05] text-[color:var(--text-heading)] sm:text-4xl">
                     {form.title}
