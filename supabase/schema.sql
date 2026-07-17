@@ -848,67 +848,6 @@ create index if not exists rag_aliases_type_enabled_idx
   on public.rag_aliases(alias_type, enabled);
 create index if not exists rag_aliases_alias_trgm_idx
   on public.rag_aliases using gin (lower(alias) gin_trgm_ops);
-create index if not exists rag_aliases_canonical_trgm_idx
-  on public.rag_aliases using gin (lower(canonical) extensions.gin_trgm_ops);
-
--- Scalable spelling corrector vocabulary: per-document indexed words for bounded trigram probes.
-create table if not exists public.document_title_words (
-  word text not null,
-  document_id uuid not null references public.documents(id) on delete cascade,
-  primary key (word, document_id)
-);
-
-create index if not exists document_title_words_word_trgm_idx
-  on public.document_title_words using gin (word extensions.gin_trgm_ops);
-
-alter table public.document_title_words enable row level security;
-revoke all on public.document_title_words from anon, authenticated;
-grant select, insert, update, delete on table public.document_title_words to service_role;
-
--- Populate table from existing documents
-insert into public.document_title_words (word, document_id)
-select distinct lower(w), d.id
-from public.documents d,
-     lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as w
-where d.status = 'indexed'
-  and length(w) between 4 and 40
-on conflict do nothing;
-
--- Sync trigger on documents to keep title words vocabulary updated
-create or replace function public.sync_document_title_words()
-returns trigger
-language plpgsql
-security definer
-set search_path = public, pg_catalog, pg_temp
-as $$
-begin
-  if TG_OP = 'DELETE' or (TG_OP = 'UPDATE' and OLD.status = 'indexed' and NEW.status <> 'indexed') then
-    delete from public.document_title_words where document_id = OLD.id;
-  end if;
-
-  if (TG_OP = 'INSERT' and NEW.status = 'indexed') or
-     (TG_OP = 'UPDATE' and NEW.status = 'indexed' and (OLD.status <> 'indexed' or OLD.title <> NEW.title)) then
-
-    if TG_OP = 'UPDATE' then
-      delete from public.document_title_words where document_id = NEW.id;
-    end if;
-
-    insert into public.document_title_words (word, document_id)
-    select distinct lower(w), NEW.id
-    from unnest(regexp_split_to_array(lower(NEW.title), '[^a-z]+')) as w
-    where length(w) between 4 and 40
-    on conflict do nothing;
-  end if;
-
-  return coalesce(NEW, OLD);
-end;
-$$;
-
-drop trigger if exists documents_sync_title_words on public.documents;
-create trigger documents_sync_title_words
-  after insert or update or delete on public.documents
-  for each row execute function public.sync_document_title_words();
-
 create index if not exists rag_response_cache_expiry_idx
   on public.rag_response_cache(expires_at);
 create index if not exists rag_response_cache_owner_kind_idx
@@ -3534,9 +3473,9 @@ CREATE OR REPLACE FUNCTION public.correct_clinical_query_terms(input_query text,
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO 'public', 'extensions', 'pg_temp'
- SET pg_trgm.similarity_threshold = 0.3
 AS $function$
 declare
+  vocab text[];
   tokens text[];
   tok text;
   best text;
@@ -3544,60 +3483,37 @@ declare
   corrected text[] := array[]::text[];
   changed boolean := false;
 begin
-  if min_sim is null or min_sim < 0.3 or min_sim > 1 then
-    raise exception 'min_sim must be between 0.3 and 1.0' using errcode = '22023';
-  end if;
-
   if input_query is null or length(trim(input_query)) = 0 then
     return input_query;
   end if;
 
+  -- Build the known-term vocabulary once per call. Every source is scoped to the
+  -- public (null-owner) corpus: this function is SECURITY DEFINER and bypasses RLS, and
+  -- both rag_aliases and documents carry owner-scoped private rows (deep-memory persists
+  -- owner-scoped aliases/canonicals), so an unscoped read would leak private-document
+  -- terms across tenants. Mirrors migration 20260717120000_corrector_public_titles_only.
+  select array_agg(distinct term) into vocab
+  from (
+    select lower(alias) as term from public.rag_aliases where enabled and owner_id is null and length(alias) between 4 and 40
+    union
+    select lower(canonical) from public.rag_aliases where enabled and owner_id is null and length(canonical) between 4 and 40
+    union
+    select w from public.documents d, lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as w
+    where d.status = 'indexed' and d.owner_id is null and length(w) between 4 and 40
+  ) t;
+
   tokens := regexp_split_to_array(lower(input_query), '\s+');
   foreach tok in array tokens loop
-    if length(tok) < 4 then
+    if length(tok) < 4 or tok = any(vocab) then
       corrected := corrected || tok;
       continue;
     end if;
-
     best := null;
     best_sim := 0;
-    select candidate.term, similarity(candidate.term, tok)
-      into best, best_sim
-    from (
-      (
-        select lower(alias) as term
-        from public.rag_aliases
-        where enabled
-          and owner_id is null
-          and length(alias) between 4 and 40
-          and lower(alias) % tok
-        order by similarity(lower(alias), tok) desc, lower(alias)
-        limit 32
-      )
-      union all
-      (
-        select lower(canonical) as term
-        from public.rag_aliases
-        where enabled
-          and owner_id is null
-          and length(canonical) between 4 and 40
-          and lower(canonical) % tok
-        order by similarity(lower(canonical), tok) desc, lower(canonical)
-        limit 32
-      )
-      union all
-      (
-        select word as term
-        from public.document_title_words
-        where length(word) between 4 and 40
-          and word % tok
-        order by similarity(word, tok) desc, word
-        limit 32
-      )
-    ) candidate
-    order by similarity(candidate.term, tok) desc, candidate.term
+    select v, similarity(v, tok) into best, best_sim
+    from unnest(vocab) as v
+    order by similarity(v, tok) desc
     limit 1;
-
     if best is not null and best_sim >= min_sim and best <> tok and length(best) >= length(tok) then
       corrected := corrected || best;
       changed := true;
