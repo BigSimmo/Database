@@ -56,6 +56,7 @@ async function main() {
   }
 
   const schemaSql = readFileSync(repoUrl("supabase/schema.sql"), "utf8");
+  const rolesSql = readFileSync(repoUrl("supabase/roles.sql"), "utf8");
   const scaffoldSql = readFileSync(repoUrl("scripts/sql/drift-replay-scaffold.sql"), "utf8");
   const { normalizedSchemaSha256 } = await import("./check-drift");
 
@@ -94,6 +95,8 @@ async function main() {
         sql,
       );
 
+    console.log("Applying role bootstrap (supabase_admin)…");
+    psql("supabase_admin", rolesSql);
     console.log("Applying storage scaffold (supabase_admin)…");
     psql("supabase_admin", scaffoldSql);
     console.log("Replaying supabase/schema.sql from scratch (postgres)…");

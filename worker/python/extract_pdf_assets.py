@@ -1,5 +1,6 @@
 import io
 import json
+import math
 import os
 import re
 import sys
@@ -19,12 +20,117 @@ except Exception as exc:
 MAX_TABLE_ROWS = 400
 MAX_TABLE_TEXT_CHARS = 24000
 TARGET_CROP_DPI = 220
-MIN_RENDER_SCALE = 2.0
 MAX_RENDER_SCALE = 4.0
-MAX_RENDER_PIXELS = 4_000_000
+MIN_USEFUL_RENDER_SCALE = 0.25
+
+DEFAULT_BUDGET = {
+    "version": 1,
+    "maxRenderPixels": 4_000_000,
+    "maxPages": 5_000,
+    "maxArtifacts": 10_000,
+    "maxArtifactBytes": 512 * 1024 * 1024,
+    "maxTextBytes": 64 * 1024 * 1024,
+    "maxResultBytes": 64 * 1024 * 1024,
+    "ocrPageTimeoutSeconds": 60,
+    "totalTimeoutMs": 15 * 60 * 1000,
+}
 
 
-def maybe_ocr_page(page):
+class ExtractionBudgetExceeded(RuntimeError):
+    pass
+
+
+class ExtractionBudget:
+    def __init__(self, limits=None):
+        self.limits = {**DEFAULT_BUDGET, **(limits or {})}
+        for key, value in self.limits.items():
+            if not isinstance(value, int) or value <= 0:
+                raise ValueError(f"Invalid PDF extraction budget value for {key}")
+        self.page_count = 0
+        self.artifact_count = 0
+        self.artifact_bytes = 0
+        self.text_bytes = 0
+
+    def set_page_count(self, count):
+        if count > self.limits["maxPages"]:
+            raise ExtractionBudgetExceeded(
+                f"page count {count} exceeds {self.limits['maxPages']}"
+            )
+        self.page_count = count
+
+    def add_text(self, text):
+        self.text_bytes += len((text or "").encode("utf-8"))
+        if self.text_bytes > self.limits["maxTextBytes"]:
+            raise ExtractionBudgetExceeded(
+                f"extracted UTF-8 text exceeds {self.limits['maxTextBytes']} bytes"
+            )
+
+    def add_artifact(self, byte_length):
+        next_count = self.artifact_count + 1
+        next_bytes = self.artifact_bytes + max(0, int(byte_length))
+        if next_count > self.limits["maxArtifacts"]:
+            raise ExtractionBudgetExceeded(
+                f"artifact count {next_count} exceeds {self.limits['maxArtifacts']}"
+            )
+        if next_bytes > self.limits["maxArtifactBytes"]:
+            raise ExtractionBudgetExceeded(
+                f"temporary artifact bytes exceed {self.limits['maxArtifactBytes']}"
+            )
+        self.artifact_count = next_count
+        self.artifact_bytes = next_bytes
+
+    def ensure_artifact_slot(self):
+        if self.artifact_count + 1 > self.limits["maxArtifacts"]:
+            raise ExtractionBudgetExceeded(
+                f"artifact count {self.artifact_count + 1} exceeds {self.limits['maxArtifacts']}"
+            )
+
+    def ensure_result(self, serialized):
+        byte_length = len(serialized.encode("utf-8"))
+        if byte_length > self.limits["maxResultBytes"]:
+            raise ExtractionBudgetExceeded(
+                f"result JSON exceeds {self.limits['maxResultBytes']} bytes"
+            )
+
+    def usage(self):
+        return {
+            "pages": self.page_count,
+            "artifacts": self.artifact_count,
+            "artifactBytes": self.artifact_bytes,
+            "textBytes": self.text_bytes,
+        }
+
+
+def bounded_render_scale(rect, desired_scale, max_pixels):
+    width = float(rect.width)
+    height = float(rect.height)
+    if not all(math.isfinite(value) and value > 0 for value in (width, height, desired_scale)):
+        return None
+    scale = min(float(desired_scale), MAX_RENDER_SCALE)
+    scale = min(scale, math.sqrt(max_pixels / (width * height)))
+    if not math.isfinite(scale) or scale < MIN_USEFUL_RENDER_SCALE:
+        return None
+
+    # PyMuPDF rounds transformed dimensions. Use conservative ceiling dimensions
+    # and a small multiplicative correction rather than relying on float equality.
+    for _ in range(4):
+        rounded_pixels = math.ceil(width * scale) * math.ceil(height * scale)
+        if rounded_pixels <= max_pixels:
+            break
+        scale *= math.sqrt(max_pixels / rounded_pixels) * (1.0 - 1e-9)
+    if math.ceil(width * scale) * math.ceil(height * scale) > max_pixels:
+        return None
+    if scale < MIN_USEFUL_RENDER_SCALE:
+        return None
+    return scale
+
+
+def maybe_ocr_page(page, budget):
+    render_scale = bounded_render_scale(
+        page.rect, 2.0, budget.limits["maxRenderPixels"]
+    )
+    if render_scale is None:
+        return "", f"render_skipped: OCR page {page.number + 1} has unsafe geometry"
     try:
         import pytesseract
         from PIL import Image
@@ -41,9 +147,15 @@ def maybe_ocr_page(page):
                     pytesseract.pytesseract.tesseract_cmd = candidate
                     break
 
-        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+        pix = page.get_pixmap(
+            matrix=fitz.Matrix(render_scale, render_scale), alpha=False
+        )
+        if pix.width * pix.height > budget.limits["maxRenderPixels"]:
+            return "", f"render_skipped: OCR page {page.number + 1} exceeded the rounded pixel limit"
         image = Image.open(io.BytesIO(pix.tobytes("png")))
-        return pytesseract.image_to_string(image), None
+        return pytesseract.image_to_string(
+            image, timeout=budget.limits["ocrPageTimeoutSeconds"]
+        ), None
     except Exception as exc:
         return "", f"OCR failed on page {page.number + 1}: {type(exc).__name__}: {exc}"
 
@@ -104,20 +216,15 @@ def rect_payload(rect):
     return [round(rect.x0, 2), round(rect.y0, 2), round(rect.x1, 2), round(rect.y1, 2)]
 
 
-def write_pixmap(pix, path):
-    pix.save(path)
+def write_pixmap(pix, path, budget):
+    image_bytes = pix.tobytes("png")
+    budget.add_artifact(len(image_bytes))
+    with open(path, "wb") as handle:
+        handle.write(image_bytes)
     return {"width": pix.width, "height": pix.height}
 
 
-def render_scale_for_rect(rect):
-    scale = TARGET_CROP_DPI / 72.0
-    pixel_area = max(1.0, rect.width * scale * rect.height * scale)
-    if pixel_area > MAX_RENDER_PIXELS:
-        scale *= (MAX_RENDER_PIXELS / pixel_area) ** 0.5
-    return max(MIN_RENDER_SCALE, min(MAX_RENDER_SCALE, scale))
-
-
-def save_page_crop(page, rect, output_dir, file_name, source_kind, metadata):
+def save_page_crop(page, rect, output_dir, file_name, source_kind, metadata, budget, warnings):
     page_rect = page.rect
     clipped = rect & page_rect
     if clipped.is_empty:
@@ -126,13 +233,28 @@ def save_page_crop(page, rect, output_dir, file_name, source_kind, metadata):
     if clipped.width < 80 or clipped.height < 60:
         return None
 
-    render_scale = render_scale_for_rect(clipped)
+    render_scale = bounded_render_scale(
+        clipped,
+        TARGET_CROP_DPI / 72.0,
+        budget.limits["maxRenderPixels"],
+    )
+    if render_scale is None:
+        warnings.append(
+            f"render_skipped: {source_kind} page {metadata['pageNumber']} has unsafe geometry"
+        )
+        return None
+    budget.ensure_artifact_slot()
     pix = page.get_pixmap(matrix=fitz.Matrix(render_scale, render_scale), clip=clipped, alpha=False)
+    if pix.width * pix.height > budget.limits["maxRenderPixels"]:
+        warnings.append(
+            f"render_skipped: {source_kind} page {metadata['pageNumber']} exceeded the rounded pixel limit"
+        )
+        return None
     if pix.width < 180 or pix.height < 120:
         return None
 
     image_path = os.path.join(output_dir, file_name)
-    dimensions = write_pixmap(pix, image_path)
+    dimensions = write_pixmap(pix, image_path, budget)
     crop_metadata = {
         **metadata,
         "bbox": rect_payload(rect),
@@ -716,17 +838,20 @@ def fallback_visual_region(page, image_coverage=0.0, ocr_used=False):
     )
 
 
-def extract(pdf_path, output_dir):
+def extract(pdf_path, output_dir, budget=None):
+    budget = budget or ExtractionBudget()
     os.makedirs(output_dir, exist_ok=True)
     document = fitz.open(pdf_path)
     pages = []
     images = []
     warnings = []
+    budget.set_page_count(document.page_count)
 
     for page_index, page in enumerate(document):
         page_number = page_index + 1
         text = page.get_text("text", sort=True) or ""
         ocr_used = False
+        needs_ocr = False
         image_coverage = page_image_coverage_ratio(page)
 
         # IDX-H4: trigger OCR by text-density relative to image coverage, not only a flat
@@ -734,18 +859,22 @@ def extract(pdf_path, output_dir):
         # rendered as an image with a short caption) are OCR'd and merged with the existing
         # text layer so caption + table contents are both retained.
         if should_ocr_page(text, page):
-            ocr_text, ocr_warning = maybe_ocr_page(page)
+            ocr_text, ocr_warning = maybe_ocr_page(page, budget)
             if ocr_warning:
                 warnings.append(ocr_warning)
             if ocr_text.strip():
                 text = merge_ocr_text(text, ocr_text)
                 ocr_used = True
+            else:
+                needs_ocr = True
 
+        budget.add_text(text)
         pages.append(
             {
                 "pageNumber": page_number,
                 "text": text,
                 "ocrUsed": ocr_used,
+                "needsOcr": needs_ocr,
                 "metadata": {
                     "image_coverage_ratio": round(image_coverage, 4),
                 },
@@ -755,6 +884,7 @@ def extract(pdf_path, output_dir):
         page_image_count = 0
         for image_index, image_info in enumerate(page.get_images(full=True)):
             xref = image_info[0]
+            budget.ensure_artifact_slot()
             extracted = document.extract_image(xref)
             ext = extracted.get("ext", "png")
             image_bytes = extracted["image"]
@@ -765,6 +895,7 @@ def extract(pdf_path, output_dir):
             image_path = os.path.join(
                 output_dir, f"page-{page_number}-image-{image_index + 1}.{ext}"
             )
+            budget.add_artifact(len(image_bytes))
             with open(image_path, "wb") as handle:
                 handle.write(image_bytes)
 
@@ -833,6 +964,8 @@ def extract(pdf_path, output_dir):
                     "extraction_method": table_candidate.get("extraction_method"),
                     "table_index": table_candidate.get("table_index"),
                 },
+                budget,
+                warnings,
             )
             if crop:
                 images.append(crop)
@@ -852,6 +985,8 @@ def extract(pdf_path, output_dir):
                     "source_kind": "diagram_crop",
                     "candidate_type": "vector_region",
                 },
+                budget,
+                warnings,
             )
             if crop:
                 images.append(crop)
@@ -886,21 +1021,42 @@ def extract(pdf_path, output_dir):
                         "page_visual_weight": page_visual_weight(page),
                         "ocr_used": ocr_used,
                   },
+                    budget,
+                    warnings,
                 )
                 if crop:
                     images.append(crop)
 
-    return {"pages": pages, "images": images, "warnings": warnings}
+    return {
+        "pages": pages,
+        "images": images,
+        "warnings": warnings,
+        "budgetUsage": budget.usage(),
+    }
 
 
 if __name__ == "__main__":
-    if len(sys.argv) not in (3, 4):
-        print("Usage: extract_pdf_assets.py input.pdf output_dir [output.json]", file=sys.stderr)
+    if len(sys.argv) not in (3, 4, 5):
+        print(
+            "Usage: extract_pdf_assets.py input.pdf output_dir [output.json] [budget.json]",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
-    result = extract(sys.argv[1], sys.argv[2])
-    if len(sys.argv) == 4:
-        with open(sys.argv[3], "w", encoding="utf-8") as handle:
-            json.dump(result, handle)
-    else:
-        print(json.dumps(result))
+    try:
+        limits = None
+        if len(sys.argv) == 5:
+            with open(sys.argv[4], "r", encoding="utf-8") as handle:
+                limits = json.load(handle)
+        extraction_budget = ExtractionBudget(limits)
+        result = extract(sys.argv[1], sys.argv[2], extraction_budget)
+        serialized = json.dumps(result)
+        extraction_budget.ensure_result(serialized)
+        if len(sys.argv) >= 4:
+            with open(sys.argv[3], "w", encoding="utf-8") as handle:
+                handle.write(serialized)
+        else:
+            print(serialized)
+    except ExtractionBudgetExceeded as exc:
+        print(f"PDF_EXTRACTION_BUDGET_EXCEEDED: {exc}", file=sys.stderr)
+        sys.exit(3)

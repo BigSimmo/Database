@@ -4108,6 +4108,7 @@ as $$
   cross join normalized
   where c.document_id = p_document_id
     and d.status = 'indexed'
+    and public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
     and (
       (p_owner_id is null and d.owner_id is null)
       or (p_owner_id is not null and (d.owner_id is null or d.owner_id = p_owner_id))
@@ -7525,3 +7526,616 @@ begin
     or public.retrieval_owner_matches_v2('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', true)
   then raise exception 'retrieval_owner_matches_v2 truth table failed'; end if;
 end $$;
+-- Require durable operator evidence before an owned document can enter the public corpus.
+-- Historical public rows are deliberately left untouched for separate operator investigation.
+
+create table if not exists public.document_publication_approvals (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid not null,
+  expected_prior_owner_id uuid not null,
+  approving_operator_id uuid not null,
+  decision text not null check (decision in ('approved', 'keep_private', 'quarantine')),
+  reason text not null check (char_length(trim(reason)) between 3 and 2000),
+  evidence_references text[] not null check (cardinality(evidence_references) > 0),
+  manifest_digest text not null check (manifest_digest ~ '^[0-9a-f]{64}$'),
+  approved_at timestamptz not null default now(),
+  unique (document_id, expected_prior_owner_id, manifest_digest)
+);
+
+create index if not exists document_publication_approvals_document_idx
+  on public.document_publication_approvals(document_id, approved_at desc);
+
+alter table public.document_publication_approvals enable row level security;
+revoke all on table public.document_publication_approvals from public, anon, authenticated;
+grant select, insert on table public.document_publication_approvals to service_role;
+
+drop policy if exists "document publication approvals service role" on public.document_publication_approvals;
+create policy "document publication approvals service role"
+  on public.document_publication_approvals for all to service_role using (true) with check (true);
+
+create or replace function public.prevent_document_publication_approval_mutation()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  raise exception 'document_publication_approvals is append-only';
+end;
+$$;
+
+revoke all on function public.prevent_document_publication_approval_mutation() from public, anon, authenticated;
+
+drop trigger if exists document_publication_approvals_immutable on public.document_publication_approvals;
+create trigger document_publication_approvals_immutable
+before update or delete on public.document_publication_approvals
+for each row execute function public.prevent_document_publication_approval_mutation();
+
+create or replace function public.guard_document_publication_transition()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  v_approval_id uuid;
+  v_manifest_digest text;
+begin
+  if tg_op = 'INSERT' then
+    if new.owner_id is null then
+      raise exception 'public documents must be created as owned rows before approved publication';
+    end if;
+    return new;
+  end if;
+
+  if old.owner_id is not null and new.owner_id is null then
+    begin
+      v_approval_id := nullif(new.metadata->>'publication_approval_id', '')::uuid;
+    exception when invalid_text_representation then
+      raise exception 'public document transition has an invalid publication approval id';
+    end;
+    v_manifest_digest := lower(coalesce(new.metadata->>'publication_manifest_digest', ''));
+
+    if v_approval_id is null or v_manifest_digest !~ '^[0-9a-f]{64}$' then
+      raise exception 'public document transition requires publication approval evidence';
+    end if;
+
+    if not exists (
+      select 1
+      from public.document_publication_approvals approval
+      where approval.id = v_approval_id
+        and approval.document_id = old.id
+        and approval.expected_prior_owner_id = old.owner_id
+        and approval.decision = 'approved'
+        and approval.manifest_digest = v_manifest_digest
+    ) then
+      raise exception 'public document transition approval does not match the document, prior owner, decision, and manifest';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.guard_document_publication_transition() from public, anon, authenticated;
+
+drop trigger if exists documents_require_publication_approval on public.documents;
+create trigger documents_require_publication_approval
+before insert or update on public.documents
+for each row execute function public.guard_document_publication_transition();
+
+create or replace function public.publish_approved_documents(
+  p_documents jsonb,
+  p_manifest_digest text,
+  p_expected_count integer
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_entry jsonb;
+  v_document public.documents%rowtype;
+  v_document_id uuid;
+  v_expected_owner_id uuid;
+  v_approval_id uuid;
+  v_manifest_digest text := lower(trim(coalesce(p_manifest_digest, '')));
+  v_count integer;
+  v_results jsonb := '[]'::jsonb;
+begin
+  if jsonb_typeof(p_documents) is distinct from 'array' then
+    raise exception 'publication documents must be a JSON array';
+  end if;
+  if v_manifest_digest !~ '^[0-9a-f]{64}$' then
+    raise exception 'publication manifest digest must be a lowercase SHA-256 value';
+  end if;
+
+  v_count := jsonb_array_length(p_documents);
+  if p_expected_count is null or p_expected_count < 1 or p_expected_count <> v_count then
+    raise exception 'publication expected count % does not match manifest count %', p_expected_count, v_count;
+  end if;
+  if exists (
+    select 1
+    from jsonb_array_elements(p_documents) entry
+    group by entry->>'document_id'
+    having count(*) > 1
+  ) then
+    raise exception 'publication manifest contains duplicate document ids';
+  end if;
+
+  for v_entry in select value from jsonb_array_elements(p_documents)
+  loop
+    begin
+      v_document_id := nullif(v_entry->>'document_id', '')::uuid;
+      v_expected_owner_id := nullif(v_entry->>'expected_owner_id', '')::uuid;
+    exception when invalid_text_representation then
+      raise exception 'publication manifest contains an invalid document or owner id';
+    end;
+    if v_document_id is null or v_expected_owner_id is null then
+      raise exception 'publication manifest requires document_id and expected_owner_id';
+    end if;
+
+    select * into v_document
+    from public.documents
+    where id = v_document_id
+    for update;
+    if not found then
+      raise exception 'publication document % was not found', v_document_id;
+    end if;
+    if v_document.owner_id is distinct from v_expected_owner_id then
+      raise exception 'publication document % owner changed from the manifest expectation', v_document_id;
+    end if;
+    if v_document.status <> 'indexed' then
+      raise exception 'publication document % is not indexed', v_document_id;
+    end if;
+
+    select approval.id into v_approval_id
+    from public.document_publication_approvals approval
+    where approval.document_id = v_document_id
+      and approval.expected_prior_owner_id = v_expected_owner_id
+      and approval.decision = 'approved'
+      and approval.manifest_digest = v_manifest_digest
+    order by approval.approved_at desc, approval.id desc
+    limit 1;
+    if v_approval_id is null then
+      raise exception 'publication document % lacks matching approved evidence', v_document_id;
+    end if;
+
+    if exists (
+      select 1 from public.document_labels where document_id = v_document_id and owner_id is distinct from v_expected_owner_id
+      union all select 1 from public.document_summaries where document_id = v_document_id and owner_id is distinct from v_expected_owner_id
+      union all select 1 from public.document_sections where document_id = v_document_id and owner_id is distinct from v_expected_owner_id
+      union all select 1 from public.document_memory_cards where document_id = v_document_id and owner_id is distinct from v_expected_owner_id
+      union all select 1 from public.document_table_facts where document_id = v_document_id and owner_id is distinct from v_expected_owner_id
+      union all select 1 from public.document_embedding_fields where document_id = v_document_id and owner_id is distinct from v_expected_owner_id
+      union all select 1 from public.document_index_quality where document_id = v_document_id and owner_id is distinct from v_expected_owner_id
+      union all select 1 from public.document_index_units where document_id = v_document_id and owner_id is distinct from v_expected_owner_id
+    ) then
+      raise exception 'publication document % has mismatched artifact ownership', v_document_id;
+    end if;
+
+    update public.document_labels set owner_id = null, updated_at = now() where document_id = v_document_id;
+    update public.document_summaries set owner_id = null, updated_at = now() where document_id = v_document_id;
+    update public.document_sections set owner_id = null, updated_at = now() where document_id = v_document_id;
+    update public.document_memory_cards set owner_id = null, updated_at = now() where document_id = v_document_id;
+    update public.document_table_facts set owner_id = null where document_id = v_document_id;
+    update public.document_embedding_fields set owner_id = null where document_id = v_document_id;
+    update public.document_index_quality set owner_id = null, updated_at = now() where document_id = v_document_id;
+    update public.document_index_units set owner_id = null, updated_at = now() where document_id = v_document_id;
+
+    update public.documents
+    set owner_id = null,
+        metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+          'public_corpus', true,
+          'publication_approval_id', v_approval_id,
+          'publication_manifest_digest', v_manifest_digest,
+          'published_at', now()
+        ),
+        updated_at = now()
+    where id = v_document_id;
+
+    v_results := v_results || jsonb_build_array(jsonb_build_object(
+      'document_id', v_document_id,
+      'previous_owner_id', v_expected_owner_id,
+      'approval_id', v_approval_id,
+      'outcome', 'published'
+    ));
+  end loop;
+
+  return jsonb_build_object(
+    'manifest_digest', v_manifest_digest,
+    'published_count', v_count,
+    'documents', v_results
+  );
+end;
+$$;
+
+revoke all on function public.publish_approved_documents(jsonb, text, integer) from public, anon, authenticated;
+grant execute on function public.publish_approved_documents(jsonb, text, integer) to service_role;
+-- Serialize permanent document deletion with ingestion job creation. The
+-- parent row lock conflicts with the FK key-share lock taken by a concurrent
+-- ingestion_jobs insert: either the job commits first and deletion returns an
+-- active_job outcome, or deletion commits first and the insert receives 23503.
+create or replace function public.delete_document_if_idle(
+  p_document_id uuid,
+  p_owner_id uuid,
+  p_document_bucket text,
+  p_image_bucket text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_document public.documents%rowtype;
+  v_active_job public.ingestion_jobs%rowtype;
+  v_cleanup_job_id uuid;
+  v_image_paths text[] := '{}'::text[];
+  v_chunk_ids uuid[] := '{}'::uuid[];
+begin
+  if p_document_id is null or p_owner_id is null then
+    raise exception 'Document and owner identifiers are required.' using errcode = '22023';
+  end if;
+  if nullif(btrim(p_document_bucket), '') is null or nullif(btrim(p_image_bucket), '') is null then
+    raise exception 'Storage bucket names are required.' using errcode = '22023';
+  end if;
+
+  select d.*
+    into v_document
+    from public.documents d
+   where d.id = p_document_id
+     and d.owner_id = p_owner_id
+   for update;
+
+  if not found then
+    return jsonb_build_object('outcome', 'not_found');
+  end if;
+
+  select j.*
+    into v_active_job
+    from public.ingestion_jobs j
+   where j.document_id = p_document_id
+     and j.status in ('pending', 'processing')
+   order by j.created_at asc, j.id asc
+   limit 1;
+
+  if found then
+    return jsonb_build_object(
+      'outcome', 'active_job',
+      'job_id', v_active_job.id,
+      'job_status', v_active_job.status
+    );
+  end if;
+
+  select coalesce(array_agg(distinct i.storage_path order by i.storage_path)
+                          filter (where i.storage_path is not null and btrim(i.storage_path) <> ''), '{}'::text[])
+    into v_image_paths
+    from public.document_images i
+   where i.document_id = p_document_id;
+
+  select coalesce(array_agg(c.id order by c.id), '{}'::uuid[])
+    into v_chunk_ids
+    from public.document_chunks c
+   where c.document_id = p_document_id;
+
+  insert into public.storage_cleanup_jobs (
+    owner_id,
+    document_id,
+    document_title,
+    document_bucket,
+    document_paths,
+    image_bucket,
+    image_paths,
+    status,
+    metadata
+  ) values (
+    p_owner_id,
+    p_document_id,
+    v_document.title,
+    p_document_bucket,
+    case
+      when v_document.storage_path is null or btrim(v_document.storage_path) = '' then '{}'::text[]
+      else array[v_document.storage_path]
+    end,
+    p_image_bucket,
+    v_image_paths,
+    'pending',
+    jsonb_build_object(
+      'operation', 'permanent_document_delete',
+      'created_by', 'delete_document_if_idle'
+    )
+  )
+  returning id into v_cleanup_job_id;
+
+  if cardinality(v_chunk_ids) > 0 then
+    delete from public.rag_queries
+     where source_chunk_ids && v_chunk_ids;
+    delete from public.rag_query_misses
+     where top_chunk_ids && v_chunk_ids
+        or cited_chunk_ids && v_chunk_ids;
+  end if;
+
+  delete from public.rag_query_misses
+   where clicked_document_id = p_document_id
+      or expected_document_id = p_document_id;
+
+  delete from public.rag_response_cache
+   where owner_id = p_owner_id
+     and cache_kind in ('search', 'answer');
+
+  delete from public.documents where id = p_document_id;
+
+  return jsonb_build_object(
+    'outcome', 'deleted',
+    'cleanup_job_id', v_cleanup_job_id,
+    'document_title', v_document.title,
+    'source_path', v_document.storage_path,
+    'image_paths', to_jsonb(v_image_paths)
+  );
+end;
+$$;
+
+revoke all on function public.delete_document_if_idle(uuid, uuid, text, text)
+  from public, anon, authenticated;
+grant execute on function public.delete_document_if_idle(uuid, uuid, text, text)
+  to service_role;
+
+
+create or replace function public.retry_ingestion_job_if_idle(
+  p_job_id uuid,
+  p_owner_id uuid,
+  p_stale_before timestamptz,
+  p_max_attempts integer,
+  p_next_run_at timestamptz,
+  p_document_updated_at timestamptz
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_job public.ingestion_jobs%rowtype;
+  v_document_status text;
+begin
+  if p_job_id is null or p_owner_id is null or p_stale_before is null
+     or p_next_run_at is null or p_document_updated_at is null
+     or p_max_attempts is null or p_max_attempts < 1 then
+    raise exception 'Retry identifiers, timestamps, and max attempts are required.' using errcode = '22023';
+  end if;
+
+  select j.*
+    into v_job
+  from public.ingestion_jobs j
+  join public.documents d on d.id = j.document_id
+   where j.id = p_job_id
+     and d.owner_id = p_owner_id
+   for update of d, j;
+
+  if not found then
+    return jsonb_build_object('outcome', 'not_found');
+  end if;
+
+  select status
+    into v_document_status
+  from public.documents
+  where id = v_job.document_id;
+  if v_job.status = 'completed' then
+    return jsonb_build_object('outcome', 'completed');
+  end if;
+  if v_job.status = 'processing'
+     and v_job.locked_at is not null
+     and v_job.locked_at >= p_stale_before then
+    return jsonb_build_object('outcome', 'active_worker');
+  end if;
+
+  update public.ingestion_jobs
+     set status = 'pending',
+         stage = 'queued',
+         progress = 0,
+         error_message = null,
+         attempt_count = 0,
+         max_attempts = p_max_attempts,
+         locked_at = null,
+         locked_by = null,
+         next_run_at = p_next_run_at,
+         completed_at = null
+   where id = p_job_id
+  returning * into v_job;
+
+  update public.documents
+     set status = case when v_document_status = 'indexed' then status else 'queued' end,
+         error_message = null,
+         updated_at = p_document_updated_at
+   where id = v_job.document_id
+     and owner_id = p_owner_id;
+  if not found then
+    raise exception 'Retry document disappeared while its row lock was held.' using errcode = '23503';
+  end if;
+
+  return jsonb_build_object('outcome', 'queued', 'job', to_jsonb(v_job));
+end;
+$$;
+
+revoke all on function public.retry_ingestion_job_if_idle(uuid, uuid, timestamptz, integer, timestamptz, timestamptz)
+  from public, anon, authenticated;
+grant execute on function public.retry_ingestion_job_if_idle(uuid, uuid, timestamptz, integer, timestamptz, timestamptz)
+  to service_role;
+-- Catalog-level, fail-closed verification for future objects created by
+-- supabase_admin. A missing pg_default_acl row must be interpreted through
+-- acldefault(), including PostgreSQL's built-in PUBLIC EXECUTE on functions.
+
+create or replace function public.default_privileges_status(
+  p_role_name text default 'supabase_admin',
+  p_schema_name text default 'public'
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_role_oid oid;
+  v_namespace_oid oid;
+  v_entries text[] := '{}'::text[];
+  v_safe boolean := false;
+  v_has_unexpected_grantee boolean := false;
+begin
+  select oid into v_role_oid from pg_catalog.pg_roles where rolname = p_role_name;
+  select oid into v_namespace_oid from pg_catalog.pg_namespace where nspname = p_schema_name;
+
+  if v_role_oid is null or v_namespace_oid is null then
+    return jsonb_build_object(
+      'role_exists', v_role_oid is not null,
+      'schema_exists', v_namespace_oid is not null,
+      'safe', false,
+      'entries', '[]'::jsonb
+    );
+  end if;
+
+  with object_types(object_type, object_code) as (
+    values ('table'::text, 'r'::"char"), ('sequence'::text, 'S'::"char"), ('function'::text, 'f'::"char")
+  ), effective_acls as (
+    select
+      ot.object_type,
+      coalesce(global_acl.defaclacl, pg_catalog.acldefault(ot.object_code, v_role_oid))
+        || coalesce(schema_acl.defaclacl, '{}'::aclitem[]) as acl
+    from object_types ot
+    left join pg_catalog.pg_default_acl global_acl
+      on global_acl.defaclrole = v_role_oid
+     and global_acl.defaclnamespace = 0
+     and global_acl.defaclobjtype = ot.object_code
+    left join pg_catalog.pg_default_acl schema_acl
+      on schema_acl.defaclrole = v_role_oid
+     and schema_acl.defaclnamespace = v_namespace_oid
+     and schema_acl.defaclobjtype = ot.object_code
+  ), exploded as (
+    select distinct
+      ea.object_type,
+      case when privilege.grantee = 0 then 'PUBLIC' else grantee.rolname end as grantee,
+      lower(privilege.privilege_type) as privilege_type
+    from effective_acls ea
+    cross join lateral pg_catalog.aclexplode(ea.acl) privilege
+    left join pg_catalog.pg_roles grantee on grantee.oid = privilege.grantee
+  )
+  select
+    coalesce(
+      array_agg(format('%s:%s:%s', object_type, grantee, privilege_type)
+                order by object_type, grantee, privilege_type),
+      '{}'::text[]
+    ),
+    coalesce(bool_or(grantee not in (p_role_name, 'postgres', 'service_role')), false)
+  into v_entries, v_has_unexpected_grantee
+  from exploded;
+
+  v_safe :=
+    not v_has_unexpected_grantee
+    and not exists (
+      select 1 from unnest(v_entries) entry
+       where entry like 'table:PUBLIC:%'
+          or entry like 'table:anon:%'
+          or entry like 'table:authenticated:%'
+          or entry like 'sequence:PUBLIC:%'
+          or entry like 'sequence:anon:%'
+          or entry like 'sequence:authenticated:%'
+          or entry = 'function:PUBLIC:execute'
+          or entry like 'function:anon:%'
+          or entry like 'function:authenticated:%'
+    )
+    and 'table:service_role:select' = any(v_entries)
+    and 'table:service_role:insert' = any(v_entries)
+    and 'table:service_role:update' = any(v_entries)
+    and 'table:service_role:delete' = any(v_entries)
+    and 'sequence:service_role:usage' = any(v_entries)
+    and 'sequence:service_role:select' = any(v_entries)
+    and 'function:service_role:execute' = any(v_entries)
+    and not exists (
+      select 1 from unnest(v_entries) entry
+       where entry like 'table:service_role:%'
+         and entry <> all(array[
+           'table:service_role:select', 'table:service_role:insert',
+           'table:service_role:update', 'table:service_role:delete'
+         ])
+    )
+    and not exists (
+      select 1 from unnest(v_entries) entry
+       where entry like 'sequence:service_role:%'
+         and entry <> all(array['sequence:service_role:usage', 'sequence:service_role:select'])
+    )
+    and not exists (
+      select 1 from unnest(v_entries) entry
+       where entry like 'function:service_role:%'
+         and entry <> 'function:service_role:execute'
+    );
+
+  return jsonb_build_object(
+    'role_exists', true,
+    'schema_exists', true,
+    'safe', v_safe,
+    'entries', to_jsonb(v_entries)
+  );
+end;
+$$;
+
+revoke all on function public.default_privileges_status(text, text)
+  from public, anon, authenticated;
+grant execute on function public.default_privileges_status(text, text)
+  to service_role;
+
+do $$
+declare
+  v_status jsonb;
+begin
+  if not exists (select 1 from pg_catalog.pg_roles where rolname = 'supabase_admin') then
+    raise notice 'role supabase_admin does not exist; default-privilege assertion is not applicable';
+    return;
+  end if;
+
+  begin
+    -- Local/Superuser-capable environments can assume the target role even
+    -- when the migration role cannot use ALTER DEFAULT PRIVILEGES FOR ROLE
+    -- directly. Hosted environments that cannot assume it fall through to the
+    -- catalog assertion and block with operator instructions.
+    execute 'set local role supabase_admin';
+    -- Revokes must be global: per-schema ACLs cannot subtract privileges from
+    -- built-in or previously granted global defaults.
+    alter default privileges for role supabase_admin
+      revoke all privileges on tables from public, anon, authenticated, service_role;
+    alter default privileges for role supabase_admin in schema public
+      revoke all privileges on tables from public, anon, authenticated, service_role;
+    alter default privileges for role supabase_admin
+      revoke all privileges on sequences from public, anon, authenticated, service_role;
+    alter default privileges for role supabase_admin in schema public
+      revoke all privileges on sequences from public, anon, authenticated, service_role;
+    alter default privileges for role supabase_admin
+      revoke execute on functions from public, anon, authenticated, service_role;
+    alter default privileges for role supabase_admin in schema public
+      revoke execute on functions from public, anon, authenticated, service_role;
+    alter default privileges for role supabase_admin in schema public
+      grant select, insert, update, delete on tables to service_role;
+    alter default privileges for role supabase_admin in schema public
+      grant usage, select on sequences to service_role;
+    alter default privileges for role supabase_admin in schema public
+      grant execute on functions to service_role;
+    execute 'reset role';
+  exception when insufficient_privilege then
+    begin execute 'reset role'; exception when others then null; end;
+    raise notice 'current role % cannot remediate supabase_admin default privileges; asserting the catalog postcondition', current_user;
+  end;
+
+  v_status := public.default_privileges_status('supabase_admin', 'public');
+  if not coalesce((v_status->>'safe')::boolean, false) then
+    raise exception using
+      errcode = '42501',
+      message = 'Unsafe supabase_admin default privileges; migration blocked.',
+      detail = v_status::text,
+      hint = E'Run these six statements as supabase_admin, then retry the migration:\n'
+        'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC, anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC, anon, authenticated, service_role; END $remediate$;\n'
+        'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC, anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC, anon, authenticated, service_role; END $remediate$;\n'
+        'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated, service_role; END $remediate$;\n'
+        'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO service_role;\n'
+        'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO service_role;\n'
+        'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO service_role;';
+  end if;
+end;
+$$;
