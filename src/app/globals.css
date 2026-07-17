@@ -263,7 +263,6 @@
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 64%), 0 12px 34px rgb(8 16 24 / 7%);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 58%);
   --shadow-card: var(--shadow-tight);
-  --ring-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 30%, transparent);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -418,7 +417,6 @@
   --shadow-elevated: 0 2px 8px rgb(0 0 0 / 46%), 0 12px 30px rgb(0 0 0 / 48%), 0 28px 58px rgb(0 0 0 / 50%);
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 4%), 0 18px 44px rgb(0 0 0 / 64%);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 4%);
-  --ring-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 30%, transparent);
   color-scheme: dark;
 }
 
@@ -487,15 +485,20 @@ select {
   -webkit-tap-highlight-color: transparent;
 }
 
-button:focus-visible,
-a:focus-visible,
-summary:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
-  box-shadow: var(--ring-focus);
+/* One focus owner per interaction. Buttons and links use a single external
+   outline; form fields draw the same outline inside their own box so scroll
+   containers and sheets cannot clip it at an edge. Keeping these unlayered is
+   intentional: it prevents component-level `focus:ring-*` utilities from
+   stacking a second halo on top of the shared treatment. */
+:where(button, a, summary, input[type="checkbox"], input[type="radio"], input[type="range"]):focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus-visible {
+  box-shadow: var(--shadow-inset);
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
 }
 
 button,
@@ -1106,6 +1109,14 @@ summary::-webkit-details-marker {
   letter-spacing: 0;
 }
 
+/* The universal composer form is the visible control and already owns its
+   focus-within border + halo. Suppress the nested text field's global focus
+   paint so the pill never renders competing or clipped concentric rings. */
+.answer-footer-search-input:focus-visible {
+  box-shadow: none;
+  outline: none;
+}
+
 .answer-footer-search-input::placeholder {
   color: color-mix(in srgb, var(--text-muted) 72%, var(--text-soft));
   font-weight: 560;
@@ -1219,6 +1230,96 @@ summary::-webkit-details-marker {
 
 .answer-suggestion-row-scroll::-webkit-scrollbar {
   display: none;
+}
+
+/* Medication result views use full-bleed structure on phones while keeping
+   readable content inside the device safe area. The dashboard content shell
+   contributes 0.75rem phone gutters, so the workspace cancels only that known
+   inset rather than using 100vw (which can create page-level overflow). */
+@media (max-width: 639px) {
+  .medication-results-workspace {
+    width: calc(100% + 1.5rem);
+    max-width: none;
+    margin-inline: -0.75rem;
+  }
+
+  .medication-results-inset {
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
+  }
+
+  .medication-also-matches,
+  .medication-patient-strip {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .medication-also-matches,
+  .medication-patient-strip > summary,
+  .medication-patient-strip > div {
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
+  }
+
+  .medication-filter-strip {
+    overscroll-behavior-inline: contain;
+    scroll-padding-left: max(1rem, var(--safe-area-left));
+    scroll-padding-right: max(1rem, var(--safe-area-right));
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
+  }
+
+  .medication-mobile-results {
+    gap: 0;
+    border-block: 1px solid var(--border);
+    background: var(--surface-raised);
+  }
+
+  .medication-mobile-result {
+    border-top: 0;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+    padding-block: 0.75rem;
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
+    box-shadow: none;
+  }
+
+  .medication-mobile-result:last-child {
+    border-bottom: 0;
+  }
+
+  .medication-mobile-result[data-selected="true"] {
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--clinical-accent-soft) 42%, var(--surface-raised));
+    box-shadow: inset 3px 0 0 var(--clinical-accent);
+  }
+
+  .medication-mobile-result:focus-visible {
+    outline-offset: -2px;
+  }
+}
+
+/* Wide phones in landscape can cross the sm breakpoint while still exposing
+   substantial left/right cutout insets. Preserve the normal tablet card gutter,
+   then add only the safe-area remainder so text never sits beneath a notch. */
+@media (min-width: 640px) and (max-width: 1023px) {
+  .medication-results-inset,
+  .medication-also-matches,
+  .medication-filter-strip {
+    padding-left: max(0px, calc(var(--safe-area-left) - 1rem));
+    padding-right: max(0px, calc(var(--safe-area-right) - 1rem));
+  }
+
+  .medication-patient-strip > summary,
+  .medication-patient-strip > div,
+  .medication-mobile-result {
+    padding-left: max(0.75rem, calc(var(--safe-area-left) - 0.25rem));
+    padding-right: max(0.75rem, calc(var(--safe-area-right) - 0.25rem));
+  }
 }
 
 /* Answer-thread follow-ups: the label reads as an eyebrow above the chips so
@@ -1947,27 +2048,40 @@ summary::-webkit-details-marker {
     box-shadow: none !important;
   }
 
-  /* Premium hover transitions for source capsules */
-  .source-capsule-hover {
+  /* Source capsule: a compact visible face inside an invisible 44px tap target.
+     Border/shadow/transform live here (component layer) so the face reads small
+     while the hover, expanded, and focus chrome stay premium. Border colour is
+     owned here — the face carries no border-colour utility — so these rules win
+     without !important. */
+  .source-capsule-face {
+    border-color: var(--border);
     transition:
       border-color 150ms ease,
       box-shadow 150ms ease,
-      transform 150ms ease !important;
+      transform 150ms ease;
   }
 
-  .source-capsule-hover:hover {
-    transform: translateY(-1px) !important;
-    box-shadow: var(--shadow-tight) !important;
+  .source-capsule-hit:hover .source-capsule-face {
+    transform: translateY(-1px);
+    border-color: var(--clinical-accent-border);
+    box-shadow: var(--shadow-tight);
   }
 
-  .source-capsule-hover[aria-expanded="true"] {
+  .source-capsule-hit[aria-expanded="true"] .source-capsule-face {
     border-color: var(--clinical-accent);
     box-shadow: var(--shadow-tight), var(--shadow-inset);
   }
 
-  .source-capsule-hover[aria-expanded="true"]:hover {
-    transform: translateY(-1px) !important;
+  .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
+    transform: translateY(-1px);
+    border-color: var(--clinical-accent);
     box-shadow: var(--shadow-tight), var(--shadow-inset);
+  }
+
+  .source-capsule-hit:focus-visible .source-capsule-face {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--focus) 25%, transparent);
   }
 
   .polished-scroll {
@@ -2036,8 +2150,8 @@ summary::-webkit-details-marker {
     transition-duration: 0.01ms !important;
   }
 
-  .source-capsule-hover:hover,
-  .source-capsule-hover[aria-expanded="true"]:hover {
+  .source-capsule-hit:hover .source-capsule-face,
+  .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
     transform: none !important;
   }
 }
@@ -2085,7 +2199,10 @@ summary::-webkit-details-marker {
     --tone-slate: CanvasText;
     --focus: Highlight;
     --surface-lux: Canvas;
+    --surface-glass: Canvas;
     --surface-wash: Canvas;
+    --panel-gloss: Canvas;
+    --overlay-backdrop: CanvasText;
     --text-heading: CanvasText;
     --border-lux: ButtonBorder;
     --glow-primary: none;
@@ -2148,6 +2265,14 @@ summary::-webkit-details-marker {
   .source-print {
     overflow: visible !important;
     box-shadow: none !important;
+  }
+
+  details.source-print > summary {
+    display: none !important;
+  }
+
+  details.source-print > :not(summary) {
+    display: block !important;
   }
 
   a {

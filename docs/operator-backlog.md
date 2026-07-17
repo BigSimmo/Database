@@ -8,6 +8,9 @@ This exists so that launch-blocking state lives in the repo instead of chat memo
 `⏳ pending`, `🔎 verify` (may already be done — confirm before repeating), `✅ done`, `—` (n/a).
 Update the row (and its runbook) when an action lands. The sequenced flow with exact commands and
 approval gates is [launch-operator-runbook.md](launch-operator-runbook.md); this table is the index.
+Code + ops remediation waves from the 2026-07-14 multi-skill audit live in
+[audit-remediation-plan-2026-07-14.md](audit-remediation-plan-2026-07-14.md).
+Findings inventory for handover: [audit-handover-2026-07-14.md](audit-handover-2026-07-14.md).
 
 > Status column is seeded from repo runbooks + session memory and **must be confirmed against live
 > state** before acting — do not treat a `🔎 verify` row as authoritative.

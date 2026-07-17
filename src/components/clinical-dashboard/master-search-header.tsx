@@ -235,7 +235,7 @@ export function MasterSearchHeader({
    *  search pill sits in the middle of the hero on phones as well as desktop
    *  instead of docking to the bottom edge. */
   desktopHomeComposerSlotId?: string;
-  /** Phone-only slot rendered above the bottom search pill for page-specific dock addons. */
+  /** Mobile/tablet slot rendered above the search pill for page-specific composer addons. */
   mobileBottomSearchAddonSlotId?: string;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
@@ -276,6 +276,7 @@ export function MasterSearchHeader({
     selectedSearch.kind === "services" ||
     selectedSearch.kind === "tools" ||
     selectedSearch.kind === "favourites" ||
+    selectedSearch.kind === "specifiers" ||
     selectedSearch.kind === "formulation" ||
     selectedSearch.kind === "dsm";
   const canAsk = trimmedQuery.length >= 1 && !loading && selectedSearchable && (realDataReady || canRunLocalSearch);
@@ -320,7 +321,9 @@ export function MasterSearchHeader({
     searchComposerVisible &&
     !desktopHomeComposerSlotId &&
     (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
-  const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
+  const bottomComposerScrollHiddenActive = Boolean(
+    hideOnScroll && phoneBottomSearchDockActive && !mobileBottomSearchAddonSlotId,
+  );
   const bottomComposerHidden =
     bottomComposerScrollHiddenActive &&
     scrollHidden &&
@@ -631,15 +634,15 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "specifiers-builder") {
-      window.location.assign("/formulation/builder");
+      window.location.assign("/specifiers/builder");
       return;
     }
     if (actionId === "specifiers-compare") {
-      window.location.assign("/formulation/compare");
+      window.location.assign("/specifiers/compare");
       return;
     }
     if (actionId === "specifiers-map") {
-      window.location.assign("/formulation/map");
+      window.location.assign("/specifiers/map");
       return;
     }
     if (actionId === "formulation-search") {
@@ -734,6 +737,10 @@ export function MasterSearchHeader({
       event.preventDefault();
       setModeMenuOpen(false);
       window.requestAnimationFrame(() => modeButtonRef.current?.focus());
+    } else if (event.key === "Tab") {
+      // Let the browser advance focus normally, but do not leave an abandoned
+      // menu open after keyboard focus moves into the surrounding header.
+      setModeMenuOpen(false);
     }
   }
 
@@ -1187,7 +1194,11 @@ export function MasterSearchHeader({
     const ModeIdentityIcon = appModeIcons[searchMode];
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
-    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
+    // A differential comparison is a persistent batch action: hiding its host
+    // dock on downward scroll makes the CTA slide under mobile browser chrome
+    // and disables pointer events just when users finish reviewing the list.
+    // Keep that dock pinned while the header can still collapse independently.
+    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock && !mobileBottomSearchAddonSlotId);
     // Phone submitted non-answer result docks reserve pill-only scroll
     // clearance (ClinicalDashboard <main> margins / global-search-shell
     // mobileComposerReserve), so an extra notice line would push the fixed
@@ -1236,7 +1247,7 @@ export function MasterSearchHeader({
         )}
       >
         {usesBottomComposerPlacement ? <div className="answer-footer-search-backdrop" aria-hidden="true" /> : null}
-        {usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? (
+        {usesMobileBottomStyle && mobileBottomSearchAddonSlotId ? (
           <div
             id={mobileBottomSearchAddonSlotId}
             className="differentials-mobile-search-addon relative z-10 w-full empty:hidden"
@@ -1580,7 +1591,7 @@ export function MasterSearchHeader({
               aria-label={`Mode ${selectedAppMode.label}`}
             >
               <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
-                <SelectedAppModeIcon className="h-3.5 w-3.5" />
+                <SelectedAppModeIcon aria-hidden="true" className="h-3.5 w-3.5" />
               </span>
               <span className="min-w-0">
                 <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-muted)] sm:block">
@@ -1639,7 +1650,7 @@ export function MasterSearchHeader({
                             : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
                         )}
                       >
-                        <Icon className="h-4 w-4" />
+                        <Icon aria-hidden="true" className="h-4 w-4" />
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">{mode.label}</span>

@@ -12,14 +12,17 @@ import {
   isSearchableAppMode,
   visibleAppModeDefinitions,
 } from "@/lib/app-modes";
-import { universalSearchPreferredDomains } from "@/lib/universal-search-mode-context";
+import { universalSearchModeForDomain, universalSearchPreferredDomains } from "@/lib/universal-search-mode-context";
 
 describe("app mode search contract", () => {
   it("maps every mode to its preferred universal-search domains", () => {
     expect(universalSearchPreferredDomains("answer")).toEqual(["documents"]);
     expect(universalSearchPreferredDomains("prescribing")).toEqual(["medications", "documents"]);
     expect(universalSearchPreferredDomains("differentials")).toEqual(["differentials", "presentations"]);
-    expect(universalSearchPreferredDomains("formulation")).toEqual(["specifiers"]);
+    expect(universalSearchPreferredDomains("specifiers")).toEqual(["specifiers"]);
+    expect(universalSearchPreferredDomains("formulation")).toEqual(["formulation"]);
+    expect(universalSearchModeForDomain("specifiers")).toBe("specifiers");
+    expect(universalSearchModeForDomain("formulation")).toBe("formulation");
     expect(universalSearchPreferredDomains("favourites")).toEqual([]);
   });
 
@@ -124,7 +127,7 @@ describe("app mode search contract", () => {
     expect(config.placeholder.toLowerCase()).toContain("pattern");
   });
 
-  it("keeps specifiers searchable as a standalone local decision-support mode", () => {
+  it("keeps specifiers separate from formulation as diagnostic wording support", () => {
     const config = appModeSearchConfig("specifiers");
     const mode = appModeDefinitions.find((definition) => definition.id === "specifiers");
 
@@ -133,6 +136,7 @@ describe("app mode search contract", () => {
     expect(config.kind).toBe("specifiers");
     expect(config.resultKind).toBe("specifiers");
     expect(config.placeholder.toLowerCase()).toContain("specifier");
+    expect(appModeHomeHref("specifiers")).not.toBe(appModeHomeHref("formulation"));
   });
 
   it("routes DSM searches to the dedicated local catalogue", () => {
@@ -158,8 +162,8 @@ describe("app mode search contract", () => {
     expect(appModeCanUseSourceLibraryShortcut("favourites")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("prescribing")).toBe(true);
     expect(appModeCanUseSourceLibraryShortcut("differentials")).toBe(true);
-    expect(appModeCanUseSourceLibraryShortcut("formulation")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("specifiers")).toBe(false);
+    expect(appModeCanUseSourceLibraryShortcut("formulation")).toBe(false);
 
     expect(appModeSourceLibrarySearchMode("documents")).toBe("documents");
     expect(appModeSourceLibrarySearchMode("services")).toBe("documents");
@@ -189,6 +193,9 @@ describe("app mode search contract", () => {
     );
     expect(appModeHomeHref("differentials", { query: "  acute confusion  ", focus: true })).toBe(
       "/differentials?q=acute+confusion&focus=1",
+    );
+    expect(appModeHomeHref("specifiers", { query: "  depressed but racing thoughts  ", run: true, focus: true })).toBe(
+      "/specifiers?q=depressed+but+racing+thoughts&focus=1&run=1",
     );
     expect(appModeHomeHref("formulation", { query: "  I keep going over it  ", run: true, focus: true })).toBe(
       "/formulation?q=I+keep+going+over+it&focus=1&run=1",
@@ -281,5 +288,17 @@ describe("app mode search contract", () => {
       ]),
     );
     expect(developmentModes).not.toContain("evidence");
+  });
+
+  it("holds Therapy Compass out of production discovery until clinician sign-off", () => {
+    // Gated devOnly while the re-curated therapy pathways await qualified-clinician
+    // sign-off: available in the dev switcher, hidden from the production sidebar and
+    // MODE dropdown. Flipping this to visible should be a deliberate, reviewed act —
+    // hence this guard fails until devOnly is removed from the mode definition.
+    expect(isAppModeId("therapy-compass")).toBe(true);
+    expect(isAppModeVisible("therapy-compass", "development")).toBe(true);
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(false);
+    expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).toContain("therapy-compass");
+    expect(visibleAppModeDefinitions("production").map((mode) => mode.id)).not.toContain("therapy-compass");
   });
 });

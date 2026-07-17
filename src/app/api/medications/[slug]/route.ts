@@ -17,7 +17,7 @@ import {
   rowToMedicationRecord,
   type MedicationRecordRow,
 } from "@/lib/medication-records";
-import { publicAccessContext, shouldResolvePublicCatalogAccess } from "@/lib/public-api-access";
+import { publicAccessContext } from "@/lib/public-api-access";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 
@@ -61,15 +61,9 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       });
     }
 
-    if (!shouldResolvePublicCatalogAccess(request)) {
-      const payload = publicMedicationDetailPayload(normalizedSlug);
-      if (!payload) return notFoundResponse(normalizedSlug);
-      return medicationResponse({
-        ...payload,
-        publicAccess: true,
-      });
-    }
-
+    // Anonymous callers still resolve access + rate limit before we serve the seed detail:
+    // publicAccessContext skips the Supabase auth round-trip when there's no session cookie/bearer,
+    // but every caller must pass the registry limiter (M4/C1 — no anonymous bypass).
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
 

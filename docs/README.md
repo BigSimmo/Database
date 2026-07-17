@@ -63,9 +63,7 @@ npm run docs:check-links
 - [search-rag-master-plan.md](search-rag-master-plan.md) / [search-rag-master-context.md](search-rag-master-context.md) — search/RAG roadmap and shared context
 - [rag-hybrid-findings-and-todo.md](rag-hybrid-findings-and-todo.md) — hybrid retrieval findings backlog
 - [reindex-shadow-harness-design.md](reindex-shadow-harness-design.md) — designed-only shadow reindex harness (driver not built)
-- [forward-codify-retrieval-rpcs-workorder.md](forward-codify-retrieval-rpcs-workorder.md) — retrieval RPC codification workorder
 - [ingestion-concurrency-fix-workorder.md](ingestion-concurrency-fix-workorder.md) — ingestion concurrency workorder
-- [project-alignment-cleanup.md](project-alignment-cleanup.md) — repo alignment cleanup tracker
 - [redesign/](redesign/) — premium redesign plans, decision log, token adoption
 - [superpowers/](superpowers/) — agent-authored plans and specs
 
@@ -75,6 +73,8 @@ Dated status reports, reviews, and operator decisions. They describe the repo
 as it was on that date; supersede with a new dated document rather than editing.
 
 - [audit/](audit/) — repo and UX/accessibility audits
+- [forward-codify-retrieval-rpcs-workorder.md](forward-codify-retrieval-rpcs-workorder.md) — completed retrieval RPC codification workorder
+- [project-alignment-cleanup.md](project-alignment-cleanup.md) — completed June 2026 repo-alignment record
 - [capacity-review.md](capacity-review.md), [scale-readiness-review.md](scale-readiness-review.md), [tenancy-defense-in-depth-review.md](tenancy-defense-in-depth-review.md)
 - `*-2026-*` findings and status docs, e.g. [chunking-ocr-reindex-lever-finding-2026-07-08.md](chunking-ocr-reindex-lever-finding-2026-07-08.md), [source-governance-status-2026-07-08.md](source-governance-status-2026-07-08.md), [source-governance-priorities-2026-07-02.md](source-governance-priorities-2026-07-02.md), [source-review-priority-2026-07-02.md](source-review-priority-2026-07-02.md), [operator-apply-july8-batch.md](operator-apply-july8-batch.md)
 

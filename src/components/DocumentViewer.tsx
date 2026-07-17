@@ -25,6 +25,7 @@ import {
   Pencil,
   Trash2,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { type FormEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AccessibleTable, hasRenderableAccessibleTable } from "@/components/AccessibleTable";
@@ -540,7 +541,7 @@ function TableReviewPanel({
 }) {
   if (!tableFacts.length) return null;
   return (
-    <details className={cn(sourceCard, "p-3")} open>
+    <details className={cn(sourceCard, "p-3")}>
       <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
         Table review queue ({tableFacts.length})
       </summary>
@@ -623,6 +624,10 @@ function DocumentViewerAnchors({
           <a
             key={anchor.href}
             href={anchor.href}
+            onClick={() => {
+              const target = window.document.querySelector(anchor.href);
+              if (target instanceof HTMLDetailsElement) target.open = true;
+            }}
             className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <Icon className="h-3.5 w-3.5" />
@@ -631,6 +636,40 @@ function DocumentViewerAnchors({
         );
       })}
     </nav>
+  );
+}
+
+function DocumentSectionSummary({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+}) {
+  return (
+    <summary className="flex min-h-[72px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+      <span className="inline-flex min-w-0 items-start gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+          <Icon aria-hidden="true" className="h-4 w-4" />
+        </span>
+        <span className="min-w-0">
+          <span
+            role="heading"
+            aria-level={2}
+            className="block text-base font-semibold text-[color:var(--text-heading)]"
+          >
+            {title}
+          </span>
+          <span className={cn("mt-1 block text-sm leading-6", textMuted)}>{description}</span>
+        </span>
+      </span>
+      <ChevronDown
+        aria-hidden="true"
+        className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180"
+      />
+    </summary>
   );
 }
 
@@ -1567,6 +1606,39 @@ export function DocumentViewer({
   chunkId?: string;
 }) {
   const router = useRouter();
+  useEffect(() => {
+    const previousOpenStates = new Map<HTMLDetailsElement, boolean>();
+    const expandPrintableDisclosures = () => {
+      if (previousOpenStates.size) return;
+      previousOpenStates.clear();
+      const printable = window.document.querySelectorAll<HTMLDetailsElement>("details.source-print");
+      window.document
+        .querySelectorAll<HTMLDetailsElement>('details.source-print, details[name="document-viewer-section"]')
+        .forEach((disclosure) => {
+          previousOpenStates.set(disclosure, disclosure.open);
+        });
+      printable.forEach((disclosure) => {
+        disclosure.open = true;
+      });
+    };
+    const restorePrintableDisclosures = () => {
+      const connected = [...previousOpenStates].filter(([disclosure]) => disclosure.isConnected);
+      connected.forEach(([disclosure]) => {
+        disclosure.open = false;
+      });
+      connected.forEach(([disclosure, wasOpen]) => {
+        if (wasOpen) disclosure.open = true;
+      });
+      previousOpenStates.clear();
+    };
+    window.addEventListener("beforeprint", expandPrintableDisclosures);
+    window.addEventListener("afterprint", restorePrintableDisclosures);
+    return () => {
+      restorePrintableDisclosures();
+      window.removeEventListener("beforeprint", expandPrintableDisclosures);
+      window.removeEventListener("afterprint", restorePrintableDisclosures);
+    };
+  }, []);
   const [document, setDocument] = useState<ClinicalDocument | null>(null);
   const [pages, setPages] = useState<PageRow[]>([]);
   const [images, setImages] = useState<ImageRow[]>([]);
@@ -2641,7 +2713,11 @@ export function DocumentViewer({
               compact
               sectionId="source-evidence"
             />
-            <details id="source-text-mobile" className={cn("group min-w-0 scroll-mt-24", panel)}>
+            <details
+              id="source-text-mobile"
+              name="document-viewer-section"
+              className={cn("group min-w-0 scroll-mt-24", panel)}
+            >
               <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
                 <span className="inline-flex min-w-0 items-center gap-3">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
@@ -2722,91 +2798,98 @@ export function DocumentViewer({
           </div>
 
           {document ? (
-            <section
+            <details
               id="source-summary"
+              name="document-viewer-section"
               data-testid="high-yield-summary"
-              className={cn(panel, "scroll-mt-24 p-4 source-print md:col-span-2 lg:col-span-1")}
+              className={cn(panel, "group scroll-mt-24 source-print md:col-span-2 lg:col-span-1")}
             >
-              <PanelHeading
+              <DocumentSectionSummary
                 icon={Sparkles}
                 title={
                   document.summary?.clinical_specifics?.profile ? "Clinical document profile" : "High-yield summary"
                 }
                 description="What this document covers, from its indexed evidence."
               />
-              <BadgeCluster items={summaryBadges} limit={8} showOverflowCount className="mt-3" />
-              {document.summary?.clinical_specifics?.profile ? (
-                <ClinicalSummaryProfile profile={document.summary.clinical_specifics.profile} />
-              ) : (
-                <FormattedHighYieldSummary
-                  formatted={formattedStoredSummary}
-                  showLead={formattedStoredSummary.sections.length === 0}
-                />
-              )}
-              {!document.summary?.clinical_specifics?.profile && document.summary?.clinical_specifics && (
-                <div className="mt-4 space-y-4">
-                  {Object.entries(document.summary.clinical_specifics)
-                    .filter(([key, items]) => key !== "profile" && Array.isArray(items) && items.length > 0)
-                    .slice(0, 6)
-                    .map(([key, items]) => (
-                      <section key={key} className="border-t border-[color:var(--border)] pt-3">
-                        <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                          {key.replaceAll("_", " ")}
-                        </h3>
-                        <ul
-                          className={cn(
-                            proseMeasure,
-                            "mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text-muted)]",
-                          )}
-                        >
-                          {(items as string[]).slice(0, 5).map((item, index) => (
-                            <li key={`${key}:${index}:${item}`} className="flex gap-2">
-                              <span
-                                aria-hidden="true"
-                                className="mt-[0.65em] h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--clinical-accent)]"
-                              />
-                              <span>
-                                <SafeBoldText text={item} />
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    ))}
-                </div>
-              )}
-              {document.labels?.length ? (
-                <div className="mt-4 border-t border-[color:var(--border)] pt-3">
-                  <p className={eyebrowText}>Browse by tag</p>
-                  <DocumentTagCloud
-                    labels={document.labels}
-                    limit={18}
-                    className="mt-2"
-                    onTagClick={searchByTag}
-                    grouped
+              <div className={cn(clinicalDivider, "p-4 pt-3")}>
+                <BadgeCluster items={summaryBadges} limit={8} showOverflowCount />
+                {document.summary?.clinical_specifics?.profile ? (
+                  <ClinicalSummaryProfile profile={document.summary.clinical_specifics.profile} />
+                ) : (
+                  <FormattedHighYieldSummary
+                    formatted={formattedStoredSummary}
+                    showLead={formattedStoredSummary.sections.length === 0}
                   />
-                </div>
-              ) : null}
-              {canUsePrivateApis ? (
-                <details className={cn(sourceCard, "mt-4 p-3")}>
-                  <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
-                    Document tools
-                  </summary>
-                  <DocumentManualTagEditor
-                    document={document}
-                    canManage={canUsePrivateApis}
-                    clientDemoMode={clientDemoMode}
-                    authorizationHeader={authorizationHeader}
-                    onLabelsUpdated={handleDocumentLabelsUpdated}
-                    onUnauthorized={markSessionExpired}
-                  />
-                </details>
-              ) : null}
-            </section>
+                )}
+                {!document.summary?.clinical_specifics?.profile && document.summary?.clinical_specifics && (
+                  <div className="mt-4 space-y-4">
+                    {Object.entries(document.summary.clinical_specifics)
+                      .filter(([key, items]) => key !== "profile" && Array.isArray(items) && items.length > 0)
+                      .slice(0, 6)
+                      .map(([key, items]) => (
+                        <section key={key} className="border-t border-[color:var(--border)] pt-3">
+                          <h3 className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                            {key.replaceAll("_", " ")}
+                          </h3>
+                          <ul
+                            className={cn(
+                              proseMeasure,
+                              "mt-2 space-y-1.5 text-base-minus leading-6 text-[color:var(--text-muted)]",
+                            )}
+                          >
+                            {(items as string[]).slice(0, 5).map((item, index) => (
+                              <li key={`${key}:${index}:${item}`} className="flex gap-2">
+                                <span
+                                  aria-hidden="true"
+                                  className="mt-[0.65em] h-1.5 w-1.5 shrink-0 rounded-full bg-[color:var(--clinical-accent)]"
+                                />
+                                <span>
+                                  <SafeBoldText text={item} />
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </section>
+                      ))}
+                  </div>
+                )}
+                {document.labels?.length ? (
+                  <div className="mt-4 border-t border-[color:var(--border)] pt-3">
+                    <p className={eyebrowText}>Browse by tag</p>
+                    <DocumentTagCloud
+                      labels={document.labels}
+                      limit={18}
+                      className="mt-2"
+                      onTagClick={searchByTag}
+                      grouped
+                    />
+                  </div>
+                ) : null}
+                {canUsePrivateApis ? (
+                  <details className={cn(sourceCard, "mt-4 p-3")}>
+                    <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
+                      Document tools
+                    </summary>
+                    <DocumentManualTagEditor
+                      document={document}
+                      canManage={canUsePrivateApis}
+                      clientDemoMode={clientDemoMode}
+                      authorizationHeader={authorizationHeader}
+                      onLabelsUpdated={handleDocumentLabelsUpdated}
+                      onUnauthorized={markSessionExpired}
+                    />
+                  </details>
+                ) : null}
+              </div>
+            </details>
           ) : null}
 
-          <section id="source-images" className={cn(panel, "scroll-mt-24 p-4 md:col-span-2 lg:col-span-1")}>
-            <PanelHeading
+          <details
+            id="source-images"
+            name="document-viewer-section"
+            className={cn(panel, "group scroll-mt-24 md:col-span-2 lg:col-span-1")}
+          >
+            <DocumentSectionSummary
               icon={FileImage}
               title="Tables and diagrams"
               description={
@@ -2817,7 +2900,7 @@ export function DocumentViewer({
                     : `${clinicalImages.length} indexed tables, diagrams, and image captions.`
               }
             />
-            <div className="mt-3 space-y-3">
+            <div className={cn(clinicalDivider, "space-y-3 p-4 pt-3")}>
               {canUsePrivateApis && tableFacts.length ? (
                 <details className={cn(sourceCard, "p-3")}>
                   <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
@@ -2853,12 +2936,27 @@ export function DocumentViewer({
                 </details>
               ) : null}
             </div>
-          </section>
+          </details>
 
           {indexHealth ? (
-            <details data-testid="indexing-details" className={cn(panel, "p-3 md:col-span-2 lg:col-span-1")}>
-              <summary className={cn("cursor-pointer select-none", eyebrowText)}>Indexing details</summary>
-              <dl className="mt-3 grid gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:grid-cols-2">
+            <details
+              name="document-viewer-section"
+              data-testid="indexing-details"
+              className={cn(panel, "group md:col-span-2 lg:col-span-1")}
+            >
+              <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                <span className={eyebrowText}>Indexing details</span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180"
+                />
+              </summary>
+              <dl
+                className={cn(
+                  clinicalDivider,
+                  "grid gap-2 p-4 text-xs font-semibold text-[color:var(--text-muted)] sm:grid-cols-2",
+                )}
+              >
                 <div>
                   <dt>Extraction</dt>
                   <dd className="mt-0.5 text-[color:var(--text)]">{indexHealth.extractionQuality ?? "unknown"}</dd>

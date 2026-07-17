@@ -227,6 +227,21 @@ describe("medications API", () => {
     expect(payload.publicAccess).toBe(true);
     expect(payload.records.some((record) => record.slug === "acamprosate")).toBe(true);
     expect(payload.matches?.[0]?.medication.slug).toBe("acamprosate");
+    // The catalog is served from seed data (no table read) and no auth round-trip is needed,
+    // but anonymous list requests must still pass the registry limiter (M4/C1).
+    expect(client.from).not.toHaveBeenCalled();
+    expect(client.rpc).toHaveBeenCalled();
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it("rate-limits anonymous list requests (429) without falling back to unlimited access", async () => {
+    const client = createSupabaseMock(() => ok([]), { limited: true });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/medications/route");
+
+    const response = await GET(request("/api/medications"));
+
+    expect(response.status).toBe(429);
     expect(client.from).not.toHaveBeenCalled();
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
@@ -266,6 +281,22 @@ describe("medications API", () => {
     expect(payload.publicAccess).toBe(true);
     expect(payload.record.slug).toBe("acamprosate");
     expect(payload.record.name).toBe("Acamprosate");
+    // The seed detail is served without a table read, but anonymous detail requests must still
+    // pass the registry limiter (finding C — no anonymous bypass).
+    expect(client.from).not.toHaveBeenCalled();
+    expect(client.rpc).toHaveBeenCalled();
+  });
+
+  it("rate-limits anonymous detail requests (429) instead of skipping the limiter", async () => {
+    const client = createSupabaseMock(() => ok([]), { limited: true });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/medications/[slug]/route");
+
+    const response = await GET(request("/api/medications/acamprosate"), {
+      params: Promise.resolve({ slug: "acamprosate" }),
+    });
+
+    expect(response.status).toBe(429);
     expect(client.from).not.toHaveBeenCalled();
   });
 

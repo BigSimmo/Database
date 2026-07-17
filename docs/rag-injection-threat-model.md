@@ -2,7 +2,10 @@
 
 **System:** Clinical KB Database. Users upload arbitrary PDF/DOCX; the worker OCRs, chunks, embeds, and enriches them; at query time an LLM composes cited clinical answers from the retrieved text.
 **Threat actor:** whoever controls the _content_ of an ingested document — the pixels of an embedded image, the body text, the file name, the title. Documents are **owner-scoped** ([`owner-scope.ts`](../src/lib/owner-scope.ts)), so this is not a cross-tenant attack; the realistic entry points are (a) a clinician/admin socially-engineered into uploading a tampered "official" guideline, (b) an org bulk-importing an untrusted/scraped source, and (c) non-malicious OCR corruption that mimics an attack. The blast radius is intra-org (everyone who queries that topic in that corpus).
-**Status:** Analysis only. No product code changed. Mitigations are proposed, not implemented — a later change will act on them.
+**Status:** Maintained threat model. The opening analysis records the original 2026-07-12 baseline;
+sections 6–8 record the mitigations subsequently implemented, the deliberately deferred architectural
+items, and their evidence gates. Do not treat the original `MISS`/`currently FAILS` labels as current
+without checking those implementation-status sections.
 **Companion:** [`docs/clinical-hazard-analysis.md`](clinical-hazard-analysis.md) frames these as patient-harm hazards (H6).
 
 ---

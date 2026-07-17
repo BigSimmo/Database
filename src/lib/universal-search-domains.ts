@@ -12,6 +12,7 @@ export type UniversalSearchDomain =
   | "presentations"
   | "dsm"
   | "specifiers"
+  | "formulation"
   | "tools";
 
 // Canonical order: the default group order in responses AND the topHit tiebreak when
@@ -32,5 +33,6 @@ export const universalSearchDomains: UniversalSearchDomain[] = [
   "differentials",
   "presentations",
   "specifiers",
+  "formulation",
   "tools",
 ];

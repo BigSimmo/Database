@@ -34,7 +34,11 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
   devIndicators: false,
   experimental: {
-    cpus: 1,
+    // Default 1 is the safe fallback for a Node-24 webpack WasmHash worker crash
+    // seen on constrained local builds (see the webpack hashFunction override
+    // below). CI runners have the cores/memory to build in parallel, so raise it
+    // there via NEXT_BUILD_CPUS without changing the local default.
+    cpus: process.env.NEXT_BUILD_CPUS ? Number(process.env.NEXT_BUILD_CPUS) : 1,
     optimizePackageImports: ["lucide-react"],
     // Proxy is on every API route. Bound its buffered client body so a
     // chunked multipart upload cannot grow without limit before route code

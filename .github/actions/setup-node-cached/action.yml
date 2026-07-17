@@ -1,0 +1,29 @@
+name: Setup Node with cached node_modules
+description: >-
+  Set up Node from .nvmrc, restore node_modules from an exact-key cache, and run
+  `npm ci` only on a cache miss. postinstall/preinstall are inert in CI (git-hook
+  install + engine assert), so skipping the install on a hit is safe. Native deps
+  are platform prebuilds keyed by runner.os, so there is no ABI mismatch risk.
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+      with:
+        node-version-file: ".nvmrc"
+        cache: npm
+        cache-dependency-path: package-lock.json
+
+    - name: Restore node_modules
+      id: node-modules-cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      with:
+        path: node_modules
+        # Include every install-contract input. In particular, an .npmrc-only PR
+        # must not restore old modules and skip the npm ci it is meant to validate.
+        key: node-modules-${{ runner.os }}-${{ hashFiles('.nvmrc', 'package.json', 'package-lock.json', '.npmrc') }}
+
+    - name: Install dependencies (cache miss only)
+      if: steps.node-modules-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci

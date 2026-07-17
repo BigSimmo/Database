@@ -20,6 +20,7 @@ import { rowToServiceRecord } from "@/lib/registry-records";
 import { fetchOwnerRegistryRowsWithSeed } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { searchFormulationMechanisms } from "@/lib/formulation";
+import { searchSpecifiers as searchPsychiatricSpecifiers } from "@/lib/specifiers";
 import { rankToolRecords } from "@/lib/tools-catalog";
 import type { ClinicalQueryAnalysis, SearchResult } from "@/lib/types";
 import { universalSearchDomains, type UniversalSearchDomain } from "@/lib/universal-search-domains";
@@ -273,18 +274,33 @@ async function searchToolsDomain(args: ResolvedSearchArgs): Promise<UniversalSea
   }));
 }
 
-async function searchSpecifiersDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
+async function searchFormulationDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   return searchFormulationMechanisms(args.baseQuery)
     .slice(0, args.limitPerDomain)
     .map(({ mechanism, score }) => ({
       id: mechanism.id,
-      kind: "specifiers" as const,
+      kind: "formulation" as const,
       title: mechanism.name,
       subtitle: mechanism.summary,
       href: `/formulation/${mechanism.id}`,
       score,
       badge: mechanism.domains[0],
       meta: mechanism.diagnosticContexts.slice(0, 2).join(" · ") || undefined,
+    }));
+}
+
+async function searchSpecifiersDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
+  return searchPsychiatricSpecifiers(args.baseQuery)
+    .slice(0, args.limitPerDomain)
+    .map(({ record, score }) => ({
+      id: record.slug,
+      kind: "specifiers" as const,
+      title: record.name,
+      subtitle: record.summary,
+      href: `/specifiers/${record.slug}`,
+      score,
+      badge: record.familyLabel,
+      meta: record.appliesTo.slice(0, 2).join(" · ") || undefined,
     }));
 }
 
@@ -389,6 +405,7 @@ const domainAdapters: Record<
   presentations: { run: searchPresentationsDomain, timeoutMs: registryDomainTimeoutMs },
   dsm: { run: searchDsmDomain, timeoutMs: registryDomainTimeoutMs },
   specifiers: { run: searchSpecifiersDomain, timeoutMs: registryDomainTimeoutMs },
+  formulation: { run: searchFormulationDomain, timeoutMs: registryDomainTimeoutMs },
   tools: { run: searchToolsDomain, timeoutMs: registryDomainTimeoutMs },
 };
 
@@ -581,6 +598,8 @@ export function universalSearchViewAllHref(domain: UniversalSearchDomain, query:
     case "dsm":
       return `/dsm/search?q=${encodeURIComponent(query)}&run=1`;
     case "specifiers":
+      return `/specifiers?q=${encodeURIComponent(query)}&run=1`;
+    case "formulation":
       return `/formulation?q=${encodeURIComponent(query)}&run=1`;
     case "tools":
       return `/?mode=tools&q=${encodeURIComponent(query)}&run=1`;

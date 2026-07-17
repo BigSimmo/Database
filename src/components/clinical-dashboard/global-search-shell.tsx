@@ -45,7 +45,7 @@ import {
 } from "@/lib/app-modes";
 import { isLocalNoAuthMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
-import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
@@ -129,6 +129,9 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
     resolvedSearchMode !== "dsm" &&
     resolvedSearchMode !== "specifiers" &&
     resolvedSearchMode !== "formulation" &&
+    // Therapy Compass owns its route with an in-tool search; a run-enabled link
+    // (/therapy-compass?q=…&run=1) must keep rendering the tool, not the dashboard.
+    resolvedSearchMode !== "therapy-compass" &&
     !isDocumentSearchMockupRoute;
   const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
   const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
@@ -238,7 +241,9 @@ function GlobalStandaloneSearchShellClient({
   const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search");
   const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
-  // Services, forms, and favourites own their submitted-search views on their
+  const differentialsCompareAddonActive =
+    pathname === "/differentials" && searchMode === "differentials" && hasSubmittedModeSearch;
+  // Registry and local decision-support modes own their submitted-search views on their
   // standalone routes; the shell must not swap them to the dashboard. On the
   // home route the dashboard always renders, so these exclusions only apply
   // to the standalone pages.
@@ -251,6 +256,9 @@ function GlobalStandaloneSearchShellClient({
     resolvedSearchMode !== "dsm" &&
     resolvedSearchMode !== "specifiers" &&
     resolvedSearchMode !== "formulation" &&
+    // Therapy Compass owns its route with an in-tool search; a run-enabled link
+    // (/therapy-compass?q=…&run=1) must keep rendering the tool, not the dashboard.
+    resolvedSearchMode !== "therapy-compass" &&
     !isDocumentSearchMockupRoute;
   const isStandaloneModeHome =
     !hasSubmittedModeSearch &&
@@ -277,9 +285,11 @@ function GlobalStandaloneSearchShellClient({
       ? "2rem"
       : searchMode === "answer"
         ? "calc(9rem + env(safe-area-inset-bottom))"
-        : useCompactBottomSearch
-          ? "calc(5.5rem + env(safe-area-inset-bottom))"
-          : "calc(9rem + env(safe-area-inset-bottom))";
+        : differentialsCompareAddonActive
+          ? "calc(8.75rem + env(safe-area-inset-bottom))"
+          : useCompactBottomSearch
+            ? "calc(5.5rem + env(safe-area-inset-bottom))"
+            : "calc(9rem + env(safe-area-inset-bottom))";
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -458,7 +468,7 @@ function GlobalStandaloneSearchShellClient({
   return (
     <div
       className={cn(
-        "min-h-dvh max-sm:h-dvh max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
+        "min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         shouldShowDesktopSidebar &&
           "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
@@ -545,6 +555,9 @@ function GlobalStandaloneSearchShellClient({
             // result views: compact the phone bottom composer so results keep
             // maximum screen space. Mode homes keep the chip-row layout.
             mobileBottomSearchVariant={useCompactBottomSearch ? "compact" : "default"}
+            mobileBottomSearchAddonSlotId={
+              differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
+            }
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}

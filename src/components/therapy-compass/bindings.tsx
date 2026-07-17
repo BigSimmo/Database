@@ -198,15 +198,31 @@ function chipStyle(on: boolean): CSSProperties {
   );
 }
 
-export function TcProvider({ children }: { children: ReactNode }) {
+export function TcProvider({
+  children,
+  initialQuery = "",
+  autoRunSearch = false,
+}: {
+  children: ReactNode;
+  initialQuery?: string;
+  autoRunSearch?: boolean;
+}) {
   const { data, loading, error } = useTherapyData();
   const therapies = useMemo(() => data?.therapies ?? [], [data]);
   const pathways = useMemo(() => data?.pathways ?? [], [data]);
 
-  const [screen, setScreen] = useState<string>("home");
+  // Honor a run-enabled deep link (/therapy-compass?q=…&run=1): open on Search
+  // with the query seeded, so a query submitted from the universal composer or a
+  // recent-search pick runs in-tool instead of landing on Home. A fresh deep link
+  // while already mounted re-seeds via the provider key in TherapyCompassPage,
+  // which remounts this provider when the run-query changes.
+  const seededQuery = autoRunSearch ? initialQuery.trim() : "";
+  const [screen, setScreen] = useState<string>(seededQuery ? "search" : "home");
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [compareSlugs, setCompareSlugs] = useState<string[]>([]);
-  const [search, setSearch] = useState<SearchOptions>(EMPTY_SEARCH);
+  const [search, setSearch] = useState<SearchOptions>(
+    seededQuery ? { ...EMPTY_SEARCH, query: seededQuery } : EMPTY_SEARCH,
+  );
   const [recQuery, setRecQuery] = useState("What therapy for anxiety in outpatient care?");
   const [recConstraints, setRecConstraints] = useState<string[]>(["outpatient"]);
   const [selectedPathwaySlug, setSelectedPathwaySlug] = useState<string | null>(null);
@@ -397,7 +413,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
       sheetClinician,
       toggleClinician: () => setSheetClinician((prev) => !prev),
       clinicianTrack: s(
-        "position:relative;width:42px;height:24px;border-radius:12px;flex:none;cursor:pointer;transition:background .15s ease;background:" +
+        "position:relative;width:42px;height:24px;border:0;padding:0;border-radius:12px;flex:none;cursor:pointer;transition:background .15s ease;background:" +
           (sheetClinician ? "var(--clinical-accent)" : "var(--border-strong)") +
           ";",
       ),

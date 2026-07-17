@@ -166,7 +166,13 @@ function StatusNotice({
   authUnavailable,
   apiUnavailable,
   setupWarning,
-}: Pick<MedicationPrescribingWorkspaceProps, "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning">) {
+  className,
+}: Pick<
+  MedicationPrescribingWorkspaceProps,
+  "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning"
+> & {
+  className?: string;
+}) {
   if (realDataReady && !authUnavailable && !apiUnavailable && !setupWarning) return null;
   const message = authUnavailable
     ? isDeployedClinicalKb()
@@ -179,7 +185,12 @@ function StatusNotice({
       : setupWarning || "Medication search setup is still warming up.";
 
   return (
-    <div className="mx-auto max-w-2xl rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-center text-xs font-medium text-[color:var(--text-muted)]">
+    <div
+      className={cn(
+        "mx-auto max-w-2xl rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-center text-xs font-medium text-[color:var(--text-muted)]",
+        className,
+      )}
+    >
       {message}
     </div>
   );
@@ -268,7 +279,7 @@ function FilterStrip({
 }) {
   return (
     <div
-      className="answer-suggestion-row-scroll flex gap-1.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]"
+      className="medication-filter-strip answer-suggestion-row-scroll flex gap-1.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]"
       aria-label="Medication result filters"
     >
       {medicationResultFilters.map((filter) => {
@@ -454,12 +465,12 @@ function MedicationResults({
   const activeFilterLabel = medicationResultFilters.find((filter) => filter.id === activeFilter)?.label ?? "filtered";
 
   return (
-    <div className={cn(pageContainer, "space-y-3 py-0 sm:py-2")}>
+    <div className={cn(pageContainer, "medication-results-workspace space-y-3 py-0 sm:py-2")}>
       <div className="hidden lg:block">
         <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} />
       </div>
-      <UniversalSearchAlsoMatches modeId="prescribing" query={query} />
-      <div className="min-w-0 space-y-2 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
+      <UniversalSearchAlsoMatches modeId="prescribing" query={query} className="medication-also-matches" />
+      <div className="medication-results-inset min-w-0 space-y-2 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-semibold uppercase text-[color:var(--text-soft)]">Medication search</p>
           <h3 className="text-2xl font-semibold leading-tight text-[color:var(--text-heading)] sm:text-3xl-minus">
@@ -471,21 +482,25 @@ function MedicationResults({
         </div>
       </div>
 
-      <PatientProfilePanel variant="compact" />
+      <PatientProfilePanel variant="compact" className="medication-patient-strip" />
 
       <FilterStrip activeFilter={activeFilter} counts={counts} onFilterChange={setActiveFilter} />
 
-      {catalog.loading ? (
-        <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogueâ€¦</p>
-      ) : catalog.error ? (
-        <p className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-3 py-2 text-sm text-[color:var(--danger)]">
-          {catalog.error}
-        </p>
+      {catalog.loading || catalog.error ? (
+        <div className="medication-results-inset">
+          {catalog.loading ? (
+            <p className="text-sm text-[color:var(--text-muted)]">Loading medication catalogue…</p>
+          ) : (
+            <p className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-3 py-2 text-sm text-[color:var(--danger)]">
+              {catalog.error}
+            </p>
+          )}
+        </div>
       ) : null}
 
       {!catalog.loading && !catalog.error && resultCount === 0 ? (
         totalAvailable > 0 ? (
-          <div className="space-y-2">
+          <div className="medication-results-inset space-y-2">
             <EmptyState
               icon={SearchX}
               title={`No ${activeFilterLabel.toLowerCase()} matches for this search`}
@@ -500,16 +515,18 @@ function MedicationResults({
             </button>
           </div>
         ) : (
-          <EmptyState
-            icon={SearchX}
-            title="No prescribing matches"
-            body="Try a different medication name, class, or indication."
-          />
+          <div className="medication-results-inset">
+            <EmptyState
+              icon={SearchX}
+              title="No prescribing matches"
+              body="Try a different medication name, class, or indication."
+            />
+          </div>
         )
       ) : null}
 
       {!catalog.loading && !catalog.error && resultCount > 0 ? (
-        <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] md:block">
+        <div className="hidden overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)] lg:block">
           <div className="grid grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-4 py-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
             <span>Medication</span>
             <span>Dose</span>
@@ -598,12 +615,12 @@ function MedicationResults({
         </div>
       ) : null}
 
-      <div className="grid gap-2 md:hidden">
+      <div className="medication-mobile-results grid gap-2 lg:hidden">
         {rows.map((row, index) => {
           const result = row.result;
           const selected = index === 0 && Boolean(query.trim());
           const cardClassName = cn(
-            "min-w-0 w-full rounded-lg border bg-[color:var(--surface-raised)] p-2 text-left shadow-[var(--shadow-inset)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            "medication-mobile-result min-w-0 w-full rounded-lg border bg-[color:var(--surface-raised)] p-2 text-left shadow-[var(--shadow-inset)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
             selected
               ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35"
               : result.href
@@ -655,6 +672,7 @@ function MedicationResults({
                 key={result.id}
                 href={result.href}
                 data-testid={`medication-result-${result.id}-phone`}
+                data-selected={selected ? "true" : "false"}
                 className={cardClassName}
               >
                 {cardContent}
@@ -663,7 +681,12 @@ function MedicationResults({
           }
 
           return (
-            <article key={result.id} data-testid={`medication-result-${result.id}-phone`} className={cardClassName}>
+            <article
+              key={result.id}
+              data-testid={`medication-result-${result.id}-phone`}
+              data-selected={selected ? "true" : "false"}
+              className={cardClassName}
+            >
               {cardContent}
             </article>
           );
@@ -675,6 +698,7 @@ function MedicationResults({
         authUnavailable={authUnavailable}
         apiUnavailable={apiUnavailable}
         setupWarning={setupWarning}
+        className="medication-results-inset"
       />
     </div>
   );

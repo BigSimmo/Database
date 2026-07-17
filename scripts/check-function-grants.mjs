@@ -1,0 +1,157 @@
+#!/usr/bin/env node
+// Guards the function-privilege convention against silent regressions.
+//
+// A SECURITY DEFINER function runs with its owner's privileges and bypasses RLS.
+// If such a function in the `public` schema is executable by PUBLIC/anon, an
+// unauthenticated caller can invoke it directly — e.g. a retrieval RPC that takes
+// an `owner_filter` argument — and read across tenants. Postgres grants EXECUTE to
+// PUBLIC by DEFAULT on every new function, so protection must be explicit. Today
+// that protection is manual (a schema-wide blanket revoke plus per-function
+// revokes), with nothing stopping a new SECURITY DEFINER RPC from shipping
+// anon-callable. This check is that stop.
+//
+// Invariant enforced against the reconciled snapshot supabase/schema.sql — every
+// SECURITY DEFINER function in `public` must be non-executable by PUBLIC, i.e.:
+//   - a schema-wide `revoke execute on all functions ... from public` runs AFTER
+//     its definition, OR it has its own `revoke ... on function <name> ... from`
+//     a role list that INCLUDES `public` (a revoke FROM anon only is NOT enough —
+//     PostgreSQL's default PUBLIC grant still applies); AND
+//   - it is not re-opened by a later `grant execute ... to public/anon`, whether
+//     named (`on function <name>`) or schema-wide (`on all functions in schema
+//     public`).
+// Otherwise it is reported and CI fails.
+//
+// Scope notes: SECURITY INVOKER functions run as the caller and stay bound by
+// RLS, so they are out of scope. The check runs against the reconciled snapshot
+// (kept in sync with the migration chain by the drift check); asserting live
+// per-migration ACLs by replaying the whole chain is a deeper follow-up.
+// Overloaded functions are matched by bare name (a qualifying revoke on any
+// overload covers all overloads of that name); exact per-signature matching is a
+// documented follow-up.
+import { readFileSync } from "node:fs";
+
+// Defaults to the committed snapshot; an explicit path is accepted for tests.
+const SCHEMA_PATH = process.argv[2] ?? "supabase/schema.sql";
+
+// SECURITY DEFINER functions intentionally left without a dedicated revoke.
+// Add an entry ONLY with a concrete reason (prefer fixing over allowlisting).
+const ALLOWLIST = new Map([
+  // ["function_name", "why this is safe / follow-up ticket"],
+]);
+
+function fail(message) {
+  console.error(`check:function-grants: FAIL — ${message}`);
+  process.exit(1);
+}
+
+function main() {
+  const sql = readFileSync(SCHEMA_PATH, "utf8");
+  const lines = sql.split("\n");
+
+  const blanketRe = /revoke\s+execute\s+on\s+all\s+functions\s+in\s+schema\s+public\s+from\s+[^;]*\bpublic\b/i;
+  const blanketIdxs = [];
+  lines.forEach((line, idx) => {
+    if (blanketRe.test(line)) blanketIdxs.push(idx);
+  });
+  if (blanketIdxs.length === 0) {
+    fail(
+      `no schema-wide "revoke execute on all functions in schema public from ... public" statement found in ` +
+        `${SCHEMA_PATH}. That baseline revoke strips the default anon EXECUTE grant; its removal is itself the ` +
+        `regression this guard exists to catch.`,
+    );
+  }
+
+  // A schema-wide GRANT of EXECUTE to PUBLIC/anon re-opens every function and
+  // defeats the blanket revoke outright — fatal regardless of per-function state.
+  const schemaWideGrantRe =
+    /grant\s+(?:execute|all(?:\s+privileges)?)\s+on\s+all\s+functions\s+in\s+schema\s+public\s+to\s+[^;]*?\b(?:public|anon)\b/i;
+  if (lines.some((line) => schemaWideGrantRe.test(line))) {
+    fail(
+      `a "grant execute on all functions in schema public to public/anon" re-opens EXECUTE on every function and ` +
+        `defeats the blanket revoke. Remove it and grant to the intended role (e.g. service_role) instead.`,
+    );
+  }
+
+  // A blanket revoke only affects functions that already exist when it runs, so a
+  // function is "covered" only if a blanket revoke appears AFTER its definition.
+  const coveredByBlanket = (createIdx) => blanketIdxs.some((b) => b > createIdx);
+
+  // Public-function CREATE sites. CREATE OR REPLACE preserves prior grants, so
+  // group by name and use the EARLIEST definition to decide blanket coverage.
+  const createRe = /^\s*create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?"?([a-z0-9_]+)"?\s*\(/i;
+  const creates = [];
+  lines.forEach((line, idx) => {
+    const m = createRe.exec(line);
+    if (m) creates.push({ name: m[1].toLowerCase(), idx });
+  });
+
+  const byName = new Map(); // name -> { earliestIdx, isDefiner }
+  creates.forEach((current, i) => {
+    const end = i + 1 < creates.length ? creates[i + 1].idx : lines.length;
+    const isDefiner = /security\s+definer/i.test(lines.slice(current.idx, end).join("\n"));
+    const prior = byName.get(current.name);
+    byName.set(
+      current.name,
+      prior
+        ? { earliestIdx: Math.min(prior.earliestIdx, current.idx), isDefiner: prior.isDefiner || isDefiner }
+        : { earliestIdx: current.idx, isDefiner },
+    );
+  });
+
+  // Per-function REVOKE — protective ONLY when the FROM role list includes PUBLIC.
+  // A `revoke ... from anon` (without public) leaves PostgreSQL's default PUBLIC
+  // grant intact, so it does not protect the function. Accepts EXECUTE and ALL.
+  const revokeRe =
+    /revoke\s+(?:execute|all(?:\s+privileges)?)\s+on\s+function\s+(?:public\.)?"?([a-z0-9_]+)"?[^;]*?\bfrom\b([^;]*)/gi;
+  const revoked = new Set();
+  let rm;
+  while ((rm = revokeRe.exec(sql))) {
+    if (/\bpublic\b/i.test(rm[2])) revoked.add(rm[1].toLowerCase());
+  }
+
+  // A named GRANT of EXECUTE to PUBLIC/anon re-opens that function even after a
+  // revoke — this is what a migration adding an anon-callable RPC looks like.
+  const grantNamedRe =
+    /grant\s+(?:execute|all(?:\s+privileges)?)\s+on\s+function\s+(?:public\.)?"?([a-z0-9_]+)"?[^;]*?\bto\b[^;]*?\b(?:public|anon)\b/gi;
+  const grantedToAnon = new Set();
+  let gm;
+  while ((gm = grantNamedRe.exec(sql))) grantedToAnon.add(gm[1].toLowerCase());
+
+  let definerCount = 0;
+  const vulnerable = [];
+  for (const [name, info] of byName) {
+    if (!info.isDefiner) continue;
+    definerCount += 1;
+    if (ALLOWLIST.has(name)) continue;
+    if (grantedToAnon.has(name)) {
+      vulnerable.push({ name, idx: info.earliestIdx, reason: "explicitly grants EXECUTE to PUBLIC/anon" });
+      continue;
+    }
+    if (coveredByBlanket(info.earliestIdx)) continue;
+    if (revoked.has(name)) continue;
+    vulnerable.push({
+      name,
+      idx: info.earliestIdx,
+      reason: "defined after the blanket revoke with no EXECUTE revoke FROM public",
+    });
+  }
+
+  if (vulnerable.length > 0) {
+    vulnerable.sort((a, b) => a.idx - b.idx);
+    fail(
+      `${vulnerable.length} SECURITY DEFINER function(s) in ${SCHEMA_PATH} are executable by PUBLIC/anon:\n` +
+        vulnerable.map((v) => `  - public.${v.name}  (schema.sql:${v.idx + 1}) — ${v.reason}`).join("\n") +
+        `\n\nFix: add \`revoke execute on function public.<name>(<args>) from public, anon, authenticated;\` (and grant ` +
+        `execute only to the intended role, e.g. service_role) in the migration that defines it, then reconcile ` +
+        `schema.sql. If genuinely safe, allowlist it with a reason in scripts/check-function-grants.mjs.`,
+    );
+  }
+
+  console.log(
+    `check:function-grants: OK — all ${definerCount} SECURITY DEFINER public function(s) are revoked from PUBLIC ` +
+      `(blanket revoke at schema.sql:${Math.max(...blanketIdxs) + 1} or an explicit per-function revoke) and none are ` +
+      `re-opened by a grant to PUBLIC/anon.`,
+  );
+}
+
+main();
