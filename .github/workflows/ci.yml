@@ -127,7 +127,7 @@ jobs:
         uses: ./.github/actions/setup-node-cached
 
       - name: Setup Deno
-        uses: denoland/setup-deno@v2
+        uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: v2.x
 
@@ -278,7 +278,7 @@ jobs:
 
       - name: Upload UI regression diagnostics
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: ui-regression-diagnostics-${{ github.run_id }}
           path: |
@@ -322,7 +322,7 @@ jobs:
 
       - name: Upload quarantine diagnostics
         if: failure() && steps.quarantine.outputs.present == 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: quarantine-ui-diagnostics-${{ github.run_id }}
           path: |
@@ -341,7 +341,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           persist-credentials: false
 
@@ -353,7 +353,7 @@ jobs:
 
       - name: Upload mockup UI diagnostics
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: mockup-ui-diagnostics-${{ github.run_id }}
           path: |
@@ -374,13 +374,13 @@ jobs:
           persist-credentials: false
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v3
+        uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3
         with:
           version: ${{ env.SUPABASE_CLI_VERSION }}
 
       - name: Restore Supabase Docker image cache
         id: supabase-docker-cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: /tmp/supabase-docker-cache
           key: supabase-docker-${{ runner.os }}-cli-${{ env.SUPABASE_CLI_VERSION }}-${{ hashFiles('supabase/config.toml') }}
@@ -519,7 +519,7 @@ jobs:
 
       - name: Restore browser cache
         id: pw-cache
-        uses: actions/cache@v6
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -539,7 +539,7 @@ jobs:
 
       - name: Upload UI diagnostics
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: release-ui-diagnostics-${{ github.run_id }}
           path: |

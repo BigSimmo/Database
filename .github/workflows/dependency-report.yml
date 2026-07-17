@@ -26,12 +26,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version-file: ".nvmrc"
           cache: npm
@@ -45,7 +45,7 @@ jobs:
         run: node scripts/dependency-report.mjs --out dependency-report.md
 
       - name: Publish to rolling issue
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           # Pass step outputs via env (not inline template expansion) to avoid the
           # GitHub Actions template-injection pattern, even though both values are
