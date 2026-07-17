@@ -18,11 +18,14 @@
 /playwright-cli/
 /.playwright-cli/
 /playwright/.auth/
+/.local/
 /.codex/
 /.agents/*
 !/.agents/plugins/
 !/.agents/plugins/marketplace.json
 !/.agents/plugins/api_marketplace.json
+!/.agents/skills/
+!/.agents/skills/**
 /skills-lock.json
 
 # next.js
