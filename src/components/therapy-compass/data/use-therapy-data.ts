@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { Pathway, ReferenceData, Therapy, TherapyDataset } from "./types";
 
@@ -32,10 +32,17 @@ export type TherapyDataState = {
   data: TherapyDataset | null;
   loading: boolean;
   error: string | null;
+  retry: () => void;
 };
 
 export function useTherapyData(): TherapyDataState {
-  const [state, setState] = useState<TherapyDataState>({ data: null, loading: true, error: null });
+  const [state, setState] = useState<Omit<TherapyDataState, "retry">>({ data: null, loading: true, error: null });
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    cache = null;
+    setState({ data: null, loading: true, error: null });
+    setAttempt((value) => value + 1);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -53,7 +60,7 @@ export function useTherapyData(): TherapyDataState {
     return () => {
       active = false;
     };
-  }, []);
+  }, [attempt]);
 
-  return state;
+  return { ...state, retry };
 }

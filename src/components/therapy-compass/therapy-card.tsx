@@ -86,9 +86,11 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           <button
             type="button"
             className="tc-btn"
-            title="Favourite"
+            disabled
+            title="Favourites are not available yet"
+            aria-label="Favourites are coming soon"
             style={s(
-              `display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text-soft);cursor:pointer;`,
+              `display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text-soft);cursor:not-allowed;opacity:.65;`,
             )}
           >
             <HeartIcon size={17} />
