@@ -288,6 +288,19 @@ describe("API validation contracts", () => {
     expect(client.calls[1].range).toEqual({ from: 0, to: 99 });
   });
 
+  it("caps the document list offset at 10k so a deep-offset request cannot force a full scan", async () => {
+    const client = createSupabaseMock(() => ok([], 0));
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(authenticatedRequest("/api/documents?limit=200&offset=5000000&includeMeta=false"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.pagination).toMatchObject({ limit: 200, offset: 10_000 });
+    expect(client.calls[0].range).toEqual({ from: 10_000, to: 10_199 });
+  });
+
   it("treats empty document-detail chunk as absent and clamps page/chunk windows", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.maybeSingle) {

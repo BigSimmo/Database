@@ -111,7 +111,9 @@ function projectPublicFields<T extends Record<string, unknown>>(row: T, columns:
 
 const documentListQuerySchema = z.object({
   limit: queryInteger({ fallback: 100, min: 1, max: 200 }),
-  offset: queryInteger({ fallback: 0, min: 0, max: 1_000_000 }),
+  // Cap the offset at 10k (matching the jobs list) so a deep-offset request cannot force
+  // PostgREST to skip through a million rows as a slow-query/DoS lever. `queryInteger` clamps.
+  offset: queryInteger({ fallback: 0, min: 0, max: 10_000 }),
   q: z.string().optional().default("").transform(safeSearchTerm),
   status: z
     .string()

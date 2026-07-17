@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { jsonError, PublicApiError } from "../src/lib/http";
+import { logger } from "../src/lib/logger";
+import { unauthorizedResponse } from "../src/lib/supabase/auth";
 
 describe("jsonError public payload", () => {
   it("keeps public error payloads stable without exposing stack or internal causes", async () => {
@@ -82,5 +84,43 @@ describe("jsonError public payload", () => {
     const emptyResponse = jsonError(emptyError);
     const emptyBody = await emptyResponse.json();
     expect(emptyBody.code).toBe("request_failed");
+  });
+});
+
+describe("jsonError logging opt-out", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("logs by default but stays silent when log is disabled, without changing the payload", async () => {
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    const logged = await jsonError(new PublicApiError("nope", 500, { code: "boom" })).json();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+
+    errorSpy.mockClear();
+    const silent = await jsonError(new PublicApiError("nope", 500, { code: "boom" }), 500, { log: false }).json();
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(silent).toEqual(logged);
+  });
+});
+
+describe("unauthorizedResponse envelope", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("returns the shared error envelope with a stable authentication_required code", async () => {
+    const response = unauthorizedResponse();
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({
+      error: "Authentication required.",
+      message: "Authentication required.",
+      code: "authentication_required",
+    });
+  });
+
+  it("does not record a routine unauthenticated request as a server error", () => {
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    unauthorizedResponse();
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 });
