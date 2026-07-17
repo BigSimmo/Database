@@ -13,6 +13,13 @@ describe("GitHub Action pin validation", () => {
     expect(validateActionReference("        uses: actions/setup-node@v5")).toContain("is mutable");
   });
 
+  it("validates inline list-style action steps", () => {
+    expect(validateActionReference("      - uses: actions/setup-node@v5")).toContain("is mutable");
+    expect(
+      validateActionReference("      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0"),
+    ).toBeNull();
+  });
+
   it("rejects an unreviewed commit SHA", () => {
     expect(
       validateActionReference("        uses: actions/setup-node@1111111111111111111111111111111111111111 # v5.0.0"),

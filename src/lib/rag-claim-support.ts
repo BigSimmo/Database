@@ -130,8 +130,8 @@ function topicTokens(value: string) {
 function highRiskTriggerTokens(value: string) {
   const tokens = new Set<string>();
   const triggerPatterns = [
-    /\b(?:when|if|unless|during|after|before)\b([^.;!?]+)/gi,
-    /\b(?:administer|avoid|continue|give|prescribe|start|stop|use|withhold)\b[^.;!?]{0,80}\bfor\b([^.;!?]+)/gi,
+    /\b(?:when|if|unless|during|after|before)\b\s*([^,;.!?]+?)(?=\s*,|\s+\b(?:administer|avoid|cease|continue|discontinue|escalate|give|prescribe|start|stop|use|withhold)\b|[;.!?]|$)/gi,
+    /\b(?:administer|avoid|continue|give|prescribe|start|stop|use|withhold)\b[^,;.!?]{0,80}?\bfor\b\s*([^,;.!?]+?)(?=\s+\bfor\b|\s*,|[;.!?]|$)/gi,
   ];
   for (const pattern of triggerPatterns) {
     for (const match of value.matchAll(pattern)) {

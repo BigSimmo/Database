@@ -89,6 +89,23 @@ describe("deterministic claim support", () => {
     expect(result.citations).toEqual([]);
   });
 
+  it("supports equivalent condition-first wording without treating the action clause as the trigger", () => {
+    const cited = source("c1", "Stop clozapine when fever develops.");
+
+    expect(assessClaimSupport(answer("If fever develops, discontinue clozapine.", [cited])).claims[0]).toMatchObject({
+      riskClass: "high_risk",
+      supportStatus: "direct",
+    });
+  });
+
+  it("uses the first indication span instead of a later duration clause", () => {
+    const cited = source("c1", "Give lithium 300 mg for bipolar disorder as ongoing therapy.");
+
+    expect(
+      assessClaimSupport(answer("Give lithium 300 mg for bipolar disorder for ongoing care.", [cited])).claims[0],
+    ).toMatchObject({ riskClass: "high_risk", supportStatus: "direct" });
+  });
+
   it("evaluates section prose only against that section's citations", () => {
     const wrongSection = source("wrong", "Stop clozapine below ANC 1.0 x10^9/L.");
     const citedSection = source("cited", "Clozapine monitoring includes regular blood counts.");

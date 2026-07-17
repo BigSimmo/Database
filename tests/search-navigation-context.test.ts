@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   appendSearchNavigationContext,
+  privateScopeReadyForRoute,
   readSearchNavigationContext,
   routedSubmissionContextChanged,
   searchNavigationContextSignature,
@@ -118,5 +119,16 @@ describe("search navigation context", () => {
     expect(
       readSearchNavigationContext(new URLSearchParams("scopeRef=private-document-title")).scopeRef,
     ).toBeUndefined();
+  });
+
+  it("waits for the exact routed private scope on initial load and history changes", () => {
+    const firstScope = "22222222-2222-4222-8222-222222222222";
+    const secondScope = "33333333-3333-4333-8333-333333333333";
+
+    expect(privateScopeReadyForRoute(firstScope, "restoring", null)).toBe(false);
+    expect(privateScopeReadyForRoute(firstScope, "restored", firstScope)).toBe(true);
+    expect(privateScopeReadyForRoute(secondScope, "restored", firstScope)).toBe(false);
+    expect(privateScopeReadyForRoute(secondScope, "restored", secondScope)).toBe(true);
+    expect(privateScopeReadyForRoute(undefined, "none", null)).toBe(true);
   });
 });

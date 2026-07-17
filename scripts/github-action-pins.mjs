@@ -15,11 +15,11 @@ const reviewedActionPins = new Map([
   ["gitleaks/gitleaks-action", new Map([["e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e", "v3"]])],
   ["actions/ai-inference", new Map([["a7805884c80886efc241e94a5351df715968a0ad", "v2"]])],
   ["peter-evans/create-or-update-comment", new Map([["e8674b075228eee787fea43ef493e45ece1004c9", "v5"]])],
-  ["docker/setup-buildx-action", new Map([["8d2750c68a42422c14e847fe6c8ac0403b4cbd6f", "v3"]])],
-  ["docker/build-push-action", new Map([["10e90e3645eae34f1e60eeb005ba3a3d33f178e8", "v6"]])],
+  ["docker/setup-buildx-action", new Map([["bb05f3f5519dd87d3ba754cc423b652a5edd6d2c", "v4"]])],
+  ["docker/build-push-action", new Map([["53b7df96c91f9c12dcc8a07bcb9ccacbed38856a", "v7"]])],
 ]);
 
-const usesPattern = /^\s*uses:\s*([^@\s]+)@([^\s#]+)(?:\s+#\s*(\S.*?))?\s*$/;
+const usesPattern = /^\s*(?:-\s*)?uses:\s*([^@\s]+)@([^\s#]+)(?:\s+#\s*(\S.*?))?\s*$/;
 const immutableCommitSha = /^[0-9a-f]{40}$/;
 
 export function validateActionReference(line) {
