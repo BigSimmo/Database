@@ -120,6 +120,11 @@ export {
   retrievalPlanCacheQuery,
 } from "@/lib/rag-cache";
 import { classifySearchCacheOutcome, recordCacheLookup } from "@/lib/observability/cache-metrics";
+import {
+  recordAnswerOrigination,
+  recordAnswerOriginationFinished,
+  recordCoalescedAnswerWaiter,
+} from "@/lib/observability/answer-coalescing-metrics";
 import { buildRagSourceBlock, compactContextText, neutralizeIdentityField } from "@/lib/rag-source-block";
 export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
 import {
@@ -3201,6 +3206,7 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
   let existing = inflightKey ? answerInflight.get(inflightKey) : undefined;
 
   while (existing) {
+    recordCoalescedAnswerWaiter();
     await args.onProgress?.({
       stage: "cached",
       message: "Waiting for an identical cited answer request already in progress.",
@@ -3232,8 +3238,15 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
     }
   }
 
+  // Only coalescible requests belong in this process-local signal. Requests
+  // that intentionally bypass cache/coalescing must not make a replica look
+  // ineffective, and neither keys nor clinical content leave this function.
+  if (inflightKey) recordAnswerOrigination();
   const pending = answerQuestionWithScopeUncoalesced(args, startedAt).finally(() => {
-    if (inflightKey) answerInflight.delete(inflightKey);
+    if (inflightKey) {
+      answerInflight.delete(inflightKey);
+      recordAnswerOriginationFinished();
+    }
   });
   if (inflightKey) answerInflight.set(inflightKey, pending);
   return pending;
