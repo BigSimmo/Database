@@ -88,6 +88,7 @@ function selfTest() {
     },
   ];
   assert.equal(selectLatestDefaultBranchRun(runs, { currentRunId: 99, defaultBranch: "main" })?.id, 2);
+  assert.equal(selectLatestDefaultBranchRun([], { currentRunId: 99, defaultBranch: "main" }), undefined);
   assert.deepEqual(
     failedJobNames([
       { name: "Build", conclusion: "failure" },
@@ -99,6 +100,7 @@ function selfTest() {
     { name: "Build", classification: "main-side" },
     { name: "Lint", classification: "needs-investigation" },
   ]);
+  assert.deepEqual(classifyFailedJobs(["Build"], null, []), [{ name: "Build", classification: "needs-investigation" }]);
   assert.match(
     buildTriageBody([{ name: "Build", classification: "main-side" }], null),
     /No completed main CI baseline/,

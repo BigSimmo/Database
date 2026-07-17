@@ -1,6 +1,17 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+
+export const requiredClinicalGovernanceItems = [
+  "Source-backed claims still require linked source verification before clinical use",
+  "No patient-identifiable document workflow was introduced or expanded without explicit governance approval",
+  "Supabase target remains `Clinical KB Database` (`sjrfecxgysukkwxsowpy`)",
+  "Service-role keys and private document access remain server-only",
+  "Demo/synthetic content remains clearly separated from real clinical sources",
+  "Source metadata, review status, and outdated/unknown-source behavior remain conservative",
+  "Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed",
+];
 
 const clinicalRiskPatterns = [
   /^supabase\//,
@@ -68,10 +79,31 @@ function branchLikeTitle(title, headRef) {
       .replace(/[^a-z0-9]+/g, " ")
       .trim();
   return (
-    value.includes("/") ||
     /^(?:codex|claude|copilot)(?:\b|[-_:])/i.test(value) ||
     (normalized(value) && normalized(value) === normalized(headRef))
   );
+}
+
+function checkedChecklistItem(value, item) {
+  const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`^\\s*-\\s*\\[[xX]\\]\\s*${escaped}\\s*$`, "m").test(value);
+}
+
+function fieldValue(value, field) {
+  const escaped = field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return (
+    String(value ?? "")
+      .match(new RegExp(`^\\s*-?\\s*${escaped}\\s*:\\s*(.+?)\\s*$`, "im"))?.[1]
+      ?.trim() ?? ""
+  );
+}
+
+function substantiveRisk(value) {
+  return value.length >= 12 && !/^(?:low|medium|high)[.!]?$/i.test(value);
+}
+
+function substantiveRollback(value) {
+  return value.length >= 12 && !/^(?:none|n\/?a|not applicable|no rollback|no-?op)\b/i.test(value);
 }
 
 export function classifyPullRequestFiles(files) {
@@ -113,8 +145,15 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
   if (classification.clinicalRisk) {
     if (!meaningfulText(governance)) {
       errors.push("Clinical-risk paths require the `## Clinical Governance Preflight` section.");
-    } else if (/-\s*\[\s\]/.test(governance)) {
-      errors.push("Resolve every Clinical Governance Preflight checkbox before marking the PR ready.");
+    } else {
+      const missingGovernance = requiredClinicalGovernanceItems.filter(
+        (item) => !checkedChecklistItem(governance, item),
+      );
+      if (missingGovernance.length > 0) {
+        errors.push(
+          `Resolve every required Clinical Governance Preflight item before marking the PR ready (missing: ${missingGovernance.join("; ")}).`,
+        );
+      }
     }
   }
 
@@ -122,10 +161,10 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
     if (!meaningfulText(riskAndRollout)) {
       errors.push("High-risk changes require the `## Risk and rollout` section.");
     } else {
-      if (!/^\s*-?\s*Risk\s*:\s*\S.{2,}$/im.test(riskAndRollout)) {
+      if (!substantiveRisk(fieldValue(riskAndRollout, "Risk"))) {
         errors.push("Risk and rollout must include `Risk: <low|medium|high and rationale>`.");
       }
-      if (!/^\s*-?\s*Rollback\s*:\s*\S.{5,}$/im.test(riskAndRollout)) {
+      if (!substantiveRollback(fieldValue(riskAndRollout, "Rollback"))) {
         errors.push("Risk and rollout must include a concrete `Rollback: <plan>`.");
       }
     }
@@ -135,7 +174,8 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
 }
 
 function selfTest() {
-  const completeBody = `## Summary\n\n- Add a trusted PR policy.\n\n## Verification\n\n- [x] \`npm run verify:pr-local\`\n- [x] \`npm run verify:ui\`\n\n## Risk and rollout\n\n- Risk: low; metadata-only validation.\n- Rollback: revert the workflow commit.\n\n## Clinical Governance Preflight\n\n- [x] Source behavior remains conservative.`;
+  const completeGovernance = requiredClinicalGovernanceItems.map((item) => `- [x] ${item}`).join("\n");
+  const completeBody = `## Summary\n\n- Add a trusted PR policy.\n\n## Verification\n\n- [x] \`npm run verify:pr-local\`\n- [x] \`npm run verify:ui\`\n\n## Risk and rollout\n\n- Risk: low; metadata-only validation.\n- Rollback: revert the workflow commit.\n\n## Clinical Governance Preflight\n\n${completeGovernance}`;
   assert.equal(
     evaluatePullRequestPolicy({
       title: "ci: enforce pull request evidence",
@@ -166,14 +206,38 @@ function selfTest() {
   assert.match(
     evaluatePullRequestPolicy({
       title: "fix: update clinical search",
-      body: completeBody.replace(
-        "- [x] Source behavior remains conservative.",
-        "- [ ] Source behavior remains conservative.",
-      ),
+      body: completeBody.replace(`- [x] ${requiredClinicalGovernanceItems[0]}`, "- [x] Safe"),
       headRef: "codex/search-fix",
       files: ["src/lib/clinical-search.ts"],
     }).errors.join(" "),
-    /every Clinical Governance/,
+    /every required Clinical Governance/,
+  );
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: "fix: handle /api/search failures",
+      body: completeBody,
+      headRef: "codex/api-search-failures",
+      files: ["docs/process-hardening.md"],
+    }).ok,
+    true,
+  );
+  assert.match(
+    evaluatePullRequestPolicy({
+      title: "ci: enforce pull request evidence",
+      body: completeBody.replace("Risk: low; metadata-only validation.", "Risk: low"),
+      headRef: "codex/pr-policy",
+      files: [".github/workflows/pr-policy.yml"],
+    }).errors.join(" "),
+    /Risk and rollout must include/,
+  );
+  assert.match(
+    evaluatePullRequestPolicy({
+      title: "ci: enforce pull request evidence",
+      body: completeBody.replace("Rollback: revert the workflow commit.", "Rollback: none because this is small"),
+      headRef: "codex/pr-policy",
+      files: [".github/workflows/pr-policy.yml"],
+    }).errors.join(" "),
+    /concrete `Rollback/,
   );
   assert.match(
     evaluatePullRequestPolicy({
@@ -190,6 +254,9 @@ function selfTest() {
     operationalRisk: false,
     ui: false,
   });
+  const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
+  for (const item of requiredClinicalGovernanceItems)
+    assert.match(template, new RegExp(`- \\[ \\] ${item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
   console.error("[pr-policy] self-test passed");
 }
 
