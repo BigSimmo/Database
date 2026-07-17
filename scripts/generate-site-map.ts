@@ -31,6 +31,7 @@ type RedirectRoute = {
 
 type SiteMapData = {
   pageRoutes: DiscoveredRoute[];
+  appRouteHandlers: DiscoveredRoute[];
   publicRouteHandlers: DiscoveredRoute[];
   apiRoutes: DiscoveredRoute[];
   redirects: RedirectRoute[];
@@ -208,6 +209,7 @@ export function collectSiteMapData(): SiteMapData {
   const publicRouteHandlers = routeHandlers.filter((route) => !isApiRoute(route.route));
   return {
     pageRoutes,
+    appRouteHandlers: routeHandlers,
     publicRouteHandlers,
     apiRoutes: routeHandlers.filter((route) => isApiRoute(route.route)),
     redirects: discoverRedirects([...pageRoutes, ...publicRouteHandlers]),
@@ -394,6 +396,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
   const publicUtilityRouteHandlers = data.publicRouteHandlers.filter(
     (route) => !productRouteHandlerPaths.has(route.route),
   );
+  const productRouteHandlers = data.publicRouteHandlers.filter((route) => productRouteHandlerPaths.has(route.route));
 
   const lines = [
     "# Clinical KB Site Map",
@@ -402,7 +405,10 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
     "",
     ...section(
       "Main product routes",
-      productRoutes.map((route) => routeLine(route, routeDescriptions)),
+      [
+        ...productRoutes.map((route) => routeLine(route, routeDescriptions)),
+        ...productRouteHandlers.map((route) => routeLine(route, routeDescriptions)),
+      ],
     ),
     ...section("Mode/query routes", renderModeRoutes()),
     ...section("Mode page index", renderModePageIndex()),

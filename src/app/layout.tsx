@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import { AuthProvider } from "@/lib/supabase/client";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
+import { PwaLifecycle } from "@/components/pwa-lifecycle";
 import { resolveMetadataBase } from "@/lib/metadata-base";
 import { APP_THEME_COLORS } from "@/lib/theme";
 import "./globals.css";

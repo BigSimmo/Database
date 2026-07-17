@@ -1219,7 +1219,7 @@ describe("Supabase Preview replay guards", () => {
     const migrationFiles = readdirSync(migrationDirectoryUrl)
       .filter((fileName) => /^\d+_.+\.sql$/.test(fileName))
       .sort();
-    expect(migrationFiles.at(-1)).toBe("20260717161000_assert_supabase_admin_default_privileges.sql");
+    expect(migrationFiles.at(-1)).toBe("20260717173000_reassert_supabase_admin_default_privileges.sql");
   });
 
   it("bootstraps safe default ACLs before fresh local and preview migration replay", () => {
