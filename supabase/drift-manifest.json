@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-17T20:36:38.440Z",
+  "generated_at": "2026-07-17T20:39:44.500Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "85a9e1afd0d06d3099ebb494d87e1432f92d11155809dea4c494bbebd71c3928",
-  "replay_seconds": 18,
+  "schema_sha256": "fa98b9c0b662d7dd22d282929fb07112e4a8ada516be911e24dfebf345d547aa",
+  "replay_seconds": 31,
   "snapshot": {
     "views": [
       {
@@ -6467,7 +6467,7 @@
         "acl": [
           "postgres=X/postgres"
         ],
-        "def_hash": "7104ee6e947fcca68fdebdf2fa878339",
+        "def_hash": "646aa31b62d2346f7b202db67337fc6e",
         "signature": "public.cleanup_registry_corpus_document()"
       },
       {
@@ -6554,7 +6554,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "cb65883a561cb1f5cd2247213f417a41",
+        "def_hash": "f13ab776d9d90a6275f6fd605509e1dc",
         "signature": "public.correct_clinical_query_terms(text,real)"
       },
       {
