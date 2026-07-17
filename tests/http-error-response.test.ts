@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { jsonError, PublicApiError } from "../src/lib/http";
 import { logger } from "../src/lib/logger";
-import { unauthorizedResponse } from "../src/lib/supabase/auth";
+import { AuthenticationError, unauthorizedResponse } from "../src/lib/supabase/auth";
 
 describe("jsonError public payload", () => {
   it("keeps public error payloads stable without exposing stack or internal causes", async () => {
@@ -101,6 +101,57 @@ describe("jsonError logging opt-out", () => {
     expect(errorSpy).not.toHaveBeenCalled();
     expect(silent).toEqual(logged);
   });
+
+  it("still logs when an options object is passed without an explicit log key", async () => {
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    jsonError(new PublicApiError("nope", 500, { code: "boom" }), 500, {});
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs when log is explicitly enabled", async () => {
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    jsonError(new PublicApiError("nope", 500, { code: "boom" }), 500, { log: true });
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("suppresses logging for a plain (non-PublicApiError) error when log is disabled", async () => {
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    const response = jsonError(new Error("boom"), 503, { log: false });
+    const body = await response.json();
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(response.status).toBe(503);
+    expect(body).toEqual({
+      error: "Request failed.",
+      message: "Request failed.",
+      code: "internal_error",
+    });
+  });
+
+  it("does not affect the response status, headers, or requestId when logging is disabled", async () => {
+    vi.spyOn(logger, "error").mockImplementation(() => {});
+
+    const error = new PublicApiError("Search failed safely.", 503, {
+      code: "search_unavailable",
+      requestId: "req_456",
+    });
+    const response = jsonError(error, 500, { log: false });
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+    expect(body).toEqual({
+      error: "Search failed safely.",
+      message: "Search failed safely.",
+      code: "search_unavailable",
+      requestId: "req_456",
+    });
+  });
 });
 
 describe("unauthorizedResponse envelope", () => {
@@ -121,6 +172,30 @@ describe("unauthorizedResponse envelope", () => {
   it("does not record a routine unauthenticated request as a server error", () => {
     const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
     unauthorizedResponse();
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
+  it("ignores a caller-supplied AuthenticationError and always returns the generic message", async () => {
+    const response = unauthorizedResponse(new AuthenticationError("Session expired for user 12345"));
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({
+      error: "Authentication required.",
+      message: "Authentication required.",
+      code: "authentication_required",
+    });
+  });
+
+  it("sets a private, no-store Cache-Control header so a 401 is never cached or shared", () => {
+    const response = unauthorizedResponse();
+
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
+  });
+
+  it("does not log even when a caller-supplied AuthenticationError is provided", () => {
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    unauthorizedResponse(new AuthenticationError("some internal detail"));
     expect(errorSpy).not.toHaveBeenCalled();
   });
 });

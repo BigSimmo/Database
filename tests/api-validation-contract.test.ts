@@ -301,6 +301,41 @@ describe("API validation contracts", () => {
     expect(client.calls[0].range).toEqual({ from: 10_000, to: 10_199 });
   });
 
+  it("passes through a document list offset at or under the 10k cap unchanged", async () => {
+    const client = createSupabaseMock(() => ok([], 0));
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const underCapResponse = await GET(
+      authenticatedRequest("/api/documents?limit=50&offset=9999&includeMeta=false"),
+    );
+    const underCapBody = await payload(underCapResponse);
+    const atCapResponse = await GET(
+      authenticatedRequest("/api/documents?limit=50&offset=10000&includeMeta=false"),
+    );
+    const atCapBody = await payload(atCapResponse);
+
+    expect(underCapResponse.status).toBe(200);
+    expect(underCapBody.pagination).toMatchObject({ limit: 50, offset: 9999 });
+    expect(client.calls[0].range).toEqual({ from: 9999, to: 10_048 });
+    expect(atCapResponse.status).toBe(200);
+    expect(atCapBody.pagination).toMatchObject({ limit: 50, offset: 10_000 });
+    expect(client.calls[1].range).toEqual({ from: 10_000, to: 10_049 });
+  });
+
+  it("clamps a document list offset that is just past the 10k cap down to exactly 10k", async () => {
+    const client = createSupabaseMock(() => ok([], 0));
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/route");
+
+    const response = await GET(authenticatedRequest("/api/documents?limit=50&offset=10001&includeMeta=false"));
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body.pagination).toMatchObject({ limit: 50, offset: 10_000 });
+    expect(client.calls[0].range).toEqual({ from: 10_000, to: 10_049 });
+  });
+
   it("treats empty document-detail chunk as absent and clamps page/chunk windows", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.maybeSingle) {
