@@ -57,6 +57,8 @@ describe("tracked sitemap", () => {
 
     for (const pageRoute of data.pageRoutes) expectDocumentedRoute(pageRoute.route);
     for (const apiRoute of data.apiRoutes) expectDocumentedRoute(apiRoute.route);
+    for (const handler of data.appRouteHandlers) expectDocumentedRoute(handler.route);
+    for (const redirect of data.redirects) expectDocumentedRoute(redirect.route);
   });
 
   it("documents seeded dynamic slugs", () => {
