@@ -66,6 +66,60 @@ function resultCode(match: FormSearchMatch, index: number) {
   return formCatalogDetails(match.service)?.form ?? String(index + 1);
 }
 
+// Form codes are mostly short ("1A", "10D") but some carry a trailing qualifier
+// ("6B Attachment"). Splitting on the first space lets the badge show the code
+// prominently while the qualifier renders as a compact sub-label, so long codes
+// no longer overflow the fixed chip.
+function splitFormCode(code: string): { head: string; qualifier: string | null } {
+  const trimmed = code.trim();
+  const spaceIndex = trimmed.indexOf(" ");
+  if (spaceIndex === -1) return { head: trimmed, qualifier: null };
+  return {
+    head: trimmed.slice(0, spaceIndex),
+    qualifier: trimmed.slice(spaceIndex + 1).trim() || null,
+  };
+}
+
+// Scale the code down as it gets longer so a four-character head ("3A/4B") still
+// fits the chip without clipping.
+function formHeadSizeClass(head: string, variant: "md" | "sm") {
+  const length = head.length;
+  if (variant === "sm") {
+    if (length <= 2) return "text-lg";
+    if (length === 3) return "text-base";
+    return "text-sm";
+  }
+  if (length <= 2) return "text-2xl";
+  if (length === 3) return "text-xl";
+  return "text-base";
+}
+
+function FormCodeBadge({ code, variant = "md" }: { code: string; variant?: "md" | "sm" }) {
+  const { head, qualifier } = splitFormCode(code);
+  const isSm = variant === "sm";
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 flex-col items-center justify-center overflow-hidden rounded-xl border border-[color:var(--clinical-accent-border)] bg-gradient-to-b from-[color:var(--clinical-accent-soft)] to-[color-mix(in_srgb,var(--clinical-accent-soft)_55%,var(--surface))] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
+        isSm ? "h-12 w-12 gap-0 px-0.5" : "h-14 w-16 gap-0.5 px-0.5",
+      )}
+    >
+      <span className={cn("font-extrabold leading-none", formHeadSizeClass(head, variant), codeText)}>{head}</span>
+      {qualifier ? (
+        <span
+          title={qualifier}
+          className={cn(
+            "w-full truncate text-center font-bold uppercase leading-none tracking-tight opacity-75",
+            "text-[0.5rem]",
+          )}
+        >
+          {qualifier}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function tagToneClass(label: string) {
   const normalized = label.toLowerCase();
   if (normalized.includes("crisis") || normalized.includes("risk") || normalized.includes("safety")) {
@@ -227,7 +281,7 @@ function RefinePanel({ open, panelId }: { open: boolean; panelId: string }) {
   );
 }
 
-const resultsGridColumns = "md:grid-cols-[64px_minmax(0,1.35fr)_minmax(0,0.85fr)_minmax(0,1.35fr)_minmax(88px,auto)]";
+const resultsGridColumns = "md:grid-cols-[72px_minmax(0,1.35fr)_minmax(0,0.85fr)_minmax(0,1.35fr)_minmax(88px,auto)]";
 
 function ResultsTable({
   matches,
@@ -271,13 +325,12 @@ function ResultsTable({
               key={form.slug}
               data-testid={`form-search-result-${form.slug}`}
               className={cn(
-                "grid gap-4 border-b border-[color:var(--border)] px-5 py-4 transition last:border-b-0 hover:bg-[color:var(--surface-subtle)]/55 md:items-center",
+                "group relative grid gap-4 border-b border-[color:var(--border)] px-5 py-4 transition-colors last:border-b-0 hover:bg-[color:var(--surface-subtle)]/60 md:items-center",
+                "before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-[color:var(--clinical-accent)] before:opacity-0 before:transition-opacity before:content-[''] hover:before:opacity-100",
                 resultsGridColumns,
               )}
             >
-              <div className="grid h-12 w-14 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-2xl font-extrabold text-[color:var(--clinical-accent)]">
-                {resultCode(match, index)}
-              </div>
+              <FormCodeBadge code={resultCode(match, index)} />
               <div className="min-w-0">
                 <h3 className="text-sm font-extrabold leading-snug text-[color:var(--text-heading)]">{form.title}</h3>
               </div>
@@ -304,12 +357,12 @@ function ResultsTable({
                 href={`/forms/${form.slug}`}
                 aria-label={`Open ${form.title}`}
                 className={cn(
-                  "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] md:justify-self-end",
+                  "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] group-hover:border-[color:var(--clinical-accent-border)] group-hover:bg-[color:var(--clinical-accent-soft)] md:justify-self-end",
                   searchFocusRing,
                 )}
               >
                 Open
-                <ExternalLink className="h-4 w-4" aria-hidden />
+                <ExternalLink className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
               </Link>
             </article>
           );
@@ -451,11 +504,9 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
             <article
               key={form.slug}
               data-testid={`form-search-mobile-result-${form.slug}`}
-              className="grid grid-cols-[44px_minmax(0,1fr)] gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[var(--shadow-tight)]"
+              className="grid grid-cols-[48px_minmax(0,1fr)] gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[var(--shadow-tight)]"
             >
-              <div className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-xl font-extrabold leading-none text-[color:var(--clinical-accent)]">
-                {resultCode(match, index)}
-              </div>
+              <FormCodeBadge code={resultCode(match, index)} variant="sm" />
               <div className="min-w-0">
                 <div className="flex min-w-0 items-start justify-between gap-2">
                   <h3 className="min-w-0 text-sm-minus font-extrabold leading-snug text-[color:var(--text-heading)]">
