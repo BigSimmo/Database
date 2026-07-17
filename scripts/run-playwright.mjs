@@ -150,8 +150,10 @@ async function waitForServer(baseUrl, server) {
     if (isVerifiedProjectPayload(payload)) {
       let healthy = true;
       for (const smokePath of routeSmokePaths) {
+        // request() returns null on transport/status failure, or a string body on
+        // 2xx/3xx (including empty redirect bodies from legacy route handlers).
         const body = await request(`${baseUrl}${smokePath}`);
-        if (!body || body.includes(missingErrorComponentsNeedle)) {
+        if (body === null || body.includes(missingErrorComponentsNeedle)) {
           healthy = false;
           break;
         }

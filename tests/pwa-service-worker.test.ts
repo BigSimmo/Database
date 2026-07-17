@@ -613,6 +613,10 @@ describe("PWA service worker cache and lifecycle policy", () => {
   it.each<{ headers: Record<string, string>; label: string }>([
     { label: "private", headers: { "Cache-Control": "private, max-age=31536000" } },
     { label: "no-store", headers: { "Cache-Control": "public, no-store, max-age=31536000" } },
+    {
+      label: "Set-Cookie",
+      headers: { "Cache-Control": "public, max-age=31536000", "Set-Cookie": "session=private" },
+    },
     { label: "HTML", headers: { "Content-Type": "text/html; charset=utf-8" } },
     { label: "wrong-MIME", headers: { "Content-Type": "application/json" } },
     { label: "cookie-varying", headers: { Vary: "Accept-Encoding, Cookie" } },
