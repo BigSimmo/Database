@@ -56,7 +56,11 @@ export function RouteErrorBoundary({
           <TriangleAlert aria-hidden="true" className="h-6 w-6" />
         </div>
 
-        <h1 ref={headingRef} tabIndex={-1} className="mt-4 text-lg font-semibold tracking-tight text-[color:var(--text-heading)] focus:outline-none">
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          className="mt-4 text-lg font-semibold tracking-tight text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus-ring,Highlight)]"
+        >
           {title}
         </h1>
 

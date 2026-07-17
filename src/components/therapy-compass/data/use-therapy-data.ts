@@ -40,20 +40,24 @@ export function useTherapyData(): TherapyDataState {
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => {
     cache = null;
-    setState({ data: null, loading: true, error: null });
+    // Keep the prior error message mounted so Retry focus is not lost while the
+    // next attempt is in flight; success/failure handlers replace it below.
+    setState((prev) => ({ ...prev, loading: true }));
     setAttempt((value) => value + 1);
   }, []);
 
   useEffect(() => {
     let active = true;
     cache ??= loadDataset();
-    cache
+    const request = cache;
+    request
       .then((data) => {
         if (active) setState({ data, loading: false, error: null });
       })
       .catch((err: unknown) => {
-        // Allow a retry on the next mount if the fetch failed.
-        cache = null;
+        // Only clear the shared cache when this request is still the active one.
+        // A newer retry may have already replaced `cache` with a fresh promise.
+        if (cache === request) cache = null;
         if (active)
           setState({ data: null, loading: false, error: err instanceof Error ? err.message : "Failed to load" });
       });

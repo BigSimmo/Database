@@ -46,7 +46,20 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
             boxShadow: "0 10px 30px color-mix(in srgb, CanvasText 12%, transparent)",
           }}
         >
-          <h1 ref={headingRef} tabIndex={-1} role="alert" style={{ margin: "0 0 0.5rem", fontSize: "1.125rem", fontWeight: 600, outline: "none" }}>Something went wrong</h1>
+          <h1
+            ref={headingRef}
+            tabIndex={-1}
+            role="alert"
+            style={{
+              margin: "0 0 0.5rem",
+              fontSize: "1.125rem",
+              fontWeight: 600,
+              outline: "2px solid Highlight",
+              outlineOffset: "2px",
+            }}
+          >
+            Something went wrong
+          </h1>
           <p style={{ margin: "0 0 1.25rem", fontSize: "0.875rem", lineHeight: 1.6 }}>
             The application failed to load. Please try again, or reload the page if the problem persists.
           </p>
