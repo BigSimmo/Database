@@ -1511,8 +1511,14 @@ summary::-webkit-details-marker {
   padding-inline: 0.25rem;
 }
 
+/* Phone answer dock: the "Try next" chip row sits directly above the pill with
+   no flex-gap owner (showFooterSearchChips is false on phones), so this margin
+   is the sole separator. It must stay positive — a negative value tucked the
+   chips' rounded underside beneath the pill's top edge/focus glow, reading as a
+   collision. Keep the gap just large enough to read as intentional without
+   pushing the row up into the content that shows through the scrim above. */
 .answer-footer-search-edge .answer-suggestion-row-composer-followups {
-  margin-bottom: -0.125rem;
+  margin-bottom: 0.4375rem;
 }
 
 @media (max-width: 639px) {
