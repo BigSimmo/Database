@@ -70,3 +70,27 @@ alter function storage.foldername(text) owner to postgres;
 
 grant usage on schema storage to postgres, anon, authenticated, service_role;
 grant create on schema storage to postgres;
+
+-- The production migration intentionally fails closed when supabase_admin's
+-- future-object defaults are unsafe and the migration role cannot repair
+-- them. Seed the expected platform postcondition while this scaffold is
+-- already running as supabase_admin so scratch replay validates the assertion
+-- instead of bypassing it.
+alter default privileges
+  revoke all privileges on tables from anon, authenticated, service_role;
+alter default privileges in schema public
+  revoke all privileges on tables from anon, authenticated, service_role;
+alter default privileges
+  revoke all privileges on sequences from anon, authenticated, service_role;
+alter default privileges in schema public
+  revoke all privileges on sequences from anon, authenticated, service_role;
+alter default privileges
+  revoke execute on functions from public, anon, authenticated, service_role;
+alter default privileges in schema public
+  revoke execute on functions from public, anon, authenticated, service_role;
+alter default privileges in schema public
+  grant select, insert, update, delete on tables to service_role;
+alter default privileges in schema public
+  grant usage, select on sequences to service_role;
+alter default privileges in schema public
+  grant execute on functions to service_role;
