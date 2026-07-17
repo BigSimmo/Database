@@ -92,20 +92,21 @@ describe("audit navigation and auth regressions", () => {
   it("gates private polling and mutations on local readiness plus authenticated status", () => {
     const privateCapabilityContract = sourceSegment(
       clinicalDashboardSource,
-      "const canUsePrivateApis =",
-      "const canUploadDocuments =",
+      "// Local/demo guests can read the public library",
+      "const canRunSearch =",
     );
-    expect(privateCapabilityContract).toContain("localProjectReady");
-    expect(privateCapabilityContract).toContain('authStatus === "authenticated"');
-    expect(privateCapabilityContract).not.toMatch(/clientDemoMode/);
+    expect(privateCapabilityContract).toContain(
+      'const canUsePrivateApis = localProjectReady && authStatus === "authenticated";',
+    );
+    expect(privateCapabilityContract).not.toMatch(/localNoAuth|clientDemoMode/);
 
     const pollingContract = sourceSegment(
       clinicalDashboardSource,
       "const shouldRefreshWorkState =",
       "const [documentsResponse",
     );
-    expect(pollingContract).toContain("shouldRefreshWorkState");
-    expect(pollingContract).not.toMatch(/clientDemoMode/);
+    expect(pollingContract).toContain("(canUsePrivateApis || serverDemoMode)");
+    expect(pollingContract).not.toMatch(/localNoAuth|clientDemoMode/);
 
     const labelMutationContract = sourceSegment(
       clinicalDashboardSource,
@@ -122,8 +123,8 @@ describe("audit navigation and auth regressions", () => {
     expect(uploadMutationContract).toContain("if (!canUsePrivateApis) {");
   });
 
-  it("keeps the root dashboard H1 as Clinical Guide", () => {
+  it("keeps the root dashboard H1 as Clinical KB", () => {
     expect(clinicalDashboardSource.match(/<h1\b/g)).toHaveLength(1);
-    expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical Guide\s*<\/h1>/);
+    expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical KB\s*<\/h1>/);
   });
 });
