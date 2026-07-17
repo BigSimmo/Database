@@ -52,7 +52,9 @@ describe("standalone TSX server-only compatibility", () => {
     const config = readFileSync(new URL("../vitest.config.mts", import.meta.url), "utf8");
     expect(runner).toContain("acquireHeavyRunLock");
     expect(runner).not.toContain("taskkill");
-    expect(config).toContain("maxWorkers: 2");
+    expect(config).toMatch(
+      /maxWorkers:\s*process\.env\.VITEST_MAX_WORKERS\s*\?\s*Number\(process\.env\.VITEST_MAX_WORKERS\)\s*:\s*\d+/,
+    );
     expect(config).toContain("testTimeout: 30_000");
   });
 });
