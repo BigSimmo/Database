@@ -3,12 +3,11 @@
 import Link from "next/link";
 import { FileSearch, FileText, Search, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useMemo, useState } from "react";
 
 import { factsheets } from "@/components/factsheets/factsheets-data";
 import {
   EmptyState,
-  LoadingPanel,
   cn,
   fieldControlWithIcon,
   fieldIcon,
@@ -22,15 +21,11 @@ export function FactsheetsSearchPage() {
   const searchParams = useSearchParams();
   const submittedQuery = (searchParams.get("q") ?? "").trim();
   const [input, setInput] = useState(submittedQuery);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => setInput(submittedQuery), [submittedQuery]);
-  useEffect(() => {
-    if (!submittedQuery) return;
-    setLoading(true);
-    const timeout = window.setTimeout(() => setLoading(false), 180);
-    return () => window.clearTimeout(timeout);
-  }, [submittedQuery]);
+  const [prevQuery, setPrevQuery] = useState(submittedQuery);
+  if (prevQuery !== submittedQuery) {
+    setPrevQuery(submittedQuery);
+    setInput(submittedQuery);
+  }
 
   const results = useMemo(() => {
     const normalized = submittedQuery.toLowerCase();
@@ -79,10 +74,8 @@ export function FactsheetsSearchPage() {
         </div>
       </form>
 
-      <section className="mt-8" aria-live="polite" aria-busy={loading}>
-        {loading ? (
-          <LoadingPanel label="Searching patient information sheets" variant="skeleton" lines={3} />
-        ) : results.length === 0 ? (
+      <section className="mt-8" aria-live="polite">
+        {results.length === 0 ? (
           <div className="space-y-4">
             <EmptyState
               icon={FileSearch}
@@ -96,11 +89,11 @@ export function FactsheetsSearchPage() {
             </div>
           </div>
         ) : (
-          <>
+          <div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-[color:var(--text-muted)]">
                 {submittedQuery
-                  ? `${results.length} result${results.length === 1 ? "" : "s"} for “${submittedQuery}”`
+                  ? `${results.length} result${results.length === 1 ? "" : "s"} for "${submittedQuery}"`
                   : `${results.length} sample factsheets`}
               </p>
               {submittedQuery ? (
@@ -139,7 +132,7 @@ export function FactsheetsSearchPage() {
                 </Link>
               ))}
             </div>
-          </>
+          </div>
         )}
       </section>
       <aside className={cn(quietPanel, "mt-6 max-w-3xl p-4 text-sm leading-6 text-[color:var(--text-muted)]")}>
