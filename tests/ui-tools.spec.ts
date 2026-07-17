@@ -1245,11 +1245,11 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
     const tabs = page.getByTestId("differential-result-type-tabs");
     await expect(tabs).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: /All \(\d+\)/ })).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: /Presentations \(\d+\)/ })).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: /Diagnoses \(\d+\)/ })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: /All \(\d+\)/ })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: /Presentations \(\d+\)/ })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: /Diagnoses \(\d+\)/ })).toBeVisible();
 
-    const tabMetrics = await tabs.getByRole("tab").evaluateAll((buttons) =>
+    const tabMetrics = await tabs.getByRole("button").evaluateAll((buttons) =>
       buttons.map((button) => {
         const rect = button.getBoundingClientRect();
         return { height: rect.height, scrollHeight: button.scrollHeight };
@@ -1341,11 +1341,11 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
     const tabs = page.getByTestId("differential-result-type-tabs");
     await expect(tabs).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: "All (8)" })).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: "Presentations (1)" })).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: "Diagnoses (7)" })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: "All (8)" })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: "Presentations (1)" })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: "Diagnoses (7)" })).toBeVisible();
 
-    const tabMetrics = await tabs.getByRole("tab").evaluateAll((tabElements) =>
+    const tabMetrics = await tabs.getByRole("button").evaluateAll((tabElements) =>
       tabElements.map((tab) => {
         const rect = tab.getBoundingClientRect();
         return { height: rect.height, scrollHeight: tab.scrollHeight };
