@@ -206,10 +206,9 @@ export function collectSiteMapData(): SiteMapData {
   const routeHandlers = discoverRoutes("api");
   const apiRoutes = routeHandlers.filter((route) => isApiRoute(route.route));
   const nonApiHandlers = routeHandlers.filter((route) => !isApiRoute(route.route));
-  const redirects = [
-    ...discoverRedirects(pageRoutes),
-    ...discoverRedirects(nonApiHandlers),
-  ].sort((left, right) => left.route.localeCompare(right.route) || left.file.localeCompare(right.file));
+  const redirects = [...discoverRedirects(pageRoutes), ...discoverRedirects(nonApiHandlers)].sort(
+    (left, right) => left.route.localeCompare(right.route) || left.file.localeCompare(right.file),
+  );
   const redirectRoutes = new Set(redirects.map((redirect) => redirect.route));
   const appRouteHandlers = nonApiHandlers.filter((route) => !redirectRoutes.has(route.route));
 
