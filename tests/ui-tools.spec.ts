@@ -522,7 +522,10 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("service-search-result-13yarn")).toBeVisible();
 
     let menu = await openAppModeMenu(page, "Services");
-    await menu.getByRole("menuitemradio", { name: /^Forms\b/ }).click();
+    const formsMode = menu.getByRole("menuitemradio", { name: /^Forms\b/ });
+    await expect(formsMode).toBeVisible();
+    await waitForReactEventHandler(formsMode);
+    await formsMode.click();
 
     await expect(page).toHaveURL(/\/forms$/);
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
@@ -536,7 +539,10 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("forms-home")).toBeVisible();
 
     menu = await openAppModeMenu(page, "Forms");
-    await menu.getByRole("menuitemradio", { name: /^Services\b/ }).click();
+    const servicesMode = menu.getByRole("menuitemradio", { name: /^Services\b/ });
+    await expect(servicesMode).toBeVisible();
+    await waitForReactEventHandler(servicesMode);
+    await servicesMode.click();
 
     await expect(page).toHaveURL(/\/services$/);
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();

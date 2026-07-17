@@ -92,11 +92,10 @@ function chipToneClass(tone: ServiceChipTone | null | undefined) {
   return toneNeutral;
 }
 
-function sourceToneClass(form: FormRecord) {
+export function sourceToneClass(form: FormRecord) {
   const status = form.source?.status?.toLowerCase() ?? "";
-  if (form.verification?.locallyVerified || status.includes("checked") || status.includes("verified"))
-    return toneSuccess;
-  if (status.includes("required") || status.includes("review")) return toneWarning;
+  if (/required|review|unverified|not verified|unchecked|pending|unknown|confirm/.test(status)) return toneWarning;
+  if (form.verification?.locallyVerified === true) return toneSuccess;
   return toneNeutral;
 }
 
