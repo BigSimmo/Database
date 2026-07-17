@@ -478,7 +478,7 @@ function FavouriteMobileCard({
         type="button"
         onClick={() => onSelect(item.id)}
         aria-pressed={selected}
-        aria-label={`Select ${item.title}`}
+        aria-label={item.pinned ? `Select ${item.title}, pinned` : `Select ${item.title}`}
         className={cn("absolute inset-0 cursor-pointer rounded-xl", focusRing)}
       />
 
@@ -488,13 +488,10 @@ function FavouriteMobileCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-start gap-1.5">
               {item.pinned ? (
-                <>
-                  <Pin
-                    className="mt-1 h-3 w-3 shrink-0 -rotate-45 fill-current text-[color:var(--clinical-accent)]"
-                    aria-hidden
-                  />
-                  <span className="sr-only">Pinned</span>
-                </>
+                <Pin
+                  className="mt-1 h-3 w-3 shrink-0 -rotate-45 fill-current text-[color:var(--clinical-accent)]"
+                  aria-hidden
+                />
               ) : null}
               <h3 className="line-clamp-2 text-sm-minus font-bold leading-5 text-[color:var(--text-heading)]">
                 {item.title}

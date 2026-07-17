@@ -49,7 +49,6 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           <h1
             ref={headingRef}
             tabIndex={-1}
-            role="alert"
             style={{
               margin: "0 0 0.5rem",
               fontSize: "1.125rem",
