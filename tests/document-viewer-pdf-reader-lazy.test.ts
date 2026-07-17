@@ -14,5 +14,7 @@ describe("DocumentViewer PDF reader loading", () => {
     );
     expect(viewerSource).toContain('dynamic(\n  () => import("@/components/document-viewer/pdf-canvas-viewer")');
     expect(viewerSource).toContain("loading: () => <PdfPreviewLoading />");
+    expect(viewerSource).toContain("module.PdfCanvasViewer");
+    expect(viewerSource).toContain("module.NativePdfEmbed");
   });
 });
