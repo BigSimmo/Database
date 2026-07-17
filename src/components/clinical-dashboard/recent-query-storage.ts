@@ -13,6 +13,27 @@ export function loadRecentQueries(ownerId: string | null): string[] {
   }
 }
 
+// Total recent queries retained across every owner-scoped session key. Used by
+// the settings privacy controls to show how much is stored and to disable the
+// "Clear" affordance when there is nothing to remove.
+export function countRecentQueries(): number {
+  if (typeof window === "undefined") return 0;
+  try {
+    let total = 0;
+    for (let index = 0; index < window.sessionStorage.length; index += 1) {
+      const key = window.sessionStorage.key(index);
+      if (!key?.startsWith(`${recentQueryStorageKey}:`)) continue;
+      const stored = JSON.parse(window.sessionStorage.getItem(key) ?? "[]");
+      if (Array.isArray(stored)) {
+        total += stored.filter((item) => typeof item === "string" && Boolean(item.trim())).length;
+      }
+    }
+    return total;
+  } catch {
+    return 0;
+  }
+}
+
 // The pre-owner-scoping build persisted recent clinical queries under the
 // unscoped key, which survived logout, account switching, and demo/
 // authenticated transitions on shared workstations (2026-07-13 audit,

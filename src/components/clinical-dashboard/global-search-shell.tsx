@@ -611,8 +611,6 @@ function GlobalStandaloneSearchShellClient({
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         identity={sidebarIdentity}
-        theme={theme}
-        onToggleTheme={toggleTheme}
         onSignOut={auth.signOut}
         onOpenGuide={openGuide}
       />

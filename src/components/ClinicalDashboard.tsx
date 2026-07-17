@@ -4124,8 +4124,6 @@ export function ClinicalDashboard({
           open={settingsOpen}
           onClose={closeSettings}
           identity={sidebarIdentity}
-          theme={theme}
-          onToggleTheme={toggleTheme}
           onSignOut={auth.signOut}
           onOpenGuide={openGuide}
         />
