@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import path from "node:path";
 
 import {
   analyzeFailureText,
@@ -71,13 +72,13 @@ describe("productivity workflow planning", () => {
 
 describe("external workflow portability", () => {
   it("derives the shared workflow directory from the Git common directory", () => {
-    const candidates = workflowRootCandidates(
-      "C:\\Users\\example\\.codex\\worktrees\\1234\\Database",
-      "C:\\Dev\\Apps\\Database\\.git",
-      { NODE_ENV: "test" },
-    );
+    const root = path.parse(process.cwd()).root;
+    const cwd = path.join(root, "tmp", "codex", "worktrees", "1234", "Database");
+    const gitCommonDir = path.join(root, "workspace", "Apps", "Database", ".git");
+    const candidates = workflowRootCandidates(cwd, gitCommonDir, { NODE_ENV: "test" });
+    const expected = path.join(root, "workspace", "Apps", ".local-dev");
 
-    expect(candidates.some((candidate) => candidate.replaceAll("\\", "/").endsWith("/Dev/Apps/.local-dev"))).toBe(true);
+    expect(candidates).toContain(path.normalize(expected));
   });
 
   it("rejects unknown shared workflow names", () => {
