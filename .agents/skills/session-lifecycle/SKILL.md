@@ -7,7 +7,7 @@ description: Manage Database repository work safely from task start through veri
 
 1. Select the phase and generate its plan:
    `npm run workflow:lifecycle -- --phase <status|start|handoff|landed|cleanup>`
-2. At task start, run the mandatory `start-codex-task.ps1` preflight, read applicable `AGENTS.md`, and preserve all existing work. Do not use the shared stash across worktrees.
+2. At task start, run the mandatory task-start preflight command configured by the active host or root `AGENTS.md`, then read applicable repo instructions and preserve all existing work. On this Windows Codex installation, resolve the installation-managed script from the user profile (for example, `& (Join-Path $env:USERPROFILE '.codex\scripts\start-codex-task.ps1') -TaskSlug <slug>`); it is intentionally not repo-local. Do not use the shared stash across worktrees.
 3. During work, recheck branch and status before edits and before handoff. Use `database-flightplan` for non-trivial change verification.
 4. At handoff, stage explicit coherent paths only, verify locally, and inspect the staged diff. Commit, push, PR creation, hosted CI, and merge remain authorization-bound.
 5. After a squash merge, verify the reviewed content against fetched `origin/main`; do not rely on ancestry alone. Check for late orphaned commits before cleanup.
