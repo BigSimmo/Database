@@ -136,11 +136,9 @@ describe("content and services audit regressions", () => {
       expect(form.source?.status, form.slug).toBe("Source checked");
     }
 
-    expect(formsSearchSource).not.toMatch(
-      /Evidence 278|Pathways 12|Tasks 8/,
-    );
+    expect(formsSearchSource).not.toMatch(/Evidence 278|Pathways 12|Tasks 8/);
     expect(formsSearchSource).toContain("chip.label");
-    expect(formsSearchSource).toContain('Title or content match for');
+    expect(formsSearchSource).toContain("Title or content match for");
     expect(formsSearchSource).toContain("Content match in the forms catalogue");
     expect(formsHomeSource).not.toMatch(/starter set of MHA 2014 forms|follow a pathway/);
     expect(formsHomeSource).toContain("Source catalogue reviewed");
@@ -199,7 +197,9 @@ describe("content and services audit regressions", () => {
 
   it("claims and renders a form source link only when the record has a URL", () => {
     expect(normalizedFormDetailSource).toMatch(/\{form\.source\?\.url \? \(/);
-    expect(normalizedFormDetailSource).toMatch(/<a href=\{form\.source\.url\} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10/);
+    expect(normalizedFormDetailSource).toMatch(
+      /<a href=\{form\.source\.url\} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10/,
+    );
     expect(formDetailSource).toContain("Source link pending");
   });
 });
