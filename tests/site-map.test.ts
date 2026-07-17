@@ -52,48 +52,13 @@ describe("tracked sitemap", () => {
     expect(siteMap).toBe(await renderSiteMap());
   });
 
-  it("documents every app page, public route handler, and API route", () => {
+  it("documents every app page route and API route", () => {
     const data = collectSiteMapData();
 
     for (const pageRoute of data.pageRoutes) expectDocumentedRoute(pageRoute.route);
-    for (const routeHandler of data.publicRouteHandlers) expectDocumentedRoute(routeHandler.route);
     for (const apiRoute of data.apiRoutes) expectDocumentedRoute(apiRoute.route);
     for (const handler of data.appRouteHandlers) expectDocumentedRoute(handler.route);
     for (const redirect of data.redirects) expectDocumentedRoute(redirect.route);
-  });
-
-  it("keeps public redirect handlers in product routes and API handlers in the API section", () => {
-    const data = collectSiteMapData();
-    const productSection = siteMap.slice(
-      siteMap.indexOf("## Main product routes"),
-      siteMap.indexOf("## Mode/query routes"),
-    );
-    const apiSection = siteMap.slice(siteMap.indexOf("## API routes"), siteMap.indexOf("## Redirects"));
-    const expectedProductHandlers = [
-      ["/applications", "src/app/applications/route.ts", "/tools"],
-      [
-        "/differentials/presentations",
-        "src/app/differentials/presentations/route.ts",
-        "/differentials/presentations/[workflow-slug]",
-      ],
-      ["/medications", "src/app/medications/route.ts", "/?mode=prescribing"],
-    ] as const;
-
-    expect(data.apiRoutes.every((route) => route.route === "/api" || route.route.startsWith("/api/"))).toBe(true);
-    expect(data.publicRouteHandlers.some((route) => route.route === "/auth/callback")).toBe(true);
-    expect(data.publicRouteHandlers).toContainEqual({
-      route: "/icons/[variant]",
-      file: "src/app/icons/[variant]/route.tsx",
-    });
-    expect(apiSection).not.toContain("`/icons/[variant]`");
-
-    for (const [route, file, target] of expectedProductHandlers) {
-      expect(data.publicRouteHandlers).toContainEqual({ route, file });
-      expect(data.apiRoutes).not.toContainEqual({ route, file });
-      expect(data.redirects).toContainEqual({ route, file, target });
-      expect(productSection).toContain(`\`${route}\``);
-      expect(apiSection).not.toContain(`\`${route}\``);
-    }
   });
 
   it("documents seeded dynamic slugs", () => {

@@ -68,19 +68,17 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### API routes (`src/app/api/`)
 
-| Area          | Routes                                                                                                              | Entry files                                                     |
-| ------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Answers       | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                         | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
-| Search        | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                   | `search/`                                                       |
-| Upload        | `/api/upload`                                                                                                       | `upload/route.ts`                                               |
-| Documents     | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts | `documents/`                                                    |
-| Differentials | `/api/differentials`, `/api/differentials/[slug]`, `/api/differentials/presentations/[slug]`                        | `differentials/`                                                |
-| Medications   | `/api/medications`, `/api/medications/[slug]`                                                                       | `medications/`                                                  |
-| Ingestion     | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                     | `ingestion/`                                                    |
-| Registry      | `/api/registry/records`, `/api/registry/records/[slug]`                                                             | `registry/records/`                                             |
-| Images        | `/api/images/[id]/signed-url`                                                                                       | `images/[id]/signed-url/route.ts`                               |
-| Ops           | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                    | `health/`, `setup-status/`, `local-project-id/`                 |
-| Eval / jobs   | `/api/eval-cases`, `/api/jobs`                                                                                      | `eval-cases/`, `jobs/`                                          |
+| Area        | Routes                                                                  | Entry files                                                     |
+| ----------- | ----------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Answers     | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`             | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
+| Search      | `/api/search`, `/api/search/interaction`                                | `search/`                                                       |
+| Upload      | `/api/upload`                                                           | `upload/route.ts`                                               |
+| Documents   | CRUD, bulk, reindex, labels, search, summarize, table-facts, signed-url | `documents/`                                                    |
+| Ingestion   | batches, jobs, retry, quality                                           | `ingestion/`                                                    |
+| Registry    | records CRUD                                                            | `registry/records/`                                             |
+| Images      | signed URLs                                                             | `images/[id]/signed-url/route.ts`                               |
+| Ops         | health, setup-status, local-project-id                                  | `health/`, `setup-status/`, `local-project-id/`                 |
+| Eval / jobs | eval cases, job state                                                   | `eval-cases/`, `jobs/`                                          |
 
 ---
 
@@ -153,12 +151,12 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 - **CLI:** `supabase/config.toml` — `indexing-v3-agent` function, `verify_jwt = false`
 - **Schema mirror:** `supabase/schema.sql` (reference; migrations are source of truth)
-- **Migrations:** `supabase/migrations/*.sql` (chronological source of truth; do not hardcode a count)
+- **Migrations:** `supabase/migrations/*.sql` (~90 files, May–Jul 2026)
 - **Drift policy:** `docs/supabase-migration-reconciliation.md`
 
-### Schema tables
+### Core tables
 
-`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `medication_records`, `differential_records`, `source_review_events`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`
+`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `clinical_registry_records`, `api_rate_limits`, `audit_logs`, `storage_cleanup_jobs`
 
 **Storage buckets:** `clinical-documents`, `clinical-images` (private)
 
