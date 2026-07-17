@@ -139,7 +139,7 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
   const streamAbortController = new AbortController();
   const abortFromRequest = () => {
     if (!streamAbortController.signal.aborted) {
-      streamAbortController.abort(signal?.reason ?? new DOMException("The request was aborted.", "AbortError"));
+      streamAbortController.abort(signal?.reason ?? new DOMException("The answer stream was aborted.", "AbortError"));
     }
   };
   if (signal?.aborted) abortFromRequest();
@@ -275,7 +275,7 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
       },
       cancel(reason) {
         if (!streamSignal.aborted) {
-          streamAbortController.abort(reason ?? new DOMException("The stream was cancelled.", "AbortError"));
+          streamAbortController.abort(reason ?? new DOMException("The answer stream was aborted.", "AbortError"));
         }
       },
     }),

@@ -445,7 +445,15 @@ describe("private RAG API access", () => {
         generationSignal = args.signal as AbortSignal;
         resolveStarted?.();
         await new Promise<never>((_resolve, reject) => {
-          generationSignal?.addEventListener("abort", () => reject(generationSignal?.reason), { once: true });
+          if (!generationSignal) {
+            reject(new Error("generationSignal was not set"));
+            return;
+          }
+          if (generationSignal.aborted) {
+            reject(generationSignal.reason);
+            return;
+          }
+          generationSignal.addEventListener("abort", () => reject(generationSignal?.reason), { once: true });
         });
       },
     });
