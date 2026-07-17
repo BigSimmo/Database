@@ -263,13 +263,13 @@ function ServiceCard({
             <ExternalLink className="h-3.5 w-3.5" aria-hidden />
             Open
           </Link>
-        <button
-          type="button"
-          onClick={() => onToggleSelected(service.slug)}
+          <button
+            type="button"
+            onClick={() => onToggleSelected(service.slug)}
             className="inline-flex min-h-tap min-w-[94px] items-center justify-center gap-1.5 rounded-lg bg-[color:var(--clinical-accent)] px-3 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:h-9 sm:min-h-0"
             aria-label={selected ? `Remove ${service.title} from comparison` : `Add ${service.title} to comparison`}
             aria-pressed={selected}
-        >
+          >
             <Check className="h-4 w-4" aria-hidden />
             {selected ? "Selected" : "Select"}
           </button>
