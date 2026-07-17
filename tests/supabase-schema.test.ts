@@ -132,6 +132,10 @@ const defaultAclAssertionMigration = readFileSync(
   new URL("../supabase/migrations/20260717161000_assert_supabase_admin_default_privileges.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const defaultAclRoleBootstrap = readFileSync(new URL("../supabase/roles.sql", import.meta.url), "utf8").replace(
+  /\s+/g,
+  " ",
+);
 const scrubLegacyQueryTextMigration = readFileSync(
   new URL("../supabase/migrations/20260713103000_scrub_legacy_rag_query_text.sql", import.meta.url),
   "utf8",
@@ -1181,6 +1185,24 @@ describe("Supabase Preview replay guards", () => {
       .filter((fileName) => /^\d+_.+\.sql$/.test(fileName))
       .sort();
     expect(migrationFiles.at(-1)).toBe("20260717161000_assert_supabase_admin_default_privileges.sql");
+  });
+
+  it("bootstraps safe default ACLs before fresh local and preview migration replay", () => {
+    expect(defaultAclRoleBootstrap).toContain(
+      "alter default privileges for role supabase_admin revoke all privileges on tables from anon, authenticated, service_role;",
+    );
+    expect(defaultAclRoleBootstrap).toContain(
+      "alter default privileges for role supabase_admin revoke execute on functions from public, anon, authenticated, service_role;",
+    );
+    expect(defaultAclRoleBootstrap).toContain(
+      "alter default privileges for role supabase_admin in schema public grant select, insert, update, delete on tables to service_role;",
+    );
+    expect(defaultAclRoleBootstrap).toContain(
+      "alter default privileges for role supabase_admin in schema public grant usage, select on sequences to service_role;",
+    );
+    expect(defaultAclRoleBootstrap).toContain(
+      "alter default privileges for role supabase_admin in schema public grant execute on functions to service_role;",
+    );
   });
 
   it("scrubs legacy plaintext query text with salted irreversible placeholders", () => {
