@@ -193,11 +193,14 @@ export async function GET(request: Request) {
 
     const { data, error, count } = await query;
 
-    if (error) throw new Error(error.message);
+    // An `offset` past the end of the result set makes PostgREST return PGRST103
+    // ("Requested range not satisfiable"). That is an empty page, not a server
+    // error, so return an empty page instead of throwing a 500.
+    if (error && error.code !== "PGRST103") throw new Error(error.message);
     // An authenticated caller reads PUBLIC (owner_id IS NULL) documents alongside their own via
     // withOwnerReadScope. Redact operator-internal storage fields on the rows they do not own so a
     // shared public document never exposes its owner's storage_path/content_hash/etc. (S1/D1).
-    const rawDocuments = (data ?? []) as unknown as DocumentListRow[];
+    const rawDocuments = (error ? [] : (data ?? [])) as unknown as DocumentListRow[];
     const ownedDocumentIds = new Set(
       rawDocuments.filter((document) => callerOwnsDocumentRow(document, access.ownerId)).map((document) => document.id),
     );

@@ -1187,3 +1187,55 @@ describe("Supabase Preview replay guards", () => {
     expect(ingestionRpcPrivilegesDuplicateMigration).toContain("select 1 where false;");
   });
 });
+
+describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () => {
+  // The fix ships as a forward migration; schema.sql + drift-manifest are synced at
+  // the Docker-gated apply step, so this asserts the migration rather than schema.sql.
+  const correctorPublicTitlesMigration = readFileSync(
+    new URL("../supabase/migrations/20260717120000_corrector_public_titles_only.sql", import.meta.url),
+    "utf8",
+  )
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+  it("recreates the corrector scoped to the public (null-owner) title corpus", () => {
+    expect(correctorPublicTitlesMigration).toContain(
+      "create or replace function public.correct_clinical_query_terms(input_query text, min_sim real default 0.45)",
+    );
+    // SECURITY DEFINER bypasses RLS, so the title scan must be owner-scoped to keep a
+    // private tenant's title tokens out of every caller's correction vocabulary.
+    expect(correctorPublicTitlesMigration).toContain(
+      "where d.status = 'indexed' and d.owner_id is null and length(w) between 4 and 40",
+    );
+    // Regression guard: the old unscoped predicate must not survive in the migration.
+    expect(correctorPublicTitlesMigration).not.toContain("where d.status = 'indexed' and length(w) between 4 and 40");
+  });
+
+  it("scopes the rag_aliases vocabulary sources to public (null-owner) rows", () => {
+    // rag_aliases carries an owner_id (deep-memory persists owner-scoped aliases for
+    // private documents), so both alias reads must be owner-scoped too — otherwise the
+    // title fix alone still leaks private-document-derived terms across tenants.
+    expect(correctorPublicTitlesMigration).toContain(
+      "select lower(alias) as term from public.rag_aliases where enabled and owner_id is null and length(alias) between 4 and 40",
+    );
+    expect(correctorPublicTitlesMigration).toContain(
+      "select lower(canonical) from public.rag_aliases where enabled and owner_id is null and length(canonical) between 4 and 40",
+    );
+    // Regression guard: the old unscoped alias reads must not survive.
+    expect(correctorPublicTitlesMigration).not.toContain(
+      "from public.rag_aliases where enabled and length(alias) between 4 and 40",
+    );
+    expect(correctorPublicTitlesMigration).not.toContain(
+      "from public.rag_aliases where enabled and length(canonical) between 4 and 40",
+    );
+  });
+
+  it("keeps the corrector execute privilege confined to service_role", () => {
+    expect(correctorPublicTitlesMigration).toContain(
+      "revoke execute on function public.correct_clinical_query_terms(text, real) from public, anon, authenticated;",
+    );
+    expect(correctorPublicTitlesMigration).toContain(
+      "grant execute on function public.correct_clinical_query_terms(text, real) to service_role;",
+    );
+  });
+});
