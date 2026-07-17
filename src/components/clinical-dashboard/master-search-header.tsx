@@ -1596,6 +1596,7 @@ export function MasterSearchHeader({
               type="button"
               onClick={() => {
                 setActionMenuOpen(false);
+                setCommandDropdownOpen(false);
                 closeScope(false);
                 setModeMenuOpen((open) => !open);
               }}
