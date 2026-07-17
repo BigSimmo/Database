@@ -12,7 +12,7 @@ export const outlineControl =
   "display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 16px;border:1px solid var(--border-strong);border-radius:11px;background:var(--surface);color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;";
 
 export const softControl =
-  "display:inline-flex;align-items:center;justify-content:center;gap:8px;height:42px;padding:0 16px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--text-muted);font-size:13.5px;font-weight:500;cursor:pointer;font-family:inherit;transition:background .12s ease,border-color .12s ease,color .12s ease;";
+  "display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 16px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--text-muted);font-size:13.5px;font-weight:500;cursor:pointer;font-family:inherit;transition:background .12s ease,border-color .12s ease,color .12s ease;";
 
 export const iconControl =
   "display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text-soft);cursor:pointer;font-family:inherit;";

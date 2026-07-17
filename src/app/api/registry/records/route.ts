@@ -7,6 +7,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
+import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { rankFormRecords, formRecords } from "@/lib/forms";
@@ -45,8 +46,8 @@ function rankRecords(kind: RegistryRecordKind, records: ServiceRecord[], query: 
   return kind === "form" ? rankFormRecords(records, query, limit) : rankServiceRecords(records, query, limit);
 }
 
-function registryResponse(payload: Record<string, unknown>) {
-  return NextResponse.json(payload, { headers: { "Cache-Control": "private, no-store" } });
+function registryResponse(payload: Record<string, unknown>, options: { request?: Request; fixture?: boolean } = {}) {
+  return NextResponse.json(payload, { headers: fixtureResponseHeaders(options.request, options) });
 }
 
 function matchesPayload(matches: ServiceSearchMatch[]) {
@@ -74,10 +75,13 @@ export async function GET(request: Request) {
     const { kind, q, limit } = parseRequestQuery(request, registryListQuerySchema, "Invalid registry query.");
 
     if (isDemoMode() || isLocalNoAuthMode()) {
-      return registryResponse({
-        ...publicRegistryPayload(kind, q, limit),
-        demoMode: true,
-      });
+      return registryResponse(
+        {
+          ...publicRegistryPayload(kind, q, limit),
+          demoMode: true,
+        },
+        { request, fixture: true },
+      );
     }
 
     // Anonymous callers still resolve access + rate limit: publicAccessContext skips the
@@ -97,10 +101,13 @@ export async function GET(request: Request) {
     }
 
     if (!access.ownerId) {
-      return registryResponse({
-        ...publicRegistryPayload(kind, q, limit),
-        publicAccess: true,
-      });
+      return registryResponse(
+        {
+          ...publicRegistryPayload(kind, q, limit),
+          publicAccess: true,
+        },
+        { request, fixture: true },
+      );
     }
 
     const rows = await fetchOwnerRegistryRows(supabase, access.ownerId, kind, REGISTRY_MAX_RECORDS);
