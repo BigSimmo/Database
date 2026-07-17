@@ -173,7 +173,7 @@ export function SheetsScreen() {
                   <ScaleIcon size={20} strokeWidth={1.6} />
                 </span>
                 <span style={s(`font-size:13px;font-weight:600;color:var(--text-soft);letter-spacing:0.02em;`)}>
-                  Therapy Compass · Patient information
+                  Therapy · Patient information
                 </span>
               </div>
               <span style={s(`font-size:11.5px;color:#8a94a3;`)}>Prepared for you</span>

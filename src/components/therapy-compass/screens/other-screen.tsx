@@ -30,8 +30,8 @@ export function OtherScreen() {
         </span>
         <h1 style={s(`margin:0 0 8px;font-size:24px;font-weight:680;color:var(--text-heading);`)}>{b.otherLabel}</h1>
         <p style={s(`margin:0 0 22px;font-size:14.5px;color:var(--text-muted);`)}>
-          This surface uses the same Therapy Compass shell. Pick a tool from the top navigation to keep exploring the
-          clinical workspace.
+          This surface uses the same Therapy shell. Pick a tool from the top navigation to keep exploring the clinical
+          workspace.
         </p>
         <div style={s(`display:flex;gap:10px;justify-content:center;flex-wrap:wrap;`)}>
           <button type="button" className="tc-btn" onClick={b.goHome} style={s(commandControl)}>
