@@ -463,9 +463,9 @@ function selfTest() {
     docs_only: false,
     build_changed: false,
   });
-  assertScope("repo-skill", [".agents/skills/database-flightplan/SKILL.md", "scripts/productivity-core.mjs"], {
+  assertScope("repo-skill", [".agents/skills/database-flightplan/SKILL.md"], {
     workflow_changed: true,
-    source_changed: true,
+    source_changed: false,
     docs_only: false,
     build_changed: false,
   });

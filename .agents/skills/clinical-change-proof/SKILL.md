@@ -16,5 +16,5 @@ description: Build evidence for Database changes affecting clinical output, inge
    - rollback or feature-disable behavior is documented;
    - affected behavior has focused regression coverage.
 5. Run the local checks in the plan, narrowest first. The offline RAG contract is mandatory when retrieval or answer behavior is involved.
-6. Present every live Supabase, OpenAI, hosted CI, or production-readiness command as a separate approval request. Never bundle approval implicitly into a local gate.
+6. Treat every command in the plan's `approvalRequired` list as an independent confirmation-required action, including retrieval, deployment, release, remote Git, hosted CI, Supabase, OpenAI, and production-readiness commands. Never bundle approvals, infer approval from another action, or execute one indirectly through a local gate or wrapper.
 7. Complete the Clinical Governance Preflight and report evidence, gaps, rollback, and any SaMD implication.

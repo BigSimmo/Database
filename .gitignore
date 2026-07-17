@@ -22,6 +22,7 @@
 /.codex/
 /.agents/*
 !/.agents/plugins/
+/.agents/plugins/**
 !/.agents/plugins/marketplace.json
 !/.agents/plugins/api_marketplace.json
 !/.agents/skills/

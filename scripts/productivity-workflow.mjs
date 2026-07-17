@@ -49,17 +49,23 @@ function parseArgs(argv) {
   };
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
+    const nextValue = () => {
+      const value = tokens[index + 1];
+      if (!value || value.startsWith("-")) throw new Error(`Missing value for ${token}`);
+      index += 1;
+      return value;
+    };
     if (token === "--help" || token === "-h") options.help = true;
     else if (token === "--run") options.run = true;
     else if (token === "--json") options.json = true;
     else if (token === "--write-evidence") options.writeEvidence = true;
     else if (token === "--files")
-      options.files = (tokens[++index] || "")
+      options.files = nextValue()
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean);
-    else if (token === "--phase") options.phase = tokens[++index] || "";
-    else if (token === "--log") options.log = tokens[++index] || "";
+    else if (token === "--phase") options.phase = nextValue();
+    else if (token === "--log") options.log = nextValue();
     else throw new Error(`Unknown option: ${token}`);
   }
   return options;
@@ -118,6 +124,9 @@ function main() {
       "operator-closeout is plan-only; execute approved provider actions individually after confirmation.",
     );
   }
+  if (options.json && options.run) {
+    throw new Error("--json cannot be combined with --run because executed checks write non-JSON output.");
+  }
 
   const repoRoot = process.cwd();
   const scope = readChangeScope(options.files, repoRoot);
@@ -128,10 +137,12 @@ function main() {
   }
   if (options.workflow === "operator-closeout") plan.operatorItems = scanOperatorBacklog(repoRoot);
 
-  if (options.json) console.log(JSON.stringify(plan, null, 2));
-  else render(plan);
-
-  if (options.writeEvidence) console.log(`\nEvidence: ${writeWorkflowEvidence(plan, repoRoot)}`);
+  const evidencePath = options.writeEvidence ? writeWorkflowEvidence(plan, repoRoot) : undefined;
+  if (options.json) console.log(JSON.stringify(evidencePath ? { ...plan, evidencePath } : plan, null, 2));
+  else {
+    render(plan);
+    if (evidencePath) console.log(`\nEvidence: ${evidencePath}`);
+  }
   if (options.run) {
     const result = runLocalChecks(plan.localChecks, repoRoot);
     if (result.status !== 0) {

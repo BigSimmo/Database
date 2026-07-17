@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const PROVIDER_COMMAND_PATTERN =
-  /(?:check:supabase-project|check:production-readiness|verify:release(?:\s|$)|eval:retrieval:quality|eval:rag(?:\s|$)|eval:quality(?:\s|$)|gh\s|railway\s|supabase\s)/i;
+  /(?:check:supabase-project|check:production-readiness|verify:release(?:\s|$)|eval:retrieval:quality|eval:rag(?:\s|$)|eval:quality(?:\s|$)|git\s+(?:fetch|ls-remote|pull|push)(?:\s|$)|gh\s|glab\s|railway\s|supabase\s)/i;
 
 const RISK_PATTERNS = {
   ui: [
@@ -91,7 +91,8 @@ export function classifyRisks(files = []) {
       normalized.some((file) => patterns.some((pattern) => matches(file, pattern))),
     ]),
   );
-  risks.docsOnly = normalized.length > 0 && normalized.every((file) => /(?:^docs\/|\.mdx?$)/i.test(file));
+  risks.docsOnly =
+    normalized.length > 0 && normalized.every((file) => /(?:^docs\/|\.mdx?$)/i.test(file)) && !risks.workflow;
   return risks;
 }
 
@@ -297,7 +298,7 @@ export function analyzeFailureText(text = "", knownFlakes = []) {
       reason: "Timeout or runtime process failure; inspect active processes and artifacts.",
     };
   }
-  if (/assertionerror|expected .* received|tests? failed|type error|eslint.*error|syntaxerror/.test(lower)) {
+  if (/assertionerror|expected .* received|tests? failed|type ?error|eslint.*error|syntaxerror/.test(lower)) {
     return {
       category: "probable-regression",
       confidence: "medium",
