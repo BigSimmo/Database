@@ -96,6 +96,11 @@ const publicRouteHandlerDescriptions: Record<string, string> = {
   "/icons/[variant]": "Dynamically generated application icon handler.",
 };
 
+const publicRouteHandlerDescriptions: Record<string, string> = {
+  "/auth/callback": "Authentication callback handler.",
+  "/icons/[variant]": "Dynamically generated application icon handler.",
+};
+
 const apiDescriptions: Record<string, string> = {
   "/api/answer": "Generate answer response.",
   "/api/answer/stream": "Streaming answer response.",
