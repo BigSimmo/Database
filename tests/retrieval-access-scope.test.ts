@@ -9,7 +9,7 @@ const optimizedRetrievalMigration = readFileSync(
   "utf8",
 );
 const boundedRetrievalMigration = readFileSync(
-  join(root, "supabase/migrations/20260717174000_bound_versioned_retrieval_match_count.sql"),
+  join(root, "supabase/migrations/20260717162000_bound_versioned_retrieval_match_count.sql"),
   "utf8",
 );
 const canonicalSchema = readFileSync(join(root, "supabase/schema.sql"), "utf8");
