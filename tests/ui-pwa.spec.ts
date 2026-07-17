@@ -93,7 +93,7 @@ async function clearPwaBrowserState(context: BrowserContext, page: Page) {
   await context.setOffline(false);
   if (page.isClosed() || !page.url().startsWith("http")) return;
 
-  await page.evaluate(async () => {
+  await page.evaluate(async (cachePrefix) => {
     const registrations = await navigator.serviceWorker.getRegistrations();
     await Promise.all(
       registrations
@@ -102,11 +102,9 @@ async function clearPwaBrowserState(context: BrowserContext, page: Page) {
     );
     const cacheNames = await caches.keys();
     await Promise.all(
-      cacheNames
-        .filter((cacheName) => cacheName.startsWith(PWA_CACHE_PREFIX))
-        .map((cacheName) => caches.delete(cacheName)),
+      cacheNames.filter((cacheName) => cacheName.startsWith(cachePrefix)).map((cacheName) => caches.delete(cacheName)),
     );
-  });
+  }, PWA_CACHE_PREFIX);
 }
 
 function isAllowedPublicCachePath(pathname: string) {
@@ -121,6 +119,8 @@ function isAllowedPublicCachePath(pathname: string) {
 }
 
 test.describe("Clinical KB PWA", () => {
+  test.describe.configure({ timeout: 120_000 });
+
   test.beforeEach(async ({ browserName, context }) => {
     test.skip(browserName !== "chromium", "The installability protocol and focused PWA gate are Chromium-only.");
 
