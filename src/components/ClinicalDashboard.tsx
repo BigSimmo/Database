@@ -3648,7 +3648,7 @@ export function ClinicalDashboard({
                 ) : error ? (
                   <EmptyState
                     icon={CircleAlert}
-                    title={activeModeResultKind === "answer" ? "Answer unavailable" : "Search unavailable"}
+                    title="Answer unavailable"
                     body={error}
                     live="assertive"
                     tone="danger"
@@ -3876,7 +3876,11 @@ export function ClinicalDashboard({
                   />
                 ) : null}
 
-                {showUniversalAlsoMatches ? (
+                {showUniversalAlsoMatches && activeModeResultKind !== "answer" ? (
+                  <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
+                ) : null}
+
+                {showUniversalAlsoMatches && activeModeResultKind === "answer" ? (
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
               </section>
