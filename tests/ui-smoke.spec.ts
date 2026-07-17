@@ -1310,6 +1310,40 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("desktop mode action placement coalesces scroll updates per frame", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const trigger = page.getByRole("button", { name: "Open answer options" });
+    await trigger.evaluate((element) => {
+      const originalGetBoundingClientRect = element.getBoundingClientRect.bind(element);
+      element.dataset.placementReadCount = "0";
+      element.getBoundingClientRect = () => {
+        element.dataset.placementReadCount = String(Number(element.dataset.placementReadCount ?? "0") + 1);
+        return originalGetBoundingClientRect();
+      };
+    });
+
+    await openDailyActions(page, "Open answer options");
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    await trigger.evaluate((element) => {
+      element.dataset.placementReadCount = "0";
+    });
+
+    const placementReads = await page.evaluate(async () => {
+      for (let index = 0; index < 20; index += 1) {
+        window.dispatchEvent(new Event("scroll"));
+      }
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      const triggerElement = document.querySelector<HTMLElement>('button[aria-label="Open answer options"]');
+      return Number(triggerElement?.dataset.placementReadCount ?? "0");
+    });
+
+    expect(placementReads).toBeLessThanOrEqual(1);
+  });
+
   test("demo answer flow reaches a source-backed answer @critical", async ({ browserName, page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
