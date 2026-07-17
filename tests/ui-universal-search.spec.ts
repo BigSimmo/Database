@@ -239,7 +239,7 @@ test.describe("universal search typeahead", () => {
     expect(
       await alsoMatches.evaluate((node) => {
         const resultNode = document.querySelector('[data-testid="service-search-results"]');
-        return Boolean(resultNode?.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING);
+        return Boolean((resultNode?.compareDocumentPosition(node) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING);
       }),
       "universal-also-matches panel must appear after primary results in the DOM",
     ).toBe(true);
