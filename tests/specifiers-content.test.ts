@@ -131,12 +131,23 @@ describe("specifiers content catalog", () => {
     }
   });
 
-  it("describes with/without possession rows for both states", () => {
-    const rows = specifierCatalogItems().filter((item) => /possession/i.test(item.label));
-    expect(rows.length).toBeGreaterThan(0);
-    for (const item of rows) {
-      // Must not assert possession is present; must acknowledge both states.
-      expect(item.definition?.meaning ?? "").toMatch(/with or without|may occur|present or absent/i);
+  it("frames possession per ICD-11: DID covers both forms; Trance splits into 6B63", () => {
+    const items = specifierCatalogItems();
+    // DID (ICD-11 6B64) genuinely encompasses both possession and non-possession forms
+    // within one diagnosis, so its meaning must acknowledge both states.
+    const did = items.find(
+      (item) => /dissociative identity/i.test(item.disorderName) && /possession/i.test(item.label),
+    );
+    expect(did?.definition?.meaning ?? "").toMatch(/with or without|both|may occur/i);
+    // Trance Disorder must NOT frame possession as a with/without specifier — ICD-11
+    // codes possession trance as the separate diagnosis 6B63.
+    const trance = items.filter(
+      (item) => /^trance disorder/i.test(item.disorderName) && /possession/i.test(item.label),
+    );
+    expect(trance.length).toBeGreaterThanOrEqual(1);
+    for (const item of trance) {
+      expect(item.label).toMatch(/6B63|separate/i);
+      expect(item.definition?.meaning ?? "").toMatch(/6B62|6B63|separate diagnosis/i);
     }
   });
 
