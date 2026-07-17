@@ -380,22 +380,26 @@ function section(title: string, lines: string[]) {
 }
 
 function renderSiteMapRaw(data = collectSiteMapData()) {
-  const productRoutes = data.pageRoutes.filter(
-    (route) =>
-      !route.route.startsWith("/api") &&
-      !route.route.startsWith("/mockups") &&
-      ![
-        "/documents/[id]",
-        "/services/[slug]",
-        "/forms/[slug]",
-        "/differentials/diagnoses/[slug]",
-        "/specifiers/[slug]",
-        "/dsm/diagnoses/[slug]",
-        "/dsm/diagnoses/[slug]/differentials",
-        "/formulation/[slug]",
-        "/medications/[slug]",
-      ].includes(route.route),
-  );
+  const productRouteHandlers = data.publicRouteHandlers.filter((route) => productRouteHandlerPaths.has(route.route));
+  const productRoutes = [
+    ...data.pageRoutes.filter(
+      (route) =>
+        !route.route.startsWith("/api") &&
+        !route.route.startsWith("/mockups") &&
+        ![
+          "/documents/[id]",
+          "/services/[slug]",
+          "/forms/[slug]",
+          "/differentials/diagnoses/[slug]",
+          "/specifiers/[slug]",
+          "/dsm/diagnoses/[slug]",
+          "/dsm/diagnoses/[slug]/differentials",
+          "/formulation/[slug]",
+          "/medications/[slug]",
+        ].includes(route.route),
+    ),
+    ...productRouteHandlers,
+  ].sort((left, right) => left.route.localeCompare(right.route) || left.file.localeCompare(right.file));
   const mockupRoutes = data.pageRoutes.filter((route) => route.route.startsWith("/mockups"));
 
   const lines = [
