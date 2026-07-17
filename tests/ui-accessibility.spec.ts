@@ -48,7 +48,7 @@ async function expectNoPageHorizontalOverflow(page: Page) {
 }
 
 async function expectDashboardUsable(page: Page) {
-  await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
+  await expect(page.getByRole("heading", { level: 1, name: "Clinical KB" })).toHaveCount(1);
   await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
   await expect(page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible')).toBeVisible();
   await expect(page.getByRole("button", { name: "Open answer options" })).toBeVisible();
@@ -106,6 +106,56 @@ test.describe("Clinical KB accessibility media smoke", () => {
     await expectDashboardUsable(page);
     await openScopeControl(page);
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("mode menu dismisses when keyboard focus leaves its wrapper", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+    await expectDashboardUsable(page);
+
+    const modeButton = page.getByRole("button", { name: "Mode Answer", exact: true });
+    const modeMenu = page.getByRole("menu", { name: "Choose app mode", exact: true });
+    await modeButton.click();
+    await expect(modeMenu).toBeVisible();
+    await expect(modeButton).toHaveAttribute("aria-expanded", "true");
+
+    await modeButton.press("Shift+Tab");
+    await expect(modeMenu).toBeHidden();
+    await expect(modeButton).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("phone quick actions meet the tap target and guests do not poll private ingestion routes", async ({ page }) => {
+    const privateIngestionRequests: string[] = [];
+    page.on("request", (request) => {
+      if (/\/api\/ingestion\/(?:jobs|batches|quality)(?:\?|$)/.test(request.url())) {
+        privateIngestionRequests.push(request.url());
+      }
+    });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+    await expectDashboardUsable(page);
+
+    const targetSizes = await Promise.all(
+      [
+        page.getByRole("button", { name: "Search documents", exact: true }),
+        page.getByRole("button", { name: "Upload document", exact: true }),
+        page.getByRole("link", { name: "Privacy and data processing", exact: true }),
+      ].map((target) =>
+        target.evaluate((element) => {
+          const bounds = element.getBoundingClientRect();
+          return { width: bounds.width, height: bounds.height };
+        }),
+      ),
+    );
+
+    for (const targetSize of targetSizes) {
+      expect(targetSize.width).toBeGreaterThanOrEqual(44);
+      expect(targetSize.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(privateIngestionRequests).toEqual([]);
   });
 
   test("dashboard remains usable with forced colors", async ({ page }) => {

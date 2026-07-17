@@ -1578,6 +1578,11 @@ export function MasterSearchHeader({
 
           <div
             ref={modeMenuRef}
+            onBlur={(event) => {
+              const nextFocusedElement = event.relatedTarget;
+              if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) return;
+              setModeMenuOpen(false);
+            }}
             className={cn("relative z-[60] min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
           >
             <button

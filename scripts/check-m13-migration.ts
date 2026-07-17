@@ -17,6 +17,20 @@ function missingMarkers(data: unknown) {
 }
 
 async function main() {
+  try {
+    const { createRequire, Module } = await import("module");
+    const req = createRequire(import.meta.url);
+    const resolved = req.resolve("server-only");
+    if (resolved) {
+      const serverOnlyStub = new Module(resolved);
+      serverOnlyStub.exports = {};
+      serverOnlyStub.loaded = true;
+      req.cache[resolved] = serverOnlyStub;
+    }
+  } catch {
+    // ignore
+  }
+
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("search_schema_health");
