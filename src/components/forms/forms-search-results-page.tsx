@@ -104,9 +104,15 @@ function FormCodeBadge({ code, variant = "md" }: { code: string; variant?: "md" 
         isSm ? "h-12 w-12 gap-0 px-0.5" : "h-14 w-16 gap-0.5 px-0.5",
       )}
     >
-      <span className={cn("font-extrabold leading-none", formHeadSizeClass(head, variant), codeText)}>{head}</span>
+      {/* Expose the whole code as one string for assistive tech and text queries;
+          the split visual fragments below are decorative and hidden from the a11y tree. */}
+      <span className="sr-only">{qualifier ? `${head} ${qualifier}` : head}</span>
+      <span aria-hidden className={cn("font-extrabold leading-none", formHeadSizeClass(head, variant), codeText)}>
+        {head}
+      </span>
       {qualifier ? (
         <span
+          aria-hidden
           title={qualifier}
           className="w-full truncate text-center text-4xs font-bold uppercase leading-none tracking-tight opacity-75"
         >
