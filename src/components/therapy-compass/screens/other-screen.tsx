@@ -78,6 +78,7 @@ export function OtherScreen() {
         {queue.map((t) => (
           <div
             key={t.slug}
+            className="tc-stack-sm"
             style={s(
               `display:grid;grid-template-columns:minmax(200px,1.4fr) repeat(3,minmax(110px,1fr)) auto;gap:20px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-tight);padding:16px 20px;`,
             )}
