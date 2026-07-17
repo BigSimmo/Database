@@ -1,3 +1,5 @@
+const liveProviderTests = process.env.ALLOW_PROVIDER_TESTS === "true";
+
 const config = {
   test: {
     // Route and RAG tests cold-import large Next.js module graphs inside the test
@@ -40,21 +42,26 @@ const config = {
           // Node environment, unchanged glob — existing tests behave exactly as before.
           name: "node",
           environment: "node",
-          include: ["tests/**/*.test.ts"],
+          include: liveProviderTests ? ["tests/**/*.live.test.ts"] : ["tests/**/*.test.ts"],
+          exclude: liveProviderTests ? [] : ["tests/**/*.live.test.ts"],
         },
       },
-      {
-        extends: true,
-        test: {
-          // Interactive component tier: @testing-library/react under jsdom. Kept on a
-          // distinct `*.dom.test.tsx` glob so it can never collect the node suite's
-          // `*.test.ts` files (and vice versa).
-          name: "jsdom",
-          environment: "jsdom",
-          include: ["tests/**/*.dom.test.tsx"],
-          setupFiles: ["tests/setup/jsdom.setup.ts"],
-        },
-      },
+      ...(!liveProviderTests
+        ? [
+            {
+              extends: true,
+              test: {
+                // Interactive component tier: @testing-library/react under jsdom. Kept on a
+                // distinct `*.dom.test.tsx` glob so it can never collect the node suite's
+                // `*.test.ts` files (and vice versa).
+                name: "jsdom",
+                environment: "jsdom",
+                include: ["tests/**/*.dom.test.tsx"],
+                setupFiles: ["tests/setup/jsdom.setup.ts"],
+              },
+            },
+          ]
+        : []),
     ],
   },
   resolve: {

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Database Flightplan"
+  short_description: "Plan safe repo changes and verification"
+  default_prompt: "Use $database-flightplan to inspect the current Database repo change and produce a risk-scoped local verification and approval plan."

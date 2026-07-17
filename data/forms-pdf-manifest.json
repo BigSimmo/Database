@@ -1,0 +1,414 @@
+{
+  "generatedAt": "2026-07-17",
+  "sourceRegisterUrl": "https://www.chiefpsychiatrist.wa.gov.au/laws-and-rights/legislation/mental-health-act-2014-forms/",
+  "assets": [
+    {
+      "code": "10A",
+      "localPath": "/forms-pdf/form-10a.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10A_MHA2014__public.pdf",
+      "sha256": "f3f1698bbd6c3f08e99d03f5134bf7bb54fbe49cd3dc5658050b677ce9ddbeaf",
+      "bytes": 237064,
+      "passwordProtected": true
+    },
+    {
+      "code": "10B",
+      "localPath": "/forms-pdf/form-10b.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10B_MHA2014__public.pdf",
+      "sha256": "2206d0420b6714997178263fbae6c0c5c107f591fc2b1add309f6e78d9c4e520",
+      "bytes": 232550,
+      "passwordProtected": true
+    },
+    {
+      "code": "10C",
+      "localPath": "/forms-pdf/form-10c.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10C_MHA2014__public.pdf",
+      "sha256": "bfb062ac7408e8f1367074cf0d027ca4b6908f5d7875b643dba6ad6b1649edf0",
+      "bytes": 195018,
+      "passwordProtected": true
+    },
+    {
+      "code": "10D",
+      "localPath": "/forms-pdf/form-10d.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10D_MHA2014__public.pdf",
+      "sha256": "1f5e27b7dbb7e89ae0b5094a90dad1387c5fa3c8ca518b4fa8f44cc421e956c8",
+      "bytes": 243589,
+      "passwordProtected": true
+    },
+    {
+      "code": "10E",
+      "localPath": "/forms-pdf/form-10e.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10E_MHA2014__public.pdf",
+      "sha256": "9ceb8d991634fcb3bccdb516e23276fd2ea65d2176bfa6cc9ac3e581b13ab038",
+      "bytes": 258307,
+      "passwordProtected": true
+    },
+    {
+      "code": "10F",
+      "localPath": "/forms-pdf/form-10f.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10F_MHA2014__public.pdf",
+      "sha256": "f8955db7f4d1964d3cb52743e58ec504c45792ecef5ee8e929bbfffe7737a861",
+      "bytes": 233295,
+      "passwordProtected": true
+    },
+    {
+      "code": "10G",
+      "localPath": "/forms-pdf/form-10g.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10G_MHA2014__public.pdf",
+      "sha256": "b57883e571ebfdf2c0cabe0648564057981fed478cee1f4ba2bf6dcba2e386aa",
+      "bytes": 241374,
+      "passwordProtected": true
+    },
+    {
+      "code": "10H",
+      "localPath": "/forms-pdf/form-10h.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10H_MHA2014__public.pdf",
+      "sha256": "bcc7d65fc6ca21f12b9662b5ff51301f45c505d092f09507d96fc4fc7da65094",
+      "bytes": 221265,
+      "passwordProtected": true
+    },
+    {
+      "code": "10I",
+      "localPath": "/forms-pdf/form-10i.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM10I_MHA2014__public.pdf",
+      "sha256": "9bbb3bfd4103ffa811fa60456bc61cf66dc3b0f51468ff9b896758376c502811",
+      "bytes": 234932,
+      "passwordProtected": true
+    },
+    {
+      "code": "11A",
+      "localPath": "/forms-pdf/form-11a.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11A_MHA2014__public.pdf",
+      "sha256": "c28e1a51deba8522965b0f95735624d8d016dce97f7a64e44c8fb489d8259dd6",
+      "bytes": 279831,
+      "passwordProtected": true
+    },
+    {
+      "code": "11B",
+      "localPath": "/forms-pdf/form-11b.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11B_MHA2014__public.pdf",
+      "sha256": "8049ce77d200138af4520f4e2e7edb00eb51d199018a359381803b69710c18e0",
+      "bytes": 268342,
+      "passwordProtected": true
+    },
+    {
+      "code": "11C",
+      "localPath": "/forms-pdf/form-11c.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11C_MHA2014__public.pdf",
+      "sha256": "97072aec26099e860092ed3aa166ace5d418ba225e74607b947554377b4e16f6",
+      "bytes": 237356,
+      "passwordProtected": true
+    },
+    {
+      "code": "11D",
+      "localPath": "/forms-pdf/form-11d.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11D_MHA2014__public.pdf",
+      "sha256": "a304efe135d313025693c74854bf627de39cdb4d971bd66a653572e355d44f6a",
+      "bytes": 223931,
+      "passwordProtected": true
+    },
+    {
+      "code": "11E",
+      "localPath": "/forms-pdf/form-11e.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11E_MHA2014__public.pdf",
+      "sha256": "0ede01108377a296062de71da2acaf92c8b98464e0ca68c523c677aeab9b88d3",
+      "bytes": 236247,
+      "passwordProtected": true
+    },
+    {
+      "code": "11F",
+      "localPath": "/forms-pdf/form-11f.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11F_MHA2014__public.pdf",
+      "sha256": "715400d4048179de1a3be8af2162bb3d16572900c041d788ea290781804ec744",
+      "bytes": 246167,
+      "passwordProtected": true
+    },
+    {
+      "code": "11G",
+      "localPath": "/forms-pdf/form-11g.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM11G_MHA2014__public.pdf",
+      "sha256": "dd9f5b48b70c0e2ecb0a20284c15f7f30728b3ca52b444ed2784f930cb143350",
+      "bytes": 201341,
+      "passwordProtected": true
+    },
+    {
+      "code": "12A",
+      "localPath": "/forms-pdf/form-12a.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM12A_MHA2014__public.pdf",
+      "sha256": "ba39103a3caaeebac20fe76d7c6d5496e03c69726d8f226f183751e5d8b452b1",
+      "bytes": 284377,
+      "passwordProtected": true
+    },
+    {
+      "code": "12B",
+      "localPath": "/forms-pdf/form-12b.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM12B_MHA2014__public.pdf",
+      "sha256": "9deee79f80c652b7a4bdbc34643144d429c29520e42d971a5d78c2008bed79b0",
+      "bytes": 236674,
+      "passwordProtected": true
+    },
+    {
+      "code": "12C attachment",
+      "localPath": "/forms-pdf/form-12c-attachment.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM12C_attachment_MHA2014__public.pdf",
+      "sha256": "6ddc4ab72c633f4bffc5e69d108182901e5178670bceaecf5a8a09af0a8d06f6",
+      "bytes": 399550,
+      "passwordProtected": true
+    },
+    {
+      "code": "12C",
+      "localPath": "/forms-pdf/form-12c.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM12C_MHA2014__public.pdf",
+      "sha256": "3ac267c2ae7e7b2bea8c446c4d9e8e60fa55a529529a7220f37e432b70c04867",
+      "bytes": 226018,
+      "passwordProtected": true
+    },
+    {
+      "code": "1A attachment",
+      "localPath": "/forms-pdf/form-1a-attachment.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM1A_attachment_MHA2014__public.pdf",
+      "sha256": "9856d48ae70fab96b03f36a987febdab6d7faa0e5ea9f62515383bc1fd62b378",
+      "bytes": 163814,
+      "passwordProtected": true
+    },
+    {
+      "code": "1A",
+      "localPath": "/forms-pdf/form-1a.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM1A_MHA2014__public.pdf",
+      "sha256": "a9e732c5351f73d75efac8050f0292d0ae4c351e094b11f778cea1945c96f892",
+      "bytes": 346765,
+      "passwordProtected": true
+    },
+    {
+      "code": "1B",
+      "localPath": "/forms-pdf/form-1b.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM1B_MHA2014__public.pdf",
+      "sha256": "e29fab5a3747d39c59201671c1e8165cdce9fca0006501946196fb3f3c3c88ed",
+      "bytes": 199390,
+      "passwordProtected": true
+    },
+    {
+      "code": "2",
+      "localPath": "/forms-pdf/form-2.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM2_MHA2014__public.pdf",
+      "sha256": "37a058026a6ad1fce0a080dc18ded26afc794836ffb590a2cbbba65087eec7bb",
+      "bytes": 228235,
+      "passwordProtected": true
+    },
+    {
+      "code": "3A",
+      "localPath": "/forms-pdf/form-3a.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM3A_MHA2014__public.pdf",
+      "sha256": "de6a7896cfc1ca99e06b87adcc1c2d3f10cf77be3a9552a556f0c11677dd8036",
+      "bytes": 205692,
+      "passwordProtected": true
+    },
+    {
+      "code": "3B",
+      "localPath": "/forms-pdf/form-3b.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM3B_MHA2014__public.pdf",
+      "sha256": "3bf44962f5570a588f80ae57f3afced7b3c9dd8cc61f8d2ec86a7943c98d7850",
+      "bytes": 198242,
+      "passwordProtected": true
+    },
+    {
+      "code": "3C",
+      "localPath": "/forms-pdf/form-3c.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM3C_MHA2014__public.pdf",
+      "sha256": "8e4b658e8cccd37725f9c54f82865af17e747a9dbf1d04d9f3f4c0abc168974e",
+      "bytes": 210726,
+      "passwordProtected": true
+    },
+    {
+      "code": "3D",
+      "localPath": "/forms-pdf/form-3d.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM3D_MHA2014__public.pdf",
+      "sha256": "f44b0fa7d2d4fde40646b49fb12dd5e278f5f6ee92e3fb1e37f406a319fcd6a5",
+      "bytes": 181444,
+      "passwordProtected": true
+    },
+    {
+      "code": "3E",
+      "localPath": "/forms-pdf/form-3e.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM3E_MHA2014__public1.pdf",
+      "sha256": "080c54d6f97cca05bc02ee7657f79e6927d8c672c8da7ca11b2bee54ef2a5991",
+      "bytes": 203646,
+      "passwordProtected": true
+    },
+    {
+      "code": "4A",
+      "localPath": "/forms-pdf/form-4a.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM4A_MHA2014__public.pdf",
+      "sha256": "4defb088aa98a0175d9ff4612b125c45c263fb31a3d818f7d3f66b2043208511",
+      "bytes": 223163,
+      "passwordProtected": true
+    },
+    {
+      "code": "4B",
+      "localPath": "/forms-pdf/form-4b.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM4B_MHA2014__public.pdf",
+      "sha256": "e23a6be0f49f6e229d4c68212edb7a75baf99f47513a3061ad3d394e5175507e",
+      "bytes": 179522,
+      "passwordProtected": true
+    },
+    {
+      "code": "4C",
+      "localPath": "/forms-pdf/form-4c.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM4C_MHA2014__public.pdf",
+      "sha256": "f779a2c9ad65ec2996e81eb1f5ef97a1c5393da07cd778ecb58d5c1f1241e56c",
+      "bytes": 306410,
+      "passwordProtected": true
+    },
+    {
+      "code": "5A",
+      "localPath": "/forms-pdf/form-5a.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM5A_MHA2014__public.pdf",
+      "sha256": "c6a11f6cf40a4adf5a8146d8c030689ebc62a30c50956d29561fa77280cb283a",
+      "bytes": 367514,
+      "passwordProtected": true
+    },
+    {
+      "code": "5B",
+      "localPath": "/forms-pdf/form-5b.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM5B_MHA2014__public.pdf",
+      "sha256": "6864105aa99311d5fef90e1b2f9b33d4b11aa956019582d4a2ac249a286a030a",
+      "bytes": 203184,
+      "passwordProtected": true
+    },
+    {
+      "code": "5C",
+      "localPath": "/forms-pdf/form-5c.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM5C_MHA2014__public.pdf",
+      "sha256": "2be5355bdc3445d49444f671d3ae6e8611e3b15e6a0dea0b70dadb24d0898957",
+      "bytes": 186264,
+      "passwordProtected": true
+    },
+    {
+      "code": "5D",
+      "localPath": "/forms-pdf/form-5d.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM5D_MHA2014__public.pdf",
+      "sha256": "93adaeb5622f008e2c83ddbbae9a3a65a83a2cab2dd4ae029df5f61d105b43cd",
+      "bytes": 228312,
+      "passwordProtected": true
+    },
+    {
+      "code": "5E",
+      "localPath": "/forms-pdf/form-5e.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM5E_MHA2014__public.pdf",
+      "sha256": "b97d01b99d6eefe345c8a051665c047eb001a13db6cfa0626933d336d201604e",
+      "bytes": 161981,
+      "passwordProtected": true
+    },
+    {
+      "code": "5F",
+      "localPath": "/forms-pdf/form-5f.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM5F_MHA2014__public.pdf",
+      "sha256": "e6acb4384559988ec06063dc6f7b6873d8f3d95df811c12c153c409ceae061e0",
+      "bytes": 300775,
+      "passwordProtected": true
+    },
+    {
+      "code": "6A",
+      "localPath": "/forms-pdf/form-6a.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM6A_MHA2014__public.pdf",
+      "sha256": "eadcec7cf32e0928788d3d75ef4d6e36743fb76e4c234a416e4bbad7f0bfc4b4",
+      "bytes": 293751,
+      "passwordProtected": true
+    },
+    {
+      "code": "6B attachment",
+      "localPath": "/forms-pdf/form-6b-attachment.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM6B_attachment_MHA2014__public.pdf",
+      "sha256": "4a7e9b2e23e461be029fa6bd24b49a48e24d317e099643643ed70df110c050d2",
+      "bytes": 242879,
+      "passwordProtected": true
+    },
+    {
+      "code": "6B",
+      "localPath": "/forms-pdf/form-6b.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM6B_MHA2014__public.pdf",
+      "sha256": "4371bdf3d9fcffa3a83a7e30274404727868ab686ea323289452e3859c4e7eb2",
+      "bytes": 280701,
+      "passwordProtected": true
+    },
+    {
+      "code": "6C",
+      "localPath": "/forms-pdf/form-6c.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM6C_MHA2014__public.pdf",
+      "sha256": "60ac7150688612f935f85f1598d2fa7b1aa694331fe88df5119c7fb90147989e",
+      "bytes": 178281,
+      "passwordProtected": true
+    },
+    {
+      "code": "6D",
+      "localPath": "/forms-pdf/form-6d.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM6D_MHA2014__public.pdf",
+      "sha256": "1255f29f95680ce991193e5b3d4115cf232d2fd6a88a277899fb628831f4a793",
+      "bytes": 192551,
+      "passwordProtected": true
+    },
+    {
+      "code": "7A",
+      "localPath": "/forms-pdf/form-7a.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM7A_MHA2014__public.pdf",
+      "sha256": "067cc0542c781adbbabc70bd1b10f8b177ad41b33a145a9374a0a90ce990094b",
+      "bytes": 265737,
+      "passwordProtected": true
+    },
+    {
+      "code": "7B",
+      "localPath": "/forms-pdf/form-7b.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM7B_MHA2014__public.pdf",
+      "sha256": "9a58ff9846d0451b8ab4d47299b74daab24b6ea9a2d6aaa514682092d05ac0bd",
+      "bytes": 181563,
+      "passwordProtected": true
+    },
+    {
+      "code": "7C",
+      "localPath": "/forms-pdf/form-7c.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM7C_MHA2014__public.pdf",
+      "sha256": "628b16959d43c5f4132a22734b150efe7201ad2c2778d85165eec6a065b1704d",
+      "bytes": 199088,
+      "passwordProtected": true
+    },
+    {
+      "code": "7D",
+      "localPath": "/forms-pdf/form-7d.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM7D_MHA2014__public.pdf",
+      "sha256": "d4b59956505d0b4a82dc6084383e065e3b3eddd304f7f92ef23a3a938ced88fe",
+      "bytes": 144358,
+      "passwordProtected": true
+    },
+    {
+      "code": "8A",
+      "localPath": "/forms-pdf/form-8a.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM8A_MHA2014__public.pdf",
+      "sha256": "6905abc6454d6fbf6ab6d075e538f0505e900d713861820d146c25d4d765e8da",
+      "bytes": 233991,
+      "passwordProtected": true
+    },
+    {
+      "code": "8B",
+      "localPath": "/forms-pdf/form-8b.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM8B_MHA2014__public.pdf",
+      "sha256": "36971415aac62a9d96ae4d1312d230eb8dede4bba71041597b2b3fae8eeccc7f",
+      "bytes": 174112,
+      "passwordProtected": true
+    },
+    {
+      "code": "9A",
+      "localPath": "/forms-pdf/form-9a.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM9A_MHA2014__public.pdf",
+      "sha256": "e21b1c8798a287bec9be07978c175e4a751507521ecd577fe2da27bbc1909c79",
+      "bytes": 218719,
+      "passwordProtected": true
+    },
+    {
+      "code": "9B",
+      "localPath": "/forms-pdf/form-9b.pdf",
+      "officialPdfUrl": "https://www.chiefpsychiatrist.wa.gov.au/wp-content/uploads/2025/06/FORM9B_MHA2014__public.pdf",
+      "sha256": "88935cf3f191ab52aad001b1c4755e56405418df798dbf576cc3f2b215244908",
+      "bytes": 281085,
+      "passwordProtected": true
+    }
+  ]
+}
