@@ -693,7 +693,7 @@ export function SettingsDialog({
             >
               <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--success)]" />
               {privacyNotice ??
-                "Preferences and recent searches stay in this browser — never enter patient-identifying information."}
+                "Recent searches may be stored in this browser session. Do not enter PHI."}
             </p>
           </SettingsSection>
 
