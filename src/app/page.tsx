@@ -5,7 +5,9 @@ import { HomePageClient } from "@/app/home-page-client";
 import { appModeHomeHref, isAppModeId, isAppModeVisible, type AppModeId } from "@/lib/app-modes";
 
 type HomeProps = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  searchParams?: Promise<{
+    mode?: string | string[];
+  }>;
 };
 
 function firstSearchParam(value: string | string[] | undefined) {

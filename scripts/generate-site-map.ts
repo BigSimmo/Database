@@ -41,7 +41,7 @@ const productRouteHandlerPaths = new Set(["/applications", "/differentials/prese
 
 const documentedRedirectTargets: Record<string, string> = {
   "/applications": "/tools",
-  "/differentials/presentations": "/differentials/presentations/[slug]",
+  "/differentials/presentations": "/differentials/presentations/[workflow-slug]",
   "/medications": "/?mode=prescribing",
 };
 
@@ -61,9 +61,6 @@ const routeDescriptions: Record<string, string> = {
   "/documents/search": "Documents search command centre.",
   "/documents/source": "Compatibility redirect to the canonical live document viewer when a valid id is supplied.",
   "/documents/source/evidence": "Compatibility redirect sharing the canonical live document viewer handoff.",
-  "/factsheets": "Patient information sheet library.",
-  "/factsheets/[slug]": "Patient information sheet detail.",
-  "/factsheets/search": "Patient information sheet search.",
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
