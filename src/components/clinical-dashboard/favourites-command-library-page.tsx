@@ -455,25 +455,23 @@ function FavouriteMobileCard({
 }) {
   return (
     <article
-      role="button"
-      tabIndex={0}
-      onClick={() => onSelect(item.id)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect(item.id);
-        }
-      }}
-      aria-pressed={selected}
+      data-testid={`favourite-mobile-card-${item.id}`}
       className={cn(
-        "min-w-0 max-w-full rounded-lg border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)]",
+        "relative min-w-0 max-w-full rounded-lg border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)]",
         selected
           ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/35 shadow-[inset_3px_0_0_var(--clinical-accent)]"
           : "border-[color:var(--border)]",
-        focusRing,
       )}
     >
-      <div className="min-w-0">
+      <button
+        type="button"
+        onClick={() => onSelect(item.id)}
+        aria-pressed={selected}
+        aria-label={`Select ${item.title}`}
+        className={cn("absolute inset-0 cursor-pointer rounded-lg", focusRing)}
+      />
+
+      <div className="pointer-events-none relative min-w-0">
         <h3 className="line-clamp-2 text-sm-minus font-bold leading-5 text-[color:var(--text-heading)]">
           {item.title}
         </h3>
@@ -490,7 +488,7 @@ function FavouriteMobileCard({
         </div>
       </div>
 
-      <dl className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3 text-2xs font-semibold">
+      <dl className="pointer-events-none relative mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3 text-2xs font-semibold">
         <div className="flex min-w-0 items-center justify-between gap-3">
           <dt className="inline-flex items-center gap-1.5 text-[color:var(--text-muted)]">
             <Folder className="h-3.5 w-3.5" aria-hidden />
@@ -504,11 +502,11 @@ function FavouriteMobileCard({
         </div>
       </dl>
 
-      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_2.5rem] gap-2" onClick={(event) => event.stopPropagation()}>
+      <div className="relative z-[1] mt-3 grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2">
         <Link
           href={item.href}
           className={cn(
-            "inline-flex h-10 min-w-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm-minus font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+            "inline-flex h-tap min-w-0 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm-minus font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
             focusRing,
           )}
         >

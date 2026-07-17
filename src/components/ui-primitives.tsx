@@ -37,7 +37,7 @@ export const toolbarButton =
 export const eyebrowText = "text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]";
 export const fieldLabel = `mb-1.5 block ${eyebrowText}`;
 export const fieldControl =
-  "h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25";
+  "h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)]";
 export const fieldControlWithIcon = `${fieldControl} pl-9 pr-3`;
 export const fieldControlPlain = `${fieldControl} px-3`;
 export const fieldIcon =
@@ -66,7 +66,7 @@ export const proseMeasure = "max-w-[68ch]";
 // chunk numbers, guideline versions, document IDs. Pairs with tabular figures.
 export const codeText = "font-mono tabular-nums tracking-tight";
 export const commandInput =
-  "min-h-12 w-full rounded-lg border border-[color:var(--border)]/70 bg-[color:var(--surface)] pl-12 pr-12 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-soft),var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/25 motion-safe:transition sm:text-base";
+  "min-h-12 w-full rounded-lg border border-[color:var(--border)]/70 bg-[color:var(--surface)] pl-12 pr-12 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-soft),var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] motion-safe:transition sm:text-base";
 
 export const chatAnswerText =
   "max-w-[68ch] text-base-minus font-medium leading-[1.56] text-[color:var(--text-heading)] sm:text-base sm:leading-[1.62]";
