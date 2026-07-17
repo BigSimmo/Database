@@ -1,0 +1,4 @@
+interface:
+  display_name: "Clinical Change Proof"
+  short_description: "Build clinical governance evidence"
+  default_prompt: "Use $clinical-change-proof to assess this clinical change and produce the required local evidence, governance checks, and provider approval gates."

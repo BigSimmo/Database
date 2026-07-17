@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import net from "node:net";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -58,6 +59,24 @@ function removePortArgs(args) {
     cleaned.push(arg);
   }
   return cleaned;
+}
+
+function dependencyBundlerArgs(command, args) {
+  if (command !== "dev" || args.some((arg) => ["--webpack", "--turbopack", "--turbo"].includes(arg))) {
+    return [];
+  }
+
+  try {
+    const dependenciesPath = fs.realpathSync(path.join(projectRoot, "node_modules"));
+    const relativeDependenciesPath = path.relative(projectRoot, dependenciesPath);
+    const dependenciesAreExternal =
+      relativeDependenciesPath === ".." ||
+      relativeDependenciesPath.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativeDependenciesPath);
+    return dependenciesAreExternal ? ["--webpack"] : [];
+  } catch {
+    return [];
+  }
 }
 
 function canListenOnHost(port, host) {
@@ -140,6 +159,7 @@ const child = spawn(
     "--port",
     String(freePort),
     ...removePortArgs(forwardedArgs),
+    ...dependencyBundlerArgs(parsedCommand.command, forwardedArgs),
   ],
   {
     cwd: projectRoot,

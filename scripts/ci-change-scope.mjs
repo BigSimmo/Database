@@ -68,11 +68,12 @@ const docPatterns = [
 const workflowPatterns = [
   ".github/workflows",
   ".github/actions",
+  ".agents/skills",
   ".github/pull_request_template.md",
   "AGENTS.md",
   "docs/codex-review-protocol.md",
   "docs/process-hardening.md",
-  /^scripts\/(?:ci-change-scope|verify-pr-local|eval-rag-offline|check-github-action-pins|check-codex-autofix-workflow)\.mjs$/,
+  /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|check-github-action-pins|check-codex-autofix-workflow|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
 ];
 
 const codexAutofixPatterns = [
@@ -459,6 +460,12 @@ function selfTest() {
   });
   assertScope("workflow", [".github/workflows/ci.yml", "docs/process-hardening.md"], {
     workflow_changed: true,
+    docs_only: false,
+    build_changed: false,
+  });
+  assertScope("repo-skill", [".agents/skills/database-flightplan/SKILL.md"], {
+    workflow_changed: true,
+    source_changed: false,
     docs_only: false,
     build_changed: false,
   });

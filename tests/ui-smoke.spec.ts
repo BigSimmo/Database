@@ -1310,6 +1310,40 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("desktop mode action placement coalesces scroll updates per frame", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const trigger = page.getByRole("button", { name: "Open answer options" });
+    await trigger.evaluate((element) => {
+      const originalGetBoundingClientRect = element.getBoundingClientRect.bind(element);
+      element.dataset.placementReadCount = "0";
+      element.getBoundingClientRect = () => {
+        element.dataset.placementReadCount = String(Number(element.dataset.placementReadCount ?? "0") + 1);
+        return originalGetBoundingClientRect();
+      };
+    });
+
+    await openDailyActions(page, "Open answer options");
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    await trigger.evaluate((element) => {
+      element.dataset.placementReadCount = "0";
+    });
+
+    const placementReads = await page.evaluate(async () => {
+      for (let index = 0; index < 20; index += 1) {
+        window.dispatchEvent(new Event("scroll"));
+      }
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      const triggerElement = document.querySelector<HTMLElement>('button[aria-label="Open answer options"]');
+      return Number(triggerElement?.dataset.placementReadCount ?? "0");
+    });
+
+    expect(placementReads).toBeLessThanOrEqual(1);
+  });
+
   test("demo answer flow reaches a source-backed answer @critical", async ({ browserName, page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockDemoApi(page);
@@ -2815,6 +2849,40 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults).toContainText("Best match");
   });
 
+  test("dashboard defers source and administration requests until their surfaces open @critical", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+    const requestCounts = { documents: 0, jobs: 0, batches: 0, quality: 0 };
+    page.on("request", (request) => {
+      const pathname = new URL(request.url()).pathname;
+      if (pathname === "/api/documents") requestCounts.documents += 1;
+      if (pathname === "/api/ingestion/jobs") requestCounts.jobs += 1;
+      if (pathname === "/api/ingestion/batches") requestCounts.batches += 1;
+      if (pathname === "/api/ingestion/quality") requestCounts.quality += 1;
+    });
+
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+    expect(requestCounts).toEqual({ documents: 0, jobs: 0, batches: 0, quality: 0 });
+
+    await openScopeControl(page);
+    await expect.poll(() => requestCounts.documents).toBe(1);
+    expect(requestCounts.jobs).toBe(0);
+    expect(requestCounts.batches).toBe(0);
+    expect(requestCounts.quality).toBe(0);
+    await page.keyboard.press("Escape");
+
+    await switchToDocumentSearchMode(page);
+    await page
+      .getByRole("button", { name: /Browse library/i })
+      .first()
+      .click();
+    await expect.poll(() => requestCounts.documents).toBe(1);
+    expect(requestCounts.jobs).toBe(0);
+    expect(requestCounts.batches).toBe(0);
+    expect(requestCounts.quality).toBe(0);
+  });
+
   test("tools mode searches the existing applications registry inside the dashboard", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockPrivateUnauthenticatedApi(page);
@@ -2853,19 +2921,20 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { name: "No matching documents" }).first()).toBeVisible();
 
     const demoDocId = "11111111-1111-4111-8111-111111111111";
-    await gotoApp(page, `/documents/${demoDocId}?chunk=55555555-5555-4555-8555-555555555555`);
-    await expect(page).toHaveURL(/chunk=55555555-5555-4555-8555-555555555555/);
+    await gotoApp(page, `/documents/${demoDocId}?chunk=44444444-4444-4444-8444-444444444442`);
+    await expect(page).toHaveURL(/chunk=44444444-4444-4444-8444-444444444442/);
     await expect(page.locator("#source-evidence").getByTestId("highlighted-source-passage")).toContainText(
-      "Patient safety plan should include",
+      "Escalate review when there is vomiting",
     );
     await expect(
-      page.getByTestId("desktop-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
+      page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toBeVisible();
 
     const sourceSearch = page.getByLabel("Search within indexed source text").last();
     await sourceSearch.fill("safety plan include");
-    const desktopTextPanel = page.getByTestId("desktop-chunk-indexed-text-panel");
+    const desktopTextPanel = page.getByTestId("source-chunk-indexed-text-panel");
     await expect(desktopTextPanel.getByText("Hit 1 of 2").first()).toBeVisible();
+    await expect(desktopTextPanel.locator("mark").filter({ hasText: "safety" }).first()).toBeVisible();
     const previousHit = desktopTextPanel.getByRole("button", { name: "Previous document search hit" });
     const nextHit = desktopTextPanel.getByRole("button", { name: "Next document search hit" });
     await expect(previousHit).toHaveAttribute("title", "Previous document search hit");
@@ -2874,8 +2943,50 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(nextHit).toHaveText("");
     await nextHit.click();
     await expect(desktopTextPanel.getByText("Hit 2 of 2")).toBeVisible();
-    await expect(desktopTextPanel.locator("mark").filter({ hasText: "safety" }).first()).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("document viewer hydrates once and signs downloads only on demand @critical", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockDemoApi(page);
+
+    const documentId = "11111111-1111-4111-8111-111111111111";
+    const browserDetailRequests: string[] = [];
+    const setupRequests: string[] = [];
+    const signedUrlRequests: Array<"preview" | "download"> = [];
+    page.on("request", (request) => {
+      const url = new URL(request.url());
+      if (url.pathname === `/api/documents/${documentId}`) browserDetailRequests.push(request.url());
+      if (url.pathname === "/api/setup-status") setupRequests.push(request.url());
+    });
+    await page.route(/\/api\/documents\/([^/]+)\/signed-url(?:\?.*)?$/, async (route) => {
+      const url = new URL(route.request().url());
+      const id = url.pathname.split("/").at(-2) ?? "";
+      const document = getDemoDocument(id);
+      if (!document) {
+        await route.fulfill({ status: 404, json: { error: "Demo document not found." } });
+        return;
+      }
+      const requestKind = url.searchParams.get("download") === "true" ? "download" : "preview";
+      signedUrlRequests.push(requestKind);
+      if (requestKind === "download") await new Promise((resolve) => setTimeout(resolve, 250));
+      await route.fulfill({
+        json: { url: document.storage_path, fileType: document.file_type, demoMode: true },
+      });
+    });
+
+    await gotoApp(page, `/documents/${documentId}?page=1&chunk=44444444-4444-4444-8444-444444444442`);
+    await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible();
+    await expect(page.getByTestId("source-chunk-indexed-text-panel")).toHaveCount(1);
+    await expect.poll(() => signedUrlRequests.filter((kind) => kind === "preview").length).toBe(1);
+    expect(browserDetailRequests).toHaveLength(0);
+    expect(setupRequests).toHaveLength(0);
+    expect(signedUrlRequests.filter((kind) => kind === "download")).toHaveLength(0);
+
+    const downloadButton = page.getByRole("button", { name: "Download", exact: true });
+    await expect(downloadButton).toBeEnabled();
+    await downloadButton.dblclick();
+    await expect.poll(() => signedUrlRequests.filter((kind) => kind === "download").length).toBe(1);
   });
 
   test("document viewer puts the PDF preview first with pinned evidence after it on mobile", async ({ page }) => {
@@ -2894,9 +3005,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(evidence).toBeVisible();
     await expect(evidence.getByText("Highlighted source passage")).toBeVisible();
-    await expect(page.locator("#source-text-mobile")).toHaveJSProperty("open", true);
+    await expect(page.locator("#source-text")).toBeVisible();
     await expect(
-      page.getByTestId("mobile-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
+      page.getByTestId("source-chunk-indexed-text-panel").getByTestId("highlighted-indexed-source-chunk"),
     ).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "Evidence" })).toBeVisible();
     await expect(viewerNav.getByRole("link", { name: "PDF" })).toBeVisible();
@@ -2919,7 +3030,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const evidenceBox = await evidence.boundingBox();
     const previewBox = await preview.boundingBox();
-    const indexedTextBox = await page.getByText("Indexed page text", { exact: true }).boundingBox();
+    const indexedTextHeading = page
+      .getByTestId("source-chunk-indexed-text-panel")
+      .getByRole("heading", { name: "Indexed source text", exact: true });
+    const indexedTextBox = await indexedTextHeading.boundingBox();
     const imagesBox = await page.getByRole("heading", { name: "Tables and diagrams" }).boundingBox();
 
     expect(evidenceBox).not.toBeNull();
@@ -2943,7 +3057,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await activateFocusedControl(page, viewerNav.getByRole("link", { name: "PDF" }));
     await expect(preview).toBeInViewport();
     await activateFocusedControl(page, viewerNav.getByRole("link", { name: "Text" }));
-    await expect(page.getByText("Indexed page text", { exact: true })).toBeInViewport();
+    await expect(indexedTextHeading).toBeInViewport();
     await activateFocusedControl(page, viewerNav.getByRole("link", { name: "PDF" }));
     await expect(preview).toBeInViewport();
 
@@ -3029,13 +3143,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
       timeout: 30_000,
     });
-    const indexedText = page.locator("#source-text-mobile");
+    const indexedText = page.locator("#source-text");
     const summary = page.getByTestId("high-yield-summary");
     const images = page.locator("#source-images");
     const indexingDetails = page.getByTestId("indexing-details");
     const viewerNav = page.getByRole("navigation", { name: "Document viewer sections" }).first();
 
-    for (const disclosure of [indexedText, summary, images, indexingDetails]) {
+    await expect(indexedText).toBeVisible();
+    for (const disclosure of [summary, images, indexingDetails]) {
       await expect(disclosure).toHaveJSProperty("open", false);
     }
 
@@ -3052,12 +3167,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(images).toHaveJSProperty("open", true);
 
     await viewerNav.getByRole("link", { name: "Text" }).click();
-    await expect(indexedText).toHaveJSProperty("open", true);
+    await expect(indexedText).toBeInViewport();
     await expect(images).toHaveJSProperty("open", false);
 
     await viewerNav.getByRole("link", { name: "Summary" }).click();
     await expect(summary).toHaveJSProperty("open", true);
-    await expect(indexedText).toHaveJSProperty("open", false);
+    await expect(indexedText).toBeVisible();
 
     await viewerNav.getByRole("link", { name: "Images" }).click();
     await expect(images).toHaveJSProperty("open", true);
@@ -3408,15 +3523,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("document viewer private missing source state is coherent", async ({ page }) => {
+  test("document viewer missing source state is coherent", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await mockPrivateUnauthenticatedApi(page);
-    await page.route(/\/api\/documents\/[^/]+(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        status: 404,
-        json: { error: "Document not found." },
-      });
-    });
     await page.route(/\/api\/documents\/[^/]+\/signed-url(?:\?.*)?$/, async (route) => {
       await route.fulfill({
         status: 404,
@@ -3425,15 +3534,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await gotoApp(
       page,
-      "/documents/11111111-1111-4111-8111-111111111111?page=1&chunk=44444444-4444-4444-8444-444444444442",
+      "/documents/99999999-9999-4999-8999-999999999999?page=1&chunk=99999999-9999-4999-8999-999999999998",
     );
 
-    await expect(page.getByRole("heading", { level: 1, name: /Sign in required|Source unavailable/ })).toBeVisible({
+    await expect(page.getByRole("heading", { level: 1, name: "Source unavailable" })).toBeVisible({
       timeout: 30000,
     });
-    await expect(page.locator("body")).toContainText(
-      /Sign in to open private source documents\.|Document not found\.|Supabase browser authentication is not configured for private source documents\./,
-    );
+    await expect(page.locator("body")).toContainText(/Demo document not found\./i);
     await expect(page.getByRole("button", { name: /^Answer from this(?: document)?$/ }).first()).toBeDisabled();
     await expect(page.locator("body")).not.toContainText("loading source");
     await expect(page.locator("body")).not.toContainText("Loading source metadata");

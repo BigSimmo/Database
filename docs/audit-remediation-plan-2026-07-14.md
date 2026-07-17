@@ -6,6 +6,25 @@ every finding: major blockers first, then P2 sub-issues, then P3 cleanup.
 
 **Findings handover (inventory + status):** [`audit-handover-2026-07-14.md`](audit-handover-2026-07-14.md).
 
+**Reconciliation — 2026-07-17 (`claude/memory-tasks-review-glmntq`):** a read-only cross-check of
+every finding against current `main` found the code side largely landed since this plan was written.
+
+- **DONE in code:** C1 (anon catalog rate-limit), D1 (public-doc DTO redaction), D5 (bulk error
+  redaction), E1 (unreachable commit fallback), E2 (recovery dedup), F4 (flake ledger emptied),
+  G1–G4 (full frontend a11y wave), H6 (`/api/jobs` auth-first + 503), F5 (`.env.example` weak-OR
+  default corrected to `false` to match the `src/lib/env.ts` default — this pass). The a11y wave
+  (G) and the ingestion recovery/commit wave (E1/E2) are fully closed.
+- **Superseded:** F2 (CI RAG-eval scope) — the offline RAG-eval gate now runs unconditionally.
+- **Still open — OWNER:CODE:** D2 (tenancy CI guard `check-owner-scope-api.mjs` still absent), D3
+  (`getSession()`→`getUser()` in `client.tsx`), E3 (wire `decideReindexGate` into `scripts/reindex.ts`),
+  F1 (CI UI-scope patterns miss `app-modes`/`ui-copy`), F3 (`@critical` safety assert still
+  conditional), F6 (bundle-budget `enforce:false`),
+  H1–H5 (API-contract hygiene: error envelopes, admin-route rate limits, list-offset cap,
+  upload Content-Length reserve, authed-summarize public scope). Biggest remaining cluster is H1–H5.
+- **In flight (do not restart):** draft PRs **#708** (frontend a11y/layout P2s) and **#710**
+  (storage-bucket migration drift — "closes the audit's open P2 list").
+- **Operator-pending (⏸):** Waves A/B/J and D4 (all live/legal/ops). Wave I (P3) untouched.
+
 **Rules for executing this plan**
 
 - Prefer the smallest safe change per finding; do not bundle unrelated domains in one PR.

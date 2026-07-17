@@ -92,6 +92,7 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
       <DifferentialsHome
         query={query}
         loading={loading}
+        searchSubmitted={autoRunSearch}
         documentMatches={documentMatches}
         evidenceQuery={evidenceQuery}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}

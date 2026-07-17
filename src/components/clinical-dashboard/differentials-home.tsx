@@ -33,10 +33,10 @@ import { appModeHomeHref } from "@/lib/app-modes";
 import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
 import {
   composeDifferentialSearchResults,
-  differentialScenarioPresets,
-  type DifferentialRecord,
+  defaultDifferentialRecentQueries,
   type DifferentialSearchResultItem,
-} from "@/lib/differentials";
+} from "@/lib/differential-search-composition";
+import type { DifferentialRecord } from "@/lib/differential-snapshot";
 import type { DocumentMatch } from "@/lib/types";
 import { sortResultItems } from "@/lib/result-sort";
 
@@ -94,13 +94,11 @@ const primaryActions: DifferentialAction[] = [
   },
 ];
 
-const recentDifferentials: RecentDifferential[] = differentialScenarioPresets()
-  .slice(0, 5)
-  .map((preset) => ({
-    label: preset.query.replace(/\bdifferential diagnosis\b/i, "").trim() || preset.query,
-    query: preset.query.includes("differential") ? preset.query : `${preset.query} differential diagnosis`,
-    icon: BrainCircuit,
-  }));
+const recentDifferentials: RecentDifferential[] = defaultDifferentialRecentQueries.map((query) => ({
+  label: query.replace(/\bdifferential diagnosis\b/i, "").trim() || query,
+  query: query.includes("differential") ? query : `${query} differential diagnosis`,
+  icon: BrainCircuit,
+}));
 
 const candidateIconBySlug: Array<[string, LucideIcon]> = [
   ["substance", FlaskConical],
@@ -276,10 +274,13 @@ function ResultTypeTabs({
     { id: "diagnosis" as const, label: "Diagnoses", count: diagnosisCount },
   ];
 
+  // Single-select filters over one results list — modeled as a toggle group
+  // (role="group" + aria-pressed), not ARIA tabs (which would need tabpanels,
+  // aria-controls, and roving tabindex for content that does not exist here).
   return (
     <div
       data-testid="differential-result-type-tabs"
-      role="tablist"
+      role="group"
       aria-label="Result type"
       className="polished-scroll flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
     >
@@ -289,8 +290,7 @@ function ResultTypeTabs({
           <button
             key={tab.id}
             type="button"
-            role="tab"
-            aria-selected={active}
+            aria-pressed={active}
             aria-label={`${tab.label} (${tab.count})`}
             onClick={() => onFilterChange(tab.id)}
             className={cn(

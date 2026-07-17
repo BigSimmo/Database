@@ -2,9 +2,10 @@ import { expect, test, type Locator, type Page } from "playwright/test";
 import type { Route } from "playwright-core";
 import { acuteConfusionPresentationWorkflow, differentialRecords } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
-import { formRecords } from "../src/lib/forms";
+import { formRecords, rankFormRecords } from "../src/lib/forms";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
+import { sortResultItems } from "../src/lib/result-sort";
 import { scrollPrimarySurface } from "./playwright-scroll";
 
 const readySetupChecks = [
@@ -159,6 +160,24 @@ async function mockAnswerDashboardApi(page: Page) {
         total: records.length,
         demoMode: true,
         governance: {},
+      },
+    });
+  });
+  await page.route(/\/api\/registry\/records\/[^/?]+(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const slug = decodeURIComponent(url.pathname.split("/").pop() ?? "");
+    const kind = url.searchParams.get("kind");
+    const record = kind === "form" ? formRecords.find((form) => form.slug === slug) : undefined;
+    if (!record) {
+      await route.fulfill({ status: 404, json: { error: "Registry record not found" } });
+      return;
+    }
+    await route.fulfill({
+      json: {
+        record,
+        linkedDocuments: [],
+        governance: { sourceStatus: "current", validationStatus: "unverified" },
+        demoMode: true,
       },
     });
   });
@@ -674,23 +693,20 @@ test.describe("Clinical KB tools launcher", () => {
     });
   }
 
-  test("phone bottom-dock search opens the bounded command results sheet", async ({ page }) => {
+  test("phone bottom-dock search keeps the command results sheet hidden", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     const input = visibleGlobalSearchInput(page).first();
     await expect(input).toBeVisible();
 
-    // Phone searches use the same accessible listbox as larger viewports, bounded
-    // above the bottom dock so results stay reachable without horizontal overflow.
+    // Phones keep the full search results in the page instead of opening a
+    // command sheet over the small viewport.
     await input.click();
     await input.press("ArrowDown");
-    await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(1);
-    await expect(page.getByRole("listbox", { name: "Services search suggestions" })).toBeVisible();
-    await expectNoPageHorizontalOverflow(page);
-
-    await page.evaluate(() => window.dispatchEvent(new Event("scroll")));
     await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+    await expect(page.getByRole("listbox", { name: "Services search suggestions" })).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("phone mode homes keep the shared search in the hero, not the bottom dock", async ({ page }) => {
@@ -709,11 +725,11 @@ test.describe("Clinical KB tools launcher", () => {
       expect(geometry.top).toBeGreaterThan(0);
       expect(geometry.bottom).toBeLessThan(geometry.viewportHeight - 40);
 
-      // Hero composers expose the same bounded universal results sheet on phones.
+      // Phone hero composers must not cover the page with the universal sheet.
       await heroInput.click();
       await heroInput.press("ArrowDown");
-      await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(1);
-      await expect(page.getByRole("listbox")).toBeVisible();
+      await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+      await expect(page.getByRole("listbox")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     }
   });
@@ -862,6 +878,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("forms mode shows source-backed form records in search results", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
 
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
@@ -870,10 +887,10 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("form-search-results")).toContainText("Best matches");
     await expect(page.getByTestId("form-search-result-transport-crisis-form")).toContainText("Transport order");
     await expect(page.getByTestId("form-search-result-extension-transport-order")).toContainText(
-      "Extension of Transport Order",
+      "Extension of transport order",
     );
     await expect(page.getByTestId("form-search-result-detention-examination-movement")).toContainText(
-      "Detention to enable examination or movement",
+      "Detention order",
     );
     await expect(page.getByTestId("form-search-result-transfer-order")).toContainText("Transfer order");
     await expect(
@@ -890,6 +907,10 @@ test.describe("Clinical KB tools launcher", () => {
 
     const results = page.getByTestId("form-search-results");
     const visibleSort = page.locator('select[aria-label="Sort results"]:visible');
+    const expectedAlphaFirstTestId = `form-search-result-${
+      sortResultItems(rankFormRecords(formRecords, "transport forms"), "alpha", (match) => match.service.title)[0]
+        ?.service.slug
+    }`;
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
       "form-search-result-transport-crisis-form",
@@ -899,7 +920,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/\bsort=alpha\b/);
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
-      "form-search-result-detention-examination-movement",
+      expectedAlphaFirstTestId,
     );
 
     await page.goBack();
@@ -913,13 +934,14 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(visibleSort).toHaveValue("alpha");
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
-      "form-search-result-detention-examination-movement",
+      expectedAlphaFirstTestId,
     );
     await expectNoPageHorizontalOverflow(page);
   });
 
   test("form detail pages keep the shared forms search wired to form results", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms/transport-crisis-form");
     await expect(page.getByTestId("form-detail-page")).toBeVisible({ timeout: 30_000 });
 
@@ -949,6 +971,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("form detail mobile renders decision context after the form content", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms/transport-crisis-form");
 
     await expect(page.getByTestId("form-detail-page")).toBeVisible();
@@ -968,6 +991,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("forms search mockup is usable without horizontal overflow on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms?q=transport&focus=1&run=1");
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
@@ -1239,11 +1263,11 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
     const tabs = page.getByTestId("differential-result-type-tabs");
     await expect(tabs).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: /All \(\d+\)/ })).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: /Presentations \(\d+\)/ })).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: /Diagnoses \(\d+\)/ })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: /All \(\d+\)/ })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: /Presentations \(\d+\)/ })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: /Diagnoses \(\d+\)/ })).toBeVisible();
 
-    const tabMetrics = await tabs.getByRole("tab").evaluateAll((buttons) =>
+    const tabMetrics = await tabs.getByRole("button").evaluateAll((buttons) =>
       buttons.map((button) => {
         const rect = button.getBoundingClientRect();
         return { height: rect.height, scrollHeight: button.scrollHeight };
@@ -1335,11 +1359,11 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
     const tabs = page.getByTestId("differential-result-type-tabs");
     await expect(tabs).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: "All (8)" })).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: "Presentations (1)" })).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: "Diagnoses (7)" })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: "All (8)" })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: "Presentations (1)" })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: "Diagnoses (7)" })).toBeVisible();
 
-    const tabMetrics = await tabs.getByRole("tab").evaluateAll((tabElements) =>
+    const tabMetrics = await tabs.getByRole("button").evaluateAll((tabElements) =>
       tabElements.map((tab) => {
         const rect = tab.getBoundingClientRect();
         return { height: rect.height, scrollHeight: tab.scrollHeight };
@@ -1370,22 +1394,8 @@ test.describe("Clinical KB tools launcher", () => {
           results: [],
           visualEvidence: [],
           relatedDocuments: [],
-          documentMatches: [
-            {
-              document_id: "11111111-1111-4111-8111-111111111111",
-              title: "Acute confusion differential guide",
-              file_name: "acute-confusion-differentials.pdf",
-              labels: [],
-              summarySnippet: "Reviewed acute confusion differential guidance.",
-              bestPages: [1],
-              bestChunkIds: ["chunk-acute-confusion"],
-              imageCount: 0,
-              tableCount: 0,
-              matchReason: "Matched indexed passage",
-              score: 0.93,
-            },
-          ],
-          relevance: { verdict: "strong", score: 0.93, directSourceCount: 1, weakSourceCount: 0 },
+          documentMatches: [],
+          relevance: { verdict: "weak", score: 0, directSourceCount: 0, weakSourceCount: 0 },
           smartPanel: {},
           telemetry: { query_class: "differential_compare", retrieval_strategy: "text_fast_path" },
           scope: { queryMode: "compare_guidance" },
@@ -1401,7 +1411,11 @@ test.describe("Clinical KB tools launcher", () => {
     const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
     await input.fill("acute confusion");
     await expect(submit).toBeEnabled();
+    const searchResponse = page.waitForResponse(
+      (response) => response.url().includes("/api/search") && response.request().method() === "POST",
+    );
     await submit.click();
+    await searchResponse;
 
     const compareAction = page.getByTestId("differentials-compare-selected-mobile");
     const dock = page.locator("form.answer-footer-search-dock");

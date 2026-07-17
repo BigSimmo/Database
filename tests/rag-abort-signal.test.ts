@@ -33,6 +33,23 @@ describe("RAG abort signal propagation", () => {
     expect(createAdminClient).not.toHaveBeenCalled();
   }, 60_000);
 
+  it("attaches the caller signal to versioned retrieval RPC builders", async () => {
+    const controller = new AbortController();
+    const abortSignal = vi.fn(async () => ({ data: [], error: null }));
+    const supabase = { rpc: vi.fn(() => ({ abortSignal })) };
+    const { callVersionedRetrievalRpc } = await import("../src/lib/rag-candidate-sources");
+
+    await callVersionedRetrievalRpc(
+      supabase as never,
+      "match_document_chunks_text_v2",
+      "match_document_chunks_text",
+      { query_text: "clozapine", match_count: 8 },
+      controller.signal,
+    );
+
+    expect(abortSignal).toHaveBeenCalledWith(controller.signal);
+  });
+
   it("refuses adversarial manipulation before Supabase work starts", async () => {
     const createAdminClient = vi.fn();
     vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient }));

@@ -14,10 +14,10 @@ import { formRecords, rankFormRecords, type FormRecord } from "@/lib/forms";
 import { rowToMedicationRecord } from "@/lib/medication-records";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
+import { loadOwnerCatalogue } from "@/lib/owner-catalogue-cache";
 import { searchChunksWithTelemetry } from "@/lib/rag";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
-import { rowToServiceRecord } from "@/lib/registry-records";
-import { fetchOwnerRegistryRowsWithSeed } from "@/lib/registry-seed";
+import { fetchOwnerRegistryRows, mergeRegistryRecordsWithDefaults } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { searchFormulationMechanisms } from "@/lib/formulation";
 import { searchSpecifiers as searchPsychiatricSpecifiers } from "@/lib/specifiers";
@@ -110,6 +110,10 @@ export type RunUniversalSearchArgs = {
   supabase?: AdminClient;
   ownerId?: string;
   demo: boolean;
+  signal?: AbortSignal;
+  // Optional progressive delivery hook. Domain work remains parallel; each completed group is
+  // reported immediately while the final response preserves canonical group order.
+  onGroup?: (group: UniversalSearchGroup) => void | Promise<void>;
 };
 
 // Args after query understanding: registry adapters rank against baseQuery (typo-corrected)
@@ -123,21 +127,74 @@ type ResolvedSearchArgs = RunUniversalSearchArgs & {
 
 const registryDomainTimeoutMs = 2500;
 const documentsDomainTimeoutMs = 6000;
+const ownerCatalogueLimit = 500;
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`${label} search timed out after ${timeoutMs}ms`)), timeoutMs);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error: unknown) => {
-        clearTimeout(timer);
-        reject(error instanceof Error ? error : new Error(String(error)));
-      },
-    );
+// Owner typeahead needs the complete rankable catalogue, but not governance timestamps, IDs,
+// audit columns, or other route-only payload. These projections keep the short-lived cache and
+// Supabase response limited to fields consumed by row conversion, ranking, and result cards.
+const medicationRankingProjection = "slug,name,class,subclass,category,tag,schedule,stats,sections,quick";
+const registryRankingProjection = [
+  "slug",
+  "title",
+  "subtitle",
+  "status_chips",
+  "primary_contact",
+  "contacts",
+  "route",
+  "eligibility",
+  "cost",
+  "referral",
+  "location",
+  "summary_cards",
+  "referral_info",
+  "best_use",
+  "criteria",
+  "verification",
+  "tags",
+  "catchments",
+  "catalogue_label",
+  "navigator_query",
+  "source",
+  "catalog_payload",
+].join(",");
+
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) throw abortReason(signal);
+}
+
+async function withTimeout<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+  label: string,
+  callerSignal?: AbortSignal,
+): Promise<T> {
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort(callerSignal?.reason);
+  if (callerSignal?.aborted) abortFromCaller();
+  else callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+
+  const timeout = setTimeout(() => {
+    controller.abort(new DOMException(`${label} search timed out after ${timeoutMs}ms`, "TimeoutError"));
+  }, timeoutMs);
+  let rejectOnAbort: ((reason: Error) => void) | undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    rejectOnAbort = reject;
   });
+  const onAbort = () => rejectOnAbort?.(abortReason(controller.signal));
+  controller.signal.addEventListener("abort", onAbort, { once: true });
+  if (controller.signal.aborted) onAbort();
+
+  try {
+    return await Promise.race([run(controller.signal), aborted]);
+  } finally {
+    clearTimeout(timeout);
+    callerSignal?.removeEventListener("abort", abortFromCaller);
+    controller.signal.removeEventListener("abort", onAbort);
+  }
 }
 
 function medicationItem(record: MedicationRecord, score: number): UniversalSearchItem {
@@ -181,7 +238,19 @@ function formItem(record: FormRecord, score: number): UniversalSearchItem {
 async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
     !args.demo && args.supabase && args.ownerId
-      ? (await fetchOwnerMedicationRowsWithSeed(args.supabase, args.ownerId)).map(rowToMedicationRecord)
+      ? (
+          await loadOwnerCatalogue({
+            ownerId: args.ownerId,
+            kind: "medication",
+            limit: ownerCatalogueLimit,
+            signal: args.signal,
+            load: (signal) =>
+              fetchOwnerMedicationRowsWithSeed(args.supabase!, args.ownerId!, ownerCatalogueLimit, {
+                signal,
+                select: medicationRankingProjection,
+              }),
+          })
+        ).map(rowToMedicationRecord)
       : defaultMedicationRecords();
   return rankMedicationRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     medicationItem(match.medication, match.score),
@@ -191,7 +260,20 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
 async function searchServicesDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
     !args.demo && args.supabase && args.ownerId
-      ? (await fetchOwnerRegistryRowsWithSeed(args.supabase, args.ownerId, "service")).map(rowToServiceRecord)
+      ? mergeRegistryRecordsWithDefaults(
+          "service",
+          await loadOwnerCatalogue({
+            ownerId: args.ownerId,
+            kind: "service",
+            limit: ownerCatalogueLimit,
+            signal: args.signal,
+            load: (signal) =>
+              fetchOwnerRegistryRows(args.supabase!, args.ownerId!, "service", ownerCatalogueLimit, {
+                signal,
+                select: registryRankingProjection,
+              }),
+          }),
+        )
       : serviceRecords;
   return rankServiceRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     serviceItem(match.service, match.score),
@@ -201,7 +283,20 @@ async function searchServicesDomain(args: ResolvedSearchArgs): Promise<Universal
 async function searchFormsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
     !args.demo && args.supabase && args.ownerId
-      ? (await fetchOwnerRegistryRowsWithSeed(args.supabase, args.ownerId, "form")).map(rowToServiceRecord)
+      ? mergeRegistryRecordsWithDefaults(
+          "form",
+          await loadOwnerCatalogue({
+            ownerId: args.ownerId,
+            kind: "form",
+            limit: ownerCatalogueLimit,
+            signal: args.signal,
+            load: (signal) =>
+              fetchOwnerRegistryRows(args.supabase!, args.ownerId!, "form", ownerCatalogueLimit, {
+                signal,
+                select: registryRankingProjection,
+              }),
+          }),
+        )
       : formRecords;
   return rankFormRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     formItem(match.service, match.score),
@@ -370,6 +465,7 @@ async function searchDocumentsDomain(args: ResolvedSearchArgs): Promise<Universa
     // skip the per-keystroke OpenAI embedding round-trip. The Answer/Documents full-search paths
     // still embed. Owner scoping and public-corpus behavior are unchanged (handled downstream).
     lexicalOnly: true,
+    signal: args.signal,
   });
   const hrefByDocument = documentHrefMapFromChunks(results);
   const related = await fetchRelatedDocuments({
@@ -378,6 +474,8 @@ async function searchDocumentsDomain(args: ResolvedSearchArgs): Promise<Universa
     query: args.query,
     results,
     limit: args.limitPerDomain,
+    includeVisualCounts: false,
+    signal: args.signal,
   });
   if (related.length > 0) {
     return related.map((document) => ({
@@ -526,6 +624,7 @@ function buildInterpretation(
 
 export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<UniversalSearchResponse> {
   const startedAt = Date.now();
+  throwIfAborted(args.signal);
   const requested = args.domains?.length
     ? universalSearchDomains.filter((domain) => args.domains!.includes(domain))
     : universalSearchDomains;
@@ -538,31 +637,42 @@ export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<
   const expansions = deriveExpansions(analysis, baseQuery);
   const resolved: ResolvedSearchArgs = { ...args, baseQuery, expansions };
 
-  const settled = await Promise.allSettled(
+  const groups = await Promise.all(
     requested.map(async (domain): Promise<UniversalSearchGroup> => {
       const domainStartedAt = Date.now();
       const adapter = domainAdapters[domain];
-      const items = await withTimeout(adapter.run(resolved), adapter.timeoutMs, domain);
-      // Tag near-exact title matches so best-bet + ordering can compare across domains without
-      // leaning on the per-domain scores (which are not comparable across domains).
-      const tagged = items
-        .slice(0, args.limitPerDomain)
-        .map((item) => ({ ...item, confident: titleMatchesQuery(item.title, baseQuery) }));
-      return {
-        kind: domain,
-        total: tagged.length,
-        items: tagged,
-        latencyMs: Date.now() - domainStartedAt,
-      };
+      let group: UniversalSearchGroup;
+      try {
+        const items = await withTimeout(
+          (signal) => adapter.run({ ...resolved, signal }),
+          adapter.timeoutMs,
+          domain,
+          args.signal,
+        );
+        // Tag near-exact title matches so best-bet + ordering can compare across domains without
+        // leaning on the per-domain scores (which are not comparable across domains).
+        const tagged = items
+          .slice(0, args.limitPerDomain)
+          .map((item) => ({ ...item, confident: titleMatchesQuery(item.title, baseQuery) }));
+        group = {
+          kind: domain,
+          total: tagged.length,
+          items: tagged,
+          latencyMs: Date.now() - domainStartedAt,
+        };
+      } catch {
+        // A failed/timed-out domain yields an empty errored group — one slow or broken adapter
+        // must never blank the whole response. Caller cancellation is different: propagate it
+        // so all downstream work and the NDJSON stream terminate instead of caching/returning.
+        throwIfAborted(args.signal);
+        group = { kind: domain, total: 0, items: [], latencyMs: Date.now() - domainStartedAt, error: true };
+      }
+      throwIfAborted(args.signal);
+      await args.onGroup?.(group);
+      return group;
     }),
   );
-
-  // A failed domain yields an empty errored group — one slow or broken adapter must never
-  // blank the whole response.
-  const groups = settled.map((result, index): UniversalSearchGroup => {
-    if (result.status === "fulfilled") return result.value;
-    return { kind: requested[index], total: 0, items: [], latencyMs: Date.now() - startedAt, error: true };
-  });
+  throwIfAborted(args.signal);
 
   const preferredDomains = universalSearchPreferredDomains(args.contextMode).filter((domain) =>
     requested.includes(domain),

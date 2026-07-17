@@ -1,5 +1,8 @@
+import { isPdfExtractionResourceError } from "@/lib/extractors/pdf-extraction-budget";
+
 export function isRetryableIngestionError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
+  if (isPdfExtractionResourceError(error)) return false;
   // Duplicate-key conflicts — including document_pages page-number duplicates —
   // are partial index-write conflicts that the worker routes to manual queue
   // recovery, never auto-retry. (Audit L17: removed an unreachable retry

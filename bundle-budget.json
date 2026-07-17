@@ -1,6 +1,7 @@
 {
-  "$comment": "Client JS bundle-size budget. Warn-only until a baseline is captured: after a known-good `npm run build`, run `npm run check:bundle-budget -- --update` to set totalGzipBytes, then flip enforce to true so CI fails on >tolerancePct growth. See scripts/check-bundle-budget.mjs.",
-  "enforce": false,
+  "$comment": "Client JS bundle-size budget captured from a known-good production build. CI fails when total gzip size grows beyond tolerancePct; refresh intentionally with `npm run check:bundle-budget -- --update`.",
+  "enforce": true,
   "tolerancePct": 10,
-  "totalGzipBytes": null
+  "totalGzipBytes": 1363382,
+  "updatedAt": "2026-07-17T12:11:55.267Z"
 }

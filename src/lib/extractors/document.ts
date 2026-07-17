@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import type { ChildProcess } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import ExcelJS from "exceljs";
@@ -9,6 +10,14 @@ import JSZip from "jszip";
 import { safeBufferFrom } from "@/lib/safe-buffer";
 import { z } from "zod";
 import type { ExtractedDocument, ExtractedPage } from "@/lib/types";
+import {
+  assertExtractedPdfBudget,
+  isPdfExtractionResourceError,
+  PDF_EXTRACTION_BUDGET,
+  PdfExtractionBudgetTracker,
+  PdfExtractionResourceError,
+  type PdfExtractionBudget,
+} from "@/lib/extractors/pdf-extraction-budget";
 
 const extractedPageSchema = z.object({
   pageNumber: z.number().int().positive(),
@@ -33,41 +42,153 @@ const extractedDocumentSchema = z.object({
   images: z.array(extractedImageSchema),
   warnings: z.array(z.string()).optional(),
   temporaryPaths: z.array(z.string()).optional(),
+  budgetUsage: z
+    .object({
+      pages: z.number().int().nonnegative(),
+      artifacts: z.number().int().nonnegative(),
+      artifactBytes: z.number().int().nonnegative(),
+      textBytes: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 
 export function parseExtractedDocumentPayload(raw: string): ExtractedDocument {
   return extractedDocumentSchema.parse(JSON.parse(raw));
 }
 
-function runPythonPdfExtractor(filePath: string, outputDir: string) {
-  const scriptPath = path.join(process.cwd(), "worker", "python", "extract_pdf_assets.py");
+export async function terminateProcessTree(child: ChildProcess) {
+  if (!child.pid || child.exitCode !== null) return;
+  if (process.platform === "win32") {
+    await new Promise<void>((resolve) => {
+      const killer = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
+        stdio: "ignore",
+        windowsHide: true,
+      });
+      killer.once("error", () => {
+        child.kill("SIGKILL");
+        resolve();
+      });
+      killer.once("close", () => resolve());
+    });
+    return;
+  }
+  try {
+    process.kill(-child.pid, "SIGKILL");
+  } catch {
+    child.kill("SIGKILL");
+  }
+}
+
+export async function runPythonPdfExtractor(
+  filePath: string,
+  outputDir: string,
+  limits: PdfExtractionBudget = PDF_EXTRACTION_BUDGET,
+  scriptPathOverride?: string,
+) {
+  const scriptPath = scriptPathOverride ?? path.join(process.cwd(), "worker", "python", "extract_pdf_assets.py");
   const outputJsonPath = path.join(outputDir, "extract.json");
+  const budgetPath = path.join(path.dirname(outputDir), "pdf-extraction-budget.json");
+  await writeFile(budgetPath, JSON.stringify(limits), "utf8");
 
   return new Promise<ExtractedDocument>((resolve, reject) => {
-    const child = spawn(process.env.PYTHON_BIN || "python", [scriptPath, filePath, outputDir, outputJsonPath], {
-      cwd: process.cwd(),
-      stdio: ["ignore", "pipe", "pipe"],
-    });
+    const child = spawn(
+      process.env.PYTHON_BIN || "python",
+      [scriptPath, filePath, outputDir, outputJsonPath, budgetPath],
+      {
+        cwd: process.cwd(),
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: process.platform !== "win32",
+        windowsHide: true,
+      },
+    );
 
     let stdout = "";
     let stderr = "";
+    let deadlineExceeded = false;
+    let outputExceeded = false;
+    let settled = false;
+    let terminationPromise: Promise<void> | null = null;
+    const terminate = () => {
+      terminationPromise ??= terminateProcessTree(child);
+      return terminationPromise;
+    };
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      callback();
+    };
+    const deadline = setTimeout(() => {
+      deadlineExceeded = true;
+      void terminate();
+    }, limits.totalTimeoutMs);
+    deadline.unref();
+
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
+      if (Buffer.byteLength(stdout, "utf8") > limits.maxResultBytes) {
+        outputExceeded = true;
+        void terminate();
+      }
     });
     child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
+      if (stderr.length < 1024 * 1024) stderr += chunk.toString();
     });
+    child.once("error", (error) => finish(() => reject(error)));
     child.on("close", async (code) => {
+      await terminationPromise;
+      if (deadlineExceeded) {
+        finish(() =>
+          reject(
+            new PdfExtractionResourceError(
+              "PDF_EXTRACTION_DEADLINE_EXCEEDED",
+              `Python extraction exceeded ${limits.totalTimeoutMs} ms`,
+            ),
+          ),
+        );
+        return;
+      }
+      if (outputExceeded) {
+        finish(() =>
+          reject(
+            new PdfExtractionResourceError(
+              "PDF_EXTRACTION_BUDGET_EXCEEDED",
+              `extractor stdout exceeded ${limits.maxResultBytes} bytes`,
+            ),
+          ),
+        );
+        return;
+      }
       if (code !== 0) {
-        reject(new Error(stderr || `PDF extractor exited with code ${code}`));
+        if (code === 3 || stderr.includes("PDF_EXTRACTION_BUDGET_EXCEEDED")) {
+          finish(() =>
+            reject(
+              new PdfExtractionResourceError(
+                "PDF_EXTRACTION_BUDGET_EXCEEDED",
+                stderr.trim() || "Python extraction exceeded a resource limit",
+              ),
+            ),
+          );
+          return;
+        }
+        finish(() => reject(new Error(stderr || `PDF extractor exited with code ${code}`)));
         return;
       }
 
       try {
-        const jsonPayload = await readFile(outputJsonPath, "utf8").catch(() => extractJsonFromStdout(stdout));
-        resolve(parseExtractedDocumentPayload(jsonPayload));
+        const outputMetadata = await stat(outputJsonPath).catch(() => null);
+        if (outputMetadata && outputMetadata.size > limits.maxResultBytes) {
+          throw new PdfExtractionResourceError(
+            "PDF_EXTRACTION_BUDGET_EXCEEDED",
+            `result JSON exceeds ${limits.maxResultBytes} bytes`,
+          );
+        }
+        const jsonPayload = outputMetadata ? await readFile(outputJsonPath, "utf8") : extractJsonFromStdout(stdout);
+        const extracted = parseExtractedDocumentPayload(jsonPayload);
+        await assertExtractedPdfBudget(extracted, jsonPayload, limits);
+        finish(() => resolve(extracted));
       } catch (error) {
-        reject(error);
+        finish(() => reject(error));
       }
     });
   });
@@ -80,7 +201,11 @@ function extractJsonFromStdout(stdout: string) {
   return stdout.slice(start, end + 1);
 }
 
-async function extractPdf(buffer: Buffer) {
+export async function extractPdf(
+  buffer: Buffer,
+  options: { limits?: PdfExtractionBudget; scriptPathOverride?: string } = {},
+) {
+  const limits = options.limits ?? PDF_EXTRACTION_BUDGET;
   const tempRoot = await mkdtemp(path.join(tmpdir(), "clinical-kb-"));
   const pdfPath = path.join(tempRoot, "document.pdf");
   const imageDir = path.join(tempRoot, "images");
@@ -88,15 +213,30 @@ async function extractPdf(buffer: Buffer) {
   await writeFile(pdfPath, buffer);
 
   try {
-    const extracted = await runPythonPdfExtractor(pdfPath, imageDir);
+    const extracted = await runPythonPdfExtractor(pdfPath, imageDir, limits, options.scriptPathOverride);
     return { ...extracted, temporaryPaths: [tempRoot] };
-  } catch {
+  } catch (error) {
+    if (isPdfExtractionResourceError(error)) {
+      await rm(tempRoot, { recursive: true, force: true }).catch(() => undefined);
+      throw error;
+    }
     // Fallback for developer machines without PyMuPDF/pytesseract. It still
     // indexes text PDFs, but scanned PDFs and image extraction need the Python
     // helper dependencies listed in worker/python/requirements.txt.
     const parser = new PDFParse({ data: buffer });
     try {
       const parsed = await parser.getText();
+      const budget = new PdfExtractionBudgetTracker(limits);
+      const rawPages: ExtractedPage[] =
+        parsed.pages.length > 0
+          ? parsed.pages.map((page: { num: number; text?: string }) => ({
+              pageNumber: page.num,
+              text: page.text || "",
+              ocrUsed: false,
+            }))
+          : [{ pageNumber: 1, text: parsed.text || "", ocrUsed: false }];
+      for (const page of rawPages) budget.addPage(page.text);
+
       const imageResult = await parser.getImage({
         imageBuffer: true,
         imageDataUrl: true,
@@ -111,6 +251,7 @@ async function extractPdf(buffer: Buffer) {
           const outputPath = path.join(imageDir, `fallback-page-${page.pageNumber}-image-${index + 1}.${extension}`);
           const bytes = dataUrlMatch ? safeBufferFrom(dataUrlMatch[2], "base64") : Buffer.from(image.data);
           if (!bytes) continue;
+          budget.addArtifact(bytes.byteLength);
           await writeFile(outputPath, bytes);
           images.push({
             pageNumber: page.pageNumber,
@@ -138,15 +279,6 @@ async function extractPdf(buffer: Buffer) {
         imageCountByPage.set(image.pageNumber, (imageCountByPage.get(image.pageNumber) ?? 0) + 1);
       }
 
-      const rawPages: ExtractedPage[] =
-        parsed.pages.length > 0
-          ? parsed.pages.map((page: { num: number; text?: string }) => ({
-              pageNumber: page.num,
-              text: page.text || "",
-              ocrUsed: false,
-            }))
-          : [{ pageNumber: 1, text: parsed.text || "", ocrUsed: false }];
-
       const pages: ExtractedPage[] = rawPages.map((page) => {
         const textLength = page.text.trim().length;
         const hasImages = (imageCountByPage.get(page.pageNumber) ?? 0) > 0;
@@ -160,7 +292,9 @@ async function extractPdf(buffer: Buffer) {
         warnings.push(`needs_ocr: ${ocrNeededPages} page(s) appear image-only and were not OCR'd by the JS fallback.`);
       }
 
-      return { pages, images, warnings, temporaryPaths: [tempRoot] };
+      const result = { pages, images, warnings, temporaryPaths: [tempRoot] };
+      budget.assertResult(JSON.stringify(result));
+      return result;
     } catch (fallbackError) {
       await parser.destroy().catch(() => undefined);
       await rm(tempRoot, { recursive: true, force: true }).catch(() => undefined);

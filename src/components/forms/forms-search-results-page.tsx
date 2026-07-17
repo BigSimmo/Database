@@ -19,7 +19,7 @@ import {
 import { useId, useMemo, useState } from "react";
 
 import { appModeHomeHref } from "@/lib/app-modes";
-import { rankFormRecords, type FormSearchMatch } from "@/lib/forms";
+import { formCatalogDetails, rankFormRecords, type FormSearchMatch } from "@/lib/form-ranker";
 import { useRegistryRecords, type RegistryRequestStatus } from "@/lib/use-registry-records";
 import {
   cn,
@@ -45,12 +45,6 @@ type FormsSearchResultsPageProps = {
   query: string;
 };
 
-const formCodesBySlug: Record<string, string> = {
-  "transport-crisis-form": "4A",
-  "extension-transport-order": "4B",
-  "detention-examination-movement": "3A",
-  "transfer-order": "5",
-};
 const sourceSnippetCount = 278;
 const taskCount = 8;
 const pathwayCount = 12;
@@ -69,7 +63,7 @@ const refineFilters: {
 ];
 
 function resultCode(match: FormSearchMatch, index: number) {
-  return formCodesBySlug[match.service.slug] ?? String(index + 1);
+  return formCatalogDetails(match.service)?.form ?? String(index + 1);
 }
 
 function tagToneClass(label: string) {

@@ -317,6 +317,24 @@ After completing `upload`, summarize the current branch and worktree state, whet
 
 <!-- END:codex-productivity-defaults -->
 
+<!-- BEGIN:repo-productivity-skills -->
+
+## Repository productivity skills
+
+Use the repo-local skills under `.agents/skills/` when their descriptions match. They are thin orchestration layers over `scripts/productivity-workflow.mjs`; do not copy their procedures into this file.
+
+- `database-flightplan`: plan risk-scoped verification before non-trivial changes.
+- `verify-triage-fix`: diagnose and repair local verification failures with the smallest reproducer.
+- `clinical-change-proof`: assemble clinical, privacy, source, and rollback evidence.
+- `live-design-sweep`: inspect the running app across routes, breakpoints, and accessibility modes.
+- `rag-change-lab`: validate retrieval and answer changes offline first, then prepare live-eval approval gates.
+- `operator-closeout`: turn pending operator debt into a deduplicated, approval-gated batch.
+- `session-lifecycle`: manage safe start, handoff, merge proof, and cleanup transitions.
+
+Run the matching planner command in `docs/productivity-workflows.md` without side effects by default. Add `-- --run` only to execute its local/offline checks. The workflow engine must never execute commands listed under `approvalRequired`.
+
+<!-- END:repo-productivity-skills -->
+
 ## Codex GitHub review behavior
 
 These instructions apply to Codex GitHub pull request reviews and Codex tasks started from PR comments.

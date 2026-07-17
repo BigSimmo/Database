@@ -440,6 +440,18 @@ export type Citation = {
   provenance?: CitationProvenance;
 };
 
+export type SafetyWarningKind =
+  "contraindication" | "red_flag" | "escalation" | "dose_limit" | "monitoring" | "exclusion" | "caveat";
+
+export type SafetyWarning = {
+  id: string;
+  kind: SafetyWarningKind;
+  label: string;
+  text: string;
+  citation: Citation;
+  href: string;
+};
+
 export type SupportedClaim = {
   claimId: string;
   text: string;
@@ -1005,6 +1017,9 @@ export type RagAnswer = {
   }>;
   scope?: SearchScopeSummary;
   sourceGovernanceWarnings?: SourceGovernanceWarning[];
+  /** Server-derived safety findings. Browser payloads use these bounded
+   * findings instead of scanning full source chunks client-side. */
+  safetyWarnings?: SafetyWarning[];
   // GEN-C1: set when the model output was cut off (status="incomplete" /
   // max_output_tokens). The clinical content may be missing a dose/threshold, so
   // the UI must surface "answer truncated — verify against sources".
@@ -1043,6 +1058,12 @@ export type ExtractedDocument = {
   images: ExtractedImage[];
   warnings?: string[];
   temporaryPaths?: string[];
+  budgetUsage?: {
+    pages: number;
+    artifacts: number;
+    artifactBytes: number;
+    textBytes: number;
+  };
 };
 
 export type ChunkInput = {

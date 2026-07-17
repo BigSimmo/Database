@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-17T06:06:10.141Z",
+  "generated_at": "2026-07-17T15:00:51.747Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "b9faccf4dac098def5d9547ca1b4cf0bb24621f1b76e9aed1b57d2495b65d72b",
-  "replay_seconds": 60,
+  "schema_sha256": "bde3b7c60872a8c4493555e6670c30ac777a862a12567ef2091dfc050c86240e",
+  "replay_seconds": 77,
   "snapshot": {
     "views": [
       {
@@ -1824,6 +1824,90 @@
           "postgres=arwdDxtm/postgres",
           "service_role=arwdDxtm/postgres"
         ],
+        "name": "document_publication_approvals",
+        "columns": [
+          {
+            "name": "approved_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "approving_operator_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "decision",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "document_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "evidence_references",
+            "type": "text[]",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "expected_prior_owner_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "id",
+            "type": "uuid",
+            "default": "gen_random_uuid()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "manifest_digest",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "reason",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwdDxtm/postgres"
+        ],
         "name": "document_sections",
         "columns": [
           {
@@ -2225,6 +2309,34 @@
           "autovacuum_vacuum_scale_factor=0.05",
           "autovacuum_vacuum_threshold=1000"
         ],
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwdDxtm/postgres"
+        ],
+        "name": "document_title_words",
+        "columns": [
+          {
+            "name": "document_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "word",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
         "rls_forced": false,
         "rls_enabled": true
       },
@@ -5029,6 +5141,24 @@
         "def_hash": "001064d4f85791f720b56615ca14500f"
       },
       {
+        "def": "CREATE UNIQUE INDEX document_publication_approval_document_id_expected_prior_ow_key ON public.document_publication_approvals USING btree (document_id, expected_prior_owner_id, manifest_digest)",
+        "name": "document_publication_approval_document_id_expected_prior_ow_key",
+        "table": "document_publication_approvals",
+        "def_hash": "b9adf9d81f711d3cead9d3e44e734995"
+      },
+      {
+        "def": "CREATE INDEX document_publication_approvals_document_idx ON public.document_publication_approvals USING btree (document_id, approved_at DESC)",
+        "name": "document_publication_approvals_document_idx",
+        "table": "document_publication_approvals",
+        "def_hash": "a80988eb1419a39ddc008d71deceb309"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX document_publication_approvals_pkey ON public.document_publication_approvals USING btree (id)",
+        "name": "document_publication_approvals_pkey",
+        "table": "document_publication_approvals",
+        "def_hash": "10ba75d5f5e4bb0374659bd6c8ac4167"
+      },
+      {
         "def": "CREATE INDEX document_sections_document_generation_idx ON public.document_sections USING btree (document_id, index_generation_id) WHERE (index_generation_id IS NOT NULL)",
         "name": "document_sections_document_generation_idx",
         "table": "document_sections",
@@ -5161,6 +5291,24 @@
         "def_hash": "9ac4c08564d3f549df99a1e543875cb8"
       },
       {
+        "def": "CREATE INDEX document_title_words_document_id_idx ON public.document_title_words USING btree (document_id)",
+        "name": "document_title_words_document_id_idx",
+        "table": "document_title_words",
+        "def_hash": "003cf77523b819a06ff50cf8df6fcf4b"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX document_title_words_pkey ON public.document_title_words USING btree (word, document_id)",
+        "name": "document_title_words_pkey",
+        "table": "document_title_words",
+        "def_hash": "8da6b7cecd94a940059ae6052c585a50"
+      },
+      {
+        "def": "CREATE INDEX document_title_words_word_trgm_idx ON public.document_title_words USING gin (word extensions.gin_trgm_ops)",
+        "name": "document_title_words_word_trgm_idx",
+        "table": "document_title_words",
+        "def_hash": "e7ea304b143482a8aeac075dd5f7484d"
+      },
+      {
         "def": "CREATE INDEX documents_import_batch_idx ON public.documents USING btree (import_batch_id)",
         "name": "documents_import_batch_idx",
         "table": "documents",
@@ -5207,6 +5355,12 @@
         "name": "documents_pkey",
         "table": "documents",
         "def_hash": "fc27ae2194373897e2f316e1cac47fb0"
+      },
+      {
+        "def": "CREATE INDEX documents_registry_projection_lookup_idx ON public.documents USING btree (((metadata ->> 'registry_record_kind'::text)), ((metadata ->> 'registry_record_id'::text))) WHERE ((metadata ->> 'source_kind'::text) = 'registry_record'::text)",
+        "name": "documents_registry_projection_lookup_idx",
+        "table": "documents",
+        "def_hash": "2c19fee4cac85c85d9ec69f179a6cb79"
       },
       {
         "def": "CREATE INDEX documents_search_idx ON public.documents USING gin (search_tsv)",
@@ -5411,6 +5565,12 @@
         "name": "rag_aliases_alias_trgm_idx",
         "table": "rag_aliases",
         "def_hash": "de4c954f6260a846824662bdc55ea171"
+      },
+      {
+        "def": "CREATE INDEX rag_aliases_canonical_trgm_idx ON public.rag_aliases USING gin (lower(canonical) extensions.gin_trgm_ops)",
+        "name": "rag_aliases_canonical_trgm_idx",
+        "table": "rag_aliases",
+        "def_hash": "e88844a9cb30e4980f1c92a94ae0b24a"
       },
       {
         "def": "CREATE INDEX rag_aliases_owner_enabled_idx ON public.rag_aliases USING btree (owner_id, enabled)",
@@ -5854,6 +6014,18 @@
       },
       {
         "cmd": "ALL",
+        "name": "document publication approvals service role",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "document_publication_approvals",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
+      },
+      {
+        "cmd": "ALL",
         "name": "document sections owner all",
         "qual": "(( SELECT auth.uid() AS uid) = owner_id)",
         "roles": [
@@ -6119,9 +6291,19 @@
     ],
     "triggers": [
       {
+        "def": "CREATE TRIGGER clinical_registry_records_delete_cleanup AFTER DELETE ON public.clinical_registry_records FOR EACH ROW EXECUTE FUNCTION public.cleanup_registry_corpus_document()",
+        "name": "clinical_registry_records_delete_cleanup",
+        "table": "clinical_registry_records"
+      },
+      {
         "def": "CREATE TRIGGER clinical_registry_records_updated_at BEFORE UPDATE ON public.clinical_registry_records FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
         "name": "clinical_registry_records_updated_at",
         "table": "clinical_registry_records"
+      },
+      {
+        "def": "CREATE TRIGGER differential_records_delete_cleanup AFTER DELETE ON public.differential_records FOR EACH ROW EXECUTE FUNCTION public.cleanup_registry_corpus_document()",
+        "name": "differential_records_delete_cleanup",
+        "table": "differential_records"
       },
       {
         "def": "CREATE TRIGGER differential_records_updated_at BEFORE UPDATE ON public.differential_records FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
@@ -6144,9 +6326,24 @@
         "table": "document_memory_cards"
       },
       {
+        "def": "CREATE TRIGGER document_publication_approvals_immutable BEFORE DELETE OR UPDATE ON public.document_publication_approvals FOR EACH ROW EXECUTE FUNCTION public.prevent_document_publication_approval_mutation()",
+        "name": "document_publication_approvals_immutable",
+        "table": "document_publication_approvals"
+      },
+      {
         "def": "CREATE TRIGGER document_sections_updated_at BEFORE UPDATE ON public.document_sections FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
         "name": "document_sections_updated_at",
         "table": "document_sections"
+      },
+      {
+        "def": "CREATE TRIGGER documents_require_publication_approval BEFORE INSERT OR UPDATE ON public.documents FOR EACH ROW EXECUTE FUNCTION public.guard_document_publication_transition()",
+        "name": "documents_require_publication_approval",
+        "table": "documents"
+      },
+      {
+        "def": "CREATE TRIGGER documents_sync_title_words AFTER INSERT OR DELETE OR UPDATE OF title, status, owner_id ON public.documents FOR EACH ROW EXECUTE FUNCTION public.sync_document_title_words()",
+        "name": "documents_sync_title_words",
+        "table": "documents"
       },
       {
         "def": "CREATE TRIGGER documents_updated_at BEFORE UPDATE ON public.documents FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
@@ -6167,6 +6364,11 @@
         "def": "CREATE TRIGGER ingestion_jobs_updated_at BEFORE UPDATE ON public.ingestion_jobs FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
         "name": "ingestion_jobs_updated_at",
         "table": "ingestion_jobs"
+      },
+      {
+        "def": "CREATE TRIGGER medication_records_delete_cleanup AFTER DELETE ON public.medication_records FOR EACH ROW EXECUTE FUNCTION public.cleanup_registry_corpus_document()",
+        "name": "medication_records_delete_cleanup",
+        "table": "medication_records"
       },
       {
         "def": "CREATE TRIGGER medication_records_updated_at BEFORE UPDATE ON public.medication_records FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
@@ -6263,6 +6465,13 @@
       },
       {
         "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "7104ee6e947fcca68fdebdf2fa878339",
+        "signature": "public.cleanup_registry_corpus_document()"
+      },
+      {
+        "acl": [
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
@@ -6321,6 +6530,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "833c00fa1743026d9269b9af28e0b86f",
+        "signature": "public.consume_summary_rate_limits_atomic(uuid,text,integer,integer,integer,integer,integer,integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "f909017309f1d81e24c03b419ff8d46b",
         "signature": "public.corpus_topic_term_stats_v2(text[],uuid,boolean)"
       },
@@ -6337,8 +6554,24 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "a5ebdd1ec14008cdf0c8601a32b4d24c",
+        "def_hash": "cb65883a561cb1f5cd2247213f417a41",
         "signature": "public.correct_clinical_query_terms(text,real)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "a6f0e7c27da08e47e2c01dce4ab5d58d",
+        "signature": "public.default_privileges_status(text,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "cf81c12782a5f977f4cddee4bd918b84",
+        "signature": "public.delete_document_if_idle(uuid,uuid,text,text)"
       },
       {
         "acl": [
@@ -6403,6 +6636,14 @@
         ],
         "def_hash": "107d6e5eb6d846971b48102c258ab2eb",
         "signature": "public.get_visual_evidence_cards(uuid,integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "2fef16fbe1d1e07658b5ce051f6e7d7a",
+        "signature": "public.guard_document_publication_transition()"
       },
       {
         "acl": [
@@ -6481,7 +6722,15 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "698d24f90e3fa5f17ef5898e3ba2d8ff",
+        "def_hash": "2b890b6f6c617f78f41f06293c9f7ade",
+        "signature": "public.match_document_chunks_text_scoped(text,integer,uuid[],uuid,boolean)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "4bf81d62c0953a8d11c80c37de6045e7",
         "signature": "public.match_document_chunks_text_v2(text,integer,uuid[],uuid,boolean)"
       },
       {
@@ -6537,7 +6786,15 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "7e7e5a83bad724a62fdc66a0213b843b",
+        "def_hash": "e802785a1872f92ca4b748c08c57435d",
+        "signature": "public.match_document_index_units_hybrid_scoped(extensions.vector,text,integer,double precision,uuid[],uuid,boolean)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "38282636c4c22a4f01974a943aa20d42",
         "signature": "public.match_document_index_units_hybrid_v2(extensions.vector,text,integer,double precision,uuid[],uuid,boolean)"
       },
       {
@@ -6622,12 +6879,28 @@
       },
       {
         "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "b0947f8a0d37d0d8dda4185008c0d51a",
+        "signature": "public.prevent_document_publication_approval_mutation()"
+      },
+      {
+        "acl": [
           "=X/postgres",
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
         "def_hash": "3c5d2fe027c7be638f4ade47eca4abd8",
         "signature": "public.prevent_source_review_event_mutation()"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "406d621ed9ad3b052b9282e7e980813a",
+        "signature": "public.publish_approved_documents(jsonb,text,integer)"
       },
       {
         "acl": [
@@ -6730,6 +7003,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "39b1d8de34c4ac584dee044282e7481b",
+        "signature": "public.retry_ingestion_job_if_idle(uuid,uuid,timestamp with time zone,integer,timestamp with time zone,timestamp with time zone)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "22124c67028e9957d39788548f0f358a",
         "signature": "public.run_all_visual_eval_cases(integer)"
       },
@@ -6754,7 +7035,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "e546ed66f9b45a3d4905cc911fcbed62",
+        "def_hash": "23795071424c8e1b9a53fb659e93a310",
         "signature": "public.search_document_chunks(uuid,text,integer,uuid)"
       },
       {
@@ -6796,6 +7077,13 @@
         ],
         "def_hash": "3b5c6084651ca0f8fd8e069106e8f7dd",
         "signature": "public.stamp_document_deep_memory_version(uuid,text)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "6b51ece12494d136b39977d8532c013c",
+        "signature": "public.sync_document_title_words()"
       },
       {
         "acl": [
@@ -7209,6 +7497,36 @@
         "table": "document_pages"
       },
       {
+        "def": "UNIQUE (document_id, expected_prior_owner_id, manifest_digest)",
+        "name": "document_publication_approval_document_id_expected_prior_ow_key",
+        "table": "document_publication_approvals"
+      },
+      {
+        "def": "CHECK ((decision = ANY (ARRAY['approved'::text, 'keep_private'::text, 'quarantine'::text])))",
+        "name": "document_publication_approvals_decision_check",
+        "table": "document_publication_approvals"
+      },
+      {
+        "def": "CHECK ((cardinality(evidence_references) > 0))",
+        "name": "document_publication_approvals_evidence_references_check",
+        "table": "document_publication_approvals"
+      },
+      {
+        "def": "CHECK ((manifest_digest ~ '^[0-9a-f]{64}$'::text))",
+        "name": "document_publication_approvals_manifest_digest_check",
+        "table": "document_publication_approvals"
+      },
+      {
+        "def": "PRIMARY KEY (id)",
+        "name": "document_publication_approvals_pkey",
+        "table": "document_publication_approvals"
+      },
+      {
+        "def": "CHECK (((char_length(TRIM(BOTH FROM reason)) >= 3) AND (char_length(TRIM(BOTH FROM reason)) <= 2000)))",
+        "name": "document_publication_approvals_reason_check",
+        "table": "document_publication_approvals"
+      },
+      {
         "def": "FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE CASCADE",
         "name": "document_sections_document_id_fkey",
         "table": "document_sections"
@@ -7272,6 +7590,26 @@
         "def": "FOREIGN KEY (source_image_id) REFERENCES public.document_images(id) ON DELETE SET NULL",
         "name": "document_table_facts_source_image_id_fkey",
         "table": "document_table_facts"
+      },
+      {
+        "def": "FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE CASCADE",
+        "name": "document_title_words_document_id_fkey",
+        "table": "document_title_words"
+      },
+      {
+        "def": "CHECK ((word = lower(word)))",
+        "name": "document_title_words_lowercase",
+        "table": "document_title_words"
+      },
+      {
+        "def": "PRIMARY KEY (word, document_id)",
+        "name": "document_title_words_pkey",
+        "table": "document_title_words"
+      },
+      {
+        "def": "CHECK (((length(word) >= 4) AND (length(word) <= 40)))",
+        "name": "document_title_words_word_length",
+        "table": "document_title_words"
       },
       {
         "def": "FOREIGN KEY (import_batch_id) REFERENCES public.import_batches(id) ON DELETE SET NULL",
