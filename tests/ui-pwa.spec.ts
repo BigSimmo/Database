@@ -201,6 +201,11 @@ test.describe("Clinical KB PWA", () => {
     expect(offlineDocumentResponse.headers()["x-robots-tag"]).toBe("noindex, nofollow");
     expect(offlineDocumentResponse.headers()["set-cookie"]).toBeUndefined();
 
+    const svgIconResponse = await context.request.get(new URL("/icon.svg", page.url()).toString());
+    expect(svgIconResponse.status()).toBe(200);
+    expect(svgIconResponse.headers()["content-type"]).toMatch(/^image\/svg\+xml\b/i);
+    expect(svgIconResponse.headers()["set-cookie"]).toBeUndefined();
+
     const workerState = await page.evaluate(async () => {
       const registration = await navigator.serviceWorker.getRegistration("/");
       return {
@@ -259,6 +264,22 @@ test.describe("Clinical KB PWA", () => {
     await expect(page.locator("#main-content")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Clinical KB is offline" })).toHaveCount(0);
 
+    const privateProbePath = `/api/pwa-private-probe-${Date.now()}`;
+    await context.route(`**${privateProbePath}`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        headers: { "Cache-Control": "private, no-store" },
+        body: JSON.stringify({ private: true }),
+      }),
+    );
+    const privateProbe = await page.evaluate(async (path) => {
+      const response = await fetch(path, { credentials: "include" });
+      return { status: response.status, body: await response.json() };
+    }, privateProbePath);
+    expect(privateProbe).toEqual({ status: 200, body: { private: true } });
+    const privateProbeUrl = new URL(privateProbePath, page.url()).href;
+
     const inventory = await page.evaluate(async () => {
       const entries: Array<{ cacheName: string; url: string }> = [];
       for (const cacheName of await caches.keys()) {
@@ -269,6 +290,7 @@ test.describe("Clinical KB PWA", () => {
     });
 
     expect(inventory.length).toBeGreaterThan(0);
+    expect(inventory.map((entry) => entry.url)).not.toContain(privateProbeUrl);
     const origin = new URL(page.url()).origin;
     const sensitivePath = /\/(?:api|auth|login|account|documents?|search|answers?|uploads?)(?:\/|$)/i;
     for (const entry of inventory) {

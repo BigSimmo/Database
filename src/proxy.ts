@@ -27,7 +27,7 @@ const documentFlowRedirects: Record<string, string> = {
   "/mockups/document-search-command": "/documents/search",
 };
 
-const publicPwaPaths = new Set(["/sw.js", "/offline.html", "/manifest.webmanifest", "/apple-icon"]);
+const publicPwaPaths = new Set(["/sw.js", "/offline.html", "/manifest.webmanifest", "/apple-icon", "/icon.svg"]);
 
 export function isPublicPwaPath(pathname: string) {
   return publicPwaPaths.has(pathname) || pathname.startsWith("/icons/");
