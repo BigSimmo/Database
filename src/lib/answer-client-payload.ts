@@ -9,10 +9,12 @@ import type { RagAnswer, SearchResult } from "@/lib/types";
 // caches, generation inputs, and eval behavior byte-identical while cutting
 // the final SSE/JSON event the user waits on after the prose has streamed.
 //
-// Ordering contract: sourceGovernanceWarnings and logAnswerDiagnostics consume
-// the FULL answer and must run before this trim (both routes do). Full source
-// content remains client-visible because the safety panel scans it for clinical
-// warnings that may occur beyond the display synopsis.
+// Ordering contract: source-governance/safety derivation and diagnostics consume
+// the FULL answer and must run before this trim (both routes do). The browser
+// receives only the same bounded snippet the source UI renders; explicit
+// server-derived safetyWarnings preserve findings beyond that display window.
+
+const clientSourceSnippetMaxChars = 900;
 
 const sourceFieldPolicy = {
   id: "client",
@@ -48,7 +50,7 @@ const sourceFieldPolicy = {
   table_facts: "server",
   index_unit: "server",
   indexing_quality: "client",
-  images: "client",
+  images: "server",
 } as const satisfies Record<keyof SearchResult, "client" | "server">;
 
 function trimSourceForClient(source: SearchResult): SearchResult {
@@ -57,8 +59,15 @@ function trimSourceForClient(source: SearchResult): SearchResult {
       .filter((key) => sourceFieldPolicy[key] === "client" && key in source)
       .map((key) => [key, source[key]]),
   ) as SearchResult;
-  trimmed.content = source.content ?? "";
-  trimmed.images ??= [];
+  const renderedSnippet = (source.retrieval_synopsis ?? source.content ?? "").trim();
+  trimmed.content =
+    renderedSnippet.length <= clientSourceSnippetMaxChars
+      ? renderedSnippet
+      : `${renderedSnippet.slice(0, clientSourceSnippetMaxChars - 1).trimEnd()}…`;
+  if (source.retrieval_synopsis != null) trimmed.retrieval_synopsis = trimmed.content;
+  // Full image/table objects remain available to generation and diagnostics,
+  // but the answer UI resolves source media from the bounded image_ids list.
+  trimmed.images = [];
   return trimmed;
 }
 

@@ -2,6 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const token = "valid-token";
+const publicFixtureCacheControl = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
+
+function expectPublicFixtureCache(response: Response) {
+  expect(response.headers.get("cache-control")).toBe(publicFixtureCacheControl);
+  expect(response.headers.get("vary")).toBe("Cookie, Authorization");
+}
+
+function expectPrivateCache(response: Response) {
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
+}
 const recordId = "11111111-1111-4111-8111-111111111111";
 
 type QueryError = { message: string };
@@ -185,6 +195,7 @@ describe("medications API", () => {
     const payload = (await response.json()) as { records: Array<{ slug: string }>; demoMode?: boolean };
 
     expect(response.status).toBe(200);
+    expectPublicFixtureCache(response);
     expect(payload.demoMode).toBe(true);
     expect(payload.records.some((record) => record.slug === "acamprosate")).toBe(true);
     expect(client.from).not.toHaveBeenCalled();
@@ -224,6 +235,7 @@ describe("medications API", () => {
     };
 
     expect(response.status).toBe(200);
+    expectPublicFixtureCache(response);
     expect(payload.publicAccess).toBe(true);
     expect(payload.records.some((record) => record.slug === "acamprosate")).toBe(true);
     expect(payload.matches?.[0]?.medication.slug).toBe("acamprosate");
@@ -258,6 +270,7 @@ describe("medications API", () => {
     };
 
     expect(response.status).toBe(200);
+    expectPrivateCache(response);
     expect(payload.records[0]?.slug).toBe("acamprosate");
     expect(payload.matches?.[0]?.medication.slug).toBe("acamprosate");
     expect(client.calls.some((call) => call.table === "medication_records")).toBe(true);
@@ -278,6 +291,7 @@ describe("medications API", () => {
     };
 
     expect(response.status).toBe(200);
+    expectPublicFixtureCache(response);
     expect(payload.publicAccess).toBe(true);
     expect(payload.record.slug).toBe("acamprosate");
     expect(payload.record.name).toBe("Acamprosate");

@@ -1,4 +1,5 @@
 import { formRecords } from "@/lib/forms";
+import { invalidateOwnerCatalogueCache } from "@/lib/owner-catalogue-cache";
 import { buildDefaultFormRows, buildDefaultServiceRows, defaultServiceRecords } from "@/lib/registry-fixtures";
 import {
   deriveGovernanceColumns,
@@ -19,6 +20,16 @@ type AdminClient = ReturnType<typeof import("@/lib/supabase/admin").createAdminC
 
 function loadRegistryCorpus() {
   return import("@/lib/registry-corpus");
+}
+
+type OwnerRegistryFetchOptions = {
+  signal?: AbortSignal;
+  select?: string;
+};
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (!signal?.aborted) return;
+  throw signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
 }
 
 /** The curated shared registry fixtures for a kind — the same baseline the CLI
@@ -146,16 +157,22 @@ export async function ensureRegistrySeeded(
   supabase: AdminClient,
   ownerId: string,
   kind: RegistryRecordKind,
+  options: Pick<OwnerRegistryFetchOptions, "signal"> = {},
 ): Promise<RegistryRecordRow[]> {
   const rows = buildDefaultRegistryRows(ownerId, kind);
-  const { data, error } = await supabase
+  let query = supabase
     .from("clinical_registry_records")
     .upsert(rows, { onConflict: "owner_id,kind,slug", ignoreDuplicates: true })
     .select("*");
+  if (options.signal) query = query.abortSignal(options.signal);
+  const { data, error } = await query;
   if (error) throw new Error(`Registry seed failed: ${error.message}`);
+  invalidateOwnerCatalogueCache({ ownerId, kind, preserveSignal: options.signal });
+  throwIfAborted(options.signal);
   const seededRows = (data ?? []) as RegistryRecordRow[];
   const { bestEffortSyncClinicalRegistryRows } = await loadRegistryCorpus();
   await bestEffortSyncClinicalRegistryRows(supabase, seededRows);
+  throwIfAborted(options.signal);
   return seededRows;
 }
 
@@ -169,14 +186,20 @@ export async function fetchOwnerRegistryRows(
   ownerId: string,
   kind: RegistryRecordKind,
   maxRecords = 500,
+  options: OwnerRegistryFetchOptions = {},
 ): Promise<RegistryRecordRow[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from("clinical_registry_records")
-    .select("*")
+    .select(options.select ?? "*")
     .eq("owner_id", ownerId)
     .eq("kind", kind)
     .order("title")
     .limit(maxRecords);
+  if (options.signal) query = query.abortSignal(options.signal);
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return (data ?? []) as RegistryRecordRow[];
+  throwIfAborted(options.signal);
+  // The optional projection is intentionally narrower than the generated
+  // table Row type; callers map only the fields they requested.
+  return (data ?? []) as unknown as RegistryRecordRow[];
 }
