@@ -68,11 +68,12 @@ const docPatterns = [
 const workflowPatterns = [
   ".github/workflows",
   ".github/actions",
+  ".agents/skills",
   ".github/pull_request_template.md",
   "AGENTS.md",
   "docs/codex-review-protocol.md",
   "docs/process-hardening.md",
-  /^scripts\/(?:ci-change-scope|verify-pr-local|eval-rag-offline|check-github-action-pins|check-codex-autofix-workflow)\.mjs$/,
+  /^scripts\/(?:ci-change-scope|ci-triage|pr-policy|verify-pr-local|eval-rag-offline|check-github-action-pins|check-codex-autofix-workflow|productivity-core|productivity-workflow|external-workflow)\.mjs$/,
 ];
 
 const codexAutofixPatterns = [
@@ -126,6 +127,7 @@ const ragEvalPatterns = [
   "src/app/api/search",
   /^src\/lib\/(?:rag(?:-[^/]+)?|smart-rag-api|clinical-search|clinical-query-mode|retrieval(?:-[^/]+)?|answer(?:-[^/]+)?|citations|cross-document-synthesis|evidence(?:-[^/]+)?|ranking-config|source(?:-[^/]+)?|chunking|document-index-units|query-privacy|owner-scope|corpus-grounding|indexed-source-formatting)\.ts$/,
   /^src\/components\/(?:.*\/)?(?:answer|source|citation)[^/]*\.tsx?$/i,
+  /^scripts\/(?:check-rag-fixtures|test-rag-offline)\.mjs$/,
   /^scripts\/(eval-|run-eval-safe|compare-retrieval-eval|retrieval-health|profile-retrieval|warm-retrieval-cache|tune-search-weights)/,
   /^tests\/(rag|retrieval|answer|citations|evidence|eval|clinical-safety|source).*\.test\.ts$/,
 ];
@@ -146,8 +148,6 @@ const containerPatterns = [
 ];
 
 const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
-
-const coveragePatterns = ["data", "src", "tests", "vitest.config.mts"];
 
 const buildPatterns = [
   "bundle-budget.json",
@@ -180,7 +180,10 @@ const lockfilePatterns = ["package.json", "package-lock.json", ".npmrc"];
 function classify(files) {
   const normalized = [...new Set(files.map(normalizePath).filter(Boolean))].sort();
   const sourceChanged = normalized.some((file) => pathMatches(file, [...sourcePatterns, ...staticConfigPatterns]));
-  const coverageChanged = normalized.some((file) => pathMatches(file, coveragePatterns));
+  // Preserve the pre-consolidation unit gate for every non-documentation
+  // change. Narrower signals still scope build/UI/database work, but must not
+  // leave runtime, worker, or configuration changes without unit coverage.
+  const coverageChanged = normalized.some((file) => !pathMatches(file, docPatterns));
   const uiChanged = normalized.some((file) => pathMatches(file, uiPatterns));
   const dbChanged = normalized.some((file) => pathMatches(file, dbPatterns));
   const containerChanged = normalized.some((file) => pathMatches(file, containerPatterns));
@@ -391,6 +394,20 @@ function selfTest() {
     source_changed: true,
     coverage_changed: true,
   });
+  assertScope("build-config-keeps-coverage", ["next.config.ts", "postcss.config.mjs", "tsconfig.json"], {
+    coverage_changed: true,
+    build_changed: true,
+  });
+  assertScope("worker-keeps-coverage", ["worker/index.ts"], {
+    source_changed: true,
+    coverage_changed: true,
+    build_changed: true,
+  });
+  assertScope("test-runner", ["scripts/run-vitest.mjs", "scripts/run-playwright.mjs"], {
+    source_changed: true,
+    coverage_changed: true,
+    ui_changed: true,
+  });
   assertScope("runtime-data", ["data/medications-snapshot.json"], {
     source_changed: true,
     coverage_changed: true,
@@ -424,9 +441,13 @@ function selfTest() {
     rag_eval_changed: true,
     source_changed: true,
   });
+  assertScope("rag-fixture-checker", ["scripts/check-rag-fixtures.mjs"], {
+    rag_eval_changed: true,
+    source_changed: true,
+  });
   // A RAG-relevant lib file outside ragEvalPatterns must still be caught as a
   // source change (so static-pr and the non-docs safety job / verify:pr-local,
-  // which run the offline grounding gate, always execute). Guards the "silent
+  // which run fixture validation, always execute). Guards the "silent
   // scope narrowing" gap.
   assertScope("rag-lib-outside-allowlist", ["src/lib/hybrid-reranker.ts"], {
     source_changed: true,
@@ -442,6 +463,12 @@ function selfTest() {
     docs_only: false,
     build_changed: false,
   });
+  assertScope("repo-skill", [".agents/skills/database-flightplan/SKILL.md"], {
+    workflow_changed: true,
+    source_changed: false,
+    docs_only: false,
+    build_changed: false,
+  });
   assertScope(
     "codex-autofix",
     [".github/workflows/codex-autofix-review-comments.yml", "AGENTS.md", "scripts/check-codex-autofix-workflow.mjs"],
@@ -453,7 +480,7 @@ function selfTest() {
   );
   assertScope("package", ["package.json"], {
     source_changed: false,
-    coverage_changed: false,
+    coverage_changed: true,
     container_changed: true,
     workflow_changed: false,
     build_changed: true,

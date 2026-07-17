@@ -1,6 +1,6 @@
 # Clinical KB — Codebase Index
 
-Structured map for AI agents and onboarding. For live routes, see `docs/site-map.md` (`npm run sitemap:update` / `sitemap:check`). For agent rules and verification gates, see `AGENTS.md`.
+Structured map for AI agents and onboarding. For live routes, see `docs/site-map.md` (`npm run sitemap:update` / `sitemap:check`). For agent rules and verification gates, see `AGENTS.md`; for test execution and flake policy, see `docs/testing.md`.
 
 **Stack:** Next.js 16, React 19, Supabase (pgvector, Storage, Auth), OpenAI, Python OCR worker.  
 **Live Supabase:** `Clinical KB Database` — ref `sjrfecxgysukkwxsowpy` (never use stale `qjgitjyhxrwxsrydablr`).
@@ -129,7 +129,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 | Module                                                               | Role                                                    |
 | -------------------------------------------------------------------- | ------------------------------------------------------- |
-| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Registry-backed content                                 |
+| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Shared catalogue content with optional owner overrides  |
 | `dsm.ts`                                                             | Local DSM diagnosis catalogue and comparison helpers    |
 | `formulation.ts`                                                     | Local formulation mechanism library and builder helpers |
 | `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts`                   | Safety copy and demo mode                               |
@@ -231,7 +231,7 @@ Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json`
 
 **Domain clusters in `tests/`:** RAG/answers, retrieval, ingestion/indexing, source governance, API routes, Supabase schema, shell/routing, UI formatting guards.
 
-**Gates:** `verify:cheap` (lint + typecheck + unit), `verify:ui` (Chromium E2E), `verify:release` (full build + all browsers + production readiness).
+**Gates:** `verify:cheap` (lint + typecheck + full offline unit suite), `verify:ui` (required production Chromium journeys), `verify:release` (full build + all browsers + production readiness). Use `test:focused` only for safe source-only iteration.
 
 ---
 

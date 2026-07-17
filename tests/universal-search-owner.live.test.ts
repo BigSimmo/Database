@@ -1,14 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isUsableBrowserSupabaseKey } from "../src/lib/supabase/client";
 
-// Live owner-auth coverage for universal search. The header sign-in UI is magic-link/OAuth
-// only (no password field), so browser-login Playwright coverage is not feasible; instead
-// this signs in with the E2E password user via supabase-js and exercises the real route
-// handler with a genuine bearer token — the same path the typeahead hook uses.
-//
-// Skips (never fails) when the live env is absent: demo/offline environments and keys-free
-// CI run the mocked coverage in tests/universal-search.test.ts instead.
-
 const liveEnvReady = Boolean(
   process.env.E2E_USER_EMAIL &&
   process.env.E2E_USER_PASSWORD &&
@@ -19,7 +11,11 @@ const liveEnvReady = Boolean(
   process.env.NEXT_PUBLIC_DEMO_MODE !== "true",
 );
 
-describe.skipIf(!liveEnvReady)("GET /api/search/universal (live owner auth)", () => {
+if (!liveEnvReady) {
+  throw new Error("Live owner-search tests require complete, non-placeholder E2E and Supabase credentials.");
+}
+
+describe("GET /api/search/universal (live owner auth)", () => {
   it("serves owner-scoped registry groups through a real session token", { timeout: 45_000 }, async () => {
     const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(
@@ -31,11 +27,7 @@ describe.skipIf(!liveEnvReady)("GET /api/search/universal (live owner auth)", ()
       email: process.env.E2E_USER_EMAIL!,
       password: process.env.E2E_USER_PASSWORD!,
     });
-    if (error) {
-      // Env advertises live credentials but Supabase rejected them (stale secret, wrong project).
-      console.warn(`Skipping live owner-auth test: ${error.message}`);
-      return;
-    }
+    if (error) throw new Error(`Live owner-auth sign-in failed: ${error.message}`);
     const token = data.session?.access_token;
     expect(token).toBeTruthy();
 
@@ -52,7 +44,6 @@ describe.skipIf(!liveEnvReady)("GET /api/search/universal (live owner auth)", ()
       publicAccess?: boolean;
       groups: Array<{ kind: string; error?: boolean; items: Array<{ href: string }> }>;
     };
-    // Owner path: neither the demo nor the public-fixture ladder rung served this.
     expect(payload.demoMode).toBeUndefined();
     expect(payload.publicAccess).toBeUndefined();
 
@@ -64,6 +55,7 @@ describe.skipIf(!liveEnvReady)("GET /api/search/universal (live owner auth)", ()
     const documents = payload.groups.find((group) => group.kind === "documents");
     expect(documents?.error).toBeUndefined();
 
-    await supabase.auth.signOut();
+    const signOut = await supabase.auth.signOut();
+    if (signOut.error) throw new Error(`Live owner-auth sign-out failed: ${signOut.error.message}`);
   });
 });

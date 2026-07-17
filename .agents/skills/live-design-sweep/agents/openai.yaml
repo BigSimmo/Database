@@ -1,0 +1,4 @@
+interface:
+  display_name: "Live Design Sweep"
+  short_description: "Inspect and polish every live route"
+  default_prompt: "Use $live-design-sweep to inspect the running Database app across routes and breakpoints, fix confirmed UI issues, and verify accessibility."

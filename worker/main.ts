@@ -40,6 +40,7 @@ import { invalidateRagCachesForDocumentMutation } from "../src/lib/rag";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { probeSupabaseHealth } from "../src/lib/supabase/health";
 import type { Json, TablesInsert, TablesUpdate } from "../src/lib/supabase/database.types";
+import { compensateUploadedArtifactAndThrow } from "../src/lib/storage-upload-compensation";
 import type { ExtractedDocument, ImageEvidenceCategory } from "../src/lib/types";
 import { buildAdditionalEmbeddingFieldInputs } from "./embedding-fields";
 import { checkMedspacyPrerequisites, checkPythonPdfPrerequisites } from "./prerequisites";
@@ -1151,7 +1152,15 @@ async function uploadAndCaptionImages(
       .select("id,caption,page_number,image_type,labels,searchable")
       .single();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      await compensateUploadedArtifactAndThrow({
+        storage: supabase.storage,
+        bucket: env.SUPABASE_IMAGE_BUCKET,
+        path: imagePath,
+        persistenceError: new Error(error.message),
+      });
+    }
+    if (!data) throw new Error("Document image insert returned no row.");
     if (data.searchable !== false) {
       insertedImages.push({
         id: data.id,

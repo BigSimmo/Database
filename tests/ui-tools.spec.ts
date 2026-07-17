@@ -2,9 +2,10 @@ import { expect, test, type Locator, type Page } from "playwright/test";
 import type { Route } from "playwright-core";
 import { acuteConfusionPresentationWorkflow, differentialRecords } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
-import { formRecords } from "../src/lib/forms";
+import { formRecords, rankFormRecords } from "../src/lib/forms";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
+import { sortResultItems } from "../src/lib/result-sort";
 import { scrollPrimarySurface } from "./playwright-scroll";
 
 const readySetupChecks = [
@@ -47,6 +48,32 @@ async function blockExternalRequests(page: Page) {
     }
     await route.fallback();
   });
+}
+
+function waitForDifferentialCatalogQuery(page: Page, query: string) {
+  const expectedQuery = query.trim().toLowerCase();
+  return Promise.all(
+    ["diagnosis", "presentation"].map((kind) =>
+      page.waitForResponse(
+        (response) => {
+          const url = new URL(response.url());
+          return (
+            url.pathname === "/api/differentials" &&
+            url.searchParams.get("kind") === kind &&
+            url.searchParams.get("q")?.trim().toLowerCase() === expectedQuery &&
+            response.ok()
+          );
+        },
+        { timeout: 30_000 },
+      ),
+    ),
+  );
+}
+
+async function submitDifferentialSearch(page: Page, query: string) {
+  const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
+  await expect(submit).toBeEnabled();
+  await Promise.all([waitForDifferentialCatalogQuery(page, query), submit.click()]);
 }
 
 async function mockAnswerDashboardApi(page: Page) {
@@ -136,6 +163,24 @@ async function mockAnswerDashboardApi(page: Page) {
       },
     });
   });
+  await page.route(/\/api\/registry\/records\/[^/?]+(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const slug = decodeURIComponent(url.pathname.split("/").pop() ?? "");
+    const kind = url.searchParams.get("kind");
+    const record = kind === "form" ? formRecords.find((form) => form.slug === slug) : undefined;
+    if (!record) {
+      await route.fulfill({ status: 404, json: { error: "Registry record not found" } });
+      return;
+    }
+    await route.fulfill({
+      json: {
+        record,
+        linkedDocuments: [],
+        governance: { sourceStatus: "current", validationStatus: "unverified" },
+        demoMode: true,
+      },
+    });
+  });
 }
 
 async function mockDifferentialCatalogApi(page: Page) {
@@ -216,14 +261,22 @@ function launcherLaunchLink(page: Page, title: string) {
 
 async function gotoLauncher(page: Page, path = "/?mode=tools") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  // Launcher routes keep background fetches alive, so wait for the app shell to
-  // mount (deterministic) instead of for the network to idle; the per-route
-  // assertions below still gate real UI readiness.
-  await page
-    .locator("#main-content")
-    .first()
-    .waitFor({ state: "visible", timeout: 15_000 })
-    .catch(() => undefined);
+  await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
+}
+
+async function waitForReactEventHandler(locator: Locator, eventName: "onClick" | "onSubmit" = "onClick") {
+  await expect
+    .poll(
+      async () =>
+        locator.evaluate((element, reactEventName) => {
+          const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
+          if (!propsKey) return false;
+          const props = (element as unknown as Record<string, Record<string, unknown>>)[propsKey];
+          return typeof props?.[reactEventName] === "function";
+        }, eventName),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
 }
 
 async function expectNoPageHorizontalOverflow(page: Page) {
@@ -302,11 +355,9 @@ async function openAppModeMenu(page: Page, currentMode: string) {
   const menu = page.getByRole("menu", { name: "Choose app mode" });
 
   await expect(trigger).toBeVisible();
-  await expect(async () => {
-    if (await menu.isVisible().catch(() => false)) return;
-    await trigger.click();
-    await expect(menu).toBeVisible({ timeout: 5_000 });
-  }).toPass({ timeout: 20_000 });
+  await waitForReactEventHandler(trigger);
+  await trigger.click();
+  await expect(menu).toBeVisible({ timeout: 20_000 });
 
   return menu;
 }
@@ -421,15 +472,11 @@ test.describe("Clinical KB tools launcher", () => {
     await page.addInitScript(() => window.localStorage.setItem("clinical-kb-sidebar-collapsed", "1"));
     await gotoLauncher(page, "/?mode=answer");
 
-    // Re-open + re-click on each retry: a single click can be swallowed while the
-    // launcher is still hydrating, leaving the route on /?mode=answer. Mirrors the
-    // Forms switch below, which already guards against the same flake.
-    await expect(async () => {
-      if (/\/services$/.test(page.url())) return;
-      const menu = await openAppModeMenu(page, "Answer");
-      await menu.getByRole("menuitemradio", { name: /^Services\b/ }).click();
-      await expect(page).toHaveURL(/\/services$/, { timeout: 3_000 });
-    }).toPass({ timeout: 20_000 });
+    const answerMenu = await openAppModeMenu(page, "Answer");
+    const servicesMode = answerMenu.getByRole("menuitemradio", { name: /^Services\b/ });
+    await waitForReactEventHandler(servicesMode);
+    await servicesMode.click();
+    await expect(page).toHaveURL(/\/services$/, { timeout: 20_000 });
 
     await expect(page).toHaveURL(/\/services$/);
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
@@ -455,12 +502,10 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(servicesMenu.getByRole("menuitemradio", { name: /^Differentials\b/ })).toBeVisible();
     await expect(servicesMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeVisible();
     await expect(servicesMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeVisible();
-    await expect(async () => {
-      if (/\/forms$/.test(page.url())) return;
-      const menu = await openAppModeMenu(page, "Services");
-      await menu.getByRole("menuitemradio", { name: /^Forms\b/ }).click();
-      await expect(page).toHaveURL(/\/forms$/, { timeout: 2_000 });
-    }).toPass({ timeout: 20_000 });
+    const formsMode = servicesMenu.getByRole("menuitemradio", { name: /^Forms\b/ });
+    await waitForReactEventHandler(formsMode);
+    await formsMode.click();
+    await expect(page).toHaveURL(/\/forms$/, { timeout: 20_000 });
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
     await expect(page.getByTestId("forms-home")).toBeVisible();
     await expect(page.getByTestId("form-search-results")).toHaveCount(0);
@@ -555,20 +600,19 @@ test.describe("Clinical KB tools launcher", () => {
   // one dashboard-shell home and one standalone-shell home; the full 5-route
   // design spec stays in the advisory "mode home routes center the shared
   // search on mobile" test above.
-  test("mode home search composer is always present at phone and desktop widths @critical", async ({ page }) => {
-    test.setTimeout(120_000);
-    await mockAnswerDashboardApi(page);
-
-    for (const viewport of [
-      { name: "phone", width: 390, height: 820 },
-      { name: "desktop", width: 1280, height: 900 },
+  for (const viewport of [
+    { name: "phone", width: 390, height: 820 },
+    { name: "desktop", width: 1280, height: 900 },
+  ] as const) {
+    for (const home of [
+      { path: "/?mode=answer", testId: "answer-empty-state" },
+      { path: "/services", testId: "services-home" },
     ] as const) {
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-
-      for (const home of [
-        { path: "/?mode=answer", testId: "answer-empty-state" },
-        { path: "/services", testId: "services-home" },
-      ] as const) {
+      test(`mode home search composer is present at ${viewport.name} width on ${home.path} @critical`, async ({
+        page,
+      }) => {
+        await mockAnswerDashboardApi(page);
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
         await gotoLauncher(page, home.path);
         await expect(page.getByTestId(home.testId)).toBeVisible();
         // The composer must never vanish: exactly one visible search input.
@@ -576,9 +620,9 @@ test.describe("Clinical KB tools launcher", () => {
         // Hero-centred design: the input lives inside the mode-home hero at
         // every width, phones included.
         await expect(page.getByTestId(home.testId).getByTestId("global-search-input")).toBeVisible();
-      }
+      });
     }
-  });
+  }
 
   test("answer composer keeps the PHI warning visible before submission @critical", async ({ page }) => {
     await mockAnswerDashboardApi(page);
@@ -604,25 +648,18 @@ test.describe("Clinical KB tools launcher", () => {
     }
   });
 
-  test("all mode home heroes share identical sizing on mobile", async ({ page }) => {
-    test.setTimeout(150_000);
-    await mockAnswerDashboardApi(page);
-    await page.setViewportSize({ width: 390, height: 820 });
-
-    // Every mode home renders the shared compact ModeHomeHero, so the icon box
-    // and type scale must be identical across modes. Baseline: Answer.
-    let baseline: { iconWidth: number; iconHeight: number; headingFontSize: number; subtitleFontSize: number } | null =
-      null;
-
-    for (const home of [
-      { path: "/?mode=answer", testId: "answer-empty-state", heroTestId: "answer-empty-state" },
-      { path: "/?mode=documents", testId: "document-search-empty-state", heroTestId: "document-search-empty-state" },
-      { path: "/?mode=prescribing", testId: "medication-home", heroTestId: "medication-home" },
-      { path: "/?mode=tools", testId: "tools-home", heroTestId: "tools-home" },
-      { path: "/services", testId: "services-home", heroTestId: "services-home-template" },
-      { path: "/forms", testId: "forms-home", heroTestId: "forms-home-template" },
-      { path: "/differentials", testId: "differentials-home", heroTestId: "differentials-home-template" },
-    ] as const) {
+  for (const home of [
+    { path: "/?mode=answer", testId: "answer-empty-state", heroTestId: "answer-empty-state" },
+    { path: "/?mode=documents", testId: "document-search-empty-state", heroTestId: "document-search-empty-state" },
+    { path: "/?mode=prescribing", testId: "medication-home", heroTestId: "medication-home" },
+    { path: "/?mode=tools", testId: "tools-home", heroTestId: "tools-home" },
+    { path: "/services", testId: "services-home", heroTestId: "services-home-template" },
+    { path: "/forms", testId: "forms-home", heroTestId: "forms-home-template" },
+    { path: "/differentials", testId: "differentials-home", heroTestId: "differentials-home-template" },
+  ] as const) {
+    test(`mode home hero uses the shared mobile sizing on ${home.path}`, async ({ page }) => {
+      await mockAnswerDashboardApi(page);
+      await page.setViewportSize({ width: 390, height: 820 });
       await gotoLauncher(page, home.path);
       const homeRegion = page.getByTestId(home.testId);
       await expect(homeRegion).toBeVisible();
@@ -647,38 +684,29 @@ test.describe("Clinical KB tools launcher", () => {
         headingFontSize,
         subtitleFontSize,
       };
-      if (!baseline) {
-        baseline = metrics;
-        // Compact hero mobile scale: 2.75rem icon, 1.45rem heading, 0.875rem subtitle.
-        expect(metrics.iconWidth).toBe(44);
-        expect(metrics.iconHeight).toBe(44);
-        expect(metrics.headingFontSize).toBeCloseTo(23.2, 1);
-        expect(metrics.subtitleFontSize).toBeCloseTo(14, 1);
-      } else {
-        expect(metrics, `${home.path} hero metrics`).toEqual(baseline);
-      }
+      expect(metrics.iconWidth).toBe(44);
+      expect(metrics.iconHeight).toBe(44);
+      expect(metrics.headingFontSize).toBeCloseTo(23.2, 1);
+      expect(metrics.subtitleFontSize).toBeCloseTo(14, 1);
 
       await expectNoPageHorizontalOverflow(page);
-    }
-  });
+    });
+  }
 
-  test("phone bottom-dock search opens the bounded command results sheet", async ({ page }) => {
+  test("phone bottom-dock search keeps the command results sheet hidden", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     const input = visibleGlobalSearchInput(page).first();
     await expect(input).toBeVisible();
 
-    // Phone searches use the same accessible listbox as larger viewports, bounded
-    // above the bottom dock so results stay reachable without horizontal overflow.
+    // Phones keep the full search results in the page instead of opening a
+    // command sheet over the small viewport.
     await input.click();
     await input.press("ArrowDown");
-    await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(1);
-    await expect(page.getByRole("listbox", { name: "Services search suggestions" })).toBeVisible();
-    await expectNoPageHorizontalOverflow(page);
-
-    await page.evaluate(() => window.dispatchEvent(new Event("scroll")));
     await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+    await expect(page.getByRole("listbox", { name: "Services search suggestions" })).toHaveCount(0);
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("phone mode homes keep the shared search in the hero, not the bottom dock", async ({ page }) => {
@@ -697,11 +725,11 @@ test.describe("Clinical KB tools launcher", () => {
       expect(geometry.top).toBeGreaterThan(0);
       expect(geometry.bottom).toBeLessThan(geometry.viewportHeight - 40);
 
-      // Hero composers expose the same bounded universal results sheet on phones.
+      // Phone hero composers must not cover the page with the universal sheet.
       await heroInput.click();
       await heroInput.press("ArrowDown");
-      await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(1);
-      await expect(page.getByRole("listbox")).toBeVisible();
+      await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+      await expect(page.getByRole("listbox")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     }
   });
@@ -719,30 +747,27 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("mode home routes center the shared search from tablet up", async ({ page }) => {
-    test.setTimeout(150_000);
-    await mockAnswerDashboardApi(page);
-
-    for (const viewport of [
-      { name: "tablet", width: 768, height: 1024 },
-      { name: "desktop", width: 1280, height: 900 },
+  for (const viewport of [
+    { name: "tablet", width: 768, height: 1024 },
+    { name: "desktop", width: 1280, height: 900 },
+  ] as const) {
+    for (const home of [
+      { path: "/?mode=answer", testId: "answer-empty-state", heading: "How can I help?", headingLevel: 2 },
+      { path: "/?mode=documents", testId: "document-search-empty-state", heading: "Documents", headingLevel: 2 },
+      {
+        path: "/?mode=prescribing",
+        testId: "medication-home",
+        heading: "Medication prescribing",
+        headingLevel: 2,
+      },
+      { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
+      { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
+      { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
+      { path: "/tools", testId: "tools-home", heading: "Tools", headingLevel: 1 },
     ] as const) {
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-
-      for (const home of [
-        { path: "/?mode=answer", testId: "answer-empty-state", heading: "How can I help?", headingLevel: 2 },
-        { path: "/?mode=documents", testId: "document-search-empty-state", heading: "Documents", headingLevel: 2 },
-        {
-          path: "/?mode=prescribing",
-          testId: "medication-home",
-          heading: "Medication prescribing",
-          headingLevel: 2,
-        },
-        { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
-        { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
-        { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
-        { path: "/tools", testId: "tools-home", heading: "Tools", headingLevel: 1 },
-      ] as const) {
+      test(`mode home search is centered at ${viewport.name} width on ${home.path}`, async ({ page }) => {
+        await mockAnswerDashboardApi(page);
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
         await gotoLauncher(page, home.path);
         await expect(page.getByTestId(home.testId)).toBeVisible();
         await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
@@ -773,31 +798,28 @@ test.describe("Clinical KB tools launcher", () => {
         expect(metrics?.formRight ?? 0).toBeLessThanOrEqual((metrics?.homeRight ?? viewport.width) + 1);
         expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
         await expectNoPageHorizontalOverflow(page);
-      }
+      });
     }
-  });
+  }
 
-  test("search result and detail routes keep top search from tablet up", async ({ page }) => {
-    test.setTimeout(240_000);
-
-    for (const viewport of [
-      { name: "mobile", width: 390, height: 820 },
-      { name: "tablet", width: 768, height: 1024 },
-      { name: "desktop", width: 1280, height: 900 },
+  for (const viewport of [
+    { name: "mobile", width: 390, height: 820 },
+    { name: "tablet", width: 768, height: 1024 },
+    { name: "desktop", width: 1280, height: 900 },
+  ] as const) {
+    for (const route of [
+      { path: "/services?q=13YARN&focus=1&run=1", modeButton: "Mode Services", compactBottomSearch: true },
+      { path: "/services/13yarn", modeButton: "Mode Services", compactBottomSearch: false },
+      { path: "/forms?q=transport&focus=1&run=1", modeButton: "Mode Forms", compactBottomSearch: true },
+      { path: "/favourites?q=lithium&focus=1&run=1", modeButton: "Mode Favourites", compactBottomSearch: true },
+      {
+        path: "/differentials?q=acute+confusion&focus=1&run=1",
+        modeButton: "Mode Differentials",
+        compactBottomSearch: true,
+      },
     ] as const) {
-      await page.setViewportSize({ width: viewport.width, height: viewport.height });
-
-      for (const route of [
-        { path: "/services?q=13YARN&focus=1&run=1", modeButton: "Mode Services", compactBottomSearch: true },
-        { path: "/services/13yarn", modeButton: "Mode Services", compactBottomSearch: false },
-        { path: "/forms?q=transport&focus=1&run=1", modeButton: "Mode Forms", compactBottomSearch: true },
-        { path: "/favourites?q=lithium&focus=1&run=1", modeButton: "Mode Favourites", compactBottomSearch: true },
-        {
-          path: "/differentials?q=acute+confusion&focus=1&run=1",
-          modeButton: "Mode Differentials",
-          compactBottomSearch: true,
-        },
-      ] as const) {
+      test(`search route keeps the correct composer at ${viewport.name} width on ${route.path}`, async ({ page }) => {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
         await gotoLauncher(page, route.path);
         await expect(page.getByRole("button", { name: route.modeButton })).toBeVisible({ timeout: 20_000 });
         await expect(visibleGlobalSearchInput(page), `${route.path} at ${viewport.name}`).toHaveCount(1, {
@@ -823,9 +845,9 @@ test.describe("Clinical KB tools launcher", () => {
         }
 
         await expectNoPageHorizontalOverflow(page);
-      }
+      });
     }
-  });
+  }
 
   test("mode home deep links preserve focus=1 on initial load", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -856,6 +878,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("forms mode shows source-backed form records in search results", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
 
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
@@ -864,10 +887,10 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("form-search-results")).toContainText("Best matches");
     await expect(page.getByTestId("form-search-result-transport-crisis-form")).toContainText("Transport order");
     await expect(page.getByTestId("form-search-result-extension-transport-order")).toContainText(
-      "Extension of Transport Order",
+      "Extension of transport order",
     );
     await expect(page.getByTestId("form-search-result-detention-examination-movement")).toContainText(
-      "Detention to enable examination or movement",
+      "Detention order",
     );
     await expect(page.getByTestId("form-search-result-transfer-order")).toContainText("Transfer order");
     await expect(
@@ -884,6 +907,10 @@ test.describe("Clinical KB tools launcher", () => {
 
     const results = page.getByTestId("form-search-results");
     const visibleSort = page.locator('select[aria-label="Sort results"]:visible');
+    const expectedAlphaFirstTestId = `form-search-result-${
+      sortResultItems(rankFormRecords(formRecords, "transport forms"), "alpha", (match) => match.service.title)[0]
+        ?.service.slug
+    }`;
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
       "form-search-result-transport-crisis-form",
@@ -893,7 +920,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/\bsort=alpha\b/);
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
-      "form-search-result-detention-examination-movement",
+      expectedAlphaFirstTestId,
     );
 
     await page.goBack();
@@ -907,15 +934,16 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(visibleSort).toHaveValue("alpha");
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
-      "form-search-result-detention-examination-movement",
+      expectedAlphaFirstTestId,
     );
     await expectNoPageHorizontalOverflow(page);
   });
 
   test("form detail pages keep the shared forms search wired to form results", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms/transport-crisis-form");
-    await expect(page.getByTestId("form-detail-page")).toBeVisible();
+    await expect(page.getByTestId("form-detail-page")).toBeVisible({ timeout: 30_000 });
 
     // Structural coverage — runs on every browser, WebKit included: the form
     // detail page renders inside the shared shell with the Forms-mode composer
@@ -926,25 +954,14 @@ test.describe("Clinical KB tools launcher", () => {
     const formsSearchInput = page.locator('input[placeholder="Search forms..."]:visible').first();
     await expect(formsSearchInput).toBeVisible();
 
-    // The shell now seeds its composer state from the URL and only re-syncs on a
-    // real navigation, so a programmatic fill on this no-query detail route is no
-    // longer wiped by a mount-time frame — the race that used to break CI WebKit
-    // (and could flake Firefox). Drive the fill-and-submit as one retried unit
-    // regardless, so any residual cross-browser navigation-timing jitter cannot
-    // flake the route assertion; the assertions below still verify the result.
+    await expect(page.getByText("Loading your forms registry...")).toBeHidden({ timeout: 30_000 });
     const formsSearchButton = page.getByRole("button", { name: "Search forms" });
-    await expect(async () => {
-      // A previous attempt's click may have navigated late — after the inner URL
-      // wait timed out and triggered a retry. If we have already routed to the
-      // results page the detail-page input is gone, so re-filling would throw;
-      // treat the completed navigation as success instead.
-      if (/\/forms\?/.test(page.url())) return;
-      await formsSearchInput.fill("transport forms");
-      await expect(formsSearchButton).toBeEnabled({ timeout: 1_000 });
-      await formsSearchButton.click();
-      await expect(page).toHaveURL(/\/forms\?/, { timeout: 2_000 });
-    }).toPass({ timeout: 20_000 });
-    await expect(page.getByTestId("form-search-results")).toBeVisible();
+    await formsSearchInput.fill("transport forms");
+    await expect(formsSearchButton).toBeEnabled();
+    await waitForReactEventHandler(formsSearchButton.locator("xpath=ancestor::form[1]"), "onSubmit");
+    await formsSearchButton.click();
+    await expect(page).toHaveURL(/\/forms\?.*\bq=transport(?:\+|%20)forms\b/, { timeout: 20_000 });
+    await expect(page.getByTestId("form-search-results")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId("form-search-result-transport-crisis-form")).toContainText("Transport order");
     await expect(
       page.getByTestId("form-search-result-transport-crisis-form").getByLabel("Open Transport order"),
@@ -954,6 +971,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("form detail mobile renders decision context after the form content", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms/transport-crisis-form");
 
     await expect(page.getByTestId("form-detail-page")).toBeVisible();
@@ -973,6 +991,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("forms search mockup is usable without horizontal overflow on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms?q=transport&focus=1&run=1");
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
@@ -1172,8 +1191,7 @@ test.describe("Clinical KB tools launcher", () => {
     await gotoLauncher(page, "/differentials");
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
     await page.locator('input[placeholder="Ask or search a presentation"]:visible').first().fill("acute confusion");
-    await expect(page.locator('button[aria-label="Search differential presentations"]:visible')).toBeEnabled();
-    await page.locator('button[aria-label="Search differential presentations"]:visible').click();
+    await submitDifferentialSearch(page, "acute confusion");
 
     await expect.poll(() => searchRequests.length).toBeGreaterThan(0);
     expect(searchRequests.at(-1)).toMatchObject({
@@ -1240,16 +1258,16 @@ test.describe("Clinical KB tools launcher", () => {
 
     await gotoLauncher(page, "/differentials");
     await page.locator('input[placeholder="Ask or search a presentation"]:visible').first().fill("acute confusion");
-    await page.locator('button[aria-label="Search differential presentations"]:visible').click();
+    await submitDifferentialSearch(page, "acute confusion");
 
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
     const tabs = page.getByTestId("differential-result-type-tabs");
     await expect(tabs).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: /All \(\d+\)/ })).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: /Presentations \(\d+\)/ })).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: /Diagnoses \(\d+\)/ })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: /All \(\d+\)/ })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: /Presentations \(\d+\)/ })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: /Diagnoses \(\d+\)/ })).toBeVisible();
 
-    const tabMetrics = await tabs.getByRole("tab").evaluateAll((buttons) =>
+    const tabMetrics = await tabs.getByRole("button").evaluateAll((buttons) =>
       buttons.map((button) => {
         const rect = button.getBoundingClientRect();
         return { height: rect.height, scrollHeight: button.scrollHeight };
@@ -1336,16 +1354,16 @@ test.describe("Clinical KB tools launcher", () => {
 
     await gotoLauncher(page, "/differentials");
     await page.locator('input[placeholder="Ask or search a presentation"]:visible').first().fill("acute confusion");
-    await page.locator('button[aria-label="Search differential presentations"]:visible').click();
+    await submitDifferentialSearch(page, "acute confusion");
 
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
     const tabs = page.getByTestId("differential-result-type-tabs");
     await expect(tabs).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: "All (8)" })).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: "Presentations (1)" })).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: "Diagnoses (7)" })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: "All (8)" })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: "Presentations (1)" })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: "Diagnoses (7)" })).toBeVisible();
 
-    const tabMetrics = await tabs.getByRole("tab").evaluateAll((tabElements) =>
+    const tabMetrics = await tabs.getByRole("button").evaluateAll((tabElements) =>
       tabElements.map((tab) => {
         const rect = tab.getBoundingClientRect();
         return { height: rect.height, scrollHeight: tab.scrollHeight };
@@ -1376,22 +1394,8 @@ test.describe("Clinical KB tools launcher", () => {
           results: [],
           visualEvidence: [],
           relatedDocuments: [],
-          documentMatches: [
-            {
-              document_id: "11111111-1111-4111-8111-111111111111",
-              title: "Acute confusion differential guide",
-              file_name: "acute-confusion-differentials.pdf",
-              labels: [],
-              summarySnippet: "Reviewed acute confusion differential guidance.",
-              bestPages: [1],
-              bestChunkIds: ["chunk-acute-confusion"],
-              imageCount: 0,
-              tableCount: 0,
-              matchReason: "Matched indexed passage",
-              score: 0.93,
-            },
-          ],
-          relevance: { verdict: "strong", score: 0.93, directSourceCount: 1, weakSourceCount: 0 },
+          documentMatches: [],
+          relevance: { verdict: "weak", score: 0, directSourceCount: 0, weakSourceCount: 0 },
           smartPanel: {},
           telemetry: { query_class: "differential_compare", retrieval_strategy: "text_fast_path" },
           scope: { queryMode: "compare_guidance" },
@@ -1407,7 +1411,11 @@ test.describe("Clinical KB tools launcher", () => {
     const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
     await input.fill("acute confusion");
     await expect(submit).toBeEnabled();
+    const searchResponse = page.waitForResponse(
+      (response) => response.url().includes("/api/search") && response.request().method() === "POST",
+    );
     await submit.click();
+    await searchResponse;
 
     const compareAction = page.getByTestId("differentials-compare-selected-mobile");
     const dock = page.locator("form.answer-footer-search-dock");

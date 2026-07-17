@@ -22,6 +22,8 @@ const ENV_KEYS = [
   "RAG_QUERY_HASH_SECRET",
   "NEXT_PUBLIC_LOCAL_NO_AUTH",
   "LOCAL_NO_AUTH",
+  "PLAYWRIGHT_OFFLINE_MODE",
+  "NEXT_DIST_DIR",
 ] as const;
 
 async function loadInstrumentation(overrides: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>>) {
@@ -62,6 +64,28 @@ describe("instrumentation boot guard", () => {
   it("refuses to start a production server in demo mode", async () => {
     const register = await loadRegister({ ...PRODUCTION_NODE, NEXT_PUBLIC_DEMO_MODE: "true" });
     await expect(register()).rejects.toThrow(/demo mode is enabled/);
+  });
+
+  it("allows only the isolated provider-free Playwright production profile", async () => {
+    const valid = await loadRegister({
+      ...PRODUCTION_NODE,
+      PLAYWRIGHT_OFFLINE_MODE: "true",
+      NEXT_DIST_DIR: ".next-playwright/123-456/dist",
+      NEXT_PUBLIC_DEMO_MODE: "true",
+      NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:1",
+      RAG_PROVIDER_MODE: "offline",
+    });
+    await expect(valid()).resolves.toBeUndefined();
+
+    const external = await loadRegister({
+      ...PRODUCTION_NODE,
+      PLAYWRIGHT_OFFLINE_MODE: "true",
+      NEXT_DIST_DIR: ".next-playwright/123-456/dist",
+      NEXT_PUBLIC_DEMO_MODE: "true",
+      NEXT_PUBLIC_SUPABASE_URL: MATCHING_URL,
+      RAG_PROVIDER_MODE: "offline",
+    });
+    await expect(external()).rejects.toThrow(/invalid isolated Playwright offline environment/);
   });
 
   it("refuses to start a production server with local no-auth enabled", async () => {

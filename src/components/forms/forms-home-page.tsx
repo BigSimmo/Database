@@ -114,7 +114,7 @@ export function FormsHomePage() {
       <ModeHomeTemplate
         testId="forms-home-template"
         title="Forms"
-        subtitle="Early access: a starter set of MHA 2014 forms. Search, check, or follow a pathway."
+        subtitle="The complete WA MHA 2014 forms register. Search by form code, task, authority, clock, or pathway."
         icon={FileText}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Forms tasks"
@@ -125,8 +125,8 @@ export function FormsHomePage() {
           hasRegistryRecords ? (
             <ModeHomeVerificationFooter
               icon={ShieldCheck}
-              label="Source verified"
-              body="MHA 2014 forms"
+              label="Source catalogue reviewed"
+              body="Official-source MHA 2014 forms · verify before use"
               verifiedCount={verifiedCount}
               totalCount={registry.total}
             />
