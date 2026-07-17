@@ -520,7 +520,6 @@ export function ServicesNavigatorPage() {
       }
       sidebar={
         <RightRail
-          key={selected.length === 0 ? "empty" : selected.length === 1 ? "single" : "multiple"}
           matches={displayedMatches}
           selected={selected}
           onClearSelected={() => setSelectedSlugs([])}

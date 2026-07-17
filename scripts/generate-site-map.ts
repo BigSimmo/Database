@@ -32,6 +32,7 @@ type RedirectRoute = {
 type SiteMapData = {
   pageRoutes: DiscoveredRoute[];
   apiRoutes: DiscoveredRoute[];
+  appRouteHandlers: DiscoveredRoute[];
   redirects: RedirectRoute[];
   nonRoutedMockupArtifacts: string[];
 };
@@ -158,12 +159,35 @@ function discoverRoutes(kind: RouteKind): DiscoveredRoute[] {
     .sort((left, right) => left.route.localeCompare(right.route) || left.file.localeCompare(right.file));
 }
 
-function discoverRedirects(pageRoutes: DiscoveredRoute[]): RedirectRoute[] {
-  return pageRoutes
-    .map((page) => {
-      const source = readFileSync(path.join(process.cwd(), page.file), "utf8");
-      const target = source.match(/\bredirect\(\s*["']([^"']+)["']\s*\)/)?.[1];
-      return target ? { ...page, target } : null;
+function isApiRoute(route: string) {
+  return route === "/api" || route.startsWith("/api/");
+}
+
+function extractRedirectTarget(source: string): string | null {
+  const pageRedirect = source.match(/\bredirect\(\s*["']([^"']+)["']\s*\)/)?.[1];
+  if (pageRedirect) return pageRedirect;
+
+  const urlRedirect = source.match(/NextResponse\.redirect\(\s*new URL\(\s*["']([^"']+)["']/)?.[1];
+  if (urlRedirect) return urlRedirect;
+
+  const pathnameRedirect = source.match(/\.pathname\s*=\s*["']([^"']+)["']/)?.[1];
+  if (pathnameRedirect) return pathnameRedirect;
+
+  // Template-literal destination builders with a stable route prefix.
+  const presentationsRedirect = source.match(/`(\/differentials\/presentations\/)\$\{/)?.[1];
+  if (presentationsRedirect && source.includes("NextResponse.redirect")) {
+    return `${presentationsRedirect}[slug]`;
+  }
+
+  return null;
+}
+
+function discoverRedirects(routes: DiscoveredRoute[]): RedirectRoute[] {
+  return routes
+    .map((route) => {
+      const source = readFileSync(path.join(process.cwd(), route.file), "utf8");
+      const target = extractRedirectTarget(source);
+      return target ? { ...route, target } : null;
     })
     .filter((value): value is RedirectRoute => Boolean(value))
     .sort((left, right) => left.route.localeCompare(right.route));
@@ -179,10 +203,21 @@ function discoverNonRoutedMockupArtifacts() {
 
 export function collectSiteMapData(): SiteMapData {
   const pageRoutes = discoverRoutes("page");
+  const routeHandlers = discoverRoutes("api");
+  const apiRoutes = routeHandlers.filter((route) => isApiRoute(route.route));
+  const nonApiHandlers = routeHandlers.filter((route) => !isApiRoute(route.route));
+  const redirects = [
+    ...discoverRedirects(pageRoutes),
+    ...discoverRedirects(nonApiHandlers),
+  ].sort((left, right) => left.route.localeCompare(right.route) || left.file.localeCompare(right.file));
+  const redirectRoutes = new Set(redirects.map((redirect) => redirect.route));
+  const appRouteHandlers = nonApiHandlers.filter((route) => !redirectRoutes.has(route.route));
+
   return {
     pageRoutes,
-    apiRoutes: discoverRoutes("api"),
-    redirects: discoverRedirects(pageRoutes),
+    apiRoutes,
+    appRouteHandlers,
+    redirects,
     nonRoutedMockupArtifacts: discoverNonRoutedMockupArtifacts(),
   };
 }
@@ -451,6 +486,12 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
       "API routes",
       data.apiRoutes.map((route) => routeLine(route, apiDescriptions)),
     ),
+    ...(data.appRouteHandlers.length
+      ? section(
+          "App route handlers",
+          data.appRouteHandlers.map((route) => routeLine(route, routeDescriptions)),
+        )
+      : []),
     ...section(
       "Redirects",
       data.redirects.length
