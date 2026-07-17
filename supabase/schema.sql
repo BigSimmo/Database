@@ -909,45 +909,6 @@ create trigger documents_sync_title_words
   after insert or update or delete on public.documents
   for each row execute function public.sync_document_title_words();
 
--- Hardened registry cleanup trigger: deletes RAG corpus documents for a registry record
--- without UUID casts and scoped by registry kind to avoid cross-registry collisions.
-create or replace function public.cleanup_registry_corpus_document()
-returns trigger
-language plpgsql
-security definer
-set search_path = public, pg_catalog, pg_temp
-as $$
-begin
-  delete from public.documents
-  where metadata->>'source_kind' = 'registry_record'
-    and metadata->>'registry_record_id' = OLD.id::text
-    and metadata->>'registry_record_kind' = case TG_TABLE_NAME
-      when 'clinical_registry_records' then to_jsonb(OLD)->>'kind'
-      when 'medication_records' then 'medication'
-      when 'differential_records' then 'differential'
-      else null
-    end;
-  return OLD;
-end;
-$$;
-
-revoke execute on function public.cleanup_registry_corpus_document() from public, anon, authenticated;
-revoke execute on function public.sync_document_title_words() from public, anon, authenticated;
-
-drop trigger if exists clinical_registry_records_delete_cleanup on public.clinical_registry_records;
-create trigger clinical_registry_records_delete_cleanup
-  after delete on public.clinical_registry_records
-  for each row execute function public.cleanup_registry_corpus_document();
-
-drop trigger if exists medication_records_delete_cleanup on public.medication_records;
-create trigger medication_records_delete_cleanup
-  after delete on public.medication_records
-  for each row execute function public.cleanup_registry_corpus_document();
-
-drop trigger if exists differential_records_delete_cleanup on public.differential_records;
-create trigger differential_records_delete_cleanup
-  after delete on public.differential_records
-  for each row execute function public.cleanup_registry_corpus_document();
 create index if not exists rag_response_cache_expiry_idx
   on public.rag_response_cache(expires_at);
 create index if not exists rag_response_cache_owner_kind_idx

@@ -2655,11 +2655,8 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       allowGlobalSearch: args.allowGlobalSearch,
       matchCount: Math.min(candidateCount, 48),
       telemetry,
-<<<<<<< HEAD
       cache: chunkLoadCache,
-=======
       signal: args.signal,
->>>>>>> origin/main
     });
     const tableFactLatencyMs = Date.now() - tableFactStartedAt;
     telemetry.supabase_rpc_latency_ms += tableFactLatencyMs;
@@ -2850,11 +2847,8 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 48),
         telemetry,
-<<<<<<< HEAD
-        cache: chunkLoadCache,
-=======
-        signal: args.signal,
->>>>>>> origin/main
+      cache: chunkLoadCache,
+      signal: args.signal,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
@@ -2870,11 +2864,8 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 64),
         telemetry,
-<<<<<<< HEAD
-        cache: chunkLoadCache,
-=======
-        signal: args.signal,
->>>>>>> origin/main
+      cache: chunkLoadCache,
+      signal: args.signal,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),

@@ -1371,7 +1371,6 @@ describe("Supabase Preview replay guards", () => {
     expect(ingestionRpcPrivilegesDuplicateMigration).toContain("select 1 where false;");
   });
 
-<<<<<<< HEAD
   it("keeps the document-title vocabulary lifecycle aligned in migration and schema", () => {
     for (const sql of [schema, patchRagAndCorrectorScalabilityMigration]) {
       expect(sql).toContain("create table if not exists public.document_title_words");
@@ -1381,47 +1380,6 @@ describe("Supabase Preview replay guards", () => {
       expect(sql).toContain("insert into public.document_title_words (word, document_id)");
       expect(sql).toContain("drop trigger if exists documents_sync_title_words on public.documents");
       expect(sql).toContain("create trigger documents_sync_title_words");
-    }
-  });
-
-  it("hardens registry cleanup without UUID casts or cross-registry collisions", () => {
-    for (const sql of [schema, hardenRagScalabilityPatchMigration]) {
-      const cleanup = finalSqlSegment(
-        sql,
-        "create or replace function public.cleanup_registry_corpus_document()",
-        "revoke execute on function public.cleanup_registry_corpus_document()",
-      );
-      expect(cleanup).toContain("metadata->>'registry_record_id' = old.id::text");
-      expect(cleanup).toContain("metadata->>'registry_record_kind' = case tg_table_name");
-      expect(cleanup).toContain("when 'clinical_registry_records' then to_jsonb(old)->>'kind'");
-      expect(cleanup).toContain("when 'medication_records' then 'medication'");
-      expect(cleanup).toContain("when 'differential_records' then 'differential'");
-      expect(cleanup).not.toContain("registry_record_id')::uuid");
-      expect(sql).toContain(
-        "revoke execute on function public.cleanup_registry_corpus_document() from public, anon, authenticated",
-      );
-      expect(sql).toContain(
-        "revoke execute on function public.sync_document_title_words() from public, anon, authenticated",
-      );
-    }
-  });
-
-  it("uses bounded indexed probes for clinical query correction", () => {
-    for (const sql of [schema, hardenRagScalabilityPatchMigration]) {
-      const corrector = finalSqlSegment(
-        sql,
-        "create or replace function public.correct_clinical_query_terms",
-        "revoke execute on function public.correct_clinical_query_terms",
-      );
-      expect(corrector).toContain("lower(alias) % tok");
-      expect(corrector).toContain("lower(canonical) % tok");
-      expect(corrector).toContain("word % tok");
-      expect(corrector).toContain("limit 32");
-      expect(corrector).toContain("set pg_trgm.similarity_threshold = 0.3");
-      expect(corrector).toContain("min_sim is null or min_sim < 0.3 or min_sim > 1");
-      expect(corrector).not.toContain("array_agg(distinct term)");
-      expect(corrector).not.toContain("unnest(vocab)");
-      expect(sql).toContain("rag_aliases_canonical_trgm_idx");
     }
   });
 
@@ -1446,7 +1404,6 @@ describe("Supabase Preview replay guards", () => {
     );
     expect(tableFactsRpc).toContain(`${rpcExpression} % q.normalized`);
   });
-=======
   it("cleans registry projections with text-and-kind matching through the partial expression index", () => {
     expect(registryProjectionCleanupMigration).toContain("set lock_timeout = '5s';");
     expect(registryProjectionCleanupMigration).toContain("set statement_timeout = '60s';");
@@ -1568,7 +1525,6 @@ describe("Supabase Preview replay guards", () => {
       );
     }
   });
->>>>>>> origin/main
 });
 
 describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () => {
