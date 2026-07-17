@@ -3314,6 +3314,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     }, visibleGeometry.maxOffset);
     await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => collapseHost.getAttribute("data-scroll-hidden"), { timeout: 1_000 }).toBe("true");
+    // The hidden attribute flips before the 240ms grid-row transition has
+    // released the header's layout space. Wait for rendered geometry so this
+    // assertion cannot race the animation on faster or slower CI runners.
+    await expect
+      .poll(async () =>
+        header.evaluate((node) => {
+          const rect = node.getBoundingClientRect();
+          return Math.max(0, rect.bottom) - Math.max(0, rect.top);
+        }),
+      )
+      .toBe(0);
     const collapsedGeometry = await main.evaluate((node) => ({
       clientHeight: node.clientHeight,
       maxOffset: node.scrollHeight - node.clientHeight,

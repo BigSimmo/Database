@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en-AU">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#060708" />
+    <title>Clinical KB is offline</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: Arial, Helvetica, sans-serif;
+        background: #f4f7f8;
+        color: #142126;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-width: 320px;
+        min-height: 100vh;
+        min-height: 100dvh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right))
+          max(1.25rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
+        background: radial-gradient(circle at 15% 10%, rgba(11, 111, 134, 0.12), transparent 34rem), #f4f7f8;
+      }
+
+      main {
+        width: min(100%, 34rem);
+        padding: clamp(1.5rem, 5vw, 2.5rem);
+        border: 1px solid #cbd7da;
+        border-radius: 1.25rem;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 1rem 3rem rgba(20, 33, 38, 0.12);
+      }
+
+      .mark {
+        width: 3.5rem;
+        height: 3.5rem;
+        display: grid;
+        place-items: center;
+        margin-bottom: 1.25rem;
+        border-radius: 1rem;
+        background: #0b6f86;
+        color: #ffffff;
+        font-size: 1.5rem;
+        font-weight: 800;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(1.75rem, 6vw, 2.35rem);
+        line-height: 1.08;
+        letter-spacing: -0.035em;
+      }
+
+      p {
+        margin: 1rem 0 0;
+        color: #465b63;
+        font-size: 1rem;
+        line-height: 1.65;
+      }
+
+      .privacy-note {
+        padding-top: 1rem;
+        border-top: 1px solid #dbe3e5;
+        font-size: 0.9rem;
+      }
+
+      a {
+        min-height: 2.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 1.5rem;
+        padding: 0.75rem 1rem;
+        border-radius: 0.75rem;
+        background: #0b6f86;
+        color: #ffffff;
+        font-weight: 750;
+        text-decoration: none;
+      }
+
+      a:hover {
+        background: #075b6e;
+      }
+
+      a:focus-visible {
+        outline: 3px solid #f59e0b;
+        outline-offset: 3px;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          background: #060708;
+          color: #f1f6f7;
+        }
+
+        body {
+          background: radial-gradient(circle at 15% 10%, rgba(76, 207, 208, 0.12), transparent 34rem), #060708;
+        }
+
+        main {
+          border-color: #344147;
+          background: rgba(17, 20, 22, 0.96);
+          box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.45);
+        }
+
+        .mark,
+        a {
+          background: #4ccfd0;
+          color: #04252a;
+        }
+
+        a:hover {
+          background: #72dcdd;
+        }
+
+        p {
+          color: #b8c6ca;
+        }
+
+        .privacy-note {
+          border-color: #344147;
+        }
+      }
+
+      @media (forced-colors: active) {
+        main,
+        .privacy-note {
+          border-color: CanvasText;
+        }
+
+        .mark,
+        a {
+          background: Highlight;
+          color: HighlightText;
+        }
+
+        a:focus-visible {
+          outline-color: CanvasText;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main aria-labelledby="offline-title">
+      <div class="mark" aria-hidden="true">KB</div>
+      <h1 id="offline-title">Clinical KB is offline</h1>
+      <p>Reconnect to search, generate answers, or open private clinical documents and account data.</p>
+      <p class="privacy-note">
+        For privacy, the PWA cache stores only this offline screen and public application assets. It does not store or
+        replay clinical queries, answers, documents, uploads, signed URLs, or API responses.
+      </p>
+      <a href="/">Try again</a>
+    </main>
+  </body>
+</html>

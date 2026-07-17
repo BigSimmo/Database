@@ -1804,6 +1804,33 @@ summary::-webkit-details-marker {
   padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
 }
 
+/* Global PWA notices sit above the bottom composer and home indicator without
+   changing page scroll ownership. The lifecycle component renders only when an
+   offline, restored, installable, or waiting-update state needs attention. */
+.pwa-notice-stack {
+  position: fixed;
+  z-index: 95;
+  left: max(0.75rem, var(--safe-area-left));
+  right: max(0.75rem, var(--safe-area-right));
+  bottom: calc(max(0.75rem, var(--safe-area-bottom)) + 5.5rem);
+  display: grid;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+
+@media (min-width: 640px) {
+  .pwa-notice-stack {
+    left: auto;
+    width: min(24rem, calc(100vw - 2rem - var(--safe-area-left) - var(--safe-area-right)));
+  }
+}
+
+@media (display-mode: standalone) {
+  .pwa-notice-stack {
+    bottom: calc(max(0.75rem, var(--safe-area-bottom)) + 6rem);
+  }
+}
+
 /* Tabular figures for data, counts, page numbers, byte sizes */
 @utility nums {
   font-variant-numeric: tabular-nums;

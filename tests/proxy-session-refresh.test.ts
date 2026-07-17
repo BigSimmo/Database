@@ -76,4 +76,23 @@ describe("proxy session refresh scoping", () => {
 
     expect(getUser).not.toHaveBeenCalled();
   });
+
+  it.each(["/sw.js", "/offline.html", "/manifest.webmanifest", "/apple-icon", "/icon.svg", "/icons/icon-192"])(
+    "keeps the public PWA bootstrap path %s independent from user sessions",
+    async (path) => {
+      const { proxy } = await import("../src/proxy");
+      const response = await proxy(requestWithSessionCookie(path));
+
+      expect(getUser).not.toHaveBeenCalled();
+      expect(response.headers.get("content-security-policy")).toBeNull();
+    },
+  );
+
+  it("does not classify clinical API routes as public PWA resources", async () => {
+    const { isPublicPwaPath } = await import("../src/proxy");
+
+    expect(isPublicPwaPath("/api/answer")).toBe(false);
+    expect(isPublicPwaPath("/documents/private-id")).toBe(false);
+    expect(isPublicPwaPath("/pwa/private-export.json")).toBe(false);
+  });
 });
