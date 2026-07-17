@@ -2875,6 +2875,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     );
     await expect(page.getByRole("complementary", { name: "Selected document evidence" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(documentResults).toBeVisible();
+    await expect(documentResults).toContainText("Best match");
   });
 
   test("tools mode searches the existing applications registry inside the dashboard", async ({ page }) => {

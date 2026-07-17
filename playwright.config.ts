@@ -25,6 +25,10 @@ export default defineConfig({
   // hydration, sub-pixel tap targets) without masking a real regression, which
   // still fails 3× before it is reported. Local stays at 0 so flakes surface.
   retries: process.env.CI ? 2 : 0,
+  // Fail the run if a stray `test.only` is committed: otherwise it silently
+  // narrows CI to that one test (and skips the whole release matrix) while the
+  // required check still reports green.
+  forbidOnly: !!process.env.CI,
   expect: {
     timeout: 10_000,
   },

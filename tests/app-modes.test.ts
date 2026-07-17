@@ -289,4 +289,16 @@ describe("app mode search contract", () => {
     );
     expect(developmentModes).not.toContain("evidence");
   });
+
+  it("holds Therapy Compass out of production discovery until clinician sign-off", () => {
+    // Gated devOnly while the re-curated therapy pathways await qualified-clinician
+    // sign-off: available in the dev switcher, hidden from the production sidebar and
+    // MODE dropdown. Flipping this to visible should be a deliberate, reviewed act —
+    // hence this guard fails until devOnly is removed from the mode definition.
+    expect(isAppModeId("therapy-compass")).toBe(true);
+    expect(isAppModeVisible("therapy-compass", "development")).toBe(true);
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(false);
+    expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).toContain("therapy-compass");
+    expect(visibleAppModeDefinitions("production").map((mode) => mode.id)).not.toContain("therapy-compass");
+  });
 });

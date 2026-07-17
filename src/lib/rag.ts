@@ -146,6 +146,7 @@ import {
   queryTextForStorage,
 } from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
+import { safeErrorLogDetails } from "@/lib/privacy";
 import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
 import {
   SOURCE_BACKED_REVIEW_FALLBACK_REASON,
@@ -3042,7 +3043,7 @@ export function parseAnswerJson(raw: string, results: SearchResult[], query?: st
     // GEN-C2 / GEN-H2: numeric faithfulness gate.
     return enrichGroundedReviewCitations(applyNumericVerification(answer), results);
   } catch (error) {
-    console.warn("Failed to parse answer payload, falling back to safe text:", error);
+    console.warn("Failed to parse answer payload, falling back to safe text:", safeErrorLogDetails(error));
     return safeFallbackAnswer(raw, results, query);
   }
 }

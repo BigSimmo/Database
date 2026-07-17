@@ -39,7 +39,7 @@ jobs:
 
       - name: Run AI inference
         id: inference
-        uses: actions/ai-inference@v2
+        uses: actions/ai-inference@a7805884c80886efc241e94a5351df715968a0ad # v2
         with:
           prompt: |
             You are summarizing a GitHub issue.
@@ -49,7 +49,7 @@ jobs:
 
       - name: Comment with AI summary
         if: github.event.issue.state == 'open'
-        uses: peter-evans/create-or-update-comment@v5
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9 # v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.issue.number }}
