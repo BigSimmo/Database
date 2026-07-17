@@ -82,7 +82,7 @@ const sidebarToolItems = [
   { id: "formulation", label: "Formulation", icon: Network, href: "/formulation" },
   { id: "prescribing", label: "Medication", icon: Pill, href: "/?mode=prescribing" },
   { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
-  { id: "therapy-compass", label: "Therapy Compass", icon: appModeIcons["therapy-compass"], href: "/therapy-compass" },
+  { id: "therapy-compass", label: "Therapy", icon: appModeIcons["therapy-compass"], href: "/therapy-compass" },
 ] as const;
 
 // Drop any tool whose id is a dev-only app mode from the production nav. Non-mode
