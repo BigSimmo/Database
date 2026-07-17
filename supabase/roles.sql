@@ -10,6 +10,7 @@ declare
   v_namespace_oid oid;
   v_entries text[] := '{}'::text[];
   v_safe boolean := false;
+  v_has_unexpected_grantee boolean := false;
 begin
   select oid into v_role_oid from pg_catalog.pg_roles where rolname = 'supabase_admin';
   select oid into v_namespace_oid from pg_catalog.pg_namespace where nspname = 'public';
@@ -69,15 +70,19 @@ begin
     cross join lateral pg_catalog.aclexplode(ea.acl) privilege
     left join pg_catalog.pg_roles grantee on grantee.oid = privilege.grantee
   )
-  select coalesce(
-    array_agg(format('%s:%s:%s', object_type, grantee, privilege_type)
-      order by object_type, grantee, privilege_type),
-    '{}'::text[]
-  ) into v_entries
+  select
+    coalesce(
+      array_agg(format('%s:%s:%s', object_type, grantee, privilege_type)
+        order by object_type, grantee, privilege_type),
+      '{}'::text[]
+    ),
+    coalesce(bool_or(grantee not in ('supabase_admin', 'postgres', 'service_role')), false)
+  into v_entries, v_has_unexpected_grantee
   from exploded;
 
   v_safe :=
-    not exists (
+    not v_has_unexpected_grantee
+    and not exists (
       select 1 from unnest(v_entries) entry
       where entry like 'table:PUBLIC:%'
          or entry like 'table:anon:%'

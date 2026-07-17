@@ -1187,6 +1187,7 @@ describe("Supabase Preview replay guards", () => {
       expect(sql).toContain("create or replace function public.default_privileges_status(");
       expect(sql).toContain("pg_catalog.acldefault(ot.object_code, v_role_oid)");
       expect(sql).toContain("pg_catalog.aclexplode(ea.acl)");
+      expect(sql).toContain("bool_or(grantee not in (p_role_name, 'postgres', 'service_role'))");
       expect(sql).toContain("entry like 'table:PUBLIC:%'");
       expect(sql).toContain("entry like 'sequence:PUBLIC:%'");
       expect(sql).toContain("entry = 'function:PUBLIC:execute'");
@@ -1219,6 +1220,7 @@ describe("Supabase Preview replay guards", () => {
     expect(defaultAclRoleBootstrap).toContain(
       "alter default privileges for role supabase_admin in schema public grant execute on functions to service_role;",
     );
+    expect(defaultAclRoleBootstrap).toContain("bool_or(grantee not in ('supabase_admin', 'postgres', 'service_role'))");
   });
 
   it("scrubs legacy plaintext query text with salted irreversible placeholders", () => {

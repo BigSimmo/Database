@@ -1,6 +1,7 @@
 begin;
 
 create role default_acl_fixture_role nologin;
+create role default_acl_fixture_attacker nologin;
 
 do $$
 declare
@@ -75,6 +76,22 @@ $$;
 
 alter default privileges for role default_acl_fixture_role in schema public
   revoke select on tables from public;
+alter default privileges for role default_acl_fixture_role in schema public
+  grant select on tables to default_acl_fixture_attacker;
+
+do $$
+declare
+  status jsonb;
+begin
+  status := public.default_privileges_status('default_acl_fixture_role', 'public');
+  if coalesce((status->>'safe')::boolean, false) then
+    raise exception 'unsafe arbitrary-role table default was accepted';
+  end if;
+end;
+$$;
+
+alter default privileges for role default_acl_fixture_role in schema public
+  revoke select on tables from default_acl_fixture_attacker;
 alter default privileges for role default_acl_fixture_role in schema public
   grant usage on sequences to public;
 

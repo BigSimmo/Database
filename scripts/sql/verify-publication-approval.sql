@@ -74,6 +74,10 @@ begin
     raise exception 'direct public document insert unexpectedly succeeded';
   exception when others then
     if sqlerrm = 'direct public document insert unexpectedly succeeded' then raise; end if;
+    if sqlstate <> 'P0001'
+      or sqlerrm <> 'public documents must be created as owned rows before approved publication' then
+      raise;
+    end if;
   end;
 
   begin
