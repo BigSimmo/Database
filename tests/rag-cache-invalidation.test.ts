@@ -61,5 +61,15 @@ describe("RAG cache invalidation", () => {
     expect(calls.flat()).not.toContainEqual({ method: "eq", column: "owner_id", value: "anonymous" });
     expect(calls[1]).toContainEqual({ method: "is", column: "owner_id", value: null });
     expect(calls[1]).toContainEqual({ method: "in", column: "cache_kind", value: ["search", "answer"] });
+
+    calls.length = 0;
+    invalidateRagCachesForDocumentMutation(ownerId, { affectsPublicCorpus: false });
+    await vi.waitFor(() => expect(calls.length).toBe(1), { timeout: 10000 });
+    expect(calls[0]).toContainEqual({ method: "eq", column: "owner_id", value: ownerId });
+
+    calls.length = 0;
+    invalidateRagCachesForDocumentMutation(ownerId, { affectsPublicCorpus: true });
+    await vi.waitFor(() => expect(calls.length).toBe(2), { timeout: 10000 });
+    expect(calls[1]).toContainEqual({ method: "is", column: "owner_id", value: null });
   });
 });

@@ -78,7 +78,10 @@ export class AuthenticationError extends Error {
 
 export function unauthorizedResponse(error?: AuthenticationError) {
   void error;
-  return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  return NextResponse.json(
+    { error: "Authentication required." },
+    { status: 401, headers: { "Cache-Control": "private, no-store" } },
+  );
 }
 
 /**

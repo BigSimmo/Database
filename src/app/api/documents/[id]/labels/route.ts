@@ -145,7 +145,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .single();
 
     if (error) throw new Error(error.message);
-    invalidateRagCachesForDocumentMutation(user.id);
+    invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
     return NextResponse.json({ label, labels: await selectLabels(supabase, id) }, { status: 201 });
   } catch (error) {
     if (error instanceof AuthenticationError) {
@@ -200,7 +200,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         .single();
 
       if (error) throw new Error(error.message);
-      invalidateRagCachesForDocumentMutation(user.id);
+      invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
       return NextResponse.json({ label });
     }
 
@@ -243,7 +243,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       .single();
 
     if (error) throw new Error(error.message);
-    invalidateRagCachesForDocumentMutation(user.id);
+    invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
     return NextResponse.json({ label, labels: await selectLabels(supabase, id) });
   } catch (error) {
     if (error instanceof AuthenticationError) {
@@ -288,7 +288,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .eq("source", "manual");
 
     if (error) throw new Error(error.message);
-    invalidateRagCachesForDocumentMutation(user.id);
+    invalidateRagCachesForDocumentMutation(user.id, { affectsPublicCorpus: false });
     return NextResponse.json({ deleted: true, labelId: parsed.labelId, labels: await selectLabels(supabase, id) });
   } catch (error) {
     if (error instanceof AuthenticationError) {
