@@ -116,6 +116,10 @@ const dbPatterns = [
   /^tests\/(supabase|drift|private-rag|private-access|retrieval-owner).*\.test\.ts$/,
 ];
 
+// NOTE: rag_eval_changed is an ADVISORY narrowing signal only. The clinical
+// offline-grounding gate (eval:rag:offline) runs for every non-docs change in
+// both CI (.github/workflows/ci.yml) and local verify:pr-local, so a new
+// retrieval file that falls outside these patterns can never silently skip it.
 const ragEvalPatterns = [
   "scripts/fixtures",
   "src/app/api/answer",
@@ -419,6 +423,15 @@ function selfTest() {
   assertScope("rag-fixture", ["src/lib/retrieval-selection.ts", "scripts/fixtures/rag-retrieval-golden.json"], {
     rag_eval_changed: true,
     source_changed: true,
+  });
+  // A RAG-relevant lib file outside ragEvalPatterns must still be caught as a
+  // source change (so static-pr and the non-docs safety job / verify:pr-local,
+  // which run the offline grounding gate, always execute). Guards the "silent
+  // scope narrowing" gap.
+  assertScope("rag-lib-outside-allowlist", ["src/lib/hybrid-reranker.ts"], {
+    source_changed: true,
+    coverage_changed: true,
+    docs_only: false,
   });
   assertScope("database-access", ["src/app/api/documents/route.ts"], {
     db_changed: true,

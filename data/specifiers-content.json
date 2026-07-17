@@ -5568,15 +5568,15 @@
         },
         {
           "name": "Trance Disorder (ICD-11)",
-          "icd11Context": "ICD-11: Altered state of consciousness with/without possession.",
+          "icd11Context": "ICD-11: 6B62 Trance disorder is a dissociative state without a replacing external identity; the possession form is the separate diagnosis 6B63 Possession trance disorder, not a with/without specifier.",
           "groups": [
             {
               "label": "Features",
               "items": [
                 {
-                  "label": "With/without possession",
+                  "label": "Possession trance is a separate ICD-11 diagnosis (6B63)",
                   "definition": {
-                    "meaning": "The dissociative presentation may occur with or without experiences of being taken over by an external identity, spirit, or power (the possession vs non-possession form).",
+                    "meaning": "In ICD-11, trance disorder (6B62) and possession trance disorder (6B63) are two distinct diagnoses — not a with/without specifier: 6B62 is a dissociative trance without a replacing identity, and 6B63 is a trance in which identity is replaced by an external identity, spirit, or power. Record the appropriate diagnosis rather than a possession qualifier.",
                     "clinicalNote": null,
                     "sourceFamily": "WHO ICD-11 CDDR/MMS",
                     "status": "defined"
@@ -6297,9 +6297,9 @@
               "label": "Features (ICD-11)",
               "items": [
                 {
-                  "label": "With inadequate food intake associated with limited availability",
+                  "label": "With apparent lack of interest in eating or food",
                   "definition": {
-                    "meaning": "Inadequate intake is linked to limited food availability rather than body-image concern.",
+                    "meaning": "Food restriction reflects an apparent lack of interest in eating or food (low appetite) — one of the three ICD-11 6B83 ARFID drivers, alongside sensory-based avoidance and fear of aversive consequences. It is not limited availability of food (an ICD-11 exclusion) or body-image concern.",
                     "clinicalNote": null,
                     "sourceFamily": "WHO ICD-11 CDDR/MMS",
                     "status": "defined"
@@ -11971,15 +11971,15 @@
         },
         {
           "name": "Trance Disorder",
-          "icd11Context": "ICD-11: Altered state of consciousness with/without possession.",
+          "icd11Context": "ICD-11: 6B62 Trance disorder is a dissociative state without a replacing external identity; the possession form is the separate diagnosis 6B63 Possession trance disorder, not a with/without specifier.",
           "groups": [
             {
               "label": "Features",
               "items": [
                 {
-                  "label": "With/without possession",
+                  "label": "Possession trance is a separate ICD-11 diagnosis (6B63)",
                   "definition": {
-                    "meaning": "The dissociative presentation may occur with or without experiences of being taken over by an external identity, spirit, or power (the possession vs non-possession form).",
+                    "meaning": "In ICD-11, trance disorder (6B62) and possession trance disorder (6B63) are two distinct diagnoses — not a with/without specifier: 6B62 is a dissociative trance without a replacing identity, and 6B63 is a trance in which identity is replaced by an external identity, spirit, or power. Record the appropriate diagnosis rather than a possession qualifier.",
                     "clinicalNote": null,
                     "sourceFamily": "WHO ICD-11 CDDR/MMS",
                     "status": "defined"

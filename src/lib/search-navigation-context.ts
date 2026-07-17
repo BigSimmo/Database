@@ -17,6 +17,7 @@ export type ResolvedSearchNavigationContext = {
   scopeFilters: SearchScopeFilters;
   scopeRef?: string;
 };
+export type PrivateScopeRestorationStatus = "none" | "restoring" | "restored" | "unavailable";
 
 type ReadableSearchParams = Pick<URLSearchParams, "get" | "getAll">;
 type FreeTextScopeKey =
@@ -179,6 +180,14 @@ export function routedSubmissionContextChanged(
     return searchNavigationContextSignature(context).length > 0;
   }
   return previousSignature?.startsWith(signaturePrefix) === true && previousSignature !== nextSignature;
+}
+
+export function privateScopeReadyForRoute(
+  routedScopeRef: string | undefined,
+  restorationStatus: PrivateScopeRestorationStatus,
+  restoredScopeRef: string | null,
+) {
+  return !routedScopeRef || (restorationStatus === "restored" && restoredScopeRef === routedScopeRef);
 }
 
 export function readSearchNavigationContext(params: ReadableSearchParams): ResolvedSearchNavigationContext {
