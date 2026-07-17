@@ -85,6 +85,23 @@ jobs:
       - name: Format check
         run: npm run format:check
 
+      # Design-system guards that were previously only in the local verify:cheap
+      # chain (offline + fast). Without them a stray type/icon/brand drift merged
+      # green because no workflow ran them (there is no test backstop either).
+      - name: Type scale guard
+        run: npm run check:type-scale
+
+      - name: Icon scale guard
+        run: npm run check:icon-scale
+
+      - name: Brand asset check
+        run: npm run brand:check
+
+      # Fails if a SECURITY DEFINER public function is left executable by
+      # PUBLIC/anon (privilege-escalation / cross-tenant read surface).
+      - name: Function-grant guard
+        run: npm run check:function-grants
+
       - name: Lint
         run: npm run lint
 
@@ -144,7 +161,10 @@ jobs:
         run: npm run check:codex-autofix-workflow
 
       - name: Offline RAG preflight
-        if: needs.changes.outputs.rag_eval_changed == 'true'
+        # Runs for every non-docs change (this job's docs_only guard), NOT only
+        # files matching the rag_eval_changed allowlist. This offline grounding
+        # gate is cheap and clinical-safety-relevant, so a new retrieval file that
+        # falls outside the scope patterns must never silently skip it.
         run: npm run eval:rag:offline
 
   coverage:
