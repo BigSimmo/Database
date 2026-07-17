@@ -436,6 +436,22 @@ html {
   scroll-padding-top: calc(4rem + env(safe-area-inset-top));
 }
 
+/*
+ * Interface density scales the rem baseline so every rem-based size shifts
+ * together. "Comfortable" is the browser default (16px) and sets no attribute,
+ * so the untouched default experience is unchanged. The attribute is applied on
+ * <html> before first paint (layout.tsx inline script) and kept in sync by
+ * useAppPreferences. The unlayered 16px mobile input floor above still wins for
+ * form controls so iOS never zooms.
+ */
+html[data-density="compact"] {
+  font-size: 15px;
+}
+
+html[data-density="spacious"] {
+  font-size: 17px;
+}
+
 body {
   min-height: 100%;
   min-height: 100svh;
@@ -2202,6 +2218,26 @@ summary::-webkit-details-marker {
   .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
     transform: none !important;
   }
+}
+
+/*
+ * Explicit "Reduce motion" preference from the settings surface. Mirrors the
+ * prefers-reduced-motion suppression above so users can opt in regardless of
+ * their OS setting. The attribute is set on <html> before first paint by the
+ * inline script in layout.tsx and kept in sync by useAppPreferences.
+ */
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+}
+
+html[data-motion="reduced"] .source-capsule-hit:hover .source-capsule-face,
+html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
+  transform: none !important;
 }
 
 @media (forced-colors: active) {

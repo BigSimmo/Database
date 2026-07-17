@@ -197,7 +197,7 @@ export function AnswerProgressStepper({
     >
       <div className="flex min-h-8 items-center gap-2">
         {finished ? (
-          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-white">
+          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]">
             <Check className="h-3.5 w-3.5" aria-hidden />
           </span>
         ) : (

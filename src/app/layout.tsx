@@ -80,14 +80,16 @@ export default async function RootLayout({
         {/* Applies the resolved theme before first paint on every route (standalone
             pages don't mount useTheme, and hydration-time toggling flashes light).
             Mirrors resolveThemePreference in src/lib/theme.ts: stored choice wins,
-            otherwise the OS preference. Key must match use-theme.ts. */}
+            otherwise the OS preference. Key must match use-theme.ts. The second
+            block applies the density/motion preferences (keys must match
+            use-app-preferences.ts) so an opted-in choice never flashes in. */}
         <script
           nonce={nonce}
           // Next.js strips the nonce from the client payload (so scripts can't
           // read it), which reads as a hydration mismatch on this attribute.
           suppressHydrationWarning
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("clinical-kb-theme");var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);if(t==="dark"||t==="light"){var c=d?"${APP_THEME_COLORS.dark}":"${APP_THEME_COLORS.light}";document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute("content",c);});}}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem("clinical-kb-theme");var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);if(t==="dark"||t==="light"){var c=d?"${APP_THEME_COLORS.dark}":"${APP_THEME_COLORS.light}";document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute("content",c);});}}catch(e){}try{var p=JSON.parse(localStorage.getItem("clinical-kb-preferences")||"{}");if(p&&typeof p==="object"){if(p.density==="compact"||p.density==="spacious"){document.documentElement.setAttribute("data-density",p.density);}if(p.motion==="reduced"){document.documentElement.setAttribute("data-motion","reduced");}}}catch(e){}})();`,
           }}
         />
         <a
