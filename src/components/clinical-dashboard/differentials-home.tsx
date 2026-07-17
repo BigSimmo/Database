@@ -883,7 +883,6 @@ function SearchResultsView({
         sortValue={sortValue}
         onSortChange={setSortValue}
       />
-      <UniversalSearchAlsoMatches modeId="differentials" query={query} />
       <p
         data-testid="differentials-catalogue-notice"
         className="flex items-start gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/50 px-3 py-1.5 text-xs font-semibold leading-5 text-[color:var(--info)] sm:py-2 sm:text-sm"
@@ -1141,6 +1140,8 @@ function SearchResultsView({
       {best ? (
         <DifferentialsMobileCompareBar selectedCount={selectedCount} selectedIds={comparisonIds} query={query} />
       ) : null}
+
+      <UniversalSearchAlsoMatches modeId="differentials" query={query} />
 
       <p className="pb-3 text-center text-xs font-medium text-[color:var(--text-muted)] lg:hidden">
         Clinical decision support only. Review before use.

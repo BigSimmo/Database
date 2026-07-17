@@ -228,6 +228,22 @@ test.describe("universal search typeahead", () => {
     expect(new URL((await universalRequest).url()).searchParams.get("domains")?.split(",")).not.toContain("services");
   });
 
+  test("places submitted cross-mode matches after the owning mode results", async ({ page }) => {
+    await mockUniversalSearch(page);
+    await page.goto("/services?q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
+
+    const results = page.getByTestId("service-search-results");
+    const alsoMatches = page.getByTestId("universal-also-matches");
+    await expect(results).toBeVisible();
+    await expect(alsoMatches).toBeVisible();
+    expect(
+      await alsoMatches.evaluate((node) => {
+        const resultNode = document.querySelector('[data-testid="service-search-results"]');
+        return Boolean(resultNode?.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING);
+      }),
+    ).toBe(true);
+  });
+
   test("shows submitted cross-mode matches on phones outside hidden desktop headers", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockUniversalSearch(page);

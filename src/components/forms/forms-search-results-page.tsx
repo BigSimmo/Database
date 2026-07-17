@@ -654,7 +654,6 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                 onSortChange={setSortValue}
               />
             </div>
-            <UniversalSearchAlsoMatches modeId="forms" query={query} />
             {query.trim() && displayedMatches.length === 0 ? (
               <SearchResultsEmptyState
                 modeId="forms"
@@ -688,6 +687,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                 </div>
               </>
             )}
+            <UniversalSearchAlsoMatches modeId="forms" query={query} />
           </>
         ) : null}
         <div className="hidden lg:block">

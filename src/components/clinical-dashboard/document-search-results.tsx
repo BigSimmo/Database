@@ -896,7 +896,6 @@ function DocumentSearchResultsPanelImpl({
               onSortChange={setSortValue}
             />
           </div>
-          <UniversalSearchAlsoMatches modeId="documents" query={trimmedQuery} />
         </>
       ) : null}
       {recordMatchCount > 0 ||
@@ -1140,6 +1139,10 @@ function DocumentSearchResultsPanelImpl({
           </div>
         </>
       )}
+
+      {trimmedQuery && !shouldShowHome ? (
+        <UniversalSearchAlsoMatches modeId="documents" query={trimmedQuery} />
+      ) : null}
     </div>
   );
 }

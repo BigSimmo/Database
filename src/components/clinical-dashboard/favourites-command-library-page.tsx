@@ -1005,8 +1005,6 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
             <div className="hidden lg:block">
               <SearchResultsHeaderBand modeId="favourites" query={query} matchCount={scopedItems.length} />
             </div>
-            <UniversalSearchAlsoMatches modeId="favourites" query={query} />
-
             <ActiveFilterChips
               searchTerm={query}
               selectedTypeId={selectedTypeId}
@@ -1038,6 +1036,8 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
                 onSelectItem={setSelectedItemId}
               />
             )}
+
+            <UniversalSearchAlsoMatches modeId="favourites" query={query} />
 
             <FavouritesMobileBrowseRail
               sets={sets}
