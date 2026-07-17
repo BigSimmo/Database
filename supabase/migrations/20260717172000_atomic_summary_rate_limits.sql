@@ -27,8 +27,11 @@ declare
   v_now timestamptz := pg_catalog.statement_timestamp();
   v_policy record;
   v_count integer;
+  v_remaining integer;
   v_reset_at timestamptz;
   v_min_remaining integer := 2147483647;
+  v_success_limit integer;
+  v_success_reset_at timestamptz;
 begin
   if (p_owner_id is null) = (p_subject_key is null or pg_catalog.btrim(p_subject_key) = '') then
     raise exception 'exactly one owner_id or subject_key is required';
@@ -47,7 +50,7 @@ begin
     values
       (p_owner_id, 'answer', v_now, 0, v_now),
       (p_owner_id, 'document_summarize', v_now, 0, v_now)
-    on conflict (owner_id, bucket) do nothing;
+    on conflict on constraint api_rate_limits_pkey do nothing;
 
     -- Acquire every participating row before incrementing, in one stable order.
     perform 1
@@ -81,7 +84,12 @@ begin
         rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds)
       into v_count, v_reset_at;
 
-      v_min_remaining := least(v_min_remaining, greatest(v_policy.limit_value - v_count, 0));
+      v_remaining := greatest(v_policy.limit_value - v_count, 0);
+      if v_remaining < v_min_remaining then
+        v_min_remaining := v_remaining;
+        v_success_limit := v_policy.limit_value;
+        v_success_reset_at := v_reset_at;
+      end if;
       if v_count > v_policy.limit_value then
         return query select
           v_policy.bucket::text,
@@ -99,7 +107,7 @@ begin
       (p_subject_key, 'answer', v_now, 0, v_now),
       ('anon:answer:global', 'answer', v_now, 0, v_now),
       (p_subject_key, 'document_summarize', v_now, 0, v_now)
-    on conflict (subject_key, bucket) do nothing;
+    on conflict on constraint api_rate_limit_subjects_pkey do nothing;
 
     -- Subject and global rows share one stable lexical lock order.
     perform 1
@@ -137,7 +145,12 @@ begin
         rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds)
       into v_count, v_reset_at;
 
-      v_min_remaining := least(v_min_remaining, greatest(v_policy.limit_value - v_count, 0));
+      v_remaining := greatest(v_policy.limit_value - v_count, 0);
+      if v_remaining < v_min_remaining then
+        v_min_remaining := v_remaining;
+        v_success_limit := v_policy.limit_value;
+        v_success_reset_at := v_reset_at;
+      end if;
       if v_count > v_policy.limit_value then
         return query select
           v_policy.rejection_bucket::text,
@@ -154,10 +167,10 @@ begin
   return query select
     null::text,
     false,
-    p_summary_limit,
+    v_success_limit,
     v_min_remaining,
-    greatest(1, pg_catalog.ceil(extract(epoch from (v_reset_at - v_now)))::integer),
-    v_reset_at;
+    greatest(1, pg_catalog.ceil(extract(epoch from (v_success_reset_at - v_now)))::integer),
+    v_success_reset_at;
 end;
 $$;
 

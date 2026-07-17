@@ -426,6 +426,23 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
+async function awaitWithAbortSignal<T>(pending: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return pending;
+  throwIfAborted(signal);
+
+  let onAbort: (() => void) | undefined;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(abortReason(signal));
+    signal.addEventListener("abort", onAbort, { once: true });
+    if (signal.aborted) onAbort();
+  });
+  try {
+    return await Promise.race([pending, aborted]);
+  } finally {
+    if (onAbort) signal.removeEventListener("abort", onAbort);
+  }
+}
+
 export type AnswerProgressEvent = {
   stage:
     | "retrieved"
@@ -1350,6 +1367,7 @@ export async function analyzeQueryWithClassifierFallback(
   }
 
   if (!analysis.needsClassifierFallback || !env.OPENAI_API_KEY || opts?.skipClassifier) return analysis;
+  throwIfAborted(opts?.signal);
 
   const memoKey = classifierVerdictMemoKey(query, analysis);
   const memoized = classifierVerdictMemo.get(memoKey);
@@ -1367,10 +1385,11 @@ export async function analyzeQueryWithClassifierFallback(
   }
 
   try {
-    const verdict = await pending;
+    const verdict = await awaitWithAbortSignal(pending, opts?.signal);
     storeClassifierVerdictMemo(memoKey, verdict);
     return applyClassifierVerdict(analysis, verdict);
   } catch {
+    if (opts?.signal?.aborted) throw abortReason(opts.signal);
     // Transport/parse failures are deliberately NOT memoized: fall back to the deterministic
     // analysis for this request only, and let the next request retry the classifier.
     return analysis;

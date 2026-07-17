@@ -1435,7 +1435,6 @@ function DocumentOverviewLanding({
   document,
   initialPage,
   signedUrl,
-  downloadUrl,
   pages,
   pageHref,
   onPageChange,
@@ -1448,7 +1447,6 @@ function DocumentOverviewLanding({
   document: ClinicalDocument;
   initialPage: number;
   signedUrl: string | null;
-  downloadUrl: string | null;
   pages: PageRow[];
   pageHref: (page: number) => string;
   onPageChange: (page: number) => void;
@@ -1511,27 +1509,14 @@ function DocumentOverviewLanding({
               Open preview
             </DocumentActionAnchor>
           )}
-          {downloadUrl ? (
-            <DocumentActionAnchor
-              href={downloadUrl}
-              target="_blank"
-              rel="noreferrer"
-              icon={Download}
-              download={document.file_name || "clinical-source.pdf"}
-              className={cn(secondaryButton, "w-full min-h-12 px-2 text-xs sm:text-sm")}
-            >
-              Download
-            </DocumentActionAnchor>
-          ) : (
-            <DocumentActionButton
-              onClick={onDownload}
-              disabled={downloading}
-              icon={downloading ? Loader2 : Download}
-              className={cn(secondaryButton, "w-full min-h-12 px-2 text-xs sm:text-sm")}
-            >
-              {downloading ? "Preparing" : "Download"}
-            </DocumentActionButton>
-          )}
+          <DocumentActionButton
+            onClick={onDownload}
+            disabled={downloading}
+            icon={downloading ? Loader2 : Download}
+            className={cn(secondaryButton, "w-full min-h-12 px-2 text-xs sm:text-sm")}
+          >
+            {downloading ? "Preparing" : "Download"}
+          </DocumentActionButton>
           <DocumentActionButton
             onClick={onAddToScope}
             icon={Target}
@@ -2609,36 +2594,22 @@ export function DocumentViewer({
                   Open original PDF
                 </a>
               )}
-              {downloadSignedUrl ? (
-                <a
-                  href={downloadSignedUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  download={readyDocument.file_name || "clinical-source.pdf"}
-                  onClick={() => setMobileActionsOpen(false)}
-                  className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
-                >
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionsOpen(false);
+                  void openSourceDownload();
+                }}
+                disabled={downloadingSource}
+                className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+              >
+                {downloadingSource ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                ) : (
                   <Download aria-hidden="true" className="h-4 w-4" />
-                  Download PDF
-                </a>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileActionsOpen(false);
-                    void openSourceDownload();
-                  }}
-                  disabled={downloadingSource}
-                  className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
-                >
-                  {downloadingSource ? (
-                    <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download aria-hidden="true" className="h-4 w-4" />
-                  )}
-                  {downloadingSource ? "Preparing PDF" : "Download PDF"}
-                </button>
-              )}
+                )}
+                {downloadingSource ? "Preparing PDF" : "Download PDF"}
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -2718,7 +2689,6 @@ export function DocumentViewer({
               document={readyDocument}
               initialPage={activePage}
               signedUrl={signedUrl}
-              downloadUrl={downloadSignedUrl}
               pages={pages}
               pageHref={usefulPageHref}
               onPageChange={navigateToPage}
@@ -2767,16 +2737,19 @@ export function DocumentViewer({
                       </a>
                     )}
                     {downloadSignedUrl && (
-                      <a
-                        href={downloadSignedUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        download={document?.file_name || "clinical-source.pdf"}
+                      <button
+                        type="button"
+                        onClick={() => void openSourceDownload()}
+                        disabled={downloadingSource}
                         className={cn(secondaryButton, "mt-3")}
                       >
-                        <Download aria-hidden="true" className="h-4 w-4" />
-                        Download PDF
-                      </a>
+                        {downloadingSource ? (
+                          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download aria-hidden="true" className="h-4 w-4" />
+                        )}
+                        {downloadingSource ? "Preparing PDF" : "Download PDF"}
+                      </button>
                     )}
                   </div>
                 </div>
@@ -2797,16 +2770,19 @@ export function DocumentViewer({
                         </a>
                       )}
                       {downloadSignedUrl && (
-                        <a
-                          href={downloadSignedUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          download={document?.file_name || "clinical-source.pdf"}
+                        <button
+                          type="button"
+                          onClick={() => void openSourceDownload()}
+                          disabled={downloadingSource}
                           className={secondaryButton}
                         >
-                          <Download aria-hidden="true" className="h-4 w-4" />
-                          Download PDF
-                        </a>
+                          {downloadingSource ? (
+                            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download aria-hidden="true" className="h-4 w-4" />
+                          )}
+                          {downloadingSource ? "Preparing PDF" : "Download PDF"}
+                        </button>
                       )}
                     </div>
                   </div>

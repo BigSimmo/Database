@@ -1196,13 +1196,22 @@ describe("Supabase Preview replay guards", () => {
 
   it("fails closed on effective supabase_admin default ACLs", () => {
     for (const sql of [schema, defaultAclAssertionMigration]) {
-      expect(sql).toContain("create or replace function public.default_privileges_status(");
-      expect(sql).toContain("pg_catalog.acldefault(ot.object_code, v_role_oid)");
-      expect(sql).toContain("pg_catalog.aclexplode(ea.acl)");
-      expect(sql).toContain("bool_or(grantee not in (p_role_name, 'postgres', 'service_role'))");
-      expect(sql).toContain("entry like 'table:PUBLIC:%'");
-      expect(sql).toContain("entry like 'sequence:PUBLIC:%'");
-      expect(sql).toContain("entry = 'function:PUBLIC:execute'");
+      const statusStart = sql.lastIndexOf("create or replace function public.default_privileges_status(");
+      const statusEnd = sql.indexOf("$$;", statusStart);
+      const statusFunction = sql.slice(statusStart, statusEnd);
+
+      expect(statusStart).toBeGreaterThanOrEqual(0);
+      expect(statusEnd).toBeGreaterThan(statusStart);
+      expect(statusFunction).toContain("pg_catalog.acldefault(ot.object_code, v_role_oid)");
+      expect(statusFunction).toContain("pg_catalog.aclexplode(ea.acl)");
+      expect(statusFunction).toContain("bool_or(grantee not in (p_role_name, 'postgres', 'service_role'))");
+      expect(statusFunction).toContain("privilege.is_grantable");
+      expect(statusFunction).toContain("coalesce(bool_or(is_grantable), false)");
+      expect(statusFunction).toContain("into v_entries, v_has_unexpected_grantee, v_has_grantable");
+      expect(statusFunction).toContain("not v_has_grantable");
+      expect(statusFunction).toContain("entry like 'table:PUBLIC:%'");
+      expect(statusFunction).toContain("entry like 'sequence:PUBLIC:%'");
+      expect(statusFunction).toContain("entry = 'function:PUBLIC:execute'");
       expect(sql).toContain("message = 'Unsafe supabase_admin default privileges; migration blocked.'");
       expect(sql).toContain("Run these six statements as supabase_admin, then retry the migration:");
     }
@@ -1400,6 +1409,13 @@ describe("Supabase Preview replay guards", () => {
       expect((corrector.match(/from public\.rag_aliases where enabled and owner_id is null/g) ?? []).length).toBe(2);
       expect(corrector).toContain("and word % tok");
       expect((corrector.match(/limit 32/g) ?? []).length).toBeGreaterThanOrEqual(3);
+      // An exact alias has similarity 1, but the emitted correction must be its
+      // canonical term rather than the alias itself. Keep the match score tied
+      // to the indexed alias expression so typo ranking remains index-friendly.
+      expect(corrector).toContain("select lower(canonical) as term, similarity(lower(alias), tok) as match_sim");
+      expect(corrector).not.toContain("select lower(alias) as term");
+      expect(corrector).toContain("select candidate.term, candidate.match_sim");
+      expect(corrector).toContain("order by candidate.match_sim desc, candidate.term");
       expect(corrector).toContain("best_sim >= min_sim");
       expect(corrector).toContain("length(best) >= length(tok)");
     }
@@ -1439,6 +1455,14 @@ describe("Supabase Preview replay guards", () => {
       expect(sql).toContain("order by rl.subject_key, rl.bucket for update");
       expect(sql).toContain("'answer'::text, 1");
       expect(sql).toContain("'document_summarize'::text, 3");
+      expect((sql.match(/v_success_limit := v_policy\.limit_value/g) ?? []).length).toBe(2);
+      expect((sql.match(/v_success_reset_at := v_reset_at/g) ?? []).length).toBe(2);
+      expect(sql).toContain("on conflict on constraint api_rate_limits_pkey do nothing");
+      expect(sql).toContain("on conflict on constraint api_rate_limit_subjects_pkey do nothing");
+      expect(sql).not.toMatch(/on conflict \([^)]*bucket[^)]*\) do nothing/);
+      expect(sql).toContain(
+        "return query select null::text, false, v_success_limit, v_min_remaining, greatest(1, pg_catalog.ceil(extract(epoch from (v_success_reset_at - v_now)))::integer), v_success_reset_at;",
+      );
       expect(sql).toMatch(
         /revoke execute on function public\.consume_summary_rate_limits_atomic\(\s*uuid, text, integer, integer, integer, integer, integer, integer\s*\)/,
       );

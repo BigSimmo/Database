@@ -92,22 +92,27 @@ begin
 
     best := null;
     best_sim := 0;
-    select candidate.term, similarity(candidate.term, tok)
+    select candidate.term, candidate.match_sim
       into best, best_sim
     from (
       (
-        select lower(alias) as term
+        select
+          lower(canonical) as term,
+          similarity(lower(alias), tok) as match_sim
         from public.rag_aliases
         where enabled
           and owner_id is null
           and length(alias) between 4 and 40
+          and length(canonical) between 4 and 40
           and lower(alias) % tok
         order by similarity(lower(alias), tok) desc, lower(alias)
         limit 32
       )
       union all
       (
-        select lower(canonical) as term
+        select
+          lower(canonical) as term,
+          similarity(lower(canonical), tok) as match_sim
         from public.rag_aliases
         where enabled
           and owner_id is null
@@ -118,7 +123,9 @@ begin
       )
       union all
       (
-        select word as term
+        select
+          word as term,
+          similarity(word, tok) as match_sim
         from public.document_title_words
         where length(word) between 4 and 40
           and word % tok
@@ -126,7 +133,7 @@ begin
         limit 32
       )
     ) candidate
-    order by similarity(candidate.term, tok) desc, candidate.term
+    order by candidate.match_sim desc, candidate.term
     limit 1;
 
     if best is not null and best_sim >= min_sim and best <> tok and length(best) >= length(tok) then

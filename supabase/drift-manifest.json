@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-17T14:30:54.640Z",
+  "generated_at": "2026-07-17T15:00:51.747Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "fb884fddcb4c1eab297a3ff91950a5709e832fd97252ec675c8af083fc28b221",
-  "replay_seconds": 23,
+  "schema_sha256": "bde3b7c60872a8c4493555e6670c30ac777a862a12567ef2091dfc050c86240e",
+  "replay_seconds": 77,
   "snapshot": {
     "views": [
       {
@@ -6530,7 +6530,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "de3edcc4dd76c950759f24589b0f3a9b",
+        "def_hash": "833c00fa1743026d9269b9af28e0b86f",
         "signature": "public.consume_summary_rate_limits_atomic(uuid,text,integer,integer,integer,integer,integer,integer)"
       },
       {
@@ -6554,7 +6554,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "9e3c5593116fe03ee59b701a0a087ef3",
+        "def_hash": "cb65883a561cb1f5cd2247213f417a41",
         "signature": "public.correct_clinical_query_terms(text,real)"
       },
       {
@@ -6562,7 +6562,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "675d521a0746befe09e68e47986c6355",
+        "def_hash": "a6f0e7c27da08e47e2c01dce4ab5d58d",
         "signature": "public.default_privileges_status(text,text)"
       },
       {

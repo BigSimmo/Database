@@ -38,6 +38,15 @@ describe("document detail loading contract", () => {
     expect(loader).toContain("id.in.(${imageIds.join");
     expect(loader).toContain("tableFactsRequest.or(tableFactWindowFilter");
     expect(loader).toContain("page_number.is.null");
+
+    const chunkGenerationFilter = loader.indexOf("const filteredChunkQuery = generationFilter");
+    const chunkRange = loader.indexOf("orderedChunkQuery.range", chunkGenerationFilter);
+    const tableFactGenerationFilter = loader.indexOf("tableFactsRequest = tableFactsRequest.or(generationFilter)");
+    const tableFactLimit = loader.indexOf(".limit(200)", tableFactGenerationFilter);
+    expect(chunkGenerationFilter).toBeGreaterThan(-1);
+    expect(chunkRange).toBeGreaterThan(chunkGenerationFilter);
+    expect(tableFactGenerationFilter).toBeGreaterThan(-1);
+    expect(tableFactLimit).toBeGreaterThan(tableFactGenerationFilter);
   });
 
   it("cancels every database phase and projects only viewer fields", () => {

@@ -804,6 +804,8 @@ export async function fetchRelatedDocumentMetadata(args: {
   }
 
   const [labelsResult, summariesResult] = await Promise.all([labelsQuery, summariesQuery]);
+  const metadataError = labelsResult.error ?? summariesResult.error;
+  if (metadataError) throw metadataError;
   const labels = (labelsResult.data ?? []) as DocumentLabel[];
   const summaries = (summariesResult.data ?? []) as Pick<DocumentSummary, "document_id" | "summary">[];
   const labelsByDocument = new Map<string, DocumentLabel[]>();

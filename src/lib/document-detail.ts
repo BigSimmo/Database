@@ -163,6 +163,12 @@ function committedRows<T extends { metadata?: unknown }>(document: { metadata?: 
   return rows.filter((row) => isCommittedGenerationMetadata({ rowMetadata: row.metadata, committedGeneration }));
 }
 
+function committedGenerationFilter(document: { metadata?: unknown }) {
+  const committedGeneration = committedIndexGeneration(document.metadata);
+  if (!committedGeneration || !uuidPattern.test(committedGeneration)) return null;
+  return `metadata->>index_generation_id.is.null,metadata->>index_generation_id.eq.${committedGeneration}`;
+}
+
 function selectedImageIds(selectedChunk: DocumentDetailChunk | null) {
   return Array.from(
     new Set(
@@ -387,6 +393,7 @@ export async function loadAuthorizedDocumentDetail(args: {
     ? selectedChunk.chunk_index + selectedChunkNeighborCount
     : query.chunkOffset + query.chunkLimit - 1;
   const preservedImageIds = selectedImageIds(selectedChunk);
+  const generationFilter = committedGenerationFilter(document);
 
   const pagesRequest = supabase
     .from("document_pages")
@@ -400,12 +407,13 @@ export async function loadAuthorizedDocumentDetail(args: {
   const chunkQuery = supabase
     .from("document_chunks")
     .select("id,page_number,chunk_index,section_heading,content,image_ids,metadata")
-    .eq("document_id", id)
-    .order("chunk_index", { ascending: true });
+    .eq("document_id", id);
+  const filteredChunkQuery = generationFilter ? chunkQuery.or(generationFilter) : chunkQuery;
+  const orderedChunkQuery = filteredChunkQuery.order("chunk_index", { ascending: true });
   const chunksRequest = (
     selectedChunk
-      ? chunkQuery.gte("chunk_index", chunkRangeStart).lte("chunk_index", chunkRangeEnd)
-      : chunkQuery.range(chunkRangeStart, chunkRangeEnd)
+      ? orderedChunkQuery.gte("chunk_index", chunkRangeStart).lte("chunk_index", chunkRangeEnd)
+      : orderedChunkQuery.range(chunkRangeStart, chunkRangeEnd)
   ).abortSignal(args.request.signal);
 
   let imagesRequest = supabase
@@ -424,6 +432,9 @@ export async function loadAuthorizedDocumentDetail(args: {
   const imagesPending = imagesRequest.order("page_number", { ascending: true }).abortSignal(args.request.signal);
 
   let tableFactsRequest = supabase.from("document_table_facts").select(tableFactDetailProjection).eq("document_id", id);
+  if (generationFilter) {
+    tableFactsRequest = tableFactsRequest.or(generationFilter);
+  }
   if (query.assetScope === "window") {
     tableFactsRequest = tableFactsRequest.or(tableFactWindowFilter(pageRange, preservedImageIds));
   }

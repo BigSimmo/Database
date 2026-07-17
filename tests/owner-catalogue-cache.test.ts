@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 async function loadCacheModule() {
@@ -206,5 +208,11 @@ describe("owner catalogue cache", () => {
     await loadOwnerCatalogue({ ownerId: "owner-a", kind: "medication", limit: 500, load });
 
     expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves the registry seeding flight during mutation invalidation", () => {
+    const registrySeed = readFileSync(resolve(process.cwd(), "src/lib/registry-seed.ts"), "utf8");
+
+    expect(registrySeed).toContain("invalidateOwnerCatalogueCache({ ownerId, kind, preserveSignal: options.signal });");
   });
 });

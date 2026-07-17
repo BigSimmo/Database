@@ -40,7 +40,21 @@ describe("fixture-free client performance boundaries", () => {
 
   it("retains PDF.js as an on-demand import", () => {
     const pdfViewer = source("src/components/document-viewer/pdf-canvas-viewer.tsx");
+    const eagerPdfJsImport = /^[ \t]*import[ \t]+(?!type\b)(?:[^\r\n"']+[ \t]+from[ \t]+)?["']pdfjs-dist["'][ \t]*;?/m;
+
     expect(pdfViewer).toContain('await import("pdfjs-dist")');
-    expect(pdfViewer).not.toMatch(/^import(?! type\b).* from "pdfjs-dist";/m);
+    expect(pdfViewer).not.toMatch(eagerPdfJsImport);
+    expect('import "pdfjs-dist";').toMatch(eagerPdfJsImport);
+    expect('import pdfjs from "pdfjs-dist";').toMatch(eagerPdfJsImport);
+    expect('import type { PDFDocumentProxy } from "pdfjs-dist";').not.toMatch(eagerPdfJsImport);
+  });
+
+  it("revalidates cached document download URLs on every viewer action", () => {
+    const viewer = source("src/components/DocumentViewer.tsx");
+
+    expect(viewer).toContain("const cached = getCachedSignedUrl(endpoint)");
+    expect(viewer).toContain('anchor.download = currentDocumentFileName || "clinical-source"');
+    expect(viewer).not.toContain("href={downloadSignedUrl}");
+    expect(viewer).not.toContain("downloadUrl={downloadSignedUrl}");
   });
 });

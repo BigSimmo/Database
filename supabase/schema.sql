@@ -5099,22 +5099,27 @@ begin
     end if;
     best := null;
     best_sim := 0;
-    select candidate.term, similarity(candidate.term, tok)
+    select candidate.term, candidate.match_sim
       into best, best_sim
     from (
       (
-        select lower(alias) as term
+        select
+          lower(canonical) as term,
+          similarity(lower(alias), tok) as match_sim
         from public.rag_aliases
         where enabled
           and owner_id is null
           and length(alias) between 4 and 40
+          and length(canonical) between 4 and 40
           and lower(alias) % tok
         order by similarity(lower(alias), tok) desc, lower(alias)
         limit 32
       )
       union all
       (
-        select lower(canonical) as term
+        select
+          lower(canonical) as term,
+          similarity(lower(canonical), tok) as match_sim
         from public.rag_aliases
         where enabled
           and owner_id is null
@@ -5125,7 +5130,9 @@ begin
       )
       union all
       (
-        select word as term
+        select
+          word as term,
+          similarity(word, tok) as match_sim
         from public.document_title_words
         where length(word) between 4 and 40
           and word % tok
@@ -5133,7 +5140,7 @@ begin
         limit 32
       )
     ) candidate
-    order by similarity(candidate.term, tok) desc, candidate.term
+    order by candidate.match_sim desc, candidate.term
     limit 1;
     if best is not null and best_sim >= min_sim and best <> tok and length(best) >= length(tok) then
       corrected := corrected || best;
@@ -8351,8 +8358,11 @@ declare
   v_now timestamptz := pg_catalog.statement_timestamp();
   v_policy record;
   v_count integer;
+  v_remaining integer;
   v_reset_at timestamptz;
   v_min_remaining integer := 2147483647;
+  v_success_limit integer;
+  v_success_reset_at timestamptz;
 begin
   if (p_owner_id is null) = (p_subject_key is null or pg_catalog.btrim(p_subject_key) = '') then
     raise exception 'exactly one owner_id or subject_key is required';
@@ -8371,7 +8381,7 @@ begin
     values
       (p_owner_id, 'answer', v_now, 0, v_now),
       (p_owner_id, 'document_summarize', v_now, 0, v_now)
-    on conflict (owner_id, bucket) do nothing;
+    on conflict on constraint api_rate_limits_pkey do nothing;
     perform 1
     from public.api_rate_limits as rl
     where rl.owner_id = p_owner_id and rl.bucket in ('answer', 'document_summarize')
@@ -8399,7 +8409,12 @@ begin
       returning rl.request_count,
         rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds)
       into v_count, v_reset_at;
-      v_min_remaining := least(v_min_remaining, greatest(v_policy.limit_value - v_count, 0));
+      v_remaining := greatest(v_policy.limit_value - v_count, 0);
+      if v_remaining < v_min_remaining then
+        v_min_remaining := v_remaining;
+        v_success_limit := v_policy.limit_value;
+        v_success_reset_at := v_reset_at;
+      end if;
       if v_count > v_policy.limit_value then
         return query select
           v_policy.bucket::text,
@@ -8417,7 +8432,7 @@ begin
       (p_subject_key, 'answer', v_now, 0, v_now),
       ('anon:answer:global', 'answer', v_now, 0, v_now),
       (p_subject_key, 'document_summarize', v_now, 0, v_now)
-    on conflict (subject_key, bucket) do nothing;
+    on conflict on constraint api_rate_limit_subjects_pkey do nothing;
     perform 1
     from public.api_rate_limit_subjects as rl
     where (rl.subject_key, rl.bucket) in (
@@ -8450,7 +8465,12 @@ begin
       returning rl.request_count,
         rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds)
       into v_count, v_reset_at;
-      v_min_remaining := least(v_min_remaining, greatest(v_policy.limit_value - v_count, 0));
+      v_remaining := greatest(v_policy.limit_value - v_count, 0);
+      if v_remaining < v_min_remaining then
+        v_min_remaining := v_remaining;
+        v_success_limit := v_policy.limit_value;
+        v_success_reset_at := v_reset_at;
+      end if;
       if v_count > v_policy.limit_value then
         return query select
           v_policy.rejection_bucket::text,
@@ -8466,10 +8486,10 @@ begin
   return query select
     null::text,
     false,
-    p_summary_limit,
+    v_success_limit,
     v_min_remaining,
-    greatest(1, pg_catalog.ceil(extract(epoch from (v_reset_at - v_now)))::integer),
-    v_reset_at;
+    greatest(1, pg_catalog.ceil(extract(epoch from (v_success_reset_at - v_now)))::integer),
+    v_success_reset_at;
 end;
 $$;
 
@@ -8500,6 +8520,7 @@ declare
   v_entries text[] := '{}'::text[];
   v_safe boolean := false;
   v_has_unexpected_grantee boolean := false;
+  v_has_grantable boolean := false;
 begin
   select oid into v_role_oid from pg_catalog.pg_roles where rolname = p_role_name;
   select oid into v_namespace_oid from pg_catalog.pg_namespace where nspname = p_schema_name;
@@ -8533,7 +8554,8 @@ begin
     select distinct
       ea.object_type,
       case when privilege.grantee = 0 then 'PUBLIC' else grantee.rolname end as grantee,
-      lower(privilege.privilege_type) as privilege_type
+      lower(privilege.privilege_type) as privilege_type,
+      privilege.is_grantable
     from effective_acls ea
     cross join lateral pg_catalog.aclexplode(ea.acl) privilege
     left join pg_catalog.pg_roles grantee on grantee.oid = privilege.grantee
@@ -8544,12 +8566,14 @@ begin
                 order by object_type, grantee, privilege_type),
       '{}'::text[]
     ),
-    coalesce(bool_or(grantee not in (p_role_name, 'postgres', 'service_role')), false)
-  into v_entries, v_has_unexpected_grantee
+    coalesce(bool_or(grantee not in (p_role_name, 'postgres', 'service_role')), false),
+    coalesce(bool_or(is_grantable), false)
+  into v_entries, v_has_unexpected_grantee, v_has_grantable
   from exploded;
 
   v_safe :=
     not v_has_unexpected_grantee
+    and not v_has_grantable
     and not exists (
       select 1 from unnest(v_entries) entry
        where entry like 'table:PUBLIC:%'

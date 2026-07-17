@@ -167,7 +167,7 @@ export async function ensureRegistrySeeded(
   if (options.signal) query = query.abortSignal(options.signal);
   const { data, error } = await query;
   if (error) throw new Error(`Registry seed failed: ${error.message}`);
-  invalidateOwnerCatalogueCache({ ownerId, kind });
+  invalidateOwnerCatalogueCache({ ownerId, kind, preserveSignal: options.signal });
   throwIfAborted(options.signal);
   const seededRows = (data ?? []) as RegistryRecordRow[];
   const { bestEffortSyncClinicalRegistryRows } = await loadRegistryCorpus();
