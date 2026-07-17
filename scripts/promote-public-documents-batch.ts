@@ -1,95 +1,115 @@
+import { readFile } from "node:fs/promises";
 import { loadEnvConfig } from "@next/env";
+import {
+  assertPublicationApplyConfirmation,
+  parsePublicationCommandArgs,
+  parsePublicationManifest,
+  publicationManifestDigest,
+} from "@/lib/publication-manifest";
 
 loadEnvConfig(process.cwd());
-
-const BATCH_SIZE = 25;
-
-function withPublicCorpusMetadata(metadata: unknown): Record<string, unknown> {
-  const base =
-    typeof metadata === "object" && metadata !== null && !Array.isArray(metadata)
-      ? (metadata as Record<string, unknown>)
-      : {};
-  return { ...base, public_corpus: true };
-}
 
 async function loadAdminClient() {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   return createAdminClient();
 }
 
-async function countPublic(supabase: Awaited<ReturnType<typeof loadAdminClient>>) {
-  const { count, error } = await supabase
-    .from("documents")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "indexed")
-    .is("owner_id", null);
-  if (error) throw new Error(error.message);
-  return count ?? 0;
-}
-
-async function fetchBatchIds(supabase: Awaited<ReturnType<typeof loadAdminClient>>) {
-  const { data, error } = await supabase
-    .from("documents")
-    .select("id")
-    .eq("status", "indexed")
-    .not("owner_id", "is", null)
-    .limit(BATCH_SIZE);
-  if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => row.id as string);
-}
-
-async function promoteBatch(supabase: Awaited<ReturnType<typeof loadAdminClient>>, ids: string[]) {
-  if (ids.length === 0) return;
-
-  const updatedAt = new Date().toISOString();
-  const { data: documents, error: fetchError } = await supabase.from("documents").select("id, metadata").in("id", ids);
-  if (fetchError) throw new Error(fetchError.message);
-
-  await Promise.all(
-    (documents ?? []).map(async (document) => {
-      const { error } = await supabase
-        .from("documents")
-        .update({
-          owner_id: null,
-          metadata: withPublicCorpusMetadata(document.metadata),
-          updated_at: updatedAt,
-        })
-        .eq("id", document.id);
-      if (error) throw new Error(error.message);
-    }),
-  );
-
-  const artifactUpdates = await Promise.all([
-    supabase.from("document_labels").update({ owner_id: null, updated_at: updatedAt }).in("document_id", ids),
-    supabase.from("document_summaries").update({ owner_id: null, updated_at: updatedAt }).in("document_id", ids),
-    supabase.from("document_sections").update({ owner_id: null, updated_at: updatedAt }).in("document_id", ids),
-    supabase.from("document_memory_cards").update({ owner_id: null, updated_at: updatedAt }).in("document_id", ids),
-    supabase.from("document_table_facts").update({ owner_id: null }).in("document_id", ids),
-    supabase.from("document_embedding_fields").update({ owner_id: null }).in("document_id", ids),
-    supabase.from("document_index_quality").update({ owner_id: null, updated_at: updatedAt }).in("document_id", ids),
-    supabase.from("document_index_units").update({ owner_id: null, updated_at: updatedAt }).in("document_id", ids),
-  ]);
-  for (const { error } of artifactUpdates) {
-    if (error) throw new Error(error.message);
-  }
-}
-
 async function main() {
+  const args = parsePublicationCommandArgs(process.argv.slice(2));
+  const raw = await readFile(args.manifestPath, "utf8");
+  const manifest = parsePublicationManifest(raw);
+  const digest = publicationManifestDigest(raw);
   const supabase = await loadAdminClient();
-  let batches = 0;
+  const ids = manifest.documents.map((document) => document.documentId);
 
-  while (true) {
-    const ids = await fetchBatchIds(supabase);
-    if (ids.length === 0) break;
-    await promoteBatch(supabase, ids);
-    batches += 1;
-    const publicCount = await countPublic(supabase);
-    console.log(
-      `[public-documents:promote] batch ${batches}: promoted ${ids.length}; public indexed total ${publicCount}`,
-    );
+  const { data: documents, error: documentError } = await supabase
+    .from("documents")
+    .select("id, owner_id, status, title")
+    .in("id", ids);
+  if (documentError) throw new Error(documentError.message);
+
+  const documentsById = new Map((documents ?? []).map((document) => [document.id, document]));
+  const validationErrors: string[] = [];
+  for (const entry of manifest.documents) {
+    const document = documentsById.get(entry.documentId);
+    if (!document) validationErrors.push(`${entry.documentId}: not found`);
+    else if (document.owner_id !== entry.expectedOwnerId) validationErrors.push(`${entry.documentId}: owner changed`);
+    else if (document.status !== "indexed") validationErrors.push(`${entry.documentId}: status is ${document.status}`);
+  }
+  if (validationErrors.length > 0) {
+    throw new Error(`Publication manifest validation failed:\n${validationErrors.join("\n")}`);
   }
 
-  console.log(`[public-documents:promote] complete. indexed public documents: ${await countPublic(supabase)}`);
+  const decisionCounts = Object.fromEntries(
+    ["approved", "keep_private", "quarantine"].map((decision) => [
+      decision,
+      manifest.documents.filter((document) => document.decision === decision).length,
+    ]),
+  );
+  console.log(`[public-documents:promote] manifest SHA-256: ${digest}`);
+  console.log(`[public-documents:promote] explicit document count: ${manifest.documents.length}`);
+  console.log(`[public-documents:promote] decisions: ${JSON.stringify(decisionCounts)}`);
+
+  if (!args.apply) {
+    console.log("[public-documents:promote] dry run only; no approvals or document ownership were changed.");
+    console.log(
+      `[public-documents:promote] apply with --expected-count ${manifest.documents.length} --confirm-sha256 ${digest} --apply`,
+    );
+    return;
+  }
+
+  assertPublicationApplyConfirmation({
+    manifest,
+    digest,
+    expectedCount: args.expectedCount,
+    confirmSha256: args.confirmSha256,
+  });
+
+  const { data: existingApprovals, error: existingApprovalError } = await supabase
+    .from("document_publication_approvals")
+    .select("document_id, expected_prior_owner_id, decision, manifest_digest")
+    .eq("manifest_digest", digest)
+    .in("document_id", ids);
+  if (existingApprovalError) throw new Error(existingApprovalError.message);
+  const existing = new Set(
+    (existingApprovals ?? []).map(
+      (approval) =>
+        `${approval.document_id}:${approval.expected_prior_owner_id}:${approval.decision}:${approval.manifest_digest}`,
+    ),
+  );
+  const approvals = manifest.documents
+    .filter(
+      (document) => !existing.has(`${document.documentId}:${document.expectedOwnerId}:${document.decision}:${digest}`),
+    )
+    .map((document) => ({
+      document_id: document.documentId,
+      expected_prior_owner_id: document.expectedOwnerId,
+      approving_operator_id: manifest.approvingOperatorId,
+      decision: document.decision,
+      reason: manifest.reason,
+      evidence_references: manifest.evidenceReferences,
+      manifest_digest: digest,
+    }));
+  if (approvals.length > 0) {
+    const { error: approvalError } = await supabase.from("document_publication_approvals").insert(approvals);
+    if (approvalError) throw new Error(approvalError.message);
+  }
+
+  const approvedDocuments = manifest.documents
+    .filter((document) => document.decision === "approved")
+    .map((document) => ({ document_id: document.documentId, expected_owner_id: document.expectedOwnerId }));
+  if (approvedDocuments.length === 0) {
+    console.log("[public-documents:promote] decisions recorded; no documents were approved for publication.");
+    return;
+  }
+
+  const { data: result, error: publishError } = await supabase.rpc("publish_approved_documents", {
+    p_documents: approvedDocuments,
+    p_manifest_digest: digest,
+    p_expected_count: approvedDocuments.length,
+  });
+  if (publishError) throw new Error(publishError.message);
+  console.log(`[public-documents:promote] result: ${JSON.stringify(result)}`);
 }
 
 main().catch((error: unknown) => {

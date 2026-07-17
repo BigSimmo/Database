@@ -131,6 +131,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .single();
 
     if (jobError) {
+      // A concurrent transactional delete holds the parent row lock while it
+      // removes the document. Once deletion commits, the FK check for this job
+      // fails with 23503. That is a normal lifecycle conflict, not a server
+      // fault, and there is no surviving document state to roll back.
+      if (jobError.code === "23503") {
+        return NextResponse.json(
+          { error: "Document was deleted while reindexing. Refresh the document list and retry." },
+          { status: 409 },
+        );
+      }
       // R17: a unique index on ingestion_jobs(document_id) where status in
       // (pending,processing) can reject this insert with 23505 when a
       // concurrent request won the race between the pre-check above and this
