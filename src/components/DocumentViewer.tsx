@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
   CircleAlert,
@@ -64,7 +65,6 @@ import {
 } from "@/components/ui-primitives";
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
-import { NativePdfEmbed, PdfCanvasViewer } from "@/components/document-viewer/pdf-canvas-viewer";
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
@@ -104,6 +104,34 @@ import {
 import { buildDocumentSummaryBadges } from "@/lib/document-summary-badges";
 import { documentSummaryQuestion } from "@/lib/answer-contract";
 import type { DocumentDetailPayload } from "@/lib/document-detail-contract";
+
+// pdf-canvas-viewer is only needed after a source document has loaded and the
+// user is viewing a PDF. Keeping it out of the document route's initial client
+// chunk avoids parsing its reader controls for image, text, and download-only
+// documents. pdf.js itself remains loaded on demand by that component.
+const PdfCanvasViewer = dynamic(
+  () => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.PdfCanvasViewer),
+  {
+    ssr: false,
+    loading: () => <PdfPreviewLoading />,
+  },
+);
+const NativePdfEmbed = dynamic(
+  () => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.NativePdfEmbed),
+  { ssr: false, loading: () => <PdfPreviewLoading /> },
+);
+
+function PdfPreviewLoading() {
+  return (
+    <div
+      aria-busy="true"
+      aria-live="polite"
+      className="grid min-h-64 place-items-center bg-[color:var(--surface-inset)] p-5 text-center text-sm text-[color:var(--text-muted)] sm:min-h-72"
+    >
+      Loading PDF reader…
+    </div>
+  );
+}
 
 type PageRow = {
   id: string;
