@@ -1187,3 +1187,36 @@ describe("Supabase Preview replay guards", () => {
     expect(ingestionRpcPrivilegesDuplicateMigration).toContain("select 1 where false;");
   });
 });
+
+describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () => {
+  // The fix ships as a forward migration; schema.sql + drift-manifest are synced at
+  // the Docker-gated apply step, so this asserts the migration rather than schema.sql.
+  const correctorPublicTitlesMigration = readFileSync(
+    new URL("../supabase/migrations/20260717120000_corrector_public_titles_only.sql", import.meta.url),
+    "utf8",
+  )
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+  it("recreates the corrector scoped to the public (null-owner) title corpus", () => {
+    expect(correctorPublicTitlesMigration).toContain(
+      "create or replace function public.correct_clinical_query_terms(input_query text, min_sim real default 0.45)",
+    );
+    // SECURITY DEFINER bypasses RLS, so the title scan must be owner-scoped to keep a
+    // private tenant's title tokens out of every caller's correction vocabulary.
+    expect(correctorPublicTitlesMigration).toContain(
+      "where d.status = 'indexed' and d.owner_id is null and length(w) between 4 and 40",
+    );
+    // Regression guard: the old unscoped predicate must not survive in the migration.
+    expect(correctorPublicTitlesMigration).not.toContain("where d.status = 'indexed' and length(w) between 4 and 40");
+  });
+
+  it("keeps the corrector execute privilege confined to service_role", () => {
+    expect(correctorPublicTitlesMigration).toContain(
+      "revoke execute on function public.correct_clinical_query_terms(text, real) from public, anon, authenticated;",
+    );
+    expect(correctorPublicTitlesMigration).toContain(
+      "grant execute on function public.correct_clinical_query_terms(text, real) to service_role;",
+    );
+  });
+});
