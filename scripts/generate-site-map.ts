@@ -497,7 +497,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         ? data.redirects.map((redirect) =>
             bullet(redirect.route, `Redirects to \`${redirect.target}\`. Source: \`${redirect.file}\`.`),
           )
-        : ["- No page-level redirects discovered."],
+        : ["- No redirects discovered."],
     ),
     ...section("Known caveats and stale-path flags", [
       "- `/mockups/*` prototype routes are development-only; production returns 404 and `robots.txt` disallows indexing.",
