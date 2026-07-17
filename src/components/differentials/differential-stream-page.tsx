@@ -61,7 +61,7 @@ export function DifferentialStreamPage({ stream, query = "" }: DifferentialStrea
           <div className="grid gap-3 sm:grid-cols-2">
             {copy.cards.map((card) => (
               <Link
-                key={card.title}
+                key={card.id}
                 href={card.href}
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]"
               >
