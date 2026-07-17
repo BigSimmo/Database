@@ -3482,6 +3482,7 @@ declare
   tok text;
   best text;
   best_sim real;
+  vocab text[];
   corrected text[] := array[]::text[];
   changed boolean := false;
 begin

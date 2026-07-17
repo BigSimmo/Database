@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-17T14:08:59.595Z",
+  "generated_at": "2026-07-17T22:10:14.366Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "e93fe90cae38654e77b7be0f81e5a0c90b0c7db2fd37d76e32f4f52a089eff45",
-  "replay_seconds": 30,
+  "schema_sha256": "302a9ecec8e69564d50035be8480fa5e5686ca6136d96978f2188ecf5fb58be1",
+  "replay_seconds": 13,
   "snapshot": {
     "views": [
       {
@@ -5291,6 +5291,12 @@
         "def_hash": "9ac4c08564d3f549df99a1e543875cb8"
       },
       {
+        "def": "CREATE INDEX document_title_words_document_id_idx ON public.document_title_words USING btree (document_id)",
+        "name": "document_title_words_document_id_idx",
+        "table": "document_title_words",
+        "def_hash": "003cf77523b819a06ff50cf8df6fcf4b"
+      },
+      {
         "def": "CREATE UNIQUE INDEX document_title_words_pkey ON public.document_title_words USING btree (word, document_id)",
         "name": "document_title_words_pkey",
         "table": "document_title_words",
@@ -5349,6 +5355,12 @@
         "name": "documents_pkey",
         "table": "documents",
         "def_hash": "fc27ae2194373897e2f316e1cac47fb0"
+      },
+      {
+        "def": "CREATE INDEX documents_registry_projection_lookup_idx ON public.documents USING btree (((metadata ->> 'registry_record_kind'::text)), ((metadata ->> 'registry_record_id'::text))) WHERE ((metadata ->> 'source_kind'::text) = 'registry_record'::text)",
+        "name": "documents_registry_projection_lookup_idx",
+        "table": "documents",
+        "def_hash": "2c19fee4cac85c85d9ec69f179a6cb79"
       },
       {
         "def": "CREATE INDEX documents_search_idx ON public.documents USING gin (search_tsv)",
@@ -6329,6 +6341,11 @@
         "table": "documents"
       },
       {
+        "def": "CREATE TRIGGER documents_sync_title_words AFTER INSERT OR DELETE OR UPDATE OF title, status, owner_id ON public.documents FOR EACH ROW EXECUTE FUNCTION public.sync_document_title_words()",
+        "name": "documents_sync_title_words",
+        "table": "documents"
+      },
+      {
         "def": "CREATE TRIGGER documents_updated_at BEFORE UPDATE ON public.documents FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
         "name": "documents_updated_at",
         "table": "documents"
@@ -6448,10 +6465,9 @@
       },
       {
         "acl": [
-          "postgres=X/postgres",
-          "service_role=X/postgres"
+          "postgres=X/postgres"
         ],
-        "def_hash": "a0e9e41b95c9eeff7957dd292f3dd3fa",
+        "def_hash": "7104ee6e947fcca68fdebdf2fa878339",
         "signature": "public.cleanup_registry_corpus_document()"
       },
       {
@@ -6514,6 +6530,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "833c00fa1743026d9269b9af28e0b86f",
+        "signature": "public.consume_summary_rate_limits_atomic(uuid,text,integer,integer,integer,integer,integer,integer)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "f909017309f1d81e24c03b419ff8d46b",
         "signature": "public.corpus_topic_term_stats_v2(text[],uuid,boolean)"
       },
@@ -6530,7 +6554,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "a5ebdd1ec14008cdf0c8601a32b4d24c",
+        "def_hash": "cb65883a561cb1f5cd2247213f417a41",
         "signature": "public.correct_clinical_query_terms(text,real)"
       },
       {
@@ -6538,7 +6562,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "675d521a0746befe09e68e47986c6355",
+        "def_hash": "a6f0e7c27da08e47e2c01dce4ab5d58d",
         "signature": "public.default_privileges_status(text,text)"
       },
       {
@@ -7056,10 +7080,9 @@
       },
       {
         "acl": [
-          "postgres=X/postgres",
-          "service_role=X/postgres"
+          "postgres=X/postgres"
         ],
-        "def_hash": "582d35a5082ff0e4879db461294404fd",
+        "def_hash": "6b51ece12494d136b39977d8532c013c",
         "signature": "public.sync_document_title_words()"
       },
       {
@@ -7574,8 +7597,18 @@
         "table": "document_title_words"
       },
       {
+        "def": "CHECK ((word = lower(word)))",
+        "name": "document_title_words_lowercase",
+        "table": "document_title_words"
+      },
+      {
         "def": "PRIMARY KEY (word, document_id)",
         "name": "document_title_words_pkey",
+        "table": "document_title_words"
+      },
+      {
+        "def": "CHECK (((length(word) >= 4) AND (length(word) <= 40)))",
+        "name": "document_title_words_word_length",
         "table": "document_title_words"
       },
       {
