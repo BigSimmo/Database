@@ -18,6 +18,34 @@ export type SearchCommandSurfaceConfig = {
   crossModes: AppModeId[];
 };
 
+export type CommandSurfacePlacement = "bottom-dock" | "inline";
+
+export function commandDropdownMinimumWidthMediaQuery(placement: CommandSurfacePlacement) {
+  const minimumWidth = placement === "bottom-dock" ? "640px" : "1024px";
+  return `(min-width: ${minimumWidth})`;
+}
+
+export const commandDropdownPointerMediaQuery = "(hover: hover) and (pointer: fine)";
+
+/**
+ * The command panel is a desktop enhancement. Width alone is not enough to
+ * identify that environment: phones can report a wide viewport in landscape,
+ * display-zoom, or desktop-site modes. A fine pointer enables the panel on
+ * hybrid desktops; a zero-touch fallback keeps headless/remote desktops usable
+ * when the browser reports no pointer hardware at all.
+ */
+export function commandDropdownCanDisplay({
+  minimumWidthMatches,
+  pointerMatches,
+  maxTouchPoints,
+}: {
+  minimumWidthMatches: boolean;
+  pointerMatches: boolean;
+  maxTouchPoints: number;
+}) {
+  return minimumWidthMatches && (pointerMatches || maxTouchPoints === 0);
+}
+
 const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurfaceConfig>> = {
   documents: {
     examples: ["clozapine ANC thresholds", "lithium monitoring table", "QT prolongation quote"],
