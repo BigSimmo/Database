@@ -16,13 +16,14 @@ const topRevealOffset = 8;
 // Minimum per-event delta (px) before we treat movement as intentional, to
 // avoid jitter from momentum settling and fractional scroll positions.
 const minimumDelta = 4;
-// Require sustained motion before changing chrome state. This filters
-// fractional momentum reversals without making a deliberate reveal feel slow.
+// Once the header's activation band has passed, require a little more
+// continuous downward travel before hiding. Reappearing should be easier, but
+// still deliberate enough that trackpad/touch momentum cannot flicker the
+// chrome at a direction change.
 const hideIntentDistance = 24;
 const revealIntentDistance = 12;
 
 type ScrollDirection = "down" | "up" | null;
-
 export interface ScrollMetrics {
   offset: number;
   maxOffset?: number;
@@ -87,6 +88,8 @@ export function computeScrollHideUpdate(params: {
   let hidden = currentlyHidden;
 
   if (!currentlyHidden && nextDirection === "down" && offset > hideActivationOffset) {
+    // Only count travel beyond the activation band. This stops a single flick
+    // from the top hiding the chrome the instant it clears the header height.
     const travelPastActivation = Math.min(nextDirectionTravel, offset - hideActivationOffset);
     hidden = travelPastActivation >= hideIntentDistance;
   } else if (currentlyHidden && nextDirection === "up" && nextDirectionTravel >= revealIntentDistance) {
