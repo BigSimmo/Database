@@ -1381,3 +1381,77 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
     );
   });
 });
+
+describe("Storage buckets migration (schema-drift fix)", () => {
+  // 2026-07-17: clinical-documents / clinical-images were only declared in
+  // schema.sql. The migration chain created the storage.objects RLS policies
+  // that reference them (20260527000000_bulk_ingestion.sql) but never the
+  // buckets themselves, so a database built purely by replaying migrations
+  // had RLS policies for buckets that did not exist and uploads failed.
+  const storageBucketsMigration = readFileSync(
+    new URL("../supabase/migrations/20260717130000_create_storage_buckets.sql", import.meta.url),
+    "utf8",
+  ).replace(/\s+/g, " ");
+
+  it("creates the clinical-documents bucket as private with the documented size limit and mime types", () => {
+    expect(storageBucketsMigration).toContain(
+      "insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values ( 'clinical-documents', 'clinical-documents', false, 157286400,",
+    );
+    for (const mimeType of [
+      "application/pdf",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "text/plain",
+    ]) {
+      expect(storageBucketsMigration).toContain(`'${mimeType}'`);
+    }
+  });
+
+  it("creates the clinical-images bucket as private with the documented size limit and mime types", () => {
+    expect(storageBucketsMigration).toContain(
+      "insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values ( 'clinical-images', 'clinical-images', false, 52428800,",
+    );
+    expect(storageBucketsMigration).toContain("array['image/png', 'image/jpeg', 'image/webp']");
+  });
+
+  it("is idempotent and re-affirms public = false on conflict for both buckets", () => {
+    const onConflictMatches = storageBucketsMigration.match(/on conflict \(id\) do update set public = false;/g);
+    expect(onConflictMatches).toHaveLength(2);
+    // Regression guard: "do nothing" would silently skip re-affirming public = false
+    // on an existing row, which is the exact drift this migration is meant to fix.
+    expect(storageBucketsMigration).not.toContain("on conflict (id) do nothing");
+    expect(storageBucketsMigration).not.toMatch(/public = true/);
+  });
+
+  it("uses byte-accurate file size limits (150MB documents, 50MB images)", () => {
+    expect(150 * 1024 * 1024).toBe(157286400);
+    expect(50 * 1024 * 1024).toBe(52428800);
+    expect(storageBucketsMigration).toContain("157286400");
+    expect(storageBucketsMigration).toContain("52428800");
+  });
+
+  it("mirrors schema.sql's bucket definitions exactly (migration/schema.sql parity)", () => {
+    // The migration mirrors schema.sql so a migrated-from-scratch database
+    // ends up identical to one bootstrapped directly from schema.sql.
+    expect(schema).toContain(
+      "insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values ( 'clinical-documents', 'clinical-documents', false, 157286400,",
+    );
+    expect(schema).toContain(
+      "insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values ( 'clinical-images', 'clinical-images', false, 52428800,",
+    );
+    const schemaOnConflictMatches = schema.match(/on conflict \(id\) do update set public = false;/g) ?? [];
+    expect(schemaOnConflictMatches.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("creates both buckets referenced by the storage.objects owner-read RLS policies", () => {
+    // Regression guard for the schema-drift bug this migration fixes: the
+    // buckets referenced by the RLS policies below must actually exist
+    // somewhere in the migration chain.
+    expect(storageBucketsMigration).toContain("'clinical-documents'");
+    expect(storageBucketsMigration).toContain("'clinical-images'");
+    expect(bulkIngestionMigration).toContain('create policy "document storage owner read" on storage.objects');
+    expect(bulkIngestionMigration).toContain("bucket_id = 'clinical-documents'");
+    expect(bulkIngestionMigration).toContain('create policy "image storage owner read" on storage.objects');
+    expect(bulkIngestionMigration).toContain("bucket_id = 'clinical-images'");
+  });
+});
