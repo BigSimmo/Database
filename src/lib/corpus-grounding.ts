@@ -9,6 +9,20 @@ import {
   type RetrievalAccessScope,
 } from "@/lib/owner-scope";
 
+type AbortableQuery<T> = PromiseLike<T> & { abortSignal?: (signal: AbortSignal) => PromiseLike<T> };
+
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
+}
+
+async function resolveAbortableQuery<T>(query: AbortableQuery<T>, signal?: AbortSignal): Promise<T> {
+  if (signal?.aborted) throw abortReason(signal);
+  const pending = signal && typeof query.abortSignal === "function" ? query.abortSignal(signal) : query;
+  const result = await pending;
+  if (signal?.aborted) throw abortReason(signal);
+  return result;
+}
+
 // Finding #11 (corpus-grounded relevance): the deterministic query analyzer cannot tell an
 // in-corpus bare topic ("bipolar disorder") from an invented one ("florbizone syndrome
 // management") — both land in the unsupported soft tail with identical confidence, and the LLM
@@ -121,7 +135,9 @@ export async function classifyCorpusGrounding(args: {
   // The exact owner_filter retrieval will use (null = unscoped, zero-UUID = public docs only).
   ownerFilter: string | null;
   accessScope?: RetrievalAccessScope;
+  signal?: AbortSignal;
 }): Promise<CorpusGroundingResult> {
+  if (args.signal?.aborted) throw abortReason(args.signal);
   const terms = corpusGroundingTerms(args.query);
   if (terms.length === 0) return { verdict: "inconclusive", anchorTerms: [], absentTerms: [] };
 
@@ -142,20 +158,29 @@ export async function classifyCorpusGrounding(args: {
   if (missing.length > 0) {
     try {
       const ownerFilter = accessScope.ownerId ?? PUBLIC_OWNER_FILTER_SENTINEL;
-      const versioned = await args.supabase.rpc("corpus_topic_term_stats_v2", {
-        terms: missing,
-        owner_filter: ownerFilter,
-        include_public: accessScope.includePublic,
-      });
+      const versioned = await resolveAbortableQuery(
+        args.supabase.rpc("corpus_topic_term_stats_v2", {
+          terms: missing,
+          owner_filter: ownerFilter,
+          include_public: accessScope.includePublic,
+        }),
+        args.signal,
+      );
       const calls =
         !versioned || isMissingRetrievalRpcError(versioned.error)
           ? await Promise.all([
-              args.supabase.rpc("corpus_topic_term_stats", { terms: missing, owner_filter: ownerFilter }),
+              resolveAbortableQuery(
+                args.supabase.rpc("corpus_topic_term_stats", { terms: missing, owner_filter: ownerFilter }),
+                args.signal,
+              ),
               accessScope.ownerId && accessScope.includePublic
-                ? args.supabase.rpc("corpus_topic_term_stats", {
-                    terms: missing,
-                    owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
-                  })
+                ? resolveAbortableQuery(
+                    args.supabase.rpc("corpus_topic_term_stats", {
+                      terms: missing,
+                      owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
+                    }),
+                    args.signal,
+                  )
                 : Promise.resolve({ data: [], error: null }),
             ])
           : [versioned];
@@ -182,11 +207,13 @@ export async function classifyCorpusGrounding(args: {
       // A term the RPC did not echo back got dropped SQL-side (blank after trim); treat the
       // whole classification as inconclusive rather than guessing.
       if (rows.length !== missing.length) return { verdict: "inconclusive", anchorTerms: [], absentTerms: [] };
+      if (args.signal?.aborted) throw abortReason(args.signal);
       for (const row of rows) {
         storeCachedStats(ownerScopeKey, row);
         stats.push(row);
       }
     } catch {
+      if (args.signal?.aborted) throw abortReason(args.signal);
       // Fail open: missing RPC (migration not applied), transient DB error, demo mode — the
       // caller keeps today's behaviour (LLM classifier fallback + soft-tail short-circuit).
       return { verdict: "inconclusive", anchorTerms: [], absentTerms: [] };

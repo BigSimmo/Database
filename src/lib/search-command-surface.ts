@@ -1,6 +1,5 @@
 import type { AppModeId } from "@/lib/app-modes";
-import type { ServiceRecord } from "@/lib/services";
-import { serviceRecordSearchText } from "@/lib/services";
+import { serviceRecordSearchText, type ServiceRecord } from "@/lib/service-ranker";
 
 export type CommandScopeChip = {
   id: string;

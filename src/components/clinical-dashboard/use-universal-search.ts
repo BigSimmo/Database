@@ -11,6 +11,7 @@ import type {
 // Value import from the leaf module only: universal-search.ts itself is server-only
 // (snapshot catalogues, rag, supabase) and must never enter the client bundle.
 import { universalSearchDomains, type UniversalSearchDomain } from "@/lib/universal-search-domains";
+import { consumeUniversalSearchNdjson } from "@/lib/universal-search-stream";
 import type { AppModeId } from "@/lib/app-modes";
 import { useAuthSession } from "@/lib/supabase/client";
 
@@ -34,6 +35,7 @@ export type UniversalSearchState = {
 type UniversalSearchResult = {
   groups: UniversalSearchGroup[];
   query: string;
+  complete: boolean;
   interpretation?: UniversalSearchInterpretation;
   domainOrder?: UniversalSearchDomain[];
   topHit?: UniversalSearchTopHit;
@@ -102,7 +104,7 @@ export function useUniversalSearch(args: {
   limitPerDomain?: number;
 }): UniversalSearchState {
   const { authorizationHeader } = useAuthSession();
-  const [result, setResult] = useState<UniversalSearchResult>({ groups: [], query: "" });
+  const [result, setResult] = useState<UniversalSearchResult>({ groups: [], query: "", complete: true });
   const requestSeqRef = useRef(0);
   const prevAuthRef = useRef(authorizationHeader);
   const trimmedQuery = args.query.trim();
@@ -126,7 +128,7 @@ export function useUniversalSearch(args: {
     const key = cacheKey;
 
     if (authChanged) {
-      setResult({ groups: [], query: "" });
+      setResult({ groups: [], query: "", complete: true });
     }
 
     // Instant path: a previously fetched query needs no fetch. The render below reads the cache
@@ -151,19 +153,43 @@ export function useUniversalSearch(args: {
         limit: String(limitPerDomain),
         domains: domains.join(","),
         mode: args.contextMode,
+        stream: "ndjson",
       });
       fetch(`/api/search/universal?${params.toString()}`, { headers: authorizationHeader, signal: controller.signal })
         .then(async (response) => {
           if (requestId !== requestSeqRef.current) return;
           if (!response.ok) {
-            setResult({ groups: [], query: trimmedQuery, contextMode: args.contextMode });
+            setResult({ groups: [], query: trimmedQuery, contextMode: args.contextMode, complete: true });
             return;
           }
-          const payload = (await response.json()) as Partial<UniversalSearchResult>;
-          if (requestId !== requestSeqRef.current) return;
+          const payload = await consumeUniversalSearchNdjson(response, {
+            signal: controller.signal,
+            onGroup: (group, streamedQuery) => {
+              if (controller.signal.aborted || requestId !== requestSeqRef.current || streamedQuery !== trimmedQuery) {
+                return;
+              }
+
+              setResult((current) => {
+                if (controller.signal.aborted || requestId !== requestSeqRef.current) return current;
+                const groups =
+                  current.query === trimmedQuery && current.contextMode === args.contextMode && !current.complete
+                    ? current.groups.filter((candidate) => candidate.kind !== group.kind)
+                    : [];
+                if (!group.error && group.items.length > 0) groups.push(group);
+                return {
+                  groups,
+                  query: trimmedQuery,
+                  contextMode: args.contextMode,
+                  complete: false,
+                };
+              });
+            },
+          });
+          if (controller.signal.aborted || requestId !== requestSeqRef.current) return;
           const next: UniversalSearchResult = {
             groups: (payload.groups ?? []).filter((group) => !group.error && group.items.length > 0),
             query: trimmedQuery,
+            complete: true,
             interpretation: payload.interpretation,
             domainOrder: payload.domainOrder,
             topHit: payload.topHit,
@@ -176,9 +202,9 @@ export function useUniversalSearch(args: {
         })
         .catch((error: unknown) => {
           // An aborted fetch is a superseded keystroke, not a failure — leave state to the newer request.
-          if (error instanceof DOMException && error.name === "AbortError") return;
+          if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
           if (requestId !== requestSeqRef.current) return;
-          setResult({ groups: [], query: trimmedQuery, contextMode: args.contextMode });
+          setResult({ groups: [], query: trimmedQuery, contextMode: args.contextMode, complete: true });
         });
     }, debounceMs);
 
@@ -209,7 +235,7 @@ export function useUniversalSearch(args: {
   const fresh = result.query === trimmedQuery && result.contextMode === args.contextMode;
   return {
     groups: fresh ? result.groups : [],
-    loading: !fresh,
+    loading: !fresh || !result.complete,
     query: result.query,
     interpretation: fresh ? result.interpretation : undefined,
     domainOrder: fresh ? result.domainOrder : undefined,

@@ -2262,6 +2262,26 @@ export type Database = {
           retry_after_seconds: number;
         }[];
       };
+      consume_summary_rate_limits_atomic: {
+        Args: {
+          p_answer_limit: number;
+          p_answer_window_seconds: number;
+          p_global_answer_limit: number;
+          p_global_answer_window_seconds: number;
+          p_owner_id: string | null;
+          p_subject_key: string | null;
+          p_summary_limit: number;
+          p_summary_window_seconds: number;
+        };
+        Returns: {
+          bucket: string | null;
+          limit_value: number;
+          limited: boolean;
+          remaining: number;
+          reset_at: string;
+          retry_after_seconds: number;
+        }[];
+      };
       corpus_topic_term_stats: {
         Args: { terms: string[]; owner_filter?: string | null };
         Returns: {

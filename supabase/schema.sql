@@ -4981,6 +4981,177 @@ begin
   end;
 end $$;
 
+-- Performance remediation: registry projection lifecycle cleanup.
+create index if not exists documents_registry_projection_lookup_idx
+  on public.documents (
+    (metadata->>'registry_record_kind'),
+    (metadata->>'registry_record_id')
+  )
+  where metadata->>'source_kind' = 'registry_record';
+
+create or replace function public.cleanup_registry_corpus_document()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.documents
+  where metadata->>'source_kind' = 'registry_record'
+    and metadata->>'registry_record_kind' = case tg_table_name
+      when 'clinical_registry_records' then pg_catalog.to_jsonb(old)->>'kind'
+      when 'medication_records' then 'medication'
+      when 'differential_records' then 'differential'
+      else null
+    end
+    and metadata->>'registry_record_id' = old.id::text;
+  return old;
+end;
+$$;
+
+revoke execute on function public.cleanup_registry_corpus_document()
+  from public, anon, authenticated, service_role;
+
+-- Performance remediation: privacy-preserving indexed title vocabulary.
+create table if not exists public.document_title_words (
+  word text not null,
+  document_id uuid not null references public.documents(id) on delete cascade,
+  primary key (word, document_id),
+  constraint document_title_words_word_length check (length(word) between 4 and 40),
+  constraint document_title_words_lowercase check (word = lower(word))
+);
+
+create index if not exists document_title_words_word_trgm_idx
+  on public.document_title_words using gin (word extensions.gin_trgm_ops);
+
+create index if not exists document_title_words_document_id_idx
+  on public.document_title_words (document_id);
+create index if not exists rag_aliases_canonical_trgm_idx
+  on public.rag_aliases using gin (lower(canonical) extensions.gin_trgm_ops);
+
+alter table public.document_title_words enable row level security;
+revoke all on table public.document_title_words from public, anon, authenticated;
+grant select, insert, update, delete on table public.document_title_words to service_role;
+
+insert into public.document_title_words (word, document_id)
+select distinct lower(title_word), d.id
+from public.documents d
+cross join lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as title_word
+where d.owner_id is null and d.status = 'indexed'
+  and length(title_word) between 4 and 40
+on conflict do nothing;
+
+create or replace function public.sync_document_title_words()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_op <> 'INSERT' then
+    delete from public.document_title_words where document_id = old.id;
+  end if;
+  if tg_op <> 'DELETE' and new.owner_id is null and new.status = 'indexed' then
+    insert into public.document_title_words (word, document_id)
+    select distinct lower(title_word), new.id
+    from pg_catalog.unnest(pg_catalog.regexp_split_to_array(lower(new.title), '[^a-z]+')) as title_word
+    where length(title_word) between 4 and 40
+    on conflict do nothing;
+  end if;
+  return null;
+end;
+$$;
+
+revoke execute on function public.sync_document_title_words()
+  from public, anon, authenticated, service_role;
+drop trigger if exists documents_sync_title_words on public.documents;
+create trigger documents_sync_title_words
+  after insert or update of title, status, owner_id or delete on public.documents
+  for each row execute function public.sync_document_title_words();
+
+create or replace function public.correct_clinical_query_terms(
+  input_query text,
+  min_sim real default 0.45
+)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog, extensions
+as $$
+declare
+  tokens text[];
+  tok text;
+  best text;
+  best_sim real;
+  corrected text[] := array[]::text[];
+  changed boolean := false;
+begin
+  if input_query is null or length(trim(input_query)) = 0 then
+    return input_query;
+  end if;
+  tokens := regexp_split_to_array(lower(input_query), '\s+');
+  foreach tok in array tokens loop
+    if length(tok) < 4 then
+      corrected := corrected || tok;
+      continue;
+    end if;
+    best := null;
+    best_sim := 0;
+    select candidate.term, similarity(candidate.term, tok)
+      into best, best_sim
+    from (
+      (
+        select lower(alias) as term
+        from public.rag_aliases
+        where enabled
+          and owner_id is null
+          and length(alias) between 4 and 40
+          and lower(alias) % tok
+        order by similarity(lower(alias), tok) desc, lower(alias)
+        limit 32
+      )
+      union all
+      (
+        select lower(canonical) as term
+        from public.rag_aliases
+        where enabled
+          and owner_id is null
+          and length(canonical) between 4 and 40
+          and lower(canonical) % tok
+        order by similarity(lower(canonical), tok) desc, lower(canonical)
+        limit 32
+      )
+      union all
+      (
+        select word as term
+        from public.document_title_words
+        where length(word) between 4 and 40
+          and word % tok
+        order by similarity(word, tok) desc, word
+        limit 32
+      )
+    ) candidate
+    order by similarity(candidate.term, tok) desc, candidate.term
+    limit 1;
+    if best is not null and best_sim >= min_sim and best <> tok and length(best) >= length(tok) then
+      corrected := corrected || best;
+      changed := true;
+    else
+      corrected := corrected || tok;
+    end if;
+  end loop;
+  if not changed then
+    return input_query;
+  end if;
+  return array_to_string(corrected, ' ');
+end;
+$$;
+
+revoke execute on function public.correct_clinical_query_terms(text, real)
+  from public, anon, authenticated;
+grant execute on function public.correct_clinical_query_terms(text, real) to service_role;
+
 revoke usage on schema public from anon;
 grant usage on schema public to authenticated, service_role;
 
@@ -7525,3 +7696,171 @@ begin
     or public.retrieval_owner_matches_v2('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', true)
   then raise exception 'retrieval_owner_matches_v2 truth table failed'; end if;
 end $$;
+
+drop trigger if exists clinical_registry_records_delete_cleanup on public.clinical_registry_records;
+create trigger clinical_registry_records_delete_cleanup
+  after delete on public.clinical_registry_records
+  for each row execute function public.cleanup_registry_corpus_document();
+drop trigger if exists medication_records_delete_cleanup on public.medication_records;
+create trigger medication_records_delete_cleanup
+  after delete on public.medication_records
+  for each row execute function public.cleanup_registry_corpus_document();
+drop trigger if exists differential_records_delete_cleanup on public.differential_records;
+create trigger differential_records_delete_cleanup
+  after delete on public.differential_records
+  for each row execute function public.cleanup_registry_corpus_document();
+
+create or replace function public.consume_summary_rate_limits_atomic(
+  p_owner_id uuid,
+  p_subject_key text,
+  p_answer_limit integer,
+  p_answer_window_seconds integer,
+  p_summary_limit integer,
+  p_summary_window_seconds integer,
+  p_global_answer_limit integer,
+  p_global_answer_window_seconds integer
+)
+returns table (
+  bucket text,
+  limited boolean,
+  limit_value integer,
+  remaining integer,
+  retry_after_seconds integer,
+  reset_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_now timestamptz := pg_catalog.statement_timestamp();
+  v_policy record;
+  v_count integer;
+  v_reset_at timestamptz;
+  v_min_remaining integer := 2147483647;
+begin
+  if (p_owner_id is null) = (p_subject_key is null or pg_catalog.btrim(p_subject_key) = '') then
+    raise exception 'exactly one owner_id or subject_key is required';
+  end if;
+  if p_answer_limit is null or p_answer_limit < 1
+    or p_answer_window_seconds is null or p_answer_window_seconds < 1
+    or p_summary_limit is null or p_summary_limit < 1
+    or p_summary_window_seconds is null or p_summary_window_seconds < 1
+    or p_global_answer_limit is null or p_global_answer_limit < 1
+    or p_global_answer_window_seconds is null or p_global_answer_window_seconds < 1 then
+    raise exception 'limits and windows must be positive';
+  end if;
+
+  if p_owner_id is not null then
+    insert into public.api_rate_limits (owner_id, bucket, window_start, request_count, updated_at)
+    values
+      (p_owner_id, 'answer', v_now, 0, v_now),
+      (p_owner_id, 'document_summarize', v_now, 0, v_now)
+    on conflict (owner_id, bucket) do nothing;
+    perform 1
+    from public.api_rate_limits as rl
+    where rl.owner_id = p_owner_id and rl.bucket in ('answer', 'document_summarize')
+    order by rl.bucket
+    for update;
+    for v_policy in
+      select * from (values
+        ('answer'::text, 1, p_answer_limit, p_answer_window_seconds),
+        ('document_summarize'::text, 2, p_summary_limit, p_summary_window_seconds)
+      ) as policy(bucket, ordinal, limit_value, window_seconds)
+      order by ordinal
+    loop
+      update public.api_rate_limits as rl
+      set
+        window_start = case
+          when rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds) <= v_now then v_now
+          else rl.window_start
+        end,
+        request_count = case
+          when rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds) <= v_now then 1
+          else rl.request_count + 1
+        end,
+        updated_at = v_now
+      where rl.owner_id = p_owner_id and rl.bucket = v_policy.bucket
+      returning rl.request_count,
+        rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds)
+      into v_count, v_reset_at;
+      v_min_remaining := least(v_min_remaining, greatest(v_policy.limit_value - v_count, 0));
+      if v_count > v_policy.limit_value then
+        return query select
+          v_policy.bucket::text,
+          true,
+          v_policy.limit_value::integer,
+          0,
+          greatest(1, pg_catalog.ceil(extract(epoch from (v_reset_at - v_now)))::integer),
+          v_reset_at;
+        return;
+      end if;
+    end loop;
+  else
+    insert into public.api_rate_limit_subjects (subject_key, bucket, window_start, request_count, updated_at)
+    values
+      (p_subject_key, 'answer', v_now, 0, v_now),
+      ('anon:answer:global', 'answer', v_now, 0, v_now),
+      (p_subject_key, 'document_summarize', v_now, 0, v_now)
+    on conflict (subject_key, bucket) do nothing;
+    perform 1
+    from public.api_rate_limit_subjects as rl
+    where (rl.subject_key, rl.bucket) in (
+      (p_subject_key, 'answer'),
+      ('anon:answer:global', 'answer'),
+      (p_subject_key, 'document_summarize')
+    )
+    order by rl.subject_key, rl.bucket
+    for update;
+    for v_policy in
+      select * from (values
+        ('answer'::text, 1, p_subject_key, p_answer_limit, p_answer_window_seconds, 'answer'::text),
+        ('answer'::text, 2, 'anon:answer:global', p_global_answer_limit, p_global_answer_window_seconds, 'answer'::text),
+        ('document_summarize'::text, 3, p_subject_key, p_summary_limit, p_summary_window_seconds, 'document_summarize'::text)
+      ) as policy(bucket, ordinal, subject_key, limit_value, window_seconds, rejection_bucket)
+      order by ordinal
+    loop
+      update public.api_rate_limit_subjects as rl
+      set
+        window_start = case
+          when rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds) <= v_now then v_now
+          else rl.window_start
+        end,
+        request_count = case
+          when rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds) <= v_now then 1
+          else rl.request_count + 1
+        end,
+        updated_at = v_now
+      where rl.subject_key = v_policy.subject_key and rl.bucket = v_policy.bucket
+      returning rl.request_count,
+        rl.window_start + pg_catalog.make_interval(secs => v_policy.window_seconds)
+      into v_count, v_reset_at;
+      v_min_remaining := least(v_min_remaining, greatest(v_policy.limit_value - v_count, 0));
+      if v_count > v_policy.limit_value then
+        return query select
+          v_policy.rejection_bucket::text,
+          true,
+          v_policy.limit_value::integer,
+          0,
+          greatest(1, pg_catalog.ceil(extract(epoch from (v_reset_at - v_now)))::integer),
+          v_reset_at;
+        return;
+      end if;
+    end loop;
+  end if;
+  return query select
+    null::text,
+    false,
+    p_summary_limit,
+    v_min_remaining,
+    greatest(1, pg_catalog.ceil(extract(epoch from (v_reset_at - v_now)))::integer),
+    v_reset_at;
+end;
+$$;
+
+revoke execute on function public.consume_summary_rate_limits_atomic(
+  uuid, text, integer, integer, integer, integer, integer, integer
+) from public, anon, authenticated;
+grant execute on function public.consume_summary_rate_limits_atomic(
+  uuid, text, integer, integer, integer, integer, integer, integer
+) to service_role;

@@ -735,26 +735,32 @@ export async function fetchRelatedDocumentMetadata(args: {
   ownerId?: string;
   accessScope?: RetrievalAccessScope;
   documentIds: string[];
+  signal?: AbortSignal;
 }) {
   const accessScope = retrievalAccessScopeForArgs(args);
-  const versionedResult = await args.supabase.rpc("get_related_document_metadata_v2", {
+  const versionedQuery = args.supabase.rpc("get_related_document_metadata_v2", {
     document_ids: args.documentIds,
     ...retrievalRpcScopeArgs(accessScope),
   });
+  const versionedResult = await (args.signal ? versionedQuery.abortSignal(args.signal) : versionedQuery);
   let rpcData = versionedResult?.data;
   let rpcError = versionedResult?.error;
   if (!versionedResult || isMissingRetrievalRpcError(versionedResult.error)) {
     const ownerFilter = accessScope.ownerId ?? PUBLIC_OWNER_FILTER_SENTINEL;
-    const ownerResult = await args.supabase.rpc("get_related_document_metadata", {
+    const ownerQuery = args.supabase.rpc("get_related_document_metadata", {
       document_ids: args.documentIds,
       owner_filter: ownerFilter,
     });
+    const ownerResult = await (args.signal ? ownerQuery.abortSignal(args.signal) : ownerQuery);
     const publicResult =
       accessScope.ownerId && accessScope.includePublic
-        ? await args.supabase.rpc("get_related_document_metadata", {
-            document_ids: args.documentIds,
-            owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
-          })
+        ? await (() => {
+            const query = args.supabase.rpc("get_related_document_metadata", {
+              document_ids: args.documentIds,
+              owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
+            });
+            return args.signal ? query.abortSignal(args.signal) : query;
+          })()
         : { data: [], error: null };
     rpcError = ownerResult.error ?? publicResult.error;
     const merged = new Map<string, RelatedDocumentMetadataRow>();
@@ -792,6 +798,11 @@ export async function fetchRelatedDocumentMetadata(args: {
     summariesQuery = summariesQuery.is("owner_id", null);
   }
 
+  if (args.signal) {
+    labelsQuery = labelsQuery.abortSignal(args.signal);
+    summariesQuery = summariesQuery.abortSignal(args.signal);
+  }
+
   const [labelsResult, summariesResult] = await Promise.all([labelsQuery, summariesQuery]);
   const labels = (labelsResult.data ?? []) as DocumentLabel[];
   const summaries = (summariesResult.data ?? []) as Pick<DocumentSummary, "document_id" | "summary">[];
@@ -819,6 +830,8 @@ export async function fetchRelatedDocuments(args: {
   query: string;
   results: SearchResult[];
   limit?: number;
+  includeVisualCounts?: boolean;
+  signal?: AbortSignal;
 }) {
   const grouped = new Map<
     string,
@@ -858,14 +871,19 @@ export async function fetchRelatedDocuments(args: {
   const documentIds = Array.from(grouped.keys());
   if (documentIds.length === 0) return [];
 
+  const visualCountsPromise =
+    args.includeVisualCounts === false
+      ? Promise.resolve(new Map<string, { imageCount: number; tableCount: number }>())
+      : fetchDocumentVisualCounts(args.supabase, documentIds, args.signal);
   const [metadataRows, visualCounts] = await Promise.all([
     fetchRelatedDocumentMetadata({
       supabase: args.supabase,
       ownerId: args.ownerId,
       accessScope: args.accessScope,
       documentIds,
+      signal: args.signal,
     }),
-    fetchDocumentVisualCounts(args.supabase, documentIds),
+    visualCountsPromise,
   ]);
   const labelsByDocument = new Map<string, DocumentLabel[]>();
   const summariesByDocument = new Map<string, string | null>();
@@ -903,16 +921,18 @@ export async function fetchRelatedDocuments(args: {
     .slice(0, args.limit ?? 6);
 }
 
-export async function fetchDocumentVisualCounts(supabase: SupabaseClient, documentIds: string[]) {
+export async function fetchDocumentVisualCounts(supabase: SupabaseClient, documentIds: string[], signal?: AbortSignal) {
   const counts = new Map<string, { imageCount: number; tableCount: number }>();
   const uniqueIds = Array.from(new Set(documentIds));
   if (uniqueIds.length === 0) return counts;
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("document_images")
     .select("document_id,source_kind,searchable,image_type,clinical_relevance_score,metadata")
     .in("document_id", uniqueIds)
     .neq("image_type", "logo_decorative");
+  if (signal) query = query.abortSignal(signal);
+  const { data, error } = await query;
 
   if (error) throw new Error(error.message);
 

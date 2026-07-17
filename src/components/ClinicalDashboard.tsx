@@ -187,8 +187,8 @@ import {
 import { persistPrivateSearchScope, restorePrivateSearchScope } from "@/lib/private-search-scope";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
 import { answerLifecycleReducer, initialAnswerLifecycle } from "@/lib/answer-lifecycle";
-import { rankFormRecords } from "@/lib/forms";
-import { rankServiceRecords } from "@/lib/services";
+import { rankFormRecords } from "@/lib/form-ranker";
+import { rankServiceRecords } from "@/lib/service-ranker";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/answer-follow-up";
 import {
@@ -232,6 +232,7 @@ const stagedDashboardExtraction = {
 type RefreshOptions = {
   includeSetup?: boolean;
   includeDashboardData?: boolean;
+  includeAdministrationData?: boolean;
   includeDocumentMeta?: boolean;
 };
 type PollHint = {
@@ -446,16 +447,23 @@ export function ClinicalDashboard({
   const scrollFrameRef = useRef<number | null>(null);
   const navSyncLockRef = useRef<number | null>(null);
   const autoRunSearchSignatureRef = useRef<string | null>(null);
-  const refreshInFlightRef = useRef<{ epoch: number; promise: Promise<void> } | null>(null);
+  const refreshInFlightRef = useRef<{
+    epoch: number;
+    dataScope: number;
+    promise: Promise<void>;
+  } | null>(null);
+  const dashboardDataLoadedRef = useRef(false);
+  const administrationDataLoadedRef = useRef(false);
   const nextWorkStatePollRef = useRef(0);
   const urlSearchBootstrappedRef = useRef(false);
   const urlDocumentSearchBootstrappedRef = useRef(false);
   const lastSyncedSearchParamsRef = useRef(searchParams.toString());
   const modeChangeFromUiRef = useRef(false);
   const [documents, setDocuments] = useState<ClinicalDocument[]>([]);
+  const documentsRef = useRef(documents);
   const [documentsPagination, setDocumentsPagination] = useState<DocumentPagination | null>(null);
   const indexedDocumentTotal = documentsPagination?.total ?? documents.length;
-  const [dashboardDataLoading, setDashboardDataLoading] = useState(true);
+  const [dashboardDataLoading, setDashboardDataLoading] = useState(false);
   const [loadingMoreDocuments, setLoadingMoreDocuments] = useState(false);
   const [jobs, setJobs] = useState<IngestionJob[]>([]);
   const [batches, setBatches] = useState<ImportBatch[]>([]);
@@ -664,6 +672,7 @@ export function ClinicalDashboard({
   );
   const [indexingActionId, setIndexingActionId] = useState<string | null>(null);
   const [indexingActive, setIndexingActive] = useState(false);
+  const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
   const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
@@ -743,6 +752,9 @@ export function ClinicalDashboard({
       setJobs([]);
       setBatches([]);
       setQualityItems([]);
+      dashboardDataLoadedRef.current = false;
+      administrationDataLoadedRef.current = false;
+      setUserStartedIngestion(false);
       setSelectedDocumentIds([]);
       setDocumentMatches([]);
       setSearchScope(null);
@@ -988,6 +1000,10 @@ export function ClinicalDashboard({
   ]);
 
   useEffect(() => {
+    documentsRef.current = documents;
+  }, [documents]);
+
+  useEffect(() => {
     jobsRef.current = jobs;
   }, [jobs]);
 
@@ -995,10 +1011,22 @@ export function ClinicalDashboard({
     batchesRef.current = batches;
   }, [batches]);
 
-  const refresh = useCallback(
+  const refresh: (options?: RefreshOptions) => Promise<void> = useCallback(
     async (options: RefreshOptions = {}) => {
-      if (refreshInFlightRef.current?.epoch === authEpoch) {
-        return refreshInFlightRef.current.promise;
+      const includeDashboardData = options.includeDashboardData ?? true;
+      const includeAdministrationData = options.includeAdministrationData ?? includeDashboardData;
+      const requestedDataScope = (includeDashboardData ? 1 : 0) | (includeAdministrationData ? 2 : 0);
+      while (refreshInFlightRef.current?.epoch === authEpoch) {
+        const activeRefresh = refreshInFlightRef.current;
+        const needsFollowUp = (requestedDataScope & ~activeRefresh.dataScope) !== 0;
+        await activeRefresh.promise;
+        // A setup-only refresh cannot satisfy a data request that arrived
+        // while it was in flight. Run one follow-up request; same-scope calls
+        // stay coalesced on the original promise.
+        if (!needsFollowUp) return;
+        // The promise is complete, so release its coalescing slot now. The
+        // owning call still releases its auth request in its own finally.
+        if (refreshInFlightRef.current === activeRefresh) refreshInFlightRef.current = null;
       }
 
       const controller = new AbortController();
@@ -1006,12 +1034,11 @@ export function ClinicalDashboard({
       const canCommit = () => isAuthEpochCurrent(authRequest.epoch) && !controller.signal.aborted;
 
       const promise = (async () => {
-        const trackDashboardLoading = options.includeDashboardData ?? true;
+        const trackDashboardLoading = requestedDataScope !== 0;
         await Promise.resolve();
         if (trackDashboardLoading) setDashboardDataLoading(true);
 
         const includeSetup = options.includeSetup ?? true;
-        const includeDashboardData = options.includeDashboardData ?? true;
         const includeDocumentMeta = options.includeDocumentMeta ?? true;
         let nextDemoMode = clientDemoMode;
         let routeIndexingActive = false;
@@ -1078,7 +1105,7 @@ export function ClinicalDashboard({
           return;
         }
 
-        if (!includeDashboardData) {
+        if (requestedDataScope === 0) {
           setIndexingActive(routeIndexingActive);
           setNextRefreshDelayMs(routePollDelayMs);
           return;
@@ -1091,14 +1118,17 @@ export function ClinicalDashboard({
         }
 
         const now = Date.now();
-        const shouldRefreshWorkState = now >= nextWorkStatePollRef.current;
+        const shouldRefreshWorkState =
+          includeAdministrationData && (!administrationDataLoadedRef.current || now >= nextWorkStatePollRef.current);
         if (shouldRefreshWorkState) nextWorkStatePollRef.current = now + indexingWorkDetailsPollMs;
 
         const [documentsResponse, jobsResponse, batchesResponse, qualityResponse] = await Promise.all([
-          fetch(`/api/documents?${documentParams.toString()}`, {
-            headers: protectedHeaders,
-            signal: controller.signal,
-          }),
+          includeDashboardData
+            ? fetch(`/api/documents?${documentParams.toString()}`, {
+                headers: protectedHeaders,
+                signal: controller.signal,
+              })
+            : Promise.resolve(null as Response | null),
           shouldRefreshWorkState
             ? fetch("/api/ingestion/jobs", { headers: protectedHeaders, signal: controller.signal })
             : Promise.resolve(null as Response | null),
@@ -1110,9 +1140,8 @@ export function ClinicalDashboard({
             : Promise.resolve(null as Response | null),
         ]);
         if (!canCommit()) return;
-
         if (
-          documentsResponse.status === 401 ||
+          (documentsResponse !== null && documentsResponse.status === 401) ||
           (jobsResponse !== null && jobsResponse.status === 401) ||
           (batchesResponse !== null && batchesResponse.status === 401) ||
           (qualityResponse !== null && qualityResponse.status === 401)
@@ -1128,22 +1157,23 @@ export function ClinicalDashboard({
           return;
         }
 
-        let nextDocuments: ClinicalDocument[] = [];
+        let nextDocuments: ClinicalDocument[] = includeDashboardData ? [] : documentsRef.current;
         let nextJobs: IngestionJob[] = shouldRefreshWorkState ? [] : jobsRef.current;
         let nextBatches: ImportBatch[] = shouldRefreshWorkState ? [] : batchesRef.current;
 
-        if (documentsResponse.ok) {
+        if (documentsResponse?.ok) {
           const payload = (await documentsResponse.json()) as DocumentsPayload;
           nextDocuments = payload.documents ?? [];
           setDocuments((current) =>
             includeDocumentMeta ? nextDocuments : mergeDocumentRefresh(current, nextDocuments),
           );
           setDocumentsPagination(payload.pagination ?? null);
+          dashboardDataLoadedRef.current = true;
           routeIndexingActive ||= Boolean(payload.indexing?.active);
           routePollDelayMs = shorterPollDelay(routePollDelayMs, payload.indexing?.pollAfterMs);
           if (payload.demoMode) setDemoMode(true);
           if (payload.setupRequired) setSetupWarning(payload.error ?? null);
-        } else {
+        } else if (includeDashboardData) {
           setApiUnavailable(true);
         }
 
@@ -1178,17 +1208,21 @@ export function ClinicalDashboard({
           setApiUnavailable(true);
         }
 
+        if (jobsResponse?.ok && batchesResponse?.ok && qualityResponse?.ok) {
+          administrationDataLoadedRef.current = true;
+        }
+
         const activeWork = hasActiveIndexingWork(nextDocuments, nextJobs, nextBatches, routeIndexingActive);
         setIndexingActive(activeWork);
         setNextRefreshDelayMs(routePollDelayMs ?? (activeWork ? activeIndexingPollFallbackMs : null));
       })();
 
-      refreshInFlightRef.current = { epoch: authRequest.epoch, promise };
+      refreshInFlightRef.current = { epoch: authRequest.epoch, dataScope: requestedDataScope, promise };
       try {
         return await promise;
       } finally {
         authRequest.release();
-        if ((options.includeDashboardData ?? true) === true && canCommit()) setDashboardDataLoading(false);
+        if (requestedDataScope !== 0 && canCommit()) setDashboardDataLoading(false);
         if (refreshInFlightRef.current?.promise === promise) {
           refreshInFlightRef.current = null;
         }
@@ -1267,6 +1301,8 @@ export function ClinicalDashboard({
         if (!response.ok) {
           throw new Error(typeof payload.error === "string" ? payload.error : "Job retry could not be started.");
         }
+        setUserStartedIngestion(true);
+        setIndexingActive(true);
         setActionNotice({
           tone: "success",
           message: "Ingestion job retry queued.",
@@ -1312,6 +1348,8 @@ export function ClinicalDashboard({
                 : "Document reindex could not be started.",
           );
         }
+        setUserStartedIngestion(true);
+        setIndexingActive(true);
         setActionNotice({
           tone: "success",
           message: mode === "enrichment" ? "Document enrichment refreshed." : "Document reindex queued.",
@@ -1475,32 +1513,79 @@ export function ClinicalDashboard({
     [documents, jobs, batches, indexingActive],
   );
   const needsSetupRecheck = useMemo(() => setupNeedsSlowRecheck(setupChecks), [setupChecks]);
+  const dashboardDataSurfaceVisible = documentsDrawerOpen || uploadDrawerOpen;
+  const administrationSurfaceVisible = uploadDrawerOpen || (documentsDrawerOpen && documentsDrawerMode === "admin");
 
   useEffect(() => {
-    refresh({ includeSetup: true, includeDashboardData: true, includeDocumentMeta: true }).catch(() => undefined);
+    dashboardDataLoadedRef.current = false;
+    administrationDataLoadedRef.current = false;
+  }, [authEpoch]);
+
+  useEffect(() => {
+    refresh({ includeSetup: true, includeDashboardData: false, includeDocumentMeta: false }).catch(() => undefined);
   }, [authStatus, authorizationHeader, clientDemoMode, refresh]);
 
   useEffect(() => {
-    const hasScheduledWork = activeIndexingWork || needsSetupRecheck;
-    if (!shouldPollForUpdates(demoMode, document.visibilityState, hasScheduledWork)) {
+    const includeDashboardData = dashboardDataSurfaceVisible && !dashboardDataLoadedRef.current;
+    const includeAdministrationData = administrationSurfaceVisible && !administrationDataLoadedRef.current;
+    if (!includeDashboardData && !includeAdministrationData) return;
+    refresh({
+      includeSetup: false,
+      includeDashboardData,
+      includeAdministrationData,
+      includeDocumentMeta: includeDashboardData,
+    }).catch(() => undefined);
+  }, [administrationSurfaceVisible, authEpoch, dashboardDataSurfaceVisible, refresh]);
+
+  useEffect(() => {
+    if (!userStartedIngestion || !dashboardDataLoadedRef.current || activeIndexingWork) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setUserStartedIngestion(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeIndexingWork, userStartedIngestion]);
+
+  useEffect(() => {
+    const visibleSurfaceHasActiveWork = dashboardDataSurfaceVisible && activeIndexingWork;
+    const userOperationHasActiveWork = userStartedIngestion && activeIndexingWork;
+    const shouldPollDashboardData = visibleSurfaceHasActiveWork || userOperationHasActiveWork;
+    const hasScheduledWork = shouldPollDashboardData || needsSetupRecheck;
+    const pollingAllowed =
+      userOperationHasActiveWork || shouldPollForUpdates(demoMode, document.visibilityState, hasScheduledWork);
+    if (!pollingAllowed) {
       return;
     }
 
-    const delay = activeIndexingWork ? (nextRefreshDelayMs ?? activeIndexingPollFallbackMs) : setupRecheckPollMs;
+    const delay = shouldPollDashboardData ? (nextRefreshDelayMs ?? activeIndexingPollFallbackMs) : setupRecheckPollMs;
     const timeout = window.setTimeout(() => {
-      if (!shouldPollForUpdates(demoMode, document.visibilityState, hasScheduledWork)) {
+      const stillAllowed =
+        userOperationHasActiveWork || shouldPollForUpdates(demoMode, document.visibilityState, hasScheduledWork);
+      if (!stillAllowed) {
         return;
       }
 
       refresh({
-        includeSetup: !activeIndexingWork,
-        includeDashboardData: activeIndexingWork,
+        includeSetup: !shouldPollDashboardData,
+        includeDashboardData: shouldPollDashboardData,
+        includeAdministrationData: shouldPollDashboardData && (administrationSurfaceVisible || userStartedIngestion),
         includeDocumentMeta: false,
       }).catch(() => undefined);
     }, delay);
 
     return () => window.clearTimeout(timeout);
-  }, [activeIndexingWork, demoMode, needsSetupRecheck, nextRefreshDelayMs, refresh]);
+  }, [
+    activeIndexingWork,
+    administrationSurfaceVisible,
+    dashboardDataSurfaceVisible,
+    demoMode,
+    needsSetupRecheck,
+    nextRefreshDelayMs,
+    refresh,
+    userStartedIngestion,
+  ]);
 
   useEffect(() => {
     const refreshVisibleDashboard = () => {
@@ -1510,7 +1595,8 @@ export function ClinicalDashboard({
 
       refresh({
         includeSetup: true,
-        includeDashboardData: activeIndexingWork || canUsePrivateApis || clientDemoMode,
+        includeDashboardData: dashboardDataSurfaceVisible || (userStartedIngestion && activeIndexingWork),
+        includeAdministrationData: administrationSurfaceVisible || (userStartedIngestion && activeIndexingWork),
         includeDocumentMeta: false,
       }).catch(() => undefined);
     };
@@ -1521,7 +1607,7 @@ export function ClinicalDashboard({
       document.removeEventListener("visibilitychange", refreshVisibleDashboard);
       window.removeEventListener("focus", refreshVisibleDashboard);
     };
-  }, [activeIndexingWork, canUsePrivateApis, clientDemoMode, refresh]);
+  }, [activeIndexingWork, administrationSurfaceVisible, dashboardDataSurfaceVisible, refresh, userStartedIngestion]);
 
   useEffect(() => {
     const updateOnline = () => setIsOnline(navigator.onLine);
@@ -2567,6 +2653,8 @@ export function ClinicalDashboard({
       const payload = await response.json().catch(() => ({}));
       if (!isAuthEpochCurrent(requestEpoch)) return;
       if (!response.ok) throw new Error(payload.error || errorCopy.bulkReindexFailed);
+      setUserStartedIngestion(true);
+      setIndexingActive(true);
       setBulkActionStatus(
         `${payload.results?.filter((result: { ok: boolean }) => result.ok).length ?? 0} selected documents updated.`,
       );
@@ -3174,6 +3262,8 @@ export function ClinicalDashboard({
     },
   ];
   const handleUploadQueued = () => {
+    setUserStartedIngestion(true);
+    setIndexingActive(true);
     setUploadMobileTab("jobs");
     void refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
   };

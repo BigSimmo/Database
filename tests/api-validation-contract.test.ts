@@ -101,6 +101,11 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  abortSignal(signal: AbortSignal) {
+    void signal;
+    return this;
+  }
+
   maybeSingle() {
     this.call.maybeSingle = true;
     return this.resolve();

@@ -168,6 +168,18 @@ const responseCacheRetentionReconciliationMigration = readFileSync(
   new URL("../supabase/migrations/20260713201542_consolidate_rag_response_cache_retention.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const registryProjectionCleanupMigration = readFileSync(
+  new URL("../supabase/migrations/20260717130000_registry_projection_cleanup.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const publicTitleCorrectorMigration = readFileSync(
+  new URL("../supabase/migrations/20260717131000_public_title_corrector.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const atomicSummaryRateLimitsMigration = readFileSync(
+  new URL("../supabase/migrations/20260717132000_atomic_summary_rate_limits.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const liveDatabaseDriftMigration = readFileSync(
   new URL("../supabase/migrations/20260705230000_reconcile_live_database_drift.sql", import.meta.url),
   "utf8",
@@ -1185,6 +1197,99 @@ describe("Supabase Preview replay guards", () => {
     );
     expect(ingestionRpcPrivilegesDuplicateMigration).toContain("NEUTRALIZED 2026-07-13");
     expect(ingestionRpcPrivilegesDuplicateMigration).toContain("select 1 where false;");
+  });
+
+  it("cleans registry projections with text-and-kind matching through the partial expression index", () => {
+    expect(registryProjectionCleanupMigration).toContain("set lock_timeout = '5s';");
+    expect(registryProjectionCleanupMigration).toContain("set statement_timeout = '60s';");
+
+    for (const sql of [registryProjectionCleanupMigration, schema]) {
+      const functionStart = sql.indexOf("create or replace function public.cleanup_registry_corpus_document()");
+      const functionEnd = sql.indexOf("$$;", functionStart);
+      const cleanupFunction = sql.slice(functionStart, functionEnd);
+
+      expect(functionStart).toBeGreaterThanOrEqual(0);
+      expect(cleanupFunction).toContain("metadata->>'registry_record_id' = old.id::text");
+      expect(cleanupFunction).not.toContain("metadata->>'registry_record_id')::uuid");
+      expect(cleanupFunction).toContain("metadata->>'registry_record_kind' = case tg_table_name");
+      expect(cleanupFunction).toContain("when 'clinical_registry_records' then pg_catalog.to_jsonb(old)->>'kind'");
+      expect(cleanupFunction).toContain("when 'medication_records' then 'medication'");
+      expect(cleanupFunction).toContain("when 'differential_records' then 'differential'");
+      expect(sql).toContain("create index if not exists documents_registry_projection_lookup_idx");
+      expect(sql).toMatch(/\(\s*\(metadata->>'registry_record_kind'\),\s*\(metadata->>'registry_record_id'\)\s*\)/);
+      expect(sql).toContain("where metadata->>'source_kind' = 'registry_record'");
+      expect(sql).toContain(
+        "revoke execute on function public.cleanup_registry_corpus_document() from public, anon, authenticated, service_role;",
+      );
+    }
+  });
+
+  it("indexes only public document-title words and probes capped trigram candidates", () => {
+    for (const sql of [publicTitleCorrectorMigration, schema]) {
+      const correctorStart = sql.lastIndexOf("create or replace function public.correct_clinical_query_terms(");
+      const correctorEnd = sql.indexOf(
+        "revoke execute on function public.correct_clinical_query_terms(text, real)",
+        correctorStart,
+      );
+      const corrector = sql.slice(correctorStart, correctorEnd);
+
+      expect(sql).toContain("create table if not exists public.document_title_words");
+      expect(sql).toContain("create index if not exists document_title_words_word_trgm_idx");
+      expect(sql).toContain("create index if not exists document_title_words_document_id_idx");
+      expect(sql).toContain("where d.owner_id is null and d.status = 'indexed'");
+      expect(sql).toContain("new.owner_id is null and new.status = 'indexed'");
+      expect(sql).toContain("delete from public.document_title_words where document_id = old.id");
+      expect(sql).toContain("alter table public.document_title_words enable row level security");
+      expect(sql).toContain("revoke all on table public.document_title_words from public, anon, authenticated");
+      expect(sql).toContain(
+        "grant select, insert, update, delete on table public.document_title_words to service_role",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.sync_document_title_words() from public, anon, authenticated, service_role;",
+      );
+      expect(sql).toContain("create index if not exists rag_aliases_canonical_trgm_idx");
+      expect(correctorStart).toBeGreaterThanOrEqual(0);
+      expect(correctorEnd).toBeGreaterThan(correctorStart);
+      expect(corrector).toContain("and lower(alias) % tok");
+      expect(corrector).toContain("and lower(canonical) % tok");
+      expect((corrector.match(/from public\.rag_aliases where enabled and owner_id is null/g) ?? []).length).toBe(2);
+      expect(corrector).toContain("and word % tok");
+      expect((corrector.match(/limit 32/g) ?? []).length).toBeGreaterThanOrEqual(3);
+      expect(corrector).toContain("best_sim >= min_sim");
+      expect(corrector).toContain("length(best) >= length(tok)");
+    }
+  });
+
+  it("keeps the table-facts trigram index expression identical to the active predicate", () => {
+    const indexStart = schema.indexOf("create index if not exists document_table_facts_title_row_param_trgm_idx");
+    const indexExpressionStart = schema.indexOf("using gin (", indexStart) + "using gin (".length;
+    const indexExpressionEnd = schema.indexOf(" extensions.gin_trgm_ops", indexExpressionStart);
+    const predicateSection = schema.indexOf("trgm_matches as (");
+    const predicateExpressionStart = schema.indexOf("on lower(", predicateSection) + "on ".length;
+    const predicateExpressionEnd = schema.indexOf(" % q.normalized", predicateExpressionStart);
+
+    expect(indexStart).toBeGreaterThanOrEqual(0);
+    expect(predicateSection).toBeGreaterThanOrEqual(0);
+    expect(schema.slice(predicateExpressionStart, predicateExpressionEnd).replaceAll("f.", "")).toBe(
+      schema.slice(indexExpressionStart, indexExpressionEnd),
+    );
+    expect(schema).not.toContain("document_table_facts_text_trgm_idx");
+  });
+
+  it("defines one stable-order atomic limiter for summary streaming", () => {
+    for (const sql of [atomicSummaryRateLimitsMigration, schema]) {
+      expect(sql).toContain("create or replace function public.consume_summary_rate_limits_atomic(");
+      expect(sql).toContain("order by rl.bucket for update");
+      expect(sql).toContain("order by rl.subject_key, rl.bucket for update");
+      expect(sql).toContain("'answer'::text, 1");
+      expect(sql).toContain("'document_summarize'::text, 3");
+      expect(sql).toMatch(
+        /revoke execute on function public\.consume_summary_rate_limits_atomic\(\s*uuid, text, integer, integer, integer, integer, integer, integer\s*\)/,
+      );
+      expect(sql).toMatch(
+        /grant execute on function public\.consume_summary_rate_limits_atomic\(\s*uuid, text, integer, integer, integer, integer, integer, integer\s*\) to service_role/,
+      );
+    }
   });
 });
 

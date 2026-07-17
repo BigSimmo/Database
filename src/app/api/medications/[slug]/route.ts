@@ -6,6 +6,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
+import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { getMedicationRecord } from "@/lib/medication-snapshot";
 import { ensureMedicationsSeeded } from "@/lib/medication-seed";
@@ -23,10 +24,13 @@ import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
-function medicationResponse(payload: Record<string, unknown>, init?: { status?: number }) {
+function medicationResponse(
+  payload: Record<string, unknown>,
+  init: { status?: number; request?: Request; fixture?: boolean } = {},
+) {
   return NextResponse.json(payload, {
-    status: init?.status ?? 200,
-    headers: { "Cache-Control": "private, no-store" },
+    status: init.status ?? 200,
+    headers: fixtureResponseHeaders(init.request, init),
   });
 }
 
@@ -55,10 +59,13 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
     if (isDemoMode() || isLocalNoAuthMode()) {
       const payload = publicMedicationDetailPayload(normalizedSlug);
       if (!payload) return notFoundResponse(normalizedSlug);
-      return medicationResponse({
-        ...payload,
-        demoMode: true,
-      });
+      return medicationResponse(
+        {
+          ...payload,
+          demoMode: true,
+        },
+        { request, fixture: true },
+      );
     }
 
     // Anonymous callers still resolve access + rate limit before we serve the seed detail:
@@ -80,10 +87,13 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
     if (!access.ownerId) {
       const payload = publicMedicationDetailPayload(normalizedSlug);
       if (!payload) return notFoundResponse(normalizedSlug);
-      return medicationResponse({
-        ...payload,
-        publicAccess: true,
-      });
+      return medicationResponse(
+        {
+          ...payload,
+          publicAccess: true,
+        },
+        { request, fixture: true },
+      );
     }
 
     const fetchRecord = async () => {
