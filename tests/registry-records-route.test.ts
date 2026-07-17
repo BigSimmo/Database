@@ -260,6 +260,8 @@ describe("registry records API", () => {
     expect(payload.records[0]?.slug).toBe("13yarn");
     expect(payload.matches?.[0]?.record.slug).toBe("13yarn");
     expect(payload.governance["13yarn"]?.validationStatus).toBe("locally_reviewed");
+    const { serviceRecords } = await import("../src/lib/services");
+    expect(payload.records).toHaveLength(serviceRecords.length);
     for (const call of client.calls) {
       expect(call.filters).toContainEqual({ column: "owner_id", value: userId });
     }
@@ -270,6 +272,7 @@ describe("registry records API", () => {
     const client = createSupabaseMock((call) => (call.table === "clinical_registry_records" ? ok(many) : ok([])));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/registry/records/route");
+    const { serviceRecords } = await import("../src/lib/services");
 
     // No `q`: the client hook fetches the whole list and ranks locally, so a
     // small default `limit` must NOT truncate the returned records.
@@ -277,8 +280,9 @@ describe("registry records API", () => {
     const payload = (await response.json()) as { records: Array<{ slug: string }>; total: number };
 
     expect(response.status).toBe(200);
-    expect(payload.records).toHaveLength(150);
-    expect(payload.total).toBe(150);
+    expect(payload.records).toHaveLength(serviceRecords.length + 150);
+    expect(payload.total).toBe(serviceRecords.length + 150);
+    expect(payload.records.filter((record) => record.slug.startsWith("service-"))).toHaveLength(150);
   });
 
   it("returns 429 when the registry rate limit is exhausted", async () => {
@@ -386,16 +390,8 @@ describe("registry records API", () => {
     expect(client.from).not.toHaveBeenCalled();
   });
 
-  it("seeds the curated default set for an owner with an empty registry", async () => {
-    let stored: Array<Record<string, unknown>> = [];
-    const client = createSupabaseMock((call) => {
-      if (call.table !== "clinical_registry_records") return ok([]);
-      if (call.upsert) {
-        stored = (call.upsertRows ?? []) as Array<Record<string, unknown>>;
-        return ok(stored);
-      }
-      return ok(stored);
-    });
+  it("serves the shared catalogue to an authenticated owner without materializing per-owner copies", async () => {
+    const client = createSupabaseMock(() => ok([]));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/registry/records/route");
     const { serviceRecords } = await import("../src/lib/services");
@@ -404,71 +400,119 @@ describe("registry records API", () => {
     const payload = (await response.json()) as { records: Array<{ slug: string }>; total: number };
 
     expect(response.status).toBe(200);
-    // The empty owner is seeded once, owner-scoped, with the full default set.
-    const upsertCall = client.calls.find((call) => call.table === "clinical_registry_records" && call.upsert);
-    expect(upsertCall).toBeDefined();
-    expect(upsertCall?.upsertRows).toHaveLength(serviceRecords.length);
-    expect(
-      (upsertCall?.upsertRows ?? []).every((row) => {
-        const typed = row as { owner_id: string; kind: string };
-        return typed.owner_id === userId && typed.kind === "service";
-      }),
-    ).toBe(true);
     expect(payload.records).toHaveLength(serviceRecords.length);
     expect(payload.total).toBe(serviceRecords.length);
+    expect(client.calls.some((call) => call.upsert)).toBe(false);
   });
 
-  it("serves seeded records when registry corpus embedding fails after the row upsert", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    let stored: Array<Record<string, unknown>> = [];
-    const client = createSupabaseMock((call) => {
-      if (call.table !== "clinical_registry_records") return ok([]);
-      if (call.upsert) {
-        stored = (call.upsertRows ?? []) as Array<Record<string, unknown>>;
-        return ok(stored);
-      }
-      return ok(stored);
-    });
-    mockRuntime(client, { registryEmbeddingError: new Error("embedding unavailable") });
+  it("serves every shared form to an authenticated owner with no stored form rows", async () => {
+    const client = createSupabaseMock(() => ok([]));
+    mockRuntime(client);
     const { GET } = await import("../src/app/api/registry/records/route");
-    const { serviceRecords } = await import("../src/lib/services");
+    const { formRecords } = await import("../src/lib/forms");
 
-    const response = await GET(authedRequest("/api/registry/records?kind=service"));
+    const response = await GET(authedRequest("/api/registry/records?kind=form"));
     const payload = (await response.json()) as { records: Array<{ slug: string }>; total: number };
 
     expect(response.status).toBe(200);
-    expect(payload.records).toHaveLength(serviceRecords.length);
-    expect(payload.total).toBe(serviceRecords.length);
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining("[registry] registry corpus sync failed"),
-      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
-    );
+    expect(payload.records).toHaveLength(54);
+    expect(payload.records).toHaveLength(formRecords.length);
+    expect(payload.total).toBe(formRecords.length);
+    expect(client.calls.some((call) => call.upsert)).toBe(false);
   });
 
-  it("returns 404 for an unknown registry slug during a corpus embedding outage", async () => {
-    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    let stored: Array<Record<string, unknown>> = [];
-    const client = createSupabaseMock((call) => {
-      if (call.table !== "clinical_registry_records") return ok([]);
-      if (call.upsert) {
-        stored = (call.upsertRows ?? []) as Array<Record<string, unknown>>;
-        return ok(stored);
-      }
-      if (call.maybeSingle) return ok(stored.find((row) => row.slug === "unknown-service") ?? null);
-      return ok(stored);
-    });
-    mockRuntime(client, { registryEmbeddingError: new Error("embedding unavailable") });
+  it("keeps complete shared form metadata when an older owner override has no catalogue payload", async () => {
+    const client = createSupabaseMock((call) =>
+      call.table === "clinical_registry_records"
+        ? ok([
+            registryRow({
+              kind: "form",
+              slug: "transport-crisis-form",
+              title: "Owner title override",
+              status_chips: null,
+              contacts: null,
+              summary_cards: null,
+              criteria: null,
+              catalog_payload: {},
+            }),
+          ])
+        : ok([]),
+    );
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/route");
+
+    const response = await GET(authedRequest("/api/registry/records?kind=form"));
+    const payload = (await response.json()) as {
+      records: Array<{
+        slug: string;
+        title: string;
+        statusChips?: unknown[];
+        contacts?: unknown[];
+        summaryCards?: unknown[];
+        criteria?: unknown[];
+        catalogPayload?: { availability?: string };
+      }>;
+    };
+    const record = payload.records.find((candidate) => candidate.slug === "transport-crisis-form");
+
+    expect(response.status).toBe(200);
+    expect(record?.title).toBe("Owner title override");
+    expect(record?.statusChips?.length).toBeGreaterThan(0);
+    expect(record?.contacts?.length).toBeGreaterThan(0);
+    expect(record?.summaryCards?.length).toBeGreaterThan(0);
+    expect(record?.criteria?.length).toBeGreaterThan(0);
+    expect(record?.catalogPayload?.availability).toBe("downloadable");
+    expect(client.calls.some((call) => call.upsert)).toBe(false);
+  });
+
+  it("serves a shared deep link to an authenticated owner without seeding", async () => {
+    const client = createSupabaseMock((call) => (call.table === "clinical_registry_records" ? ok(null) : ok([])));
+    mockRuntime(client);
     const { GET } = await import("../src/app/api/registry/records/[slug]/route");
 
-    const response = await GET(authedRequest("/api/registry/records/unknown-service?kind=service"), {
-      params: Promise.resolve({ slug: "unknown-service" }),
+    const response = await GET(authedRequest("/api/registry/records/transport-crisis-form?kind=form"), {
+      params: Promise.resolve({ slug: "transport-crisis-form" }),
     });
+    const payload = (await response.json()) as { record: { slug: string }; sharedCatalog?: boolean };
 
-    expect(response.status).toBe(404);
-    expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining("[registry] registry corpus sync failed"),
-      expect.objectContaining({ name: "Error", message: "embedding unavailable" }),
-    );
+    expect(response.status).toBe(200);
+    expect(payload.record.slug).toBe("transport-crisis-form");
+    expect(payload.sharedCatalog).toBe(true);
+    expect(client.calls.some((call) => call.upsert)).toBe(false);
+  });
+
+  it("merges shared form metadata into an older owner row on detail routes", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "clinical_registry_records") {
+        return ok(
+          registryRow({
+            kind: "form",
+            slug: "transport-crisis-form",
+            title: "Owner title override",
+            catalog_payload: {},
+          }),
+        );
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/registry/records/[slug]/route");
+
+    const response = await GET(authedRequest("/api/registry/records/transport-crisis-form?kind=form"), {
+      params: Promise.resolve({ slug: "transport-crisis-form" }),
+    });
+    const payload = (await response.json()) as {
+      record: { title: string; catalogPayload?: { availability?: string; localPdfPath?: string } };
+      governance: { sourceStatus: string };
+      linkedDocuments: unknown[];
+    };
+
+    expect(response.status).toBe(200);
+    expect(payload.record.title).toBe("Owner title override");
+    expect(payload.record.catalogPayload?.availability).toBe("downloadable");
+    expect(payload.record.catalogPayload?.localPdfPath).toBeTruthy();
+    expect(payload.governance.sourceStatus).toBe("current");
+    expect(payload.linkedDocuments).toEqual([]);
   });
 
   it("does not seed when the owner already has registry records", async () => {

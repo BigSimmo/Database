@@ -24,8 +24,10 @@ changed automatically by repo commits. Target project: `Clinical KB Database`
 
 ## 2. Auth → Sign in / Providers → "Allow new users to sign up"
 
-- Turn **ON** (open public signup, per decision). Each new account starts as an
-  empty private silo — a new user cannot see anyone else's data.
+- Turn **ON** (open public signup, per decision). Each new account starts with
+  an empty private document/search silo and the complete reviewed shared
+  Forms/Services catalogue. A user cannot see another user's private data or
+  registry overrides.
 
 ## 3. Auth → URL Configuration
 
@@ -76,7 +78,10 @@ project**, so no broad RLS migration is required:
   owner-read policy: `owner_id = (select auth.uid())`.
 - Registry tables (`clinical_registry_records`, `_sources`) and internal tables
   (`api_rate_limits`, `audit_logs`, `rag_response_cache`) are RLS-enabled and
-  **service-role-only** (fully server-mediated — intentional).
+  **service-role-only** (fully server-mediated — intentional). The application
+  merges private owner overrides over the reviewed in-repo Forms/Services
+  catalogue, so every user receives the shared baseline without per-user seed
+  writes or cross-tenant reads.
 - Both storage buckets (`clinical-documents`, `clinical-images`) are **private**;
   file access is via server-minted signed URLs after an owner check. No direct
   client storage access is enabled (so no per-user folder policy is needed unless
@@ -102,5 +107,7 @@ to launch):**
 2. **Magic link** → email link → signed in.
 3. **Google** and **Microsoft** SSO → signed in.
 4. **Hard-refresh** the page → still signed in (persistent cookie session).
-5. **Isolation:** sign in as user A, upload a document, sign out; sign in as
-   user B → B sees none of A's documents, registry, or search results.
+5. **Isolation and shared content:** sign in as user A, upload a document and
+   create a private registry override, then sign out; sign in as user B → B sees
+   none of A's document or override data, but both users see the complete shared
+   Forms/Services catalogue.

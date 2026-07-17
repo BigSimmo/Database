@@ -6,13 +6,16 @@ const workerIndex = readFileSync(new URL("../worker/index.ts", import.meta.url),
 const answerStreamRoute = readFileSync(new URL("../src/app/api/answer/stream/route.ts", import.meta.url), "utf8");
 const httpLib = readFileSync(new URL("../src/lib/http.ts", import.meta.url), "utf8");
 const seedFallbackFiles = [
-  "../src/lib/registry-seed.ts",
   "../src/lib/medication-seed.ts",
   "../src/lib/differential-seed.ts",
-  "../src/app/api/registry/records/[slug]/route.ts",
   "../src/app/api/medications/[slug]/route.ts",
   "../src/app/api/differentials/[slug]/route.ts",
   "../src/app/api/differentials/presentations/[slug]/route.ts",
+].map((file) => readFileSync(new URL(file, import.meta.url), "utf8"));
+const registryReadFiles = [
+  "../src/app/api/registry/records/route.ts",
+  "../src/app/api/registry/records/[slug]/route.ts",
+  "../src/lib/universal-search.ts",
 ].map((file) => readFileSync(new URL(file, import.meta.url), "utf8"));
 
 describe("worker safe logging", () => {
@@ -40,6 +43,13 @@ describe("worker safe logging", () => {
       expect(file).toContain("safeErrorLogDetails(error)");
       expect(file).not.toContain("auto-seed failed for owner");
       expect(file).not.toMatch(/console\.error\([^)]*,\s*error\)/);
+    }
+  });
+
+  it("keeps shared registry reads free of automatic seed writes", () => {
+    for (const file of registryReadFiles) {
+      expect(file).not.toContain("ensureRegistrySeeded");
+      expect(file).not.toContain("bestEffortSyncClinicalRegistryRows");
     }
   });
 });

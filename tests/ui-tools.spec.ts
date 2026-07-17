@@ -2,9 +2,10 @@ import { expect, test, type Locator, type Page } from "playwright/test";
 import type { Route } from "playwright-core";
 import { acuteConfusionPresentationWorkflow, differentialRecords } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
-import { formRecords } from "../src/lib/forms";
+import { formRecords, rankFormRecords } from "../src/lib/forms";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
+import { sortResultItems } from "../src/lib/result-sort";
 import { scrollPrimarySurface } from "./playwright-scroll";
 
 const readySetupChecks = [
@@ -159,6 +160,24 @@ async function mockAnswerDashboardApi(page: Page) {
         total: records.length,
         demoMode: true,
         governance: {},
+      },
+    });
+  });
+  await page.route(/\/api\/registry\/records\/[^/?]+(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const slug = decodeURIComponent(url.pathname.split("/").pop() ?? "");
+    const kind = url.searchParams.get("kind");
+    const record = kind === "form" ? formRecords.find((form) => form.slug === slug) : undefined;
+    if (!record) {
+      await route.fulfill({ status: 404, json: { error: "Registry record not found" } });
+      return;
+    }
+    await route.fulfill({
+      json: {
+        record,
+        linkedDocuments: [],
+        governance: { sourceStatus: "current", validationStatus: "unverified" },
+        demoMode: true,
       },
     });
   });
@@ -862,6 +881,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("forms mode shows source-backed form records in search results", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
 
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
@@ -870,10 +890,10 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("form-search-results")).toContainText("Best matches");
     await expect(page.getByTestId("form-search-result-transport-crisis-form")).toContainText("Transport order");
     await expect(page.getByTestId("form-search-result-extension-transport-order")).toContainText(
-      "Extension of Transport Order",
+      "Extension of transport order",
     );
     await expect(page.getByTestId("form-search-result-detention-examination-movement")).toContainText(
-      "Detention to enable examination or movement",
+      "Detention order",
     );
     await expect(page.getByTestId("form-search-result-transfer-order")).toContainText("Transfer order");
     await expect(
@@ -890,6 +910,10 @@ test.describe("Clinical KB tools launcher", () => {
 
     const results = page.getByTestId("form-search-results");
     const visibleSort = page.locator('select[aria-label="Sort results"]:visible');
+    const expectedAlphaFirstTestId = `form-search-result-${
+      sortResultItems(rankFormRecords(formRecords, "transport forms"), "alpha", (match) => match.service.title)[0]
+        ?.service.slug
+    }`;
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
       "form-search-result-transport-crisis-form",
@@ -899,7 +923,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/\bsort=alpha\b/);
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
-      "form-search-result-detention-examination-movement",
+      expectedAlphaFirstTestId,
     );
 
     await page.goBack();
@@ -913,13 +937,14 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(visibleSort).toHaveValue("alpha");
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
-      "form-search-result-detention-examination-movement",
+      expectedAlphaFirstTestId,
     );
     await expectNoPageHorizontalOverflow(page);
   });
 
   test("form detail pages keep the shared forms search wired to form results", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms/transport-crisis-form");
     await expect(page.getByTestId("form-detail-page")).toBeVisible({ timeout: 30_000 });
 
@@ -949,6 +974,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("form detail mobile renders decision context after the form content", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms/transport-crisis-form");
 
     await expect(page.getByTestId("form-detail-page")).toBeVisible();
@@ -968,6 +994,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("forms search mockup is usable without horizontal overflow on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms?q=transport&focus=1&run=1");
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();

@@ -10,13 +10,12 @@ import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { rankFormRecords, formRecords } from "@/lib/forms";
+import { deriveGovernanceColumns, type RegistryRecordKind } from "@/lib/registry-records";
 import {
-  deriveGovernanceColumns,
-  rowGovernance,
-  rowToServiceRecord,
-  type RegistryRecordKind,
-} from "@/lib/registry-records";
-import { fetchOwnerRegistryRowsWithSeed } from "@/lib/registry-seed";
+  fetchOwnerRegistryRows,
+  mergeRegistryGovernanceWithDefaults,
+  mergeRegistryRecordsWithDefaults,
+} from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord, type ServiceSearchMatch } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -104,14 +103,14 @@ export async function GET(request: Request) {
       });
     }
 
-    const rows = await fetchOwnerRegistryRowsWithSeed(supabase, access.ownerId, kind, REGISTRY_MAX_RECORDS);
-    const records = rows.map(rowToServiceRecord);
-    const governanceBySlug = Object.fromEntries(rows.map((row) => [row.slug, rowGovernance(row)]));
+    const rows = await fetchOwnerRegistryRows(supabase, access.ownerId, kind, REGISTRY_MAX_RECORDS);
+    const records = mergeRegistryRecordsWithDefaults(kind, rows);
+    const governanceBySlug = mergeRegistryGovernanceWithDefaults(kind, rows);
 
     return registryResponse({
       records,
       matches: q ? matchesPayload(rankRecords(kind, records, q, limit)) : undefined,
-      total: rows.length,
+      total: records.length,
       governance: governanceBySlug,
     });
   } catch (error) {

@@ -70,6 +70,8 @@ export type ServiceRecord = {
   catalogueLabel?: string;
   navigatorQuery?: string;
   source?: ServiceSource;
+  /** Full source-specific payload retained in the registry JSONB column. */
+  catalogPayload?: Record<string, unknown>;
 };
 
 export type ServiceSearchMatch = {

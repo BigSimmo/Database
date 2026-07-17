@@ -75,6 +75,7 @@ export function recordToRow(record: ServiceRecord, ownerId: string, kind: Regist
     criteria: record.criteria ?? [],
     verification: record.verification ?? {},
     source: record.source ?? {},
+    catalog_payload: record.catalogPayload ?? {},
     source_status: governance.source_status,
     validation_status: governance.validation_status,
   };
@@ -103,6 +104,7 @@ export function rowToServiceRecord(row: RegistryRecordRow): ServiceRecord {
     catalogueLabel: row.catalogue_label ?? undefined,
     navigatorQuery: row.navigator_query ?? undefined,
     source: (row.source ?? undefined) as ServiceSource | undefined,
+    catalogPayload: (row.catalog_payload ?? {}) as Record<string, unknown>,
   };
 }
 
