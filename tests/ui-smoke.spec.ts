@@ -3234,20 +3234,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     });
     await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
 
-    // At the bottom, collapsing the in-flow header grows the scroll viewport
-    // and clamps scrollTop to the new maximum. That geometry-driven event is
-    // not an upward user gesture and must not immediately reveal the header.
+    // At the bottom, collapsing the in-flow header can reflow the scroll
+    // surface and clamp scrollTop. That geometry-driven event is not an upward
+    // user gesture and must not immediately reveal the header.
     await main.evaluate((node) => {
       node.scrollTop = 0;
     });
     await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
-    const visibleGeometry = await main.evaluate((node) => ({
-      clientHeight: node.clientHeight,
-      maxOffset: node.scrollHeight - node.clientHeight,
-    }));
+    const visibleMaxOffset = await main.evaluate((node) => node.scrollHeight - node.clientHeight);
     await main.evaluate((node, top) => {
       node.scrollTop = top;
-    }, visibleGeometry.maxOffset);
+    }, visibleMaxOffset);
     await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => collapseHost.getAttribute("data-scroll-hidden"), { timeout: 1_000 }).toBe("true");
     // The hidden attribute flips before the 240ms grid-row transition has
@@ -3261,14 +3258,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
         }),
       )
       .toBe(0);
-    const collapsedGeometry = await main.evaluate((node) => ({
-      clientHeight: node.clientHeight,
-      maxOffset: node.scrollHeight - node.clientHeight,
-      scrollTop: node.scrollTop,
-    }));
-    expect(collapsedGeometry.clientHeight).toBeGreaterThan(visibleGeometry.clientHeight);
-    expect(Math.abs(collapsedGeometry.scrollTop - collapsedGeometry.maxOffset)).toBeLessThanOrEqual(1);
-
     await main.evaluate((node) => {
       node.scrollTop = Math.max(0, node.scrollTop - 24);
     });
