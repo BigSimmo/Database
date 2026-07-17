@@ -14,6 +14,7 @@ import {
   UserRound,
 } from "lucide-react";
 
+import { ProviderBrandIcon } from "@/components/clinical-dashboard/provider-brand-icons";
 import { AUTH_EMAIL_STORAGE_KEY, type OAuthProvider, useAuthSession } from "@/lib/supabase/client";
 import {
   cn,
@@ -262,29 +263,14 @@ function ProviderButton({ provider, onClick }: { provider: "Apple" | "Google" | 
 }
 
 function ProviderMark({ provider }: { provider: "Apple" | "Google" | "Microsoft" }) {
-  if (provider === "Microsoft") {
-    return (
-      <span
-        className="grid h-7 w-7 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
-        aria-hidden="true"
-      >
-        <span className="bg-[#f25022]" />
-        <span className="bg-[#7fba00]" />
-        <span className="bg-[#00a4ef]" />
-        <span className="bg-[#ffb900]" />
-      </span>
-    );
-  }
-
   return (
     <span
-      aria-hidden="true"
       className={cn(
-        "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-base font-bold leading-none shadow-[var(--shadow-inset)]",
-        provider === "Apple" ? "text-[color:var(--text-heading)]" : "text-[#4285f4]",
+        "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-inset)]",
+        provider === "Apple" ? "text-[color:var(--text-heading)]" : undefined,
       )}
     >
-      {provider === "Apple" ? "A" : "G"}
+      <ProviderBrandIcon provider={provider} className="h-4 w-4" />
     </span>
   );
 }

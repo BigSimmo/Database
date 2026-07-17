@@ -47,6 +47,7 @@ import { isLocalNoAuthMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
+import { shouldRenderClinicalDashboard, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
@@ -118,35 +119,23 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
       : initialSearchMode;
   const requestedQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
   const hasSubmittedModeSearch = searchParams.get("run") === "1" && requestedQuery.length > 0;
-  const isHomeRoute = pathname === "/";
-  const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search");
-  const shouldRenderDashboardSearch =
-    hasSubmittedModeSearch &&
-    resolvedSearchMode !== "services" &&
-    resolvedSearchMode !== "forms" &&
-    resolvedSearchMode !== "favourites" &&
-    resolvedSearchMode !== "differentials" &&
-    resolvedSearchMode !== "dsm" &&
-    resolvedSearchMode !== "specifiers" &&
-    resolvedSearchMode !== "formulation" &&
-    // Therapy Compass owns its route with an in-tool search; a run-enabled link
-    // (/therapy-compass?q=…&run=1) must keep rendering the tool, not the dashboard.
-    resolvedSearchMode !== "therapy-compass" &&
-    !isDocumentSearchMockupRoute;
-  const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
-  const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
+  const rendersClinicalDashboard = shouldRenderClinicalDashboard({
+    hasSubmittedSearch: hasSubmittedModeSearch,
+    mode: resolvedSearchMode,
+    pathname,
+  });
 
   // Wrap both render paths so the patient-considerations profile is shared
   // between the prescribing workspace (ClinicalDashboard) and the medication
   // detail pages (standalone shell), backed by sessionStorage across navigation.
   return (
     <PatientProfileProvider>
-      {shouldRenderClinicalDashboard ? (
+      {rendersClinicalDashboard ? (
         <ClinicalDashboard
           initialSearchMode={resolvedSearchMode}
           initialQuery={requestedQuery}
           focusSearch={searchParams.get("focus") === "1"}
-          autoRunSearch={isHomeRoute ? hasSubmittedModeSearch : true}
+          autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
         />
       ) : (
         <GlobalStandaloneSearchShellClient {...props} />
@@ -237,7 +226,6 @@ function GlobalStandaloneSearchShellClient({
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
-  const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search");
   const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
   const differentialsCompareAddonActive =
@@ -246,22 +234,14 @@ function GlobalStandaloneSearchShellClient({
   // standalone routes; the shell must not swap them to the dashboard. On the
   // home route the dashboard always renders, so these exclusions only apply
   // to the standalone pages.
-  const shouldRenderDashboardSearch =
-    hasSubmittedModeSearch &&
-    resolvedSearchMode !== "services" &&
-    resolvedSearchMode !== "forms" &&
-    resolvedSearchMode !== "favourites" &&
-    resolvedSearchMode !== "differentials" &&
-    resolvedSearchMode !== "dsm" &&
-    resolvedSearchMode !== "specifiers" &&
-    resolvedSearchMode !== "formulation" &&
-    // Therapy Compass owns its route with an in-tool search; a run-enabled link
-    // (/therapy-compass?q=…&run=1) must keep rendering the tool, not the dashboard.
-    resolvedSearchMode !== "therapy-compass" &&
-    !isDocumentSearchMockupRoute;
+  const rendersDashboardSearch = shouldRenderDashboardSearch({
+    hasSubmittedSearch: hasSubmittedModeSearch,
+    mode: resolvedSearchMode,
+    pathname,
+  });
   const isStandaloneModeHome =
     !hasSubmittedModeSearch &&
-    !shouldRenderDashboardSearch &&
+    !rendersDashboardSearch &&
     ((searchMode === "services" && pathname === "/services") ||
       (searchMode === "forms" && pathname === "/forms") ||
       (searchMode === "favourites" && pathname === "/favourites") ||
