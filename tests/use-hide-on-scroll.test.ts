@@ -119,6 +119,24 @@ describe("computeScrollHideUpdate", () => {
     });
   });
 
+  it("rebases intent when scroll events switch containers", () => {
+    expect(
+      computeScrollHideUpdate({
+        offset: 4,
+        lastOffset: 500,
+        sourceChanged: true,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 300,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 4,
+      direction: null,
+      directionTravel: 0,
+    });
+  });
+
   it("ignores an upward clamp caused by the viewport growing at the bottom", () => {
     const clamped = computeScrollHideUpdate({
       offset: 900,

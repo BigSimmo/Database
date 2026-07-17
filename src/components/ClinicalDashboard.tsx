@@ -2833,6 +2833,7 @@ export function ClinicalDashboard({
         reportPhoneScrollHideRef.current({
           offset: main.scrollTop,
           maxOffset: Math.max(0, main.scrollHeight - main.clientHeight),
+          source: main,
         });
       });
     };

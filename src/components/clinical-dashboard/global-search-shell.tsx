@@ -433,6 +433,7 @@ function GlobalStandaloneSearchShellClient({
     phoneScrollHide.reportScroll({
       offset: target.scrollTop,
       maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
+      source: target,
     });
   }
 
@@ -454,6 +455,7 @@ function GlobalStandaloneSearchShellClient({
       reportPhoneScrollHideRef.current({
         offset: target.scrollTop,
         maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
+        source: target,
       });
     };
 

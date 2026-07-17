@@ -3280,6 +3280,24 @@ test.describe("Clinical KB UI smoke coverage", () => {
       )
       .toBe(0);
 
+    // A descendant may become the active scroller. Its near-zero offset must
+    // establish a new baseline rather than looking like a large upward gesture
+    // relative to the deeply scrolled main container.
+    await main.evaluate(async (node) => {
+      const nested = document.createElement("div");
+      nested.dataset.testid = "nested-scroll-intent-source";
+      nested.style.height = "40px";
+      nested.style.overflowY = "auto";
+      const content = document.createElement("div");
+      content.style.height = "200px";
+      nested.appendChild(content);
+      node.appendChild(nested);
+      nested.scrollTop = 4;
+      nested.dispatchEvent(new Event("scroll"));
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    });
+    await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
+
     // At the bottom, collapsing the in-flow header grows the scroll viewport
     // and clamps scrollTop to the new maximum. That geometry-driven event is
     // not an upward user gesture and must not immediately reveal the header.

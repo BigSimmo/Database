@@ -26,6 +26,7 @@ type ScrollDirection = "down" | "up" | null;
 export interface ScrollMetrics {
   offset: number;
   maxOffset?: number;
+  source?: EventTarget;
 }
 
 /** Pure scroll-direction evaluation used by the hook; exported for unit tests. */
@@ -33,6 +34,7 @@ export function computeScrollHideUpdate(params: {
   offset: number;
   lastOffset: number;
   maxOffset?: number;
+  sourceChanged?: boolean;
   currentlyHidden: boolean;
   direction?: ScrollDirection;
   directionTravel?: number;
@@ -42,9 +44,22 @@ export function computeScrollHideUpdate(params: {
   direction: ScrollDirection;
   directionTravel: number;
 } {
-  const { offset, lastOffset, maxOffset, currentlyHidden, direction = null, directionTravel = 0 } = params;
+  const {
+    offset,
+    lastOffset,
+    maxOffset,
+    sourceChanged = false,
+    currentlyHidden,
+    direction = null,
+    directionTravel = 0,
+  } = params;
   // Ignore iOS rubber-band overscroll at the top.
   if (offset < 0) return { hidden: currentlyHidden, lastOffset, direction, directionTravel };
+  // Offsets from different scroll containers are not comparable. Preserve the
+  // current chrome state and establish a fresh intent baseline for this source.
+  if (sourceChanged) {
+    return { hidden: currentlyHidden, lastOffset: offset, direction: null, directionTravel: 0 };
+  }
   if (offset <= topRevealOffset) {
     return { hidden: false, lastOffset: offset, direction: null, directionTravel: 0 };
   }
@@ -117,19 +132,28 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
   const lastOffsetRef = useRef(0);
   const directionRef = useRef<ScrollDirection>(null);
   const directionTravelRef = useRef(0);
+  const scrollSourceRef = useRef<EventTarget | null>(null);
+  const hasScrollSourceRef = useRef(false);
   const active = usePhoneScrollHideActive(disabled, allowAllBreakpoints);
 
   const reportScroll = useCallback(
     (report: number | ScrollMetrics) => {
-      const { offset, maxOffset } = typeof report === "number" ? { offset: report, maxOffset: undefined } : report;
+      const { offset, maxOffset, source } =
+        typeof report === "number" ? { offset: report, maxOffset: undefined, source: undefined } : report;
       if (!active || offset < 0) return;
       const lastOffset = lastOffsetRef.current;
       const delta = offset - lastOffset;
-      if (Math.abs(delta) < minimumDelta && offset > topRevealOffset) return;
+      const sourceChanged = source !== undefined && hasScrollSourceRef.current && scrollSourceRef.current !== source;
+      if (source !== undefined) {
+        scrollSourceRef.current = source;
+        hasScrollSourceRef.current = true;
+      }
+      if (!sourceChanged && Math.abs(delta) < minimumDelta && offset > topRevealOffset) return;
       const update = computeScrollHideUpdate({
         offset,
         lastOffset,
         maxOffset,
+        sourceChanged,
         currentlyHidden: hiddenRef.current,
         direction: directionRef.current,
         directionTravel: directionTravelRef.current,
@@ -149,6 +173,8 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     lastOffsetRef.current = 0;
     directionRef.current = null;
     directionTravelRef.current = 0;
+    scrollSourceRef.current = null;
+    hasScrollSourceRef.current = false;
     const frame = window.requestAnimationFrame(() => setHidden(false));
     return () => window.cancelAnimationFrame(frame);
   }, [active]);
@@ -164,6 +190,8 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     lastOffsetRef.current = 0;
     directionRef.current = null;
     directionTravelRef.current = 0;
+    scrollSourceRef.current = null;
+    hasScrollSourceRef.current = false;
     const frame = window.requestAnimationFrame(() => setHidden(false));
     return () => window.cancelAnimationFrame(frame);
   }, [allowAllBreakpoints]);
@@ -221,12 +249,14 @@ export function useHideOnScroll({
         return {
           offset: container.scrollTop,
           maxOffset: Math.max(0, container.scrollHeight - container.clientHeight),
+          source: container,
         };
       }
       const scrollingElement = document.scrollingElement ?? document.documentElement;
       return {
         offset: window.scrollY,
         maxOffset: Math.max(0, scrollingElement.scrollHeight - window.innerHeight),
+        source: window,
       };
     };
 
