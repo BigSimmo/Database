@@ -94,13 +94,12 @@ describe("specifiers content catalog", () => {
     }
   });
 
-  it("only source-verified rows carry displayed definition text, free of cross-domain templates", () => {
-    const shown = specifierIndexItems.filter((item) => item.meaning);
-    expect(shown.length).toBe(specifierVerifiedCount);
-    for (const item of shown) {
-      expect(item.src).toBe("source-verified");
-      expect(item.meaning).not.toMatch(/tic frequency|sexual-dysfunction context|personality change presentation/i);
-    }
+  it("withholds all generated definition text from the client index", () => {
+    // Generated definitions — even on source-verified rows — are withheld pending
+    // qualified clinician review (automated review found scattered clinical errors
+    // among the "source-verified" subset), so the compact search index carries no
+    // meaning text: nothing generated is displayed or ranked on.
+    expect(specifierIndexItems.some((item) => item.meaning)).toBe(false);
   });
 
   it("does not mislabel timing/onset specifiers as symptom-count thresholds", () => {
@@ -132,13 +131,34 @@ describe("specifiers content catalog", () => {
     }
   });
 
-  it("describes with/without possession rows for both states", () => {
-    const rows = specifierCatalogItems().filter((item) => /possession/i.test(item.label));
-    expect(rows.length).toBeGreaterThan(0);
-    for (const item of rows) {
-      // Must not assert possession is present; must acknowledge both states.
-      expect(item.definition?.meaning ?? "").toMatch(/with or without|may occur|present or absent/i);
+  it("frames possession per ICD-11: DID covers both forms; Trance splits into 6B63", () => {
+    const items = specifierCatalogItems();
+    // DID (ICD-11 6B64) genuinely encompasses both possession and non-possession forms
+    // within one diagnosis, so its meaning must acknowledge both states.
+    const did = items.find(
+      (item) => /dissociative identity/i.test(item.disorderName) && /possession/i.test(item.label),
+    );
+    expect(did?.definition?.meaning ?? "").toMatch(/with or without|both|may occur/i);
+    // Trance Disorder must NOT frame possession as a with/without specifier — ICD-11
+    // codes possession trance as the separate diagnosis 6B63.
+    const trance = items.filter(
+      (item) => /^trance disorder/i.test(item.disorderName) && /possession/i.test(item.label),
+    );
+    expect(trance.length).toBeGreaterThanOrEqual(1);
+    for (const item of trance) {
+      expect(item.label).toMatch(/6B63|separate/i);
+      expect(item.definition?.meaning ?? "").toMatch(/6B62|6B63|separate diagnosis/i);
     }
+  });
+
+  it("labels ARFID drivers per ICD-11 (lack of interest, not limited availability)", () => {
+    // ICD-11 6B83 lists three drivers: sensory-based avoidance, fear of aversive
+    // consequences, and lack of interest in eating. "Limited availability" is an
+    // ICD-11 exclusion, not a driver, so it must not appear as a specifier label.
+    const arfid = specifierCatalogItems().filter((item) => /avoidant.restrictive food intake/i.test(item.disorderName));
+    const labels = arfid.map((item) => item.label.toLowerCase());
+    expect(labels.some((label) => /limited availability/.test(label))).toBe(false);
+    expect(labels.some((label) => /lack of interest/.test(label))).toBe(true);
   });
 
   it("keeps DSM Section III (AMPD) provenance DSM-specific, not ICD-11", () => {
