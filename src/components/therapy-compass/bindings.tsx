@@ -413,7 +413,7 @@ export function TcProvider({
       sheetClinician,
       toggleClinician: () => setSheetClinician((prev) => !prev),
       clinicianTrack: s(
-        "position:relative;width:42px;height:24px;border-radius:12px;flex:none;cursor:pointer;transition:background .15s ease;background:" +
+        "position:relative;width:42px;height:24px;border:0;padding:0;border-radius:12px;flex:none;cursor:pointer;transition:background .15s ease;background:" +
           (sheetClinician ? "var(--clinical-accent)" : "var(--border-strong)") +
           ";",
       ),
