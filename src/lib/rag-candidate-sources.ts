@@ -45,26 +45,6 @@ import type { DocumentIndexUnitMatch, DocumentMemoryCard, SearchResult } from "@
 // where telemetry is in scope, record the failing RPC + code so it shows up in rag_retrieval_logs.
 export type SupabaseRpcError = { message?: string; code?: string; details?: string; hint?: string } | null;
 
-type AbortableQuery<T> = PromiseLike<T> & {
-  abortSignal?: (signal: AbortSignal) => PromiseLike<T>;
-};
-
-function abortReason(signal: AbortSignal): Error {
-  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
-}
-
-function throwIfAborted(signal?: AbortSignal) {
-  if (signal?.aborted) throw abortReason(signal);
-}
-
-async function resolveQuery<T>(query: AbortableQuery<T>, signal?: AbortSignal): Promise<T> {
-  throwIfAborted(signal);
-  const pending = signal && typeof query.abortSignal === "function" ? query.abortSignal(signal) : query;
-  const result = await pending;
-  throwIfAborted(signal);
-  return result;
-}
-
 function legacyRankFields(versionedName: string) {
   if (versionedName === "match_document_chunks_v2") return ["similarity"];
   if (versionedName === "match_documents_for_query_v2") return ["text_rank"];
@@ -101,17 +81,15 @@ export async function callVersionedRetrievalRpc<T extends unknown[] = unknown[]>
   versionedName: string,
   legacyName: string,
   args: Record<string, unknown>,
-  signal?: AbortSignal,
 ): Promise<{ data: T | null; error: SupabaseRpcError }> {
-  type RpcResult = { data: T | null; error: SupabaseRpcError };
   const client = supabase as unknown as {
-    rpc: (name: string, rpcArgs: Record<string, unknown>) => AbortableQuery<RpcResult>;
+    rpc: (name: string, rpcArgs: Record<string, unknown>) => Promise<{ data: T | null; error: SupabaseRpcError }>;
   };
-  const versioned = await resolveQuery(client.rpc(versionedName, args), signal);
+  const versioned = await client.rpc(versionedName, args);
   if (versioned && !isMissingRetrievalRpcError(versioned.error)) return versioned;
   const legacyArgs = { ...args };
   delete legacyArgs.include_public;
-  const ownerResult = await resolveQuery(client.rpc(legacyName, legacyArgs), signal);
+  const ownerResult = await client.rpc(legacyName, legacyArgs);
   const ownerFilter = String(args.owner_filter ?? "");
   if (
     ownerResult.error ||
@@ -121,13 +99,10 @@ export async function callVersionedRetrievalRpc<T extends unknown[] = unknown[]>
   ) {
     return ownerResult;
   }
-  const publicResult = await resolveQuery(
-    client.rpc(legacyName, {
-      ...legacyArgs,
-      owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
-    }),
-    signal,
-  );
+  const publicResult = await client.rpc(legacyName, {
+    ...legacyArgs,
+    owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
+  });
   if (publicResult.error) return publicResult;
   return {
     data: mergeLegacyAccessRows(
@@ -204,7 +179,6 @@ export async function searchTextChunkCandidates(args: {
   allowGlobalSearch?: boolean;
   matchCount: number;
   telemetry?: SearchTelemetry;
-  signal?: AbortSignal;
 }) {
   const runChunkText = async (queryText: string, matchCount: number) => {
     const accessScope = retrievalAccessScopeForArgs(args);
@@ -218,7 +192,6 @@ export async function searchTextChunkCandidates(args: {
         document_filters: args.documentIds ?? undefined,
         ...retrievalRpcScopeArgs(accessScope),
       },
-      args.signal,
     );
     // Report the error before returning empty so a schema drift on this
     // most-terminal lexical layer surfaces in hybrid_rpc_errors telemetry
@@ -275,13 +248,10 @@ export async function searchTextChunkCandidates(args: {
   const primary = variants[0] ?? "";
   let effectivePrimary = primary;
   if (primary) {
-    const { data: corrected } = await resolveQuery(
-      args.supabase.rpc("correct_clinical_query_terms", {
-        input_query: primary,
-        min_sim: 0.45,
-      }),
-      args.signal,
-    );
+    const { data: corrected } = await args.supabase.rpc("correct_clinical_query_terms", {
+      input_query: primary,
+      min_sim: 0.45,
+    });
     if (typeof corrected === "string" && corrected && corrected !== primary) {
       const correctedResults = await runChunkText(corrected, args.matchCount);
       if (correctedResults.length > 0) return correctedResults;
@@ -406,7 +376,6 @@ async function fetchBestDocumentLookupChunks(args: {
   ownerId?: string;
   accessScope?: RetrievalAccessScope;
   allowGlobalSearch?: boolean;
-  signal?: AbortSignal;
 }) {
   const terms = documentLookupChunkTerms(args.query);
   const { data: rpcChunks, error: rpcError } = await callVersionedRetrievalRpc(
@@ -419,7 +388,6 @@ async function fetchBestDocumentLookupChunks(args: {
       match_count: Math.max(args.limit * 3, 24),
       ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
     },
-    args.signal,
   );
   if (!rpcError && rpcChunks?.length) {
     const ranked = (rpcChunks as DocumentLookupChunkRow[])
@@ -450,8 +418,9 @@ async function fetchBestDocumentLookupChunks(args: {
     .in("document_id", args.documentIds)
     .limit(Math.max(args.limit * 4, 24));
 
-  const matchedQuery = safeFilters ? baseQuery.or(safeFilters) : baseQuery.order("chunk_index", { ascending: true });
-  const { data: matchedChunks, error: matchedError } = await resolveQuery(matchedQuery, args.signal);
+  const { data: matchedChunks, error: matchedError } = safeFilters
+    ? await baseQuery.or(safeFilters)
+    : await baseQuery.order("chunk_index", { ascending: true });
 
   if (!matchedError && matchedChunks?.length) {
     const ranked = (matchedChunks as DocumentLookupChunkRow[])
@@ -470,7 +439,7 @@ async function fetchBestDocumentLookupChunks(args: {
     .in("document_id", args.documentIds)
     .order("chunk_index", { ascending: true })
     .limit(args.limit);
-  const { data: fallbackChunks, error: fallbackError } = await resolveQuery(fallbackQuery, args.signal);
+  const { data: fallbackChunks, error: fallbackError } = await fallbackQuery;
   if (fallbackError || !fallbackChunks?.length) return { chunks: [] as DocumentLookupChunkRow[], terms };
   return { chunks: fallbackChunks as DocumentLookupChunkRow[], terms };
 }
@@ -482,7 +451,6 @@ async function fetchDocumentTitleAliasRows(args: {
   ownerId?: string;
   accessScope?: RetrievalAccessScope;
   documentIds?: string[];
-  signal?: AbortSignal;
 }) {
   const terms = analyzeClinicalQuery(args.query)
     .documentTitleTerms.map((term) => term.replace(/[%_,]/g, " ").replace(/\s+/g, " ").trim())
@@ -506,7 +474,7 @@ async function fetchDocumentTitleAliasRows(args: {
   }
   if (args.documentIds?.length) query = query.in("id", args.documentIds);
 
-  const { data, error } = await resolveQuery(query, args.signal);
+  const { data, error } = await query;
   if (error || !data?.length) return [] as DocumentLookupRow[];
 
   return (data as DocumentLookupRow[]).map((document) => ({
@@ -531,7 +499,6 @@ export async function searchDocumentLookupFastPath(args: {
   documentIds?: string[];
   matchCount: number;
   telemetry?: SearchTelemetry;
-  signal?: AbortSignal;
 }): Promise<SearchResult[]> {
   if (!args.ownerId) return [] as SearchResult[];
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
@@ -548,7 +515,6 @@ export async function searchDocumentLookupFastPath(args: {
         match_count: matchCount,
         ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
       },
-      args.signal,
     );
     if (error) recordHybridRpcError(args.telemetry, "match_documents_for_query", error);
     if (error || !data?.length) return [] as DocumentLookupRow[];
@@ -567,7 +533,6 @@ export async function searchDocumentLookupFastPath(args: {
     ownerId: args.ownerId,
     accessScope: args.accessScope,
     documentIds: args.documentIds,
-    signal: args.signal,
   });
   const documentsById = new Map<string, DocumentLookupRow>();
   for (const document of [...titleAliasDocuments, ...documentSets.flat()]) {
@@ -601,7 +566,6 @@ export async function searchDocumentLookupFastPath(args: {
     limit: Math.max(args.matchCount, rankedDocuments.length * 4),
     ownerId: args.ownerId,
     accessScope: args.accessScope,
-    signal: args.signal,
   });
 
   if (!chunks.length) return [];
@@ -657,7 +621,6 @@ export async function loadChunksForMemoryCards(
   supabase: ReturnType<typeof createAdminClient>,
   cards: DocumentMemoryCard[],
   accessScope: RetrievalAccessScope,
-  signal?: AbortSignal,
 ) {
   const documentIds = Array.from(new Set(cards.map((card) => card.document_id))).slice(0, 80);
   if (documentIds.length === 0) return [] as SearchResult[];
@@ -673,7 +636,7 @@ export async function loadChunksForMemoryCards(
   } else {
     documentQuery = documentQuery.is("owner_id", null);
   }
-  const { data: documents, error: documentsError } = await resolveQuery(documentQuery, signal);
+  const { data: documents, error: documentsError } = await documentQuery;
   if (documentsError || !documents?.length) return [] as SearchResult[];
 
   const documentById = new Map(documents.map((document) => [document.id, document]));
@@ -684,7 +647,7 @@ export async function loadChunksForMemoryCards(
     ),
   ).slice(0, 80);
   if (chunkIds.length === 0) return [] as SearchResult[];
-  const chunksQuery = supabase
+  const { data: chunks, error: chunksError } = await supabase
     .from("document_chunks")
     .select(
       "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids,index_generation_id",
@@ -692,7 +655,6 @@ export async function loadChunksForMemoryCards(
     .in("id", chunkIds)
     .in("document_id", [...allowedDocumentIds])
     .limit(chunkIds.length);
-  const { data: chunks, error: chunksError } = await resolveQuery(chunksQuery, signal);
   if (chunksError || !chunks?.length) return [] as SearchResult[];
   const bestCardByChunk = new Map<string, DocumentMemoryCard>();
   for (const card of cards) {
@@ -821,7 +783,6 @@ export async function loadChunksForSignalMatches(args: {
   ownerId?: string;
   accessScope?: RetrievalAccessScope;
   cache?: ChunkLoadCache;
-  signal?: AbortSignal;
 }) {
   const bestMatchByChunk = new Map<string, ChunkSignalMatch>();
   for (const match of args.matches) {
@@ -840,12 +801,11 @@ export async function loadChunksForSignalMatches(args: {
     ids: chunkIds,
     scopeKey: cacheScopeKey,
     fetchRows: async (missingChunkIds) => {
-      const query = args.supabase
+      const { data, error } = await args.supabase
         .from("document_chunks")
         .select("id,document_id")
         .in("id", missingChunkIds)
         .limit(missingChunkIds.length);
-      const { data, error } = await resolveQuery(query, args.signal);
       return { data: data as ChunkScopeRow[] | null, error };
     },
   });
@@ -870,7 +830,7 @@ export async function loadChunksForSignalMatches(args: {
       } else {
         documentQuery = documentQuery.is("owner_id", null);
       }
-      const { data, error } = await resolveQuery(documentQuery, args.signal);
+      const { data, error } = await documentQuery;
       return { data: data as HydratedDocumentRow[] | null, error };
     },
   });
@@ -889,7 +849,7 @@ export async function loadChunksForSignalMatches(args: {
     ids: allowedChunkIds,
     scopeKey: cacheScopeKey,
     fetchRows: async (missingAllowedChunkIds) => {
-      const query = args.supabase
+      const { data, error } = await args.supabase
         .from("document_chunks")
         .select(
           "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids,index_generation_id",
@@ -897,7 +857,6 @@ export async function loadChunksForSignalMatches(args: {
         .in("id", missingAllowedChunkIds)
         .in("document_id", [...allowedDocumentIds])
         .limit(missingAllowedChunkIds.length);
-      const { data, error } = await resolveQuery(query, args.signal);
       return { data: data as HydratedChunkRow[] | null, error };
     },
   });
@@ -971,7 +930,6 @@ export async function searchTableFactCandidates(args: {
   matchCount: number;
   telemetry?: SearchTelemetry;
   cache?: ChunkLoadCache;
-  signal?: AbortSignal;
 }) {
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
     0,
@@ -988,7 +946,6 @@ export async function searchTableFactCandidates(args: {
         document_filters: args.documentIds ?? undefined,
         ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
       },
-      args.signal,
     );
     if (error) recordHybridRpcError(args.telemetry, "match_document_table_facts_text", error);
     if (error || !data?.length) return [] as TableFactRpcRow[];
@@ -1030,7 +987,6 @@ export async function searchTableFactCandidates(args: {
     ownerId: args.ownerId,
     accessScope: args.accessScope,
     cache: args.cache,
-    signal: args.signal,
   });
 }
 
@@ -1046,7 +1002,6 @@ export async function searchEmbeddingFieldCandidates(args: {
   matchCount: number;
   telemetry?: SearchTelemetry;
   cache?: ChunkLoadCache;
-  signal?: AbortSignal;
 }) {
   const { data, error } = await callVersionedRetrievalRpc(
     args.supabase,
@@ -1060,7 +1015,6 @@ export async function searchEmbeddingFieldCandidates(args: {
       document_filters: args.documentIds ?? undefined,
       ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
     },
-    args.signal,
   );
   if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
@@ -1098,7 +1052,6 @@ export async function searchEmbeddingFieldCandidates(args: {
     ownerId: args.ownerId,
     accessScope: args.accessScope,
     cache: args.cache,
-    signal: args.signal,
   });
 }
 
@@ -1114,7 +1067,6 @@ export async function searchIndexUnitCandidates(args: {
   matchCount: number;
   telemetry?: SearchTelemetry;
   cache?: ChunkLoadCache;
-  signal?: AbortSignal;
 }) {
   const { data, error } = await callVersionedRetrievalRpc(
     args.supabase,
@@ -1128,7 +1080,6 @@ export async function searchIndexUnitCandidates(args: {
       document_filters: args.documentIds ?? undefined,
       ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
     },
-    args.signal,
   );
   if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
@@ -1168,7 +1119,6 @@ export async function searchIndexUnitCandidates(args: {
     ownerId: args.ownerId,
     accessScope: args.accessScope,
     cache: args.cache,
-    signal: args.signal,
   });
 }
 
@@ -1185,7 +1135,6 @@ export async function withMemoryBoostedCandidates(args: {
   documentIds?: string[];
   matchCount: number;
   cardCache?: MemoryCardCache;
-  signal?: AbortSignal;
 }) {
   // A3: the memory-card fetch is invoked at several waterfall stages. Memoize per request,
   // scoped by owner/document filters because fetchMemoryCardsForQuery applies those filters.
@@ -1208,19 +1157,13 @@ export async function withMemoryBoostedCandidates(args: {
       accessScope: args.accessScope,
       documentIds: args.documentIds,
       matchCount: effectiveMatchCount,
-      signal: args.signal,
     });
     args.cardCache?.set(cacheKey, cardsPromise);
   }
   const cards = await cardsPromise;
   if (cards.length === 0) return { results: args.candidates, cards };
 
-  const memoryChunkResults = await loadChunksForMemoryCards(
-    args.supabase,
-    cards,
-    retrievalAccessScopeForArgs(args),
-    args.signal,
-  );
+  const memoryChunkResults = await loadChunksForMemoryCards(args.supabase, cards, retrievalAccessScopeForArgs(args));
   const merged = mergeSearchResults(memoryChunkResults, args.candidates);
   return {
     results: applyMemoryCardBoosts(args.query, merged, cards),
