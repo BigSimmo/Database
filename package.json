@@ -32,6 +32,7 @@
     "test:e2e": "node scripts/run-playwright.mjs",
     "test:e2e:all": "node scripts/run-playwright.mjs",
     "test:e2e:accessibility": "node scripts/run-playwright.mjs tests/ui-accessibility.spec.ts --project=chromium",
+    "test:e2e:pwa": "node scripts/run-playwright.mjs tests/ui-pwa.spec.ts --project=chromium",
     "test:e2e:critical": "node scripts/run-playwright.mjs --project=chromium --grep @critical",
     "test:e2e:regression": "node scripts/run-playwright.mjs --project=chromium --grep-invert \"@critical|@quarantine\"",
     "test:e2e:pr": "node scripts/run-playwright.mjs --project=chromium --grep-invert @quarantine",

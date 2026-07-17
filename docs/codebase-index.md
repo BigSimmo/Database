@@ -42,6 +42,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 - **Root layout:** `src/app/layout.tsx` — fonts, `AuthProvider`, global CSS
 - **App shell:** `src/components/clinical-dashboard/global-search-shell.tsx` — canonical route-aware shell and lazy dashboard dispatch. The mockup-named module is a compatibility re-export used only below `/mockups`.
+- **PWA:** `docs/pwa.md` — install assets, privacy-first service worker/offline shell, lifecycle, security, and verification
 - **Home:** `src/app/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
 - **Modes (12):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, Therapy Compass
