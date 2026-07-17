@@ -389,7 +389,7 @@ function SafetyRow({ therapy }: { therapy: Therapy }) {
     >
       <span
         style={s(
-          `display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:#fff;color:var(--warning-text);flex:none;margin-left:14px;`,
+          `display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:var(--surface);color:var(--warning-text);flex:none;margin-left:14px;`,
         )}
       >
         <AlertIcon size={17} />
