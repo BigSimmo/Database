@@ -143,6 +143,11 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     return this;
   }
 
+  abortSignal(signal: AbortSignal) {
+    void signal;
+    return this;
+  }
+
   single() {
     this.call.single = true;
     return this.resolve();
@@ -238,6 +243,12 @@ function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
     if (name === "consume_api_rate_limit") {
       return {
         data: [rateLimitRow()],
+        error: null,
+      };
+    }
+    if (name === "consume_summary_rate_limits_atomic") {
+      return {
+        data: [rateLimitRow({ bucket: null, limit_value: 12 })],
         error: null,
       };
     }
@@ -2951,7 +2962,7 @@ describe("private document API access", () => {
     expect(update).not.toHaveProperty("storage_path");
     expect(update).not.toHaveProperty("content_hash");
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
-    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
+    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId, { affectsPublicCorpus: false });
   });
 
   it("rejects invalid document rename titles", async () => {
@@ -3027,7 +3038,7 @@ describe("private document API access", () => {
       source: "manual",
       confidence: 1,
     });
-    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
+    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId, { affectsPublicCorpus: false });
   });
 
   it("creates manual site labels for owned documents", async () => {
@@ -3067,7 +3078,7 @@ describe("private document API access", () => {
       source: "manual",
       confidence: 1,
     });
-    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
+    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId, { affectsPublicCorpus: false });
   });
 
   it("rejects noisy manual document labels before insert", async () => {
@@ -3121,7 +3132,7 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(update?.filters).toContainEqual({ column: "source", value: "manual" });
     expect(update?.updatePayload).toMatchObject({ label: "lithium toxicity", label_type: "risk", source: "manual" });
-    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
+    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId, { affectsPublicCorpus: false });
   });
 
   it.each([
@@ -3181,7 +3192,7 @@ describe("private document API access", () => {
     expect(update?.updatePayload).toMatchObject({
       metadata: expect.objectContaining({ review_status: reviewStatus, hidden, reviewed_by: "label-review-admin" }),
     });
-    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
+    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId, { affectsPublicCorpus: false });
   });
 
   it("does not review labels that are not owned by the authenticated user", async () => {
@@ -3298,7 +3309,7 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(await payload(response)).toMatchObject({ deleted: true, labelId: manualLabelId, labels: [] });
     expect(deleteCall?.filters).toContainEqual({ column: "source", value: "manual" });
-    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId);
+    expect(invalidateRagCachesForDocumentMutation).toHaveBeenCalledWith(userId, { affectsPublicCorpus: false });
   });
 
   it("permanently deletes an owned document, indexing traces, and storage objects", async () => {
@@ -4271,9 +4282,15 @@ describe("private document API access", () => {
     expect(summarizeDocument).toHaveBeenCalledWith(documentId, userId, {
       signal: expect.any(AbortSignal),
     });
+    expect(client.rpc).toHaveBeenCalledTimes(1);
     expect(client.rpc).toHaveBeenCalledWith(
-      "consume_api_rate_limit",
-      expect.objectContaining({ p_owner_id: userId, p_bucket: "document_summarize" }),
+      "consume_summary_rate_limits_atomic",
+      expect.objectContaining({
+        p_owner_id: userId,
+        p_subject_key: null,
+        p_answer_limit: 30,
+        p_summary_limit: 12,
+      }),
     );
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
@@ -4287,12 +4304,20 @@ describe("private document API access", () => {
       sources: [],
     }));
     const client = createSupabaseMock();
-    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) =>
-      name === "consume_api_rate_limit" && args?.p_bucket === "document_summarize"
-        ? { data: [rateLimitRow({ limited: true, limit_value: 12, remaining: 0 })], error: null }
-        : name === "consume_api_rate_limit"
-          ? { data: [rateLimitRow()], error: null }
-          : ok([]),
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "consume_summary_rate_limits_atomic"
+        ? {
+            data: [
+              rateLimitRow({
+                bucket: "document_summarize",
+                limited: true,
+                limit_value: 12,
+                remaining: 0,
+              }),
+            ],
+            error: null,
+          }
+        : ok([]),
     );
     mockRuntime(client, { summarizeDocument });
     const { POST } = await import("../src/app/api/answer/stream/route");
@@ -4314,16 +4339,45 @@ describe("private document API access", () => {
       error: "Too many document summary requests. Retry shortly.",
       details: { retryAfterSeconds: 60 },
     });
-    expect(client.rpc).toHaveBeenNthCalledWith(
-      1,
-      "consume_api_rate_limit",
-      expect.objectContaining({ p_owner_id: userId, p_bucket: "answer" }),
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_summary_rate_limits_atomic",
+      expect.objectContaining({ p_owner_id: userId, p_subject_key: null }),
     );
-    expect(client.rpc).toHaveBeenNthCalledWith(
-      2,
-      "consume_api_rate_limit",
-      expect.objectContaining({ p_owner_id: userId, p_bucket: "document_summarize" }),
+    expect(summarizeDocument).not.toHaveBeenCalled();
+  });
+
+  it("preserves the general answer rejection for atomic streamed-summary limits", async () => {
+    const summarizeDocument = vi.fn();
+    const client = createSupabaseMock();
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "consume_summary_rate_limits_atomic"
+        ? {
+            data: [rateLimitRow({ bucket: "answer", limited: true, limit_value: 30, remaining: 0 })],
+            error: null,
+          }
+        : ok([]),
     );
+    mockRuntime(client, { summarizeDocument });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          summaryMode: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(429);
+    expect(await payload(response)).toMatchObject({
+      error: "Too many answer requests. Retry shortly.",
+      details: { retryAfterSeconds: 60 },
+    });
+    expect(client.rpc).toHaveBeenCalledTimes(1);
     expect(summarizeDocument).not.toHaveBeenCalled();
   });
 

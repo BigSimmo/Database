@@ -6,19 +6,10 @@ import {
   sourceTextForCompactDisplay,
   sourceTextForDisplay,
 } from "@/lib/source-text-sanitizer";
-import type { Citation, RagAnswer, SearchResult } from "@/lib/types";
+import type { Citation, RagAnswer, SafetyWarning, SafetyWarningKind, SearchResult } from "@/lib/types";
 
-export type SafetyFindingKind =
-  "contraindication" | "red_flag" | "escalation" | "dose_limit" | "monitoring" | "exclusion" | "caveat";
-
-export type SafetyFinding = {
-  id: string;
-  kind: SafetyFindingKind;
-  label: string;
-  text: string;
-  citation: Citation;
-  href: string;
-};
+export type SafetyFindingKind = SafetyWarningKind;
+export type SafetyFinding = SafetyWarning;
 
 const safetyPatterns: Array<{ kind: SafetyFindingKind; label: string; pattern: RegExp }> = [
   {
@@ -95,6 +86,7 @@ function hasQueryConceptOverlap(text: string, terms: string[]) {
 }
 
 export function extractSafetyFindings(answer: RagAnswer | null | undefined, limit = 5): SafetyFinding[] {
+  if (answer?.safetyWarnings) return answer.safetyWarnings.slice(0, limit);
   if (!answer?.grounded) return [];
   if (answer.relevance && !answer.relevance.isSourceBacked) return [];
 

@@ -24,13 +24,15 @@ jobs:
         if: github.event_name == 'merge_group'
         run: echo "PR metadata was validated before merge-queue entry."
 
-      # pull_request_target runs trusted base-branch code. Pin the checkout to
-      # the PR's exact base SHA and never execute the PR head or persist credentials.
+      # pull_request_target runs trusted base-branch code. Checkout the current
+      # tip of the base branch (not a potentially stale base.sha) so the policy
+      # script is always available even when the PR was opened before the script
+      # was added to main. Never execute the PR head or persist credentials.
       - name: Checkout trusted policy
         if: github.event_name == 'pull_request_target'
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.base_ref }}
           persist-credentials: false
 
       - name: Validate pull request evidence

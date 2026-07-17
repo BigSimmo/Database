@@ -1,61 +1,15 @@
 import formsCatalog from "../../data/forms-catalog.json";
 import formsPdfManifest from "../../data/forms-pdf-manifest.json";
 
+import type { FormAvailability, FormCatalogDetails } from "@/lib/form-ranker";
 import type { ServiceChipTone, ServiceRecord } from "@/lib/services";
+
+export { formCatalogDetails } from "@/lib/form-ranker";
+export type { FormAvailability, FormCatalogDetails } from "@/lib/form-ranker";
 
 export const officialFormsRegisterUrl =
   "https://www.chiefpsychiatrist.wa.gov.au/laws-and-rights/legislation/mental-health-act-2014-forms/";
 export const officialFormsReviewedDate = "17 July 2026";
-
-export type FormAvailability = "downloadable" | "unavailable" | "contact_ocp";
-
-export type FormCatalogDetails = {
-  id: string;
-  form: string;
-  name: string;
-  category: string;
-  purpose: string;
-  maker: string;
-  involved: string;
-  threshold: string;
-  clock: string;
-  destination: string;
-  authorises: string;
-  doesNotAuthorise: string;
-  before: string[];
-  parallel: string[];
-  after: string[];
-  copies: string;
-  documentationStem: string;
-  traps: string[];
-  safetyPearl: string;
-  sourceNote: string;
-  aliases: string[];
-  searchTerms: string[];
-  riskLevel: "high" | "medium" | "low";
-  indexedClock?: string;
-  indexedTerms?: string[];
-  legalNote: string;
-  practicePearls: string[];
-  preUseChecks: string[];
-  sourceFacts?: {
-    documentTitle?: string;
-    fileName?: string;
-    pages?: number;
-    timings?: string[];
-    sectionCue?: string;
-    indexedAt?: string;
-  };
-  availability: FormAvailability;
-  officialPdfUrl?: string;
-  officialRegisterUrl: string;
-  localPdfPath?: string;
-  localPdfSha256?: string;
-  localPdfBytes?: number;
-  officialPdfPasswordProtected?: boolean;
-  officialTitleCheckedAt: string;
-  archiveGeneratedAt?: string;
-};
 
 type OfficialForm = {
   code: string;
@@ -472,12 +426,4 @@ export function loadFormCatalogDetails(): FormCatalogDetails[] {
 
 export function mapFormCatalogToRecords(): ServiceRecord[] {
   return loadFormCatalogDetails().map(toFormRecord);
-}
-
-export function formCatalogDetails(record: ServiceRecord): FormCatalogDetails | null {
-  const payload = record.catalogPayload;
-  if (!payload || typeof payload !== "object") return null;
-  const candidate = payload as Partial<FormCatalogDetails>;
-  if (!candidate.form || !candidate.name || !candidate.category || !candidate.availability) return null;
-  return candidate as FormCatalogDetails;
 }

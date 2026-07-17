@@ -105,6 +105,56 @@ describe("paid anonymous answer limits", () => {
   });
 });
 
+describe("atomic streamed-summary limits", () => {
+  it("applies anonymous caller, global-answer, and summary policies in one RPC", async () => {
+    const { consumeSummaryRateLimits } = await import("../src/lib/api-rate-limit");
+    const rpc = vi.fn(async () => ({
+      data: [
+        {
+          bucket: null,
+          limited: false,
+          limit_value: 12,
+          remaining: 5,
+          retry_after_seconds: 60,
+          reset_at: new Date(Date.now() + 60_000).toISOString(),
+        },
+      ],
+      error: null,
+    }));
+
+    const decision = await consumeSummaryRateLimits({
+      supabase: { rpc } as never,
+      subject: { kind: "anonymous", subjectKey: "anon:caller" },
+    });
+
+    expect(decision).toMatchObject({ bucket: null, rateLimit: { limited: false, limit: 12, remaining: 5 } });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("consume_summary_rate_limits_atomic", {
+      p_owner_id: null,
+      p_subject_key: "anon:caller",
+      p_answer_limit: 6,
+      p_answer_window_seconds: 60,
+      p_summary_limit: 12,
+      p_summary_window_seconds: 60,
+      p_global_answer_limit: 30,
+      p_global_answer_window_seconds: 60,
+    });
+  });
+
+  it("fails closed when the atomic RPC is unavailable", async () => {
+    const { ApiRateLimitUnavailableError, consumeSummaryRateLimits } = await import("../src/lib/api-rate-limit");
+    const rpc = vi.fn(async () => ({ data: null, error: { code: "PGRST202", message: "missing RPC" } }));
+
+    await expect(
+      consumeSummaryRateLimits({
+        supabase: { rpc } as never,
+        subject: { kind: "owner", ownerId: "owner-1" },
+      }),
+    ).rejects.toBeInstanceOf(ApiRateLimitUnavailableError);
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("document_upload fail-closed limiter", () => {
   it("fails closed (does not fall back to per-instance memory) when the durable limiter is unavailable", async () => {
     vi.stubEnv("NODE_ENV", "production");
