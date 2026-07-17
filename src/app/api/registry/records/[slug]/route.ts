@@ -8,7 +8,6 @@ import {
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { jsonError } from "@/lib/http";
-import { safeErrorLogDetails } from "@/lib/privacy";
 import { publicAccessContext } from "@/lib/public-api-access";
 import { getFormRecord } from "@/lib/forms";
 import {
@@ -18,7 +17,6 @@ import {
   rowToServiceRecord,
   type RegistryRecordRow,
 } from "@/lib/registry-records";
-import { ensureRegistrySeeded } from "@/lib/registry-seed";
 import { getServiceRecord } from "@/lib/services";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
@@ -104,33 +102,12 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       return (data as RegistryRecordRow | null) ?? null;
     };
 
-    let row = await fetchRecord();
+    const row = await fetchRecord();
     if (!row) {
-      // A new owner may deep-link a default record (e.g. a saved favourite)
-      // before ever loading the Services/Forms home list that seeds them. If
-      // this owner has no records of this kind at all, lazily seed the curated
-      // defaults and retry once. Non-fatal — fall through to 404 on failure.
-      const { count, error: countError } = await supabase
-        .from("clinical_registry_records")
-        .select("id", { count: "exact", head: true })
-        .eq("owner_id", access.ownerId)
-        .eq("kind", kind);
-      if (countError) throw new Error(countError.message);
-      if ((count ?? 0) === 0) {
-        // Only the seed write is best-effort; the re-read stays outside the try
-        // so a genuine read failure surfaces rather than a misleading 404.
-        let seedError: unknown = null;
-        try {
-          await ensureRegistrySeeded(supabase, access.ownerId, kind);
-        } catch (error) {
-          seedError = error;
-          console.error("[registry] auto-seed failed", { kind, ...safeErrorLogDetails(error) });
-        }
-        row = await fetchRecord();
-        if (!row && seedError) throw seedError;
-      }
+      const payload = publicRegistryDetailPayload(kind, normalizedSlug);
+      if (!payload) return notFoundResponse(normalizedSlug);
+      return registryResponse({ ...payload, sharedCatalog: true });
     }
-    if (!row) return notFoundResponse(normalizedSlug);
 
     const { data: links, error: linksError } = await supabase
       .from("clinical_registry_record_sources")

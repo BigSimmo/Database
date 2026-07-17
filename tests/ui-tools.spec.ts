@@ -162,6 +162,24 @@ async function mockAnswerDashboardApi(page: Page) {
       },
     });
   });
+  await page.route(/\/api\/registry\/records\/[^/?]+(?:\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url());
+    const slug = decodeURIComponent(url.pathname.split("/").pop() ?? "");
+    const kind = url.searchParams.get("kind");
+    const record = kind === "form" ? formRecords.find((form) => form.slug === slug) : undefined;
+    if (!record) {
+      await route.fulfill({ status: 404, json: { error: "Registry record not found" } });
+      return;
+    }
+    await route.fulfill({
+      json: {
+        record,
+        linkedDocuments: [],
+        governance: { sourceStatus: "current", validationStatus: "unverified" },
+        demoMode: true,
+      },
+    });
+  });
 }
 
 async function mockDifferentialCatalogApi(page: Page) {
@@ -862,6 +880,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("forms mode shows source-backed form records in search results", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
 
     await expect(page.getByRole("button", { name: "Mode Forms" })).toBeVisible();
@@ -870,10 +889,10 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("form-search-results")).toContainText("Best matches");
     await expect(page.getByTestId("form-search-result-transport-crisis-form")).toContainText("Transport order");
     await expect(page.getByTestId("form-search-result-extension-transport-order")).toContainText(
-      "Extension of Transport Order",
+      "Extension of transport order",
     );
     await expect(page.getByTestId("form-search-result-detention-examination-movement")).toContainText(
-      "Detention to enable examination or movement",
+      "Detention order",
     );
     await expect(page.getByTestId("form-search-result-transfer-order")).toContainText("Transfer order");
     await expect(
@@ -920,6 +939,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("form detail pages keep the shared forms search wired to form results", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms/transport-crisis-form");
     await expect(page.getByTestId("form-detail-page")).toBeVisible({ timeout: 30_000 });
 
@@ -949,6 +969,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("form detail mobile renders decision context after the form content", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms/transport-crisis-form");
 
     await expect(page.getByTestId("form-detail-page")).toBeVisible();
@@ -968,6 +989,7 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("forms search mockup is usable without horizontal overflow on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms?q=transport&focus=1&run=1");
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();

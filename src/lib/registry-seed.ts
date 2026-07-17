@@ -1,7 +1,15 @@
 import { formRecords } from "@/lib/forms";
-import { safeErrorLogDetails } from "@/lib/privacy";
 import { buildDefaultFormRows, buildDefaultServiceRows, defaultServiceRecords } from "@/lib/registry-fixtures";
-import { type RegistryRecordInsert, type RegistryRecordKind, type RegistryRecordRow } from "@/lib/registry-records";
+import {
+  deriveGovernanceColumns,
+  normalizeRegistrySlug,
+  rowGovernance,
+  rowToServiceRecord,
+  type RegistryRecordInsert,
+  type RegistryRecordKind,
+  type RegistryRecordRow,
+} from "@/lib/registry-records";
+import type { ServiceRecord } from "@/lib/services";
 
 // Type-only reference to the admin client so this module carries no runtime
 // dependency on the Supabase admin singleton — the CLI can import the row
@@ -13,28 +21,86 @@ function loadRegistryCorpus() {
   return import("@/lib/registry-corpus");
 }
 
-/** The curated default registry fixtures for a kind — the same set the CLI
- *  seeds and the API falls back to when an owner has no records yet. */
+/** The curated shared registry fixtures for a kind — the same baseline the CLI
+ *  can materialize and every API caller receives automatically. */
 export function defaultRegistryRecords(kind: RegistryRecordKind) {
   return kind === "form" ? formRecords : defaultServiceRecords();
 }
 
-/** Build insertable rows for an owner from the default fixtures. Shared by the
- *  CLI (`scripts/seed-registry-records.ts`) and the lazy API auto-seed so both
- *  map fixtures → rows identically. */
+/** Build insertable rows for an owner from the shared fixtures. Used by
+ *  explicit operator seeding; GET requests do not materialize catalogue rows. */
 export function buildDefaultRegistryRows(ownerId: string, kind: RegistryRecordKind): RegistryRecordInsert[] {
   return kind === "form" ? buildDefaultFormRows(ownerId) : buildDefaultServiceRows(ownerId);
 }
 
 /**
+ * Merge private owner records over the reviewed shared catalogue. The bundled
+ * catalogue is the baseline product content and is therefore available to
+ * every caller; owner rows are optional overrides/additions, never a gate on
+ * seeing the baseline. This avoids copying the same catalogue into every new
+ * account while preserving existing owner-specific edits.
+ */
+export function mergeRegistryRecordsWithDefaults(
+  kind: RegistryRecordKind,
+  ownerRows: RegistryRecordRow[],
+): ServiceRecord[] {
+  const defaults = defaultRegistryRecords(kind);
+  const ownerRecords = ownerRows.map(rowToServiceRecord);
+  const ownerBySlug = new Map(ownerRecords.map((record) => [normalizeRegistrySlug(record.slug), record] as const));
+  const defaultSlugs = new Set(defaults.map((record) => normalizeRegistrySlug(record.slug)));
+  const merged = defaults.map((record) => {
+    const ownerRecord = ownerBySlug.get(normalizeRegistrySlug(record.slug));
+    if (!ownerRecord) return record;
+    // Database nulls become undefined in rowToServiceRecord. They should not
+    // erase reviewed baseline fields for every viewer; explicit arrays and
+    // strings still override normally.
+    const definedOwnerRecord = Object.fromEntries(
+      Object.entries(ownerRecord).filter(([, value]) => value !== undefined),
+    ) as Partial<ServiceRecord>;
+    return {
+      ...record,
+      ...definedOwnerRecord,
+      catalogPayload: {
+        ...(record.catalogPayload ?? {}),
+        ...(ownerRecord.catalogPayload ?? {}),
+      },
+    };
+  });
+  const ownerAdditions = ownerRecords
+    .filter((record) => !defaultSlugs.has(normalizeRegistrySlug(record.slug)))
+    .sort((left, right) => left.title.localeCompare(right.title));
+  return [...merged, ...ownerAdditions];
+}
+
+export function mergeRegistryGovernanceWithDefaults(kind: RegistryRecordKind, ownerRows: RegistryRecordRow[]) {
+  const governance: Record<string, ReturnType<typeof rowGovernance>> = Object.fromEntries(
+    defaultRegistryRecords(kind).map((record) => {
+      const derived = deriveGovernanceColumns(record);
+      return [
+        normalizeRegistrySlug(record.slug),
+        {
+          sourceStatus: derived.source_status,
+          validationStatus: derived.validation_status,
+          lastReviewedAt: null,
+          reviewDueAt: null,
+        },
+      ];
+    }),
+  );
+  for (const row of ownerRows) governance[normalizeRegistrySlug(row.slug)] = rowGovernance(row);
+  return governance;
+}
+
+/**
  * Idempotently seed the curated default registry records for an owner + kind
- * and return the stored rows. Called lazily by the registry API when an
- * authenticated owner has no records yet, so new accounts get populated
- * Services/Forms instead of the empty state. Safe under concurrent first
- * requests — the (owner_id, kind, slug) conflict target dedupes the upsert.
+ * and return the stored rows. This is an explicit operator/maintenance action;
+ * normal reads merge the shared fixtures in-memory and perform no seed write.
+ * Safe under concurrent requests — the (owner_id, kind, slug) conflict target
+ * dedupes the upsert.
  *
- * First-seed helper only: it does NOT preserve post-seed governance edits, so
- * the reseed path (the CLI) layers its own preservation on top.
+ * Missing-fixture helper: conflicts are ignored so a catalogue expansion can
+ * add newly published forms without overwriting owner edits or reviewed
+ * governance on records already present.
  */
 export async function ensureRegistrySeeded(
   supabase: AdminClient,
@@ -44,7 +110,7 @@ export async function ensureRegistrySeeded(
   const rows = buildDefaultRegistryRows(ownerId, kind);
   const { data, error } = await supabase
     .from("clinical_registry_records")
-    .upsert(rows, { onConflict: "owner_id,kind,slug" })
+    .upsert(rows, { onConflict: "owner_id,kind,slug", ignoreDuplicates: true })
     .select("*");
   if (error) throw new Error(`Registry seed failed: ${error.message}`);
   const seededRows = (data ?? []) as RegistryRecordRow[];
@@ -54,41 +120,23 @@ export async function ensureRegistrySeeded(
 }
 
 /**
- * Fetch an owner's registry rows for a kind, lazily seeding the curated
- * defaults on the first visit (the registry API's long-standing behaviour,
- * extracted so /api/registry/records and universal search share one code
- * path). The seed write is best-effort; the re-read is not, so a genuine
- * read failure still surfaces instead of a misleading empty registry.
+ * Fetch only an owner's private registry overrides/additions. Shared catalogue
+ * defaults are merged by callers and are never materialized as a side effect
+ * of a GET request.
  */
-export async function fetchOwnerRegistryRowsWithSeed(
+export async function fetchOwnerRegistryRows(
   supabase: AdminClient,
   ownerId: string,
   kind: RegistryRecordKind,
   maxRecords = 500,
 ): Promise<RegistryRecordRow[]> {
-  const fetchRecords = async () => {
-    const { data, error } = await supabase
-      .from("clinical_registry_records")
-      .select("*")
-      .eq("owner_id", ownerId)
-      .eq("kind", kind)
-      .order("title")
-      .limit(maxRecords);
-    if (error) throw new Error(error.message);
-    return (data ?? []) as RegistryRecordRow[];
-  };
-
-  let rows = await fetchRecords();
-  if (rows.length === 0) {
-    let seedError: unknown = null;
-    try {
-      await ensureRegistrySeeded(supabase, ownerId, kind);
-    } catch (error) {
-      seedError = error;
-      console.error("[registry] auto-seed failed", { kind, ...safeErrorLogDetails(error) });
-    }
-    rows = await fetchRecords();
-    if (rows.length === 0 && seedError) throw seedError;
-  }
-  return rows;
+  const { data, error } = await supabase
+    .from("clinical_registry_records")
+    .select("*")
+    .eq("owner_id", ownerId)
+    .eq("kind", kind)
+    .order("title")
+    .limit(maxRecords);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as RegistryRecordRow[];
 }

@@ -129,7 +129,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 | Module                                                               | Role                                                    |
 | -------------------------------------------------------------------- | ------------------------------------------------------- |
-| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Registry-backed content                                 |
+| `differentials.ts`, `forms.ts`, `services.ts`, `registry-records.ts` | Shared catalogue content with optional owner overrides  |
 | `dsm.ts`                                                             | Local DSM diagnosis catalogue and comparison helpers    |
 | `formulation.ts`                                                     | Local formulation mechanism library and builder helpers |
 | `clinical-safety.ts`, `demo-data.ts`, `ui-copy.ts`                   | Safety copy and demo mode                               |

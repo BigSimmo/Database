@@ -1,19 +1,32 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
+import { formCatalogDetails } from "@/lib/form-catalog";
 import { defaultFormSlug, formRecords, formStaticParams, getFormRecord, searchFormRecords } from "@/lib/forms";
+import { buildDefaultFormRows } from "@/lib/registry-fixtures";
 
 describe("psychiatry form records", () => {
-  it("keeps the forms catalogue limited to psychiatry form workflows", () => {
-    expect(formRecords.map((form) => form.slug)).toEqual([
-      "transport-crisis-form",
-      "extension-transport-order",
-      "detention-examination-movement",
-      "transfer-order",
+  it("covers every entry on the current WA MHA 2014 forms register", () => {
+    expect(formRecords).toHaveLength(54);
+    const details = formRecords.map(formCatalogDetails);
+    expect(details.every(Boolean)).toBe(true);
+    const codes = details.flatMap((entry) => (entry ? [entry.form] : []));
+    expect(new Set(codes).size).toBe(54);
+    expect(codes).toEqual(
+      expect.arrayContaining(["1A", "1A attachment", "7C", "10H", "12C attachment", "13", "4D", "4E"]),
+    );
+    expect(details.filter((entry) => entry?.availability === "downloadable")).toHaveLength(51);
+    expect(details.filter((entry) => entry?.availability === "unavailable").map((entry) => entry?.form)).toEqual([
+      "4D",
+      "4E",
     ]);
+    expect(details.find((entry) => entry?.form === "13")?.availability).toBe("contact_ocp");
 
     const catalogueText = JSON.stringify(formRecords).toLowerCase();
 
-    expect(catalogueText).toContain("psychiatry");
+    expect(catalogueText).toContain("psychiatrist");
     expect(catalogueText).toContain("transport");
     expect(catalogueText).toContain("detention");
     expect(catalogueText).toContain("transfer");
@@ -25,10 +38,36 @@ describe("psychiatry form records", () => {
   });
 
   it("normalizes form lookup and static params", () => {
-    expect(defaultFormSlug()).toBe("transport-crisis-form");
+    expect(defaultFormSlug()).toBe("form-1a");
+    expect(getFormRecord(" FORM-1A ")?.title).toBe("Referral for examination by a psychiatrist");
     expect(getFormRecord(" TRANSPORT-CRISIS-FORM ")?.title).toBe("Transport order");
     expect(getFormRecord("13yarn")).toBeNull();
     expect(formStaticParams()).toEqual(formRecords.map((form) => ({ slug: form.slug })));
+  });
+
+  it("ships a stored PDF for every downloadable form", () => {
+    const downloadable = formRecords.map(formCatalogDetails).filter((entry) => entry?.availability === "downloadable");
+    for (const details of downloadable) {
+      expect(details?.localPdfPath, details?.form).toBeTruthy();
+      expect(existsSync(join(process.cwd(), "public", details!.localPdfPath!.replace(/^\//, ""))), details?.form).toBe(
+        true,
+      );
+      expect(details?.officialPdfUrl, details?.form).toMatch(/^https:\/\/www\.chiefpsychiatrist\.wa\.gov\.au\//);
+      expect(details?.localPdfSha256, details?.form).toMatch(/^[a-f0-9]{64}$/);
+      expect(details?.localPdfBytes, details?.form).toBeGreaterThan(10_000);
+      expect(details?.officialPdfPasswordProtected, details?.form).toBe(true);
+    }
+  });
+
+  it("retains the enriched form payload in database seed rows", () => {
+    const rows = buildDefaultFormRows("00000000-0000-4000-8000-000000000001");
+    expect(rows).toHaveLength(54);
+    const form7c = rows.find((row) => row.slug === "form-7c");
+    expect(form7c?.catalog_payload).toMatchObject({
+      form: "7C",
+      name: "Cancellation of grant of leave",
+      availability: "downloadable",
+    });
   });
 
   it("searches forms independently from service records", () => {
@@ -36,6 +75,9 @@ describe("psychiatry form records", () => {
     expect(searchFormRecords("extension transport")[0]?.service.slug).toBe("extension-transport-order");
     expect(searchFormRecords("detention movement")[0]?.service.slug).toBe("detention-examination-movement");
     expect(searchFormRecords("transfer order")[0]?.service.slug).toBe("transfer-order");
+    expect(searchFormRecords("7c cancellation leave")[0]?.service.slug).toBe("form-7c");
+    expect(searchFormRecords("10h restraint review")[0]?.service.slug).toBe("form-10h");
+    expect(searchFormRecords("ect statistics form 13")[0]?.service.slug).toBe("form-13");
     expect(searchFormRecords("13YARN")).toHaveLength(0);
     expect(searchFormRecords("services")).toHaveLength(0);
     expect(searchFormRecords("forms")[0]?.reasons).toContain("psychiatry forms catalogue");
