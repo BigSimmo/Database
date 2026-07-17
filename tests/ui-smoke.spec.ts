@@ -1415,18 +1415,23 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(supportCard).toContainText(/Safety findings|Priority|FBC\/ANC|Myocarditis|Metabolic/i);
     await expect(page.getByTestId("safety-findings-panel")).toHaveCount(0);
 
+    // Safety findings are MANDATORY for this clozapine fixture — the answer is saturated
+    // with monitoring/FBC-ANC/metabolic/myocarditis language that extractSafetyFindings
+    // keys on. A regression that drops them (so the trigger never mounts — it only renders
+    // when safetyFindings.length > 0, see answer-result-surface.tsx) must FAIL this
+    // @critical smoke, not pass silently on an absent trigger (audit F3 / C6). Asserting
+    // the trigger is visible unconditionally enforces "safety findings present".
     const safetyFindingsTrigger = page.getByTestId("answer-safety-findings-trigger");
-    if ((await safetyFindingsTrigger.count()) > 0) {
-      await expectMinTouchTarget(safetyFindingsTrigger);
-      await safetyFindingsTrigger.click();
-      const safetyFindingsSheet = page.getByRole("dialog", { name: "Safety-critical source findings" });
-      await expect(safetyFindingsSheet).toBeVisible();
-      await expect(safetyFindingsSheet.getByTestId("safety-findings-panel")).toBeVisible();
-      expect(await safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
-      await safetyFindingsSheet.getByRole("button", { name: "Close safety findings" }).click();
-      await expect(safetyFindingsSheet).toHaveCount(0);
-      await expect(safetyFindingsTrigger).toBeFocused();
-    }
+    await expect(safetyFindingsTrigger).toBeVisible();
+    await expectMinTouchTarget(safetyFindingsTrigger);
+    await safetyFindingsTrigger.click();
+    const safetyFindingsSheet = page.getByRole("dialog", { name: "Safety-critical source findings" });
+    await expect(safetyFindingsSheet).toBeVisible();
+    await expect(safetyFindingsSheet.getByTestId("safety-findings-panel")).toBeVisible();
+    expect(await safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
+    await safetyFindingsSheet.getByRole("button", { name: "Close safety findings" }).click();
+    await expect(safetyFindingsSheet).toHaveCount(0);
+    await expect(safetyFindingsTrigger).toBeFocused();
 
     const clinicalTable = page.getByLabel("Inline table preview").first();
     await expect(clinicalTable).toBeVisible();
