@@ -82,6 +82,12 @@ jobs:
       - name: CI scope self-test
         run: npm run check:ci-scope
 
+      - name: CI triage self-test
+        run: npm run check:ci-triage
+
+      - name: PR policy self-test
+        run: npm run check:pr-policy
+
       - name: Format check
         run: npm run format:check
 

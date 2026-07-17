@@ -351,6 +351,26 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   as main-side or needs-investigation. Inert until repo var `CI_TRIAGE_ENABLED=true` (now set). UI jobs use
   their uploaded JUnit classification and trace; job names alone never produce a known-flake verdict.
   The workflow reads only trusted default-branch job metadata and never runs PR code.
+- **PR metadata policy** (`.github/workflows/pr-policy.yml`, `scripts/pr-policy.mjs`): ready PRs to `main`
+  must use an outcome-focused title, complete Summary and Verification evidence, and provide risk/rollback
+  evidence for clinical or operationally sensitive paths. UI changes require `verify:ui` evidence (or an
+  explicit reason it could not run), while clinical-risk changes must fully disposition the governance
+  checklist. The `pull_request_target` job checks out the exact base SHA, has read-only permissions, and
+  never executes PR-head code. Drafts remain non-blocking until marked ready; merge-queue runs emit the
+  same stable `PR policy` check name.
+- **Default-branch failure attribution** (`scripts/ci-triage.mjs`): triage now compares a failed PR only
+  with the latest completed run of the same workflow on `main`. It no longer samples the latest arbitrary
+  repository workflow, which could incorrectly label a PR failure as main-side. A main-side label remains
+  routing evidence only; it never suppresses the required failure.
+- **Repository permission baseline (applied 2026-07-17):** Actions receive read-only tokens by default,
+  cannot approve pull requests, and must reference external actions by immutable SHA. Workflows that post
+  issues/comments retain narrow explicit permissions. Secret-scanning push protection is enabled and
+  merged branches are deleted automatically. Non-provider pattern scanning and credential-validity checks
+  remain unavailable for this user-owned repository/plan, so the ordinary secret scan, push protection,
+  Gitleaks check, and local secret-surface guards remain the active layers.
+- **Review-routing labels (applied 2026-07-17):** `codex-review` is the explicit opt-in for a normally
+  low-risk PR, and `skip-codex-review` is the unconditional opt-out. Four obsolete per-head `codex-ar-*`
+  labels from the retired routing mechanism were removed after confirming no open PR used them.
 - **Repo hygiene:** `check:env-parity` (env-var NAME reconciliation across `env.ts`, `check-ci-env.mjs`,
   and — opt-in, names-only — `gh secret list` / Railway) and `sweep:branch-ledger` (report-only branch
   inventory, cherry-pick-aware).
