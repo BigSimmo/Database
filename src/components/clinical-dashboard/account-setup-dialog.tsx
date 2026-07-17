@@ -1,32 +1,30 @@
 "use client";
 
 import { type FormEvent, useRef, useState } from "react";
-import {
-  Apple,
-  BookOpen,
-  CircleCheck,
-  Circle,
-  ClipboardList,
-  Clock3,
-  FileText,
-  Info,
-  Loader2,
-  LockKeyhole,
-  Mail,
-  ShieldCheck,
-  X,
-} from "lucide-react";
+import { Clock3, FileText, Loader2, LockKeyhole, Mail, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 
 import { BrandMark } from "@/components/clinical-dashboard/brand";
+import { ProviderBrandIcon, type SsoProvider } from "@/components/clinical-dashboard/provider-brand-icons";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, fieldControlWithIcon, fieldIcon, fieldLabel, textMuted, toolbarButton } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 
-const sourcePreferences = [
-  { id: "guidelines", label: "Guidelines", icon: FileText },
-  { id: "drug-references", label: "Drug references", icon: Clock3 },
-  { id: "review-articles", label: "Review articles", icon: BookOpen },
-  { id: "local-protocols", label: "Local protocols", icon: ClipboardList },
+const accountBenefits = [
+  {
+    label: "Search history",
+    detail: "Pick up recent questions on any device.",
+    icon: Clock3,
+  },
+  {
+    label: "Clinical defaults",
+    detail: "Jurisdiction and answer style, remembered.",
+    icon: SlidersHorizontal,
+  },
+  {
+    label: "Saved sources",
+    detail: "Keep the guidelines you rely on close.",
+    icon: FileText,
+  },
 ] as const;
 
 const securitySummary = [
@@ -47,16 +45,10 @@ const securitySummary = [
   },
 ] as const;
 
-type SourcePreferenceId = (typeof sourcePreferences)[number]["id"];
-type Provider = "Apple" | "Google" | "Microsoft";
-
 export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const auth = useAuthSession();
   const emailInputRef = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState("");
-  const [selectedSources, setSelectedSources] = useState<Set<SourcePreferenceId>>(
-    () => new Set(["guidelines", "review-articles"]),
-  );
   const [providerNotice, setProviderNotice] = useState<string | null>(null);
   const [emailAttempted, setEmailAttempted] = useState(false);
   const busy = auth.status === "loading";
@@ -71,20 +63,8 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
     await auth.signInWithEmail(trimmedEmail);
   }
 
-  function chooseProvider(provider: Provider) {
+  function chooseProvider(provider: SsoProvider) {
     setProviderNotice(`${provider} sign-in is not connected yet. Continue with email to set up this workspace.`);
-  }
-
-  function toggleSource(sourceId: SourcePreferenceId) {
-    setSelectedSources((current) => {
-      const next = new Set(current);
-      if (next.has(sourceId)) {
-        next.delete(sourceId);
-      } else {
-        next.add(sourceId);
-      }
-      return next;
-    });
   }
 
   return (
@@ -114,7 +94,9 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
         <div className="px-4 pb-4 pt-5 sm:px-7 sm:pb-6 sm:pt-8">
           <div className="mx-auto grid w-full max-w-[26.5rem] gap-3.5 sm:gap-4">
             <header className="text-center">
-              <BrandMark className="mx-auto h-8 w-8" />
+              <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface)] shadow-[var(--shadow-soft),var(--shadow-inset)]">
+                <BrandMark className="h-8 w-8" />
+              </span>
               <h2
                 id="account-setup-title"
                 className="mt-3.5 text-2xl-minus font-semibold leading-7 text-[color:var(--text-heading)] sm:mt-4 sm:text-2xl sm:leading-8"
@@ -137,6 +119,11 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="you@clinic.example"
                   autoComplete="email"
+                  inputMode="email"
+                  enterKeyHint="go"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
                   required
                   className={cn(fieldControlWithIcon, "h-10.5 focus:ring-2 focus:ring-[color:var(--focus)]/20 sm:h-11")}
                 />
@@ -167,85 +154,47 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
             </div>
 
             <section
-              aria-labelledby="source-preferences-title"
+              aria-labelledby="account-benefits-title"
               className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
             >
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3
-                      id="source-preferences-title"
-                      className="text-sm font-semibold text-[color:var(--text-heading)]"
-                    >
-                      Source preferences
-                    </h3>
-                    <Info className="h-3.5 w-3.5 text-[color:var(--text-soft)]" aria-hidden />
-                  </div>
-                  <p className={cn("mt-0.5 text-xs font-medium leading-5", textMuted)}>
-                    Choose the sources you rely on most.
-                  </p>
-                </div>
-                <span className="inline-flex min-h-7 shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--success-border)] bg-[color:var(--success-soft)] px-2 text-2xs font-bold text-[color:var(--success)]">
-                  <CircleCheck aria-hidden="true" className="h-3.5 w-3.5" />
-                  Saved
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {sourcePreferences.map((source) => {
-                  const Icon = source.icon;
-                  const selected = selectedSources.has(source.id);
+              <h3
+                id="account-benefits-title"
+                className="mb-2.5 px-0.5 text-xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]"
+              >
+                Everything syncs across your devices
+              </h3>
+              <ul className="grid gap-1.5 sm:grid-cols-3 sm:gap-2">
+                {accountBenefits.map((benefit) => {
+                  const Icon = benefit.icon;
                   return (
-                    <button
-                      key={source.id}
-                      type="button"
-                      aria-pressed={selected}
-                      onClick={() => toggleSource(source.id)}
-                      className={cn(
-                        "relative grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs font-semibold leading-4 shadow-[var(--shadow-inset)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-[4.9rem] sm:grid-cols-1 sm:place-items-center sm:gap-0 sm:px-2 sm:text-center",
-                        selected
-                          ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--text-heading)]"
-                          : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-                      )}
+                    <li
+                      key={benefit.label}
+                      className="flex items-center gap-2.5 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 py-2 shadow-[var(--shadow-inset)] sm:flex-col sm:items-start sm:gap-1.5 sm:px-3 sm:py-2.5"
                     >
-                      <Icon className="h-4 w-4 text-[color:var(--clinical-accent)] sm:mb-1 sm:h-5 sm:w-5" />
-                      <span className="min-w-0 whitespace-normal break-words text-xs leading-4">{source.label}</span>
-                      <span
-                        className={cn(
-                          "grid h-5 w-5 place-items-center rounded-full border sm:absolute sm:right-2 sm:top-2",
-                          selected
-                            ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                            : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-transparent",
-                        )}
-                        aria-hidden
-                      >
-                        {selected ? (
-                          <CircleCheck aria-hidden="true" className="h-3 w-3" />
-                        ) : (
-                          <Circle aria-hidden="true" className="h-2.5 w-2.5" />
-                        )}
+                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                        <Icon aria-hidden="true" className="h-4 w-4" />
                       </span>
-                    </button>
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+                          {benefit.label}
+                        </span>
+                        <span className={cn("block text-xs font-medium leading-4", textMuted)}>{benefit.detail}</span>
+                      </span>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             </section>
 
             <section
               aria-labelledby="security-summary-title"
-              className="rounded-lg border border-[color:var(--success-border)]/40 bg-[color:var(--success-soft)]/35 p-3 shadow-[var(--shadow-inset)]"
+              className="rounded-lg border border-[color:var(--success-border)]/45 bg-[color:var(--success-soft)]/35 p-3 shadow-[var(--shadow-inset)]"
             >
-              <div className="mb-2 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-[color:var(--text-heading)]" aria-hidden />
-                  <h3 id="security-summary-title" className="text-sm font-semibold text-[color:var(--text-heading)]">
-                    Security summary
-                  </h3>
-                </div>
-                <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full bg-[color:var(--success-soft)] px-2 text-2xs font-bold text-[color:var(--success)]">
-                  <CircleCheck aria-hidden="true" className="h-3.5 w-3.5" />
-                  Verified
-                </span>
+              <div className="mb-1.5 flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-[color:var(--success)]" aria-hidden />
+                <h3 id="security-summary-title" className="text-sm font-semibold text-[color:var(--text-heading)]">
+                  Security summary
+                </h3>
               </div>
 
               <div className="divide-y divide-[color:var(--border)]/70">
@@ -254,18 +203,15 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                   return (
                     <div
                       key={item.label}
-                      className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-3 py-2 first:pt-1 last:pb-1"
+                      className="grid grid-cols-[auto_minmax(0,1fr)] gap-2.5 py-2 first:pt-1 last:pb-1"
                     >
                       <Icon className="mt-0.5 h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
                       <span className="min-w-0">
                         <span className="block text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
                           {item.label}
                         </span>
-                        <span className={cn("hidden text-xs font-medium leading-5 sm:block", textMuted)}>
-                          {item.detail}
-                        </span>
+                        <span className={cn("block text-xs font-medium leading-5", textMuted)}>{item.detail}</span>
                       </span>
-                      <CircleCheck className="mt-1 h-4 w-4 text-[color:var(--success)]" aria-hidden />
                     </div>
                   );
                 })}
@@ -298,43 +244,15 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
   );
 }
 
-function ProviderButton({ provider, onClick }: { provider: Provider; onClick: () => void }) {
+function ProviderButton({ provider, onClick }: { provider: SsoProvider; onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] min-[375px]:gap-2 min-[375px]:px-2 sm:text-sm"
     >
-      <ProviderMark provider={provider} />
+      <ProviderBrandIcon provider={provider} className="h-5 w-5" />
       <span className="min-w-0 text-2xs leading-none min-[375px]:text-xs sm:text-sm">{provider}</span>
     </button>
-  );
-}
-
-function ProviderMark({ provider }: { provider: Provider }) {
-  if (provider === "Microsoft") {
-    return (
-      <span className="grid h-5 w-5 shrink-0 grid-cols-2 gap-0.5" aria-hidden="true">
-        <span className="bg-[#f25022]" />
-        <span className="bg-[#7fba00]" />
-        <span className="bg-[#00a4ef]" />
-        <span className="bg-[#ffb900]" />
-      </span>
-    );
-  }
-
-  if (provider === "Apple") {
-    return (
-      <Apple className="size-icon-lg shrink-0 text-[color:var(--text-heading)]" aria-hidden="true" strokeWidth={2.4} />
-    );
-  }
-
-  return (
-    <span
-      aria-hidden="true"
-      className="grid h-5 w-5 shrink-0 place-items-center rounded-md text-sm font-bold leading-none text-[#4285f4]"
-    >
-      G
-    </span>
   );
 }
