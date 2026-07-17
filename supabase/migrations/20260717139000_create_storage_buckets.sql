@@ -23,7 +23,11 @@ values (
     'text/plain'
   ]
 )
-on conflict (id) do update set public = false;
+on conflict (id) do update set
+  public = false,
+  name = excluded.name,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -33,4 +37,8 @@ values (
   52428800,
   array['image/png', 'image/jpeg', 'image/webp']
 )
-on conflict (id) do update set public = false;
+on conflict (id) do update set
+  public = false,
+  name = excluded.name,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
