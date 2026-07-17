@@ -2,7 +2,7 @@
   "generated_at": "2026-07-17T14:08:59.595Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "e93fe90cae38654e77b7be0f81e5a0c90b0c7db2fd37d76e32f4f52a089eff45",
+  "schema_sha256": "5971c363eb1ec7c889b6c86359bb624a2c8936e24b766db572f696f41e242ba6",
   "replay_seconds": 30,
   "snapshot": {
     "views": [
@@ -2309,34 +2309,6 @@
           "autovacuum_vacuum_scale_factor=0.05",
           "autovacuum_vacuum_threshold=1000"
         ],
-        "rls_forced": false,
-        "rls_enabled": true
-      },
-      {
-        "acl": [
-          "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
-        ],
-        "name": "document_title_words",
-        "columns": [
-          {
-            "name": "document_id",
-            "type": "uuid",
-            "default": null,
-            "identity": "",
-            "not_null": true,
-            "generated": ""
-          },
-          {
-            "name": "word",
-            "type": "text",
-            "default": null,
-            "identity": "",
-            "not_null": true,
-            "generated": ""
-          }
-        ],
-        "reloptions": null,
         "rls_forced": false,
         "rls_enabled": true
       },
@@ -5291,18 +5263,6 @@
         "def_hash": "9ac4c08564d3f549df99a1e543875cb8"
       },
       {
-        "def": "CREATE UNIQUE INDEX document_title_words_pkey ON public.document_title_words USING btree (word, document_id)",
-        "name": "document_title_words_pkey",
-        "table": "document_title_words",
-        "def_hash": "8da6b7cecd94a940059ae6052c585a50"
-      },
-      {
-        "def": "CREATE INDEX document_title_words_word_trgm_idx ON public.document_title_words USING gin (word extensions.gin_trgm_ops)",
-        "name": "document_title_words_word_trgm_idx",
-        "table": "document_title_words",
-        "def_hash": "e7ea304b143482a8aeac075dd5f7484d"
-      },
-      {
         "def": "CREATE INDEX documents_import_batch_idx ON public.documents USING btree (import_batch_id)",
         "name": "documents_import_batch_idx",
         "table": "documents",
@@ -5553,12 +5513,6 @@
         "name": "rag_aliases_alias_trgm_idx",
         "table": "rag_aliases",
         "def_hash": "de4c954f6260a846824662bdc55ea171"
-      },
-      {
-        "def": "CREATE INDEX rag_aliases_canonical_trgm_idx ON public.rag_aliases USING gin (lower(canonical) extensions.gin_trgm_ops)",
-        "name": "rag_aliases_canonical_trgm_idx",
-        "table": "rag_aliases",
-        "def_hash": "e88844a9cb30e4980f1c92a94ae0b24a"
       },
       {
         "def": "CREATE INDEX rag_aliases_owner_enabled_idx ON public.rag_aliases USING btree (owner_id, enabled)",
@@ -6279,19 +6233,9 @@
     ],
     "triggers": [
       {
-        "def": "CREATE TRIGGER clinical_registry_records_delete_cleanup AFTER DELETE ON public.clinical_registry_records FOR EACH ROW EXECUTE FUNCTION public.cleanup_registry_corpus_document()",
-        "name": "clinical_registry_records_delete_cleanup",
-        "table": "clinical_registry_records"
-      },
-      {
         "def": "CREATE TRIGGER clinical_registry_records_updated_at BEFORE UPDATE ON public.clinical_registry_records FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
         "name": "clinical_registry_records_updated_at",
         "table": "clinical_registry_records"
-      },
-      {
-        "def": "CREATE TRIGGER differential_records_delete_cleanup AFTER DELETE ON public.differential_records FOR EACH ROW EXECUTE FUNCTION public.cleanup_registry_corpus_document()",
-        "name": "differential_records_delete_cleanup",
-        "table": "differential_records"
       },
       {
         "def": "CREATE TRIGGER differential_records_updated_at BEFORE UPDATE ON public.differential_records FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
@@ -6347,11 +6291,6 @@
         "def": "CREATE TRIGGER ingestion_jobs_updated_at BEFORE UPDATE ON public.ingestion_jobs FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
         "name": "ingestion_jobs_updated_at",
         "table": "ingestion_jobs"
-      },
-      {
-        "def": "CREATE TRIGGER medication_records_delete_cleanup AFTER DELETE ON public.medication_records FOR EACH ROW EXECUTE FUNCTION public.cleanup_registry_corpus_document()",
-        "name": "medication_records_delete_cleanup",
-        "table": "medication_records"
       },
       {
         "def": "CREATE TRIGGER medication_records_updated_at BEFORE UPDATE ON public.medication_records FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
@@ -6445,14 +6384,6 @@
         ],
         "def_hash": "4ee148dcab28d6bbe10cfa542213f0f6",
         "signature": "public.cleanup_abandoned_document_index_generations(uuid,integer,boolean)"
-      },
-      {
-        "acl": [
-          "postgres=X/postgres",
-          "service_role=X/postgres"
-        ],
-        "def_hash": "a0e9e41b95c9eeff7957dd292f3dd3fa",
-        "signature": "public.cleanup_registry_corpus_document()"
       },
       {
         "acl": [
@@ -7059,14 +6990,6 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "582d35a5082ff0e4879db461294404fd",
-        "signature": "public.sync_document_title_words()"
-      },
-      {
-        "acl": [
-          "postgres=X/postgres",
-          "service_role=X/postgres"
-        ],
         "def_hash": "c5fafb6bc7cc303cb1199895b777d6a6",
         "signature": "public.update_indexing_v3_agent_job_status(uuid,text,text,timestamp with time zone)"
       }
@@ -7567,16 +7490,6 @@
         "def": "FOREIGN KEY (source_image_id) REFERENCES public.document_images(id) ON DELETE SET NULL",
         "name": "document_table_facts_source_image_id_fkey",
         "table": "document_table_facts"
-      },
-      {
-        "def": "FOREIGN KEY (document_id) REFERENCES public.documents(id) ON DELETE CASCADE",
-        "name": "document_title_words_document_id_fkey",
-        "table": "document_title_words"
-      },
-      {
-        "def": "PRIMARY KEY (word, document_id)",
-        "name": "document_title_words_pkey",
-        "table": "document_title_words"
       },
       {
         "def": "FOREIGN KEY (import_batch_id) REFERENCES public.import_batches(id) ON DELETE SET NULL",

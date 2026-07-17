@@ -849,7 +849,105 @@ create index if not exists rag_aliases_type_enabled_idx
 create index if not exists rag_aliases_alias_trgm_idx
   on public.rag_aliases using gin (lower(alias) gin_trgm_ops);
 create index if not exists rag_aliases_canonical_trgm_idx
-  on public.rag_aliases using gin (lower(canonical) gin_trgm_ops);
+  on public.rag_aliases using gin (lower(canonical) extensions.gin_trgm_ops);
+
+-- Scalable spelling corrector vocabulary: per-document indexed words for bounded trigram probes.
+create table if not exists public.document_title_words (
+  word text not null,
+  document_id uuid not null references public.documents(id) on delete cascade,
+  primary key (word, document_id)
+);
+
+create index if not exists document_title_words_word_trgm_idx
+  on public.document_title_words using gin (word extensions.gin_trgm_ops);
+
+alter table public.document_title_words enable row level security;
+revoke all on public.document_title_words from anon, authenticated;
+grant select, insert, update, delete on table public.document_title_words to service_role;
+
+-- Populate table from existing documents
+insert into public.document_title_words (word, document_id)
+select distinct lower(w), d.id
+from public.documents d,
+     lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as w
+where d.status = 'indexed'
+  and length(w) between 4 and 40
+on conflict do nothing;
+
+-- Sync trigger on documents to keep title words vocabulary updated
+create or replace function public.sync_document_title_words()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_catalog, pg_temp
+as $$
+begin
+  if TG_OP = 'DELETE' or (TG_OP = 'UPDATE' and OLD.status = 'indexed' and NEW.status <> 'indexed') then
+    delete from public.document_title_words where document_id = OLD.id;
+  end if;
+
+  if (TG_OP = 'INSERT' and NEW.status = 'indexed') or
+     (TG_OP = 'UPDATE' and NEW.status = 'indexed' and (OLD.status <> 'indexed' or OLD.title <> NEW.title)) then
+
+    if TG_OP = 'UPDATE' then
+      delete from public.document_title_words where document_id = NEW.id;
+    end if;
+
+    insert into public.document_title_words (word, document_id)
+    select distinct lower(w), NEW.id
+    from unnest(regexp_split_to_array(lower(NEW.title), '[^a-z]+')) as w
+    where length(w) between 4 and 40
+    on conflict do nothing;
+  end if;
+
+  return coalesce(NEW, OLD);
+end;
+$$;
+
+drop trigger if exists documents_sync_title_words on public.documents;
+create trigger documents_sync_title_words
+  after insert or update or delete on public.documents
+  for each row execute function public.sync_document_title_words();
+
+-- Hardened registry cleanup trigger: deletes RAG corpus documents for a registry record
+-- without UUID casts and scoped by registry kind to avoid cross-registry collisions.
+create or replace function public.cleanup_registry_corpus_document()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_catalog, pg_temp
+as $$
+begin
+  delete from public.documents
+  where metadata->>'source_kind' = 'registry_record'
+    and metadata->>'registry_record_id' = OLD.id::text
+    and metadata->>'registry_record_kind' = case TG_TABLE_NAME
+      when 'clinical_registry_records' then to_jsonb(OLD)->>'kind'
+      when 'medication_records' then 'medication'
+      when 'differential_records' then 'differential'
+      else null
+    end;
+  return OLD;
+end;
+$$;
+
+revoke execute on function public.cleanup_registry_corpus_document() from public, anon, authenticated;
+revoke execute on function public.sync_document_title_words() from public, anon, authenticated;
+
+drop trigger if exists clinical_registry_records_delete_cleanup on public.clinical_registry_records;
+create trigger clinical_registry_records_delete_cleanup
+  after delete on public.clinical_registry_records
+  for each row execute function public.cleanup_registry_corpus_document();
+
+drop trigger if exists medication_records_delete_cleanup on public.medication_records;
+create trigger medication_records_delete_cleanup
+  after delete on public.medication_records
+  for each row execute function public.cleanup_registry_corpus_document();
+
+drop trigger if exists differential_records_delete_cleanup on public.differential_records;
+create trigger differential_records_delete_cleanup
+  after delete on public.differential_records
+  for each row execute function public.cleanup_registry_corpus_document();
 create index if not exists rag_response_cache_expiry_idx
   on public.rag_response_cache(expires_at);
 create index if not exists rag_response_cache_owner_kind_idx
@@ -3493,27 +3591,13 @@ begin
     return input_query;
   end if;
 
-  -- Build the known-term vocabulary once per call. Every source is scoped to the
-  -- public (null-owner) corpus: this function is SECURITY DEFINER and bypasses RLS, and
-  -- both rag_aliases and documents carry owner-scoped private rows (deep-memory persists
-  -- owner-scoped aliases/canonicals), so an unscoped read would leak private-document
-  -- terms across tenants. Mirrors migration 20260717120000_corrector_public_titles_only.
-  select array_agg(distinct term) into vocab
-  from (
-    select lower(alias) as term from public.rag_aliases where enabled and owner_id is null and length(alias) between 4 and 40
-    union
-    select lower(canonical) from public.rag_aliases where enabled and owner_id is null and length(canonical) between 4 and 40
-    union
-    select w from public.documents d, lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as w
-    where d.status = 'indexed' and d.owner_id is null and length(w) between 4 and 40
-  ) t;
-
   tokens := regexp_split_to_array(lower(input_query), '\s+');
   foreach tok in array tokens loop
     if length(tok) < 4 then
       corrected := corrected || tok;
       continue;
     end if;
+
     best := null;
     best_sim := 0;
     select candidate.term, similarity(candidate.term, tok)
@@ -3523,6 +3607,7 @@ begin
         select lower(alias) as term
         from public.rag_aliases
         where enabled
+          and owner_id is null
           and length(alias) between 4 and 40
           and lower(alias) % tok
         order by similarity(lower(alias), tok) desc, lower(alias)
@@ -3533,6 +3618,7 @@ begin
         select lower(canonical) as term
         from public.rag_aliases
         where enabled
+          and owner_id is null
           and length(canonical) between 4 and 40
           and lower(canonical) % tok
         order by similarity(lower(canonical), tok) desc, lower(canonical)
@@ -3550,6 +3636,7 @@ begin
     ) candidate
     order by similarity(candidate.term, tok) desc, candidate.term
     limit 1;
+
     if best is not null and best_sim >= min_sim and best <> tok and length(best) >= length(tok) then
       corrected := corrected || best;
       changed := true;

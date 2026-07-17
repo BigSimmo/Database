@@ -2,25 +2,34 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, FileText, Loader2, Shield, ShieldAlert } from "lucide-react";
-import { useMemo } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  FileText,
+  Loader2,
+  Search,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  SlidersHorizontal,
+  Workflow,
+  type LucideIcon,
+} from "lucide-react";
+import { useId, useMemo, useState } from "react";
 
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails } from "@/lib/form-catalog";
 import { rankFormRecords, type FormSearchMatch } from "@/lib/forms";
-import type { ServiceChipTone } from "@/lib/services";
 import { useRegistryRecords, type RegistryRequestStatus } from "@/lib/use-registry-records";
 import {
   cn,
+  codeText,
   pageContainer,
   searchFocusRing,
   searchPageCanvas,
   searchResultsSection,
-  toneDanger,
-  toneInfo,
-  toneNeutral,
-  toneSuccess,
-  toneWarning,
+  ToggleSwitch,
 } from "@/components/ui-primitives";
 import {
   ResultSortControl,
@@ -75,10 +84,148 @@ function tagToneClass(label: string) {
 function compactMatchReason(match: FormSearchMatch, query: string) {
   const trimmedQuery = query.trim();
   if (match.reasons.includes("title")) {
-    return trimmedQuery ? `Title or identifier match for "${trimmedQuery}"` : "Title or identifier match";
+    return trimmedQuery ? `Title or content match for "${trimmedQuery}"` : "Title or content match";
   }
-  if (match.reasons.includes("record fields")) return "Match in form record details";
+  if (match.reasons.includes("record fields")) return "Content match in related pathway";
   return "Content match in the forms catalogue";
+}
+
+function ResultTabs({ formsCount }: { formsCount: number }) {
+  const tabs = [
+    ["Results", null],
+    ["Forms", formsCount],
+    ["Evidence", sourceSnippetCount],
+    ["Pathways", pathwayCount],
+    ["Tasks", taskCount],
+  ] as const;
+
+  return (
+    <nav
+      aria-label="Forms search sections"
+      className="flex min-w-0 items-end gap-5 text-sm font-extrabold text-[color:var(--text)] sm:gap-7"
+    >
+      {tabs.map(([label, count], index) => (
+        <button
+          key={label}
+          type="button"
+          disabled={index !== 0}
+          title={index !== 0 ? "Coming soon" : undefined}
+          className={cn(
+            "relative -mb-px flex min-h-12 items-center gap-2 whitespace-nowrap rounded-t-md",
+            searchFocusRing,
+            index === 0
+              ? "text-[color:var(--clinical-accent)]"
+              : "cursor-not-allowed text-[color:var(--text)] opacity-70",
+          )}
+        >
+          {label}
+          {count ? (
+            <span className="rounded-full bg-[color:var(--surface-subtle)] px-2 py-0.5 text-xs text-[color:var(--text)]">
+              {count}
+            </span>
+          ) : null}
+          {index === 0 ? (
+            <span className="absolute bottom-0 left-0 h-1 w-full rounded-t-full bg-[color:var(--clinical-accent)]" />
+          ) : null}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function RefineFilterItem({
+  icon: Icon,
+  title,
+  subtitle,
+  enabled,
+  danger,
+}: {
+  icon: LucideIcon;
+  title: string;
+  subtitle: string;
+  enabled: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-3">
+      <span
+        className={cn(
+          "grid h-9 w-9 shrink-0 place-items-center rounded-lg",
+          danger
+            ? "bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
+            : "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]",
+        )}
+      >
+        <Icon className="h-5 w-5" aria-hidden />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{title}</p>
+        <p className="mt-0.5 truncate text-xs font-medium text-[color:var(--text-muted)]">{subtitle}</p>
+      </div>
+      <ToggleSwitch enabled={enabled} aria-label={title} />
+    </div>
+  );
+}
+
+function RefineBar({ open, onToggle, panelId }: { open: boolean; onToggle: () => void; panelId: string }) {
+  return (
+    <button
+      type="button"
+      aria-expanded={open}
+      aria-controls={panelId}
+      onClick={onToggle}
+      className={cn(
+        "inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border px-3.5 text-sm font-extrabold transition",
+        searchFocusRing,
+        open
+          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
+      )}
+    >
+      <SlidersHorizontal className="h-4 w-4" aria-hidden />
+      Refine
+      <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} aria-hidden />
+    </button>
+  );
+}
+
+function RefinePanel({ open, panelId }: { open: boolean; panelId: string }) {
+  if (!open) return null;
+  return (
+    <section
+      id={panelId}
+      data-testid="form-search-refine-panel"
+      aria-label="Refine results"
+      className={cn(searchResultsSection, "p-4 lg:p-5")}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-base font-extrabold text-[color:var(--text-heading)]">Refine results</h2>
+          <p className="mt-0.5 text-xs font-medium text-[color:var(--text-muted)]">Filter controls are coming soon.</p>
+        </div>
+        <button
+          type="button"
+          disabled
+          title="Coming soon"
+          className={cn(
+            "cursor-not-allowed rounded-md px-2 py-1 text-xs font-extrabold text-[color:var(--clinical-accent)] opacity-70",
+            searchFocusRing,
+          )}
+        >
+          Reset
+        </button>
+      </div>
+      <div
+        className="mt-3 grid gap-2 opacity-70 sm:grid-cols-2 xl:grid-cols-4"
+        aria-disabled="true"
+        title="Coming soon"
+      >
+        {refineFilters.map((filter) => (
+          <RefineFilterItem key={filter.title} {...filter} />
+        ))}
+      </div>
+    </section>
+  );
 }
 
 const resultsGridColumns = "md:grid-cols-[64px_minmax(0,1.35fr)_minmax(0,0.85fr)_minmax(0,1.35fr)_minmax(88px,auto)]";
@@ -113,12 +260,12 @@ function ResultsTable({
       >
         <span>Form</span>
         <span>Title</span>
-        <span>Status</span>
+        <span>Tags</span>
         <span>Matched because</span>
         <span className="text-right">Open</span>
       </div>
       <div>
-        {matches.map((match) => {
+        {matches.map((match, index) => {
           const form = match.service;
           return (
             <article
@@ -129,8 +276,8 @@ function ResultsTable({
                 resultsGridColumns,
               )}
             >
-              <div className="grid h-12 w-14 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                <FileText className="h-5 w-5" aria-hidden />
+              <div className="grid h-12 w-14 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-2xl font-extrabold text-[color:var(--clinical-accent)]">
+                {resultCode(match, index)}
               </div>
               <div className="min-w-0">
                 <h3 className="text-sm font-extrabold leading-snug text-[color:var(--text-heading)]">{form.title}</h3>
@@ -143,7 +290,7 @@ function ResultsTable({
                       key={`${chipLabel}-${chipIndex}`}
                       className={cn(
                         "rounded-full px-2 py-1 text-2xs font-extrabold uppercase",
-                        statusToneClass(chip.tone),
+                        tagToneClass(chipLabel),
                       )}
                     >
                       {chipLabel}
@@ -163,7 +310,7 @@ function ResultsTable({
                 )}
               >
                 Open
-                <ChevronRight className="h-4 w-4" aria-hidden />
+                <ExternalLink className="h-4 w-4" aria-hidden />
               </Link>
             </article>
           );
@@ -177,11 +324,115 @@ function ResultsTable({
             searchFocusRing,
           )}
         >
-          Browse all forms
+          View all forms ({matches.length})
           <ChevronRight className="h-4 w-4" aria-hidden />
         </Link>
       </div>
     </section>
+  );
+}
+
+function PathwayPanel() {
+  return (
+    <section className={cn(searchResultsSection, "p-5")}>
+      <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">
+        Related pathway{" "}
+        <span className="ml-2 text-sm font-medium text-[color:var(--text-muted)]">( PSOLIS Transport Pathway )</span>
+      </h2>
+      <div className="mt-5 grid grid-cols-[1fr_24px_1fr_24px_1.4fr_24px_1fr] items-center gap-3">
+        <PathwayNode label="Before" code="1A" title="Referral for examination" />
+        <ChevronRight aria-hidden="true" className="h-5 w-5 text-[color:var(--text-muted)]" />
+        <PathwayNode label="Current" code="4A" title="Transport order" active />
+        <ChevronRight aria-hidden="true" className="h-5 w-5 text-[color:var(--text-muted)]" />
+        <PathwayNode
+          label="Parallel"
+          code="3A"
+          title="Detention to enable examination"
+          secondaryCode="4B"
+          secondaryTitle="Extension of Transport Order"
+        />
+        <ChevronRight aria-hidden="true" className="h-5 w-5 text-[color:var(--text-muted)]" />
+        <PathwayNode label="After" code="" title="Examination at destination" />
+      </div>
+      <div className="mt-5 flex justify-center">
+        <button
+          type="button"
+          disabled
+          title="Coming soon"
+          className={cn(
+            "inline-flex min-h-9 cursor-not-allowed items-center gap-3 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] opacity-70",
+            searchFocusRing,
+          )}
+        >
+          <Workflow aria-hidden="true" className="h-5 w-5" />
+          View full pathway
+          <ExternalLink aria-hidden="true" className="h-4 w-4" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function PathwayNode({
+  label,
+  code,
+  title,
+  active,
+  secondaryCode,
+  secondaryTitle,
+}: {
+  label: string;
+  code: string;
+  title: string;
+  active?: boolean;
+  secondaryCode?: string;
+  secondaryTitle?: string;
+}) {
+  return (
+    <div>
+      <p className="mb-3 text-2xs font-bold uppercase text-[color:var(--text-muted)]">{label}</p>
+      <div
+        className={cn(
+          "min-h-[112px] rounded-lg border p-4",
+          active
+            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
+            : "border-[color:var(--border)] bg-[color:var(--surface)]",
+        )}
+      >
+        {code ? (
+          <p className={cn("text-2xl font-extrabold text-[color:var(--clinical-accent)]", codeText)}>{code}</p>
+        ) : null}
+        <p className="mt-2 text-sm font-extrabold leading-snug text-[color:var(--text-heading)]">{title}</p>
+        {active ? (
+          <span className="mt-3 inline-flex rounded-full bg-[color:var(--clinical-accent-soft)] px-3 py-1 text-2xs font-extrabold text-[color:var(--clinical-accent)]">
+            You are here
+          </span>
+        ) : null}
+        {secondaryCode && secondaryTitle ? (
+          <div className="mt-3 grid gap-2 text-sm">
+            <p>
+              <span className="mr-2 text-xl font-extrabold text-[color:var(--clinical-accent)]">{secondaryCode}</span>
+              <span className="text-xs font-medium text-[color:var(--text-muted)]">{secondaryTitle}</span>
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function VerifiedFooter() {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-5 text-xs text-[color:var(--text-muted)] lg:py-6 lg:text-sm">
+      <span className="inline-flex items-center gap-2 font-extrabold text-[color:var(--clinical-accent)]">
+        <ShieldCheck aria-hidden="true" className="h-5 w-5" />
+        Source verified
+      </span>
+      <span>·</span>
+      <span>Official source</span>
+      <span>·</span>
+      <span>Aligned to MHA 2014</span>
+    </div>
   );
 }
 
@@ -195,7 +446,7 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
         </span>
       </div>
       <div className="mt-2 grid gap-2">
-        {matches.map((match) => {
+        {matches.map((match, index) => {
           const form = match.service;
           return (
             <article
@@ -203,8 +454,8 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
               data-testid={`form-search-mobile-result-${form.slug}`}
               className="grid grid-cols-[44px_minmax(0,1fr)] gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5 shadow-[var(--shadow-tight)]"
             >
-              <div className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-                <FileText className="h-5 w-5" aria-hidden />
+              <div className="grid h-11 w-11 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-xl font-extrabold leading-none text-[color:var(--clinical-accent)]">
+                {resultCode(match, index)}
               </div>
               <div className="min-w-0">
                 <div className="flex min-w-0 items-start justify-between gap-2">
@@ -215,12 +466,12 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
                     href={`/forms/${form.slug}`}
                     aria-label={`Open ${form.title}`}
                     className={cn(
-                      "inline-flex min-h-tap shrink-0 items-center gap-1 rounded-md border border-[color:var(--border)] px-2.5 text-2xs font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+                      "relative inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-[color:var(--border)] px-2.5 text-2xs font-extrabold text-[color:var(--clinical-accent)] transition before:absolute before:-inset-2 before:rounded-lg before:content-[''] hover:bg-[color:var(--clinical-accent-soft)]",
                       searchFocusRing,
                     )}
                   >
                     Open
-                    <ChevronRight className="h-3 w-3" aria-hidden />
+                    <ExternalLink className="h-3 w-3" aria-hidden />
                   </Link>
                 </div>
                 <div className="mt-1 flex flex-wrap gap-1">
@@ -231,7 +482,7 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
                         key={`${chipLabel}-${chipIndex}`}
                         className={cn(
                           "rounded-full px-2 py-0.5 text-2xs font-extrabold uppercase leading-none",
-                          statusToneClass(chip.tone),
+                          tagToneClass(chipLabel),
                         )}
                       >
                         {chipLabel}
@@ -250,13 +501,69 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
       <Link
         href="/forms"
         className={cn(
-          "mx-auto mt-2 flex min-h-tap w-fit items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+          "mx-auto mt-2 flex min-h-9 w-fit items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
           searchFocusRing,
         )}
       >
-        Browse all forms
+        View all forms ({matches.length})
         <ChevronRight className="h-4 w-4" aria-hidden />
       </Link>
+    </section>
+  );
+}
+
+function MobilePathway() {
+  return (
+    <section className={cn(searchResultsSection, "p-3")}>
+      <h2 className="text-sm-minus font-extrabold text-[color:var(--text-heading)]">
+        Related pathway <span className="font-medium text-[color:var(--text-muted)]">( PSOLIS Transport )</span>
+      </h2>
+      <div className="mt-2 flex items-center gap-1 overflow-x-auto pb-0.5">
+        {[
+          ["1A", "Referral"],
+          ["4A", "Transport order"],
+          ["3A/4B", "Parallel"],
+          ["", "Destination Examination"],
+        ].map(([code, label], index) => (
+          <div key={`${code}-${label}`} className="flex items-center gap-1">
+            <div
+              className={cn(
+                "min-w-[64px] rounded-md border p-1.5 text-center",
+                index === 1
+                  ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]"
+                  : "border-[color:var(--border)] bg-[color:var(--surface)]",
+              )}
+            >
+              {code ? (
+                <p className={cn("text-sm font-extrabold leading-none text-[color:var(--clinical-accent)]", codeText)}>
+                  {code}
+                </p>
+              ) : null}
+              <p className="mt-0.5 text-2xs font-bold leading-4 text-[color:var(--text-muted)]">{label}</p>
+              {index === 1 ? (
+                <p className="mt-0.5 rounded-full bg-[color:var(--clinical-accent-soft)] px-1 py-0.5 text-2xs font-extrabold leading-4 text-[color:var(--clinical-accent)]">
+                  You are here
+                </p>
+              ) : null}
+            </div>
+            {index < 3 ? (
+              <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-muted)]" />
+            ) : null}
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        disabled
+        title="Coming soon"
+        className={cn(
+          "mx-auto mt-1 flex min-h-8 cursor-not-allowed items-center gap-2 rounded-md px-2 text-sm-minus font-extrabold text-[color:var(--clinical-accent)] opacity-70",
+          searchFocusRing,
+        )}
+      >
+        <Workflow aria-hidden="true" className="h-4 w-4" />
+        View full pathway
+      </button>
     </section>
   );
 }
@@ -265,19 +572,21 @@ function RegistryStatusNotice({ status }: { status: RegistryRequestStatus }) {
   if (status === "ready") return null;
   const notice =
     status === "loading"
-      ? { icon: Loader2, spin: true, tone: "info", text: "Loading your forms registry..." }
+      ? { icon: Loader2, spin: true, tone: "info", text: "Loading your forms registry...", action: null }
       : status === "unauthorized"
         ? {
             icon: Shield,
             spin: false,
             tone: "warning",
-            text: "Your session expired. Use the account control in the header to sign in again.",
+            text: "Your session expired. Sign in again to search your private forms registry.",
+            action: { href: "/", label: "Open account setup" },
           }
         : {
             icon: ShieldAlert,
             spin: false,
             tone: "danger",
             text: "Couldn't load the forms registry. Try again shortly.",
+            action: null,
           };
   const Icon = notice.icon;
   const toneClass =
@@ -293,6 +602,14 @@ function RegistryStatusNotice({ status }: { status: RegistryRequestStatus }) {
     >
       <Icon className={`h-4 w-4 shrink-0 ${notice.spin ? "animate-spin" : ""}`} aria-hidden />
       <span className="min-w-0 flex-1">{notice.text}</span>
+      {notice.action ? (
+        <Link
+          href={notice.action.href}
+          className="inline-flex min-h-8 items-center justify-center rounded-md bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
+        >
+          {notice.action.label}
+        </Link>
+      ) : null}
     </div>
   );
 }
@@ -307,6 +624,8 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const command = useSearchCommand();
   const registry = useRegistryRecords("form");
   const registryReady = registry.status === "ready";
+  const [refineOpen, setRefineOpen] = useState(false);
+  const refinePanelId = useId();
   const matches = useMemo(
     () => (registryReady ? rankFormRecords(registry.records, query) : []),
     [registryReady, registry.records, query],
@@ -348,9 +667,20 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
               />
             ) : (
               <>
-                <div className="flex justify-end md:hidden">
-                  <ResultSortControl value={sortValue} onChange={setSortValue} />
+                <div className="flex min-w-0 items-end gap-3 border-b border-[color:var(--border)]">
+                  <div className="min-w-0 flex-1 overflow-x-auto">
+                    <ResultTabs formsCount={displayedMatches.length} />
+                  </div>
+                  <div className="flex items-center gap-2 pb-1.5">
+                    <ResultSortControl value={sortValue} onChange={setSortValue} className="md:hidden" />
+                    <RefineBar
+                      open={refineOpen}
+                      onToggle={() => setRefineOpen((open) => !open)}
+                      panelId={refinePanelId}
+                    />
+                  </div>
                 </div>
+                <RefinePanel open={refineOpen} panelId={refinePanelId} />
                 <div className="hidden md:block">
                   <ResultsTable matches={displayedMatches} query={query} sortValue={sortValue} />
                 </div>
@@ -361,6 +691,13 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
             )}
           </>
         ) : null}
+        <div className="hidden lg:block">
+          <PathwayPanel />
+        </div>
+        <div className="lg:hidden">
+          <MobilePathway />
+        </div>
+        {registryReady ? <VerifiedFooter /> : null}
       </main>
     </div>
   );

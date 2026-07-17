@@ -2372,6 +2372,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   // owner/query memory cards are fetched at most once per (query, embedding-present, count).
   const memoryCardCache: MemoryCardCache = new Map();
   const documentRankingMetadataCache = createDocumentRankingMetadataCache();
+  const chunkLoadCache = createChunkLoadCache();
   const modeQueryClass = queryClassForClinicalMode(args.queryMode ?? "auto");
   const documentFilterList = args.documentIds?.length
     ? args.documentIds

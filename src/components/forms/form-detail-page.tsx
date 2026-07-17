@@ -31,6 +31,7 @@ import { useMemo, useState, type ReactNode } from "react";
 
 import {
   cn,
+  codeText,
   floatingControl,
   metadataPill,
   pageContainer,
@@ -203,10 +204,12 @@ function DetailCard({ card }: { card: ServiceSummaryCard }) {
 
 function PathwayContextCard({
   form,
+  code,
   criteria,
   testId,
 }: {
   form: FormRecord;
+  code: string;
   criteria: ServiceCriterion[];
   testId?: string;
 }) {
@@ -233,9 +236,12 @@ function PathwayContextCard({
         </div>
         <Info className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
       </div>
-      <p className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-        Route, source, and verification details for this record.
-      </p>
+      <div className="grid grid-cols-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 text-xs font-semibold">
+        <span className="rounded-md bg-[color:var(--clinical-accent)] px-3 py-2 text-center text-[color:var(--clinical-accent-contrast)]">
+          Pathway
+        </span>
+        <span className="px-3 py-2 text-center text-[color:var(--text-muted)]">Source info</span>
+      </div>
       <div className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4">
         <div className="relative">
           <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
@@ -254,26 +260,26 @@ function PathwayContextCard({
         </div>
         <div className="relative rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35 p-3">
           <span className="absolute -left-[1.55rem] top-4 h-4 w-4 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-accent)]" />
-          <p className="mb-2 text-2xs font-bold uppercase text-[color:var(--text-soft)]">Selected form</p>
+          <p className="mb-2 text-2xs font-bold uppercase text-[color:var(--text-soft)]">Current</p>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold uppercase text-[color:var(--clinical-accent)]">Form</span>
+            <span className={cn("text-2xl font-bold text-[color:var(--clinical-accent)]", codeText)}>{code}</span>
             <p className="text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
           </div>
           <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)]">
-            Current record
+            You are here
           </span>
           <p className={cn("mt-2 text-xs leading-5", textMuted)}>{displayText(form.subtitle)}</p>
         </div>
         <div className="relative">
           <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-          <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Source record</p>
+          <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Parallel</p>
           <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-            {sourceItems.map((item) => (
+            {parallelForms.map((item) => (
               <div
                 key={`${item.code}-${item.title}`}
                 className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
               >
-                <span className="text-sm font-bold text-[color:var(--text-heading)]">{item.code}</span>
+                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
             ))}
@@ -281,14 +287,14 @@ function PathwayContextCard({
         </div>
         <div className="relative">
           <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-          <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Verification</p>
+          <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">After</p>
           <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-            {verificationItems.map((item) => (
+            {afterForms.map((item) => (
               <div
                 key={`${item.code}-${item.title}`}
                 className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
               >
-                <span className="text-sm font-bold text-[color:var(--text-heading)]">{item.code}</span>
+                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
             ))}
@@ -319,10 +325,16 @@ function PathwayContextCard({
           </div>
         ) : null}
       </div>
-      <p className="mt-3 flex items-start gap-2 border-t border-[color:var(--border)] pt-3 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
-        <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-        No linked full pathway is available for this record.
-      </p>
+      <button
+        type="button"
+        disabled
+        title="Pathway navigation is not available yet"
+        className={cn(floatingControl, "mt-3 min-h-10 w-full rounded-lg px-3 text-xs opacity-60")}
+      >
+        <Navigation className="h-4 w-4" aria-hidden />
+        Full pathway unavailable
+        <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+      </button>
     </section>
   );
 }
@@ -351,9 +363,6 @@ function SourceSnapshotCard({ form }: { form: FormRecord }) {
       label: "Use safeguard",
       value: "Check current source before every use",
     },
-    ...(hasText(form.source?.reviewed)
-      ? [{ icon: CalendarDays, label: "Source review", value: form.source.reviewed.trim() }]
-      : []),
   ];
 
   return (
@@ -553,8 +562,13 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
           <div className="min-w-0 space-y-4">
             <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
               <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
-                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-24 sm:w-24">
-                  <FileText className="h-6 w-6 sm:h-9 sm:w-9" aria-hidden />
+                <div
+                  className={cn(
+                    "grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-xl font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-24 sm:w-24 sm:text-4xl",
+                    codeText,
+                  )}
+                >
+                  {code}
                 </div>
                 <div className="min-w-0">
                   <h1 className="max-w-4xl text-3xl font-extrabold leading-[1.05] text-[color:var(--text-heading)] sm:text-4xl">
@@ -605,7 +619,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                     className="hidden min-h-11 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition enabled:hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
                   >
                     <FileText className="h-4 w-4" aria-hidden />
-                    <span>Related forms</span>
+                    <span>Source</span>
                   </button>
                 </div>
               </div>
@@ -621,13 +635,11 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                     {formShortTitle(form)}
                     {details?.availability === "downloadable" ? ".pdf" : ""}
                   </h2>
-                  <p className={cn("mt-0.5 text-xs", textMuted)}>
-                    {displayText(form.source?.status, "Local confirmation required")}
-                  </p>
+                  <p className={cn("mt-0.5 text-xs", textMuted)}>{displayText(form.source?.label, "Official form")}</p>
                 </div>
               </div>
               <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
-                {form.source?.url ? "Source link available" : "No source link available"}
+                {displayText(form.source?.status, "Source status pending")}
               </span>
               <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
                 {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
@@ -663,7 +675,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 </div>
               ) : (
                 <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:inline">
-                  Confirm locally
+                  Source link pending
                 </span>
               )}
             </section>
@@ -694,18 +706,14 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 </span>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-base font-semibold text-[color:var(--text-heading)]">
-                      {verified ? "Legal boundary" : "Local confirmation required"}
-                    </h2>
+                    <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Legal boundary</h2>
                     <span className={cn(metadataPill, "rounded-full text-2xs uppercase", toneWarning)}>Governance</span>
                   </div>
                   <p className="mt-2 max-w-5xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                    {verified
-                      ? displayText(
-                          form.bestUse,
-                          "Use the current approved form and confirm local requirements before signing.",
-                        )
-                      : "This workflow entry is not locally verified. Open the current approved source and confirm the form, authority, sequence, and timing before clinical use."}
+                    {displayText(
+                      form.bestUse,
+                      "Use the current approved form, confirm authority, and document the least restrictive safe option before signing.",
+                    )}
                   </p>
                 </div>
               </div>
@@ -739,12 +747,12 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             </div>
 
             <div className="lg:hidden">
-              <PathwayContextCard form={form} criteria={criteria} testId="form-decision-context-mobile" />
+              <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-mobile" />
             </div>
           </div>
 
           <aside className="polished-scroll hidden min-w-0 space-y-3 lg:sticky lg:top-[5.75rem] lg:block lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
-            <PathwayContextCard form={form} criteria={criteria} testId="form-decision-context-desktop" />
+            <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-desktop" />
             <SourceSnapshotCard form={form} />
 
             <RailCard icon={FileText} title="Source status">

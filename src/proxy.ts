@@ -82,6 +82,9 @@ export async function proxy(request: NextRequest) {
     return response;
   };
 
+  const legacyHomeTarget = legacyHomeRedirectUrl(request.nextUrl, request.method);
+  if (legacyHomeTarget) return withCsp(NextResponse.redirect(legacyHomeTarget));
+
   const redirectTarget = documentFlowRedirects[pathname];
 
   if (redirectTarget) {

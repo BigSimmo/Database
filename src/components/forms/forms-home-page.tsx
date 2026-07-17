@@ -6,6 +6,7 @@ import {
   FileQuestion,
   FileText,
   Loader2,
+  Route,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -29,22 +30,22 @@ import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-regi
 const taskCards: ModeHomeAction[] = [
   {
     title: "Find a form",
-    description: "Title, purpose, or workflow detail.",
+    description: "Number, pathway, clock, keyword.",
     icon: Search,
     href: appModeHomeHref("forms", { focus: true }),
   },
   {
     title: "Readiness checks",
-    description: "Review status, source, and local confirmation.",
+    description: "Maker, clock, copies, source.",
     icon: ClipboardCheck,
     href: `/forms/${defaultFormSlug() ?? ""}`,
   },
   {
-    title: "Check source status",
-    description: "Find records that still need local confirmation.",
-    icon: ShieldAlert,
+    title: "Browse pathways",
+    description: "Before, current, parallel, after.",
+    icon: Route,
     href: appModeHomeHref("forms", {
-      query: "local confirmation required",
+      query: "forms pathway before current parallel after",
       focus: true,
       run: true,
     }),
@@ -90,7 +91,9 @@ export function FormsHomePage() {
       <ModeHomeStatusNotice
         icon={ShieldAlert}
         title="Session expired"
-        body="Your session expired. Use the account control in the header to sign in again."
+        body="Your session expired. Sign in again to open private form records and pathways."
+        actionHref="/"
+        actionLabel="Open account setup"
       />
     ) : registry.status === "error" ? (
       <ModeHomeStatusNotice
