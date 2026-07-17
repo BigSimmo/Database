@@ -8,6 +8,10 @@ const optimizedRetrievalMigration = readFileSync(
   join(root, "supabase/migrations/20260717160000_optimize_owner_public_retrieval.sql"),
   "utf8",
 );
+const boundedRetrievalMigration = readFileSync(
+  join(root, "supabase/migrations/20260717170000_bound_versioned_retrieval_match_count.sql"),
+  "utf8",
+);
 const canonicalSchema = readFileSync(join(root, "supabase/schema.sql"), "utf8");
 
 function between(source: string, start: string, end: string): string {
@@ -109,6 +113,22 @@ describe("owner-plus-public retrieval contract", () => {
       );
       expect(indexWrapper).not.toContain("union all");
     }
+  });
+
+  it("bounds nullable and negative result counts at the exposed versioned RPCs", () => {
+    // LIMIT NULL and LIMIT -1 mean "no limit" in PostgreSQL. The wrappers are
+    // the RPC boundary, so clamp here rather than trusting every service-role
+    // caller to validate an optional PostgREST argument.
+    expect(boundedRetrievalMigration).toContain("coalesce($2, 12)");
+    expect(boundedRetrievalMigration).toContain("coalesce($3, 24)");
+    expect(boundedRetrievalMigration).toContain("least(greatest(coalesce($2, 12), 1), 96)");
+    expect(boundedRetrievalMigration).toContain("least(greatest(coalesce($3, 24), 1), 96)");
+    expect(boundedRetrievalMigration).toContain(
+      "revoke all on function public.match_document_chunks_text_v2(text, integer, uuid[], uuid, boolean)",
+    );
+    expect(boundedRetrievalMigration).toContain(
+      "revoke all on function public.match_document_index_units_hybrid_v2(",
+    );
   });
 
   it("merges exact-owner and public rows when a versioned RPC is not deployed yet", async () => {
