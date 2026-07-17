@@ -19,6 +19,19 @@ export type SearchCommandSurfaceConfig = {
   crossModes: AppModeId[];
 };
 
+export type CommandSurfacePlacement = "bottom-dock" | "inline";
+
+/**
+ * The command panel is a desktop enhancement. Width alone is not enough to
+ * identify that environment: phones can report a wide viewport in landscape,
+ * display-zoom, or desktop-site modes. Requiring a hover-capable fine pointer
+ * keeps the panel closed on touch-first phones while preserving it for desktop.
+ */
+export function commandDropdownDisplayMediaQuery(placement: CommandSurfacePlacement) {
+  const minimumWidth = placement === "bottom-dock" ? "640px" : "1024px";
+  return `(min-width: ${minimumWidth}) and (hover: hover) and (pointer: fine)`;
+}
+
 const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurfaceConfig>> = {
   documents: {
     examples: ["clozapine ANC thresholds", "lithium monitoring table", "QT prolongation quote"],

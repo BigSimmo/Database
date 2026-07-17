@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  commandDropdownDisplayMediaQuery,
   differentialRedFlagTerms,
   favouriteMatchesCommandScopes,
   filteredSuggestions,
@@ -28,6 +29,15 @@ function serviceRecord(overrides: Partial<ServiceRecord> = {}): ServiceRecord {
 }
 
 describe("search command surface", () => {
+  it("requires desktop pointer capabilities before displaying the command dropdown", () => {
+    expect(commandDropdownDisplayMediaQuery("bottom-dock")).toBe(
+      "(min-width: 640px) and (hover: hover) and (pointer: fine)",
+    );
+    expect(commandDropdownDisplayMediaQuery("inline")).toBe(
+      "(min-width: 1024px) and (hover: hover) and (pointer: fine)",
+    );
+  });
+
   it("returns mode-specific command surface config", () => {
     const documents = searchCommandSurfaceConfig("documents");
     expect(documents?.examples.length).toBeGreaterThan(0);
