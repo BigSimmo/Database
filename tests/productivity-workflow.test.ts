@@ -62,6 +62,15 @@ describe("productivity workflow planning", () => {
     );
   });
 
+  it("preserves database and clinical approval gates in the RAG lab", () => {
+    const plan = buildWorkflowPlan("rag-lab", ["src/app/api/answer/route.ts"]);
+    const commands = plan.approvalRequired.map((item: { command: string }) => item.command);
+
+    expect(commands).toContain("npm run check:supabase-project");
+    expect(commands).toContain("npm run check:production-readiness");
+    expect(commands).toContain("npm run eval:retrieval:quality");
+  });
+
   it("keeps the design sweep local and covers the established breakpoint proof", () => {
     const plan = buildWorkflowPlan("design-sweep", ["src/components/ClinicalDashboard.tsx"]);
 

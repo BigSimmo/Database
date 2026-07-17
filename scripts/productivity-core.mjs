@@ -215,6 +215,7 @@ export function buildWorkflowPlan(workflow, files = [], options = {}) {
     ];
     approvalRequired = uniqueBy(
       [
+        ...approvalRequired,
         check("npm run eval:retrieval:quality", "Require 36/36 against the live corpus after explicit approval."),
         check("npm run eval:rag -- --limit 15", "Sample live answer generation after explicit approval."),
         check("npm run eval:quality -- --rag-only", "Compare grounded-answer invariants after explicit approval."),
