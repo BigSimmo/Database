@@ -274,10 +274,13 @@ function ResultTypeTabs({
     { id: "diagnosis" as const, label: "Diagnoses", count: diagnosisCount },
   ];
 
+  // Single-select filters over one results list — modeled as a toggle group
+  // (role="group" + aria-pressed), not ARIA tabs (which would need tabpanels,
+  // aria-controls, and roving tabindex for content that does not exist here).
   return (
     <div
       data-testid="differential-result-type-tabs"
-      role="tablist"
+      role="group"
       aria-label="Result type"
       className="polished-scroll flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
     >
@@ -287,8 +290,7 @@ function ResultTypeTabs({
           <button
             key={tab.id}
             type="button"
-            role="tab"
-            aria-selected={active}
+            aria-pressed={active}
             aria-label={`${tab.label} (${tab.count})`}
             onClick={() => onFilterChange(tab.id)}
             className={cn(
