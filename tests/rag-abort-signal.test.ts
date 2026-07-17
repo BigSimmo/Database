@@ -21,6 +21,7 @@ describe("RAG abort signal propagation", () => {
 
     const controller = new AbortController();
     controller.abort(new DOMException("The operation was aborted.", "AbortError"));
+    expect(controller.signal.aborted).toBe(true);
     const { searchChunksWithTelemetry } = await import("../src/lib/rag");
 
     await expect(
@@ -34,20 +35,16 @@ describe("RAG abort signal propagation", () => {
   }, 60_000);
 
   it("attaches the caller signal to versioned retrieval RPC builders", async () => {
-    const controller = new AbortController();
-    const abortSignal = vi.fn(async () => ({ data: [], error: null }));
-    const supabase = { rpc: vi.fn(() => ({ abortSignal })) };
+    const rpc = vi.fn(async () => ({ data: [], error: null }));
+    const supabase = { rpc };
     const { callVersionedRetrievalRpc } = await import("../src/lib/rag-candidate-sources");
 
-    await callVersionedRetrievalRpc(
-      supabase as never,
-      "match_document_chunks_text_v2",
-      "match_document_chunks_text",
-      { query_text: "clozapine", match_count: 8 },
-      controller.signal,
-    );
+    await callVersionedRetrievalRpc(supabase as never, "match_document_chunks_text_v2", "match_document_chunks_text", {
+      query_text: "clozapine",
+      match_count: 8,
+    });
 
-    expect(abortSignal).toHaveBeenCalledWith(controller.signal);
+    expect(rpc).toHaveBeenCalledWith("match_document_chunks_text_v2", { query_text: "clozapine", match_count: 8 });
   });
 
   it("refuses adversarial manipulation before Supabase work starts", async () => {

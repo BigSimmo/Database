@@ -55,10 +55,7 @@ export default defineConfig({
       grepInvert: mockupTag,
       use: {
         ...devices["Desktop Chrome"],
-        contextOptions: {
-          ...(devices["Desktop Chrome"].contextOptions ?? {}),
-          reducedMotion: "no-preference",
-        },
+        reducedMotion: "no-preference",
         ...(chromiumExecutablePath ? { launchOptions: { executablePath: chromiumExecutablePath } } : {}),
       },
     },
