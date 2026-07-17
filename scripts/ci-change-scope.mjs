@@ -148,15 +148,6 @@ const containerPatterns = [
 
 const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
 
-const coveragePatterns = [
-  "data",
-  "src",
-  "tests",
-  "package.json",
-  "vitest.config.mts",
-  /^scripts\/(?:child-process-result|run-heavy|run-live-tests|run-vitest|test-environment|test-focused|test-run-lock)\.mjs$/,
-];
-
 const buildPatterns = [
   "bundle-budget.json",
   "data",
@@ -188,7 +179,10 @@ const lockfilePatterns = ["package.json", "package-lock.json", ".npmrc"];
 function classify(files) {
   const normalized = [...new Set(files.map(normalizePath).filter(Boolean))].sort();
   const sourceChanged = normalized.some((file) => pathMatches(file, [...sourcePatterns, ...staticConfigPatterns]));
-  const coverageChanged = normalized.some((file) => pathMatches(file, coveragePatterns));
+  // Preserve the pre-consolidation unit gate for every non-documentation
+  // change. Narrower signals still scope build/UI/database work, but must not
+  // leave runtime, worker, or configuration changes without unit coverage.
+  const coverageChanged = normalized.some((file) => !pathMatches(file, docPatterns));
   const uiChanged = normalized.some((file) => pathMatches(file, uiPatterns));
   const dbChanged = normalized.some((file) => pathMatches(file, dbPatterns));
   const containerChanged = normalized.some((file) => pathMatches(file, containerPatterns));
@@ -398,6 +392,15 @@ function selfTest() {
   assertScope("coverage-config", ["vitest.config.mts"], {
     source_changed: true,
     coverage_changed: true,
+  });
+  assertScope("build-config-keeps-coverage", ["next.config.ts", "postcss.config.mjs", "tsconfig.json"], {
+    coverage_changed: true,
+    build_changed: true,
+  });
+  assertScope("worker-keeps-coverage", ["worker/index.ts"], {
+    source_changed: true,
+    coverage_changed: true,
+    build_changed: true,
   });
   assertScope("test-runner", ["scripts/run-vitest.mjs", "scripts/run-playwright.mjs"], {
     source_changed: true,

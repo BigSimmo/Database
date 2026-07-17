@@ -35,11 +35,16 @@ const routeSmokePaths = [
   "/forms/transport-crisis-form",
 ];
 const playwrightArgs = process.argv.slice(2);
-const mockupProjectRequested = playwrightArgs.some(
-  (argument, index) =>
-    argument === "--project=chromium-mockups" ||
-    (argument === "--project" && playwrightArgs[index + 1] === "chromium-mockups"),
+const explicitProjectRequested = playwrightArgs.some(
+  (argument) => argument === "--project" || argument.startsWith("--project="),
 );
+const mockupProjectRequested =
+  !explicitProjectRequested ||
+  playwrightArgs.some(
+    (argument, index) =>
+      argument === "--project=chromium-mockups" ||
+      (argument === "--project" && playwrightArgs[index + 1] === "chromium-mockups"),
+  );
 const runId = `${process.pid}-${Date.now()}`;
 const relativeRunRoot = `.next-playwright/${runId}`;
 const absoluteRunRoot = path.join(projectRoot, relativeRunRoot);

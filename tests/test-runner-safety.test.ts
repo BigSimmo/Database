@@ -172,6 +172,7 @@ describe("provider-safe test environment", () => {
     expect(runner).toContain('NODE_ENV: "production"');
     expect(runner).toContain('PLAYWRIGHT_OFFLINE_MODE: "true"');
     expect(runner).toContain('NEXT_PUBLIC_MOCKUPS_ENABLED: mockupProjectRequested ? "true" : "false"');
+    expect(runner).toContain("!explicitProjectRequested ||");
     expect(runner).not.toContain("supabase.co");
   });
 });
