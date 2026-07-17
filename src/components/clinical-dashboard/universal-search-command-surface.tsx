@@ -383,10 +383,9 @@ export function UniversalSearchCommandSurface({
   // The dropdown is a fine-pointer desktop enhancement. Width-only checks let
   // wide, zoomed, or desktop-mode phones open it over the page.
   const dropdownMediaQuery = commandDropdownDisplayMediaQuery(placement);
-  const [dropdownDisplayable, setDropdownDisplayable] = useState(
-    () => typeof window !== "undefined" && window.matchMedia(dropdownMediaQuery).matches,
-  );
+  const [dropdownDisplayable, setDropdownDisplayable] = useState(false);
   useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
     const mediaQuery = window.matchMedia(dropdownMediaQuery);
     const sync = () => {
       setDropdownDisplayable(mediaQuery.matches);

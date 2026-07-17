@@ -190,15 +190,25 @@ test.describe("universal search typeahead", () => {
     await expect(page.getByText("Saved").first()).toBeVisible();
   });
 
-  test("keeps cross-mode typeahead hidden on a phone viewport", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockUniversalSearch(page);
-    const input = await openComposer(page);
-    await input.fill("acamprosate");
+  test("keeps cross-mode typeahead hidden on a landscape touch phone", async ({ browser, baseURL }) => {
+    const context = await browser.newContext({
+      ...(baseURL ? { baseURL } : {}),
+      hasTouch: true,
+      viewport: { width: 844, height: 390 },
+    });
+    const page = await context.newPage();
 
-    await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
-    await expect(page.getByText(/Current mode · Documents · 1/)).toHaveCount(0);
-    await expect(page.getByText("Also in Medication · Medications · 1")).toHaveCount(0);
+    try {
+      await mockUniversalSearch(page);
+      const input = await openComposer(page);
+      await input.fill("acamprosate");
+
+      await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+      await expect(page.getByText(/Current mode · Documents · 1/)).toHaveCount(0);
+      await expect(page.getByText("Also in Medication · Medications · 1")).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
   });
 
   test("keeps compact cross-mode matches visible after submission", async ({ page }) => {
