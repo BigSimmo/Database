@@ -466,7 +466,7 @@ export function FavouritesMobileQuickViews({
                 aria-pressed={chip.active}
                 onClick={chip.onClick}
                 className={cn(
-                  "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm-minus font-semibold transition",
+                  "inline-flex h-tap shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm-minus font-semibold transition",
                   chip.active
                     ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)]"
                     : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",

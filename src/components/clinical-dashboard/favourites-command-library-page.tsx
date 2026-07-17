@@ -696,10 +696,16 @@ function FavouritesTable({
                     </span>
                   </td>
                   <td className={evidenceCellClass}>
-                    <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)]">
-                      <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                      <span className="line-clamp-1">{item.evidence}</span>
-                    </span>
+                    {isSourceBacked(item) ? (
+                      <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--clinical-accent)]">
+                        <ShieldCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                        <span className="line-clamp-1">{item.evidence}</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-muted)]">
+                        <span className="line-clamp-1">{item.evidence}</span>
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 align-middle">
                     <span className="whitespace-nowrap text-2xs font-semibold text-[color:var(--text-heading)]">
