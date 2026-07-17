@@ -952,14 +952,14 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
   return (
     <main
       data-testid="favourites-hub"
-      className="min-h-[calc(100dvh-4rem)] overflow-x-hidden bg-[color:var(--background)] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:pb-32 md:pb-0"
+      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:pb-32 md:pb-0"
     >
       <span data-testid="favourites-command-library" className="sr-only">
         Favourites command library
       </span>
       <div
         className={cn(
-          "grid min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-hidden",
+          "grid min-h-0 min-w-0 overflow-x-clip sm:min-h-[calc(100dvh-4rem)]",
           navCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[17.5rem_minmax(0,1fr)]",
           selectedItem &&
             (navCollapsed
