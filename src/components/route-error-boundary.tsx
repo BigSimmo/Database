@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { TriangleAlert, RefreshCw } from "lucide-react";
 
 import { cn, primaryControl } from "@/components/ui-primitives";
@@ -38,8 +38,10 @@ export function RouteErrorBoundary({
   showReload = false,
   minHeightClass = "min-h-[50vh]",
 }: RouteErrorBoundaryProps) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     console.error(logLabel, error);
+    headingRef.current?.focus();
   }, [error, logLabel]);
 
   return (
@@ -54,7 +56,9 @@ export function RouteErrorBoundary({
           <TriangleAlert aria-hidden="true" className="h-6 w-6" />
         </div>
 
-        <h1 className="mt-4 text-lg font-semibold tracking-tight text-[color:var(--text-heading)]">{title}</h1>
+        <h1 ref={headingRef} tabIndex={-1} className="mt-4 text-lg font-semibold tracking-tight text-[color:var(--text-heading)] focus:outline-none">
+          {title}
+        </h1>
 
         <p className="mt-2 text-sm leading-relaxed text-[color:var(--text-muted)]">{description}</p>
 

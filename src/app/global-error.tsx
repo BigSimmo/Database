@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * Last-resort boundary for the App Router. Unlike `app/error.tsx`, this replaces
@@ -11,8 +11,10 @@ import { useEffect } from "react";
  * still renders correctly when the styling/theming system is exactly what failed.
  */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     console.error("Fatal error captured by global-error boundary:", error);
+    headingRef.current?.focus();
   }, [error]);
 
   return (
@@ -25,8 +27,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           alignItems: "center",
           justifyContent: "center",
           padding: "1rem",
-          backgroundColor: "#f4f5f7",
-          color: "#1a1c1e",
+          backgroundColor: "Canvas",
+          color: "CanvasText",
           fontFamily:
             'system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"',
         }}
@@ -37,15 +39,15 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
             maxWidth: "28rem",
             boxSizing: "border-box",
             borderRadius: "1rem",
-            border: "1px solid #e2e4e8",
-            backgroundColor: "#ffffff",
+            border: "1px solid CanvasText",
+            backgroundColor: "Canvas",
             padding: "1.5rem",
             textAlign: "center",
-            boxShadow: "0 10px 30px rgba(15, 23, 42, 0.12)",
+            boxShadow: "0 10px 30px color-mix(in srgb, CanvasText 12%, transparent)",
           }}
         >
-          <h1 style={{ margin: "0 0 0.5rem", fontSize: "1.125rem", fontWeight: 600 }}>Something went wrong</h1>
-          <p style={{ margin: "0 0 1.25rem", fontSize: "0.875rem", lineHeight: 1.6, color: "#5b6069" }}>
+          <h1 ref={headingRef} tabIndex={-1} role="alert" style={{ margin: "0 0 0.5rem", fontSize: "1.125rem", fontWeight: 600, outline: "none" }}>Something went wrong</h1>
+          <p style={{ margin: "0 0 1.25rem", fontSize: "0.875rem", lineHeight: 1.6 }}>
             The application failed to load. Please try again, or reload the page if the problem persists.
           </p>
           {error.digest && (
@@ -53,11 +55,11 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               style={{
                 margin: "0 0 1.25rem",
                 borderRadius: "0.5rem",
-                backgroundColor: "#f4f5f7",
+                backgroundColor: "Canvas",
                 padding: "0.5rem",
                 fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
                 fontSize: "0.75rem",
-                color: "#5b6069",
+                color: "CanvasText",
                 wordBreak: "break-all",
               }}
             >
@@ -72,8 +74,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
                 cursor: "pointer",
                 borderRadius: "0.5rem",
                 border: "none",
-                backgroundColor: "#1a1c1e",
-                color: "#ffffff",
+                backgroundColor: "ButtonFace",
+                color: "ButtonText",
                 padding: "0.625rem 1rem",
                 fontSize: "0.875rem",
                 fontWeight: 600,
@@ -87,9 +89,9 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               style={{
                 cursor: "pointer",
                 borderRadius: "0.5rem",
-                border: "1px solid #e2e4e8",
-                backgroundColor: "#ffffff",
-                color: "#1a1c1e",
+                border: "1px solid ButtonText",
+                backgroundColor: "ButtonFace",
+                color: "ButtonText",
                 padding: "0.625rem 1rem",
                 fontSize: "0.875rem",
                 fontWeight: 600,
