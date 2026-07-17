@@ -620,16 +620,27 @@ export function ModeActionPopup({
   useEffect(() => {
     if (!open || useSheet) return;
 
+    let placementFrame: number | null = null;
+    const schedulePlacementUpdate = () => {
+      if (placementFrame !== null) return;
+      placementFrame = window.requestAnimationFrame(() => {
+        placementFrame = null;
+        updatePlacement();
+      });
+    };
+    const scrollOptions: AddEventListenerOptions = { capture: true, passive: true };
+
     updatePlacement();
-    window.addEventListener("resize", updatePlacement);
-    window.addEventListener("scroll", updatePlacement, true);
-    window.visualViewport?.addEventListener("resize", updatePlacement);
-    window.visualViewport?.addEventListener("scroll", updatePlacement);
+    window.addEventListener("resize", schedulePlacementUpdate);
+    window.addEventListener("scroll", schedulePlacementUpdate, scrollOptions);
+    window.visualViewport?.addEventListener("resize", schedulePlacementUpdate);
+    window.visualViewport?.addEventListener("scroll", schedulePlacementUpdate, { passive: true });
     return () => {
-      window.removeEventListener("resize", updatePlacement);
-      window.removeEventListener("scroll", updatePlacement, true);
-      window.visualViewport?.removeEventListener("resize", updatePlacement);
-      window.visualViewport?.removeEventListener("scroll", updatePlacement);
+      if (placementFrame !== null) window.cancelAnimationFrame(placementFrame);
+      window.removeEventListener("resize", schedulePlacementUpdate);
+      window.removeEventListener("scroll", schedulePlacementUpdate, scrollOptions);
+      window.visualViewport?.removeEventListener("resize", schedulePlacementUpdate);
+      window.visualViewport?.removeEventListener("scroll", schedulePlacementUpdate);
     };
   }, [open, updatePlacement, useSheet]);
 

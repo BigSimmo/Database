@@ -306,13 +306,17 @@ test.describe("Clinical KB long-content stress coverage", () => {
         await legacyAnswerModeToggle.click();
       } else {
         const appModeMenu = page.getByRole("button", { name: /^Mode / });
+        const appModeGroup = page.getByRole("menu", { name: "Choose app mode" });
         await expect(appModeMenu).toBeVisible();
-        await appModeMenu.click({ force: true });
-        const answerMode = page
-          .getByRole("menu", { name: "Choose app mode" })
-          .getByRole("menuitemradio", { name: /^Answer\b/ });
+        await expect(appModeMenu).toBeEnabled();
+        await expect(async () => {
+          if (await appModeGroup.isVisible().catch(() => false)) return;
+          await appModeMenu.click();
+          await expect(appModeGroup).toBeVisible({ timeout: 5_000 });
+        }).toPass({ timeout: 20_000 });
+        const answerMode = appModeGroup.getByRole("menuitemradio", { name: /^Answer\b/ });
         await expect(answerMode).toBeVisible();
-        await answerMode.click({ force: true });
+        await answerMode.click();
         await expect(page.getByRole("button", { name: "Mode Answer" })).toBeVisible();
       }
 

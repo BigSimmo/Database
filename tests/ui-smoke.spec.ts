@@ -726,11 +726,14 @@ async function openMobileTableFullscreen(page: Page, clinicalTable: Locator) {
 
 async function openMobileClinicalGuideMenu(page: Page) {
   const trigger = page.getByRole("button", { name: "Open Clinical Guide menu" });
-  await expect(trigger).toBeVisible();
-  await trigger.click();
-
   const menu = page.getByRole("dialog", { name: "Clinical Guide" });
-  await expect(menu).toBeVisible();
+  await expect(trigger).toBeVisible();
+  await expect(trigger).toBeEnabled();
+  await expect(async () => {
+    if (await menu.isVisible().catch(() => false)) return;
+    await trigger.click();
+    await expect(menu).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 20_000 });
   const menuBox = await menu.boundingBox();
   expect(menuBox).not.toBeNull();
   expect(menuBox!.x).toBeGreaterThanOrEqual(0);
@@ -1294,6 +1297,40 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await page.mouse.click(640, 430);
     await expect(appModeMenu).toBeHidden();
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("desktop mode action placement coalesces scroll updates per frame", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const trigger = page.getByRole("button", { name: "Open answer options" });
+    await trigger.evaluate((element) => {
+      const originalGetBoundingClientRect = element.getBoundingClientRect.bind(element);
+      element.dataset.placementReadCount = "0";
+      element.getBoundingClientRect = () => {
+        element.dataset.placementReadCount = String(Number(element.dataset.placementReadCount ?? "0") + 1);
+        return originalGetBoundingClientRect();
+      };
+    });
+
+    await openDailyActions(page, "Open answer options");
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    await trigger.evaluate((element) => {
+      element.dataset.placementReadCount = "0";
+    });
+
+    const placementReads = await page.evaluate(async () => {
+      for (let index = 0; index < 20; index += 1) {
+        window.dispatchEvent(new Event("scroll"));
+      }
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      const triggerElement = document.querySelector<HTMLElement>('button[aria-label="Open answer options"]');
+      return Number(triggerElement?.dataset.placementReadCount ?? "0");
+    });
+
+    expect(placementReads).toBeLessThanOrEqual(1);
   });
 
   test("demo answer flow reaches a source-backed answer @critical", async ({ browserName, page }) => {

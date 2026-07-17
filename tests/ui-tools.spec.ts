@@ -1376,22 +1376,8 @@ test.describe("Clinical KB tools launcher", () => {
           results: [],
           visualEvidence: [],
           relatedDocuments: [],
-          documentMatches: [
-            {
-              document_id: "11111111-1111-4111-8111-111111111111",
-              title: "Acute confusion differential guide",
-              file_name: "acute-confusion-differentials.pdf",
-              labels: [],
-              summarySnippet: "Reviewed acute confusion differential guidance.",
-              bestPages: [1],
-              bestChunkIds: ["chunk-acute-confusion"],
-              imageCount: 0,
-              tableCount: 0,
-              matchReason: "Matched indexed passage",
-              score: 0.93,
-            },
-          ],
-          relevance: { verdict: "strong", score: 0.93, directSourceCount: 1, weakSourceCount: 0 },
+          documentMatches: [],
+          relevance: { verdict: "weak", score: 0, directSourceCount: 0, weakSourceCount: 0 },
           smartPanel: {},
           telemetry: { query_class: "differential_compare", retrieval_strategy: "text_fast_path" },
           scope: { queryMode: "compare_guidance" },
@@ -1407,7 +1393,11 @@ test.describe("Clinical KB tools launcher", () => {
     const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
     await input.fill("acute confusion");
     await expect(submit).toBeEnabled();
+    const searchResponse = page.waitForResponse(
+      (response) => response.url().includes("/api/search") && response.request().method() === "POST",
+    );
     await submit.click();
+    await searchResponse;
 
     const compareAction = page.getByTestId("differentials-compare-selected-mobile");
     const dock = page.locator("form.answer-footer-search-dock");
