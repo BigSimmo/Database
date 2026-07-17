@@ -711,7 +711,9 @@ export function SettingsDialog({
           {/* Help & About */}
           <SettingsSection id="help" title="Help & About">
             <div className="rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
-              <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">Clinical Knowledge Base</p>
+              <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+                Clinical Knowledge Base
+              </p>
               <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
                 A grounded clinical reference. Every answer cites the source it came from — always confirm against the
                 primary guideline before acting.
@@ -736,15 +738,7 @@ export function SettingsDialog({
   );
 }
 
-function SettingsSection({
-  id,
-  title,
-  children,
-}: {
-  id: SettingsSectionId;
-  title: string;
-  children: ReactNode;
-}) {
+function SettingsSection({ id, title, children }: { id: SettingsSectionId; title: string; children: ReactNode }) {
   const headingId = `${sectionDomId(id)}-heading`;
   return (
     <section

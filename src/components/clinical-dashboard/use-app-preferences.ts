@@ -111,8 +111,7 @@ function coerceBoolean(value: unknown, fallback: boolean): boolean {
 export function normalizePreferences(input: unknown): AppPreferences {
   if (!isPlainObject(input)) return DEFAULT_PREFERENCES;
   const jurisdiction =
-    typeof input.jurisdiction === "string" &&
-    JURISDICTION_OPTIONS.some((option) => option.value === input.jurisdiction)
+    typeof input.jurisdiction === "string" && JURISDICTION_OPTIONS.some((option) => option.value === input.jurisdiction)
       ? input.jurisdiction
       : DEFAULT_PREFERENCES.jurisdiction;
   return {
@@ -213,14 +212,11 @@ export function useAppPreferences() {
     applyPreferenceSideEffects(preferences);
   }, [preferences]);
 
-  const setPreference = useCallback(
-    <Key extends keyof AppPreferences>(key: Key, value: AppPreferences[Key]) => {
-      const current = getSnapshot();
-      if (current[key] === value) return;
-      persist({ ...current, [key]: value });
-    },
-    [],
-  );
+  const setPreference = useCallback(<Key extends keyof AppPreferences>(key: Key, value: AppPreferences[Key]) => {
+    const current = getSnapshot();
+    if (current[key] === value) return;
+    persist({ ...current, [key]: value });
+  }, []);
 
   const resetPreferences = useCallback(() => {
     persist(DEFAULT_PREFERENCES);
