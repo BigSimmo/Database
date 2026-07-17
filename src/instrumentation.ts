@@ -10,6 +10,23 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   if (process.env.NODE_ENV !== "production") return;
 
+  // Playwright validates a real production build, but its runner must remain a
+  // provider-free demo. Permit that otherwise-invalid combination only for the
+  // runner's isolated output and inert loopback environment. A partial or
+  // externally-addressed configuration still falls through to the production
+  // guard below and fails closed.
+  if (process.env.PLAYWRIGHT_OFFLINE_MODE === "true") {
+    const isolatedOutput = /^\.next-playwright\/[a-z0-9-]+\/dist$/i.test(process.env.NEXT_DIST_DIR ?? "");
+    const providerFree =
+      process.env.NEXT_PUBLIC_DEMO_MODE === "true" &&
+      process.env.RAG_PROVIDER_MODE === "offline" &&
+      process.env.NEXT_PUBLIC_SUPABASE_URL === "http://127.0.0.1:1" &&
+      !process.env.SUPABASE_SERVICE_ROLE_KEY &&
+      !process.env.OPENAI_API_KEY;
+    if (isolatedOutput && providerFree) return;
+    throw new Error("Refusing to start: invalid isolated Playwright offline environment.");
+  }
+
   // Defense in depth: no-auth must never be active in a production build (even
   // though isLocalNoAuthMode() already hard-guards on NODE_ENV).
   if (process.env.LOCAL_NO_AUTH === "true" || process.env.NEXT_PUBLIC_LOCAL_NO_AUTH === "true") {

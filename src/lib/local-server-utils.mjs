@@ -33,6 +33,17 @@ export function stableProjectPort(projectRoot, platform = process.platform) {
   return port;
 }
 
+export function circularProjectPortRange(startPort) {
+  if (!Number.isInteger(startPort) || startPort < projectPortStart || startPort > projectPortEnd) {
+    throw new Error(`Project port must be between ${projectPortStart} and ${projectPortEnd}: ${startPort}`);
+  }
+  const count = projectPortEnd - projectPortStart + 1;
+  return Array.from(
+    { length: count },
+    (_, index) => projectPortStart + ((startPort - projectPortStart + index) % count),
+  );
+}
+
 export function localProjectId(projectRoot, platform = process.platform) {
   return `clinical-kb:${projectHash(projectRoot, platform).toString("hex").slice(0, 12)}`;
 }

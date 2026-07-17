@@ -18,11 +18,12 @@ import { fileURLToPath } from "node:url";
  * Flags:
  *   --keep        leave the container running (for inspection / DR rehearsal)
  *   --port <n>    host port for the scratch Postgres (default 56599)
+ *   --container <name>  override the scratch container name for concurrent worktrees
  *   --image <x>   override the Postgres image tag
  */
 
 const IMAGE_DEFAULT = "supabase/postgres:17.6.1.127";
-const CONTAINER = "clinical-kb-drift-manifest";
+const CONTAINER_DEFAULT = "clinical-kb-drift-manifest";
 
 const repoUrl = (relative: string) => fileURLToPath(new URL(`../${relative}`, import.meta.url));
 
@@ -43,6 +44,7 @@ function docker(args: string[], input?: string): string {
 async function main() {
   const image = arg("--image") ?? IMAGE_DEFAULT;
   const port = arg("--port") ?? "56599";
+  const container = arg("--container") ?? CONTAINER_DEFAULT;
   const keep = process.argv.includes("--keep");
 
   try {
@@ -57,15 +59,15 @@ async function main() {
   const scaffoldSql = readFileSync(repoUrl("scripts/sql/drift-replay-scaffold.sql"), "utf8");
   const { normalizedSchemaSha256 } = await import("./check-drift");
 
-  console.log(`Starting scratch container ${CONTAINER} (${image}) on port ${port}…`);
+  console.log(`Starting scratch container ${container} (${image}) on port ${port}…`);
   try {
-    docker(["rm", "-f", CONTAINER]);
+    docker(["rm", "-f", container]);
   } catch {
     // not running — fine
   }
   const startedAt = Date.now();
   const scratchPassword = randomBytes(16).toString("hex");
-  docker(["run", "-d", "--name", CONTAINER, "-e", `POSTGRES_PASSWORD=${scratchPassword}`, "-p", `${port}:5432`, image]);
+  docker(["run", "-d", "--name", container, "-e", `POSTGRES_PASSWORD=${scratchPassword}`, "-p", `${port}:5432`, image]);
 
   try {
     // The Supabase image briefly accepts connections before its init migrations
@@ -74,7 +76,7 @@ async function main() {
     let consecutiveReadyChecks = 0;
     for (let attempt = 0; attempt < 60; attempt += 1) {
       try {
-        docker(["exec", CONTAINER, "pg_isready", "-U", "postgres", "-q"]);
+        docker(["exec", container, "pg_isready", "-U", "postgres", "-q"]);
         consecutiveReadyChecks += 1;
         if (consecutiveReadyChecks >= 5) break;
       } catch {
@@ -88,7 +90,7 @@ async function main() {
 
     const psql = (user: string, sql: string) =>
       docker(
-        ["exec", "-i", CONTAINER, "psql", "-U", user, "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q", "-f", "-"],
+        ["exec", "-i", container, "psql", "-U", user, "-d", "postgres", "-v", "ON_ERROR_STOP=1", "-q", "-f", "-"],
         sql,
       );
 
@@ -100,7 +102,7 @@ async function main() {
     console.log(`Replay complete in ${replaySeconds}s (container start included).`);
 
     const raw = docker(
-      ["exec", "-i", CONTAINER, "psql", "-U", "postgres", "-d", "postgres", "-tA", "-v", "ON_ERROR_STOP=1", "-f", "-"],
+      ["exec", "-i", container, "psql", "-U", "postgres", "-d", "postgres", "-tA", "-v", "ON_ERROR_STOP=1", "-f", "-"],
       "select public.schema_drift_snapshot()::text;",
     ).trim();
     const snapshot = JSON.parse(raw) as Record<string, unknown>;
@@ -119,12 +121,12 @@ async function main() {
     console.log("Next: run `npm run check:drift` against live (needs service-role env).");
   } finally {
     if (keep) {
-      console.log(`Container ${CONTAINER} kept running on port ${port} (--keep).`);
+      console.log(`Container ${container} kept running on port ${port} (--keep).`);
     } else {
       try {
-        docker(["rm", "-f", CONTAINER]);
+        docker(["rm", "-f", container]);
       } catch {
-        console.warn(`Could not remove container ${CONTAINER}; remove it manually.`);
+        console.warn(`Could not remove container ${container}; remove it manually.`);
       }
     }
   }

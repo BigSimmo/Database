@@ -35,13 +35,7 @@ async function mockMinimalDashboardApi(page: Page) {
 
 async function gotoApp(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  // Deterministic app-shell mount wait (networkidle burned the full timeout on
-  // routes with persistent background fetches; per-test assertions gate readiness).
-  await page
-    .locator("#main-content")
-    .first()
-    .waitFor({ state: "visible", timeout: 15_000 })
-    .catch(() => undefined);
+  await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
 }
 
 async function expectNoPageHorizontalOverflow(page: Page) {

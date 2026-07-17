@@ -16,8 +16,7 @@ import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/li
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
 import { searchChunksWithTelemetry } from "@/lib/rag";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
-import { rowToServiceRecord } from "@/lib/registry-records";
-import { fetchOwnerRegistryRowsWithSeed } from "@/lib/registry-seed";
+import { fetchOwnerRegistryRows, mergeRegistryRecordsWithDefaults } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { searchFormulationMechanisms } from "@/lib/formulation";
 import { searchSpecifiers as searchPsychiatricSpecifiers } from "@/lib/specifiers";
@@ -191,7 +190,10 @@ async function searchMedicationsDomain(args: ResolvedSearchArgs): Promise<Univer
 async function searchServicesDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
     !args.demo && args.supabase && args.ownerId
-      ? (await fetchOwnerRegistryRowsWithSeed(args.supabase, args.ownerId, "service")).map(rowToServiceRecord)
+      ? mergeRegistryRecordsWithDefaults(
+          "service",
+          await fetchOwnerRegistryRows(args.supabase, args.ownerId, "service"),
+        )
       : serviceRecords;
   return rankServiceRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     serviceItem(match.service, match.score),
@@ -201,7 +203,7 @@ async function searchServicesDomain(args: ResolvedSearchArgs): Promise<Universal
 async function searchFormsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
   const records =
     !args.demo && args.supabase && args.ownerId
-      ? (await fetchOwnerRegistryRowsWithSeed(args.supabase, args.ownerId, "form")).map(rowToServiceRecord)
+      ? mergeRegistryRecordsWithDefaults("form", await fetchOwnerRegistryRows(args.supabase, args.ownerId, "form"))
       : formRecords;
   return rankFormRecords(records, args.baseQuery, args.limitPerDomain, args.expansions).map((match) =>
     formItem(match.service, match.score),
