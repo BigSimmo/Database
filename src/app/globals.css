@@ -1442,6 +1442,21 @@ summary::-webkit-details-marker {
   color: var(--clinical-accent);
 }
 
+/* Touch devices: suggestion/follow-up chips are primary tap targets (the
+   follow-ups sit directly under the composer and each fires a new search).
+   Meet the 44px tap floor and widen the gap so neighbouring chips in the
+   horizontal scroll row don't invite mis-taps. Fine-pointer (mouse) users keep
+   the compact 32px chip — no desktop visual change. */
+@media (pointer: coarse) {
+  .answer-suggestion-chips {
+    gap: 0.5rem;
+  }
+
+  .answer-suggestion-chip {
+    min-height: var(--spacing-tap);
+  }
+}
+
 .answer-suggestion-chip:disabled {
   cursor: not-allowed;
 }
@@ -1511,8 +1526,14 @@ summary::-webkit-details-marker {
   padding-inline: 0.25rem;
 }
 
+/* Phone answer dock: the "Try next" chip row sits directly above the pill with
+   no flex-gap owner (showFooterSearchChips is false on phones), so this margin
+   is the sole separator. It must stay positive — a negative value tucked the
+   chips' rounded underside beneath the pill's top edge/focus glow, reading as a
+   collision. Keep the gap just large enough to read as intentional without
+   pushing the row up into the content that shows through the scrim above. */
 .answer-footer-search-edge .answer-suggestion-row-composer-followups {
-  margin-bottom: -0.125rem;
+  margin-bottom: 0.4375rem;
 }
 
 @media (max-width: 639px) {
