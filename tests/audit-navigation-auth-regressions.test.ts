@@ -95,8 +95,8 @@ describe("audit navigation and auth regressions", () => {
       "const canUsePrivateApis =",
       "const canUploadDocuments =",
     );
-    expect(privateCapabilityContract).toContain('const canUsePrivateApis =');
-    expect(privateCapabilityContract).toContain('localNoAuthMode');
+    expect(privateCapabilityContract).toContain("const canUsePrivateApis =");
+    expect(privateCapabilityContract).toContain("localNoAuthMode");
 
     const pollingContract = sourceSegment(
       clinicalDashboardSource,

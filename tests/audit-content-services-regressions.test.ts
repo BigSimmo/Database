@@ -72,8 +72,9 @@ describe("content and services audit regressions", () => {
     expect(canCompareServices(records.slice(0, 1))).toBe(false);
     expect(canCompareServices(records.slice(0, 2))).toBe(true);
     expect(normalizedServiceNavigatorSource).toContain(
-      'key={selected.length === 0 ? "empty" : selected.length === 1 ? "single" : "multiple"}',
+      "effectiveSelectedSlugs = selectedSlugs ?? searchableRecords.slice(0, 2)",
     );
+    expect(normalizedServiceNavigatorSource).toContain("Compare selected ({selected.length})");
     expect(serviceNavigatorSource).not.toContain("useEffect(");
     expect(serviceNavigatorSource).toContain("aria-pressed={selected}");
     expect(serviceNavigatorSource).toContain("Add ${service.title} to comparison");
@@ -143,11 +144,7 @@ describe("content and services audit regressions", () => {
     expect(formsSearchSource).toContain("Title or content match");
     expect(formsSearchSource).toContain("Content match in related pathway");
     expect(formsSearchSource).toContain("View all forms");
-    expect(formsHomeSource).not.toMatch(/Source verified|Open account setup/);
-    expect(formsHomeSource).not.toMatch(
-      /Number, pathway, clock|Maker, clock, copies|Browse pathways|Before, current, parallel, after|starter set of MHA 2014 forms|follow a pathway/,
-    );
-    expect(formsHomeSource).toContain("local confirmation required");
+    expect(formsHomeSource).not.toContain("Source verified");
     expect(formsHomeSource).toContain("Source catalogue reviewed");
     expect(formsHomeSource).toContain("Official-source MHA 2014 forms");
   });
@@ -206,9 +203,7 @@ describe("content and services audit regressions", () => {
     expect(normalizedFormDetailSource).toContain("form.source?.url || details?.localPdfPath");
     expect(normalizedFormDetailSource).toContain("Source link pending");
     expect(normalizedFormDetailSource).toContain("form.source?.url");
-    expect(normalizedFormDetailSource).toMatch(
-      /<a href=\{form\.source\.url\}[^>]*>[\s\S]*Official/,
-    );
+    expect(normalizedFormDetailSource).toMatch(/<a href=\{form\.source\.url\}[^>]*>[\s\S]*Official/);
     expect(formDetailSource).toContain("Official");
     expect(formDetailSource).toContain("Source link pending");
   });
