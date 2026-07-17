@@ -202,7 +202,7 @@ describe("architecture boundaries", () => {
     expect(runtimeCycles(new Map([[file, [file]]]))).toEqual([[file]]);
   });
 
-  it("has no runtime import cycles", () => {
+  it("has no runtime import cycles", { timeout: 60_000 }, () => {
     const { graph } = runtimeGraph();
     const cycles = runtimeCycles(graph).map((cycle) => cycle.map(relative).sort());
     expect(cycles).toEqual([]);

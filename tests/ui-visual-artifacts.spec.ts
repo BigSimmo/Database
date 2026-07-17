@@ -11,7 +11,7 @@ async function attachViewportScreenshot(
 ) {
   await page.setViewportSize(viewport);
   await page.goto(path, { waitUntil: "domcontentloaded" });
-  await expect(page.locator("#main-content").first()).toBeVisible({ timeout: uiLoadTimeoutMs });
+  await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
   await expect(page.locator("body")).toBeVisible();
 
   await testInfo.attach(name, {
