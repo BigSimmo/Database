@@ -542,7 +542,12 @@ async function commitDocumentIndexGeneration(args: {
     p_quality: sanitizeJsonbRecord(args.quality),
   });
   if (!error) return;
-  throw supabaseStageError("commit_document_index_generation", error);
+  // Fresh/preview envs may not have the fenced commit RPC yet. Only a genuine
+  // "missing function" error falls back to the client-side commit (Audit M13
+  // preservation rule); every real commit error still fails the stage loudly.
+  if (!isMissingSchemaError(error)) {
+    throw supabaseStageError("commit_document_index_generation", error);
+  }
   await upsertIndexQuality(args.quality);
   await deleteStaleIndexGenerationRows(args.documentId, args.indexGenerationId);
 }
@@ -1736,6 +1741,18 @@ async function processJob(job: JobRow) {
       embedding_model: env.OPENAI_EMBEDDING_MODEL,
       ...metrics,
     };
+    // Data-safety gate: never commit an empty generation. In the atomic-reindex
+    // path (no pre-reset) this would otherwise swap a previously-good index for
+    // nothing — e.g. an image-only PDF that OCR could not read. With 0 chunks and
+    // 0 searchable images there is nothing to retrieve, so fail the job: the prior
+    // committed generation stays live and the document is surfaced to eval
+    // governance instead of being silently blanked.
+    if (chunks.length === 0 && imageCount === 0) {
+      throw new Error(
+        `Refusing to commit an empty index generation for document ${job.document_id}: ` +
+          "extraction/OCR produced 0 chunks and 0 searchable images.",
+      );
+    }
     await commitDocumentIndexGeneration({
       jobId: job.id,
       documentId: job.document_id,
