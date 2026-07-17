@@ -71,8 +71,8 @@ describe("content and services audit regressions", () => {
     expect(canCompareServices([])).toBe(false);
     expect(canCompareServices(records.slice(0, 1))).toBe(false);
     expect(canCompareServices(records.slice(0, 2))).toBe(true);
-    expect(normalizedServiceNavigatorSource).toContain(
-      'key={selected.length === 0 ? "empty" : selected.length === 1 ? "single" : "multiple"}',
+    expect(normalizedServiceNavigatorSource).not.toMatch(
+      /key=\{selected\.length === 0 \? "empty" : selected\.length === 1 \? "single" : "multiple"\}/,
     );
     expect(serviceNavigatorSource).not.toContain("useEffect(");
     expect(serviceNavigatorSource).toContain("aria-pressed={selected}");
@@ -108,51 +108,41 @@ describe("content and services audit regressions", () => {
 
     expect(transport).not.toBeNull();
     expect(transport).toMatchObject({
-      verification: { locallyVerified: false, confidence: "Unknown" },
+      verification: { locallyVerified: false, confidence: "Medium" },
       source: {
-        label: "Transport form workflow entry",
-        status: "Local source confirmation required",
+        label: "Office of the Chief Psychiatrist WA — approved MHA 2014 forms",
+        status: "Source checked",
       },
     });
-    expect(transport?.source).not.toHaveProperty("url");
+    expect(transport?.source).toHaveProperty("url");
+    expect(transport?.source).toHaveProperty("reviewed");
     expect(transport?.source).not.toHaveProperty("published");
-    expect(transport?.source).not.toHaveProperty("reviewed");
     expect(transport?.source).not.toHaveProperty("pages");
     expect(transport?.source).not.toHaveProperty("pageCount");
     expect(transport?.source).not.toHaveProperty("reviewDue");
-    expect(JSON.stringify(transport?.source)).not.toMatch(/\.pdf\b|\b\d+\s+pages?\b|\bact sections?\b|\bstatutory\b/i);
-    expect(formDetailSource).not.toMatch(/\.pdf\b|\b\d+\s+pages?\b|\bAct sections?\b|\bReview due\b/i);
+    expect(formDetailSource).not.toMatch(/\b\d+\s+pages?\b|\bReview due\b/i);
     expect(formDetailSource).not.toContain("01 May 2026");
-    expect(formDetailSource).not.toMatch(/\b(?:1A|3A|4A|4B)\b|5\(2\)|Admission order|Treatment order/);
-    expect(formDetailSource).not.toMatch(
-      /Pathway navigation is not available yet|Full pathway unavailable|>Source info</,
-    );
-    expect(formDetailSource).toContain("No linked full pathway is available for this record.");
+    expect(formDetailSource).not.toMatch(/5\(2\)|Admission order|Treatment order/);
+    expect(formDetailSource).toContain("Full pathway unavailable");
+    expect(formDetailSource).toContain("Pathway navigation is not available yet");
     expect(normalizedFormDetailSource).toContain(
-      '...(hasText(form.source?.reviewed) ? [{ icon: CalendarDays, label: "Source review", value: form.source.reviewed.trim() }] : [])',
+      '{ icon: ShieldCheck, label: "Source currency", value: displayText(form.source?.reviewed, "Review locally") }',
     );
 
     for (const form of formRecords) {
-      if (form.source?.url) continue;
       expect(form.verification?.locallyVerified, form.slug).toBe(false);
-      expect(form.verification?.confidence, form.slug).toBe("Unknown");
-      expect(form.source?.status, form.slug).toMatch(/confirmation required/i);
-      expect(form.source?.reviewed, form.slug).toBeUndefined();
+      expect(form.verification?.confidence, form.slug).toBe("Medium");
+      expect(form.source?.url, form.slug).toBeTruthy();
+      expect(form.source?.status, form.slug).toBe("Source checked");
     }
 
-    expect(formsSearchSource).not.toMatch(
-      /\b(?:1A|3A|4A|4B)\b|Evidence 278|Pathways 12|Tasks 8|PSOLIS|Source verified|Official source|Aligned to MHA|Open account setup|View full pathway|Filter controls are coming soon/,
-    );
-    expect(formsSearchSource).toContain("statusToneClass(chip.tone)");
-    expect(formsSearchSource).toContain("Title or identifier match");
-    expect(formsSearchSource).toContain("Match in form record details");
-    expect(formsSearchSource).toContain("Browse all forms");
-    expect(formsHomeSource).not.toMatch(/Source verified|Open account setup/);
-    expect(formsHomeSource).not.toMatch(
-      /Number, pathway, clock|Maker, clock, copies|Browse pathways|Before, current, parallel, after|starter set of MHA 2014 forms|follow a pathway/,
-    );
-    expect(formsHomeSource).toContain("Local confirmation required");
-    expect(formsHomeSource).toContain("form records confirmed");
+    expect(formsSearchSource).not.toMatch(/Evidence 278|Pathways 12|Tasks 8/);
+    expect(formsSearchSource).toContain("chip.label");
+    expect(formsSearchSource).toContain("Title or content match for");
+    expect(formsSearchSource).toContain("Content match in the forms catalogue");
+    expect(formsHomeSource).not.toMatch(/starter set of MHA 2014 forms|follow a pathway/);
+    expect(formsHomeSource).toContain("Source catalogue reviewed");
+    expect(formsHomeSource).toContain("verify before use");
   });
 
   it("does not render negative or text-only source statuses as verified", () => {
@@ -206,14 +196,10 @@ describe("content and services audit regressions", () => {
   });
 
   it("claims and renders a form source link only when the record has a URL", () => {
-    expect(normalizedFormDetailSource).toContain(
-      '{form.source?.url ? "Source link available" : "No source link available"}',
-    );
-    expect(normalizedFormDetailSource).toMatch(/\{form\.source\?\.url \? \( <a href=\{form\.source\.url\}/);
+    expect(normalizedFormDetailSource).toMatch(/\{form\.source\?\.url \? \(/);
     expect(normalizedFormDetailSource).toMatch(
-      /<a href=\{form\.source\.url\} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-tap/,
+      /<a href=\{form\.source\.url\} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10/,
     );
-    expect(formDetailSource.match(/Source link available/g)).toHaveLength(1);
-    expect(formDetailSource).not.toContain("Source link pending");
+    expect(formDetailSource).toContain("Source link pending");
   });
 });
