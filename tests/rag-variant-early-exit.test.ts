@@ -86,10 +86,11 @@ async function runLexicalSearch(chunkResults: SearchResult[]) {
     if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: chunkResults, error: null };
     return { data: [], error: null };
   });
+  const from = vi.fn(() => new EmptyQuery());
   vi.doMock("@/lib/supabase/admin", () => ({
     createAdminClient: () => ({
       rpc,
-      from: vi.fn(() => new EmptyQuery()),
+      from,
     }),
   }));
 
@@ -103,7 +104,7 @@ async function runLexicalSearch(chunkResults: SearchResult[]) {
   const chunkTextCalls = rpc.mock.calls.filter(
     ([name]) => retrievalRpcBaseName(name as string) === "match_document_chunks_text",
   );
-  return { chunkTextCalls, telemetry: result.telemetry };
+  return { chunkTextCalls, from, telemetry: result.telemetry };
 }
 
 afterEach(() => {
@@ -117,13 +118,14 @@ describe("lexical variant early-exit (PT-02)", () => {
   it("a deep, precisely-anchored first pool issues exactly one chunk-text RPC", async () => {
     // Deep (48-row) pool with a precise top hit: sibling variants are pure duplication.
     const strongPool = Array.from({ length: 48 }, (_, index) => chunk(index, index === 0 ? 0.9 : 0.2));
-    const { chunkTextCalls, telemetry } = await runLexicalSearch(strongPool);
+    const { chunkTextCalls, from, telemetry } = await runLexicalSearch(strongPool);
     // Guard: the fixture query must actually produce sibling variants for the
     // skip to be meaningful.
     expect(telemetry.retrieval_query_variant_count ?? 1).toBeGreaterThan(1);
     expect(chunkTextCalls).toHaveLength(1);
     expect(telemetry.text_variant_early_exit).toBe(true);
     expect(telemetry.text_variant_rpc_calls?.match_document_chunks_text).toBe(1);
+    expect(from).not.toHaveBeenCalledWith("document_images");
   });
 
   it("a weak first pool keeps the full sibling fan-out", async () => {

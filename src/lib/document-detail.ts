@@ -1,0 +1,539 @@
+import "server-only";
+
+import { z } from "zod";
+import { getDemoDocumentPayload } from "@/lib/demo-data";
+import { isDemoMode } from "@/lib/env";
+import { PublicApiError } from "@/lib/http";
+import { callerOwnsDocumentRow, enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
+import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { AuthenticationError } from "@/lib/supabase/auth";
+import { parseRouteParams } from "@/lib/validation/params";
+import { optionalQueryString, queryInteger } from "@/lib/validation/query";
+import type { ApiRateLimitResult } from "@/lib/api-rate-limit";
+import type { ClinicalDocument } from "@/lib/types";
+import type {
+  DocumentAssetScope,
+  DocumentChunkWindow,
+  DocumentDetailChunk,
+  DocumentDetailImage,
+  DocumentDetailPage,
+  DocumentDetailPayload,
+  DocumentDetailTableFact,
+  DocumentPageWindow,
+} from "@/lib/document-detail-contract";
+
+const defaultPageWindow = 9;
+const maxPageWindow = 40;
+const defaultChunkWindow = 16;
+const maxChunkWindow = 80;
+const selectedChunkNeighborCount = 3;
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const documentDetailProjection =
+  "id,owner_id,title,description,file_name,file_type,file_size,storage_path,content_hash,source_path,import_batch_id,status,page_count,chunk_count,image_count,error_message,metadata,created_at,updated_at" as const;
+const tableFactDetailProjection =
+  "id,document_id,source_image_id,page_number,table_title,row_label,clinical_parameter,threshold_value,action,metadata" as const;
+const documentLabelDetailProjection =
+  "id,document_id,owner_id,label,label_type,source,confidence,metadata,created_at,updated_at" as const;
+const documentSummaryDetailProjection =
+  "id,document_id,owner_id,summary,clinical_specifics,source_chunk_ids,source_image_ids,model,generated_at,created_at,updated_at" as const;
+
+const documentRouteParamsSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export const documentDetailQuerySchema = z.object({
+  chunk: optionalQueryString({ maxLength: 80 }),
+  page: queryInteger({ fallback: 1, min: 1, max: 1_000_000 }),
+  pageLimit: queryInteger({ fallback: defaultPageWindow, min: 1, max: maxPageWindow }),
+  chunkLimit: queryInteger({ fallback: defaultChunkWindow, min: 1, max: maxChunkWindow }),
+  chunkOffset: queryInteger({ fallback: 0, min: 0, max: 1_000_000 }),
+  assetScope: z.enum(["document", "window"]).default("document"),
+});
+
+export type DocumentDetailQuery = {
+  chunk?: string;
+  page: number;
+  pageLimit: number;
+  chunkLimit: number;
+  chunkOffset: number;
+  assetScope: "document" | "window";
+};
+
+export class DocumentDetailRateLimitError extends Error {
+  constructor(readonly rateLimit: ApiRateLimitResult) {
+    super("Document requests are rate limited. Try again shortly.");
+    this.name = "DocumentDetailRateLimitError";
+  }
+}
+
+function pageWindowAround(pageNumber: number, limit: number, maxPage?: number | null) {
+  const half = Math.floor(limit / 2);
+  const max = Math.max(1, maxPage ?? Number.MAX_SAFE_INTEGER);
+  const from = Math.max(1, Math.min(pageNumber - half, Math.max(1, max - limit + 1)));
+  const to = Math.min(max, from + limit - 1);
+  return { from, to };
+}
+
+function safeMetadata(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function metadataText(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function compactTableText(value: string | null, limit = 500) {
+  if (!value) return null;
+  const compact = value.replace(/\s+/g, " ").trim();
+  if (!compact) return null;
+  return compact.length > limit ? `${compact.slice(0, limit - 3).trim()}...` : compact;
+}
+
+function metadataStringArrayRows(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  if (!Array.isArray(value)) return null;
+  const rows = value
+    .filter((row): row is unknown[] => Array.isArray(row))
+    .map((row) => row.map((cell) => String(cell ?? "").trim()));
+  return rows.length ? rows : null;
+}
+
+function metadataStringArray(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  if (!Array.isArray(value)) return null;
+  const items = value.map((item) => String(item ?? "").trim()).filter(Boolean);
+  return items.length ? items : null;
+}
+
+function withImageTableMetadata<T extends { metadata?: unknown }>(image: T) {
+  const metadata = safeMetadata(image.metadata);
+  const rawTableText = metadataText(metadata, "table_text");
+  const tableText = rawTableText ?? metadataText(metadata, "table_text_snippet");
+  const publicImage = { ...image };
+  delete publicImage.metadata;
+  return {
+    ...publicImage,
+    tableLabel: metadataText(metadata, "table_label"),
+    tableTitle: metadataText(metadata, "table_title"),
+    tableRole: metadataText(metadata, "table_role"),
+    tableTextSnippet: compactTableText(tableText),
+    clinicalUseClass: metadataText(metadata, "clinical_use_class"),
+    clinicalUseReason: metadataText(metadata, "clinical_use_reason"),
+    accessibleTableMarkdown: metadataText(metadata, "accessible_table_markdown") ?? rawTableText,
+    tableRows: metadataStringArrayRows(metadata, "table_rows"),
+    tableColumns: metadataStringArray(metadata, "table_columns"),
+  };
+}
+
+function withoutMetadata<T extends { metadata?: unknown }>(row: T) {
+  const projected = { ...row };
+  delete projected.metadata;
+  return projected;
+}
+
+function withTableFactReviewMetadata<T extends { metadata?: unknown }>(fact: T) {
+  const metadata = safeMetadata(fact.metadata);
+  const projected = withoutMetadata(fact);
+  const reviewClass = metadataText(metadata, "review_class");
+  return reviewClass ? { ...projected, metadata: { review_class: reviewClass } } : projected;
+}
+
+function isHiddenDocumentLabel(label: { metadata?: unknown }) {
+  const metadata = safeMetadata(label.metadata);
+  return metadata.hidden === true || metadata.review_status === "hidden" || metadata.label_review_status === "hidden";
+}
+
+function withDocumentLabelReviewMetadata<T extends { metadata?: unknown }>(label: T) {
+  const metadata = safeMetadata(label.metadata);
+  const projected = withoutMetadata(label);
+  const reviewStatus = metadataText(metadata, "review_status");
+  const legacyReviewStatus = metadataText(metadata, "label_review_status");
+  const reviewMetadata = {
+    ...(reviewStatus ? { review_status: reviewStatus } : {}),
+    ...(legacyReviewStatus ? { label_review_status: legacyReviewStatus } : {}),
+    ...(metadata.hidden === true ? { hidden: true } : {}),
+  };
+  return Object.keys(reviewMetadata).length > 0 ? { ...projected, metadata: reviewMetadata } : projected;
+}
+
+function committedRows<T extends { metadata?: unknown }>(document: { metadata?: unknown }, rows: T[]) {
+  const committedGeneration = committedIndexGeneration(document.metadata);
+  return rows.filter((row) => isCommittedGenerationMetadata({ rowMetadata: row.metadata, committedGeneration }));
+}
+
+function committedGenerationFilter(document: { metadata?: unknown }) {
+  const committedGeneration = committedIndexGeneration(document.metadata);
+  if (!committedGeneration || !uuidPattern.test(committedGeneration)) return null;
+  return `metadata->>index_generation_id.is.null,metadata->>index_generation_id.eq.${committedGeneration}`;
+}
+
+function selectedImageIds(selectedChunk: DocumentDetailChunk | null) {
+  return Array.from(
+    new Set(
+      (selectedChunk?.image_ids ?? []).filter((id): id is string => typeof id === "string" && uuidPattern.test(id)),
+    ),
+  );
+}
+
+function imageWindowFilter(pageWindow: { from: number; to: number }, imageIds: string[]) {
+  const filters = [
+    `and(image_type.neq.logo_decorative,or(searchable.eq.true,source_kind.eq.table_crop),page_number.gte.${pageWindow.from},page_number.lte.${pageWindow.to})`,
+  ];
+  if (imageIds.length > 0) filters.push(`id.in.(${imageIds.join(",")})`);
+  return filters.join(",");
+}
+
+function tableFactWindowFilter(pageWindow: { from: number; to: number }, imageIds: string[]) {
+  const filters = ["page_number.is.null", `and(page_number.gte.${pageWindow.from},page_number.lte.${pageWindow.to})`];
+  if (imageIds.length > 0) filters.push(`source_image_id.in.(${imageIds.join(",")})`);
+  return filters.join(",");
+}
+
+function windowMetadata(args: {
+  requestedPage: number;
+  effectivePage: number;
+  selectedChunk: DocumentDetailChunk | null;
+  pageWindow: { from: number; to: number };
+  pageLimit: number;
+  pageTotal: number | null;
+  chunkRangeStart: number;
+  chunkRangeEnd: number;
+  chunkLimit: number;
+  chunkTotal: number | null;
+}) {
+  const pageWindow: DocumentPageWindow = {
+    from: args.pageWindow.from,
+    to: args.pageWindow.to,
+    limit: args.pageLimit,
+    total: args.pageTotal,
+    hasBefore: args.pageWindow.from > 1,
+    hasAfter: Boolean(args.pageTotal && args.pageWindow.to < args.pageTotal),
+  };
+  const chunkWindow: DocumentChunkWindow = {
+    offset: args.chunkRangeStart,
+    limit: args.selectedChunk ? args.chunkRangeEnd - args.chunkRangeStart + 1 : args.chunkLimit,
+    total: args.chunkTotal,
+    hasBefore: args.chunkRangeStart > 0,
+    hasAfter: Boolean(args.chunkTotal && args.chunkRangeEnd + 1 < args.chunkTotal),
+    selectedChunkId: args.selectedChunk?.id ?? null,
+  };
+  return {
+    pageWindow,
+    chunkWindow,
+    window: {
+      requestedPage: args.requestedPage,
+      effectivePage: args.effectivePage,
+      selectedChunkId: args.selectedChunk?.id ?? null,
+      pages: pageWindow,
+      chunks: chunkWindow,
+    },
+  };
+}
+
+function filterDemoAssets<T extends { page_number: number | null }>(
+  rows: T[],
+  assetScope: DocumentAssetScope,
+  pageWindow: { from: number; to: number },
+  preserve: (row: T) => boolean,
+  includeGlobal: boolean,
+) {
+  if (assetScope === "document") return rows;
+  return rows.filter(
+    (row) =>
+      (includeGlobal && row.page_number === null) ||
+      (row.page_number !== null && row.page_number >= pageWindow.from && row.page_number <= pageWindow.to) ||
+      preserve(row),
+  );
+}
+
+function loadDemoDocumentDetail(rawId: string, query: DocumentDetailQuery): DocumentDetailPayload {
+  const rawPayload = getDemoDocumentPayload(rawId);
+  if (!rawPayload) throw new PublicApiError("Demo document not found.", 404);
+
+  const payload = rawPayload as unknown as {
+    document: ClinicalDocument;
+    pages: DocumentDetailPage[];
+    images: DocumentDetailImage[];
+    chunks: DocumentDetailChunk[];
+    tableFacts?: DocumentDetailTableFact[];
+    indexHealth?: DocumentDetailPayload["indexHealth"];
+  };
+  const allChunks = payload.chunks ?? [];
+  const selectedChunk = query.chunk ? (allChunks.find((chunk) => chunk.id === query.chunk) ?? null) : null;
+  const requestedPage = Math.min(query.page, Math.max(1, payload.document.page_count ?? 1));
+  const effectivePage = selectedChunk?.page_number ?? requestedPage;
+  const pageRange = pageWindowAround(effectivePage, query.pageLimit, payload.document.page_count);
+  const chunkRangeStart = selectedChunk
+    ? Math.max(0, selectedChunk.chunk_index - selectedChunkNeighborCount)
+    : query.chunkOffset;
+  const chunkRangeEnd = selectedChunk
+    ? selectedChunk.chunk_index + selectedChunkNeighborCount
+    : query.chunkOffset + query.chunkLimit - 1;
+  const chunks = allChunks.filter(
+    (chunk) => chunk.chunk_index >= chunkRangeStart && chunk.chunk_index <= chunkRangeEnd,
+  );
+  const preservedImageIds = new Set(selectedChunk?.image_ids ?? []);
+  const images = filterDemoAssets(
+    payload.images ?? [],
+    query.assetScope,
+    pageRange,
+    (image) => preservedImageIds.has(image.id),
+    false,
+  );
+  const tableFacts = filterDemoAssets(
+    payload.tableFacts ?? [],
+    query.assetScope,
+    pageRange,
+    (fact) => Boolean(fact.source_image_id && preservedImageIds.has(fact.source_image_id)),
+    true,
+  );
+  const metadata = windowMetadata({
+    requestedPage,
+    effectivePage,
+    selectedChunk,
+    pageWindow: pageRange,
+    pageLimit: query.pageLimit,
+    pageTotal: payload.document.page_count ?? null,
+    chunkRangeStart,
+    chunkRangeEnd,
+    chunkLimit: query.chunkLimit,
+    chunkTotal: payload.document.chunk_count ?? allChunks.length,
+  });
+
+  return {
+    document: payload.document,
+    pages: (payload.pages ?? []).filter(
+      (page) => page.page_number >= pageRange.from && page.page_number <= pageRange.to,
+    ),
+    images,
+    tableFacts,
+    chunks,
+    ...(payload.indexHealth ? { indexHealth: payload.indexHealth } : {}),
+    demoMode: true,
+    assetScope: query.assetScope,
+    ...metadata,
+  };
+}
+
+function omitPublicInternalFields(row: Record<string, unknown>) {
+  const internalKeys = new Set([
+    "owner_id",
+    "storage_path",
+    "content_hash",
+    "source_path",
+    "import_batch_id",
+    "error_message",
+    "metadata",
+    "source_chunk_ids",
+    "source_image_ids",
+    "model",
+  ]);
+  return Object.fromEntries(Object.entries(row).filter(([key]) => !internalKeys.has(key)));
+}
+
+/**
+ * Loads the minimal authorized document-detail DTO shared by the API route and
+ * the Server Component page. The document authorization check is completed
+ * before any child table is queried.
+ */
+export async function loadAuthorizedDocumentDetail(args: {
+  request: Request;
+  rawId: string;
+  query: DocumentDetailQuery;
+}): Promise<DocumentDetailPayload> {
+  const { rawId, query } = args;
+  args.request.signal.throwIfAborted();
+  if (isDemoMode()) return loadDemoDocumentDetail(rawId, query);
+
+  const { id } = parseRouteParams({ id: rawId }, documentRouteParamsSchema, "Invalid document id.");
+  const supabase = createAdminClient();
+  const { access, rateLimit } = await enforceDocumentReadRateLimit(args.request, supabase);
+  if (rateLimit.limited) throw new DocumentDetailRateLimitError(rateLimit);
+  args.request.signal.throwIfAborted();
+
+  const { data: document, error: documentError } = await withOwnerReadScope(
+    supabase.from("documents").select(documentDetailProjection).eq("id", id),
+    access.ownerId,
+  )
+    .abortSignal(args.request.signal)
+    .maybeSingle();
+  if (documentError) throw new Error(documentError.message);
+  if (!document) throw new PublicApiError("Document not found.", 404);
+  args.request.signal.throwIfAborted();
+
+  const isOwner = callerOwnsDocumentRow(document, access.ownerId);
+  let selectedChunk: DocumentDetailChunk | null = null;
+  if (query.chunk) {
+    const { data, error } = await supabase
+      .from("document_chunks")
+      .select("id,page_number,chunk_index,section_heading,content,image_ids,metadata")
+      .eq("document_id", id)
+      .eq("id", query.chunk)
+      .abortSignal(args.request.signal)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (data && committedRows(document, [data]).length > 0) {
+      selectedChunk = {
+        ...data,
+        image_ids: Array.isArray(data.image_ids) ? data.image_ids : [],
+      } as DocumentDetailChunk;
+    }
+    args.request.signal.throwIfAborted();
+  }
+
+  const requestedPage = Math.min(query.page, Math.max(1, document.page_count ?? 1));
+  const effectivePage = selectedChunk?.page_number ?? requestedPage;
+  const pageRange = pageWindowAround(effectivePage, query.pageLimit, document.page_count);
+  const chunkRangeStart = selectedChunk
+    ? Math.max(0, selectedChunk.chunk_index - selectedChunkNeighborCount)
+    : query.chunkOffset;
+  const chunkRangeEnd = selectedChunk
+    ? selectedChunk.chunk_index + selectedChunkNeighborCount
+    : query.chunkOffset + query.chunkLimit - 1;
+  const preservedImageIds = selectedImageIds(selectedChunk);
+  const generationFilter = committedGenerationFilter(document);
+
+  const pagesRequest = supabase
+    .from("document_pages")
+    .select("id,page_number,text,ocr_used,metadata")
+    .eq("document_id", id)
+    .gte("page_number", pageRange.from)
+    .lte("page_number", pageRange.to)
+    .order("page_number", { ascending: true })
+    .abortSignal(args.request.signal);
+
+  const chunkQuery = supabase
+    .from("document_chunks")
+    .select("id,page_number,chunk_index,section_heading,content,image_ids,metadata")
+    .eq("document_id", id);
+  const filteredChunkQuery = generationFilter ? chunkQuery.or(generationFilter) : chunkQuery;
+  const orderedChunkQuery = filteredChunkQuery.order("chunk_index", { ascending: true });
+  const chunksRequest = (
+    selectedChunk
+      ? orderedChunkQuery.gte("chunk_index", chunkRangeStart).lte("chunk_index", chunkRangeEnd)
+      : orderedChunkQuery.range(chunkRangeStart, chunkRangeEnd)
+  ).abortSignal(args.request.signal);
+
+  let imagesRequest = supabase
+    .from("document_images")
+    .select(
+      "id,page_number,storage_path,caption,bbox,mime_type,image_type,searchable,clinical_relevance_score,source_kind,width,height,labels,metadata",
+    )
+    .eq("document_id", id);
+  if (query.assetScope === "window") {
+    imagesRequest = imagesRequest.or(imageWindowFilter(pageRange, preservedImageIds));
+  } else {
+    imagesRequest = imagesRequest
+      .neq("image_type", "logo_decorative")
+      .or("searchable.eq.true,source_kind.eq.table_crop");
+  }
+  const imagesPending = imagesRequest.order("page_number", { ascending: true }).abortSignal(args.request.signal);
+
+  let tableFactsRequest = supabase.from("document_table_facts").select(tableFactDetailProjection).eq("document_id", id);
+  if (generationFilter) {
+    tableFactsRequest = tableFactsRequest.or(generationFilter);
+  }
+  if (query.assetScope === "window") {
+    tableFactsRequest = tableFactsRequest.or(tableFactWindowFilter(pageRange, preservedImageIds));
+  }
+  const tableFactsPending = tableFactsRequest
+    .order("page_number", { ascending: true })
+    .limit(200)
+    .abortSignal(args.request.signal);
+
+  const labelsRequest = supabase
+    .from("document_labels")
+    .select(documentLabelDetailProjection)
+    .eq("document_id", id)
+    .order("confidence", { ascending: false })
+    .abortSignal(args.request.signal);
+  const summaryRequest = supabase
+    .from("document_summaries")
+    .select(documentSummaryDetailProjection)
+    .eq("document_id", id)
+    .abortSignal(args.request.signal)
+    .maybeSingle();
+
+  const [pagesResult, chunksResult, imagesResult, tableFactsResult, labelsResult, summaryResult] = await Promise.all([
+    pagesRequest,
+    chunksRequest,
+    imagesPending,
+    tableFactsPending,
+    labelsRequest,
+    summaryRequest,
+  ]);
+
+  for (const result of [pagesResult, chunksResult, imagesResult, tableFactsResult, labelsResult, summaryResult]) {
+    if (result.error) throw new Error(result.error.message);
+  }
+
+  const publicRows = <T extends Record<string, unknown>>(rows: T[]) =>
+    isOwner ? rows : rows.map(omitPublicInternalFields);
+  const labels = (labelsResult.data ?? [])
+    .filter((label) => !isHiddenDocumentLabel(label))
+    .map(withDocumentLabelReviewMetadata);
+  const responseDocument = isOwner
+    ? document
+    : omitPublicInternalFields(document as unknown as Record<string, unknown>);
+  const documentMetadata = safeMetadata(document.metadata);
+  const metadata = windowMetadata({
+    requestedPage,
+    effectivePage,
+    selectedChunk,
+    pageWindow: pageRange,
+    pageLimit: query.pageLimit,
+    pageTotal: document.page_count ?? null,
+    chunkRangeStart,
+    chunkRangeEnd,
+    chunkLimit: query.chunkLimit,
+    chunkTotal: document.chunk_count ?? null,
+  });
+
+  return {
+    document: {
+      ...responseDocument,
+      labels: publicRows(labels as Record<string, unknown>[]),
+      summary:
+        isOwner || !summaryResult.data
+          ? (summaryResult.data ?? null)
+          : omitPublicInternalFields(summaryResult.data as Record<string, unknown>),
+    } as unknown as ClinicalDocument,
+    pages: publicRows(
+      committedRows(document, pagesResult.data ?? []).map(withoutMetadata) as Record<string, unknown>[],
+    ) as DocumentDetailPage[],
+    images: publicRows(
+      committedRows(document, imagesResult.data ?? []).map(withImageTableMetadata) as Record<string, unknown>[],
+    ) as DocumentDetailImage[],
+    tableFacts: publicRows(
+      committedRows(document, tableFactsResult.data ?? []).map(withTableFactReviewMetadata) as Record<
+        string,
+        unknown
+      >[],
+    ) as DocumentDetailTableFact[],
+    chunks: publicRows(
+      committedRows(document, chunksResult.data ?? []).map(withoutMetadata) as Record<string, unknown>[],
+    ) as DocumentDetailChunk[],
+    ...(isOwner
+      ? {
+          indexHealth: {
+            extractionQuality: metadataText(documentMetadata, "extraction_quality"),
+            indexedAt: metadataText(documentMetadata, "indexed_at"),
+            indexVersion: metadataText(documentMetadata, "rag_indexing_version"),
+            warnings: documentMetadata.extraction_warnings ?? [],
+          },
+        }
+      : {}),
+    demoMode: false,
+    assetScope: query.assetScope,
+    ...metadata,
+  };
+}
+
+export function sanitizeDocumentDetailError(error: unknown) {
+  if (error instanceof DocumentDetailRateLimitError) return error.message;
+  if (error instanceof AuthenticationError) return "Sign in to open private source documents.";
+  if (error instanceof PublicApiError) return error.message;
+  return "Document could not be loaded.";
+}

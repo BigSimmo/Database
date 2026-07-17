@@ -19,8 +19,7 @@ import {
 import { useId, useMemo, useState } from "react";
 
 import { appModeHomeHref } from "@/lib/app-modes";
-import { formCatalogDetails } from "@/lib/form-catalog";
-import { rankFormRecords, type FormSearchMatch } from "@/lib/forms";
+import { formCatalogDetails, rankFormRecords, type FormSearchMatch } from "@/lib/form-ranker";
 import { useRegistryRecords, type RegistryRequestStatus } from "@/lib/use-registry-records";
 import {
   cn,
