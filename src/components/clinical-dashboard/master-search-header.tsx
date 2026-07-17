@@ -183,7 +183,6 @@ export function MasterSearchHeader({
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
-  onBottomComposerScrollHiddenChange,
 }: {
   documents: ClinicalDocument[];
   documentTotal?: number;
@@ -257,8 +256,6 @@ export function MasterSearchHeader({
     /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
     scrollHidden?: boolean;
   };
-  /** Fired when the phone bottom search dock enters or leaves the scroll-hidden state. */
-  onBottomComposerScrollHiddenChange?: (hidden: boolean) => void;
 }) {
   const visibleAppModeOptions = defaultVisibleAppModeOptions;
   const trimmedQuery = query.trim();
@@ -332,10 +329,6 @@ export function MasterSearchHeader({
     !scopeOpen &&
     !scopeSheetOpen &&
     !composerChromeFocused;
-
-  useEffect(() => {
-    onBottomComposerScrollHiddenChange?.(bottomComposerHidden);
-  }, [bottomComposerHidden, onBottomComposerScrollHiddenChange]);
 
   useEffect(() => {
     if (!loading || !commandDropdownOpen) return undefined;
