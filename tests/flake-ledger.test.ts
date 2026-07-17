@@ -11,8 +11,8 @@ afterEach(() => {
   for (const directory of temporaryDirectories.splice(0)) rmSync(directory, { recursive: true, force: true });
 });
 
-function isoDate(offsetDays: number) {
-  return new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+function isoDate(offsetDays: number, now = Date.now()) {
+  return new Date(now + offsetDays * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 function validEntry(overrides: Record<string, string> = {}) {
@@ -58,12 +58,19 @@ describe("flake ledger", () => {
   });
 
   it("rejects critical overlap and expiry beyond 30 days", () => {
+    const now = Date.now();
     expect(() => validateFlakeLedgerEntries([validEntry({ title: "unsafe @quarantine @critical" })])).toThrow(
       /cannot be both @quarantine and @critical/,
     );
-    expect(() => validateFlakeLedgerEntries([validEntry({ expires: isoDate(31) })])).toThrow(/within 30 days/);
+    expect(() => validateFlakeLedgerEntries([validEntry({ expires: isoDate(31, now) })], { now })).toThrow(
+      /within 30 days/,
+    );
     const root = temporarySpec('test("exact flaky journey @quarantine", () => {});');
-    expect(validateFlakeLedgerEntries([validEntry({ expires: isoDate(30) })], { root })).toHaveLength(1);
+    expect(validateFlakeLedgerEntries([validEntry({ expires: isoDate(30, now) })], { root, now })).toHaveLength(1);
+  });
+
+  it("rejects calendar-invalid ledger dates", () => {
+    expect(() => validateFlakeLedgerEntries([validEntry({ firstSeen: "2026-02-30" })])).toThrow(/not a valid date/);
   });
 
   it("requires the exact title to exist in the referenced spec", () => {
@@ -82,6 +89,10 @@ describe("flake ledger", () => {
           <failure message="failed" />
         </testcase>
         <testcase name="passing journey" classname="tests/sample.spec.ts"></testcase>
+        <testcase name="diagnostic journey" classname="tests/sample.spec.ts">
+          <system-out><![CDATA[diagnostic text containing <failure> but no failure element]]></system-out>
+          <!-- <error>diagnostic comment</error> -->
+        </testcase>
       </testsuite>
     `);
     expect(failures).toEqual([{ spec: "tests/sample.spec.ts", title: "exact flaky journey @quarantine" }]);

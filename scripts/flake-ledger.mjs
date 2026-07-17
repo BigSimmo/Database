@@ -22,7 +22,9 @@ const dayMs = 24 * 60 * 60 * 1000;
 function dateValue(value, field, id) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${id}: ${field} must be YYYY-MM-DD`);
   const parsed = Date.parse(`${value}T23:59:59Z`);
-  if (!Number.isFinite(parsed)) throw new Error(`${id}: ${field} is not a valid date`);
+  if (!Number.isFinite(parsed) || new Date(parsed).toISOString().slice(0, 10) !== value) {
+    throw new Error(`${id}: ${field} is not a valid date`);
+  }
   return parsed;
 }
 

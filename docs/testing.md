@@ -2,7 +2,7 @@
 
 ## Safe local execution
 
-Heavy commands (`lint`, `typecheck`, `build`, Vitest, Playwright, `verify:cheap`, and `verify:pr-local`) share one lock derived from Git's common directory. The lock therefore covers every worktree for this repository. Nested commands reuse their parent's token; an unrelated command fails immediately and prints the current owner. Only a lock whose recorded process is demonstrably dead is reclaimed.
+Heavy commands (`lint`, `typecheck`, `build`, Vitest, Playwright, `verify:cheap`, and `verify:pr-local`) share one lock derived from Git's common directory. The lock therefore covers every worktree for this repository. Nested commands reuse their parent's token; an unrelated command fails immediately and prints the current owner. A lock with an owner is reclaimed only when its recorded process is demonstrably dead; an ownerless initialization lock is reclaimed only after its initialization grace period.
 
 Run one heavy Database command at a time. Do not install packages while a repository test, build, lint, typecheck, or server command is active. Avoid short-interval polling, and do not repeat an unchanged broad gate after it has already passed.
 

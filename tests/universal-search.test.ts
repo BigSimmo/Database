@@ -1,6 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 let resetModulesAfterTest = false;
+const mockedModuleSpecifiers = [
+  "@/lib/demo-data",
+  "@/lib/differentials",
+  "@/lib/document-enrichment",
+  "@/lib/env",
+  "@/lib/rag",
+  "@/lib/supabase/admin",
+  "@/lib/tools-catalog",
+  "@/lib/universal-search",
+] as const;
 
 function isolateNextModuleImport() {
   vi.resetModules();
@@ -10,6 +20,7 @@ function isolateNextModuleImport() {
 afterEach(() => {
   vi.unstubAllEnvs();
   if (resetModulesAfterTest) {
+    for (const specifier of mockedModuleSpecifiers) vi.doUnmock(specifier);
     vi.resetModules();
     resetModulesAfterTest = false;
   }
@@ -148,10 +159,6 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
     const differentials = response.groups.find((group) => group.kind === "differentials");
     expect(differentials?.error).toBeUndefined();
     expect(differentials?.items.length ?? 0).toBeGreaterThan(0);
-
-    // doMock registrations survive resetModules, so drop it here or every later test in this
-    // file would import the throwing presentations ranker.
-    vi.doUnmock("@/lib/differentials");
   });
 
   it("uses demo document search when no Supabase client is supplied", async () => {

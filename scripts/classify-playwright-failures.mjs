@@ -23,7 +23,10 @@ const repositorySpec = (classname) => {
 
 export function failedTestcasesFromJunit(xml) {
   return [...xml.matchAll(/<testcase\b([^>]*)>([\s\S]*?)<\/testcase>/g)]
-    .filter((match) => /<(?:failure|error)\b/.test(match[2]))
+    .filter((match) => {
+      const body = match[2].replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, "").replace(/<!--[\s\S]*?-->/g, "");
+      return /<(?:failure|error)\b/.test(body);
+    })
     .map((match) => ({ spec: repositorySpec(attribute(match[1], "classname")), title: attribute(match[1], "name") }))
     .filter((testcase) => testcase.spec && testcase.title);
 }

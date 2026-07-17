@@ -72,6 +72,7 @@ describe("worker production bundle", () => {
       cwd: repoRoot,
       env: { ...process.env, WORKER_BUNDLE_SPECS: JSON.stringify(bareSpecs) },
       encoding: "utf8",
+      timeout: 45_000,
     });
     expect(JSON.parse(out), "externals plain `node` cannot resolve at boot").toEqual([]);
   });

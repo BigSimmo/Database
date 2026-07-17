@@ -10,9 +10,9 @@ import { offlineTestEnvironment } from "./test-environment.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 import {
   appName,
+  circularProjectPortRange,
   isReservedDevPort,
   localProjectId,
-  projectPortEnd,
   stableProjectPort,
 } from "../src/lib/local-server-utils.mjs";
 
@@ -97,10 +97,10 @@ async function canListen(port) {
 }
 
 async function findFreePort(startPort) {
-  for (let port = startPort; port <= projectPortEnd; port += 1) {
+  for (const port of circularProjectPortRange(startPort)) {
     if (!isReservedDevPort(port) && (await canListen(port))) return port;
   }
-  throw new Error(`No free Playwright server port found from ${startPort} to ${projectPortEnd}.`);
+  throw new Error("No free Playwright server port found in the configured project range.");
 }
 
 function request(url, { json = false, timeoutMs = 30_000 } = {}) {

@@ -91,14 +91,14 @@ export function getPlaywrightBaseUrl({ allowEnsure = true }: { allowEnsure?: boo
     return configuredBaseUrl;
   }
 
-  const existingUrl = findExistingLocalProjectUrl();
-  if (existingUrl) return existingUrl;
-
   if (!allowEnsure) {
     throw new Error(
       "Playwright requires a runner-owned local server. Use the repository npm scripts instead of invoking the Playwright CLI directly.",
     );
   }
+
+  const existingUrl = findExistingLocalProjectUrl();
+  if (existingUrl) return existingUrl;
 
   const result = spawnSync(process.execPath, [ensureScript, "--print-url"], {
     cwd: projectRoot,

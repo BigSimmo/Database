@@ -166,6 +166,11 @@ describe("provider-safe test environment", () => {
 
   it("builds and starts an isolated production server for Playwright", () => {
     const runner = readFileSync(new URL("../scripts/run-playwright.mjs", import.meta.url), "utf8");
+    const baseUrl = readFileSync(new URL("../scripts/playwright-base-url.ts", import.meta.url), "utf8");
+    const ragRunner = readFileSync(new URL("../scripts/eval-rag-offline.mjs", import.meta.url), "utf8");
+    const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
+      scripts: Record<string, string>;
+    };
     expect(runner).toContain('["--max-old-space-size=8192", nextBin, "build", "--webpack"]');
     expect(runner).toContain('[nextBin, "start", "--hostname"');
     expect(runner).not.toContain('[nextBin, "dev", "--hostname"');
@@ -174,5 +179,9 @@ describe("provider-safe test environment", () => {
     expect(runner).toContain('NEXT_PUBLIC_MOCKUPS_ENABLED: mockupProjectRequested ? "true" : "false"');
     expect(runner).toContain("!explicitProjectRequested ||");
     expect(runner).not.toContain("supabase.co");
+    expect(packageJson.scripts["test:e2e:pr"]).toContain('--grep-invert "@quarantine|@mockup"');
+    expect(packageJson.scripts["test:e2e:regression"]).toContain('--grep-invert "@critical|@quarantine|@mockup"');
+    expect(baseUrl.indexOf("if (!allowEnsure)")).toBeLessThan(baseUrl.indexOf("findExistingLocalProjectUrl();"));
+    expect(ragRunner).toContain("cwd: projectRoot");
   });
 });

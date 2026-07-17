@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { localProjectId, normalizeProjectRoot, stableProjectPort } from "../src/lib/local-server-utils.mjs";
+import {
+  circularProjectPortRange,
+  localProjectId,
+  normalizeProjectRoot,
+  projectPortEnd,
+  projectPortStart,
+  stableProjectPort,
+} from "../src/lib/local-server-utils.mjs";
 
 describe("local server project identity", () => {
   it("normalizes Windows roots case-insensitively", () => {
@@ -31,5 +38,12 @@ describe("local server project identity", () => {
       expect(port).toBeGreaterThanOrEqual(3100);
       expect(port).toBeLessThanOrEqual(4599);
     }
+  });
+
+  it("scans the full port range circularly from the preferred port", () => {
+    const ports = circularProjectPortRange(projectPortEnd);
+    expect(ports.slice(0, 3)).toEqual([projectPortEnd, projectPortStart, projectPortStart + 1]);
+    expect(new Set(ports).size).toBe(projectPortEnd - projectPortStart + 1);
+    expect(ports.at(-1)).toBe(projectPortEnd - 1);
   });
 });
