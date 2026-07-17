@@ -306,13 +306,9 @@ describe("API validation contracts", () => {
     mockRuntime(client);
     const { GET } = await import("../src/app/api/documents/route");
 
-    const underCapResponse = await GET(
-      authenticatedRequest("/api/documents?limit=50&offset=9999&includeMeta=false"),
-    );
+    const underCapResponse = await GET(authenticatedRequest("/api/documents?limit=50&offset=9999&includeMeta=false"));
     const underCapBody = await payload(underCapResponse);
-    const atCapResponse = await GET(
-      authenticatedRequest("/api/documents?limit=50&offset=10000&includeMeta=false"),
-    );
+    const atCapResponse = await GET(authenticatedRequest("/api/documents?limit=50&offset=10000&includeMeta=false"));
     const atCapBody = await payload(atCapResponse);
 
     expect(underCapResponse.status).toBe(200);
