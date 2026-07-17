@@ -2,7 +2,7 @@
 
 ## Route ownership
 
-- `GlobalSearchShell` owns shared navigation, responsive chrome and URL-backed mode/query/filter state.
+- `GlobalSearchShell` owns shared navigation, responsive chrome and URL-backed mode/query/filter state. `search-route-ownership` is the pure routing boundary that decides whether a submitted search stays in a route-owned workflow or renders `ClinicalDashboard`.
 - `ClinicalDashboard` owns submitted Answer, Documents and Prescribing workflows.
 - `/documents/search` renders live `/api/search` results for submitted queries; `/documents/[id]` is the canonical viewer.
 - `/documents/source*` are compatibility redirects. Fixture document journeys live only below `/mockups/document-search/**`.
