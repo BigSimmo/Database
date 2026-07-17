@@ -128,6 +128,10 @@ const deleteDocumentIfIdleMigration = readFileSync(
   new URL("../supabase/migrations/20260717132000_delete_document_if_idle.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const defaultAclAssertionMigration = readFileSync(
+  new URL("../supabase/migrations/20260717133000_assert_supabase_admin_default_privileges.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const scrubLegacyQueryTextMigration = readFileSync(
   new URL("../supabase/migrations/20260713103000_scrub_legacy_rag_query_text.sql", import.meta.url),
   "utf8",
@@ -1161,6 +1165,22 @@ describe("Supabase Preview replay guards", () => {
         "grant execute on function public.delete_document_if_idle(uuid, uuid, text, text) to service_role;",
       );
     }
+  });
+
+  it("fails closed on effective supabase_admin default ACLs", () => {
+    for (const sql of [schema, defaultAclAssertionMigration]) {
+      expect(sql).toContain("create or replace function public.default_privileges_status(");
+      expect(sql).toContain("pg_catalog.acldefault(ot.object_code, v_role_oid)");
+      expect(sql).toContain("pg_catalog.aclexplode(ea.acl)");
+      expect(sql).toContain("entry = 'function:PUBLIC:execute'");
+      expect(sql).toContain("message = 'Unsafe supabase_admin default privileges; migration blocked.'");
+      expect(sql).toContain("Run these six statements as supabase_admin, then retry the migration:");
+    }
+
+    const migrationFiles = readdirSync(migrationDirectoryUrl)
+      .filter((fileName) => /^\d+_.+\.sql$/.test(fileName))
+      .sort();
+    expect(migrationFiles.at(-1)).toBe("20260717133000_assert_supabase_admin_default_privileges.sql");
   });
 
   it("scrubs legacy plaintext query text with salted irreversible placeholders", () => {

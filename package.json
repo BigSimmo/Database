@@ -123,6 +123,7 @@
     "promote:public-documents": "node scripts/run-tsx.mjs scripts/promote-public-documents-batch.ts",
     "promote:public-documents:batch": "node scripts/run-tsx.mjs scripts/promote-public-documents-batch.ts",
     "audit:public-document-approvals": "node scripts/run-tsx.mjs scripts/audit-public-document-approvals.ts",
+    "check:default-acl": "node scripts/run-tsx.mjs scripts/check-default-acl.ts",
     "eval:rag": "node scripts/run-eval-safe.mjs scripts/eval-rag.ts",
     "eval:rag:offline": "node scripts/eval-rag-offline.mjs",
     "eval:answer-quality": "node scripts/run-eval-safe.mjs scripts/eval-answer-quality.ts",

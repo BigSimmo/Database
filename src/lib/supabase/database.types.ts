@@ -2316,6 +2316,10 @@ export type Database = {
         Args: { input_query: string; min_sim?: number };
         Returns: string;
       };
+      default_privileges_status: {
+        Args: { p_role_name?: string; p_schema_name?: string };
+        Returns: Json;
+      };
       delete_document_if_idle: {
         Args: {
           p_document_bucket: string;
