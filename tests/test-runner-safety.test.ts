@@ -184,4 +184,11 @@ describe("provider-safe test environment", () => {
     expect(baseUrl.indexOf("if (!allowEnsure)")).toBeLessThan(baseUrl.indexOf("findExistingLocalProjectUrl();"));
     expect(ragRunner).toContain("cwd: projectRoot");
   });
+
+  it("uses webpack when shared worktree dependencies resolve outside the project", () => {
+    const devRunner = readFileSync(new URL("../scripts/dev-free-port.mjs", import.meta.url), "utf8");
+    expect(devRunner).toContain('fs.realpathSync(path.join(projectRoot, "node_modules"))');
+    expect(devRunner).toContain('return dependenciesAreExternal ? ["--webpack"] : [];');
+    expect(devRunner).toContain('args.some((arg) => ["--webpack", "--turbopack", "--turbo"].includes(arg))');
+  });
 });

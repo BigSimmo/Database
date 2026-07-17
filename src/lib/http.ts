@@ -55,12 +55,14 @@ function logSafeError(error: unknown, status: number) {
   });
 }
 
-export function jsonError(error: unknown, status = 500) {
+export function jsonError(error: unknown, status = 500, options?: { log?: boolean }) {
   const responseStatus = error instanceof PublicApiError ? error.status : status;
   const message = publicErrorMessage(error, responseStatus);
   const code = publicErrorCode(error, responseStatus);
   const requestId = error instanceof PublicApiError ? error.details?.requestId : undefined;
-  logSafeError(error, responseStatus);
+  // Expected client-auth failures (e.g. an unauthenticated request) can opt out of the
+  // error-level log so a routine 401 does not read as a server fault in the logs.
+  if (options?.log ?? true) logSafeError(error, responseStatus);
   return NextResponse.json(
     {
       error: message,
@@ -68,7 +70,7 @@ export function jsonError(error: unknown, status = 500) {
       code,
       ...(requestId ? { requestId } : {}),
     },
-    { status: responseStatus },
+    { status: responseStatus, headers: { "Cache-Control": "private, no-store" } },
   );
 }
 

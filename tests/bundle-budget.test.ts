@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { compareToBudget, measureChunks } from "../scripts/check-bundle-budget.mjs";
+import {
+  compareToBudget,
+  findFixtureSnapshotsInChunks,
+  initialDashboardChunkNames,
+  measureChunks,
+} from "../scripts/check-bundle-budget.mjs";
 
 const buf = (n: number) => Buffer.alloc(n, "a"); // highly compressible; gzip < raw
 
@@ -44,5 +49,53 @@ describe("compareToBudget", () => {
   it("treats exactly-at-tolerance as ok", () => {
     const v = compareToBudget({ totalGzipBytes: 1100 }, { enforce: true, tolerancePct: 10, totalGzipBytes: 1000 });
     expect(v.status).toBe("ok");
+  });
+});
+
+describe("initial dashboard fixture boundary", () => {
+  it("resolves root layout, page, and shared chunks without dynamic route chunks", () => {
+    expect(
+      initialDashboardChunkNames({
+        rootMainFiles: ["static/chunks/main.js"],
+        pages: {
+          "/layout": ["static/chunks/layout.js", "static/css/layout.css"],
+          "/page": ["static/chunks/page.js"],
+          "/documents/[id]/page": ["static/chunks/document-viewer.js"],
+        },
+      }),
+    ).toEqual(["main.js", "layout.js", "page.js"]);
+  });
+
+  it("resolves Next 16 root-page chunks from the client-reference manifest", () => {
+    expect(
+      initialDashboardChunkNames(
+        {
+          rootMainFiles: ["static/chunks/main-app.js"],
+          pages: { "/_app": [] },
+        },
+        {
+          clientModules: {
+            home: { chunks: ["1234", "static/chunks/1234-home.js"] },
+            lazy: { chunks: [] },
+          },
+        },
+      ),
+    ).toEqual(["main-app.js", "1234-home.js"]);
+  });
+
+  it("detects complete fixture marker groups in initial chunks", () => {
+    const violations = findFixtureSnapshotsInChunks([
+      {
+        name: "page.js",
+        buffer: Buffer.from("transport-crisis-form extension-transport-order detention-examination-movement"),
+      },
+    ]);
+    expect(violations).toEqual(["forms fixture catalogue"]);
+  });
+
+  it("does not flag an isolated UI string as a serialized fixture", () => {
+    expect(
+      findFixtureSnapshotsInChunks([{ name: "page.js", buffer: Buffer.from("Try first episode psychosis") }]),
+    ).toEqual([]);
   });
 });

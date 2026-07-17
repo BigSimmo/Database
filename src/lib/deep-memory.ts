@@ -34,6 +34,24 @@ import type {
   SearchResult,
 } from "@/lib/types";
 
+type AbortableQuery<T> = PromiseLike<T> & { abortSignal?: (signal: AbortSignal) => PromiseLike<T> };
+
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) throw abortReason(signal);
+}
+
+async function resolveAbortableQuery<T>(query: AbortableQuery<T>, signal?: AbortSignal): Promise<T> {
+  throwIfAborted(signal);
+  const pending = signal && typeof query.abortSignal === "function" ? query.abortSignal(signal) : query;
+  const result = await pending;
+  throwIfAborted(signal);
+  return result;
+}
+
 export const ragDeepMemoryVersion = "rag-deep-memory-v1" as const;
 export const localDeepMemoryProducer = "local-worker" as const;
 
@@ -893,18 +911,23 @@ export async function fetchMemoryCardsForQuery(args: {
   accessScope?: RetrievalAccessScope;
   documentIds?: string[];
   matchCount?: number;
+  signal?: AbortSignal;
 }) {
   try {
+    throwIfAborted(args.signal);
     const accessScope = retrievalAccessScopeForArgs(args);
     if (args.queryEmbedding?.length) {
-      const versioned = await args.supabase.rpc("match_document_memory_cards_hybrid_v3", {
-        query_embedding: args.queryEmbedding,
-        query_text: buildClinicalTextSearchQuery(args.query),
-        match_count: args.matchCount ?? 32,
-        min_similarity: 0.1,
-        document_filters: args.documentIds?.length ? args.documentIds : null,
-        ...retrievalRpcScopeArgs(accessScope),
-      });
+      const versioned = await resolveAbortableQuery(
+        args.supabase.rpc("match_document_memory_cards_hybrid_v3", {
+          query_embedding: args.queryEmbedding,
+          query_text: buildClinicalTextSearchQuery(args.query),
+          match_count: args.matchCount ?? 32,
+          min_similarity: 0.1,
+          document_filters: args.documentIds?.length ? args.documentIds : null,
+          ...retrievalRpcScopeArgs(accessScope),
+        }),
+        args.signal,
+      );
       let data = versioned?.data;
       let error = versioned?.error;
       if (!versioned || isMissingRetrievalRpcError(versioned.error)) {
@@ -915,16 +938,22 @@ export async function fetchMemoryCardsForQuery(args: {
           min_similarity: 0.1,
           document_filters: args.documentIds?.length ? args.documentIds : null,
         };
-        const ownerResult = await args.supabase.rpc("match_document_memory_cards_hybrid_v2", {
-          ...baseArgs,
-          owner_filter: accessScope.ownerId ?? PUBLIC_OWNER_FILTER_SENTINEL,
-        });
+        const ownerResult = await resolveAbortableQuery(
+          args.supabase.rpc("match_document_memory_cards_hybrid_v2", {
+            ...baseArgs,
+            owner_filter: accessScope.ownerId ?? PUBLIC_OWNER_FILTER_SENTINEL,
+          }),
+          args.signal,
+        );
         const publicResult =
           accessScope.ownerId && accessScope.includePublic
-            ? await args.supabase.rpc("match_document_memory_cards_hybrid_v2", {
-                ...baseArgs,
-                owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
-              })
+            ? await resolveAbortableQuery(
+                args.supabase.rpc("match_document_memory_cards_hybrid_v2", {
+                  ...baseArgs,
+                  owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
+                }),
+                args.signal,
+              )
             : { data: [], error: null };
         error = ownerResult.error ?? publicResult.error;
         type MemoryCardHybridRow = { id: string; hybrid_score: number; rrf_score?: number | null } & Record<
@@ -999,7 +1028,7 @@ export async function fetchMemoryCardsForQuery(args: {
     }
     if (args.documentIds?.length) queryBuilder = queryBuilder.in("document_id", args.documentIds);
 
-    const { data, error } = await queryBuilder;
+    const { data, error } = await resolveAbortableQuery(queryBuilder, args.signal);
     if (error) return [];
 
     const cards = (data ?? []) as DocumentMemoryCard[];
@@ -1013,7 +1042,7 @@ export async function fetchMemoryCardsForQuery(args: {
       documentsQuery = documentsQuery.is("owner_id", null);
     }
     const { data: documents, error: documentsError } = documentIds.length
-      ? await documentsQuery
+      ? await resolveAbortableQuery(documentsQuery, args.signal)
       : { data: [], error: null };
     const committedGenerationByDocument = new Map(
       (documents ?? []).map((document) => [document.id, committedIndexGeneration(document.metadata)] as const),
@@ -1038,6 +1067,7 @@ export async function fetchMemoryCardsForQuery(args: {
       .sort((a, b) => scoreMemoryCardForQuery(args.query, b) - scoreMemoryCardForQuery(args.query, a))
       .slice(0, args.matchCount ?? 32);
   } catch {
+    if (args.signal?.aborted) throw abortReason(args.signal);
     return [];
   }
 }

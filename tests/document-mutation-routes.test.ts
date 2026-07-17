@@ -96,6 +96,25 @@ function createSupabaseMock(resolveCall: QueryResolver) {
         calls.push(call);
         return new QueryBuilder(call, resolveCall);
       }),
+      rpc: vi.fn(async (name: string) => {
+        // The document-admin routes consult the rate limiter before touching tables.
+        // Return a not-limited row so these functional tests exercise the happy path.
+        if (name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit") {
+          return {
+            data: [
+              {
+                limited: false,
+                limit_value: 60,
+                remaining: 59,
+                retry_after_seconds: 60,
+                reset_at: new Date(Date.now() + 60_000).toISOString(),
+              },
+            ],
+            error: null,
+          };
+        }
+        return { data: [], error: null };
+      }),
     },
   };
 }

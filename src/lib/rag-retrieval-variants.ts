@@ -19,6 +19,14 @@ const maxRagAliasCacheEntries = 256;
 const maxRagAliasesPerScope = 200;
 const maxRagAliasExpansions = 12;
 
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) throw abortReason(signal);
+}
+
 /** Text candidate budget for query class. */
 export function textCandidateBudgetForQueryClass(queryClass: RagQueryClass | undefined, topK: number) {
   if (queryClass === "comparison") return Math.max(topK * 7, 72);
@@ -109,7 +117,9 @@ export async function fetchEnabledRagAliases(
   supabase: ReturnType<typeof createAdminClient>,
   ownerId?: string,
   accessScope?: RetrievalAccessScope,
+  signal?: AbortSignal,
 ): Promise<RagAliasInput[]> {
+  throwIfAborted(signal);
   const scope = retrievalAccessScopeForArgs({ ownerId, accessScope });
   const cacheKey = retrievalAccessScopeKey(scope);
   const cached = readExpiringCacheEntry(ragAliasCache, cacheKey);
@@ -124,7 +134,9 @@ export async function fetchEnabledRagAliases(
       .order("weight", { ascending: false })
       .limit(maxRagAliasesPerScope);
     query = scopeOwnerId ? query.eq("owner_id", scopeOwnerId) : query.is("owner_id", null);
+    if (signal) query = query.abortSignal(signal);
     const { data, error } = await query;
+    throwIfAborted(signal);
     if (error) throw error;
     return (data ?? []) as RagAliasInput[];
   }
@@ -143,6 +155,7 @@ export async function fetchEnabledRagAliases(
       merged.push(alias);
       if (merged.length >= maxRagAliasesPerScope) break;
     }
+    throwIfAborted(signal);
     writeBoundedExpiringCacheEntry(
       ragAliasCache,
       cacheKey,
@@ -151,6 +164,7 @@ export async function fetchEnabledRagAliases(
     );
     return merged;
   } catch {
+    if (signal?.aborted) throw abortReason(signal);
     // Do not cache an empty result on a transient rag_aliases read failure: caching [] would suppress
     // alias-based query expansion (and could let an alias-rescuable query short-circuit) for the whole
     // TTL. Return empty for this call only and retry on the next call.

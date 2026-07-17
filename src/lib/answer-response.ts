@@ -1,10 +1,28 @@
 import { toClientAnswerPayload } from "@/lib/answer-client-payload";
+import { extractSafetyFindings } from "@/lib/clinical-safety";
 import {
   hasDangerSourceGovernanceWarning,
   sourceGovernanceRefusalAnswer,
   sourceGovernanceWarnings,
 } from "@/lib/source-governance";
-import type { RagAnswer } from "@/lib/types";
+import type { RagAnswer, SafetyWarning } from "@/lib/types";
+
+function clientSafetyWarning(warning: SafetyWarning): SafetyWarning {
+  const citation = warning.citation;
+  return {
+    ...warning,
+    citation: {
+      chunk_id: citation.chunk_id,
+      document_id: citation.document_id,
+      title: citation.title,
+      file_name: citation.file_name,
+      page_number: citation.page_number,
+      chunk_index: citation.chunk_index,
+      ...(citation.similarity === undefined ? {} : { similarity: citation.similarity }),
+      ...(citation.provenance === undefined ? {} : { provenance: citation.provenance }),
+    },
+  };
+}
 
 export function answerDegradedModeSignal(
   answer?: Pick<RagAnswer, "degradedMode" | "answerQualityTier" | "fallbackReason">,
@@ -19,6 +37,7 @@ export function answerDegradedModeSignal(
 
 /** Apply the shared browser-boundary source-governance contract. */
 export function buildGovernedAnswerClientResponse(answer: RagAnswer) {
+  const safetyWarnings = extractSafetyFindings(answer).map(clientSafetyWarning);
   const warnings = sourceGovernanceWarnings({
     results: answer.sources ?? [],
     relevance: answer.relevance ?? answer.smartPanel?.relevance ?? null,
@@ -55,6 +74,7 @@ export function buildGovernedAnswerClientResponse(answer: RagAnswer) {
         sources: [],
         degradedMode: answerDegradedModeSignal(answer),
         sourceGovernanceWarnings: warnings,
+        safetyWarnings: [],
       },
     };
   }
@@ -67,6 +87,7 @@ export function buildGovernedAnswerClientResponse(answer: RagAnswer) {
       ...toClientAnswerPayload(answer),
       degradedMode: answerDegradedModeSignal(answer),
       sourceGovernanceWarnings: warnings,
+      safetyWarnings,
     },
   };
 }
