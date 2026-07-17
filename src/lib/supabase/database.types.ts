@@ -889,6 +889,42 @@ export type Database = {
           },
         ];
       };
+      document_publication_approvals: {
+        Row: {
+          approved_at: string;
+          approving_operator_id: string;
+          decision: string;
+          document_id: string;
+          evidence_references: string[];
+          expected_prior_owner_id: string;
+          id: string;
+          manifest_digest: string;
+          reason: string;
+        };
+        Insert: {
+          approved_at?: string;
+          approving_operator_id: string;
+          decision: string;
+          document_id: string;
+          evidence_references: string[];
+          expected_prior_owner_id: string;
+          id?: string;
+          manifest_digest: string;
+          reason: string;
+        };
+        Update: {
+          approved_at?: string;
+          approving_operator_id?: string;
+          decision?: string;
+          document_id?: string;
+          evidence_references?: string[];
+          expected_prior_owner_id?: string;
+          id?: string;
+          manifest_digest?: string;
+          reason?: string;
+        };
+        Relationships: [];
+      };
       document_sections: {
         Row: {
           artifact_generation_id: string | null;
@@ -2300,6 +2336,30 @@ export type Database = {
         Args: { input_query: string; min_sim?: number };
         Returns: string;
       };
+      default_privileges_status: {
+        Args: { p_role_name?: string; p_schema_name?: string };
+        Returns: Json;
+      };
+      delete_document_if_idle: {
+        Args: {
+          p_document_bucket: string;
+          p_document_id: string;
+          p_image_bucket: string;
+          p_owner_id: string;
+        };
+        Returns: Json;
+      };
+      retry_ingestion_job_if_idle: {
+        Args: {
+          p_document_updated_at: string;
+          p_job_id: string;
+          p_max_attempts: number;
+          p_next_run_at: string;
+          p_owner_id: string;
+          p_stale_before: string;
+        };
+        Returns: Json;
+      };
       detect_legacy_ivfflat_indexes: { Args: never; Returns: string[] };
       document_label_metadata: {
         Args: { p_document_id: string };
@@ -2740,6 +2800,14 @@ export type Database = {
       retrieval_owner_matches_v2: {
         Args: { owner_filter: string; row_owner_id: string | null; include_public?: boolean };
         Returns: boolean;
+      };
+      publish_approved_documents: {
+        Args: {
+          p_documents: Json;
+          p_expected_count: number;
+          p_manifest_digest: string;
+        };
+        Returns: Json;
       };
       purge_expired_rag_queries: {
         Args: { p_retention_days?: number };

@@ -28,37 +28,24 @@ const renameSchema = z
 const documentRouteParamsSchema = z.object({
   id: z.string().uuid(),
 });
-
-const cleanupPageSize = 1000;
+const deleteDocumentResultSchema = z.discriminatedUnion("outcome", [
+  z.object({ outcome: z.literal("not_found") }),
+  z.object({
+    outcome: z.literal("active_job"),
+    job_id: z.string().uuid(),
+    job_status: z.enum(["pending", "processing"]),
+  }),
+  z.object({
+    outcome: z.literal("deleted"),
+    cleanup_job_id: z.string().uuid(),
+    document_title: z.string(),
+    source_path: z.string().nullable(),
+    image_paths: z.array(z.string()),
+  }),
+]);
 
 function safeMetadata(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
-}
-
-function isNonEmptyString(value: string | null | undefined): value is string {
-  return typeof value === "string" && value.length > 0;
-}
-
-async function selectDocumentRowsInPages<T>(args: {
-  supabase: ReturnType<typeof createAdminClient>;
-  table: "document_images" | "document_chunks";
-  select: string;
-  documentId: string;
-}) {
-  const rows: T[] = [];
-  for (let offset = 0; ; offset += cleanupPageSize) {
-    const { data, error } = await args.supabase
-      .from(args.table)
-      .select(args.select)
-      .eq("document_id", args.documentId)
-      .range(offset, offset + cleanupPageSize - 1);
-    if (error) throw new Error(error.message);
-
-    const page = (data ?? []) as T[];
-    rows.push(...page);
-    if (page.length < cleanupPageSize) break;
-  }
-  return rows;
 }
 
 function storageWarningsFrom(error: unknown, label: string) {
@@ -98,37 +85,6 @@ async function removeStorageObjects(args: {
   return { storageRemoved, storageWarnings: warnings };
 }
 
-async function createStorageCleanupJob(args: {
-  supabase: ReturnType<typeof createAdminClient>;
-  ownerId: string;
-  documentId: string;
-  documentTitle: string;
-  sourcePath: string | null;
-  imagePaths: string[];
-}) {
-  const { data, error } = await args.supabase
-    .from("storage_cleanup_jobs")
-    .insert({
-      owner_id: args.ownerId,
-      document_id: args.documentId,
-      document_title: args.documentTitle,
-      document_bucket: env.SUPABASE_DOCUMENT_BUCKET,
-      document_paths: args.sourcePath ? [args.sourcePath] : [],
-      image_bucket: env.SUPABASE_IMAGE_BUCKET,
-      image_paths: Array.from(new Set(args.imagePaths.filter(Boolean))),
-      status: "pending",
-      metadata: {
-        operation: "permanent_document_delete",
-        created_by: "api/documents/[id]",
-      },
-    })
-    .select("id")
-    .single();
-
-  if (error) throw new Error(error.message);
-  return data.id as string;
-}
-
 async function updateStorageCleanupJob(args: {
   supabase: ReturnType<typeof createAdminClient>;
   cleanupJobId: string;
@@ -153,49 +109,6 @@ async function updateStorageCleanupJob(args: {
     .eq("id", args.cleanupJobId);
 
   return error ? storageWarningsFrom(error, "Cleanup ledger") : null;
-}
-
-async function deleteDocumentIndexTraceRows(args: {
-  supabase: ReturnType<typeof createAdminClient>;
-  ownerId: string;
-  documentId: string;
-  chunkIds: string[];
-}) {
-  const cleanupErrors: string[] = [];
-
-  if (args.chunkIds.length > 0) {
-    const chunkTraceDeletes = [
-      args.supabase.from("rag_queries").delete().overlaps("source_chunk_ids", args.chunkIds),
-      args.supabase.from("rag_query_misses").delete().overlaps("top_chunk_ids", args.chunkIds),
-      args.supabase.from("rag_query_misses").delete().overlaps("cited_chunk_ids", args.chunkIds),
-    ];
-
-    for (const query of chunkTraceDeletes) {
-      const { error } = await query;
-      if (error) cleanupErrors.push(error.message);
-    }
-  }
-
-  const documentTraceDeletes = [
-    args.supabase
-      .from("rag_query_misses")
-      .delete()
-      .or(`clicked_document_id.eq.${args.documentId},expected_document_id.eq.${args.documentId}`),
-    args.supabase
-      .from("rag_response_cache")
-      .delete()
-      .eq("owner_id", args.ownerId)
-      .in("cache_kind", ["search", "answer"]),
-  ];
-
-  for (const query of documentTraceDeletes) {
-    const { error } = await query;
-    if (error) cleanupErrors.push(error.message);
-  }
-
-  if (cleanupErrors.length > 0) {
-    throw new Error(`Index trace cleanup failed: ${cleanupErrors.join("; ")}`);
-  }
 }
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -286,118 +199,36 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const { id } = parseRouteParams({ id: rawId }, documentRouteParamsSchema, "Invalid document id.");
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
-    const { data: document, error: documentError } = await supabase
-      .from("documents")
-      .select("id,owner_id,title,storage_path")
-      .eq("id", id)
-      .eq("owner_id", user.id)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc("delete_document_if_idle", {
+      p_document_id: id,
+      p_owner_id: user.id,
+      p_document_bucket: env.SUPABASE_DOCUMENT_BUCKET,
+      p_image_bucket: env.SUPABASE_IMAGE_BUCKET,
+    });
+    if (error) throw new Error(error.message);
 
-    if (documentError) throw new Error(documentError.message);
-    if (!document) return NextResponse.json({ error: "Document not found." }, { status: 404 });
-
-    // Audit M9: block deletion on PENDING jobs too, matching the reindex
-    // routes' checkIngestionMutationSafety predicate. A just-queued reindex
-    // job (status "pending") racing this DELETE let the worker upload a new
-    // generation of image objects after the storage paths were enumerated,
-    // orphaning them permanently.
-    async function loadActiveJobs() {
-      return supabase
-        .from("ingestion_jobs")
-        .select("id,status")
-        .eq("document_id", id)
-        .in("status", ["pending", "processing"])
-        .limit(1);
+    const parsedResult = deleteDocumentResultSchema.safeParse(data);
+    if (!parsedResult.success) throw new Error("delete_document_if_idle returned an invalid result.");
+    const result = parsedResult.data;
+    if (result.outcome === "not_found") {
+      return NextResponse.json({ error: "Document not found." }, { status: 404 });
     }
-
-    const { data: activeJobs, error: activeJobsError } = await loadActiveJobs();
-
-    if (activeJobsError) throw new Error(activeJobsError.message);
-    if ((activeJobs ?? []).length > 0) {
+    if (result.outcome === "active_job") {
       throw new PublicApiError(
         "Document has pending or processing indexing work. Stop or wait for the worker before deleting.",
         409,
+        { code: "document_indexing_active" },
       );
-    }
-
-    const [images, chunks] = await Promise.all([
-      selectDocumentRowsInPages<{ storage_path: string | null }>({
-        supabase,
-        table: "document_images",
-        select: "storage_path",
-        documentId: id,
-      }),
-      selectDocumentRowsInPages<{ id: string | null }>({
-        supabase,
-        table: "document_chunks",
-        select: "id",
-        documentId: id,
-      }),
-    ]);
-
-    const chunkIds = chunks.map((chunk) => chunk.id).filter(isNonEmptyString);
-    const imagePaths = images.map((image) => image.storage_path).filter(isNonEmptyString);
-    const cleanupJobId = await createStorageCleanupJob({
-      supabase,
-      ownerId: user.id,
-      documentId: id,
-      documentTitle: document.title,
-      sourcePath: document.storage_path,
-      imagePaths,
-    });
-
-    const { data: lateActiveJobs, error: lateActiveJobsError } = await loadActiveJobs();
-    if (lateActiveJobsError) throw new Error(lateActiveJobsError.message);
-    if ((lateActiveJobs ?? []).length > 0) {
-      const message =
-        "Document gained pending or processing indexing work during delete. Stop or wait for the worker before deleting.";
-      const ledgerWarning = await updateStorageCleanupJob({
-        supabase,
-        cleanupJobId,
-        status: "failed",
-        storageRemoved: 0,
-        warnings: [message],
-        aborted: true,
-      });
-      throw new PublicApiError(ledgerWarning ? `${message}; ${ledgerWarning}` : message, 409);
-    }
-
-    try {
-      await deleteDocumentIndexTraceRows({ supabase, ownerId: user.id, documentId: id, chunkIds });
-    } catch (traceCleanupError) {
-      const message = traceCleanupError instanceof Error ? traceCleanupError.message : "Index trace cleanup failed.";
-      const ledgerWarning = await updateStorageCleanupJob({
-        supabase,
-        cleanupJobId,
-        status: "failed",
-        storageRemoved: 0,
-        warnings: [message],
-        aborted: true,
-      });
-      throw new Error(ledgerWarning ? `${message}; ${ledgerWarning}` : message);
-    }
-
-    const { error: deleteError } = await supabase.from("documents").delete().eq("id", id).eq("owner_id", user.id);
-    if (deleteError) {
-      const ledgerWarning = await updateStorageCleanupJob({
-        supabase,
-        cleanupJobId,
-        status: "failed",
-        storageRemoved: 0,
-        warnings: [`Database delete: ${deleteError.message}`],
-        aborted: true,
-      });
-      throw new Error(ledgerWarning ? `${deleteError.message}; ${ledgerWarning}` : deleteError.message);
     }
 
     const cleanup = await removeStorageObjects({
       supabase,
-      sourcePath: document.storage_path,
-      imagePaths,
+      sourcePath: result.source_path,
+      imagePaths: result.image_paths,
     });
     const ledgerWarning = await updateStorageCleanupJob({
       supabase,
-      cleanupJobId,
+      cleanupJobId: result.cleanup_job_id,
       status: cleanup.storageWarnings.length > 0 ? "failed" : "completed",
       storageRemoved: cleanup.storageRemoved,
       warnings: cleanup.storageWarnings,
@@ -410,7 +241,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       action: "document_delete",
       resourceType: "document",
       resourceId: id,
-      metadata: { title: document.title, storageRemoved: cleanup.storageRemoved },
+      metadata: { title: result.document_title, storageRemoved: cleanup.storageRemoved },
     });
     return NextResponse.json({
       deleted: true,
