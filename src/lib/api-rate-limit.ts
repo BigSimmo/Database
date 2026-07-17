@@ -78,6 +78,7 @@ const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit:
 type SupabaseAdmin = ReturnType<typeof createAdminClient>;
 
 type RateLimitRpcRow = {
+  bucket?: string | null;
   limited?: boolean;
   limit_value?: number;
   remaining?: number;
@@ -270,6 +271,61 @@ export async function consumeSubjectApiRateLimit(args: {
   };
 }
 
+export type SummaryRateLimitBucket = "answer" | "document_summarize";
+
+export type SummaryRateLimitDecision = {
+  bucket: SummaryRateLimitBucket | null;
+  rateLimit: ApiRateLimitResult;
+};
+
+/**
+ * Atomically applies the answer and document-summary policies used by streamed
+ * summaries. The database function locks every participating bucket in a
+ * stable order, avoiding the partial accounting and lock-order risk of two
+ * serial RPC calls.
+ */
+export async function consumeSummaryRateLimits(args: {
+  supabase: SupabaseAdmin;
+  subject: RateLimitSubject;
+}): Promise<SummaryRateLimitDecision> {
+  const answerDefaults =
+    args.subject.kind === "owner"
+      ? apiRateLimitDefaults.answer
+      : (anonymousApiRateLimitDefaults.answer ?? apiRateLimitDefaults.answer);
+  const summaryDefaults = apiRateLimitDefaults.document_summarize;
+  const globalAnswerDefaults = apiRateLimitDefaults.answer;
+  const { data, error } = await args.supabase.rpc("consume_summary_rate_limits_atomic", {
+    p_owner_id: args.subject.kind === "owner" ? args.subject.ownerId : null,
+    p_subject_key: args.subject.kind === "anonymous" ? args.subject.subjectKey : null,
+    p_answer_limit: answerDefaults.limit,
+    p_answer_window_seconds: answerDefaults.windowSeconds,
+    p_summary_limit: summaryDefaults.limit,
+    p_summary_window_seconds: summaryDefaults.windowSeconds,
+    p_global_answer_limit: globalAnswerDefaults.limit,
+    p_global_answer_window_seconds: globalAnswerDefaults.windowSeconds,
+  });
+
+  if (error) throw new ApiRateLimitUnavailableError();
+
+  const row = parseRateLimitRow(data);
+  const bucket = row?.bucket;
+  const validBucket = bucket === "answer" || bucket === "document_summarize" ? bucket : null;
+  if (!row || typeof row.limited !== "boolean" || (row.limited && validBucket === null)) {
+    throw new ApiRateLimitUnavailableError();
+  }
+
+  return {
+    bucket: validBucket,
+    rateLimit: {
+      limited: row.limited,
+      limit: Number(row.limit_value ?? summaryDefaults.limit),
+      remaining: Number(row.remaining ?? 0),
+      retryAfterSeconds: Math.max(1, Number(row.retry_after_seconds ?? summaryDefaults.windowSeconds)),
+      resetAt: String(row.reset_at ?? new Date(Date.now() + summaryDefaults.windowSeconds * 1000).toISOString()),
+    },
+  };
+}
+
 function consumeInMemoryApiRateLimit({
   ownerId,
   bucket,
@@ -320,6 +376,7 @@ export function rateLimitJsonResponse(message: string, rateLimit: ApiRateLimitRe
     {
       status: 429,
       headers: {
+        "Cache-Control": "private, no-store",
         "Retry-After": String(rateLimit.retryAfterSeconds),
       },
     },

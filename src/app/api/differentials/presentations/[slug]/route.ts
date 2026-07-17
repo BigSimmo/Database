@@ -16,6 +16,7 @@ import {
 import { ensureDifferentialsSeeded, loadDifferentialSnapshot } from "@/lib/differential-seed";
 import { getDifferentialRecord, getPresentationWorkflow } from "@/lib/differentials";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
+import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { safeErrorLogDetails } from "@/lib/privacy";
 import { publicAccessContext } from "@/lib/public-api-access";
@@ -24,10 +25,13 @@ import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 
 export const runtime = "nodejs";
 
-function differentialResponse(payload: Record<string, unknown>, init?: { status?: number }) {
+function differentialResponse(
+  payload: Record<string, unknown>,
+  init: { status?: number; request?: Request; fixture?: boolean } = {},
+) {
   return NextResponse.json(payload, {
-    status: init?.status ?? 200,
-    headers: { "Cache-Control": "private, no-store" },
+    status: init.status ?? 200,
+    headers: fixtureResponseHeaders(init.request, init),
   });
 }
 
@@ -50,12 +54,15 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
         if (!record) return [];
         return [{ ...candidate, record }];
       });
-      return differentialResponse({
-        workflow,
-        candidates,
-        governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
-        demoMode: true,
-      });
+      return differentialResponse(
+        {
+          workflow,
+          candidates,
+          governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
+          demoMode: true,
+        },
+        { request, fixture: true },
+      );
     }
 
     // Anonymous callers still resolve access + rate limit before we serve the seed detail:
@@ -84,12 +91,15 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
         if (!record) return [];
         return [{ ...candidate, record }];
       });
-      return differentialResponse({
-        workflow,
-        candidates,
-        governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
-        publicAccess: true,
-      });
+      return differentialResponse(
+        {
+          workflow,
+          candidates,
+          governance: { sourceStatus: governance.source_status, validationStatus: governance.validation_status },
+          publicAccess: true,
+        },
+        { request, fixture: true },
+      );
     }
 
     const fetchPresentation = async () => {
