@@ -103,6 +103,7 @@ import {
 } from "@/lib/document-summary-formatting";
 import { buildDocumentSummaryBadges } from "@/lib/document-summary-badges";
 import { documentSummaryQuestion } from "@/lib/answer-contract";
+import type { DocumentDetailPayload } from "@/lib/document-detail-contract";
 
 // pdf-canvas-viewer is only needed after a source document has loaded and the
 // user is viewing a PDF. Keeping it out of the document route's initial client
@@ -258,39 +259,6 @@ async function requestSignedUrlPayload(
   return payload;
 }
 
-// Fetch the preview + download signed URLs together (serving the client cache
-// first when allowed). Returns their settled results for the caller to apply.
-function fetchSignedUrlPair(
-  signedUrlEndpoint: string,
-  downloadSignedUrlEndpoint: string,
-  options: {
-    signal: AbortSignal;
-    headers: HeadersInit | undefined;
-    onUnauthorized: () => void;
-    useCache: boolean;
-  },
-) {
-  const cachedSigned = options.useCache ? getCachedSignedUrl(signedUrlEndpoint) : null;
-  const cachedDownload = options.useCache ? getCachedSignedUrl(downloadSignedUrlEndpoint) : null;
-  const signedUrlRequest: Promise<SignedUrlResponsePayload> = cachedSigned
-    ? Promise.resolve(cachedSigned)
-    : requestSignedUrlPayload(signedUrlEndpoint, {
-        signal: options.signal,
-        headers: options.headers,
-        onUnauthorized: options.onUnauthorized,
-        errorMessage: "Source preview could not be loaded.",
-      });
-  const signedDownloadUrlRequest: Promise<SignedUrlResponsePayload> = cachedDownload
-    ? Promise.resolve(cachedDownload)
-    : requestSignedUrlPayload(downloadSignedUrlEndpoint, {
-        signal: options.signal,
-        headers: options.headers,
-        onUnauthorized: options.onUnauthorized,
-        errorMessage: "Download URL could not be loaded.",
-      });
-  return Promise.allSettled([signedUrlRequest, signedDownloadUrlRequest]);
-}
-
 function getInitialPdfViewerMode() {
   if (typeof window === "undefined") {
     return {
@@ -316,6 +284,12 @@ function getInitialPdfViewerMode() {
     useNativePdfViewer: getDefaultPdfViewerMode(),
     hasExplicitPdfViewerMode: false,
   };
+}
+
+function rowsById<T extends { id: string }>(incoming: T[]) {
+  const rows = new Map<string, T>();
+  for (const row of incoming) rows.set(row.id, row);
+  return Array.from(rows.values());
 }
 
 function hasProfileItems(items: unknown): items is DocumentSummaryProfileItem[] {
@@ -426,7 +400,7 @@ function FormattedHighYieldSummary({
         <button
           type="button"
           onClick={() => setExpanded((current) => !current)}
-          className={cn(floatingControl, "min-h-9 px-3 text-xs")}
+          className={cn(floatingControl, "sm:min-h-9 px-3 text-xs")}
           data-testid="toggle-full-summary"
         >
           {expanded ? "Show key points only" : "Show full summary"}
@@ -526,7 +500,7 @@ function DocumentImage({ image }: { image: ImageRow }) {
         <>
           {figcaptionBlock}
           <details className="group mt-3">
-            <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text)]">
+            <summary className="flex min-h-tap cursor-pointer list-none items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text)] sm:min-h-9">
               <FileImage aria-hidden="true" className="h-4 w-4 shrink-0" />
               Show original table image
               <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 transition group-open:rotate-180" />
@@ -603,7 +577,7 @@ function TableReviewPanel({
                     disabled={!canReview || busyFactId === fact.id}
                     onClick={() => onReview(fact, value)}
                     className={cn(
-                      "inline-flex min-h-8 items-center rounded-md border px-2 text-2xs font-semibold transition",
+                      "inline-flex min-h-tap items-center rounded-md border px-2 text-2xs font-semibold transition sm:min-h-8",
                       reviewClass === value
                         ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                         : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
@@ -630,7 +604,7 @@ function DocumentViewerAnchors({
   className,
 }: {
   evidenceHref: "#source-evidence" | "#source-evidence-rail";
-  textHref: "#source-text-mobile" | "#source-text-desktop";
+  textHref: "#source-text";
   className?: string;
 }) {
   const anchors = [
@@ -654,6 +628,11 @@ function DocumentViewerAnchors({
             href={anchor.href}
             onClick={() => {
               const target = window.document.querySelector(anchor.href);
+              window.document
+                .querySelectorAll<HTMLDetailsElement>('details[name="document-viewer-section"]')
+                .forEach((disclosure) => {
+                  if (disclosure !== target) disclosure.open = false;
+                });
               if (target instanceof HTMLDetailsElement) target.open = true;
             }}
             className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
@@ -766,7 +745,7 @@ function PinnedSourceEvidence({
             {visibleContent || "No displayable clinical text was available for this indexed passage."}
           </blockquote>
           <div className="mt-3 flex flex-wrap gap-2">
-            <a href="#pdf-preview-section" className={cn(primaryButton, "min-h-9 px-3 text-xs")}>
+            <a href="#pdf-preview-section" className={cn(primaryButton, "sm:min-h-9 px-3 text-xs")}>
               <ExternalLink aria-hidden="true" className="h-4 w-4" />
               Open source
             </a>
@@ -774,7 +753,7 @@ function PinnedSourceEvidence({
               <button
                 type="button"
                 onClick={() => setExpandedChunkId((current) => (current === chunk.id ? null : chunk.id))}
-                className={cn(secondaryButton, "min-h-9 px-3 text-xs")}
+                className={cn(secondaryButton, "sm:min-h-9 px-3 text-xs")}
                 data-testid="toggle-full-passage"
               >
                 {expanded ? "Show passage preview" : "Show full passage"}
@@ -925,7 +904,7 @@ const IndexedTextPanel = memo(function IndexedTextPanel({
   searchingDocument: boolean;
   documentSearchError: string | null;
   idPrefix: string;
-  sectionId?: "source-text-mobile" | "source-text-desktop";
+  sectionId?: "source-text";
   selectedChunkId?: string;
   onSearchChange: (value: string) => void;
 }) {
@@ -1032,11 +1011,11 @@ const IndexedTextPanel = memo(function IndexedTextPanel({
                 {pageHitSummary || "No page numbers indexed for these hits"}
               </p>
             </div>
-            <div className="flex shrink-0 gap-1.5">
+            <div className="flex shrink-0 gap-2">
               <button
                 type="button"
                 onClick={() => moveHit(-1)}
-                className={cn(secondaryButton, "min-h-9 min-w-9 justify-center p-0")}
+                className={cn(secondaryButton, "size-tap justify-center p-0")}
                 aria-label="Previous document search hit"
                 title="Previous document search hit"
               >
@@ -1045,7 +1024,7 @@ const IndexedTextPanel = memo(function IndexedTextPanel({
               <button
                 type="button"
                 onClick={() => moveHit(1)}
-                className={cn(secondaryButton, "min-h-9 min-w-9 justify-center p-0")}
+                className={cn(secondaryButton, "size-tap justify-center p-0")}
                 aria-label="Next document search hit"
                 title="Next document search hit"
               >
@@ -1343,7 +1322,7 @@ function DocumentManualTagEditor({
                         type="button"
                         onClick={() => saveManualTag(label)}
                         disabled={!editingLabel.trim() || busyAction !== null}
-                        className={cn(primaryButton, "min-h-9 px-2 text-xs")}
+                        className={cn(primaryButton, "sm:min-h-9 px-2 text-xs")}
                         aria-label={`Save ${label.label}`}
                       >
                         {busyAction === `edit:${label.id}` ? (
@@ -1356,7 +1335,7 @@ function DocumentManualTagEditor({
                         type="button"
                         onClick={() => setEditingId(null)}
                         disabled={busyAction !== null}
-                        className={cn(secondaryButton, "min-h-9 px-2 text-xs")}
+                        className={cn(secondaryButton, "sm:min-h-9 px-2 text-xs")}
                         aria-label="Cancel edit"
                       >
                         <X aria-hidden="true" className="h-4 w-4" />
@@ -1372,7 +1351,7 @@ function DocumentManualTagEditor({
                           setEditingType(label.label_type);
                         }}
                         disabled={!canManage || busyAction !== null}
-                        className={cn(secondaryButton, "min-h-9 px-2 text-xs")}
+                        className={cn(secondaryButton, "sm:min-h-9 px-2 text-xs")}
                         aria-label={`Rename ${label.label}`}
                       >
                         <Pencil aria-hidden="true" className="h-4 w-4" />
@@ -1381,7 +1360,7 @@ function DocumentManualTagEditor({
                         type="button"
                         onClick={() => deleteManualTag(label)}
                         disabled={!canManage || busyAction !== null}
-                        className={cn(secondaryButton, "min-h-9 px-2 text-xs text-[color:var(--danger)]")}
+                        className={cn(secondaryButton, "sm:min-h-9 px-2 text-xs text-[color:var(--danger)]")}
                         aria-label={`Remove ${label.label}`}
                       >
                         {busyAction === `delete:${label.id}` ? (
@@ -1440,12 +1419,33 @@ function documentKeySections(document: ClinicalDocument) {
   return Array.from(new Set(labels)).slice(0, 3);
 }
 
-function DocumentPagePreview({ href, pageNumber }: { href: string; pageNumber: number | null }) {
+function DocumentPagePreview({
+  href,
+  pageNumber,
+  onNavigate,
+}: {
+  href: string;
+  pageNumber: number | null;
+  onNavigate: (page: number) => void;
+}) {
   // A real "jump to page" chip rather than a fake wireframe thumbnail that looks
   // like a skeleton that never resolves.
   return (
     <a
       href={href}
+      onClick={(event) => {
+        if (
+          pageNumber === null ||
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        )
+          return;
+        event.preventDefault();
+        onNavigate(pageNumber);
+      }}
       className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/40 hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)]"
     >
       <FileText aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" />
@@ -1463,21 +1463,25 @@ function DocumentOverviewLanding({
   document,
   initialPage,
   signedUrl,
-  downloadUrl,
   pages,
   pageHref,
+  onPageChange,
   onAskFromDocument,
   onAddToScope,
+  onDownload,
+  downloading,
   canSummarizeDocument,
 }: {
   document: ClinicalDocument;
   initialPage: number;
   signedUrl: string | null;
-  downloadUrl: string | null;
   pages: PageRow[];
   pageHref: (page: number) => string;
+  onPageChange: (page: number) => void;
   onAskFromDocument: () => void;
   onAddToScope: () => void;
+  onDownload: () => void;
+  downloading: boolean;
   canSummarizeDocument: boolean;
 }) {
   const keySections = documentKeySections(document);
@@ -1533,18 +1537,14 @@ function DocumentOverviewLanding({
               Open preview
             </DocumentActionAnchor>
           )}
-          {downloadUrl ? (
-            <DocumentActionAnchor
-              href={downloadUrl}
-              target="_blank"
-              rel="noreferrer"
-              icon={Download}
-              download={document.file_name || "clinical-source.pdf"}
-              className={cn(secondaryButton, "w-full min-h-12 px-2 text-xs sm:text-sm")}
-            >
-              Download
-            </DocumentActionAnchor>
-          ) : null}
+          <DocumentActionButton
+            onClick={onDownload}
+            disabled={downloading}
+            icon={downloading ? Loader2 : Download}
+            className={cn(secondaryButton, "w-full min-h-12 px-2 text-xs sm:text-sm")}
+          >
+            {downloading ? "Preparing" : "Download"}
+          </DocumentActionButton>
           <DocumentActionButton
             onClick={onAddToScope}
             icon={Target}
@@ -1606,7 +1606,7 @@ function DocumentOverviewLanding({
             <p className={cn("mt-1 text-sm leading-6", textMuted)}>Most relevant pages for this document.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {(usefulPages.length ? usefulPages : [initialPage]).map((page) => (
-                <DocumentPagePreview key={page} href={pageHref(page)} pageNumber={page} />
+                <DocumentPagePreview key={page} href={pageHref(page)} pageNumber={page} onNavigate={onPageChange} />
               ))}
             </div>
           </div>
@@ -1628,12 +1628,42 @@ export function DocumentViewer({
   documentId,
   initialPage,
   chunkId,
+  initialDetail,
+  initialError,
 }: {
   documentId: string;
   initialPage: number;
   chunkId?: string;
+  initialDetail?: DocumentDetailPayload;
+  initialError?: string;
 }) {
   const router = useRouter();
+  const [activeRoute, setActiveRoute] = useState(() => ({ page: initialPage, chunkId }));
+  const activePage = activeRoute.page;
+  const activeChunkId = activeRoute.chunkId;
+
+  useEffect(() => {
+    const syncFromHistory = () => {
+      const params = new URLSearchParams(window.location.search);
+      const parsedPage = Number.parseInt(params.get("page") ?? "", 10);
+      setActiveRoute({
+        page: Number.isFinite(parsedPage) && parsedPage >= 1 ? parsedPage : 1,
+        chunkId: params.get("chunk") ?? undefined,
+      });
+    };
+    window.addEventListener("popstate", syncFromHistory);
+    return () => window.removeEventListener("popstate", syncFromHistory);
+  }, []);
+
+  const navigateToPage = useCallback(
+    (page: number) => {
+      const nextPage = Math.max(1, Math.trunc(page));
+      if (nextPage === activePage) return;
+      window.history.pushState(null, "", documentPageHref(documentId, nextPage));
+      setActiveRoute({ page: nextPage, chunkId: undefined });
+    },
+    [activePage, documentId],
+  );
   useEffect(() => {
     const previousOpenStates = new Map<HTMLDetailsElement, boolean>();
     const expandPrintableDisclosures = () => {
@@ -1667,21 +1697,23 @@ export function DocumentViewer({
       window.removeEventListener("afterprint", restorePrintableDisclosures);
     };
   }, []);
-  const [document, setDocument] = useState<ClinicalDocument | null>(null);
-  const [pages, setPages] = useState<PageRow[]>([]);
-  const [images, setImages] = useState<ImageRow[]>([]);
-  const [tableFacts, setTableFacts] = useState<TableFactRow[]>([]);
-  const [chunks, setChunks] = useState<ChunkRow[]>([]);
-  const [indexHealth, setIndexHealth] = useState<DocumentIndexHealth | null>(null);
+  const [document, setDocument] = useState<ClinicalDocument | null>(() => initialDetail?.document ?? null);
+  const [pages, setPages] = useState<PageRow[]>(() => initialDetail?.pages ?? []);
+  const [images, setImages] = useState<ImageRow[]>(() => initialDetail?.images ?? []);
+  const [tableFacts, setTableFacts] = useState<TableFactRow[]>(() => initialDetail?.tableFacts ?? []);
+  const [chunks, setChunks] = useState<ChunkRow[]>(() => initialDetail?.chunks ?? []);
+  const [indexHealth, setIndexHealth] = useState<DocumentIndexHealth | null>(() => initialDetail?.indexHealth ?? null);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [downloadSignedUrl, setDownloadSignedUrl] = useState<string | null>(null);
   const [summary, setSummary] = useState<RagAnswer | null>(null);
   const [summaryQuery, setSummaryQuery] = useState(documentSummaryQuestion);
   const [summaryProgressEvents, setSummaryProgressEvents] = useState<TimedAnswerProgressUpdate[]>([]);
   const [summaryProgressStartedAt, setSummaryProgressStartedAt] = useState<number | null>(null);
-  const [loadingDocument, setLoadingDocument] = useState(true);
-  const [viewerError, setViewerError] = useState<string | null>(null);
+  const [loadingDocument, setLoadingDocument] = useState(() => !initialDetail && !initialError);
+  const [viewerError, setViewerError] = useState<string | null>(() => initialError ?? null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [downloadingSource, setDownloadingSource] = useState(false);
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [previewAttempt, setPreviewAttempt] = useState(0);
@@ -1728,7 +1760,7 @@ export function DocumentViewer({
   }, []);
   const scrollHidden = useHideOnScroll({
     ...(shellScrollContainer ? { scrollContainer: shellScrollContainer } : {}),
-    resetKey: `${documentId}:${initialPage}:${chunkId ?? ""}`,
+    resetKey: `${documentId}:${activePage}:${activeChunkId ?? ""}`,
   });
   const composerScrollHidden = scrollHidden && !mobileActionsOpen && !composerChromeFocused;
   // Read localStorage once on mount, then seed both derived states from it.
@@ -1755,7 +1787,9 @@ export function DocumentViewer({
     markSessionExpired,
   } = useAuthSession();
   const [authLoadingTimedOut, setAuthLoadingTimedOut] = useState(false);
-  const [serverDemoMode, setServerDemoMode] = useState(process.env.NEXT_PUBLIC_DEMO_MODE === "true");
+  const [serverDemoMode, setServerDemoMode] = useState(
+    () => initialDetail?.demoMode ?? process.env.NEXT_PUBLIC_DEMO_MODE === "true",
+  );
   const localNoAuthMode = isLocalNoAuthMode();
   const clientDemoMode = localNoAuthMode || serverDemoMode;
   const canViewSourceDocuments = localProjectReady;
@@ -1818,80 +1852,43 @@ export function DocumentViewer({
     }
   }, [useNativePdfViewer, viewerModeInitialized, hasExplicitPdfViewerMode]);
 
-  useEffect(() => {
-    let active = true;
-    readLocalProjectIdentity()
-      .then((identity) => {
-        if (!active) return null;
-        if (!identity?.localServer?.safeLocalOrigin) {
-          setLocalProjectReady(false);
-          setViewerError(unsafeLocalProjectMessage(identity));
-          setLoadingDocument(false);
-          return null;
-        }
-        setLocalProjectReady(true);
-        return fetch("/api/setup-status", { headers: authorizationHeader });
-      })
-      .then((response) => (response?.ok ? response.json() : null))
-      .then((payload) => {
-        if (active && typeof payload?.demoMode === "boolean") setServerDemoMode(payload.demoMode);
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, [authorizationHeader, isConfigured]);
-
-  // Apply the settled preview + download signed-URL results to state. Shared by
-  // the initial load effect and the expired-URL refresh so a re-issued URL takes
-  // the exact same path (cache write, previewError, download fallback).
-  const applySignedUrlResults = useCallback(
-    (
-      signedUrlResult: PromiseSettledResult<SignedUrlResponsePayload>,
-      downloadResult: PromiseSettledResult<SignedUrlResponsePayload>,
-      signedUrlEndpoint: string,
-      downloadSignedUrlEndpoint: string,
-    ) => {
-      if (signedUrlResult.status === "fulfilled") {
-        const payload = signedUrlResult.value;
-        if (payload?.url) setCachedSignedUrl(signedUrlEndpoint, { ...payload, url: payload.url });
-        setSignedUrl(payload?.url ?? null);
+  const applyPreviewSignedUrlResult = useCallback(
+    (result: PromiseSettledResult<SignedUrlResponsePayload>, endpoint: string) => {
+      if (result.status === "fulfilled") {
+        const payload = result.value;
+        if (payload.url) setCachedSignedUrl(endpoint, { ...payload, url: payload.url });
+        setSignedUrl(payload.url ?? null);
         setPreviewError(null);
-      } else {
-        setSignedUrl(null);
-        setDownloadSignedUrl(null);
-        setPreviewError(
-          signedUrlResult.reason instanceof Error
-            ? signedUrlResult.reason.message
-            : "Source preview could not be loaded.",
-        );
+        return;
       }
-
-      if (downloadResult.status === "fulfilled") {
-        const payload = downloadResult.value;
-        if (payload?.url) {
-          setCachedSignedUrl(downloadSignedUrlEndpoint, { ...payload, url: payload.url });
-          setDownloadSignedUrl(payload.url);
-          return;
-        }
-      }
-
-      if (signedUrlResult.status === "fulfilled") {
-        setDownloadSignedUrl(signedUrlResult.value?.url ?? null);
-      } else {
-        setDownloadSignedUrl(null);
-      }
+      setSignedUrl(null);
+      setPreviewError(result.reason instanceof Error ? result.reason.message : "Source preview could not be loaded.");
     },
     [],
   );
 
-  // Re-issue only the signed URLs (no document-detail refetch) when a PDF's URL
+  const openSourcePreview = useCallback(
+    (options: { signal: AbortSignal; useCache: boolean }) => {
+      const endpoint = `/api/documents/${documentId}/signed-url`;
+      const cached = options.useCache ? getCachedSignedUrl(endpoint) : null;
+      return cached
+        ? Promise.resolve(cached)
+        : requestSignedUrlPayload(endpoint, {
+            signal: options.signal,
+            headers: clientDemoMode ? undefined : authorizationHeader,
+            onUnauthorized: markSessionExpired,
+            errorMessage: "Source preview could not be loaded.",
+          });
+    },
+    [authorizationHeader, clientDemoMode, documentId, markSessionExpired],
+  );
+
+  // Re-issue only the preview URL (no document-detail or download request) when a PDF's URL
   // expires mid-session, so the viewer refreshes in place without the full
   // reload/flicker. Its AbortController is cancelled on the next refresh and on unmount.
   const refreshControllerRef = useRef<AbortController | null>(null);
   const refreshSignedUrls = useCallback(() => {
     const signedUrlEndpoint = `/api/documents/${documentId}/signed-url`;
-    const downloadSignedUrlEndpoint = `${signedUrlEndpoint}?download=true`;
 
     refreshControllerRef.current?.abort();
     const controller = new AbortController();
@@ -1907,16 +1904,11 @@ export function DocumentViewer({
           throw new Error(unsafeLocalProjectMessage(identity));
         }
         // handleSignedUrlExpired already cleared the cache, so always mint fresh.
-        return fetchSignedUrlPair(signedUrlEndpoint, downloadSignedUrlEndpoint, {
-          signal: controller.signal,
-          headers: clientDemoMode ? undefined : authorizationHeader,
-          onUnauthorized: markSessionExpired,
-          useCache: false,
-        });
+        return openSourcePreview({ signal: controller.signal, useCache: false });
       })
-      .then(([signedUrlResult, downloadResult]) => {
+      .then((payload) => {
         if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
-        applySignedUrlResults(signedUrlResult, downloadResult, signedUrlEndpoint, downloadSignedUrlEndpoint);
+        applyPreviewSignedUrlResult({ status: "fulfilled", value: payload }, signedUrlEndpoint);
       })
       .catch((error) => {
         if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
@@ -1926,23 +1918,91 @@ export function DocumentViewer({
         authRequest.release();
         if (refreshControllerRef.current === controller) refreshControllerRef.current = null;
       });
-  }, [
-    documentId,
-    registerAuthRequest,
-    isAuthEpochCurrent,
-    clientDemoMode,
-    authorizationHeader,
-    markSessionExpired,
-    applySignedUrlResults,
-  ]);
+  }, [documentId, registerAuthRequest, isAuthEpochCurrent, openSourcePreview, applyPreviewSignedUrlResult]);
 
   useEffect(() => () => refreshControllerRef.current?.abort(), []);
+
+  const downloadActionRef = useRef<Promise<void> | null>(null);
+  const downloadControllerRef = useRef<AbortController | null>(null);
+  const currentDocumentFileName = document?.file_name;
+  const openSourceDownload = useCallback(() => {
+    if (downloadActionRef.current) return downloadActionRef.current;
+
+    const endpoint = `/api/documents/${documentId}/signed-url?download=true`;
+    const controller = new AbortController();
+    downloadControllerRef.current = controller;
+    const authRequest = registerAuthRequest(controller);
+    const action = (async () => {
+      setDownloadingSource(true);
+      setDownloadError(null);
+      try {
+        const identity = await readLocalProjectIdentity();
+        if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
+        if (!identity?.localServer?.safeLocalOrigin) throw new Error(unsafeLocalProjectMessage(identity));
+
+        const cached = getCachedSignedUrl(endpoint);
+        const payload =
+          cached ??
+          (await requestSignedUrlPayload(endpoint, {
+            signal: controller.signal,
+            headers: clientDemoMode ? undefined : authorizationHeader,
+            onUnauthorized: markSessionExpired,
+            errorMessage: "Download URL could not be loaded.",
+          }));
+        if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch) || !payload.url) return;
+
+        setCachedSignedUrl(endpoint, { ...payload, url: payload.url });
+        setDownloadSignedUrl(payload.url);
+        const anchor = window.document.createElement("a");
+        anchor.href = payload.url;
+        anchor.rel = "noreferrer";
+        anchor.download = currentDocumentFileName || "clinical-source";
+        anchor.click();
+      } catch (error) {
+        if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
+        setDownloadError(error instanceof Error ? error.message : "Download URL could not be loaded.");
+      } finally {
+        authRequest.release();
+        if (downloadControllerRef.current === controller) {
+          downloadControllerRef.current = null;
+          setDownloadingSource(false);
+        }
+      }
+    })();
+    downloadActionRef.current = action;
+    void action.finally(() => {
+      if (downloadActionRef.current === action) downloadActionRef.current = null;
+    });
+    return action;
+  }, [
+    authorizationHeader,
+    clientDemoMode,
+    currentDocumentFileName,
+    documentId,
+    isAuthEpochCurrent,
+    markSessionExpired,
+    registerAuthRequest,
+  ]);
+
+  useEffect(
+    () => () => {
+      downloadControllerRef.current?.abort();
+      downloadControllerRef.current = null;
+      downloadActionRef.current = null;
+    },
+    [documentId],
+  );
 
   // Distinguishes a full document (re)load — a new documentId or an explicit
   // retry (previewAttempt) — from page/chunk navigation on the already-loaded
   // document. Navigation only re-windows the detail; a full load also resets the
-  // preview and re-issues signed URLs.
+  // preview and re-issues only its signed URL.
   const loadedKeyRef = useRef<string | null>(null);
+  const detailControllerRef = useRef<AbortController | null>(null);
+  const detailRequestSequenceRef = useRef(0);
+  const localProjectIdentityPromiseRef = useRef<ReturnType<typeof readLocalProjectIdentity> | null>(null);
+  const initialRouteRef = useRef({ documentId, initialPage, chunkId });
+  const navigatedFromInitialRouteRef = useRef(false);
 
   useEffect(() => {
     if (!canViewSourceDocuments && authStatus === "loading") {
@@ -1952,33 +2012,70 @@ export function DocumentViewer({
       return () => undefined;
     }
 
+    const matchesInitialRoute =
+      initialRouteRef.current.documentId === documentId &&
+      initialRouteRef.current.initialPage === activePage &&
+      initialRouteRef.current.chunkId === activeChunkId;
+    if (!matchesInitialRoute) navigatedFromInitialRouteRef.current = true;
+    const useInitialResult =
+      previewAttempt === 0 &&
+      matchesInitialRoute &&
+      !navigatedFromInitialRouteRef.current &&
+      Boolean(initialDetail || initialError);
+
+    detailControllerRef.current?.abort();
     const controller = new AbortController();
+    detailControllerRef.current = controller;
+    const requestSequence = ++detailRequestSequenceRef.current;
     const authRequest = registerAuthRequest(controller);
     const loadKey = documentLoadKey(documentId, previewAttempt);
     const isFullReload = isFullDocumentReload(loadedKeyRef.current, loadKey);
     const reset = window.setTimeout(() => {
       // Skip the reset on navigation so the mounted PDF and current content stay
       // visible (no loading flash) while the new page window loads in the background.
-      if (!controller.signal.aborted && isFullReload) {
+      if (!controller.signal.aborted && isFullReload && !useInitialResult) {
         setLoadingDocument(true);
         setViewerError(null);
         setPreviewError(null);
+        setDownloadError(null);
+        setDownloadingSource(false);
         setSignedUrl(null);
         setDownloadSignedUrl(null);
       }
     }, 0);
     const detailParams = new URLSearchParams({
-      page: String(Math.max(1, initialPage || 1)),
+      page: String(Math.max(1, activePage || 1)),
       pageLimit: "9",
       chunkLimit: "16",
+      assetScope: "window",
     });
-    if (chunkId) detailParams.set("chunk", chunkId);
+    if (activeChunkId) detailParams.set("chunk", activeChunkId);
     const detailUrl = `/api/documents/${documentId}?${detailParams.toString()}`;
     const signedUrlEndpoint = `/api/documents/${documentId}/signed-url`;
-    const downloadSignedUrlEndpoint = `${signedUrlEndpoint}?download=true`;
-    readLocalProjectIdentity()
+    if (!localProjectIdentityPromiseRef.current) {
+      const pendingIdentity = readLocalProjectIdentity();
+      localProjectIdentityPromiseRef.current = pendingIdentity;
+      void pendingIdentity.then(
+        (identity) => {
+          if (!identity?.localServer?.safeLocalOrigin && localProjectIdentityPromiseRef.current === pendingIdentity) {
+            localProjectIdentityPromiseRef.current = null;
+          }
+        },
+        () => {
+          if (localProjectIdentityPromiseRef.current === pendingIdentity) {
+            localProjectIdentityPromiseRef.current = null;
+          }
+        },
+      );
+    }
+    const identityRequest = localProjectIdentityPromiseRef.current!;
+    identityRequest
       .then((identity) => {
-        if (!isAuthEpochCurrent(authRequest.epoch)) {
+        if (
+          controller.signal.aborted ||
+          requestSequence !== detailRequestSequenceRef.current ||
+          !isAuthEpochCurrent(authRequest.epoch)
+        ) {
           throw new DOMException("Stale authentication epoch", "AbortError");
         }
         if (!identity?.localServer?.safeLocalOrigin) {
@@ -1987,47 +2084,57 @@ export function DocumentViewer({
         }
         setLocalProjectReady(true);
 
-        const detailRequest = fetch(detailUrl, {
-          signal: controller.signal,
-          headers: clientDemoMode ? undefined : authorizationHeader,
-        }).then(async (response) => {
-          const payload = await response.json();
-          if (response.status === 401) markSessionExpired();
-          if (!response.ok) throw new Error(payload.error || "Document details could not be loaded.");
-          return payload;
-        });
-        // Navigation keeps the current signed URLs; only a full load re-issues them.
-        const signedUrlPair = isFullReload
-          ? fetchSignedUrlPair(signedUrlEndpoint, downloadSignedUrlEndpoint, {
+        const detailRequest: Promise<DocumentDetailPayload> = useInitialResult
+          ? initialDetail
+            ? Promise.resolve(initialDetail)
+            : Promise.reject(new Error(initialError || "Document could not be loaded."))
+          : fetch(detailUrl, {
               signal: controller.signal,
               headers: clientDemoMode ? undefined : authorizationHeader,
-              onUnauthorized: markSessionExpired,
-              useCache: true,
-            })
+            }).then(async (response) => {
+              const payload = await response.json();
+              if (response.status === 401) markSessionExpired();
+              if (!response.ok) throw new Error(payload.error || "Document details could not be loaded.");
+              return payload as DocumentDetailPayload;
+            });
+        // Navigation keeps the current preview; a full load re-issues only the preview URL.
+        const previewRequest = isFullReload
+          ? Promise.allSettled([openSourcePreview({ signal: controller.signal, useCache: true })])
           : Promise.resolve(null);
 
-        return Promise.all([Promise.allSettled([detailRequest]), signedUrlPair]);
+        return Promise.all([Promise.allSettled([detailRequest]), previewRequest]);
       })
-      .then(([[detailResult], signedUrlPair]) => {
-        if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
+      .then(([[detailResult], previewResults]) => {
+        if (
+          controller.signal.aborted ||
+          requestSequence !== detailRequestSequenceRef.current ||
+          !isAuthEpochCurrent(authRequest.epoch)
+        )
+          return;
         const detailLoaded = detailResult.status === "fulfilled";
-        // Advance the loaded key only on a successful detail load. A failed full
-        // load must stay "not loaded" so the next page/chunk navigation is still
-        // treated as a full reload — re-fetching signed URLs and refreshing the
-        // error — rather than a cheap navigation that skips that recovery.
-        loadedKeyRef.current = nextLoadedDocumentKey(loadedKeyRef.current, loadKey, detailLoaded);
+        // The server-rendered initial result (including a sanitized failure) is
+        // already authoritative for this attempt. Mark it handled so an auth
+        // state refresh cannot duplicate the initial detail/preview requests;
+        // an explicit retry increments previewAttempt and gets a fresh key.
+        loadedKeyRef.current = useInitialResult
+          ? loadKey
+          : nextLoadedDocumentKey(loadedKeyRef.current, loadKey, detailLoaded);
 
         if (detailLoaded) {
           const detail = detailResult.value;
           setDocument(detail.document ?? null);
-          setPages(detail.pages ?? []);
-          setImages(detail.images ?? []);
-          setTableFacts(detail.tableFacts ?? []);
-          setChunks(detail.chunks ?? []);
+          // Keep the previous window visible while loading, then atomically
+          // replace it so client memory and mounted DOM stay bounded.
+          setPages(rowsById(detail.pages));
+          setImages(rowsById(detail.images));
+          setTableFacts(rowsById(detail.tableFacts));
+          setChunks(rowsById(detail.chunks));
           setIndexHealth(detail.indexHealth ?? null);
-        } else if (isFullReload) {
-          // Only clear the viewer on a full load; a transient detail failure
-          // during navigation keeps the current content on screen.
+          setServerDemoMode(detail.demoMode);
+          setViewerError(null);
+        } else {
+          // Never retain evidence from the previous page under a newly selected
+          // route. A navigation failure becomes an explicit retryable error.
           setDocument(null);
           setPages([]);
           setImages([]);
@@ -2047,23 +2154,38 @@ export function DocumentViewer({
           }
         }
 
-        if (signedUrlPair) {
-          const [signedUrlResult, signedDownloadUrlResult] = signedUrlPair;
-          applySignedUrlResults(signedUrlResult, signedDownloadUrlResult, signedUrlEndpoint, downloadSignedUrlEndpoint);
+        if (previewResults) {
+          const previewResult = previewResults[0];
+          if (previewResult) applyPreviewSignedUrlResult(previewResult, signedUrlEndpoint);
         }
       })
       .catch((error) => {
-        if (controller.signal.aborted || !isAuthEpochCurrent(authRequest.epoch)) return;
-        if (isFullReload) setViewerError(error instanceof Error ? error.message : "Document could not be loaded.");
+        if (
+          controller.signal.aborted ||
+          requestSequence !== detailRequestSequenceRef.current ||
+          !isAuthEpochCurrent(authRequest.epoch)
+        )
+          return;
+        setDocument(null);
+        setPages([]);
+        setImages([]);
+        setTableFacts([]);
+        setChunks([]);
+        setIndexHealth(null);
+        setViewerError(error instanceof Error ? error.message : "Document could not be loaded.");
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoadingDocument(false);
+        if (!controller.signal.aborted && requestSequence === detailRequestSequenceRef.current) {
+          setLoadingDocument(false);
+          if (detailControllerRef.current === controller) detailControllerRef.current = null;
+        }
       });
 
     return () => {
       window.clearTimeout(reset);
       controller.abort();
       authRequest.release();
+      if (detailControllerRef.current === controller) detailControllerRef.current = null;
     };
   }, [
     authStatus,
@@ -2072,14 +2194,17 @@ export function DocumentViewer({
     canViewSourceDocuments,
     clientDemoMode,
     documentId,
-    chunkId,
-    initialPage,
+    activeChunkId,
+    activePage,
     isConfigured,
     markSessionExpired,
     registerAuthRequest,
     isAuthEpochCurrent,
     previewAttempt,
-    applySignedUrlResults,
+    initialDetail,
+    initialError,
+    openSourcePreview,
+    applyPreviewSignedUrlResult,
   ]);
 
   useEffect(() => {
@@ -2268,9 +2393,9 @@ export function DocumentViewer({
         ? "Document"
         : "Source unavailable";
   const headerSubtitle = readyDocument
-    ? `page ${initialPage} · ${readyDocument.file_name}`
+    ? `page ${activePage} · ${readyDocument.file_name}`
     : viewerState === "loading"
-      ? `page ${initialPage} · loading source`
+      ? `page ${activePage} · loading source`
       : (effectiveViewerError ?? "Source unavailable");
   const documentHomeHref = "/?mode=documents";
   const scopedDocumentHref = readyDocument
@@ -2279,8 +2404,10 @@ export function DocumentViewer({
   const usefulPageHref = (page: number) => documentPageHref(documentId, page);
   const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
   const summarizeTitle = canSummarizeDocument ? "Answer from this document" : "Load a source document before answering";
-  const selectedPage = pages.find((page) => page.page_number === initialPage) ?? pages[0];
-  const selectedChunk = chunkId ? chunks.find((chunk) => chunk.id === chunkId) : undefined;
+  const pageByNumber = useMemo(() => new Map(pages.map((page) => [page.page_number, page])), [pages]);
+  const chunkById = useMemo(() => new Map(chunks.map((chunk) => [chunk.id, chunk])), [chunks]);
+  const selectedPage = pageByNumber.get(activePage) ?? pages[0];
+  const selectedChunk = activeChunkId ? chunkById.get(activeChunkId) : undefined;
   const { clinicalImages, auditImages } = partitionViewerImages(images);
   const generatedSummaryText = summary ? cleanClinicalSummaryText(summary.answer) : "";
   const generatedAnswerIsSummary = summaryQuery === documentSummaryQuestion;
@@ -2297,30 +2424,18 @@ export function DocumentViewer({
       ? [indexHealth.warnings]
       : [];
   useEffect(() => {
-    if (!chunkId || loadingDocument) return;
-    // Both the mobile and desktop IndexedTextPanel render the pinned chunk, so a
-    // plain querySelector returns the first match in DOM order — the mobile one,
-    // which is display:none on lg+ and lives in a collapsed <details> on phones.
-    // Scroll the copy the user can actually see: skip display:none matches and
-    // expand the mobile <details> when the pinned chunk only exists inside it.
-    const matches = Array.from(
-      window.document.querySelectorAll<HTMLElement>(`[data-source-chunk-id="${CSS.escape(chunkId)}"]`),
-    );
-    const isDisplayed = (element: HTMLElement) => element.offsetParent !== null || element.getClientRects().length > 0;
-    const inClosedDetails = (element: HTMLElement) => Boolean(element.closest("details:not([open])"));
-    let target = matches.find((element) => isDisplayed(element) && !inClosedDetails(element));
-    if (!target) {
-      const collapsed = matches
-        .map((element) => element.closest("details"))
-        .find((node): node is HTMLDetailsElement => node instanceof HTMLDetailsElement && !node.open);
-      if (collapsed) collapsed.open = true;
-      target = matches.find((element) => isDisplayed(element) && !inClosedDetails(element)) ?? matches[0];
-    }
-    target?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [chunkId, loadingDocument, chunks.length]);
+    if (!activeChunkId || loadingDocument) return;
+    window.document
+      .querySelector<HTMLElement>(`[data-source-chunk-id="${CSS.escape(activeChunkId)}"]`)
+      ?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [activeChunkId, loadingDocument, chunks.length]);
   const retryPreview = () => {
     setViewerError(null);
     setPreviewError(null);
+    setDownloadError(null);
+    // Re-open the guarded load path after a transient identity failure; the
+    // cleared identity promise is still revalidated before any API request.
+    setLocalProjectReady(true);
     setLoadingDocument(true);
     setPreviewAttempt((current) => current + 1);
   };
@@ -2328,8 +2443,8 @@ export function DocumentViewer({
     signedUrlRefreshCountRef.current = 0;
   }, [documentId]);
   // The PDF signed URL has a 10-min TTL and pdf.js holds a dead reference once it
-  // expires. When the canvas reports an expiry, drop the cached URLs and re-run
-  // the fetch pipeline to mint fresh ones (bounded so a broken URL can't loop).
+  // expires. When the canvas reports an expiry, drop cached URLs and mint a fresh
+  // preview only (bounded so a broken URL can't loop). Download remains click-gated.
   // Stable identity (useCallback) so the memoised PdfCanvasViewer isn't re-rendered
   // — and its page re-rastered — every time an unrelated parent state (source-search
   // keystroke, composer focus, online/offline) changes.
@@ -2339,6 +2454,7 @@ export function DocumentViewer({
     const signedUrlEndpoint = `/api/documents/${documentId}/signed-url`;
     clearCachedSignedUrl(signedUrlEndpoint);
     clearCachedSignedUrl(`${signedUrlEndpoint}?download=true`);
+    setDownloadSignedUrl(null);
     refreshSignedUrls();
   }, [documentId, refreshSignedUrls]);
   // A successful reload means the refreshed URL was accepted, so the recovery
@@ -2506,19 +2622,22 @@ export function DocumentViewer({
                   Open original PDF
                 </a>
               )}
-              {downloadSignedUrl ? (
-                <a
-                  href={downloadSignedUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  download={readyDocument.file_name || "clinical-source.pdf"}
-                  onClick={() => setMobileActionsOpen(false)}
-                  className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
-                >
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionsOpen(false);
+                  void openSourceDownload();
+                }}
+                disabled={downloadingSource}
+                className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
+              >
+                {downloadingSource ? (
+                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                ) : (
                   <Download aria-hidden="true" className="h-4 w-4" />
-                  Download PDF
-                </a>
-              ) : null}
+                )}
+                {downloadingSource ? "Preparing PDF" : "Download PDF"}
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -2548,6 +2667,11 @@ export function DocumentViewer({
       ) : null}
 
       <section className="mx-auto grid max-w-[1440px] gap-4 px-3 py-4 pb-36 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8">
+        {downloadError ? (
+          <InlineNotice tone="warning" className="lg:col-span-2">
+            {downloadError}
+          </InlineNotice>
+        ) : null}
         {(loadingSummary || summary || summaryError) && (
           <div className="min-w-0 space-y-3 lg:col-span-2">
             {summaryProgressStartedAt && summaryProgressEvents.length > 0 ? (
@@ -2591,13 +2715,15 @@ export function DocumentViewer({
           <div className="min-w-0 lg:col-span-2">
             <DocumentOverviewLanding
               document={readyDocument}
-              initialPage={initialPage}
+              initialPage={activePage}
               signedUrl={signedUrl}
-              downloadUrl={downloadSignedUrl}
               pages={pages}
               pageHref={usefulPageHref}
+              onPageChange={navigateToPage}
               onAskFromDocument={() => void summarize()}
               onAddToScope={() => router.push(scopedDocumentHref)}
+              onDownload={() => void openSourceDownload()}
+              downloading={downloadingSource}
               canSummarizeDocument={canSummarizeDocument}
             />
           </div>
@@ -2615,7 +2741,7 @@ export function DocumentViewer({
         ) : null}
 
         <div className="min-w-0 space-y-4 sm:space-y-5 lg:mx-auto lg:w-full lg:max-w-4xl">
-          <DocumentViewerAnchors evidenceHref="#source-evidence" textHref="#source-text-mobile" className="lg:hidden" />
+          <DocumentViewerAnchors evidenceHref="#source-evidence" textHref="#source-text" className="lg:hidden" />
 
           <div id="pdf-preview-section" className={cn(panel, "scroll-mt-24 overflow-hidden")}>
             <div data-testid="pdf-preview">
@@ -2639,16 +2765,19 @@ export function DocumentViewer({
                       </a>
                     )}
                     {downloadSignedUrl && (
-                      <a
-                        href={downloadSignedUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        download={document?.file_name || "clinical-source.pdf"}
+                      <button
+                        type="button"
+                        onClick={() => void openSourceDownload()}
+                        disabled={downloadingSource}
                         className={cn(secondaryButton, "mt-3")}
                       >
-                        <Download aria-hidden="true" className="h-4 w-4" />
-                        Download PDF
-                      </a>
+                        {downloadingSource ? (
+                          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Download aria-hidden="true" className="h-4 w-4" />
+                        )}
+                        {downloadingSource ? "Preparing PDF" : "Download PDF"}
+                      </button>
                     )}
                   </div>
                 </div>
@@ -2669,16 +2798,19 @@ export function DocumentViewer({
                         </a>
                       )}
                       {downloadSignedUrl && (
-                        <a
-                          href={downloadSignedUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          download={document?.file_name || "clinical-source.pdf"}
+                        <button
+                          type="button"
+                          onClick={() => void openSourceDownload()}
+                          disabled={downloadingSource}
                           className={secondaryButton}
                         >
-                          <Download aria-hidden="true" className="h-4 w-4" />
-                          Download PDF
-                        </a>
+                          {downloadingSource ? (
+                            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download aria-hidden="true" className="h-4 w-4" />
+                          )}
+                          {downloadingSource ? "Preparing PDF" : "Download PDF"}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -2708,18 +2840,16 @@ export function DocumentViewer({
                     </button>
                   </div>
                   {useNativePdfViewer ? (
-                    <NativePdfEmbed url={signedUrl} title={documentDisplayTitle(document)} initialPage={initialPage} />
+                    <NativePdfEmbed url={signedUrl} title={documentDisplayTitle(document)} initialPage={activePage} />
                   ) : (
                     <PdfCanvasViewer
                       key={`${documentId}-${useNativePdfViewer ? "native" : "canvas"}`}
                       url={signedUrl}
                       title={documentDisplayTitle(document)}
-                      initialPage={initialPage}
+                      initialPage={activePage}
                       onUrlExpired={handleSignedUrlExpired}
                       onLoadSuccess={handlePdfLoadSuccess}
-                      onPageChange={(page) => {
-                        router.push(documentPageHref(documentId, page), { scroll: false });
-                      }}
+                      onPageChange={navigateToPage}
                     />
                   )}
                 </>
@@ -2734,55 +2864,15 @@ export function DocumentViewer({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:gap-5 md:grid-cols-2 md:items-start lg:hidden">
-            <PinnedSourceEvidence
-              loading={effectiveLoadingDocument}
-              chunk={selectedChunk}
-              compact
-              sectionId="source-evidence"
-            />
-            <details
-              id="source-text-mobile"
-              name="document-viewer-section"
-              className={cn("group min-w-0 scroll-mt-24", panel)}
-            >
-              <summary className="flex min-h-[56px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
-                <span className="inline-flex min-w-0 items-center gap-3">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-                    <FileText aria-hidden="true" className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold text-[color:var(--text)]">Indexed page text</span>
-                    <span className={cn("block truncate text-xs", textMuted)}>
-                      {effectiveLoadingDocument
-                        ? "Loading indexed page text"
-                        : `Page ${selectedPage?.page_number ?? initialPage} extracted text`}
-                    </span>
-                  </span>
-                </span>
-                <ChevronDown
-                  aria-hidden="true"
-                  className="h-4 w-4 shrink-0 text-[color:var(--text-muted)] transition group-open:rotate-180"
-                />
-              </summary>
-              <div className={cn(clinicalDivider, "p-4")}>
-                <IndexedTextPanel
-                  loading={effectiveLoadingDocument}
-                  selectedPage={selectedPage}
-                  chunks={chunks}
-                  search={sourceSearch}
-                  documentSearchResults={documentSearchResults}
-                  searchingDocument={searchingDocument}
-                  documentSearchError={documentSearchError}
-                  idPrefix="mobile-chunk"
-                  selectedChunkId={chunkId}
-                  onSearchChange={setSourceSearch}
-                />
-              </div>
-            </details>
-          </div>
-
-          <div className="hidden lg:block">
+          <div className="grid gap-4 sm:gap-5 md:grid-cols-2 md:items-start lg:block">
+            <div className="lg:hidden">
+              <PinnedSourceEvidence
+                loading={effectiveLoadingDocument}
+                chunk={selectedChunk}
+                compact
+                sectionId="source-evidence"
+              />
+            </div>
             <IndexedTextPanel
               loading={effectiveLoadingDocument}
               selectedPage={selectedPage}
@@ -2791,9 +2881,9 @@ export function DocumentViewer({
               documentSearchResults={documentSearchResults}
               searchingDocument={searchingDocument}
               documentSearchError={documentSearchError}
-              idPrefix="desktop-chunk"
-              sectionId="source-text-desktop"
-              selectedChunkId={chunkId}
+              idPrefix="source-chunk"
+              sectionId="source-text"
+              selectedChunkId={activeChunkId}
               onSearchChange={setSourceSearch}
             />
           </div>
@@ -2812,11 +2902,7 @@ export function DocumentViewer({
           ) : null}
 
           <div className="hidden lg:block">
-            <DocumentViewerAnchors
-              evidenceHref="#source-evidence-rail"
-              textHref="#source-text-desktop"
-              className="mb-3"
-            />
+            <DocumentViewerAnchors evidenceHref="#source-evidence-rail" textHref="#source-text" className="mb-3" />
             <PinnedSourceEvidence
               loading={effectiveLoadingDocument}
               chunk={selectedChunk}

@@ -1,7 +1,7 @@
 import { createServerClient, parseCookieHeader } from "@supabase/ssr";
-import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { env } from "@/lib/env";
+import { jsonError } from "@/lib/http";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -78,7 +78,11 @@ export class AuthenticationError extends Error {
 
 export function unauthorizedResponse(error?: AuthenticationError) {
   void error;
-  return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  // Route through the shared error envelope so 401s carry a stable `code`/`message`
+  // like every other API failure (and inherit its `Cache-Control: private, no-store`).
+  // `log: false` keeps a routine unauthenticated request from being recorded as a
+  // server-side error.
+  return jsonError(new AuthenticationError(), 401, { log: false });
 }
 
 /**

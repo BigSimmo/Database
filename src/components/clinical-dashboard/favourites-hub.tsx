@@ -236,7 +236,7 @@ export function FavouritesHub({
                 id="favourites-type-listbox"
                 role="listbox"
                 aria-label="Favourite type"
-                className="absolute left-0 top-[calc(100%+0.5rem)] z-40 grid w-[min(18rem,calc(100vw-1.5rem))] gap-1 overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 shadow-[var(--shadow-lux)] ring-1 ring-white/30 backdrop-blur-md dark:ring-white/10"
+                className="absolute left-0 top-[calc(100%+0.5rem)] z-40 grid w-[min(18rem,calc(100vw-1.5rem))] gap-2 overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 shadow-[var(--shadow-lux)] ring-1 ring-white/30 backdrop-blur-md dark:ring-white/10"
               >
                 {favouriteTabs.map((tab, index) => {
                   const Icon = tab.icon;
@@ -259,7 +259,7 @@ export function FavouritesHub({
                         window.requestAnimationFrame(() => tabButtonRef.current?.focus());
                       }}
                       className={cn(
-                        "grid min-h-10 grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2.5 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                        "grid min-h-tap grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2.5 text-left text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                         selected
                           ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
                           : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
@@ -294,7 +294,7 @@ export function FavouritesHub({
             <button
               type="button"
               onClick={onClearQuery}
-              className="inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 hover:bg-[color:var(--surface-subtle)]"
+              className="inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] px-2 hover:bg-[color:var(--surface-subtle)]"
             >
               <span className="truncate">Filter: {normalizedQuery}</span>
               <X aria-hidden="true" className="h-3.5 w-3.5" />
@@ -304,7 +304,7 @@ export function FavouritesHub({
             <button
               type="button"
               onClick={() => setSelectedSetId(null)}
-              className="inline-flex min-h-7 max-w-full items-center gap-1.5 rounded-md border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-2 font-bold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]/35"
+              className="inline-flex min-h-tap max-w-full items-center gap-1.5 rounded-md border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-2 font-bold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]/35"
             >
               <span className="truncate">Set: {selectedSet.title}</span>
               <X aria-hidden="true" className="h-3.5 w-3.5" />
