@@ -3,16 +3,15 @@ import { cn, codeText } from "@/components/ui-primitives";
 export type FormCodeBadgeVariant = "sm" | "md" | "hero";
 
 // Form codes are mostly short ("1A", "10D") but some carry a trailing qualifier
-// ("6B Attachment"). Splitting on the first space lets the badge show the code
-// prominently while the qualifier renders as a compact sub-label, so long codes
-// no longer overflow the fixed chip.
+// ("6B Attachment"). Splitting on the first whitespace run matches pathwayItems
+// (which uses /\s+/) so tabs/newlines keep the same head/qualifier split as spaces.
 export function splitFormCode(code: string): { head: string; qualifier: string | null } {
   const trimmed = code.trim();
-  const spaceIndex = trimmed.indexOf(" ");
-  if (spaceIndex === -1) return { head: trimmed, qualifier: null };
+  const match = /\s+/.exec(trimmed);
+  if (!match || match.index === undefined) return { head: trimmed, qualifier: null };
   return {
-    head: trimmed.slice(0, spaceIndex),
-    qualifier: trimmed.slice(spaceIndex + 1).trim() || null,
+    head: trimmed.slice(0, match.index),
+    qualifier: trimmed.slice(match.index + match[0].length).trim() || null,
   };
 }
 
