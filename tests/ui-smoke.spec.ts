@@ -163,6 +163,12 @@ async function switchToDocumentSearchMode(page: Page) {
   }
   await expect(appModeMenu).toBeEnabled();
   await waitForReactEventHandler(appModeMenu, "onClick");
+  // Scope/Escape deferred focus restore can race a mode-menu open; wait for the
+  // scope surface to fully dismiss before opening the mode menu.
+  await page
+    .getByTestId("scope-command-popover")
+    .waitFor({ state: "hidden", timeout: uiAssertionTimeoutMs })
+    .catch(() => undefined);
   await appModeMenu.click({ force: true });
   const appModeGroup = page.getByRole("menu", { name: "Choose app mode" });
   await expect(appModeGroup).toBeVisible({ timeout: uiAssertionTimeoutMs });
