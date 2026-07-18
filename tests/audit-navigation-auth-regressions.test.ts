@@ -40,7 +40,7 @@ describe("audit navigation and auth regressions", () => {
     );
     expect(presentations.status).toBe(307);
     expect(presentations.headers.get("location")).toBe(
-      "https://clinical-kb.test/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
+      "/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
     );
 
     const medications = redirectMedications(new NextRequest("https://clinical-kb.test/medications?ignored=1"));
