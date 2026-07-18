@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { env } from "@/lib/env";
+import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
 import { buildContentSecurityPolicy, resolveRuntimeFlags } from "@/lib/security-headers";
 
 // Next 16 renamed the `middleware` file convention to `proxy` (see
@@ -81,6 +82,9 @@ export async function proxy(request: NextRequest) {
     return response;
   };
 
+  const legacyHomeTarget = legacyHomeRedirectUrl(request.nextUrl, request.method);
+  if (legacyHomeTarget) return withCsp(NextResponse.redirect(legacyHomeTarget));
+
   const redirectTarget = documentFlowRedirects[pathname];
 
   if (redirectTarget) {
@@ -115,9 +119,9 @@ export async function proxy(request: NextRequest) {
   });
 
   // Refresh the session. Per @supabase/ssr guidance, do not run other logic
-  // between createServerClient and getUser — a stale token here would sign the
+  // between createServerClient and getClaims — a stale token here would sign the
   // user out on the next request.
-  await supabase.auth.getUser();
+  await supabase.auth.getClaims();
   return withCsp(response);
 }
 

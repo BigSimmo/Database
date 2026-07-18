@@ -82,6 +82,12 @@ jobs:
       - name: CI scope self-test
         run: npm run check:ci-scope
 
+      - name: CI triage self-test
+        run: npm run check:ci-triage
+
+      - name: PR policy self-test
+        run: npm run check:pr-policy
+
       - name: Format check
         run: npm run format:check
 
@@ -101,6 +107,11 @@ jobs:
       # PUBLIC/anon (privilege-escalation / cross-tenant read surface).
       - name: Function-grant guard
         run: npm run check:function-grants
+
+      # Fails if a src/app/api handler queries an owner-scoped table without a
+      # recognised owner filter (defense-in-depth tenancy guard; audit D2).
+      - name: Owner-scope guard
+        run: npm run check:owner-scope
 
       - name: Lint
         run: npm run lint
@@ -321,11 +332,27 @@ jobs:
             docker load -i /tmp/supabase-docker-cache/images.tar
           fi
 
-      - name: Start Supabase Local Emulator
-        run: supabase start
+      - name: Start Supabase Local Emulator and bootstrap default ACLs
+        run: |
+          bootstrap_dir="$(mktemp -d)"
+          mv supabase/roles.sql "${bootstrap_dir}/roles.sql"
+          mv supabase/migrations "${bootstrap_dir}/migrations"
+          mkdir supabase/migrations
+
+          supabase start
+
+          rmdir supabase/migrations
+          mv "${bootstrap_dir}/migrations" supabase/migrations
+          mv "${bootstrap_dir}/roles.sql" supabase/roles.sql
+
+          db_container="$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -n 1)"
+          test -n "${db_container}"
+          docker exec -i "${db_container}" \
+            psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 \
+            < supabase/roles.sql
 
       - name: Verify Migration Replay
-        run: supabase db reset
+        run: supabase migration up --local
 
       - name: Save Supabase Docker images
         if: success() && steps.supabase-docker-cache.outputs.cache-hit != 'true'

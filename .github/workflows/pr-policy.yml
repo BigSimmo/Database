@@ -1,0 +1,76 @@
+name: PR Policy
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, edited, synchronize, reopened, ready_for_review, labeled, unlabeled]
+  merge_group:
+
+concurrency:
+  group: pr-policy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  policy:
+    name: PR policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Accept merge queue validation
+        if: github.event_name == 'merge_group'
+        run: echo "PR metadata was validated before merge-queue entry."
+
+      # pull_request_target runs trusted base-branch code. Checkout the current
+      # tip of the base branch (not a potentially stale base.sha) so the policy
+      # script is always available even when the PR was opened before the script
+      # was added to main. Never execute the PR head or persist credentials.
+      - name: Checkout trusted policy
+        if: github.event_name == 'pull_request_target'
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.base_ref }}
+          persist-credentials: false
+
+      - name: Validate pull request evidence
+        if: github.event_name == 'pull_request_target'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const { pathToFileURL } = require("node:url");
+            const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-policy.mjs`).href;
+            const { evaluatePullRequestPolicy } = await import(moduleUrl);
+            const pr = context.payload.pull_request;
+
+            if (pr.draft) {
+              core.notice("Draft PR: metadata policy will be enforced when the PR is marked ready for review.");
+              return;
+            }
+
+            const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const result = evaluatePullRequestPolicy({
+              title: pr.title,
+              body: pr.body || "",
+              headRef: pr.head.ref,
+              files: changedFiles.map((file) => file.filename),
+            });
+
+            await core.summary
+              .addHeading("PR policy")
+              .addRaw(`Clinical risk: ${result.classification.clinicalRisk ? "yes" : "no"}<br>`)
+              .addRaw(`Operational risk: ${result.classification.operationalRisk ? "yes" : "no"}<br>`)
+              .addRaw(`UI change: ${result.classification.ui ? "yes" : "no"}<br>`)
+              .write();
+
+            if (!result.ok) {
+              for (const error of result.errors) core.error(error);
+              core.setFailed(`PR policy found ${result.errors.length} issue(s). Edit the PR title/body and rerun.`);
+            }

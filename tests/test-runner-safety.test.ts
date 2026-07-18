@@ -178,10 +178,20 @@ describe("provider-safe test environment", () => {
     expect(runner).toContain('PLAYWRIGHT_OFFLINE_MODE: "true"');
     expect(runner).toContain('NEXT_PUBLIC_MOCKUPS_ENABLED: mockupProjectRequested ? "true" : "false"');
     expect(runner).toContain("!explicitProjectRequested ||");
+    // Empty 3xx bodies from legacy redirect route handlers must not fail readiness.
+    expect(runner).toContain("body === null || body.includes(missingErrorComponentsNeedle)");
+    expect(runner).not.toContain("if (!body || body.includes(missingErrorComponentsNeedle))");
     expect(runner).not.toContain("supabase.co");
     expect(packageJson.scripts["test:e2e:pr"]).toContain('--grep-invert "@quarantine|@mockup"');
     expect(packageJson.scripts["test:e2e:regression"]).toContain('--grep-invert "@critical|@quarantine|@mockup"');
     expect(baseUrl.indexOf("if (!allowEnsure)")).toBeLessThan(baseUrl.indexOf("findExistingLocalProjectUrl();"));
     expect(ragRunner).toContain("cwd: projectRoot");
+  });
+
+  it("uses webpack when shared worktree dependencies resolve outside the project", () => {
+    const devRunner = readFileSync(new URL("../scripts/dev-free-port.mjs", import.meta.url), "utf8");
+    expect(devRunner).toContain('fs.realpathSync(path.join(projectRoot, "node_modules"))');
+    expect(devRunner).toContain('return dependenciesAreExternal ? ["--webpack"] : [];');
+    expect(devRunner).toContain('args.some((arg) => ["--webpack", "--turbopack", "--turbo"].includes(arg))');
   });
 });

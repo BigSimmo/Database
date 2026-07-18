@@ -2,6 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const token = "valid-token";
+const publicFixtureCacheControl = "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400";
+
+function expectPublicFixtureCache(response: Response) {
+  expect(response.headers.get("cache-control")).toBe(publicFixtureCacheControl);
+  expect(response.headers.get("vary")).toBe("Cookie, Authorization");
+}
+
+function expectPrivateCache(response: Response) {
+  expect(response.headers.get("cache-control")).toBe("private, no-store");
+}
 
 type QueryError = { message: string };
 type QueryResult = { data: unknown; error: QueryError | null };
@@ -185,6 +195,7 @@ describe("differentials API routes", () => {
     };
 
     expect(response.status).toBe(200);
+    expectPrivateCache(response);
     expect(payload.detailContext?.knownRelatedSlugs).toEqual([]);
     expect(payload.detailContext?.overlapLinks).toEqual({});
     expect(payload.detailContext?.comparePresentation).toBeNull();
@@ -205,6 +216,7 @@ describe("differentials API routes", () => {
     };
 
     expect(response.status).toBe(200);
+    expectPublicFixtureCache(response);
     expect(payload.demoMode).toBe(true);
     expect(payload.record?.slug).toBe("delirium");
     expect(payload.detailContext?.comparePresentation?.slug).toBe("acute-confusion-encephalopathy");
@@ -227,6 +239,7 @@ describe("differentials API routes", () => {
     };
 
     expect(response.status).toBe(200);
+    expectPublicFixtureCache(response);
     expect(payload.demoMode).toBe(true);
     expect(payload.workflow?.id).toBe("acute-confusion-encephalopathy");
     expect(payload.candidates?.length).toBeGreaterThan(0);
@@ -247,6 +260,7 @@ describe("differentials API routes", () => {
     };
 
     expect(response.status).toBe(200);
+    expectPublicFixtureCache(response);
     expect(payload.demoMode).toBe(true);
     expect((payload.total ?? 0) > 100).toBe(true);
     expect(payload.records?.length).toBeGreaterThan(0);

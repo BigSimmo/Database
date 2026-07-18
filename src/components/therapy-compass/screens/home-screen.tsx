@@ -186,7 +186,7 @@ export function HomeScreen() {
           >
             <span
               style={s(
-                `display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:11px;background:var(--clinical-accent);color:#fff;flex:none;`,
+                `display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:11px;background:var(--clinical-accent);color:var(--clinical-accent-contrast);flex:none;`,
               )}
             >
               <ScaleIcon size={20} strokeWidth={1.6} />

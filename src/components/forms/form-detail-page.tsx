@@ -43,9 +43,10 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
+import { FormCodeBadge, splitFormCode } from "@/components/forms/form-code-badge";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { formNavigatorQuery, type FormRecord } from "@/lib/forms";
-import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/services";
+import { formCatalogDetails, type FormRecord } from "@/lib/form-ranker";
+import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/service-ranker";
 import { readSavedRegistrySlugs, savedFormsStorageKey, writeSavedRegistrySlugs } from "@/lib/saved-registry-storage";
 
 const missingText = "Not listed";
@@ -91,15 +92,16 @@ function chipToneClass(tone: ServiceChipTone | null | undefined) {
   return toneNeutral;
 }
 
-function sourceToneClass(form: FormRecord) {
+export function sourceToneClass(form: FormRecord) {
   const status = form.source?.status?.toLowerCase() ?? "";
-  if (form.verification?.locallyVerified || status.includes("checked") || status.includes("verified"))
-    return toneSuccess;
-  if (status.includes("required") || status.includes("review")) return toneWarning;
+  if (/required|review|unverified|not verified|unchecked|pending|unknown|confirm/.test(status)) return toneWarning;
+  if (form.verification?.locallyVerified === true) return toneSuccess;
   return toneNeutral;
 }
 
 function formCode(form: FormRecord) {
+  const details = formCatalogDetails(form);
+  if (details?.form) return details.form;
   if (form.slug.includes("transport")) return "4A";
   if (form.slug.includes("capacity")) return "CAP";
   if (form.slug.includes("clozapine")) return "CLZ";
@@ -113,7 +115,8 @@ function formCode(form: FormRecord) {
 }
 
 function formShortTitle(form: FormRecord) {
-  return form.slug.includes("transport") ? "Form 4A" : displayText(form.catalogueLabel, "Form");
+  const details = formCatalogDetails(form);
+  return details?.form ? `Form ${details.form}` : displayText(form.catalogueLabel, "Form");
 }
 
 function summaryIcon(card: ServiceSummaryCard) {
@@ -199,6 +202,25 @@ function DetailCard({ card }: { card: ServiceSummaryCard }) {
   );
 }
 
+// Compact code cell for the pathway before/parallel/after lists. Visually it
+// shows only the short head ("6B") so a qualifier like "6B attachment" can't
+// overflow the fixed-width column, but the full code is exposed to assistive
+// tech via an sr-only label (the decorative head is aria-hidden) and to sighted
+// users via a tooltip — matching FormCodeBadge's pattern.
+function PathwayStepCode({ code }: { code: string }) {
+  const { head, qualifier } = splitFormCode(code);
+  const fullCode = qualifier ? `${head} ${qualifier}` : head;
+  return (
+    <span
+      className={cn("truncate text-sm font-bold text-[color:var(--text-heading)]", codeText)}
+      title={qualifier ? fullCode : undefined}
+    >
+      <span className="sr-only">{fullCode}</span>
+      <span aria-hidden>{head}</span>
+    </span>
+  );
+}
+
 function PathwayContextCard({
   form,
   code,
@@ -210,21 +232,14 @@ function PathwayContextCard({
   criteria: ServiceCriterion[];
   testId?: string;
 }) {
-  const parallelForms = form.slug.includes("transport")
-    ? [
-        { code: "3A", title: "Detention to enable examination or movement" },
-        { code: "4B", title: "Extension of Transport Order" },
-      ]
-    : [
-        { code: "Linked", title: displayText(form.route, "Related pathway") },
-        { code: "Source", title: displayText(form.source?.label, "Source details") },
-      ];
-  const afterForms = form.slug.includes("transport")
-    ? [
-        { code: "4", title: "Admission order" },
-        { code: "3", title: "Treatment order" },
-      ]
-    : [{ code: "Review", title: displayText(form.source?.reviewed, "Review source currency") }];
+  const details = formCatalogDetails(form);
+  const pathwayItems = (items: string[] | undefined, fallbackCode: string, fallbackTitle: string) =>
+    items?.length
+      ? items.map((item) => ({ code: /^\d{1,2}[a-z]?(?:\s+attachment)?$/i.test(item) ? item : "Step", title: item }))
+      : [{ code: fallbackCode, title: fallbackTitle }];
+  const beforeForms = pathwayItems(details?.before, "Check", "Confirm prerequisites on the current form");
+  const parallelForms = pathwayItems(details?.parallel, "None", "No parallel form listed in the imported pathway");
+  const afterForms = pathwayItems(details?.after, "Next", "Confirm the next lawful step and owner");
 
   return (
     <section
@@ -250,21 +265,24 @@ function PathwayContextCard({
         <div className="relative">
           <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
           <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Before</p>
-          <div className="mt-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-2.5">
-            <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] gap-2">
-              <span className="text-sm font-bold text-[color:var(--text-heading)]">5(2)</span>
-              <p className={cn("text-xs font-medium leading-5", textMuted)}>
-                {displayText(form.route, "Initial assessment for admission.")}
-              </p>
-            </div>
+          <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
+            {beforeForms.map((item) => (
+              <div
+                key={`${item.code}-${item.title}`}
+                className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
+              >
+                <PathwayStepCode code={item.code} />
+                <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
+              </div>
+            ))}
           </div>
         </div>
         <div className="relative rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35 p-3">
           <span className="absolute -left-[1.55rem] top-4 h-4 w-4 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-accent)]" />
           <p className="mb-2 text-2xs font-bold uppercase text-[color:var(--text-soft)]">Current</p>
-          <div className="flex items-center gap-2">
-            <span className={cn("text-2xl font-bold text-[color:var(--clinical-accent)]", codeText)}>{code}</span>
-            <p className="text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
+          <div className="flex items-center gap-2.5">
+            <FormCodeBadge code={code} variant="sm" />
+            <p className="min-w-0 text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
           </div>
           <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)]">
             You are here
@@ -280,7 +298,7 @@ function PathwayContextCard({
                 key={`${item.code}-${item.title}`}
                 className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
               >
-                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
+                <PathwayStepCode code={item.code} />
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
             ))}
@@ -295,7 +313,7 @@ function PathwayContextCard({
                 key={`${item.code}-${item.title}`}
                 className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
               >
-                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
+                <PathwayStepCode code={item.code} />
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
             ))}
@@ -341,18 +359,28 @@ function PathwayContextCard({
 }
 
 function SourceSnapshotCard({ form }: { form: FormRecord }) {
+  const details = formCatalogDetails(form);
   const rows = [
-    { icon: FileText, label: "Official PDF", value: `${formShortTitle(form)}.pdf · 2 pages` },
+    {
+      icon: FileText,
+      label: "Official form",
+      value:
+        details?.availability === "downloadable"
+          ? `${formShortTitle(form)} · stored official copy`
+          : details?.availability === "unavailable"
+            ? "Currently unavailable"
+            : "Contact OCP monitoring",
+    },
     { icon: ShieldCheck, label: "Source currency", value: displayText(form.source?.reviewed, "Review locally") },
     {
       icon: Scale,
       label: "Act sections",
-      value: form.slug.includes("transport") ? "29, 63, 67, 92, 112, 129, 133, 148, 154" : "See source",
+      value: displayText(details?.sourceFacts?.sectionCue, "See current approved form"),
     },
     {
       icon: CalendarDays,
-      label: "Review due",
-      value: form.slug.includes("transport") ? "01 May 2026" : displayText(form.source?.reviewed, "Not listed"),
+      label: "Use safeguard",
+      value: "Check current source before every use",
     },
   ];
 
@@ -377,21 +405,30 @@ function SourceSnapshotCard({ form }: { form: FormRecord }) {
 }
 
 function ActionPanel({
-  onUse,
+  sourceHref,
   onCopy,
   hrefForCall,
 }: {
-  onUse: () => void;
+  sourceHref: string | null;
   onCopy: () => void;
   hrefForCall: string | null;
 }) {
   return (
     <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)]">
       <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] gap-2">
-        <button type="button" onClick={onUse} className={cn(primaryControl, "min-h-11 w-full px-3")}>
-          <ExternalLink className="h-4 w-4" aria-hidden />
-          Find this form
-        </button>
+        {sourceHref ? (
+          <a
+            href={sourceHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(primaryControl, "min-h-11 w-full px-3")}
+          >
+            <ExternalLink className="h-4 w-4" aria-hidden />
+            Open official source
+          </a>
+        ) : (
+          <span className={cn(floatingControl, "min-h-11 w-full px-3 opacity-70")}>Source unavailable</span>
+        )}
         <button type="button" onClick={onCopy} className={cn(floatingControl, "min-h-11 w-full px-3")}>
           <Download className="h-4 w-4" aria-hidden />
           Copy details
@@ -445,6 +482,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
   );
   const [notice, setNotice] = useState<string | null>(null);
   const code = formCode(form);
+  const details = formCatalogDetails(form);
   const summaryCards = summaryCardsFor(form);
   const detailRows = detailRowsFor(form);
   const primaryContact = hasText(form.primaryContact?.value)
@@ -493,10 +531,6 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
     }
   }
 
-  function useInNavigator() {
-    router.push(appModeHomeHref("forms", { query: formNavigatorQuery(form), run: true, focus: true }));
-  }
-
   return (
     <main
       data-testid="form-detail-page"
@@ -517,7 +551,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               type="button"
               onClick={() => setNotice(null)}
               aria-label="Dismiss form notification"
-              className="grid h-8 w-8 place-items-center rounded-md transition hover:bg-[color:var(--surface)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="grid size-tap place-items-center rounded-md transition hover:bg-[color:var(--surface)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               <X className="h-4 w-4" aria-hidden />
             </button>
@@ -547,14 +581,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
           <div className="min-w-0 space-y-4">
             <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
               <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
-                <div
-                  className={cn(
-                    "grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-xl font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-24 sm:w-24 sm:text-4xl",
-                    codeText,
-                  )}
-                >
-                  {code}
-                </div>
+                <FormCodeBadge code={code} variant="hero" />
                 <div className="min-w-0">
                   <h1 className="max-w-4xl text-3xl font-extrabold leading-[1.05] text-[color:var(--text-heading)] sm:text-4xl">
                     {form.title}
@@ -595,9 +622,13 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                   </button>
                   <button
                     type="button"
-                    onClick={useInNavigator}
-                    aria-label="Open source for this form"
-                    className="hidden min-h-11 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex"
+                    disabled={!form.source?.url}
+                    onClick={() => {
+                      if (form.source?.url) window.open(form.source.url, "_blank", "noopener,noreferrer");
+                    }}
+                    aria-label={form.source?.url ? "Open official source for this form" : "Official source unavailable"}
+                    title={form.source?.url ? undefined : "Official source unavailable"}
+                    className="hidden min-h-11 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition enabled:hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
                   >
                     <FileText className="h-4 w-4" aria-hidden />
                     <span>Source</span>
@@ -613,7 +644,8 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                 </span>
                 <div className="min-w-0">
                   <h2 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                    {formShortTitle(form)}.pdf
+                    {formShortTitle(form)}
+                    {details?.availability === "downloadable" ? ".pdf" : ""}
                   </h2>
                   <p className={cn("mt-0.5 text-xs", textMuted)}>{displayText(form.source?.label, "Official form")}</p>
                 </div>
@@ -621,21 +653,38 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
                 {displayText(form.source?.status, "Source status pending")}
               </span>
-              <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">2 pages</span>
+              <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
+                {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
+              </span>
               <div className="flex items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:hidden">
-                <span>2 pages</span>
+                <span>{details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}</span>
                 <ChevronRight className="h-4 w-4" aria-hidden />
               </div>
-              {form.source?.url ? (
-                <a
-                  href={form.source.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hidden min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:inline-flex"
-                >
-                  Source
-                  <ExternalLink className="h-4 w-4" aria-hidden />
-                </a>
+              {form.source?.url || details?.localPdfPath ? (
+                <div className="hidden items-center gap-3 sm:flex">
+                  {form.source?.url ? (
+                    <a
+                      href={form.source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                    >
+                      Official
+                      <ExternalLink className="h-4 w-4" aria-hidden />
+                    </a>
+                  ) : null}
+                  {details?.localPdfPath ? (
+                    <a
+                      href={details.localPdfPath}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--text-muted)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                    >
+                      Stored copy
+                      <Download className="h-4 w-4" aria-hidden />
+                    </a>
+                  ) : null}
+                </div>
               ) : (
                 <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:inline">
                   Source link pending
@@ -645,7 +694,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
 
             <div className="hidden lg:block">
               <ActionPanel
-                onUse={useInNavigator}
+                sourceHref={form.source?.url ?? null}
                 onCopy={() => copyValue(primaryContact?.value ?? form.title, "Form detail copied")}
                 hrefForCall={hrefForCall}
               />
@@ -703,7 +752,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             <div className="grid gap-3 lg:hidden">
               <SourceSnapshotCard form={form} />
               <ActionPanel
-                onUse={useInNavigator}
+                sourceHref={form.source?.url ?? null}
                 onCopy={() => copyValue(primaryContact?.value ?? form.title, "Form detail copied")}
                 hrefForCall={hrefForCall}
               />

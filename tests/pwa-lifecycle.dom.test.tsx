@@ -86,6 +86,47 @@ describe("PwaLifecycle", () => {
     );
   });
 
+  it("tears down the locally registered worker and owned caches via the explicit ?pwa-dev=0 opt-out", async () => {
+    window.history.replaceState({}, "", "/?pwa-dev=0");
+    const { container } = installServiceWorkerStub();
+
+    const makeRegistration = (scriptURL: string) => {
+      const registration = new EventTarget() as ServiceWorkerRegistration & { unregister: ReturnType<typeof vi.fn> };
+      Object.defineProperties(registration, {
+        active: { configurable: true, value: { scriptURL } },
+        waiting: { configurable: true, value: null },
+        installing: { configurable: true, value: null },
+        unregister: { configurable: true, value: vi.fn().mockResolvedValue(true) },
+      });
+      return registration;
+    };
+    const ownRegistration = makeRegistration(new URL("/sw.js", window.location.origin).href);
+    // Nested path ending in /sw.js: proves teardown exact-matches the owned
+    // worker URL instead of suffix-matching.
+    const foreignRegistration = makeRegistration(new URL("/other-app/sw.js", window.location.origin).href);
+    Object.defineProperty(container, "getRegistrations", {
+      configurable: true,
+      value: vi.fn().mockResolvedValue([ownRegistration, foreignRegistration]),
+    });
+
+    const cacheDelete = vi.fn().mockResolvedValue(true);
+    Object.defineProperty(window, "caches", {
+      configurable: true,
+      value: {
+        delete: cacheDelete,
+        keys: vi.fn().mockResolvedValue(["clinical-kb-pwa-shell-2026-07-15-v1", "unrelated-cache"]),
+      } as unknown as CacheStorage,
+    });
+
+    render(<PwaLifecycle />);
+
+    await waitFor(() => expect(ownRegistration.unregister).toHaveBeenCalledTimes(1));
+    expect(foreignRegistration.unregister).not.toHaveBeenCalled();
+    await waitFor(() => expect(cacheDelete).toHaveBeenCalledWith("clinical-kb-pwa-shell-2026-07-15-v1"));
+    expect(cacheDelete).not.toHaveBeenCalledWith("unrelated-cache");
+    expect(container.register).not.toHaveBeenCalled();
+  });
+
   it("announces lost and restored connectivity without claiming private data is available offline", async () => {
     render(<PwaLifecycle />);
 
@@ -157,5 +198,33 @@ describe("PwaLifecycle", () => {
     });
 
     expect(screen.queryByRole("region", { name: "An update is ready" })).not.toBeInTheDocument();
+  });
+
+  it("shows the one-time iOS Add to Home Screen hint and honours its dismissal window", async () => {
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true,
+      value:
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+    });
+    try {
+      const user = userEvent.setup();
+      const { unmount } = render(<PwaLifecycle />);
+
+      const hint = await screen.findByRole("region", { name: "Install Clinical KB" });
+      expect(hint).toHaveTextContent(/tap Share, then Add to Home Screen/i);
+      expect(hint).toHaveTextContent(/still require a connection/i);
+
+      await user.click(screen.getByRole("button", { name: "Not now" }));
+      await waitFor(() =>
+        expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument(),
+      );
+      expect(Number(window.localStorage.getItem("clinical-kb-pwa-ios-install-dismissed-at"))).toBeGreaterThan(0);
+
+      unmount();
+      render(<PwaLifecycle />);
+      expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument();
+    } finally {
+      delete (navigator as { userAgent?: string }).userAgent;
+    }
   });
 });

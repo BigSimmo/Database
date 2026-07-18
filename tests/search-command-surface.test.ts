@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  commandDropdownCanDisplay,
+  commandDropdownMinimumWidthMediaQuery,
+  commandDropdownPointerMediaQuery,
   differentialRedFlagTerms,
   favouriteMatchesCommandScopes,
   filteredSuggestions,
@@ -28,6 +31,25 @@ function serviceRecord(overrides: Partial<ServiceRecord> = {}): ServiceRecord {
 }
 
 describe("search command surface", () => {
+  it("requires a desktop-sized non-touch or fine-pointer environment for the command dropdown", () => {
+    expect(commandDropdownMinimumWidthMediaQuery("bottom-dock")).toBe("(min-width: 640px)");
+    expect(commandDropdownMinimumWidthMediaQuery("inline")).toBe("(min-width: 1024px)");
+    expect(commandDropdownPointerMediaQuery).toBe("(hover: hover) and (pointer: fine)");
+
+    expect(commandDropdownCanDisplay({ minimumWidthMatches: true, pointerMatches: true, maxTouchPoints: 5 })).toBe(
+      true,
+    );
+    expect(commandDropdownCanDisplay({ minimumWidthMatches: true, pointerMatches: false, maxTouchPoints: 0 })).toBe(
+      true,
+    );
+    expect(commandDropdownCanDisplay({ minimumWidthMatches: true, pointerMatches: false, maxTouchPoints: 5 })).toBe(
+      false,
+    );
+    expect(commandDropdownCanDisplay({ minimumWidthMatches: false, pointerMatches: true, maxTouchPoints: 0 })).toBe(
+      false,
+    );
+  });
+
   it("returns mode-specific command surface config", () => {
     const documents = searchCommandSurfaceConfig("documents");
     expect(documents?.examples.length).toBeGreaterThan(0);

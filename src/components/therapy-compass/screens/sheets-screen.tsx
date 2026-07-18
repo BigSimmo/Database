@@ -57,7 +57,10 @@ export function SheetsScreen() {
         </div>
       </div>
 
-      <div style={s(`display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;align-items:start;`)}>
+      <div
+        className="tc-stack-sm"
+        style={s(`display:grid;grid-template-columns:340px minmax(0,1fr);gap:20px;align-items:start;`)}
+      >
         {/* BUILDER */}
         <div
           className="tc-builder-panel"
@@ -158,7 +161,9 @@ export function SheetsScreen() {
           >
             <div
               style={s(
-                `display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid var(--clinical-accent);padding-bottom:16px;margin-bottom:24px;`,
+                // Fixed ink (light-mode --clinical-accent): the paper is pinned white in
+                // both themes, so a theme-reactive accent would turn bright cyan in dark.
+                `display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #0b6f86;padding-bottom:16px;margin-bottom:24px;`,
               )}
             >
               <div style={s(`display:flex;align-items:center;gap:11px;`)}>
@@ -170,7 +175,7 @@ export function SheetsScreen() {
                   <ScaleIcon size={20} strokeWidth={1.6} />
                 </span>
                 <span style={s(`font-size:13px;font-weight:600;color:var(--text-soft);letter-spacing:0.02em;`)}>
-                  Therapy Compass · Patient information
+                  Therapy · Patient information
                 </span>
               </div>
               <span style={s(`font-size:11.5px;color:#8a94a3;`)}>Prepared for you</span>
@@ -202,9 +207,7 @@ export function SheetsScreen() {
                 <h2
                   contentEditable
                   suppressContentEditableWarning
-                  style={s(
-                    `margin:0 0 10px;font-size:16px;font-weight:680;color:var(--clinical-accent-hover);outline:none;`,
-                  )}
+                  style={s(`margin:0 0 10px;font-size:16px;font-weight:680;color:#095d70;outline:none;`)}
                 >
                   Your plan
                 </h2>
@@ -240,9 +243,7 @@ export function SheetsScreen() {
                 <h2
                   contentEditable
                   suppressContentEditableWarning
-                  style={s(
-                    `margin:0 0 8px;font-size:15px;font-weight:680;color:var(--clinical-accent-hover);outline:none;`,
-                  )}
+                  style={s(`margin:0 0 8px;font-size:15px;font-weight:680;color:#095d70;outline:none;`)}
                 >
                   Practice at home
                 </h2>
@@ -320,7 +321,7 @@ function PaperSection({ title, children }: { title: string; children: ReactNode 
       <h2
         contentEditable
         suppressContentEditableWarning
-        style={s(`margin:0 0 8px;font-size:16px;font-weight:680;color:var(--clinical-accent-hover);outline:none;`)}
+        style={s(`margin:0 0 8px;font-size:16px;font-weight:680;color:#095d70;outline:none;`)}
       >
         {title}
       </h2>
@@ -343,7 +344,9 @@ function TherapyPicker() {
     const base = q.trim()
       ? searchTherapies(b.therapies, { query: q, tags: [], briefOnly: false, sheetOnly: false, reviewedOnly: false })
       : b.therapies;
-    return base.slice(0, 8);
+    // Only offer therapies that actually ship a patient sheet — selecting one now
+    // navigates to its /sheet subroute, which 404s for records without a sheet.
+    return base.filter((x) => x.patientSheetAvailable).slice(0, 8);
   }, [q, b.therapies]);
 
   return (
@@ -383,7 +386,7 @@ function TherapyPicker() {
               aria-label="Search therapies for the patient sheet"
               autoFocus
               style={s(
-                `width:100%;height:36px;padding:0 12px 0 34px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;outline:none;`,
+                `width:100%;height:44px;padding:0 12px 0 34px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);font-size:13px;font-family:inherit;outline:none;`,
               )}
             />
           </label>

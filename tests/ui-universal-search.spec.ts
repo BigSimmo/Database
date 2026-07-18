@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "playwright/test";
+import { expect, test, type Page, type Route } from "playwright/test";
 
 // Cross-entity universal typeahead in the command surface. The universal endpoint is
 // mocked so this spec exercises the UI contract (grouped sections, navigation,
@@ -74,6 +74,15 @@ const universalPayload = {
   ],
 };
 
+async function fulfillUniversalSearch(route: Route, response: typeof universalPayload & Record<string, unknown>) {
+  const query = response.query;
+  const events = [...response.groups.map((group) => ({ type: "group", query, group })), { type: "complete", response }];
+  await route.fulfill({
+    body: `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
+    contentType: "application/x-ndjson; charset=utf-8",
+  });
+}
+
 async function mockUniversalSearch(page: Page) {
   await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
     const mode = new URL(route.request().url()).searchParams.get("mode") ?? "documents";
@@ -90,13 +99,11 @@ async function mockUniversalSearch(page: Page) {
     };
     const preferredDomains = preferredByMode[mode] ?? [];
     const responseOrder = universalPayload.groups.map((group) => group.kind);
-    await route.fulfill({
-      json: {
-        ...universalPayload,
-        contextMode: mode,
-        preferredDomains,
-        domainOrder: [...preferredDomains, ...responseOrder.filter((domain) => !preferredDomains.includes(domain))],
-      },
+    await fulfillUniversalSearch(route, {
+      ...universalPayload,
+      contextMode: mode,
+      preferredDomains,
+      domainOrder: [...preferredDomains, ...responseOrder.filter((domain) => !preferredDomains.includes(domain))],
     });
   });
 }
@@ -127,14 +134,13 @@ test.describe("universal search typeahead", () => {
 
   test("does not count document-only hits as visible Medication rows", async ({ page }) => {
     await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
-      await route.fulfill({
-        json: {
-          query: "prescribing policy",
-          contextMode: "documents",
-          preferredDomains: ["documents"],
-          domainOrder: ["documents"],
-          groups: [universalPayload.groups[0]],
-        },
+      await fulfillUniversalSearch(route, {
+        ...universalPayload,
+        query: "prescribing policy",
+        contextMode: "documents",
+        preferredDomains: ["documents"],
+        domainOrder: ["documents"],
+        groups: [universalPayload.groups[0]],
       });
     });
     const input = await openComposer(page);
@@ -190,25 +196,66 @@ test.describe("universal search typeahead", () => {
     await expect(page.getByText("Saved").first()).toBeVisible();
   });
 
-  test("shows cross-mode typeahead on a phone viewport", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await mockUniversalSearch(page);
-    const input = await openComposer(page);
-    await input.fill("acamprosate");
+  test("keeps cross-mode typeahead hidden on a landscape touch phone", async ({ browser, baseURL }) => {
+    const context = await browser.newContext({
+      ...(baseURL ? { baseURL } : {}),
+      hasTouch: true,
+      viewport: { width: 844, height: 390 },
+    });
+    const page = await context.newPage();
 
-    await expect(page.getByText(/Current mode · Documents · 1/)).toBeVisible();
-    await expect(page.getByText("Also in Medication · Medications · 1")).toBeVisible();
+    try {
+      await mockUniversalSearch(page);
+      const input = await openComposer(page);
+      await input.fill("acamprosate");
+
+      await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+      await expect(page.getByText(/Current mode · Documents · 1/)).toHaveCount(0);
+      await expect(page.getByText("Also in Medication · Medications · 1")).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
   });
 
   test("keeps compact cross-mode matches visible after submission", async ({ page }) => {
     await mockUniversalSearch(page);
     const universalRequest = page.waitForRequest(/\/api\/search\/universal(?:\?.*)?$/);
-    await page.goto("/services?q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
+    await page.goto("/services?q=13YARN&run=1", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByTestId("universal-also-matches")).toBeVisible();
     await expect(page.getByText("Also matches in other modes")).toBeVisible();
     await expect(page.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
     expect(new URL((await universalRequest).url()).searchParams.get("domains")?.split(",")).not.toContain("services");
+  });
+
+  test("places submitted cross-mode matches after the owning mode results", async ({ page }) => {
+    // "13YARN" matches the demo service fixture so service-search-results renders.
+    // Use an inline mock that echoes back the same query so universal-also-matches renders.
+    await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+      const url = new URL(route.request().url());
+      const mode = url.searchParams.get("mode") ?? "services";
+      const q = url.searchParams.get("q") ?? "13YARN";
+      await fulfillUniversalSearch(route, {
+        ...universalPayload,
+        query: q,
+        contextMode: mode,
+        preferredDomains: [],
+        domainOrder: universalPayload.groups.map((g) => g.kind),
+      });
+    });
+    await page.goto("/services?q=13YARN&run=1", { waitUntil: "domcontentloaded" });
+
+    const results = page.getByTestId("service-search-results");
+    const alsoMatches = page.getByTestId("universal-also-matches");
+    await expect(results).toBeVisible();
+    await expect(alsoMatches).toBeVisible();
+    expect(
+      await alsoMatches.evaluate((node) => {
+        const resultNode = document.querySelector('[data-testid="service-search-results"]');
+        return Boolean((resultNode?.compareDocumentPosition(node) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING);
+      }),
+      "universal-also-matches panel must appear after primary results in the DOM",
+    ).toBe(true);
   });
 
   test("shows submitted cross-mode matches on phones outside hidden desktop headers", async ({ page }) => {
@@ -261,7 +308,7 @@ const smartPayload = {
 test.describe("universal search smart affordances", () => {
   async function mockSmartSearch(page: Page) {
     await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
-      await route.fulfill({ json: smartPayload });
+      await fulfillUniversalSearch(route, smartPayload);
     });
     await page.route(/\/api\/answer(?:\/stream)?(?:\?.*)?$/, async (route) => {
       const answer = {

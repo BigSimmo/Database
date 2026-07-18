@@ -45,7 +45,10 @@ export function DetailScreen() {
         Back to results
       </button>
 
-      <div style={s(`display:grid;grid-template-columns:minmax(0,1fr) 344px;gap:22px;align-items:start;`)}>
+      <div
+        className="tc-stack-sm"
+        style={s(`display:grid;grid-template-columns:minmax(0,1fr) 344px;gap:22px;align-items:start;`)}
+      >
         <div style={s(`display:flex;flex-direction:column;gap:16px;min-width:0;`)}>
           {/* HERO */}
           <div style={s(heroCard + "padding:24px 26px;")}>
@@ -152,17 +155,19 @@ export function DetailScreen() {
 
           {/* ACTIONS */}
           <div style={s(`display:flex;flex-wrap:wrap;gap:10px;`)}>
-            <button
-              type="button"
-              className="tc-btn"
-              onClick={() => b.openSheet(t.slug)}
-              style={s(
-                `display:inline-flex;align-items:center;gap:9px;height:46px;padding:0 20px;border:none;border-radius:12px;background:var(--command);color:var(--command-contrast);font-size:14px;font-weight:600;box-shadow:var(--shadow-tight);cursor:pointer;font-family:inherit;`,
-              )}
-            >
-              <FileTextIcon size={17} />
-              Generate patient sheet
-            </button>
+            {t.patientSheetAvailable ? (
+              <button
+                type="button"
+                className="tc-btn"
+                onClick={() => b.openSheet(t.slug)}
+                style={s(
+                  `display:inline-flex;align-items:center;gap:9px;height:46px;padding:0 20px;border:none;border-radius:12px;background:var(--command);color:var(--command-contrast);font-size:14px;font-weight:600;box-shadow:var(--shadow-tight);cursor:pointer;font-family:inherit;`,
+                )}
+              >
+                <FileTextIcon size={17} />
+                Generate patient sheet
+              </button>
+            ) : null}
             <button
               type="button"
               className="tc-btn"
@@ -386,7 +391,7 @@ function SafetyRow({ therapy }: { therapy: Therapy }) {
     >
       <span
         style={s(
-          `display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:#fff;color:var(--warning-text);flex:none;margin-left:14px;`,
+          `display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:var(--surface);color:var(--warning-text);flex:none;margin-left:14px;`,
         )}
       >
         <AlertIcon size={17} />

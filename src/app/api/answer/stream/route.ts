@@ -5,6 +5,7 @@ import { isDemoMode } from "@/lib/env";
 import { PublicApiError, jsonError } from "@/lib/http";
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
+  consumeSummaryRateLimits,
   consumeSubjectApiRateLimit,
   rateLimitJsonResponse,
   type ApiRateLimitResult,
@@ -51,6 +52,25 @@ function rateLimitStream(rateLimit: ApiRateLimitResult) {
 
 function documentSummaryRateLimitStream(rateLimit: ApiRateLimitResult) {
   return rateLimitJsonResponse("Too many document summary requests. Retry shortly.", rateLimit);
+}
+
+function mergeAbortSignals(signals: Array<AbortSignal | undefined>) {
+  const controller = new AbortController();
+  for (const signal of signals) {
+    if (!signal) continue;
+    if (signal.aborted) {
+      controller.abort(signal.reason);
+      break;
+    }
+    signal.addEventListener(
+      "abort",
+      () => {
+        if (!controller.signal.aborted) controller.abort(signal.reason);
+      },
+      { once: true },
+    );
+  }
+  return controller.signal;
 }
 
 function streamErrorPayload(error: unknown) {
@@ -127,7 +147,12 @@ function buildDemoStreamAnswer(body: AnswerRequestBody, fallbackReason?: string)
   );
 }
 
-function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope, signal?: AbortSignal) {
+function streamAnswer(
+  body: AnswerRequestBody,
+  accessScope: RetrievalAccessScope,
+  signal?: AbortSignal,
+  streamAbortController?: AbortController,
+) {
   const ownerId = accessScope.ownerId;
   const encoder = new TextEncoder();
   const interactionId = randomUUID();
@@ -253,6 +278,9 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
           }
         }
       },
+      cancel() {
+        streamAbortController?.abort();
+      },
     }),
     {
       headers: {
@@ -267,32 +295,34 @@ function streamAnswer(body: AnswerRequestBody, accessScope: RetrievalAccessScope
 export async function POST(request: Request) {
   try {
     const body = await parseJsonBody(request, answerRequestSchema, "Invalid answer request.");
-    if (isDemoMode()) return streamAnswer(body, resolveRetrievalAccessScope(), request.signal);
+    const streamAbortController = new AbortController();
+    const streamSignal = mergeAbortSignals([request.signal, streamAbortController.signal]);
+    if (isDemoMode()) return streamAnswer(body, resolveRetrievalAccessScope(), streamSignal, streamAbortController);
 
     const supabase = createAdminClient();
     const access = await publicAccessContext(request, supabase);
 
-    const rateLimit = await consumeSubjectApiRateLimit({
-      supabase,
-      subject: access.rateLimitSubject,
-      bucket: "answer",
-      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
-    });
-    if (rateLimit.limited) return rateLimitStream(rateLimit);
-
     if (body.summaryMode) {
-      // Streamed full-document summaries use the same paid provider path as the
-      // legacy summary endpoint. Preserve the general answer ceiling, then also
-      // enforce the stricter summary quota before the SSE stream can start.
-      const summaryRateLimit = await consumeSubjectApiRateLimit({
+      const decision = await consumeSummaryRateLimits({
         supabase,
         subject: access.rateLimitSubject,
-        bucket: "document_summarize",
       });
-      if (summaryRateLimit.limited) return documentSummaryRateLimitStream(summaryRateLimit);
+      if (decision.rateLimit.limited) {
+        return decision.bucket === "document_summarize"
+          ? documentSummaryRateLimitStream(decision.rateLimit)
+          : rateLimitStream(decision.rateLimit);
+      }
+    } else {
+      const rateLimit = await consumeSubjectApiRateLimit({
+        supabase,
+        subject: access.rateLimitSubject,
+        bucket: "answer",
+        allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
+      });
+      if (rateLimit.limited) return rateLimitStream(rateLimit);
     }
 
-    return streamAnswer(body, resolveRetrievalAccessScope(access.ownerId), request.signal);
+    return streamAnswer(body, resolveRetrievalAccessScope(access.ownerId), streamSignal, streamAbortController);
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return unauthorizedResponse(error);

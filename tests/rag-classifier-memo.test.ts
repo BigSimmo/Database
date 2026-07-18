@@ -165,6 +165,18 @@ describe("classifier verdict memoization", () => {
     expect(second.queryClass).toBe("broad_summary");
   });
 
+  it("skips the classifier when fallback is not required", async () => {
+    const mock = vi.fn();
+    const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
+    const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
+    const fallback = { ...analysis, needsClassifierFallback: false, queryClass: "unsupported_or_general" as const };
+    const result = await rag.analyzeQueryWithClassifierFallback(query, fallback);
+
+    expect(mock).toHaveBeenCalledTimes(0);
+    expect(result).toBe(fallback);
+    expect(result.queryClass).toBe("unsupported_or_general");
+  });
+
   it("re-calls the model after the memo TTL expires", async () => {
     vi.useFakeTimers({ now: new Date("2026-07-06T00:00:00Z") });
     const mock = vi.fn(async () => classifierResponse());

@@ -12,14 +12,14 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 // Tag-level filters keep production and prototype journeys disjoint even when
 // they share a spec file.
 const productionSpecPattern =
-  /.*ui-(smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|pwa)\.spec\.ts/;
+  /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|pwa))\.spec\.ts/;
 const mockupSpecPattern = /.*ui-(tools|tools-collapse|tools-task-directory)\.spec\.ts/;
 const mockupTag = /@mockup/;
 
 export default defineConfig({
   testDir: "./tests",
   testMatch:
-    /.*ui-(smoke|stress|accessibility|tools|tools-collapse|tools-task-directory|overlap|universal-search|specifiers|formulation|pwa)\.spec\.ts/,
+    /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|tools-collapse|tools-task-directory|overlap|universal-search|specifiers|formulation|pwa))\.spec\.ts/,
   timeout: 60_000,
   retries: 0,
   // Fail the run if a stray `test.only` is committed: otherwise it silently
@@ -43,10 +43,11 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     // Disable CSS/web animations suite-wide so a click can't land mid-transition
-    // on a moving target (documented races in ui-stress/ui-smoke). Set via
-    // contextOptions (the supported form in this Playwright build); the dedicated
+    // on a moving target (documented races in ui-stress/ui-smoke). The dedicated
     // reduced-motion a11y spec emulates it per-test too, so it is unaffected.
-    contextOptions: { reducedMotion: "reduce" },
+    contextOptions: {
+      reducedMotion: "reduce",
+    },
   },
   projects: [
     {

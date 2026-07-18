@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { s } from "./style-utils";
 import { useTherapyData } from "./data/use-therapy-data";
@@ -18,12 +19,38 @@ import type { Pathway, ReferenceData, Therapy } from "./data/types";
 const KNOWN_SCREENS = ["search", "detail", "compare", "recommend", "pathways", "brief", "home", "sheets"] as const;
 export const MAX_COMPARE = 4;
 
+// Therapy Compass now owns a route family under this base. Screen state is derived
+// from the pathname (not React state) so every destination is a real URL: Home is the
+// base, the fixed workspaces are static children, and a therapy detail / brief / sheet
+// is `${BASE}/<slug>[/brief|/sheet]`. Reserved segments never collide with therapy
+// slugs (verified in scripts) so a first segment that is not reserved is a slug.
+const BASE = "/therapy-compass";
+const RESERVED_SEGMENTS = new Set(["search", "recommend", "compare", "pathways", "review"]);
+
+function screenHref(screen: string): string {
+  return screen === "home" ? BASE : `${BASE}/${screen}`;
+}
+
+/** Resolve the active screen + therapy slug from the current pathname. */
+function resolveRoute(pathname: string): { screen: string; slug: string | null } {
+  const rest = pathname.startsWith(BASE) ? pathname.slice(BASE.length).replace(/^\/+/, "") : "";
+  const segments = rest ? rest.split("/") : [];
+  if (segments.length === 0) return { screen: "home", slug: null };
+  const [first, second] = segments;
+  if (RESERVED_SEGMENTS.has(first)) return { screen: first, slug: null };
+  // A non-reserved first segment is a therapy slug; the optional second segment
+  // selects the brief-intervention or patient-sheet sub-view.
+  const screen = second === "brief" ? "brief" : second === "sheet" ? "sheets" : "detail";
+  return { screen, slug: first };
+}
+
 type SheetSectionKey = "about" | "steps" | "practice" | "coping" | "contacts";
 
 export type TcBindings = {
   // ---- data -----------------------------------------------------------
   loading: boolean;
   error: string | null;
+  retryData: () => void;
   therapies: Therapy[];
   unreviewedTherapies: Therapy[];
   reviewCount: number;
@@ -161,7 +188,7 @@ const TcContext = createContext<TcBindings | null>(null);
 
 function navStyle(active: boolean): CSSProperties {
   const base =
-    "display:inline-flex;align-items:center;gap:8px;flex:none;padding:8px 13px;border:1px solid transparent;border-radius:10px;background:transparent;font-family:inherit;font-size:13.5px;white-space:nowrap;cursor:pointer;text-decoration:none;transition:background .12s ease,color .12s ease,border-color .12s ease;";
+    "display:inline-flex;align-items:center;gap:8px;flex:none;min-height:44px;box-sizing:border-box;padding:8px 13px;border:1px solid transparent;border-radius:10px;background:transparent;font-family:inherit;font-size:13.5px;white-space:nowrap;cursor:pointer;text-decoration:none;transition:background .12s ease,color .12s ease,border-color .12s ease;";
   return s(
     active
       ? base +
@@ -171,7 +198,7 @@ function navStyle(active: boolean): CSSProperties {
 }
 function tabStyle(active: boolean): CSSProperties {
   const base =
-    "padding:10px 4px;border:none;background:transparent;font-size:14px;cursor:pointer;font-family:inherit;transition:color .12s ease;";
+    "display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:10px 4px;border:none;background:transparent;font-size:14px;cursor:pointer;font-family:inherit;transition:color .12s ease;";
   return s(
     active
       ? base + "color:var(--clinical-accent-hover);font-weight:650;border-bottom:2px solid var(--clinical-accent);"
@@ -180,7 +207,7 @@ function tabStyle(active: boolean): CSSProperties {
 }
 function segStyle(active: boolean): CSSProperties {
   const base =
-    "padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .12s ease;";
+    "display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .12s ease;";
   return s(
     active
       ? base + "background:var(--surface);color:var(--clinical-accent-hover);box-shadow:var(--shadow-tight);"
@@ -189,7 +216,7 @@ function segStyle(active: boolean): CSSProperties {
 }
 function chipStyle(on: boolean): CSSProperties {
   const base =
-    "padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .12s ease;";
+    "display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .12s ease;";
   return s(
     on
       ? base +
@@ -198,34 +225,43 @@ function chipStyle(on: boolean): CSSProperties {
   );
 }
 
-export function TcProvider({
-  children,
-  initialQuery = "",
-  autoRunSearch = false,
-}: {
-  children: ReactNode;
-  initialQuery?: string;
-  autoRunSearch?: boolean;
-}) {
-  const { data, loading, error } = useTherapyData();
+export function TcProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const { data, loading, error, retry } = useTherapyData();
   const therapies = useMemo(() => data?.therapies ?? [], [data]);
   const pathways = useMemo(() => data?.pathways ?? [], [data]);
 
-  // Honor a run-enabled deep link (/therapy-compass?q=…&run=1): open on Search
-  // with the query seeded, so a query submitted from the universal composer or a
-  // recent-search pick runs in-tool instead of landing on Home. A fresh deep link
-  // while already mounted re-seeds via the provider key in TherapyCompassPage,
-  // which remounts this provider when the run-query changes.
-  const seededQuery = autoRunSearch ? initialQuery.trim() : "";
-  const [screen, setScreen] = useState<string>(seededQuery ? "search" : "home");
+  // The active screen and therapy are derived from the URL: each workspace route
+  // renders the matching screen, and this keeps nav highlighting + the selected
+  // therapy in sync with the address bar (back/forward, deep links, new tabs).
+  const { screen, slug: routeSlug } = resolveRoute(pathname);
+
+  // Non-navigational interaction state lives in the provider, which the layout
+  // keeps mounted across the tool's routes so selections persist between screens.
+  const qParam = (searchParams.get("q") ?? "").trim();
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const [compareSlugs, setCompareSlugs] = useState<string[]>([]);
-  const [search, setSearch] = useState<SearchOptions>(
-    seededQuery ? { ...EMPTY_SEARCH, query: seededQuery } : EMPTY_SEARCH,
+  const [search, setSearch] = useState<SearchOptions>(() =>
+    qParam ? { ...EMPTY_SEARCH, query: qParam } : EMPTY_SEARCH,
   );
   const [recQuery, setRecQuery] = useState("What therapy for anxiety in outpatient care?");
   const [recConstraints, setRecConstraints] = useState<string[]>(["outpatient"]);
   const [selectedPathwaySlug, setSelectedPathwaySlug] = useState<string | null>(null);
+
+  // Seed the search query from a `?q=` deep link (universal-search "view all" or a
+  // recent-search pick) and re-sync whenever the deep link changes, using the
+  // render-phase "adjust state when a value changes" pattern so live typing between
+  // deep links is preserved without a setState-in-effect cascade. The sync is
+  // unconditional (including an empty `q`) so navigating from `?q=act` back to a
+  // query-less URL clears the stale query and the rendered state matches the URL.
+  const [seededQuery, setSeededQuery] = useState(qParam);
+  if (qParam !== seededQuery) {
+    setSeededQuery(qParam);
+    setSearch((prev) => ({ ...prev, query: qParam }));
+  }
 
   const [cmpTab, setCmpTab] = useState("differences");
   const [density, setDensity] = useState("comfortable");
@@ -244,7 +280,9 @@ export function TcProvider({
   const unreviewedTherapies = useMemo(() => therapies.filter((t) => t.reviewStatus !== "reviewed"), [therapies]);
 
   // Default selections once data arrives so detail/brief/sheet/pathways are never empty.
-  const effectiveSelectedSlug = selectedSlug ?? therapies[0]?.slug ?? null;
+  // A slug in the URL always wins; otherwise fall back to any imperatively-set slug,
+  // then the first therapy so the no-arg brief/sheet nav buttons have a target.
+  const effectiveSelectedSlug = routeSlug ?? selectedSlug ?? therapies[0]?.slug ?? null;
   const selectedTherapy = effectiveSelectedSlug ? (bySlug.get(effectiveSelectedSlug) ?? null) : null;
   const effectivePathwaySlug = selectedPathwaySlug ?? pathways[0]?.slug ?? null;
   const selectedPathway = effectivePathwaySlug ? (pathways.find((p) => p.slug === effectivePathwaySlug) ?? null) : null;
@@ -264,13 +302,25 @@ export function TcProvider({
   );
 
   const value = useMemo<TcBindings>(() => {
-    const go = (next: string) => setScreen(next);
+    const go = (next: string) => router.push(screenHref(next));
     const toggleSection = (key: SheetSectionKey) => setSheetSections((prev) => ({ ...prev, [key]: !prev[key] }));
     const patchSearch = (patch: Partial<SearchOptions>) => setSearch((prev) => ({ ...prev, ...patch }));
+    const openSlug = (slug: string, sub?: "brief" | "sheet") =>
+      router.push(sub ? `${BASE}/${slug}/${sub}` : `${BASE}/${slug}`);
+    // Some records ship no brief-intervention / patient-sheet version, and those
+    // subroutes 404. Route to the artifact only when the record actually has it;
+    // otherwise fall back to the therapy's (always-valid) detail page so an entry
+    // point never dead-ends on a 404.
+    const hasBrief = (slug: string | null | undefined) =>
+      !!slug && (bySlug.get(slug)?.briefInterventionAvailable ?? false);
+    const hasSheet = (slug: string | null | undefined) => !!slug && (bySlug.get(slug)?.patientSheetAvailable ?? false);
+    const openBriefOr = (slug: string) => openSlug(slug, hasBrief(slug) ? "brief" : undefined);
+    const openSheetOr = (slug: string) => openSlug(slug, hasSheet(slug) ? "sheet" : undefined);
 
     return {
       loading,
       error,
+      retryData: retry,
       therapies,
       unreviewedTherapies,
       reviewCount: unreviewedTherapies.length,
@@ -284,9 +334,11 @@ export function TcProvider({
       goRecommend: () => go("recommend"),
       goCompare: () => go("compare"),
       goPathways: () => go("pathways"),
-      goBrief: () => go("brief"),
-      goSheets: () => go("sheets"),
-      goDetail: () => go("detail"),
+      // Brief / sheet / detail are therapy sub-routes, so the no-arg nav buttons
+      // open them for the currently-selected therapy (defaulting to the first).
+      goBrief: () => (effectiveSelectedSlug ? openBriefOr(effectiveSelectedSlug) : go("home")),
+      goSheets: () => (effectiveSelectedSlug ? openSheetOr(effectiveSelectedSlug) : go("home")),
+      goDetail: () => (effectiveSelectedSlug ? openSlug(effectiveSelectedSlug) : go("home")),
       goReview: () => go("review"),
       isSearch: screen === "search",
       isDetail: screen === "detail",
@@ -310,26 +362,31 @@ export function TcProvider({
       selectedSlug: effectiveSelectedSlug,
       selectedTherapy,
       relatedForSelected,
-      open: (slug) => {
-        setSelectedSlug(slug);
-        go("detail");
-      },
-      openBrief: (slug) => {
-        setSelectedSlug(slug);
-        go("brief");
-      },
-      openSheet: (slug) => {
-        setSelectedSlug(slug);
-        go("sheets");
-      },
-      select: (slug) => setSelectedSlug(slug),
+      open: (slug) => openSlug(slug),
+      openBrief: (slug) => openBriefOr(slug),
+      openSheet: (slug) => openSheetOr(slug),
+      // On a routed brief/sheet/detail screen the URL slug wins over `selectedSlug`,
+      // so a picker choice must navigate to the chosen therapy's matching subroute
+      // (falling back to detail when it lacks that artifact) instead of only setting
+      // state — otherwise the visible selection would stay pinned to the URL.
+      select: (slug) =>
+        screen === "brief"
+          ? openBriefOr(slug)
+          : screen === "sheets"
+            ? openSheetOr(slug)
+            : screen === "detail"
+              ? openSlug(slug)
+              : setSelectedSlug(slug),
 
       search,
       searchResults,
       setQuery: (q) => patchSearch({ query: q }),
       submitQuery: (q) => {
         patchSearch({ query: q });
-        go("search");
+        const trimmed = q.trim();
+        // Keep the query in the URL so the search screen is deep-linkable / shareable
+        // and the run-enabled link keeps rendering the tool (not the dashboard).
+        router.push(trimmed ? `${BASE}/search?q=${encodeURIComponent(trimmed)}&run=1` : `${BASE}/search`);
       },
       toggleTag: (tag) =>
         setSearch((prev) => ({
@@ -427,10 +484,13 @@ export function TcProvider({
       },
     };
   }, [
+    router,
     loading,
     error,
+    retry,
     data,
     therapies,
+    bySlug,
     unreviewedTherapies,
     pathways,
     screen,

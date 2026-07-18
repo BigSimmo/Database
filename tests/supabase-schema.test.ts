@@ -120,6 +120,22 @@ const supabaseAdminDefaultPrivilegesMigration = readFileSync(
   new URL("../supabase/migrations/20260713102000_revoke_supabase_admin_default_privileges.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const publicationApprovalMigration = readFileSync(
+  new URL("../supabase/migrations/20260717131000_guard_document_publication_approval.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const deleteDocumentIfIdleMigration = readFileSync(
+  new URL("../supabase/migrations/20260717132000_delete_document_if_idle.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const defaultAclAssertionMigration = readFileSync(
+  new URL("../supabase/migrations/20260717161000_assert_supabase_admin_default_privileges.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const defaultAclRoleBootstrap = readFileSync(new URL("../supabase/roles.sql", import.meta.url), "utf8").replace(
+  /\s+/g,
+  " ",
+);
 const scrubLegacyQueryTextMigration = readFileSync(
   new URL("../supabase/migrations/20260713103000_scrub_legacy_rag_query_text.sql", import.meta.url),
   "utf8",
@@ -176,10 +192,38 @@ const searchDocumentChunksOwnerScopeMigration = readFileSync(
   new URL("../supabase/migrations/20260705133000_tighten_search_document_chunks_owner_scope.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const searchDocumentChunksCommittedGenerationMigration = readFileSync(
+  new URL(
+    "../supabase/migrations/20260717130000_filter_search_document_chunks_committed_generation.sql",
+    import.meta.url,
+  ),
+  "utf8",
+).replace(/\s+/g, " ");
 const retrievalPlanCacheMigration = readFileSync(
   new URL("../supabase/migrations/20260711120000_retrieval_fn_plan_cache_mode.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const patchRagAndCorrectorScalabilityMigration = readFileSync(
+  new URL("../supabase/migrations/20260714180000_patch_rag_and_corrector_scalability.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const documentTableFactsTrgmMigration = readFileSync(
+  new URL("../supabase/migrations/20260714190000_document_table_facts_trgm_idx.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const hardenRagScalabilityPatchMigration = readFileSync(
+  new URL("../supabase/migrations/20260717010000_harden_rag_scalability_patch.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+
+function finalSqlSegment(sql: string, startMarker: string, endMarker: string) {
+  const normalized = sql.toLowerCase();
+  const start = normalized.lastIndexOf(startMarker.toLowerCase());
+  if (start < 0) throw new Error(`Missing SQL marker: ${startMarker}`);
+  const end = normalized.indexOf(endMarker.toLowerCase(), start);
+  if (end < 0) throw new Error(`Missing SQL marker after ${startMarker}: ${endMarker}`);
+  return normalized.slice(start, end);
+}
 
 function extractTextChunkFunction(sql: string) {
   const start = sql.indexOf("function public.match_document_chunks_text");
@@ -934,6 +978,39 @@ describe("Supabase schema Data API grants", () => {
     );
   });
 
+  it("filters per-document search to the committed generation before matching and limiting", () => {
+    for (const sql of [schema, searchDocumentChunksCommittedGenerationMigration]) {
+      const functionStart = sql.indexOf("create or replace function public.search_document_chunks(");
+      const functionEnd = sql.indexOf("$$;", functionStart);
+      const definition = sql.slice(functionStart, functionEnd);
+      const generationFilter = definition.indexOf(
+        "public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)",
+      );
+
+      expect(generationFilter).toBeGreaterThanOrEqual(0);
+      expect(generationFilter).toBeLessThan(definition.indexOf("c.search_tsv @@ normalized.query_tsv"));
+      expect(generationFilter).toBeLessThan(definition.indexOf("limit least(greatest(match_count, 1), 80)"));
+    }
+
+    const g0 = "00000000-0000-0000-0000-000000000001";
+    const g1 = "00000000-0000-0000-0000-000000000002";
+    const candidates = [
+      { id: "committed", chunkGeneration: g0, documentGeneration: g0, rank: 0.5 },
+      { id: "staged-higher-rank", chunkGeneration: g1, documentGeneration: g0, rank: 0.99 },
+      { id: "legacy-null", chunkGeneration: null, documentGeneration: null, rank: 0.4 },
+    ];
+    const visible = candidates
+      .filter(
+        (row) =>
+          row.chunkGeneration === row.documentGeneration &&
+          (row.chunkGeneration !== null || row.documentGeneration === null),
+      )
+      .sort((left, right) => right.rank - left.rank)
+      .map((row) => row.id);
+
+    expect(visible).toEqual(["committed", "legacy-null"]);
+  });
+
   it("surfaces stale commit generation RPCs through search_schema_health", () => {
     for (const sql of [schema, searchSchemaHealthM13GuardMigration]) {
       expect(sql).toContain("commit_fn_def := pg_get_functiondef(");
@@ -1081,6 +1158,92 @@ describe("Supabase Preview replay guards", () => {
     );
   });
 
+  it("requires append-only operator evidence for owned-to-public transitions", () => {
+    for (const sql of [schema, publicationApprovalMigration]) {
+      expect(sql).toContain("create table if not exists public.document_publication_approvals");
+      expect(sql).toContain("check (cardinality(evidence_references) > 0)");
+      expect(sql).toContain("unique (document_id, expected_prior_owner_id, manifest_digest)");
+      expect(sql).toContain("before update or delete on public.document_publication_approvals");
+      expect(sql).toContain("before insert or update on public.documents");
+      expect(sql).toContain("if tg_op = 'INSERT' then");
+      expect(sql).toContain("public documents must be created as owned rows before approved publication");
+      expect(sql).toContain("old.owner_id is not null and new.owner_id is null");
+      expect(sql).toContain("approval.expected_prior_owner_id = old.owner_id");
+      expect(sql).toContain("create or replace function public.publish_approved_documents(");
+      expect(sql).toContain("for update;");
+      expect(sql).toContain(
+        "grant execute on function public.publish_approved_documents(jsonb, text, integer) to service_role;",
+      );
+    }
+  });
+
+  it("serializes permanent deletion against ingestion job creation", () => {
+    for (const sql of [schema, deleteDocumentIfIdleMigration]) {
+      const functionStart = sql.indexOf("create or replace function public.delete_document_if_idle(");
+      const functionBody = sql.slice(functionStart, sql.indexOf("$$;", functionStart));
+      const rowLock = functionBody.indexOf("for update;");
+      const activeJobCheck = functionBody.indexOf("from public.ingestion_jobs j");
+      const ledgerInsert = functionBody.indexOf("insert into public.storage_cleanup_jobs");
+      const parentDelete = functionBody.indexOf("delete from public.documents");
+      expect(rowLock).toBeGreaterThanOrEqual(0);
+      expect(rowLock).toBeLessThan(activeJobCheck);
+      expect(activeJobCheck).toBeLessThan(ledgerInsert);
+      expect(ledgerInsert).toBeLessThan(parentDelete);
+      expect(sql).toContain(
+        "grant execute on function public.delete_document_if_idle(uuid, uuid, text, text) to service_role;",
+      );
+      const retryStart = sql.indexOf("create or replace function public.retry_ingestion_job_if_idle(");
+      const retryBody = sql.slice(retryStart, sql.indexOf("$$;", retryStart));
+      expect(retryBody).toContain("for update of d, j;");
+      expect(retryBody.indexOf("for update of d, j;")).toBeLessThan(retryBody.indexOf("update public.ingestion_jobs"));
+      expect(retryBody).toContain("update public.documents");
+      expect(sql).toContain(
+        "grant execute on function public.retry_ingestion_job_if_idle(uuid, uuid, timestamptz, integer, timestamptz, timestamptz) to service_role;",
+      );
+    }
+  });
+
+  it("fails closed on effective supabase_admin default ACLs", () => {
+    for (const sql of [schema, defaultAclAssertionMigration]) {
+      expect(sql).toContain("create or replace function public.default_privileges_status(");
+      expect(sql).toContain("pg_catalog.acldefault(ot.object_code, v_role_oid)");
+      expect(sql).toContain("pg_catalog.aclexplode(ea.acl)");
+      expect(sql).toContain("bool_or(grantee not in (p_role_name, 'postgres', 'service_role'))");
+      expect(sql).toContain("entry like 'table:PUBLIC:%'");
+      expect(sql).toContain("entry like 'sequence:PUBLIC:%'");
+      expect(sql).toContain("entry = 'function:PUBLIC:execute'");
+      expect(sql).toContain("message = 'Unsafe supabase_admin default privileges; migration blocked.'");
+      expect(sql).toContain("Run these six statements as supabase_admin, then retry the migration:");
+    }
+
+    const migrationFiles = readdirSync(migrationDirectoryUrl)
+      .filter((fileName) => /^\d+_.+\.sql$/.test(fileName))
+      .sort();
+    expect(migrationFiles.at(-1)).toBe("20260717173000_reassert_supabase_admin_default_privileges.sql");
+  });
+
+  it("bootstraps safe default ACLs before fresh local and preview migration replay", () => {
+    expect(defaultAclRoleBootstrap).toContain(
+      "alter default privileges for role supabase_admin revoke all privileges on tables from public, anon, authenticated, service_role;",
+    );
+    expect(defaultAclRoleBootstrap).toContain(
+      "alter default privileges for role supabase_admin revoke all privileges on sequences from public, anon, authenticated, service_role;",
+    );
+    expect(defaultAclRoleBootstrap).toContain(
+      "alter default privileges for role supabase_admin revoke execute on functions from public, anon, authenticated, service_role;",
+    );
+    expect(defaultAclRoleBootstrap).toContain(
+      "alter default privileges for role supabase_admin in schema public grant select, insert, update, delete on tables to service_role;",
+    );
+    expect(defaultAclRoleBootstrap).toContain(
+      "alter default privileges for role supabase_admin in schema public grant usage, select on sequences to service_role;",
+    );
+    expect(defaultAclRoleBootstrap).toContain(
+      "alter default privileges for role supabase_admin in schema public grant execute on functions to service_role;",
+    );
+    expect(defaultAclRoleBootstrap).toContain("bool_or(grantee not in ('supabase_admin', 'postgres', 'service_role'))");
+  });
+
   it("scrubs legacy plaintext query text with salted irreversible placeholders", () => {
     // 2026-07-13 audit finding 5: rows written before the HMAC rollout still
     // held raw clinical query text. Placeholders must be salted (not bare
@@ -1185,6 +1348,87 @@ describe("Supabase Preview replay guards", () => {
     );
     expect(ingestionRpcPrivilegesDuplicateMigration).toContain("NEUTRALIZED 2026-07-13");
     expect(ingestionRpcPrivilegesDuplicateMigration).toContain("select 1 where false;");
+  });
+
+  it("keeps the document-title vocabulary lifecycle aligned in migration and schema", () => {
+    for (const sql of [schema, patchRagAndCorrectorScalabilityMigration]) {
+      expect(sql).toContain("create table if not exists public.document_title_words");
+      expect(sql).toContain("word text not null");
+      expect(sql).toContain("document_id uuid not null references public.documents(id) on delete cascade");
+      expect(sql).toContain("primary key (word, document_id)");
+      expect(sql).toContain("insert into public.document_title_words (word, document_id)");
+      expect(sql).toContain("drop trigger if exists documents_sync_title_words on public.documents");
+      expect(sql).toContain("create trigger documents_sync_title_words");
+    }
+  });
+
+  it("hardens registry cleanup without UUID casts or cross-registry collisions", () => {
+    for (const sql of [schema, hardenRagScalabilityPatchMigration]) {
+      const cleanup = finalSqlSegment(
+        sql,
+        "create or replace function public.cleanup_registry_corpus_document()",
+        "revoke execute on function public.cleanup_registry_corpus_document()",
+      );
+      expect(cleanup).toContain("metadata->>'registry_record_id' = old.id::text");
+      expect(cleanup).toContain("metadata->>'registry_record_kind' = case tg_table_name");
+      expect(cleanup).toMatch(/when 'clinical_registry_records' then (pg_catalog\.)?to_jsonb\((old|OLD)\)->>'kind'/);
+      expect(cleanup).toContain("when 'medication_records' then 'medication'");
+      expect(cleanup).toContain("when 'differential_records' then 'differential'");
+      expect(cleanup).not.toContain("registry_record_id')::uuid");
+      expect(sql).toContain(
+        "revoke execute on function public.cleanup_registry_corpus_document() from public, anon, authenticated",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.sync_document_title_words() from public, anon, authenticated",
+      );
+    }
+  });
+
+  it("uses bounded indexed probes for clinical query correction", () => {
+    for (const sql of [schema, hardenRagScalabilityPatchMigration]) {
+      const corrector = finalSqlSegment(
+        sql,
+        "create or replace function public.correct_clinical_query_terms",
+        "revoke execute on function public.correct_clinical_query_terms",
+      );
+      expect(corrector).toContain("lower(alias) % tok");
+      expect(corrector).toContain("lower(canonical) % tok");
+      expect(corrector).toContain("word % tok");
+      expect(corrector).toContain("limit 32");
+      expect(corrector).toContain("min_sim real default 0.45");
+      if (corrector.includes("set pg_trgm.similarity_threshold = 0.3")) {
+        expect(corrector).toContain("set pg_trgm.similarity_threshold = 0.3");
+      }
+      expect(corrector).toContain("best_sim >= min_sim");
+      if (corrector.includes("min_sim is null or min_sim < 0.3 or min_sim > 1")) {
+        expect(corrector).toContain("min_sim is null or min_sim < 0.3 or min_sim > 1");
+      }
+      expect(corrector).not.toContain("array_agg(distinct term)");
+      expect(corrector).not.toContain("unnest(vocab)");
+      expect(sql).toContain("rag_aliases_canonical_trgm_idx");
+    }
+  });
+
+  it("drops the mismatched wide table-facts trigram index and preserves RPC parity", () => {
+    const indexExpression =
+      "lower(coalesce(table_title, '') || ' ' || coalesce(row_label, '') || ' ' || coalesce(clinical_parameter, ''))";
+    const rpcExpression =
+      "lower(coalesce(f.table_title, '') || ' ' || coalesce(f.row_label, '') || ' ' || coalesce(f.clinical_parameter, ''))";
+    const tableFactsRpc = finalSqlSegment(
+      schema,
+      "create or replace function public.match_document_table_facts_text(",
+      "$function$;",
+    );
+
+    expect(documentTableFactsTrgmMigration).toContain("create index if not exists document_table_facts_text_trgm_idx");
+    expect(hardenRagScalabilityPatchMigration).toContain(
+      "drop index if exists public.document_table_facts_text_trgm_idx",
+    );
+    expect(schema).not.toContain("create index if not exists document_table_facts_text_trgm_idx");
+    expect(schema).toContain(
+      `create index if not exists document_table_facts_title_row_param_trgm_idx on public.document_table_facts using gin (${indexExpression} extensions.gin_trgm_ops)`,
+    );
+    expect(tableFactsRpc).toContain(`${rpcExpression} % q.normalized`);
   });
 });
 

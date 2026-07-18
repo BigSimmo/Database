@@ -4,6 +4,23 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 const root = process.cwd();
+const optimizedRetrievalMigration = readFileSync(
+  join(root, "supabase/migrations/20260717160000_optimize_owner_public_retrieval.sql"),
+  "utf8",
+);
+const boundedRetrievalMigration = readFileSync(
+  join(root, "supabase/migrations/20260717162000_bound_versioned_retrieval_match_count.sql"),
+  "utf8",
+);
+const canonicalSchema = readFileSync(join(root, "supabase/schema.sql"), "utf8");
+
+function between(source: string, start: string, end: string): string {
+  const startIndex = source.indexOf(start);
+  const endIndex = source.indexOf(end, startIndex + start.length);
+  expect(startIndex).toBeGreaterThanOrEqual(0);
+  expect(endIndex).toBeGreaterThan(startIndex);
+  return source.slice(startIndex, endIndex);
+}
 
 describe("owner-plus-public retrieval contract", () => {
   it("threads the canonical access scope through cache and retrieval contracts", () => {
@@ -47,6 +64,77 @@ describe("owner-plus-public retrieval contract", () => {
     expect(migration).toContain("bool_or(chunk_present)");
     expect(migration).toContain("get_related_document_metadata_v2");
     expect(migration).not.toContain("returns jsonb");
+  });
+
+  it("executes the production text and index-unit hotspots as one scoped query", () => {
+    for (const source of [optimizedRetrievalMigration, canonicalSchema]) {
+      const scopedText = between(
+        source,
+        "create or replace function public.match_document_chunks_text_scoped(\n  query_text text,\n  match_count integer,",
+        "create or replace function public.match_document_index_units_hybrid_scoped(\n  query_embedding extensions.vector(1536),\n  query_text text,\n  match_count integer,",
+      );
+      expect(scopedText).toContain("chunk_hits as (");
+      expect(scopedText).toContain("title_chunk_hits as (");
+      expect(scopedText).toContain("public.retrieval_owner_matches_v2(owner_filter, d.owner_id, include_public)");
+      expect(scopedText).toContain(
+        "public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)",
+      );
+
+      const scopedIndexUnits = between(
+        source,
+        "create or replace function public.match_document_index_units_hybrid_scoped(\n  query_embedding extensions.vector(1536),\n  query_text text,\n  match_count integer,",
+        "create or replace function public.match_document_chunks_text_v2(",
+      );
+      expect(scopedIndexUnits).toContain("text_hits as (");
+      expect(scopedIndexUnits).toContain("term_hits as (");
+      expect(scopedIndexUnits).toContain("select text_hits.id from text_hits\n    union");
+      expect(scopedIndexUnits).not.toContain("u.search_tsv @@ query.tsq or u.normalized_terms && query.terms");
+      expect(scopedIndexUnits).toContain("public.retrieval_owner_matches_v2(owner_filter, d.owner_id, include_public)");
+
+      const textWrapper = between(
+        source,
+        "create or replace function public.match_document_chunks_text_v2(",
+        source === canonicalSchema
+          ? "create or replace function public.match_document_chunks_hybrid_v2("
+          : "create or replace function public.match_document_index_units_hybrid_v2(",
+      );
+      expect(textWrapper).toContain("from public.match_document_chunks_text_scoped($1, $2, $3, $4, $5)");
+      expect(textWrapper).not.toContain("union all");
+
+      const indexWrapper = between(
+        source,
+        "create or replace function public.match_document_index_units_hybrid_v2(",
+        source === canonicalSchema
+          ? "create or replace function public.match_document_memory_cards_hybrid_v3("
+          : "revoke all on function public.match_document_chunks_text_scoped(",
+      );
+      expect(indexWrapper).toContain(
+        "from public.match_document_index_units_hybrid_scoped($1, $2, $3, $4, $5, $6, $7)",
+      );
+      expect(indexWrapper).not.toContain("union all");
+    }
+  });
+
+  it("bounds nullable and negative result counts at the exposed versioned RPCs", () => {
+    // LIMIT NULL and LIMIT -1 mean "no limit" in PostgreSQL. The wrappers are
+    // the RPC boundary, so clamp here rather than trusting every service-role
+    // caller to validate an optional PostgREST argument.
+    expect(boundedRetrievalMigration).toContain("coalesce($2, 12)");
+    expect(boundedRetrievalMigration).toContain("coalesce($3, 24)");
+    expect(boundedRetrievalMigration).toContain("least(greatest(coalesce($2, 12), 1), 96)");
+    expect(boundedRetrievalMigration).toContain("least(greatest(coalesce($3, 24), 1), 96)");
+    expect(boundedRetrievalMigration).toContain(
+      "revoke all on function public.match_document_chunks_text_v2(text, integer, uuid[], uuid, boolean)\n  from public, anon, authenticated;",
+    );
+    expect(boundedRetrievalMigration).toContain(
+      "grant execute on function public.match_document_chunks_text_v2(text, integer, uuid[], uuid, boolean)\n  to service_role;",
+    );
+    expect(boundedRetrievalMigration).toContain(
+      "revoke all on function public.match_document_index_units_hybrid_v2(\n  extensions.vector, text, integer, double precision, uuid[], uuid, boolean\n) from public, anon, authenticated;",
+    );
+    expect(boundedRetrievalMigration).toContain(
+      "grant execute on function public.match_document_index_units_hybrid_v2(\n  extensions.vector, text, integer, double precision, uuid[], uuid, boolean\n) to service_role;",
+    );
   });
 
   it("merges exact-owner and public rows when a versioned RPC is not deployed yet", async () => {

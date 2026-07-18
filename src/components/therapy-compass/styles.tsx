@@ -1,14 +1,14 @@
 "use client";
 
 /**
- * Scoped helper + print styles for the Therapy Compass mockup.
+ * Scoped helper + print styles for Therapy Compass.
  *
  * The design export shipped a global `<style>` block; we scope the interactive
  * helpers under `.tc-root` so they never leak to the rest of the app, and keep
  * a print rule that reveals only the patient-sheet "paper" (hiding the app
  * chrome, the tool rail and the builder controls). Because this `<style>` is
- * rendered by the Therapy Compass component, it is only present in the DOM on
- * the `/mockups/therapy-compass` route.
+ * rendered by the Therapy Compass workspace, it is only present in the DOM on
+ * the `/therapy-compass/*` routes.
  */
 const CSS = `
 .tc-root .tc-scroll { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
@@ -28,6 +28,17 @@ const CSS = `
 @media (max-width: 640px) {
   .tc-root .tc-main { padding: 20px 16px 32px !important; }
   .tc-root .tc-topnav { padding: 12px 16px !important; gap: 12px !important; }
+  /* Phone: multi-column grids with fixed/minmax tracks would otherwise overflow
+     a 390px viewport and clip clinical content (contraindications, review
+     columns). Collapse them to a single stacked column. */
+  .tc-root .tc-stack-sm { grid-template-columns: 1fr !important; }
+  /* Phone: the comparison table must keep its column structure, so make the
+     table scroll horizontally instead of clipping the right-hand therapies. */
+  .tc-root .tc-scroll-sm {
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 @media print {
   @page { size: A4 portrait; margin: 14mm; }

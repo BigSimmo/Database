@@ -19,7 +19,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
-  LOCAL_NO_AUTH_OWNER_ID: z.string().optional(),
+  LOCAL_NO_AUTH_OWNER_ID: z.string().uuid().optional(),
   PUBLIC_WORKSPACE_OWNER_ID: z.string().uuid().optional(),
   NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED: z.enum(["true", "false"]).optional(),
   NEXT_PUBLIC_MOCKUPS_ENABLED: z.enum(["true", "false"]).optional(),

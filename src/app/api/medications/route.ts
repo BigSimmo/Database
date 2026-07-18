@@ -7,6 +7,7 @@ import {
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
+import { fixtureResponseHeaders } from "@/lib/fixture-response-cache";
 import { jsonError } from "@/lib/http";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
 import {
@@ -61,8 +62,8 @@ function toIndexRecords(records: MedicationRecord[]): MedicationRecord[] {
   }));
 }
 
-function medicationResponse(payload: Record<string, unknown>) {
-  return NextResponse.json(payload, { headers: { "Cache-Control": "private, no-store" } });
+function medicationResponse(payload: Record<string, unknown>, options: { request?: Request; fixture?: boolean } = {}) {
+  return NextResponse.json(payload, { headers: fixtureResponseHeaders(options.request, options) });
 }
 
 function matchesPayload(matches: MedicationSearchMatch[]) {
@@ -99,10 +100,13 @@ export async function GET(request: Request) {
     const { q, limit, fields } = parseRequestQuery(request, medicationListQuerySchema, "Invalid medication query.");
 
     if (isDemoMode() || isLocalNoAuthMode()) {
-      return medicationResponse({
-        ...publicMedicationPayload(q, limit, fields),
-        demoMode: true,
-      });
+      return medicationResponse(
+        {
+          ...publicMedicationPayload(q, limit, fields),
+          demoMode: true,
+        },
+        { request, fixture: true },
+      );
     }
 
     // Anonymous callers still resolve access + rate limit: publicAccessContext skips the
@@ -122,10 +126,13 @@ export async function GET(request: Request) {
     }
 
     if (!access.ownerId) {
-      return medicationResponse({
-        ...publicMedicationPayload(q, limit, fields),
-        publicAccess: true,
-      });
+      return medicationResponse(
+        {
+          ...publicMedicationPayload(q, limit, fields),
+          publicAccess: true,
+        },
+        { request, fixture: true },
+      );
     }
 
     const rows = await fetchOwnerMedicationRowsWithSeed(supabase, access.ownerId, MEDICATION_MAX_RECORDS);

@@ -699,12 +699,90 @@ export async function loadChunksForMemoryCards(
     .filter(Boolean) as SearchResult[];
 }
 
+type ChunkScopeRow = { id: string; document_id: string };
+
+type HydratedDocumentRow = {
+  id: string;
+  title: string;
+  file_name: string;
+  metadata: unknown;
+  owner_id: string | null;
+  status: string;
+};
+
+type HydratedChunkRow = {
+  id: string;
+  document_id: string;
+  page_number: number | null;
+  chunk_index: number;
+  section_heading: string | null;
+  section_path: string[] | null;
+  heading_level: number | null;
+  parent_heading: string | null;
+  anchor_id: string | null;
+  content: string;
+  retrieval_synopsis: string | null;
+  image_ids: string[] | null;
+  index_generation_id: string | null;
+};
+
+export interface ChunkLoadCache {
+  chunkScopes: Map<string, Promise<ChunkScopeRow | null>>;
+  documents: Map<string, Promise<HydratedDocumentRow | null>>;
+  chunks: Map<string, Promise<HydratedChunkRow | null>>;
+}
+
+export function createChunkLoadCache(): ChunkLoadCache {
+  return {
+    chunkScopes: new Map(),
+    documents: new Map(),
+    chunks: new Map(),
+  };
+}
+
+async function loadRowsWithCache<T extends { id: string }>(args: {
+  cache: Map<string, Promise<T | null>>;
+  ids: string[];
+  scopeKey: string;
+  fetchRows: (missingIds: string[]) => Promise<{ data: T[] | null; error: unknown }>;
+}) {
+  const cacheKey = (id: string) => `${args.scopeKey}\0${id}`;
+  const missingIds = args.ids.filter((id) => !args.cache.has(cacheKey(id)));
+
+  if (missingIds.length > 0) {
+    const fetchPromise = Promise.resolve()
+      .then(() => args.fetchRows(missingIds))
+      .then(
+        ({ data, error }) =>
+          error || !data
+            ? { ok: false as const, rows: new Map<string, T>() }
+            : { ok: true as const, rows: new Map(data.map((row) => [row.id, row])) },
+        () => ({ ok: false as const, rows: new Map<string, T>() }),
+      );
+
+    for (const id of missingIds) {
+      const key = cacheKey(id);
+      const rowPromise: Promise<T | null> = fetchPromise.then((result) => {
+        if (!result.ok) {
+          if (args.cache.get(key) === rowPromise) args.cache.delete(key);
+          return null;
+        }
+        return result.rows.get(id) ?? null;
+      });
+      args.cache.set(key, rowPromise);
+    }
+  }
+
+  return Promise.all(args.ids.map((id) => args.cache.get(cacheKey(id))!));
+}
+
 /** Load chunks for signal matches. */
 export async function loadChunksForSignalMatches(args: {
   supabase: ReturnType<typeof createAdminClient>;
   matches: ChunkSignalMatch[];
   ownerId?: string;
   accessScope?: RetrievalAccessScope;
+  cache?: ChunkLoadCache;
 }) {
   const bestMatchByChunk = new Map<string, ChunkSignalMatch>();
   for (const match of args.matches) {
@@ -714,44 +792,76 @@ export async function loadChunksForSignalMatches(args: {
   const chunkIds = Array.from(bestMatchByChunk.keys()).slice(0, 80);
   if (chunkIds.length === 0) return [] as SearchResult[];
 
+  const cache = args.cache || createChunkLoadCache();
   const accessScope = retrievalAccessScopeForArgs(args);
-  const { data: chunkScopes, error: chunkScopesError } = await args.supabase
-    .from("document_chunks")
-    .select("id,document_id")
-    .in("id", chunkIds)
-    .limit(chunkIds.length);
-  if (chunkScopesError || !chunkScopes?.length) return [] as SearchResult[];
+  const cacheScopeKey = retrievalAccessScopeKey(accessScope);
+
+  const chunkScopesResults = await loadRowsWithCache<ChunkScopeRow>({
+    cache: cache.chunkScopes,
+    ids: chunkIds,
+    scopeKey: cacheScopeKey,
+    fetchRows: async (missingChunkIds) => {
+      const { data, error } = await args.supabase
+        .from("document_chunks")
+        .select("id,document_id")
+        .in("id", missingChunkIds)
+        .limit(missingChunkIds.length);
+      return { data: data as ChunkScopeRow[] | null, error };
+    },
+  });
+  const chunkScopes = chunkScopesResults.filter(Boolean) as ChunkScopeRow[];
+  if (!chunkScopes.length) return [] as SearchResult[];
 
   const documentIds = Array.from(new Set(chunkScopes.map((chunk) => chunk.document_id)));
-  let documentQuery = args.supabase
-    .from("documents")
-    .select("id,title,file_name,metadata,owner_id,status")
-    .in("id", documentIds)
-    .eq("status", "indexed");
-  if (accessScope.ownerId && accessScope.includePublic) {
-    documentQuery = documentQuery.or(`owner_id.eq.${accessScope.ownerId},owner_id.is.null`);
-  } else if (accessScope.ownerId) {
-    documentQuery = documentQuery.eq("owner_id", accessScope.ownerId);
-  } else {
-    documentQuery = documentQuery.is("owner_id", null);
-  }
-  const { data: documents, error: documentsError } = await documentQuery;
-  if (documentsError || !documents?.length) return [] as SearchResult[];
+  const documentsResults = await loadRowsWithCache<HydratedDocumentRow>({
+    cache: cache.documents,
+    ids: documentIds,
+    scopeKey: cacheScopeKey,
+    fetchRows: async (missingDocIds) => {
+      let documentQuery = args.supabase
+        .from("documents")
+        .select("id,title,file_name,metadata,owner_id,status")
+        .in("id", missingDocIds)
+        .eq("status", "indexed");
+      if (accessScope.ownerId && accessScope.includePublic) {
+        documentQuery = documentQuery.or(`owner_id.eq.${accessScope.ownerId},owner_id.is.null`);
+      } else if (accessScope.ownerId) {
+        documentQuery = documentQuery.eq("owner_id", accessScope.ownerId);
+      } else {
+        documentQuery = documentQuery.is("owner_id", null);
+      }
+      const { data, error } = await documentQuery;
+      return { data: data as HydratedDocumentRow[] | null, error };
+    },
+  });
+  const documents = documentsResults.filter((document): document is HydratedDocumentRow => document !== null);
+  if (!documents.length) return [] as SearchResult[];
+
   const documentById = new Map(documents.map((document) => [document.id, document]));
   const allowedDocumentIds = new Set(documentById.keys());
   const allowedChunkIds = chunkScopes
     .filter((chunk) => allowedDocumentIds.has(chunk.document_id))
     .map((chunk) => chunk.id);
   if (allowedChunkIds.length === 0) return [] as SearchResult[];
-  const { data: chunks, error: chunksError } = await args.supabase
-    .from("document_chunks")
-    .select(
-      "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids,index_generation_id",
-    )
-    .in("id", allowedChunkIds)
-    .in("document_id", [...allowedDocumentIds])
-    .limit(allowedChunkIds.length);
-  if (chunksError || !chunks?.length) return [] as SearchResult[];
+
+  const chunksResults = await loadRowsWithCache<HydratedChunkRow>({
+    cache: cache.chunks,
+    ids: allowedChunkIds,
+    scopeKey: cacheScopeKey,
+    fetchRows: async (missingAllowedChunkIds) => {
+      const { data, error } = await args.supabase
+        .from("document_chunks")
+        .select(
+          "id,document_id,page_number,chunk_index,section_heading,section_path,heading_level,parent_heading,anchor_id,content,retrieval_synopsis,image_ids,index_generation_id",
+        )
+        .in("id", missingAllowedChunkIds)
+        .in("document_id", [...allowedDocumentIds])
+        .limit(missingAllowedChunkIds.length);
+      return { data: data as HydratedChunkRow[] | null, error };
+    },
+  });
+  const chunks = chunksResults.filter((chunk): chunk is HydratedChunkRow => chunk !== null);
+  if (!chunks.length) return [] as SearchResult[];
 
   return chunks
     .map((chunk) => {
@@ -803,7 +913,6 @@ export async function loadChunksForSignalMatches(args: {
     })
     .filter(Boolean) as SearchResult[];
 }
-
 /**
  * Retrieves document chunks containing table facts relevant to a query.
  *
@@ -820,6 +929,7 @@ export async function searchTableFactCandidates(args: {
   allowGlobalSearch?: boolean;
   matchCount: number;
   telemetry?: SearchTelemetry;
+  cache?: ChunkLoadCache;
 }) {
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
     0,
@@ -876,6 +986,7 @@ export async function searchTableFactCandidates(args: {
     matches: Array.from(grouped.values()),
     ownerId: args.ownerId,
     accessScope: args.accessScope,
+    cache: args.cache,
   });
 }
 
@@ -890,6 +1001,7 @@ export async function searchEmbeddingFieldCandidates(args: {
   allowGlobalSearch?: boolean;
   matchCount: number;
   telemetry?: SearchTelemetry;
+  cache?: ChunkLoadCache;
 }) {
   const { data, error } = await callVersionedRetrievalRpc(
     args.supabase,
@@ -939,6 +1051,7 @@ export async function searchEmbeddingFieldCandidates(args: {
     matches,
     ownerId: args.ownerId,
     accessScope: args.accessScope,
+    cache: args.cache,
   });
 }
 
@@ -953,6 +1066,7 @@ export async function searchIndexUnitCandidates(args: {
   allowGlobalSearch?: boolean;
   matchCount: number;
   telemetry?: SearchTelemetry;
+  cache?: ChunkLoadCache;
 }) {
   const { data, error } = await callVersionedRetrievalRpc(
     args.supabase,
@@ -1004,6 +1118,7 @@ export async function searchIndexUnitCandidates(args: {
     matches,
     ownerId: args.ownerId,
     accessScope: args.accessScope,
+    cache: args.cache,
   });
 }
 

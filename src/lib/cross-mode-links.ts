@@ -1,5 +1,5 @@
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
-import { rankFormRecords, type FormRecord } from "@/lib/forms";
+import { rankFormRecords, type FormRecord } from "@/lib/form-ranker";
 import {
   medicationIdentityBadges,
   medicationIndication,
@@ -7,7 +7,7 @@ import {
   type MedicationRecord,
 } from "@/lib/medications";
 import { extractKeywordTerms } from "@/lib/keyword-query";
-import { rankServiceRecords, type ServiceRecord } from "@/lib/services";
+import { rankServiceRecords, type ServiceRecord } from "@/lib/service-ranker";
 
 export type CrossModeLinkModeId = Extract<AppModeId, "prescribing" | "services" | "forms" | "differentials">;
 

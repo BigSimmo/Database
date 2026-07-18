@@ -310,14 +310,12 @@ export const appModeDefinitions = [
   },
   {
     id: "therapy-compass",
-    label: "Therapy Compass",
+    label: "Therapy",
     description: "Source-grounded therapy decision support",
     href: "/therapy-compass",
-    // Held out of production discovery until the re-curated therapy pathways
-    // receive qualified-clinician sign-off. Stays available in the dev switcher;
-    // hidden from the production sidebar and MODE dropdown. Flip to false (or
-    // remove) once the sequencing is clinically approved.
-    devOnly: true,
+    // Cleared for production discovery: the re-curated therapy pathways have
+    // qualified-clinician sign-off, so Therapy is now a first-class mode in the
+    // production sidebar and MODE dropdown (no longer devOnly-gated).
     search: {
       // Therapy Compass owns its in-tool search over the imported therapy library
       // (not the document corpus), so it borrows the benign "tools" search kind and
@@ -325,15 +323,15 @@ export const appModeDefinitions = [
       kind: "tools",
       placeholder: "Search therapies, symptoms, or skills...",
       inputAriaLabel: "Search therapies by problem, symptom, skill, or population",
-      submitIdleLabel: "Compass",
-      submitBusyLabel: "Compass",
-      submitAriaLabel: "Open Therapy Compass",
+      submitIdleLabel: "Therapy",
+      submitBusyLabel: "Therapy",
+      submitAriaLabel: "Open Therapy",
       emptyTitle: "Browse the therapy library",
       readyTitle: "Search source-grounded therapies",
       progressLabel: "Loading the therapy library.",
       resultKind: "tools",
       resultHeading: "Therapies",
-      statusLabel: "Compass",
+      statusLabel: "Therapy",
       nextStep: "Open a therapy record",
       badgeLabel: null,
     },

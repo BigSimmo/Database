@@ -6,7 +6,6 @@ import {
   FileQuestion,
   FileText,
   Loader2,
-  Route,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -30,22 +29,22 @@ import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-regi
 const taskCards: ModeHomeAction[] = [
   {
     title: "Find a form",
-    description: "Number, pathway, clock, keyword.",
+    description: "Title, purpose, or workflow detail.",
     icon: Search,
     href: appModeHomeHref("forms", { focus: true }),
   },
   {
     title: "Readiness checks",
-    description: "Maker, clock, copies, source.",
+    description: "Review status, source, and local confirmation.",
     icon: ClipboardCheck,
     href: `/forms/${defaultFormSlug() ?? ""}`,
   },
   {
-    title: "Browse pathways",
-    description: "Before, current, parallel, after.",
-    icon: Route,
+    title: "Check source status",
+    description: "Find records that still need local confirmation.",
+    icon: ShieldAlert,
     href: appModeHomeHref("forms", {
-      query: "forms pathway before current parallel after",
+      query: "local confirmation required",
       focus: true,
       run: true,
     }),
@@ -91,9 +90,7 @@ export function FormsHomePage() {
       <ModeHomeStatusNotice
         icon={ShieldAlert}
         title="Session expired"
-        body="Your session expired. Sign in again to open private form records and pathways."
-        actionHref="/"
-        actionLabel="Open account setup"
+        body="Your session expired. Use the account control in the header to sign in again."
       />
     ) : registry.status === "error" ? (
       <ModeHomeStatusNotice
@@ -114,7 +111,7 @@ export function FormsHomePage() {
       <ModeHomeTemplate
         testId="forms-home-template"
         title="Forms"
-        subtitle="Early access: a starter set of MHA 2014 forms. Search, check, or follow a pathway."
+        subtitle="The complete WA MHA 2014 forms register. Search by form code, task, authority, clock, or pathway."
         icon={FileText}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Forms tasks"
@@ -125,8 +122,8 @@ export function FormsHomePage() {
           hasRegistryRecords ? (
             <ModeHomeVerificationFooter
               icon={ShieldCheck}
-              label="Source verified"
-              body="MHA 2014 forms"
+              label="Source catalogue reviewed"
+              body="Official-source MHA 2014 forms · verify before use"
               verifiedCount={verifiedCount}
               totalCount={registry.total}
             />

@@ -101,12 +101,12 @@ export function AnswerEmptyState({
               light text links (not pills) with a hairline divider — this also
               breaks the visual repetition of stacked equal-weight chip rows. */}
           <div className="answer-quick-actions" role="group" aria-label={answerEmptyState.quickActionsLabel}>
-            <button type="button" className="answer-quick-action" onClick={onSearchDocuments}>
+            <button type="button" className="answer-quick-action min-h-tap sm:min-h-7" onClick={onSearchDocuments}>
               <Search className="answer-quick-action-icon" aria-hidden="true" />
               {answerEmptyState.starters.searchDocuments.title}
             </button>
             <span className="answer-quick-action-divider" aria-hidden="true" />
-            <button type="button" className="answer-quick-action" onClick={onUploadDocument}>
+            <button type="button" className="answer-quick-action min-h-tap sm:min-h-7" onClick={onUploadDocument}>
               <Upload className="answer-quick-action-icon" aria-hidden="true" />
               {answerEmptyState.starters.uploadDocument.title}
             </button>
@@ -197,7 +197,7 @@ export function AnswerProgressStepper({
     >
       <div className="flex min-h-8 items-center gap-2">
         {finished ? (
-          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-white">
+          <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]">
             <Check className="h-3.5 w-3.5" aria-hidden />
           </span>
         ) : (

@@ -11,6 +11,7 @@ import {
   searchTableFactCandidates,
   searchTextChunkCandidates,
   withMemoryBoostedCandidates,
+  createChunkLoadCache,
   type MemoryCardCache,
 } from "@/lib/rag-candidate-sources";
 export {
@@ -2370,6 +2371,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   // A3: shared across every withMemoryBoostedCandidates call in this request so the same
   // owner/query memory cards are fetched at most once per (query, embedding-present, count).
   const memoryCardCache: MemoryCardCache = new Map();
+  const chunkLoadCache = createChunkLoadCache();
   const documentRankingMetadataCache = createDocumentRankingMetadataCache();
   const modeQueryClass = queryClassForClinicalMode(args.queryMode ?? "auto");
   const documentFilterList = args.documentIds?.length
@@ -2590,6 +2592,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       allowGlobalSearch: args.allowGlobalSearch,
       matchCount: Math.min(candidateCount, 48),
       telemetry,
+      cache: chunkLoadCache,
     });
     const tableFactLatencyMs = Date.now() - tableFactStartedAt;
     telemetry.supabase_rpc_latency_ms += tableFactLatencyMs;
@@ -2776,6 +2779,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 48),
         telemetry,
+        cache: chunkLoadCache,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
@@ -2791,6 +2795,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         allowGlobalSearch: args.allowGlobalSearch,
         matchCount: Math.min(candidateCount, 64),
         telemetry,
+        cache: chunkLoadCache,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),

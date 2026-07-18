@@ -100,7 +100,10 @@ export function BriefScreen() {
         </button>
       </div>
 
-      <div style={s(`display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start;`)}>
+      <div
+        className="tc-stack-sm"
+        style={s(`display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px;align-items:start;`)}
+      >
         {/* records list */}
         <div
           style={s(
@@ -196,7 +199,7 @@ export function BriefScreen() {
                 type="button"
                 className="tc-btn"
                 onClick={() => b.open(t.slug)}
-                style={s(outlineControl + "height:36px;padding:0 13px;font-size:12.5px;")}
+                style={s(outlineControl + "height:44px;padding:0 13px;font-size:12.5px;")}
               >
                 Open full record
                 <ExternalLinkIcon size={14} strokeWidth={1.7} />
@@ -233,7 +236,7 @@ export function BriefScreen() {
                     <div key={i} style={s(`display:flex;gap:14px;`)}>
                       <span
                         style={s(
-                          `display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:${i === steps.length - 1 ? "var(--clinical-accent)" : "var(--clinical-accent-soft)"};color:${i === steps.length - 1 ? "#fff" : "var(--clinical-accent)"};font-size:12px;font-weight:700;flex:none;`,
+                          `display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:${i === steps.length - 1 ? "var(--clinical-accent)" : "var(--clinical-accent-soft)"};color:${i === steps.length - 1 ? "var(--clinical-accent-contrast)" : "var(--clinical-accent)"};font-size:12px;font-weight:700;flex:none;`,
                         )}
                       >
                         {i + 1}

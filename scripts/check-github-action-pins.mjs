@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { validateActionReference } from "./github-action-pins.mjs";
 import { yamlBlock } from "./yaml-contract.mjs";
@@ -10,10 +10,16 @@ const failures = [];
 const expectedSupabaseCliVersion = "2.108.0";
 const expectedSupabaseCliVersionPattern = expectedSupabaseCliVersion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-for (const fileName of readdirSync(workflowDir)
-  .filter((name) => /\.ya?ml$/i.test(name))
-  .sort()) {
-  const filePath = path.join(workflowDir, fileName);
+function discoverGitHubActionFiles(workflowRoot) {
+  const workflowDir = path.join(workflowRoot, ".github", "workflows");
+  if (!existsSync(workflowDir)) return [];
+  return readdirSync(workflowDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && /\.ya?ml$/i.test(entry.name))
+    .map((entry) => path.join(workflowDir, entry.name));
+}
+
+for (const filePath of discoverGitHubActionFiles(process.cwd())) {
+  const fileName = path.relative(process.cwd(), filePath).replaceAll("\\", "/");
   const lines = readFileSync(filePath, "utf8").split(/\r?\n/);
 
   lines.forEach((line, index) => {
