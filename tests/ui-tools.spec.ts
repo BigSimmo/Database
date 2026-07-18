@@ -1456,8 +1456,8 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(compareAction).toBeVisible();
     await expect(compareAction).toContainText("Compare selected");
 
-    await scrollport.evaluate((element) => element.scrollTo({ top: 700, behavior: "instant" }));
-    await expect.poll(() => scrollport.evaluate((element) => element.scrollTop)).toBeGreaterThan(100);
+    await mainContent.evaluate((element) => element.scrollTo({ top: 700, behavior: "instant" }));
+    await expect.poll(() => mainContent.evaluate((element) => element.scrollTop)).toBeGreaterThan(100);
     await page.waitForTimeout(300);
 
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
@@ -1493,6 +1493,8 @@ test.describe("Clinical KB tools launcher", () => {
     expect(compareGeometry.top).toBeGreaterThanOrEqual(0);
     expect(compareGeometry.bottom).toBeLessThanOrEqual(compareGeometry.viewportHeight);
     expect(compareGeometry.receivesPointer).toBe(true);
+    expect(compareGeometry.bottom).toBeLessThan(dockTop);
+    await expectNoPageHorizontalOverflow(page);
 
     // The result cards and compare bar remain in their non-desktop layout up
     // to 1023px, so the composer must keep providing the portal host on tablet.
