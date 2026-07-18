@@ -57,7 +57,9 @@ const refineFilters: {
 }[] = [
   { icon: Shield, title: "High risk only", subtitle: "Show high risk forms", enabled: false, danger: true },
   { icon: FileText, title: "Official forms", subtitle: "Limit to official forms", enabled: true },
-  { icon: Workflow, title: "Pathway linked", subtitle: "Show pathway-linked", enabled: true },
+  ...(supportsPathwayClaims
+    ? [{ icon: Workflow, title: "Pathway linked", subtitle: "Show pathway-linked", enabled: true }]
+    : []),
   { icon: Search, title: "Source matches", subtitle: "Require source match", enabled: false },
 ];
 
