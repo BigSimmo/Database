@@ -128,4 +128,18 @@ describe("audit navigation and auth regressions", () => {
     expect(clinicalDashboardSource.match(/<h1\b/g)).toHaveLength(1);
     expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical Guide\s*<\/h1>/);
   });
+
+  it("leaves favourites universal matches to the favourites hub", () => {
+    const universalMatchesContract = sourceSegment(
+      clinicalDashboardSource,
+      '{showUniversalAlsoMatches && activeModeResultKind === "tools"',
+      '{activeModeResultKind === "differentials"',
+    );
+
+    expect(universalMatchesContract).toContain("<UniversalSearchAlsoMatches modeId={searchMode}");
+    expect(universalMatchesContract).not.toContain('activeModeResultKind === "favourites"');
+    expect(source("src/components/clinical-dashboard/favourites-command-library-page.tsx")).toContain(
+      '<UniversalSearchAlsoMatches modeId="favourites" query={query} />',
+    );
+  });
 });

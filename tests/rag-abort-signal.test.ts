@@ -36,7 +36,7 @@ describe("RAG abort signal propagation", () => {
   it("attaches the caller signal to versioned retrieval RPC builders", async () => {
     const controller = new AbortController();
     const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
-    const abortSignal = vi.fn(async (_signal: AbortSignal) => ({ data: [], error: null }));
+    const abortSignal = vi.fn(async () => ({ data: [], error: null }));
     const supabase = {
       rpc: vi.fn((name: string, args: Record<string, unknown>) => {
         rpcCalls.push({ name, args });

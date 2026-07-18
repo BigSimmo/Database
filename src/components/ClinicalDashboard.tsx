@@ -3716,7 +3716,7 @@ export function ClinicalDashboard({
                     </div>
                   ) : null)}
 
-                {showUniversalAlsoMatches && activeModeResultKind !== "answer" ? (
+                {showUniversalAlsoMatches && activeModeResultKind === "tools" ? (
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
 
