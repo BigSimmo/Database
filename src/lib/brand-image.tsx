@@ -2,16 +2,21 @@
 // routes (apple-icon, PWA maskable/any icons, opengraph-image). All derive from
 // the single geometry source in ./brand-mark so raster app icons never drift
 // from the in-app mark or the favicon.
-import { BRAND_LIGHT, brandMarkSvg } from "@/lib/brand-mark";
+import { BRAND_LIGHT, brandMarkSvg, type BrandColors } from "@/lib/brand-mark";
 
 /** Teal field used behind full-bleed (apple / maskable) icons. */
 export const BRAND_ICON_FIELD = BRAND_LIGHT.tile;
 
-/** data: URI of the flat brand-mark SVG (light palette) for <img> inside
- *  ImageResponse. Satori rasterises the SVG server-side, so no browser CSP or
- *  network is involved. `#` in colours is percent-encoded by encodeURIComponent. */
-export function brandMarkDataUri(): string {
-  return `data:image/svg+xml,${encodeURIComponent(brandMarkSvg(BRAND_LIGHT))}`;
+/** Single-colour palette for manifest `monochrome` icons: platforms read only
+ *  the alpha channel and recolour the silhouette themselves, so the tile and
+ *  ink collapse into one white glyph on a transparent field. */
+export const BRAND_MONOCHROME: BrandColors = { tile: "#ffffff", ink: "#ffffff" };
+
+/** data: URI of the flat brand-mark SVG for <img> inside ImageResponse. Satori
+ *  rasterises the SVG server-side, so no browser CSP or network is involved.
+ *  `#` in colours is percent-encoded by encodeURIComponent. */
+export function brandMarkDataUri(colors: BrandColors = BRAND_LIGHT): string {
+  return `data:image/svg+xml,${encodeURIComponent(brandMarkSvg(colors))}`;
 }
 
 /**
@@ -25,10 +30,12 @@ export function BrandIconImage({
   size,
   background = "transparent",
   inset = 1,
+  colors = BRAND_LIGHT,
 }: {
   size: number;
   background?: string;
   inset?: number;
+  colors?: BrandColors;
 }) {
   const px = Math.round(size * inset);
   return (
@@ -42,7 +49,7 @@ export function BrandIconImage({
         background,
       }}
     >
-      <img src={brandMarkDataUri()} width={px} height={px} alt="" />
+      <img src={brandMarkDataUri(colors)} width={px} height={px} alt="" />
     </div>
   );
 }
