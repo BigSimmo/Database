@@ -186,31 +186,28 @@ export function CompareScreen() {
           </div>
 
           {/* tabs */}
-          <div className="tc-compare-tabs tc-screens-compare-screen-017" role="tablist" aria-label="Comparison fields">
+          <div className="tc-compare-tabs tc-screens-compare-screen-017">
             <button
               type="button"
-              role="tab"
               className={`tc-btn ${b.tabPriorities}`}
               onClick={b.setTabPriorities}
-              aria-selected={b.cmpTab === "priorities"}
+              aria-pressed={b.cmpTab === "priorities"}
             >
               Priorities
             </button>
             <button
               type="button"
-              role="tab"
               className={`tc-btn ${b.tabDifferences}`}
               onClick={b.setTabDifferences}
-              aria-selected={b.cmpTab === "differences"}
+              aria-pressed={b.cmpTab === "differences"}
             >
               Differences
             </button>
             <button
               type="button"
-              role="tab"
               className={`tc-btn ${b.tabAll}`}
               onClick={b.setTabAll}
-              aria-selected={b.cmpTab === "all"}
+              aria-pressed={b.cmpTab === "all"}
             >
               All fields
             </button>

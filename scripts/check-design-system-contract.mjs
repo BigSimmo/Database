@@ -17,6 +17,8 @@ const CUSTOM_CONTROL_CLASS_PROP =
 
 // Raw literals are permitted only at the source-of-truth or where a fixed
 // external/rendering contract makes semantic app tokens inappropriate.
+// Categories: global theme tokens, brand artwork, diagnostic visualizations,
+// OpenGraph artwork, error fallbacks, printable Therapy paper, printable factsheet paper.
 const RAW_COLOR_EXEMPTIONS = [
   { category: "global theme tokens", pattern: /^src\/app\/globals\.css$/ },
   {
@@ -30,10 +32,82 @@ const RAW_COLOR_EXEMPTIONS = [
   },
   { category: "OpenGraph artwork", pattern: /^src\/app\/opengraph-image\.tsx$/ },
   { category: "error fallbacks", pattern: /^src\/(?:app\/global-error|components\/route-error-boundary)\.tsx$/ },
-  { category: "printable Therapy paper", pattern: /^src\/components\/therapy-compass\/therapy-compass\.css$/ },
+  {
+    category: "printable Therapy paper",
+    pattern: /^src\/components\/therapy-compass\/therapy-compass\.css$/,
+    // Only exempt raw colors within .tc-paper rule block and @media print block
+    extractExemptRanges(text) {
+      const ranges = [];
+      // Extract .tc-paper { ... } rule block (lines ~886-905)
+      const paperStart = text.indexOf(".tc-paper {");
+      if (paperStart !== -1) {
+        let braceCount = 0;
+        let inBlock = false;
+        for (let i = paperStart; i < text.length; i++) {
+          if (text[i] === "{") {
+            braceCount++;
+            inBlock = true;
+          } else if (text[i] === "}") {
+            braceCount--;
+            if (braceCount === 0 && inBlock) {
+              ranges.push({ start: paperStart, end: i + 1 });
+              break;
+            }
+          }
+        }
+      }
+      // Extract @media print { ... } block (lines ~988-1021)
+      const printStart = text.indexOf("@media print {");
+      if (printStart !== -1) {
+        let braceCount = 0;
+        let inBlock = false;
+        for (let i = printStart; i < text.length; i++) {
+          if (text[i] === "{") {
+            braceCount++;
+            inBlock = true;
+          } else if (text[i] === "}") {
+            braceCount--;
+            if (braceCount === 0 && inBlock) {
+              ranges.push({ start: printStart, end: i + 1 });
+              break;
+            }
+          }
+        }
+      }
+      return ranges;
+    },
+  },
   {
     category: "printable factsheet paper",
     pattern: /^src\/components\/factsheets\/factsheet-detail-page\.tsx$/,
+    // Only exempt raw colors within FactsheetPrintSheet function body
+    extractExemptRanges(text) {
+      const ranges = [];
+      const funcStart = text.indexOf("function FactsheetPrintSheet(");
+      if (funcStart !== -1) {
+        // Skip past the parameter list to find the function body opening brace
+        // The parameter list ends with ") {", so find that pattern
+        const paramEnd = text.indexOf(") {", funcStart);
+        if (paramEnd !== -1) {
+          const bodyStart = paramEnd + 2; // Position of the '{'
+          let braceCount = 0;
+          let inBlock = false;
+          for (let i = bodyStart; i < text.length; i++) {
+            if (text[i] === "{") {
+              braceCount++;
+              inBlock = true;
+            } else if (text[i] === "}") {
+              braceCount--;
+              if (braceCount === 0 && inBlock) {
+                ranges.push({ start: funcStart, end: i + 1 });
+                break;
+              }
+            }
+          }
+        }
+      }
+      return ranges;
+    },
   },
 ];
 
@@ -66,8 +140,37 @@ function withoutComments(text) {
   return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 }
 
-function rawColorIsExempt(relativePath) {
-  return RAW_COLOR_EXEMPTIONS.some(({ pattern }) => pattern.test(relativePath));
+function countRawColorsWithExemptions(relativePath, text) {
+  const contractSource = withoutComments(text);
+  const exemption = RAW_COLOR_EXEMPTIONS.find(({ pattern }) => pattern.test(relativePath));
+
+  if (!exemption) {
+    // No exemption: count all raw colors
+    return countMatches(contractSource, RAW_COLOR);
+  }
+
+  if (!exemption.extractExemptRanges) {
+    // Whole-file exemption: count nothing
+    return 0;
+  }
+
+  // Scoped exemption: count only raw colors outside the exempt ranges
+  const exemptRanges = exemption.extractExemptRanges(contractSource);
+  const matches = [...contractSource.matchAll(RAW_COLOR)];
+  let count = 0;
+
+  for (const match of matches) {
+    const matchStart = match.index;
+    const matchEnd = matchStart + match[0].length;
+    const isExempt = exemptRanges.some(
+      (range) => matchStart >= range.start && matchEnd <= range.end
+    );
+    if (!isExempt) {
+      count++;
+    }
+  }
+
+  return count;
 }
 
 function jsxClassText(attribute) {
@@ -84,7 +187,19 @@ function jsxClassText(attribute) {
       ...initializer.expression.templateSpans.map((span) => span.literal.text),
     ].join(" ");
   }
-  return initializer.expression.getText();
+  // For composed expressions, extract and test individual string/template literals
+  const literals = [];
+  function collectLiterals(node) {
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      literals.push(node.text);
+    } else if (ts.isTemplateExpression(node)) {
+      literals.push(node.head.text);
+      node.templateSpans.forEach((span) => literals.push(span.literal.text));
+    }
+    node.forEachChild(collectLiterals);
+  }
+  collectLiterals(initializer.expression);
+  return literals.length > 0 ? literals.join(" ") : initializer.expression.getText();
 }
 
 function findInteractiveTapLiterals(file) {
@@ -161,7 +276,7 @@ const metrics = {
 for (const file of files) {
   const source = textAt(file.relativePath);
   const contractSource = withoutComments(source);
-  if (!rawColorIsExempt(file.relativePath)) metrics.rawColorLiterals += countMatches(contractSource, RAW_COLOR);
+  metrics.rawColorLiterals += countRawColorsWithExemptions(file.relativePath, source);
   metrics.literalShadowClasses += countMatches(contractSource, LITERAL_SHADOW_CLASS);
   metrics.legacyTapClasses += countMatches(contractSource, LEGACY_TAP_CLASS);
   assert(
@@ -226,10 +341,13 @@ assert(
 assert(therapyCss.includes(".tc-btn:hover:not(:disabled)"), "Therapy buttons need a hover state");
 assert(therapyCss.includes(".tc-btn:disabled"), "Therapy buttons need a disabled state");
 
-const paperRules = therapyCss.slice(
-  therapyCss.indexOf(".tc-root .tc-screens-sheets-screen-023"),
-  therapyCss.indexOf(".tc-root .tc-screens-sheets-screen-050"),
+const paperRulesStart = therapyCss.indexOf(".tc-root .tc-screens-sheets-screen-023");
+const paperRulesEnd = therapyCss.indexOf(".tc-root .tc-screens-sheets-screen-050");
+assert(
+  paperRulesStart !== -1 && paperRulesEnd !== -1 && paperRulesStart < paperRulesEnd,
+  "paper-rule selector sentinels are missing or misordered in therapy-compass.css",
 );
+const paperRules = therapyCss.slice(paperRulesStart, paperRulesEnd);
 assert(
   !/var\(--(?:background|surface|border|text|clinical|command|focus)/.test(paperRules),
   "patient-sheet paper rules leaked theme-reactive application tokens",
@@ -247,7 +365,6 @@ const semanticSources = [
   .join("\n");
 assert(semanticSources.includes("aria-current"), "Therapy navigation needs aria-current");
 assert(semanticSources.includes("aria-pressed"), "Therapy toggles need aria-pressed");
-assert(semanticSources.includes("aria-selected"), "Therapy tabs need aria-selected");
 assert(
   /disabled=\{items\.length === 0\}/.test(textAt("src/components/therapy-compass/screens/compare-screen.tsx")),
   "empty compare Clear must be disabled",

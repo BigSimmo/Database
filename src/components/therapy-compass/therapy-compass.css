@@ -852,6 +852,8 @@
   position: relative;
   width: 42px;
   height: 24px;
+  min-width: var(--spacing-tap);
+  min-height: var(--spacing-tap);
   flex: none;
   border: 0;
   border-radius: 12px;
@@ -873,7 +875,7 @@
   height: 18px;
   border-radius: 50%;
   background: var(--surface-raised);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 20%);
+  box-shadow: var(--shadow-tight);
   transition: left 150ms ease;
 }
 
@@ -897,6 +899,7 @@
   --tc-paper-warning-border: #f0e2c8;
   --tc-paper-focus: #0b6f86;
   --tc-paper-shadow: 0 2px 6px rgb(15 23 32 / 8%), 0 18px 42px rgb(15 23 32 / 10%);
+
   background: var(--tc-paper-background);
   color: var(--tc-paper-ink);
 }
@@ -984,7 +987,7 @@
 
 @media print {
   @page {
-    size: A4 portrait;
+    size: a4 portrait;
     margin: 14mm;
   }
 

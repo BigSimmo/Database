@@ -269,7 +269,12 @@ function TherapyPicker() {
 
   return (
     <div className="tc-screens-sheets-screen-050">
-      <button type="button" className="tc-btn tc-screens-sheets-screen-051" onClick={() => setOpen((v) => !v)}>
+      <button
+        type="button"
+        className="tc-btn tc-screens-sheets-screen-051"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
         <span className="tc-screens-sheets-screen-052">
           <ScaleIcon size={16} className="tc-screens-sheets-screen-053" />
           <span className="tc-screens-sheets-screen-054">{b.selectedTherapy?.name ?? "Choose a therapy"}</span>
