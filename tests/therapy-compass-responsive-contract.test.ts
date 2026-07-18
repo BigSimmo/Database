@@ -8,6 +8,7 @@ const therapyPath = "src/components/therapy-compass";
 const stylesSource = read(`${therapyPath}/styles.tsx`);
 const therapyCardSource = read(`${therapyPath}/therapy-card.tsx`);
 const homeSource = read(`${therapyPath}/screens/home-screen.tsx`);
+const modeHomeTemplateSource = read("src/components/mode-home-template.tsx");
 const detailSource = read(`${therapyPath}/screens/detail-screen.tsx`);
 const compareSource = read(`${therapyPath}/screens/compare-screen.tsx`);
 const recommendSource = read(`${therapyPath}/screens/recommend-screen.tsx`);
@@ -53,6 +54,8 @@ describe("Therapy Compass responsive contract", () => {
     expect(responsiveStackCount(therapyCardSource)).toBeGreaterThanOrEqual(2);
     expect(homeSource).toContain("ModeHomeMain");
     expect(homeSource).toContain("ModeHomeTemplate");
+    expect(modeHomeTemplateSource).toContain("sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
+    expect(modeHomeTemplateSource).toContain("sm:flex-wrap");
     expect(homeSource).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
     expect(homeSource).toContain("ModeHomeVerificationFooter");
     expect(responsiveStackCount(detailSource)).toBeGreaterThanOrEqual(2);
@@ -105,6 +108,9 @@ describe("clinical accent contrast contract", () => {
       expect(source).not.toMatch(/bg-\[color:var\(--clinical-accent\)\][^"\n]*\btext-white\b/);
       expect(source).toContain("clinical-accent-contrast");
     }
+    expect(homeSource).toContain("ModeHomeTemplate");
+    expect(homeSource).not.toMatch(/background:var\(--clinical-accent\);color:#(?:fff|ffffff)/i);
+    expect(homeSource).not.toMatch(/bg-\[color:var\(--clinical-accent\)\][^"\n]*\btext-white\b/);
     expect(pathwaysSource).not.toContain('? "#fff" : "var(--clinical-accent)"');
     expect(briefSource).not.toContain('? "#fff" : "var(--clinical-accent)"');
   });

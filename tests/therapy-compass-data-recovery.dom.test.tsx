@@ -58,6 +58,7 @@ describe("Therapy Compass required data recovery", () => {
     );
 
     expect(await screen.findByRole("status")).toHaveTextContent("Loading therapy library…");
+    expect(screen.getAllByRole("main")).toHaveLength(1);
     expect(screen.queryByText(/Search 0 source-grounded therapy/)).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "What therapy are you looking for?" })).not.toBeInTheDocument();
 
@@ -65,6 +66,7 @@ describe("Therapy Compass required data recovery", () => {
 
     await waitFor(() => expect(screen.getByText(/Search 1 source-grounded therapy record by/)).toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "What therapy are you looking for?" })).toBeInTheDocument();
+    expect(screen.getAllByRole("main")).toHaveLength(1);
     expect(screen.queryByText(/Search 0 source-grounded therapy/)).not.toBeInTheDocument();
   });
 
