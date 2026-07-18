@@ -257,6 +257,22 @@ function selfTest() {
   const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
   for (const item of requiredClinicalGovernanceItems)
     assert.match(template, new RegExp(`- \\[ \\] ${item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  const workflow = readFileSync(new URL("../.github/workflows/pr-policy.yml", import.meta.url), "utf8");
+  assert.match(
+    workflow,
+    /ref:\s*\$\{\{\s*github\.workflow_sha\s*\}\}/,
+    "PR policy workflow must checkout github.workflow_sha for a deterministic trusted tree.",
+  );
+  assert.doesNotMatch(
+    workflow,
+    /ref:\s*\$\{\{\s*github\.base_ref\s*\}\}/,
+    "PR policy workflow must not checkout the moving base branch ref.",
+  );
+  assert.doesNotMatch(
+    workflow,
+    /ref:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha\s*\}\}/,
+    "PR policy workflow must not checkout a potentially stale pull_request.base.sha.",
+  );
   console.error("[pr-policy] self-test passed");
 }
 
