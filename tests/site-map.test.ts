@@ -61,7 +61,7 @@ describe("tracked sitemap", () => {
     for (const redirect of data.redirects) expectDocumentedRoute(redirect.route);
   });
 
-  it("keeps public redirect handlers in product routes and API handlers in the API section", () => {
+  it("keeps public redirect handlers out of API routes and records their redirects", () => {
     const data = collectSiteMapData();
     const productSection = siteMap.slice(
       siteMap.indexOf("## Main product routes"),
