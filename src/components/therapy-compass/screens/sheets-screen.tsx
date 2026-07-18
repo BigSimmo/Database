@@ -272,8 +272,8 @@ function TherapyPicker() {
       <button
         type="button"
         className="tc-btn tc-screens-sheets-screen-051"
-        onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
       >
         <span className="tc-screens-sheets-screen-052">
           <ScaleIcon size={16} className="tc-screens-sheets-screen-053" />

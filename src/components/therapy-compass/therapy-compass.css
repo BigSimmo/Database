@@ -850,37 +850,49 @@
 
 .tc-clinician-track {
   position: relative;
-  width: 42px;
-  height: 24px;
-  min-width: var(--spacing-tap);
-  min-height: var(--spacing-tap);
+  width: var(--spacing-tap);
+  height: var(--spacing-tap);
   flex: none;
   border: 0;
-  border-radius: 12px;
-  background: var(--border-strong);
+  border-radius: 999px;
+  background: transparent;
   padding: 0;
   cursor: pointer;
+}
+
+.tc-clinician-track::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 42px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--border-strong);
+  content: "";
+  transform: translate(-50%, -50%);
   transition: background-color 150ms ease;
 }
 
-.tc-clinician-track.tc-is-active {
+.tc-clinician-track.tc-is-active::before {
   background: var(--clinical-accent);
 }
 
 .tc-clinician-knob {
   position: absolute;
-  top: 3px;
-  left: 3px;
+  z-index: 1;
+  top: 50%;
+  left: calc(50% - 18px);
   width: 18px;
   height: 18px;
   border-radius: 50%;
   background: var(--surface-raised);
   box-shadow: var(--shadow-tight);
+  transform: translateY(-50%);
   transition: left 150ms ease;
 }
 
 .tc-clinician-knob.tc-is-active {
-  left: 21px;
+  left: 50%;
 }
 
 .tc-paper {

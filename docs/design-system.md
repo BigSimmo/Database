@@ -19,8 +19,8 @@ contract and the code — not reinvention. If a change genuinely needs a new dir
   `slate-200`, `bg-white`) and no hex values in components. **If you typed a hex or a Tailwind
   colour name in a component, you broke dark mode** — those values have no `.dark` override.
   Sanctioned raw-colour exceptions are explicit and narrow: brand artwork, diagnostic-only
-  visualizations, generated OpenGraph artwork, emergency error fallbacks, and the scoped
-  fixed-white Therapy patient sheet. `scripts/check-design-system-contract.mjs` owns the
+  visualizations, generated OpenGraph artwork, emergency error fallbacks, the scoped
+  fixed-white Therapy patient sheet, and the scoped factsheet print sheet. `scripts/check-design-system-contract.mjs` owns the
   path allowlist; adding a category requires documenting why semantic app tokens are wrong.
 - **Semantic vs categorical vs brand.** Three token families, never interchangeable:
   - Semantic triads (`--info/-soft/-border`, `--success-*`, `--warning-*`, `--danger-*`) mean

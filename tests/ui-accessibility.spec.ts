@@ -417,11 +417,38 @@ test.describe("Clinical KB accessibility coverage", () => {
 
     await expectNoPageHorizontalOverflow(page);
 
+    await page.goto("/therapy-compass/cognitive-behavioural-therapy-cbt/brief", {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByRole("heading", { name: "Brief Intervention" })).toBeVisible({ timeout: 60_000 });
+    const durationGroup = page.getByRole("group", { name: "Brief intervention duration" });
+    const fiveMinuteButton = durationGroup.getByRole("button", { name: "5 minutes", exact: true });
+    const fifteenMinuteButton = durationGroup.getByRole("button", { name: "15 minutes", exact: true });
+    await expect(fiveMinuteButton).toHaveAttribute("aria-pressed", "true");
+    await fifteenMinuteButton.click();
+    await expect(fiveMinuteButton).toHaveAttribute("aria-pressed", "false");
+    await expect(fifteenMinuteButton).toHaveAttribute("aria-pressed", "true");
+
     await page.goto("/therapy-compass/cognitive-behavioural-therapy-cbt/sheet", {
       waitUntil: "domcontentloaded",
     });
     await expect(page.getByRole("heading", { name: "Patient Sheet Builder" })).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole("button", { name: "Plain", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+    const clinicianSwitch = page.getByRole("switch", { name: "Show clinician footer" });
+    const clinicianSwitchSize = await clinicianSwitch.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      return { width: bounds.width, height: bounds.height };
+    });
+    expect(clinicianSwitchSize.width).toBeGreaterThanOrEqual(44);
+    expect(clinicianSwitchSize.height).toBeGreaterThanOrEqual(44);
+
+    const therapyPicker = page.locator("button.tc-screens-sheets-screen-051");
+    await expect(therapyPicker).toHaveAttribute("aria-expanded", "false");
+    await therapyPicker.click();
+    await expect(therapyPicker).toHaveAttribute("aria-expanded", "true");
+    await therapyPicker.click();
+    await expect(therapyPicker).toHaveAttribute("aria-expanded", "false");
 
     const paper = page.locator(".tc-paper");
     const paperColors = await paper.evaluate((element) => {

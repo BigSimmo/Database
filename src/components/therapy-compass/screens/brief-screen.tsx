@@ -74,21 +74,11 @@ export function BriefScreen() {
         </div>
       </div>
 
-      <div className="tc-screens-brief-screen-006">
-        <button
-          type="button"
-          className={`tc-btn ${b.brief5}`}
-          onClick={b.set5}
-          aria-pressed={b.briefTab === "5min"}
-        >
+      <div className="tc-screens-brief-screen-006" role="group" aria-label="Brief intervention duration">
+        <button type="button" className={`tc-btn ${b.brief5}`} onClick={b.set5} aria-pressed={b.briefTab === "5min"}>
           5 minutes
         </button>
-        <button
-          type="button"
-          className={`tc-btn ${b.brief15}`}
-          onClick={b.set15}
-          aria-pressed={b.briefTab === "15min"}
-        >
+        <button type="button" className={`tc-btn ${b.brief15}`} onClick={b.set15} aria-pressed={b.briefTab === "15min"}>
           15 minutes
         </button>
         <button

@@ -91,6 +91,21 @@ describe("Therapy Compass responsive contract", () => {
     expect(therapyCssSource).toMatch(/\.tc-therapy-card-009\s*\{[\s\S]*?cursor:\s*not-allowed;/);
     expect(favouriteButton).not.toContain("onClick");
   });
+
+  it("uses complete toggle semantics and preserves full-size control hit targets", () => {
+    for (const source of [briefSource, compareSource]) {
+      expect(source).toContain('role="group"');
+      expect(source).toContain("aria-pressed=");
+      expect(source).not.toContain('role="tab"');
+      expect(source).not.toContain("aria-selected=");
+    }
+
+    expect(sheetsSource).toContain("aria-expanded={open}");
+    expect(therapyCssSource).toMatch(
+      /\.tc-clinician-track\s*\{[\s\S]*?width:\s*var\(--spacing-tap\);[\s\S]*?height:\s*var\(--spacing-tap\);/,
+    );
+    expect(therapyCssSource).toMatch(/\.tc-clinician-track::before\s*\{[\s\S]*?width:\s*42px;[\s\S]*?height:\s*24px;/);
+  });
 });
 
 describe("clinical accent contrast contract", () => {

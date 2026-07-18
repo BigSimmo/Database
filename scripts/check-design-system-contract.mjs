@@ -3,113 +3,24 @@ import path from "node:path";
 import process from "node:process";
 import ts from "typescript";
 
+import {
+  LEGACY_TAP_CLASS,
+  RAW_COLOR_EXEMPTIONS,
+  findInteractiveTapLiteralsInSource,
+  hasLegacyTapClass,
+  jsxClassText,
+  rawColorContractSource,
+} from "./design-system-contract-utils.mjs";
+
 const ROOT = process.cwd();
 const SRC_ROOT = path.join(ROOT, "src");
 const BASELINE_PATH = path.join(ROOT, "scripts", "design-system-contract-baseline.json");
 const PRINT_METRICS = process.argv.includes("--print-metrics");
 const SOURCE_EXTENSIONS = new Set([".css", ".ts", ".tsx"]);
-const LEGACY_TAP_CLASS = /(?:^|\s)(?:h|w|min-h|min-w|size)-11(?=\s|$)/g;
-const LEGACY_TAP_CLASS_TEST = /(?:^|\s)(?:h|w|min-h|min-w|size)-11(?=\s|$)/;
 const RAW_COLOR = /#[0-9a-f]{3,8}\b|\b(?:rgb|rgba|hsl|hsla|oklch)\(/gi;
 const LITERAL_SHADOW_CLASS = /shadow-\[(?!var\()[^\]]+\]/g;
 const CUSTOM_CONTROL_CLASS_PROP =
-  /(?:closeButtonClassName|sheetCloseButtonClassName|buttonClassName|triggerClassName)\s*=\s*(?:"[^"]*|`[^`]*)\b(?:h|w|min-h|min-w|size)-11\b/g;
-
-// Raw literals are permitted only at the source-of-truth or where a fixed
-// external/rendering contract makes semantic app tokens inappropriate.
-// Categories: global theme tokens, brand artwork, diagnostic visualizations,
-// OpenGraph artwork, error fallbacks, printable Therapy paper, printable factsheet paper.
-const RAW_COLOR_EXEMPTIONS = [
-  { category: "global theme tokens", pattern: /^src\/app\/globals\.css$/ },
-  {
-    category: "brand artwork",
-    pattern:
-      /^src\/(?:lib\/brand-(?:mark\.ts|image\.tsx)|components\/clinical-dashboard\/(?:brand|provider-brand-icons)\.tsx)$/,
-  },
-  {
-    category: "diagnostic visualizations",
-    pattern: /^src\/components\/(?:web-vitals-reporter|clinical-dashboard\/visual-evidence)\.tsx$/,
-  },
-  { category: "OpenGraph artwork", pattern: /^src\/app\/opengraph-image\.tsx$/ },
-  { category: "error fallbacks", pattern: /^src\/(?:app\/global-error|components\/route-error-boundary)\.tsx$/ },
-  {
-    category: "printable Therapy paper",
-    pattern: /^src\/components\/therapy-compass\/therapy-compass\.css$/,
-    // Only exempt raw colors within .tc-paper rule block and @media print block
-    extractExemptRanges(text) {
-      const ranges = [];
-      // Extract .tc-paper { ... } rule block (lines ~886-905)
-      const paperStart = text.indexOf(".tc-paper {");
-      if (paperStart !== -1) {
-        let braceCount = 0;
-        let inBlock = false;
-        for (let i = paperStart; i < text.length; i++) {
-          if (text[i] === "{") {
-            braceCount++;
-            inBlock = true;
-          } else if (text[i] === "}") {
-            braceCount--;
-            if (braceCount === 0 && inBlock) {
-              ranges.push({ start: paperStart, end: i + 1 });
-              break;
-            }
-          }
-        }
-      }
-      // Extract @media print { ... } block (lines ~988-1021)
-      const printStart = text.indexOf("@media print {");
-      if (printStart !== -1) {
-        let braceCount = 0;
-        let inBlock = false;
-        for (let i = printStart; i < text.length; i++) {
-          if (text[i] === "{") {
-            braceCount++;
-            inBlock = true;
-          } else if (text[i] === "}") {
-            braceCount--;
-            if (braceCount === 0 && inBlock) {
-              ranges.push({ start: printStart, end: i + 1 });
-              break;
-            }
-          }
-        }
-      }
-      return ranges;
-    },
-  },
-  {
-    category: "printable factsheet paper",
-    pattern: /^src\/components\/factsheets\/factsheet-detail-page\.tsx$/,
-    // Only exempt raw colors within FactsheetPrintSheet function body
-    extractExemptRanges(text) {
-      const ranges = [];
-      const funcStart = text.indexOf("function FactsheetPrintSheet(");
-      if (funcStart !== -1) {
-        // Skip past the parameter list to find the function body opening brace
-        // The parameter list ends with ") {", so find that pattern
-        const paramEnd = text.indexOf(") {", funcStart);
-        if (paramEnd !== -1) {
-          const bodyStart = paramEnd + 2; // Position of the '{'
-          let braceCount = 0;
-          let inBlock = false;
-          for (let i = bodyStart; i < text.length; i++) {
-            if (text[i] === "{") {
-              braceCount++;
-              inBlock = true;
-            } else if (text[i] === "}") {
-              braceCount--;
-              if (braceCount === 0 && inBlock) {
-                ranges.push({ start: funcStart, end: i + 1 });
-                break;
-              }
-            }
-          }
-        }
-      }
-      return ranges;
-    },
-  },
-];
+  /(?:closeButtonClassName|sheetCloseButtonClassName|buttonClassName|triggerClassName)\s*=\s*(?:"([^"]*)"|`([^`]*)`)/g;
 
 const toPosix = (value) => value.split(path.sep).join("/");
 
@@ -140,95 +51,9 @@ function withoutComments(text) {
   return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
 }
 
-function countRawColorsWithExemptions(relativePath, text) {
-  const contractSource = withoutComments(text);
-  const exemption = RAW_COLOR_EXEMPTIONS.find(({ pattern }) => pattern.test(relativePath));
-
-  if (!exemption) {
-    // No exemption: count all raw colors
-    return countMatches(contractSource, RAW_COLOR);
-  }
-
-  if (!exemption.extractExemptRanges) {
-    // Whole-file exemption: count nothing
-    return 0;
-  }
-
-  // Scoped exemption: count only raw colors outside the exempt ranges
-  const exemptRanges = exemption.extractExemptRanges(contractSource);
-  const matches = [...contractSource.matchAll(RAW_COLOR)];
-  let count = 0;
-
-  for (const match of matches) {
-    const matchStart = match.index;
-    const matchEnd = matchStart + match[0].length;
-    const isExempt = exemptRanges.some(
-      (range) => matchStart >= range.start && matchEnd <= range.end
-    );
-    if (!isExempt) {
-      count++;
-    }
-  }
-
-  return count;
-}
-
-function jsxClassText(attribute) {
-  const initializer = attribute.initializer;
-  if (!initializer) return "";
-  if (ts.isStringLiteral(initializer)) return initializer.text;
-  if (!ts.isJsxExpression(initializer) || !initializer.expression) return "";
-  if (ts.isStringLiteralLike(initializer.expression) || ts.isNoSubstitutionTemplateLiteral(initializer.expression)) {
-    return initializer.expression.text;
-  }
-  if (ts.isTemplateExpression(initializer.expression)) {
-    return [
-      initializer.expression.head.text,
-      ...initializer.expression.templateSpans.map((span) => span.literal.text),
-    ].join(" ");
-  }
-  // For composed expressions, extract and test individual string/template literals
-  const literals = [];
-  function collectLiterals(node) {
-    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
-      literals.push(node.text);
-    } else if (ts.isTemplateExpression(node)) {
-      literals.push(node.head.text);
-      node.templateSpans.forEach((span) => literals.push(span.literal.text));
-    }
-    node.forEachChild(collectLiterals);
-  }
-  collectLiterals(initializer.expression);
-  return literals.length > 0 ? literals.join(" ") : initializer.expression.getText();
-}
-
 function findInteractiveTapLiterals(file) {
-  if (!file.relativePath.endsWith(".tsx")) return [];
   const sourceText = fs.readFileSync(file.absolutePath, "utf8");
-  const source = ts.createSourceFile(file.relativePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-  const findings = [];
-  const interactiveTags = new Set(["a", "button", "input", "select", "summary", "textarea"]);
-
-  function inspectOpeningElement(node) {
-    const tag = node.tagName.getText(source);
-    if (!interactiveTags.has(tag)) return;
-    const classAttribute = node.attributes.properties.find(
-      (attribute) => ts.isJsxAttribute(attribute) && attribute.name.getText(source) === "className",
-    );
-    if (!classAttribute || !ts.isJsxAttribute(classAttribute)) return;
-    const classText = jsxClassText(classAttribute);
-    if (!LEGACY_TAP_CLASS_TEST.test(classText)) return;
-    const line = source.getLineAndCharacterOfPosition(classAttribute.getStart(source)).line + 1;
-    findings.push(`${file.relativePath}:${line}`);
-  }
-
-  function visit(node) {
-    if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) inspectOpeningElement(node);
-    ts.forEachChild(node, visit);
-  }
-
-  visit(source);
-  return findings;
+  return findInteractiveTapLiteralsInSource(file.relativePath, sourceText);
 }
 
 function findTherapyButtonsWithoutBaseClass(file) {
@@ -276,14 +101,18 @@ const metrics = {
 for (const file of files) {
   const source = textAt(file.relativePath);
   const contractSource = withoutComments(source);
-  metrics.rawColorLiterals += countRawColorsWithExemptions(file.relativePath, source);
+  const rawColorSource = withoutComments(
+    rawColorContractSource(file.relativePath, source, (message) => assert(false, message)),
+  );
+  metrics.rawColorLiterals += countMatches(rawColorSource, RAW_COLOR);
   metrics.literalShadowClasses += countMatches(contractSource, LITERAL_SHADOW_CLASS);
   metrics.legacyTapClasses += countMatches(contractSource, LEGACY_TAP_CLASS);
-  assert(
-    !CUSTOM_CONTROL_CLASS_PROP.test(source),
-    `${file.relativePath} contains a legacy 44px class in a control class prop`,
-  );
-  CUSTOM_CONTROL_CLASS_PROP.lastIndex = 0;
+  for (const match of source.matchAll(CUSTOM_CONTROL_CLASS_PROP)) {
+    assert(
+      !hasLegacyTapClass(match[1] ?? match[2] ?? ""),
+      `${file.relativePath} contains a legacy 44px class in a control class prop`,
+    );
+  }
 }
 
 const interactiveTapFindings = files.flatMap(findInteractiveTapLiterals);
@@ -341,13 +170,11 @@ assert(
 assert(therapyCss.includes(".tc-btn:hover:not(:disabled)"), "Therapy buttons need a hover state");
 assert(therapyCss.includes(".tc-btn:disabled"), "Therapy buttons need a disabled state");
 
-const paperRulesStart = therapyCss.indexOf(".tc-root .tc-screens-sheets-screen-023");
-const paperRulesEnd = therapyCss.indexOf(".tc-root .tc-screens-sheets-screen-050");
-assert(
-  paperRulesStart !== -1 && paperRulesEnd !== -1 && paperRulesStart < paperRulesEnd,
-  "paper-rule selector sentinels are missing or misordered in therapy-compass.css",
-);
-const paperRules = therapyCss.slice(paperRulesStart, paperRulesEnd);
+const paperStart = therapyCss.indexOf(".tc-root .tc-screens-sheets-screen-023");
+const paperEnd = therapyCss.indexOf(".tc-root .tc-screens-sheets-screen-050");
+const hasPaperBoundaries = paperStart >= 0 && paperEnd > paperStart;
+assert(hasPaperBoundaries, "patient-sheet paper rule boundaries are missing or misordered");
+const paperRules = hasPaperBoundaries ? therapyCss.slice(paperStart, paperEnd) : therapyCss;
 assert(
   !/var\(--(?:background|surface|border|text|clinical|command|focus)/.test(paperRules),
   "patient-sheet paper rules leaked theme-reactive application tokens",
@@ -365,6 +192,7 @@ const semanticSources = [
   .join("\n");
 assert(semanticSources.includes("aria-current"), "Therapy navigation needs aria-current");
 assert(semanticSources.includes("aria-pressed"), "Therapy toggles need aria-pressed");
+assert(!semanticSources.includes('role="tab"'), "Therapy toggle groups must not claim incomplete tab semantics");
 assert(
   /disabled=\{items\.length === 0\}/.test(textAt("src/components/therapy-compass/screens/compare-screen.tsx")),
   "empty compare Clear must be disabled",

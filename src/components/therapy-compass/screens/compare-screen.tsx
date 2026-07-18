@@ -186,7 +186,7 @@ export function CompareScreen() {
           </div>
 
           {/* tabs */}
-          <div className="tc-compare-tabs tc-screens-compare-screen-017">
+          <div className="tc-compare-tabs tc-screens-compare-screen-017" role="group" aria-label="Comparison fields">
             <button
               type="button"
               className={`tc-btn ${b.tabPriorities}`}
