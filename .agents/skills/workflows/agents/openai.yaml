@@ -1,0 +1,4 @@
+interface:
+  display_name: "Database Workflows"
+  short_description: "Index Database workflow skills and choose the right one"
+  default_prompt: "Use $workflows to list all Database workflow skills with a concise explanation of what each does and when to run it."
