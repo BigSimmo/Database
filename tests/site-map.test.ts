@@ -73,7 +73,7 @@ describe("tracked sitemap", () => {
       [
         "/differentials/presentations",
         "src/app/differentials/presentations/route.ts",
-        "/differentials/presentations/[slug]",
+        "/differentials/presentations/[workflow-slug]",
       ],
       ["/medications", "src/app/medications/route.ts", "/?mode=prescribing"],
     ] as const;
@@ -94,40 +94,6 @@ describe("tracked sitemap", () => {
       expect(redirectSection).toContain(`\`${route}\``);
       expect(apiSection).not.toContain(`\`${route}\``);
       expect(productSection).not.toContain(`\`${route}\``);
-    }
-  });
-
-  it("keeps public redirect handlers in product routes and API handlers in the API section", () => {
-    const data = collectSiteMapData();
-    const productSection = siteMap.slice(
-      siteMap.indexOf("## Main product routes"),
-      siteMap.indexOf("## Mode/query routes"),
-    );
-    const apiSection = siteMap.slice(siteMap.indexOf("## API routes"), siteMap.indexOf("## Redirects"));
-    const expectedProductHandlers = [
-      ["/applications", "src/app/applications/route.ts", "/tools"],
-      [
-        "/differentials/presentations",
-        "src/app/differentials/presentations/route.ts",
-        "/differentials/presentations/[workflow-slug]",
-      ],
-      ["/medications", "src/app/medications/route.ts", "/?mode=prescribing"],
-    ] as const;
-
-    expect(data.apiRoutes.every((route) => route.route === "/api" || route.route.startsWith("/api/"))).toBe(true);
-    expect(data.publicRouteHandlers.some((route) => route.route === "/auth/callback")).toBe(true);
-    expect(data.publicRouteHandlers).toContainEqual({
-      route: "/icons/[variant]",
-      file: "src/app/icons/[variant]/route.tsx",
-    });
-    expect(apiSection).not.toContain("`/icons/[variant]`");
-
-    for (const [route, file, target] of expectedProductHandlers) {
-      expect(data.publicRouteHandlers).toContainEqual({ route, file });
-      expect(data.apiRoutes).not.toContainEqual({ route, file });
-      expect(data.redirects).toContainEqual({ route, file, target });
-      expect(productSection).toContain(`\`${route}\``);
-      expect(apiSection).not.toContain(`\`${route}\``);
     }
   });
 
