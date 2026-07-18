@@ -63,9 +63,7 @@ describe("Therapy Compass required data recovery", () => {
 
     release(undefined);
 
-    await waitFor(() =>
-      expect(screen.getByText(/Search 1 source-grounded therapy record by/)).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText(/Search 1 source-grounded therapy record by/)).toBeInTheDocument());
     expect(screen.getByRole("heading", { name: "What therapy are you looking for?" })).toBeInTheDocument();
     expect(screen.queryByText(/Search 0 source-grounded therapy/)).not.toBeInTheDocument();
   });
