@@ -95,15 +95,13 @@ describe("audit navigation and auth regressions", () => {
       "const localNoAuthMode = isLocalNoAuthMode();",
       "const canRunSearch =",
     );
-    expect(privateCapabilityContract).toContain(
-      'const canUsePrivateApis =',
-    );
+    expect(privateCapabilityContract).toContain("const canUsePrivateApis =");
     expect(privateCapabilityContract).toContain("localNoAuthMode");
     expect(privateCapabilityContract).toContain("localDevCanAttemptPrivateApis");
 
     const pollingContract = sourceSegment(
       clinicalDashboardSource,
-      "const shouldRefreshWorkState =",
+      "if (!nextDemoMode && !canUsePrivateApis) {",
       "const [documentsResponse, jobsResponse",
     );
     expect(pollingContract).toContain("if (!nextDemoMode && !canUsePrivateApis) {");

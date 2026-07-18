@@ -1371,7 +1371,9 @@ describe("Supabase Preview replay guards", () => {
       );
       expect(cleanup).toContain("metadata->>'registry_record_id' = old.id::text");
       expect(cleanup).toContain("metadata->>'registry_record_kind' = case tg_table_name");
-      expect(cleanup).toMatch(/when 'clinical_registry_records' then\s+\(?\s*(pg_catalog\.)?to_jsonb\([^)]*?\)->>'kind'/i);
+      expect(cleanup).toMatch(
+        /when 'clinical_registry_records' then\s+\(?\s*(pg_catalog\.)?to_jsonb\([^)]*?\)->>'kind'/i,
+      );
       expect(cleanup).toContain("when 'medication_records' then 'medication'");
       expect(cleanup).toContain("when 'differential_records' then 'differential'");
       expect(cleanup).not.toContain("registry_record_id')::uuid");

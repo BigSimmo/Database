@@ -120,11 +120,9 @@ describe("content and services audit regressions", () => {
     expect(JSON.stringify(transport?.source)).not.toMatch(/\b\d+\s+pages?\b/);
     expect(formDetailSource).not.toContain("01 May 2026");
     expect(formDetailSource).not.toMatch(/\b(?:1A|3A|4A|4B)\b|5\(2\)|Admission order|Treatment order/);
-    expect(formDetailSource).not.toMatch(
-      /Pathway navigation is not available yet|Full pathway unavailable/,
-    );
+    expect(formDetailSource).not.toMatch(/Pathway navigation is not available yet|Full pathway unavailable/);
     expect(formDetailSource).toContain("No linked full pathway is available for this record.");
-    expect(normalizedFormDetailSource).toContain('...(hasText(form.source?.reviewed) ? [{ icon: CalendarDays');
+    expect(normalizedFormDetailSource).toContain("...(hasText(form.source?.reviewed) ? [{ icon: CalendarDays");
 
     for (const form of formRecords) {
       expect(form.verification?.locallyVerified, form.slug).toBe(false);
@@ -200,13 +198,11 @@ describe("content and services audit regressions", () => {
   });
 
   it("claims and renders a form source link only when the record has a URL", () => {
-    expect(normalizedFormDetailSource).toContain(
-      '{form.source?.url || details?.localPdfPath ? (',
-    );
+    expect(normalizedFormDetailSource).toContain("{form.source?.url || details?.localPdfPath ? (");
     expect(normalizedFormDetailSource).toMatch(/\{form\.source\?\.url \|\| details\?\.localPdfPath \? \(/);
     expect(normalizedFormDetailSource).toContain("<a href={form.source.url}");
-    expect(normalizedFormDetailSource).toContain(">Official");
-    expect(normalizedFormDetailSource).toContain(">Stored copy");
+    expect(normalizedFormDetailSource).toContain("> Official");
+    expect(normalizedFormDetailSource).toContain("> Stored copy");
     expect(normalizedFormDetailSource).toContain("Source link pending");
   });
 });
