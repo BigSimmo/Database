@@ -31,6 +31,7 @@ describe("PWA manifest and public bootstrap resources", () => {
     for (const size of ["192x192", "512x512"]) {
       expect(icons).toEqual(expect.arrayContaining([expect.objectContaining({ sizes: size, purpose: "any" })]));
       expect(icons).toEqual(expect.arrayContaining([expect.objectContaining({ sizes: size, purpose: "maskable" })]));
+      expect(icons).toEqual(expect.arrayContaining([expect.objectContaining({ sizes: size, purpose: "monochrome" })]));
     }
 
     for (const icon of icons) {
@@ -52,6 +53,14 @@ describe("PWA manifest and public bootstrap resources", () => {
         expect(url.searchParams.has(forbiddenKey)).toBe(false);
       }
     }
+  });
+
+  it("declares conservative launch and display fallbacks", () => {
+    // Focus the existing app window on launch instead of spawning duplicates,
+    // and degrade standalone to minimal-ui — never fullscreen — so browser
+    // chrome and zoom stay reachable.
+    expect(appManifest.launch_handler).toEqual({ client_mode: ["navigate-existing", "auto"] });
+    expect(appManifest.display_override).toEqual(["standalone", "minimal-ui"]);
   });
 
   it("does not advertise unsupported sensitive-capability handlers", () => {

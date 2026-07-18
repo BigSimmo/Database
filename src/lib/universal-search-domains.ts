@@ -13,6 +13,7 @@ export type UniversalSearchDomain =
   | "dsm"
   | "specifiers"
   | "formulation"
+  | "therapies"
   | "tools";
 
 // Canonical order: the default group order in responses AND the topHit tiebreak when
@@ -34,5 +35,10 @@ export const universalSearchDomains: UniversalSearchDomain[] = [
   "presentations",
   "specifiers",
   "formulation",
+  // Therapies sit with the other local clinical-reasoning catalogues, ahead of the
+  // catch-all tools group. Therapy titles ("Cognitive Behavioural Therapy (CBT)") do
+  // not collide with other domains' titles, so this position only sets default group
+  // order, not a topHit tiebreak.
+  "therapies",
   "tools",
 ];

@@ -33,16 +33,17 @@ describe("Therapy Compass production-mode wiring", () => {
     ).toBe(false);
   });
 
-  it("honors run-enabled deep links by seeding the in-tool search instead of landing on Home", () => {
+  it("honors run-enabled deep links by routing to the in-tool search instead of landing on Home", () => {
     const routeSrc = readFileSync(new URL("../src/app/therapy-compass/page.tsx", import.meta.url), "utf8");
     const bindingsSrc = readFileSync(
       new URL("../src/components/therapy-compass/bindings.tsx", import.meta.url),
       "utf8",
     );
-    // The route reads q/run and threads autoRunSearch into the provider...
+    // The home route reads q/run and redirects a run-enabled deep link to the dedicated search route...
     expect(routeSrc).toMatch(/searchParams/);
-    expect(routeSrc).toMatch(/autoRunSearch/);
-    // ...and the provider opens on Search (not Home) with the query seeded.
-    expect(bindingsSrc).toMatch(/seededQuery \? "search" : "home"/);
+    expect(routeSrc).toMatch(/redirect\(`\/therapy-compass\/search/);
+    // ...and the provider derives the active screen from the pathname and seeds the query from ?q.
+    expect(bindingsSrc).toMatch(/resolveRoute\(pathname\)/);
+    expect(bindingsSrc).toMatch(/searchParams\.get\("q"\)/);
   });
 });

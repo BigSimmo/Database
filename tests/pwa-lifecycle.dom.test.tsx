@@ -199,4 +199,32 @@ describe("PwaLifecycle", () => {
 
     expect(screen.queryByRole("region", { name: "An update is ready" })).not.toBeInTheDocument();
   });
+
+  it("shows the one-time iOS Add to Home Screen hint and honours its dismissal window", async () => {
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true,
+      value:
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+    });
+    try {
+      const user = userEvent.setup();
+      const { unmount } = render(<PwaLifecycle />);
+
+      const hint = await screen.findByRole("region", { name: "Install Clinical KB" });
+      expect(hint).toHaveTextContent(/tap Share, then Add to Home Screen/i);
+      expect(hint).toHaveTextContent(/still require a connection/i);
+
+      await user.click(screen.getByRole("button", { name: "Not now" }));
+      await waitFor(() =>
+        expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument(),
+      );
+      expect(Number(window.localStorage.getItem("clinical-kb-pwa-ios-install-dismissed-at"))).toBeGreaterThan(0);
+
+      unmount();
+      render(<PwaLifecycle />);
+      expect(screen.queryByRole("region", { name: "Install Clinical KB" })).not.toBeInTheDocument();
+    } finally {
+      delete (navigator as { userAgent?: string }).userAgent;
+    }
+  });
 });

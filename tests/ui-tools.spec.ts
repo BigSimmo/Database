@@ -885,7 +885,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("forms mode shows source-backed form records in search results", async ({ page }) => {
+  test("forms mode shows registry-backed form records without unsupported pathway claims", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
@@ -1017,7 +1017,6 @@ test.describe("Clinical KB tools launcher", () => {
     const dock = page.locator("form.answer-footer-search-dock");
     await expect(dock).toBeVisible();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-
     // focus=1 leaves the composer focused; hide-on-scroll stays off while it has focus.
     const input = visibleGlobalSearchInput(page).first();
     await input.focus();

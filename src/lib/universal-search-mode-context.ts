@@ -13,9 +13,9 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   formulation: ["formulation"],
   prescribing: ["medications", "documents"],
   tools: ["tools"],
-  // Therapy Compass searches the imported therapy library in-tool, not an indexed
-  // universal-search domain, so it contributes no cross-entity domains.
-  "therapy-compass": [],
+  // Therapy Compass leads with its own therapy library, exposed to cross-entity
+  // search as the "therapies" domain.
+  "therapy-compass": ["therapies"],
 };
 
 const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {
@@ -28,6 +28,7 @@ const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {
   specifiers: "specifiers",
   formulation: "formulation",
   dsm: "dsm",
+  therapies: "therapy-compass",
   tools: "tools",
 };
 

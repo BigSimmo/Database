@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 const SERVICE_WORKER_URL = "/sw.js";
 const INSTALL_DISMISSAL_KEY = "clinical-kb-pwa-install-dismissed-at";
+const IOS_INSTALL_DISMISSAL_KEY = "clinical-kb-pwa-ios-install-dismissed-at";
 const INSTALL_DISMISSAL_MS = 30 * 24 * 60 * 60 * 1000;
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
 const PWA_CACHE_PREFIX = "clinical-kb-pwa-";
@@ -42,12 +43,12 @@ function isStandaloneDisplay() {
   );
 }
 
-function wasInstallRecentlyDismissed() {
+function wasInstallRecentlyDismissed(key: string = INSTALL_DISMISSAL_KEY) {
   try {
-    const dismissedAt = Number(window.localStorage.getItem(INSTALL_DISMISSAL_KEY));
+    const dismissedAt = Number(window.localStorage.getItem(key));
     if (!Number.isFinite(dismissedAt) || dismissedAt <= 0) return false;
     if (Date.now() - dismissedAt < INSTALL_DISMISSAL_MS) return true;
-    window.localStorage.removeItem(INSTALL_DISMISSAL_KEY);
+    window.localStorage.removeItem(key);
   } catch {
     // Storage can be unavailable in private/restricted contexts. Installation
     // remains a progressive enhancement, so a storage failure is non-fatal.
@@ -55,13 +56,20 @@ function wasInstallRecentlyDismissed() {
   return false;
 }
 
-function rememberInstallDismissal() {
+function rememberInstallDismissal(key: string = INSTALL_DISMISSAL_KEY) {
   try {
-    window.localStorage.setItem(INSTALL_DISMISSAL_KEY, String(Date.now()));
+    window.localStorage.setItem(key, String(Date.now()));
   } catch {
     // See wasInstallRecentlyDismissed: the prompt can still be dismissed for
     // this render even when persistence is unavailable.
   }
+}
+
+function isIosBrowser() {
+  const { userAgent, platform, maxTouchPoints } = window.navigator;
+  if (/iPad|iPhone|iPod/.test(userAgent)) return true;
+  // iPadOS 13+ reports a macOS user agent but exposes multi-touch.
+  return platform === "MacIntel" && (maxTouchPoints ?? 0) > 1;
 }
 
 async function teardownLocalPwa() {
@@ -110,6 +118,7 @@ export function PwaLifecycle() {
   const isOnline = useSyncExternalStore(subscribeConnectivity, getConnectivitySnapshot, getServerConnectivitySnapshot);
   const [connectionRestored, setConnectionRestored] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [showIosHint, setShowIosHint] = useState(false);
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const [activatedUpdateReady, setActivatedUpdateReady] = useState(false);
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
@@ -174,6 +183,24 @@ export function PwaLifecycle() {
       window.removeEventListener("appinstalled", handleInstalled);
     };
   }, []);
+
+  useEffect(() => {
+    // iOS/iPadOS never fires beforeinstallprompt, so surface a one-time manual
+    // Add to Home Screen hint instead — never in standalone mode, and never
+    // again within the dismissal window. Deferred a tick so the client-only
+    // eligibility check cannot diverge from the server-rendered markup.
+    const timer = window.setTimeout(() => {
+      if (!isIosBrowser() || isStandaloneDisplay()) return;
+      if (wasInstallRecentlyDismissed(IOS_INSTALL_DISMISSAL_KEY)) return;
+      setShowIosHint(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const dismissIosHint = () => {
+    rememberInstallDismissal(IOS_INSTALL_DISMISSAL_KEY);
+    setShowIosHint(false);
+  };
 
   useEffect(() => {
     if (!("serviceWorker" in navigator) || window.isSecureContext === false) return;
@@ -326,7 +353,8 @@ export function PwaLifecycle() {
 
   const showUpdate = isOnline && (Boolean(waitingWorker) || activatedUpdateReady);
   const showInstall = isOnline && !showUpdate && Boolean(installPrompt);
-  if (isOnline && !connectionRestored && !showInstall && !showUpdate) return null;
+  const showIosInstallHint = isOnline && !showUpdate && !showInstall && showIosHint;
+  if (isOnline && !connectionRestored && !showInstall && !showUpdate && !showIosInstallHint) return null;
 
   return (
     <div className="pwa-notice-stack">
@@ -364,6 +392,22 @@ export function PwaLifecycle() {
             </button>
             <button type="button" className={secondaryButtonClassName} onClick={dismissUpdate}>
               Later
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {showIosInstallHint ? (
+        <section className={cardClassName} role="region" aria-labelledby="pwa-ios-install-title" aria-live="polite">
+          <p id="pwa-ios-install-title" className="text-sm font-semibold">
+            Install Clinical KB
+          </p>
+          <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+            In Safari, tap Share, then Add to Home Screen. Private clinical features still require a connection.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" className={secondaryButtonClassName} onClick={dismissIosHint}>
+              Not now
             </button>
           </div>
         </section>

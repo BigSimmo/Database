@@ -38,7 +38,10 @@ The manifest defines a stable app identity and root scope:
 - `display` is `standalone`; the document viewport uses `viewport-fit=cover`.
 - Language and direction are `en-AU` and `ltr`.
 - Categories are `medical`, `productivity`, and `utilities`; related native applications are not preferred.
-- The SVG icon is accompanied by generated 192 px and 512 px PNG icons for both `any` and `maskable` purposes.
+- The SVG icon is accompanied by generated 192 px and 512 px PNG icons for the `any`, `maskable`, and `monochrome`
+  purposes; the monochrome pair is a white alpha-only silhouette that platforms recolour (badges, themed icons).
+- `display_override` prefers `standalone` with a `minimal-ui` fallback and never requests `fullscreen`;
+  `launch_handler` focuses an existing app window (`navigate-existing`, then `auto`) instead of spawning duplicates.
 - The 180 px Apple icon is opaque so iOS does not render transparency as black or fall back to a page screenshot.
 - Manifest shortcuts open Ask, Documents, Medication guidance, and Differentials. They are launch shortcuts, not
   offline features; each destination still requires the normal network/auth capabilities.
@@ -52,6 +55,10 @@ install/Add to Home Screen flow.
 The install card is not shown in standalone mode. Choosing **Not now**, or dismissing the browser prompt, suppresses
 the custom prompt for 30 days using `clinical-kb-pwa-install-dismissed-at` in localStorage. `appinstalled` clears that
 value. Storage failures are treated as non-fatal progressive-enhancement failures.
+
+iOS and iPadOS never emit `beforeinstallprompt`, so outside standalone mode those platforms get a one-time manual
+hint instead (Safari: Share, then Add to Home Screen). **Not now** suppresses it for 30 days via
+`clinical-kb-pwa-ios-install-dismissed-at`; the same storage-failure tolerance applies.
 
 The manifest deliberately leaves orientation unrestricted so zoom, rotation, desktop windows, and split-screen use
 remain available. Manifest screenshots are also omitted until current production UI can be captured and reviewed at
