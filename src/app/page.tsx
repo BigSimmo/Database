@@ -7,6 +7,9 @@ import { appModeHomeHref, isAppModeId, isAppModeVisible, type AppModeId } from "
 type HomeProps = {
   searchParams?: Promise<{
     mode?: string | string[];
+    q?: string | string[];
+    focus?: string | string[];
+    run?: string | string[];
   }>;
 };
 

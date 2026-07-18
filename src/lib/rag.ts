@@ -11,6 +11,7 @@ import {
   searchTableFactCandidates,
   searchTextChunkCandidates,
   withMemoryBoostedCandidates,
+  createChunkLoadCache,
   type MemoryCardCache,
 } from "@/lib/rag-candidate-sources";
 export {
@@ -2370,6 +2371,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   // A3: shared across every withMemoryBoostedCandidates call in this request so the same
   // owner/query memory cards are fetched at most once per (query, embedding-present, count).
   const memoryCardCache: MemoryCardCache = new Map();
+  const chunkLoadCache = createChunkLoadCache();
   const documentRankingMetadataCache = createDocumentRankingMetadataCache();
   const modeQueryClass = queryClassForClinicalMode(args.queryMode ?? "auto");
   const documentFilterList = args.documentIds?.length
