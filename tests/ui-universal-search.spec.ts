@@ -228,6 +228,36 @@ test.describe("universal search typeahead", () => {
     expect(new URL((await universalRequest).url()).searchParams.get("domains")?.split(",")).not.toContain("services");
   });
 
+  test("places submitted cross-mode matches after the owning mode results", async ({ page }) => {
+    // "13YARN" matches the demo service fixture so service-search-results renders.
+    // Use an inline mock that echoes back the same query so universal-also-matches renders.
+    await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+      const url = new URL(route.request().url());
+      const mode = url.searchParams.get("mode") ?? "services";
+      const q = url.searchParams.get("q") ?? "13YARN";
+      await fulfillUniversalSearch(route, {
+        ...universalPayload,
+        query: q,
+        contextMode: mode,
+        preferredDomains: [],
+        domainOrder: universalPayload.groups.map((g) => g.kind),
+      });
+    });
+    await page.goto("/services?q=13YARN&run=1", { waitUntil: "domcontentloaded" });
+
+    const results = page.getByTestId("service-search-results");
+    const alsoMatches = page.getByTestId("universal-also-matches");
+    await expect(results).toBeVisible();
+    await expect(alsoMatches).toBeVisible();
+    expect(
+      await alsoMatches.evaluate((node) => {
+        const resultNode = document.querySelector('[data-testid="service-search-results"]');
+        return Boolean((resultNode?.compareDocumentPosition(node) ?? 0) & Node.DOCUMENT_POSITION_FOLLOWING);
+      }),
+      "universal-also-matches panel must appear after primary results in the DOM",
+    ).toBe(true);
+  });
+
   test("shows submitted cross-mode matches on phones outside hidden desktop headers", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockUniversalSearch(page);
