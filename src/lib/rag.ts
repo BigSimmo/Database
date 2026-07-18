@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
   callVersionedRetrievalRpc,
+  createChunkLoadCache,
   memoryCardChunkScore,
   mergeSearchResults,
   recordHybridRpcError,
@@ -11,7 +12,6 @@ import {
   searchTableFactCandidates,
   searchTextChunkCandidates,
   withMemoryBoostedCandidates,
-  createChunkLoadCache,
   type MemoryCardCache,
 } from "@/lib/rag-candidate-sources";
 export {
@@ -120,6 +120,11 @@ export {
   retrievalPlanCacheQuery,
 } from "@/lib/rag-cache";
 import { classifySearchCacheOutcome, recordCacheLookup } from "@/lib/observability/cache-metrics";
+import {
+  recordAnswerOrigination,
+  recordAnswerOriginationFinished,
+  recordCoalescedAnswerWaiter,
+} from "@/lib/observability/answer-coalescing-metrics";
 import { buildRagSourceBlock, compactContextText, neutralizeIdentityField } from "@/lib/rag-source-block";
 export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
 import {
@@ -421,6 +426,26 @@ function throwIfAborted(signal?: AbortSignal) {
   if (signal?.aborted) {
     throw signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
   }
+}
+
+function awaitWithCallerSignal<T>(pending: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return pending;
+  if (signal.aborted) throw signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason ?? new DOMException("The operation was aborted.", "AbortError"));
+    signal.addEventListener("abort", onAbort, { once: true });
+    pending.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
 }
 
 export type AnswerProgressEvent = {
@@ -1290,6 +1315,7 @@ export async function analyzeQueryWithClassifierFallback(
     // owner_filter retrieval will use so grounding can never see documents retrieval cannot.
     corpusGrounding?: { supabase: ReturnType<typeof createAdminClient>; ownerFilter: string | null };
     ownerId?: string | null;
+    signal?: AbortSignal;
   },
 ) {
   if (
@@ -1361,10 +1387,16 @@ export async function analyzeQueryWithClassifierFallback(
   }
 
   try {
-    const verdict = await pending;
+    const verdict = await awaitWithCallerSignal(pending, opts?.signal);
     storeClassifierVerdictMemo(memoKey, verdict);
     return applyClassifierVerdict(analysis, verdict);
-  } catch {
+  } catch (error) {
+    if (
+      error &&
+      (error instanceof DOMException || typeof error === "object") &&
+      (error as { name?: string }).name === "AbortError"
+    )
+      throw error;
     // Transport/parse failures are deliberately NOT memoized: fall back to the deterministic
     // analysis for this request only, and let the next request retry the classifier.
     return analysis;
@@ -2398,6 +2430,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const queryAnalysis = await analyzeQueryWithClassifierFallback(retrievalQuery, analyzeClinicalQuery(retrievalQuery), {
     corpusGrounding: corpusGroundingScope,
     ownerId: args.ownerId,
+    signal: args.signal,
   });
   throwIfAborted(args.signal);
   if (modeQueryClass) queryAnalysis.queryClass = modeQueryClass;
@@ -3123,6 +3156,7 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
   let existing = inflightKey ? answerInflight.get(inflightKey) : undefined;
 
   while (existing) {
+    recordCoalescedAnswerWaiter();
     await args.onProgress?.({
       stage: "cached",
       message: "Waiting for an identical cited answer request already in progress.",
@@ -3154,8 +3188,15 @@ export async function answerQuestionWithScope(args: AnswerQuestionWithScopeArgs)
     }
   }
 
+  // Only coalescible requests belong in this process-local signal. Requests
+  // that intentionally bypass cache/coalescing must not make a replica look
+  // ineffective, and neither keys nor clinical content leave this function.
+  if (inflightKey) recordAnswerOrigination();
   const pending = answerQuestionWithScopeUncoalesced(args, startedAt).finally(() => {
-    if (inflightKey) answerInflight.delete(inflightKey);
+    if (inflightKey) {
+      answerInflight.delete(inflightKey);
+      recordAnswerOriginationFinished();
+    }
   });
   if (inflightKey) answerInflight.set(inflightKey, pending);
   return pending;
