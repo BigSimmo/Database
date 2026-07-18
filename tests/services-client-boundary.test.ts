@@ -14,6 +14,9 @@ const SRC_ROOT = join(process.cwd(), "src");
 const TARGET_SPECIFIER = "@/lib/services";
 // Side-effect imports have no `from` clause but still execute the module.
 const SIDE_EFFECT_IMPORT_PATTERN = /^import\s+["']([^"']+)["']/gm;
+// Dynamic import() expressions defer loading but still emit client JavaScript
+// for the target, so they count as runtime edges too.
+const DYNAMIC_IMPORT_PATTERN = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
 // import/export ... from "..." — clause analysed by hasRuntimeBindings below so
 // `import type`, `export type`, and named clauses whose specifiers are all
 // `type X` (including multiline) stay allowed while default, namespace, mixed,
@@ -62,6 +65,13 @@ const SERVICES_MODULE_PATHS = new Set(
   ),
 );
 
+// Strip the full directive prologue (comments and whitespace of any length)
+// so a "use client" directive after a long header comment is still detected.
+function isClientEntry(source: string): boolean {
+  const prologue = source.replace(/^(?:\s+|\/\/[^\n]*(?:\n|$)|\/\*[\s\S]*?\*\/)*/, "");
+  return /^["']use client["']/.test(prologue);
+}
+
 interface ModuleInfo {
   importsServices: boolean;
   isClientEntry: boolean;
@@ -91,13 +101,14 @@ function buildModuleGraph(): Map<string, ModuleInfo> {
     };
 
     for (const match of source.matchAll(SIDE_EFFECT_IMPORT_PATTERN)) recordRuntimeSpecifier(match[1]);
+    for (const match of source.matchAll(DYNAMIC_IMPORT_PATTERN)) recordRuntimeSpecifier(match[1]);
     for (const match of source.matchAll(FROM_STATEMENT_PATTERN)) {
       if (hasRuntimeBindings(match[1], match[2])) recordRuntimeSpecifier(match[3]);
     }
 
     graph.set(filePath, {
       importsServices,
-      isClientEntry: /^\s*["']use client["']/m.test(source.slice(0, 400)),
+      isClientEntry: isClientEntry(source),
       valueImports,
     });
   }
