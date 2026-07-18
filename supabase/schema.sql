@@ -5094,17 +5094,67 @@ $$;
 
 revoke execute on function public.sync_document_title_words()
   from public, anon, authenticated, service_role;
+
+create or replace function public.enforce_document_title_word_scope()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform 1
+  from public.documents d
+  where d.id = new.document_id
+    and d.owner_id is null
+    and d.status = 'indexed'
+    and pg_catalog.length(new.word) between 4 and 40
+    and new.word = any (
+      pg_catalog.regexp_split_to_array(pg_catalog.lower(d.title), '[^a-z]+')
+    )
+  for share;
+
+  if not found then
+    raise exception 'document_title_words rows require a current indexed public document title'
+      using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+
+revoke execute on function public.enforce_document_title_word_scope()
+  from public, anon, authenticated, service_role;
+drop trigger if exists document_title_words_enforce_public_scope
+  on public.document_title_words;
+create trigger document_title_words_enforce_public_scope
+  before insert or update on public.document_title_words
+  for each row execute function public.enforce_document_title_word_scope();
+
 drop trigger if exists documents_sync_title_words on public.documents;
 create trigger documents_sync_title_words
   after insert or update of title, status, owner_id or delete on public.documents
   for each row execute function public.sync_document_title_words();
 
+delete from public.document_title_words dtw
+where not exists (
+  select 1
+  from public.documents d
+  where d.id = dtw.document_id
+    and d.owner_id is null
+    and d.status = 'indexed'
+    and pg_catalog.length(dtw.word) between 4 and 40
+    and dtw.word = any (
+      pg_catalog.regexp_split_to_array(pg_catalog.lower(d.title), '[^a-z]+')
+    )
+);
+
 insert into public.document_title_words (word, document_id)
-select distinct lower(title_word), d.id
+select distinct pg_catalog.lower(title_word), d.id
 from public.documents d
-cross join lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as title_word
+cross join lateral pg_catalog.unnest(
+  pg_catalog.regexp_split_to_array(pg_catalog.lower(d.title), '[^a-z]+')
+) as title_word
 where d.owner_id is null and d.status = 'indexed'
-  and length(title_word) between 4 and 40
+  and pg_catalog.length(title_word) between 4 and 40
 on conflict do nothing;
 
 create or replace function public.correct_clinical_query_terms(
@@ -5238,6 +5288,7 @@ grant usage, select on all sequences in schema public to service_role;
 grant execute on all functions in schema public to service_role;
 revoke execute on function public.cleanup_registry_corpus_document() from service_role;
 revoke execute on function public.sync_document_title_words() from service_role;
+revoke execute on function public.enforce_document_title_word_scope() from service_role;
 revoke execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) from public, anon, authenticated;
 grant execute on function public.claim_indexing_v3_agent_jobs(text, integer, integer) to service_role;
 revoke execute on function public.match_document_embedding_fields_text(text, integer, double precision, uuid[], uuid) from public, anon, authenticated;
