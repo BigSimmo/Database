@@ -24,6 +24,7 @@ import {
   clinicalImagePolicyVersion,
   lowSignalImageTextSkipReason,
   lightweightPerceptualHash,
+  imagePlacementDedupeKey,
 } from "../src/lib/image-filtering";
 import {
   isPartialIndexWriteConflict,
@@ -857,7 +858,7 @@ async function uploadAndCaptionImages(
     cropCompleteness: number;
     ocrTextDensity: number;
   }> = [];
-  const seenHashes = new Set<string>();
+  const seenImagePlacements = new Set<string>();
   let skippedImages = 0;
   const skipReasons = new Map<string, number>();
   const imageTypeCounts = new Map<string, number>();
@@ -917,7 +918,7 @@ async function uploadAndCaptionImages(
     const skipReason = cheapImageSkipReason({
       bytesLength: preparedImage.bytesLength,
       imageHash,
-      seenHashes,
+      seenHashes: seenImagePlacements,
       image,
     });
     if (skipReason) {
@@ -925,7 +926,7 @@ async function uploadAndCaptionImages(
       noteSkippedImage(skipReasons, skipReason);
       continue;
     }
-    seenHashes.add(imageHash);
+    seenImagePlacements.add(imagePlacementDedupeKey({ imageHash, image }));
 
     const nearbyText = image.pageNumber ? pagesByNumber.get(image.pageNumber) : undefined;
     const tableMetadata = imageTableMetadata(image);

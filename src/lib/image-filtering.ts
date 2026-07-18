@@ -9,7 +9,7 @@ export type CheapImageFilterInput = {
   bytesLength: number;
   imageHash: string;
   seenHashes: Set<string>;
-  image: Pick<ExtractedImage, "bbox" | "height" | "width" | "sourceKind">;
+  image: Pick<ExtractedImage, "bbox" | "height" | "width" | "sourceKind"> & Partial<Pick<ExtractedImage, "pageNumber">>;
 };
 
 export type ClassifiedImage = {
@@ -320,6 +320,28 @@ export function normalizeImageBbox(value: unknown): [number, number, number, num
   return coords.every((coord): coord is number => coord !== null) ? (coords as [number, number, number, number]) : null;
 }
 
+function stableBboxKey(bbox: unknown) {
+  const coords = normalizeImageBbox(bbox);
+  return coords ? coords.map((coord) => Number(coord.toFixed(2))).join(",") : "bbox:null";
+}
+
+// Exact byte hash alone is too broad for ingestion de-dupe: some PDF extractors can emit
+// visually identical table/diagram crops from different page contexts, and dropping every
+// later occurrence loses operator-visible clinical evidence. Limit cheap de-dupe to the
+// same extracted placement; header/footer/logo filters still remove repeated decorative
+// assets across pages.
+export function imagePlacementDedupeKey(input: {
+  imageHash: string;
+  image: Pick<ExtractedImage, "bbox" | "sourceKind"> & Partial<Pick<ExtractedImage, "pageNumber">>;
+}) {
+  return [
+    input.imageHash,
+    input.image.sourceKind ?? "embedded",
+    input.image.pageNumber ?? "page:null",
+    stableBboxKey(input.image.bbox),
+  ].join("|");
+}
+
 function bboxLooksLikeHeaderOrFooter(bbox: unknown) {
   const coords = normalizeImageBbox(bbox);
   if (!coords) return false;
@@ -335,7 +357,7 @@ export function cheapImageSkipReason(input: CheapImageFilterInput) {
   const width = image.width ?? null;
   const height = image.height ?? null;
 
-  if (seenHashes.has(imageHash)) return "duplicate image";
+  if (seenHashes.has(imagePlacementDedupeKey({ imageHash, image }))) return "duplicate image";
   if (sourceKind === "embedded" && bytesLength < 4096) return "small decorative image";
   if (width && height) {
     const shortestSide = Math.min(width, height);

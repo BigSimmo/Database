@@ -4,6 +4,7 @@ import {
   cheapImageSkipReason,
   classifiedImageSkipReason,
   isClinicalImageEvidence,
+  imagePlacementDedupeKey,
   lightweightPerceptualHash,
   normalizeImageBbox,
   partitionViewerImages,
@@ -11,15 +12,43 @@ import {
 
 describe("smart image filtering", () => {
   it("skips repeated exact image hashes before captioning", () => {
-    const seenHashes = new Set(["abc"]);
+    const image = {
+      sourceKind: "embedded" as const,
+      width: 600,
+      height: 400,
+      pageNumber: 1,
+      bbox: [10, 20, 610, 420] as [number, number, number, number],
+    };
+    const seenHashes = new Set([imagePlacementDedupeKey({ imageHash: "abc", image })]);
     expect(
       cheapImageSkipReason({
         bytesLength: 80_000,
         imageHash: "abc",
         seenHashes,
-        image: { sourceKind: "embedded", width: 600, height: 400 },
+        image,
       }),
     ).toBe("duplicate image");
+  });
+
+  it("does not drop an exact-byte clinical image from a different page placement", () => {
+    const firstImage = {
+      sourceKind: "table_crop" as const,
+      width: 600,
+      height: 400,
+      pageNumber: 1,
+      bbox: [10, 20, 610, 420] as [number, number, number, number],
+    };
+    const secondImage = { ...firstImage, pageNumber: 2 };
+    const seenHashes = new Set([imagePlacementDedupeKey({ imageHash: "same-bytes", image: firstImage })]);
+
+    expect(
+      cheapImageSkipReason({
+        bytesLength: 80_000,
+        imageHash: "same-bytes",
+        seenHashes,
+        image: secondImage,
+      }),
+    ).toBeNull();
   });
 
   it("skips likely header or footer logos", () => {
