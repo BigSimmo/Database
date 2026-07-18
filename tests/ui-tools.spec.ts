@@ -3,6 +3,7 @@ import type { Route } from "playwright-core";
 import { acuteConfusionPresentationWorkflow, differentialRecords } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
 import { formRecords, rankFormRecords } from "../src/lib/forms";
+import { serviceRecords } from "../src/lib/services";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
 import { sortResultItems } from "../src/lib/result-sort";
@@ -16,6 +17,14 @@ const readySetupChecks = [
   { id: "openai", label: "OpenAI API key available", status: "ready", detail: "Test OpenAI ready." },
   { id: "worker", label: "npm run worker running", status: "unknown", detail: "Worker not required for UI smoke." },
 ];
+
+const testServiceSlugs = ["13yarn", "city-east-community-mental-health-service"] as const;
+const testServiceRecords = serviceRecords.filter((service) => testServiceSlugs.includes(service.slug));
+
+function serviceRecordForSlug(slug: string) {
+  const normalizedSlug = decodeURIComponent(slug.trim()).toLowerCase();
+  return testServiceRecords.find((record) => record.slug === normalizedSlug) ?? null;
+}
 
 async function fulfillAnswerResponse(route: Route, payload: unknown) {
   const pathname = new URL(route.request().url()).pathname;
@@ -153,7 +162,7 @@ async function mockAnswerDashboardApi(page: Page) {
   await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
     const kind = new URL(route.request().url()).searchParams.get("kind");
     const records =
-      kind === "form" ? formRecords : [{ slug: "13yarn", title: "13YARN", subtitle: "Crisis support line" }];
+      kind === "form" ? formRecords : testServiceRecords.length ? testServiceRecords : serviceRecords.slice(0, 2);
     await route.fulfill({
       json: {
         records,
@@ -167,7 +176,7 @@ async function mockAnswerDashboardApi(page: Page) {
     const url = new URL(route.request().url());
     const slug = decodeURIComponent(url.pathname.split("/").pop() ?? "");
     const kind = url.searchParams.get("kind");
-    const record = kind === "form" ? formRecords.find((form) => form.slug === slug) : undefined;
+    const record = kind === "form" ? formRecords.find((form) => form.slug === slug) : serviceRecordForSlug(slug);
     if (!record) {
       await route.fulfill({ status: 404, json: { error: "Registry record not found" } });
       return;

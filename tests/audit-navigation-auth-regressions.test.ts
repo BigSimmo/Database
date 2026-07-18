@@ -126,6 +126,6 @@ describe("audit navigation and auth regressions", () => {
 
   it("keeps the root dashboard H1 as Clinical KB", () => {
     expect(clinicalDashboardSource.match(/<h1\b/g)).toHaveLength(1);
-    expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical Guide\s*<\/h1>/);
+    expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical KB\s*<\/h1>/);
   });
 });
