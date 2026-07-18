@@ -15,7 +15,7 @@ import {
   TriangleAlert,
   Zap,
 } from "lucide-react";
-import { createElement, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   categoryTheme,
@@ -24,19 +24,12 @@ import {
   sameTopicFactsheets,
   tocFor,
   type Factsheet,
-  type FactsheetIconKey,
 } from "@/components/factsheets/factsheets-data";
-import { factsheetIcon } from "@/components/factsheets/factsheets-icons";
+import { factsheetGlyph } from "@/components/factsheets/factsheets-icons";
 import { cn, toneDanger, toneWarning } from "@/components/ui-primitives";
 
 function accentBorder(accent: string) {
   return `color-mix(in srgb, ${accent} 35%, var(--surface))`;
-}
-
-// Render a sheet's Lucide glyph without binding a capitalised component to a render-body
-// local (which `react-hooks/static-components` forbids). aria-hidden is set explicitly.
-function factsheetGlyph(icon: FactsheetIconKey, className: string) {
-  return createElement(factsheetIcon(icon), { className, "aria-hidden": "true" });
 }
 
 function Heading({ children }: { children: ReactNode }) {
@@ -156,9 +149,9 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                     {factsheet.category}
                   </span>
                   <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[color:var(--success)]">
-                      <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                      Reviewed {factsheet.reviewedOn}
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[color:var(--text-muted)]">
+                      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                      Updated {factsheet.reviewedOn}
                     </span>
                     <span className="text-xs text-[color:var(--text-soft)]">· {factsheet.readTime}</span>
                   </div>
@@ -243,7 +236,6 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                 </div>
                 <div className="grid gap-2.5">
                   {moreInTopic.map((sheet) => {
-                    const Icon = factsheetIcon(sheet.icon);
                     const sheetTheme = categoryTheme(sheet.category);
                     return (
                       <Link
@@ -255,7 +247,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                           className="grid h-10 w-10 shrink-0 place-items-center rounded-lg"
                           style={{ backgroundColor: sheetTheme.soft, color: sheetTheme.accent }}
                         >
-                          <Icon className="h-5 w-5" aria-hidden="true" />
+                          {factsheetGlyph(sheet.icon, "h-5 w-5")}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-bold text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]">
@@ -282,7 +274,6 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
               <Heading>Related sheets</Heading>
               <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
                 {related.map((sheet) => {
-                  const Icon = factsheetIcon(sheet.icon);
                   const sheetTheme = categoryTheme(sheet.category);
                   return (
                     <Link
@@ -294,7 +285,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                         className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
                         style={{ backgroundColor: sheetTheme.soft, color: sheetTheme.accent }}
                       >
-                        <Icon className="h-5 w-5" aria-hidden="true" />
+                        {factsheetGlyph(sheet.icon, "h-5 w-5")}
                       </span>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-bold text-[color:var(--text-heading)] group-hover:text-[color:var(--clinical-accent)]">
@@ -321,9 +312,11 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
               <p className="mt-1 text-sm font-bold text-[color:var(--text-heading)]">{factsheet.audience}</p>
             </div>
             <div className="border-t border-[color:var(--border)] p-4">
-              <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">Reviewed</p>
+              <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
+                Last updated
+              </p>
               <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-bold text-[color:var(--text-heading)]">
-                <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--success)]" aria-hidden="true" />
+                <Clock className="h-3.5 w-3.5 text-[color:var(--text-muted)]" aria-hidden="true" />
                 {factsheet.reviewedOn}
               </p>
             </div>
@@ -538,9 +531,7 @@ function FactsheetBody({
           <section>
             <Heading>What helps</Heading>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
-              {factsheet.helps.map((help) => {
-                const HelpIcon = factsheetIcon(help.icon);
-                return (
+              {factsheet.helps.map((help) => (
                   <div
                     key={help.title}
                     className="flex flex-col gap-2.5 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4"
@@ -549,13 +540,12 @@ function FactsheetBody({
                       className="grid h-10 w-10 place-items-center rounded-lg"
                       style={{ backgroundColor: theme.soft, color: theme.accent }}
                     >
-                      <HelpIcon className="h-5 w-5" aria-hidden="true" />
+                      {factsheetGlyph(help.icon, "h-5 w-5")}
                     </span>
                     <p className="text-sm font-bold text-[color:var(--text-heading)]">{help.title}</p>
                     <p className="text-pretty text-xs leading-5 text-[color:var(--text-muted)]">{help.body}</p>
                   </div>
-                );
-              })}
+                ))}
             </div>
           </section>
           <div
@@ -709,7 +699,7 @@ function FactsheetPrintSheet({ factsheet, blocks }: { factsheet: Factsheet; bloc
             {factsheet.category} · Patient information
           </span>
           <span style={{ fontSize: "11px", color: "#555" }}>
-            Reviewed {factsheet.reviewedOn} · {factsheet.readTime}
+            Updated {factsheet.reviewedOn} · {factsheet.readTime}
           </span>
         </div>
         <h1 style={{ margin: "10px 0 6px", fontSize: "26px", fontWeight: 700, color: "#111" }}>
@@ -766,6 +756,12 @@ function FactsheetPrintSheet({ factsheet, blocks }: { factsheet: Factsheet; bloc
               {block.items.map((source) => (
                 <div key={source.n} style={{ fontSize: "12px", color: "#333", marginBottom: "2px" }}>
                   {source.n}. {source.title} — {source.org} ({source.year})
+                  {source.url ? (
+                    <>
+                      {" "}
+                      — <span style={{ color: "#555", wordBreak: "break-all" }}>{source.url}</span>
+                    </>
+                  ) : null}
                 </div>
               ))}
             </>

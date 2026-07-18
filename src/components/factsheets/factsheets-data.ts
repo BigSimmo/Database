@@ -6,11 +6,11 @@
  * search filtering) as well as client components. Icons are referenced by a stable
  * key and mapped to Lucide components in `factsheets-icons.ts`.
  *
- * Governance: these sheets are patient-facing information written in plain language
- * and dated with a review month, drawn from reputable Australian consumer-health
- * sources (see each sheet's `sources`). They demonstrate the published factsheet
- * experience; connect only governance-approved patient information before
- * publication (surfaced via the verification footer and per-sheet disclaimer).
+ * Governance: these sheets are patient-facing demonstration content written in
+ * plain language and dated with a content month (`reviewedOn`). They cite
+ * reputable public consumer-health sources (see each sheet's `sources`) but are
+ * not clinician-approved for publication. Connect only governance-approved
+ * patient information before treating sheets as locally approved.
  */
 
 export type FactsheetCategory = "Medications" | "Conditions" | "Therapies" | "Tests & procedures";
@@ -53,7 +53,10 @@ type FactsheetBase = {
   category: FactsheetCategory;
   audience: string;
   readTime: string;
-  /** Human review month, e.g. "Jul 2026". */
+  /**
+   * Content date month for the sheet, e.g. "Jul 2026".
+   * This is a demonstration currency stamp — not clinician approval.
+   */
   reviewedOn: string;
   icon: FactsheetIconKey;
   summary: string;
@@ -155,24 +158,54 @@ const SOURCES: Record<string, FactsheetSource[]> = {
   sertraline: [
     {
       n: "1",
-      title: "APO-Sertraline — Consumer Medicine Information",
+      title: "Sertraline (Apo) — Consumer Medicine Information",
       org: "healthdirect / TGA",
       year: "2025",
       tag: "Consumer",
+      url: "https://www.healthdirect.gov.au/medicines/brand/amt,154611000036104/sertraline-apo",
     },
-    { n: "2", title: "Sertraline (oral route)", org: "Mayo Clinic", year: "2026", tag: "Reference" },
+    {
+      n: "2",
+      title: "Sertraline (oral route)",
+      org: "Mayo Clinic",
+      year: "2026",
+      tag: "Reference",
+      url: "https://www.mayoclinic.org/drugs-supplements/sertraline-oral-route/description/drg-20065940",
+    },
     {
       n: "3",
-      title: "Antidepressants: 10 things you should know",
-      org: "NPS MedicineWise",
-      year: "2022",
+      title: "Medicines for anxiety",
+      org: "healthdirect Australia",
+      year: "2025",
       tag: "Consumer",
+      url: "https://www.healthdirect.gov.au/medicines-for-anxiety",
     },
-    { n: "4", title: "Antidepressants", org: "healthdirect Australia", year: "2025", tag: "Reference" },
+    {
+      n: "4",
+      title: "Antidepressants",
+      org: "healthdirect Australia",
+      year: "2025",
+      tag: "Reference",
+      url: "https://www.healthdirect.gov.au/antidepressants",
+    },
   ],
   depression: [
-    { n: "1", title: "Understanding depression", org: "Beyond Blue", year: "2025", tag: "Consumer" },
-    { n: "2", title: "Types of depression", org: "Beyond Blue", year: "2025", tag: "Consumer" },
+    {
+      n: "1",
+      title: "Understand depression",
+      org: "Beyond Blue",
+      year: "2025",
+      tag: "Consumer",
+      url: "https://www.beyondblue.org.au/mental-health/depression",
+    },
+    {
+      n: "2",
+      title: "Types of depression",
+      org: "Beyond Blue",
+      year: "2025",
+      tag: "Consumer",
+      url: "https://www.beyondblue.org.au/mental-health/depression/types-of-depression",
+    },
   ],
   gad: [
     {
@@ -181,58 +214,106 @@ const SOURCES: Record<string, FactsheetSource[]> = {
       org: "healthdirect Australia",
       year: "2024",
       tag: "Reference",
+      url: "https://www.healthdirect.gov.au/generalised-anxiety-disorder-gad",
     },
     {
       n: "2",
-      title: "Generalized anxiety disorder: what you need to know",
+      title: "Generalized Anxiety Disorder: When Worry Gets Out of Control",
       org: "NIMH",
       year: "2024",
       tag: "Reference",
+      url: "https://www.nimh.nih.gov/health/publications/generalized-anxiety-disorder-gad",
     },
   ],
   bipolar: [
-    { n: "1", title: "Types of depression (bipolar disorder)", org: "Beyond Blue", year: "2025", tag: "Consumer" },
-    { n: "2", title: "Bipolar disorder", org: "healthdirect Australia", year: "2025", tag: "Reference" },
+    {
+      n: "1",
+      title: "Types of depression (includes bipolar disorder)",
+      org: "Beyond Blue",
+      year: "2025",
+      tag: "Consumer",
+      url: "https://www.beyondblue.org.au/mental-health/depression/types-of-depression",
+    },
+    {
+      n: "2",
+      title: "Bipolar disorder",
+      org: "healthdirect Australia",
+      year: "2025",
+      tag: "Reference",
+      url: "https://www.healthdirect.gov.au/bipolar-disorder",
+    },
   ],
   cbt: [
     {
       n: "1",
-      title: "Generalised anxiety disorder — self-care (CBT)",
-      org: "MedlinePlus",
+      title: "Cognitive behaviour therapy (CBT)",
+      org: "healthdirect Australia",
       year: "2025",
       tag: "Reference",
+      url: "https://www.healthdirect.gov.au/cognitive-behaviour-therapy-cbt",
     },
-    { n: "2", title: "A guide to what works for depression", org: "Beyond Blue", year: "2013", tag: "Guideline" },
+    {
+      n: "2",
+      title: "Treatments for depression",
+      org: "Beyond Blue",
+      year: "2025",
+      tag: "Consumer",
+      url: "https://www.beyondblue.org.au/mental-health/depression/treatments-for-depression",
+    },
   ],
   ssri: [
     {
       n: "1",
-      title: "Antidepressants: 10 things you should know",
-      org: "NPS MedicineWise",
-      year: "2022",
+      title: "Medicines for anxiety",
+      org: "healthdirect Australia",
+      year: "2025",
       tag: "Consumer",
+      url: "https://www.healthdirect.gov.au/medicines-for-anxiety",
     },
-    { n: "2", title: "Antidepressants", org: "healthdirect Australia", year: "2025", tag: "Reference" },
-  ],
-  escitalopram: [
-    { n: "1", title: "Antidepressants", org: "healthdirect Australia", year: "2025", tag: "Reference" },
     {
       n: "2",
-      title: "Antidepressants: 10 things you should know",
-      org: "NPS MedicineWise",
-      year: "2022",
+      title: "Antidepressants",
+      org: "healthdirect Australia",
+      year: "2025",
+      tag: "Reference",
+      url: "https://www.healthdirect.gov.au/antidepressants",
+    },
+  ],
+  escitalopram: [
+    {
+      n: "1",
+      title: "Antidepressants",
+      org: "healthdirect Australia",
+      year: "2025",
+      tag: "Reference",
+      url: "https://www.healthdirect.gov.au/antidepressants",
+    },
+    {
+      n: "2",
+      title: "Medicines for anxiety",
+      org: "healthdirect Australia",
+      year: "2025",
       tag: "Consumer",
+      url: "https://www.healthdirect.gov.au/medicines-for-anxiety",
     },
   ],
   "lithium-monitoring": [
     {
       n: "1",
-      title: "Lithium — Consumer Medicine Information",
-      org: "healthdirect / TGA",
+      title: "Lithium",
+      org: "healthdirect Australia",
       year: "2025",
       tag: "Consumer",
+      url: "https://www.healthdirect.gov.au/lithium",
     },
-    { n: "2", title: "Bipolar disorder", org: "healthdirect Australia", year: "2025", tag: "Reference" },
+    {
+      n: "2",
+      title: "Bipolar disorder",
+      org: "healthdirect Australia",
+      year: "2025",
+      tag: "Reference",
+      url: "https://www.healthdirect.gov.au/bipolar-disorder",
+    },
   ],
 };
 

@@ -10,7 +10,7 @@ import {
   type Factsheet,
   type FactsheetCategory,
 } from "@/components/factsheets/factsheets-data";
-import { factsheetIcon } from "@/components/factsheets/factsheets-icons";
+import { factsheetGlyph } from "@/components/factsheets/factsheets-icons";
 import { cn } from "@/components/ui-primitives";
 
 type ViewMode = "list" | "cards";
@@ -86,7 +86,6 @@ export function FactsheetsSearchPage({
           className="inline-flex gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-1"
         >
           {(["list", "cards"] as const).map((mode) => {
-            const Icon = mode === "list" ? List : LayoutGrid;
             const isActive = view === mode;
             return (
               <button
@@ -101,7 +100,11 @@ export function FactsheetsSearchPage({
                     : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
                 )}
               >
-                <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                {mode === "list" ? (
+                  <List className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
                 {mode}
               </button>
             );
@@ -134,7 +137,6 @@ export function FactsheetsSearchPage({
         >
           {results.map((sheet) => {
             const theme = categoryTheme(sheet.category);
-            const SheetIcon = factsheetIcon(sheet.icon);
             return (
               <Link
                 key={sheet.slug}
@@ -146,7 +148,7 @@ export function FactsheetsSearchPage({
                   className="mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg"
                   style={{ backgroundColor: theme.soft, color: theme.accent }}
                 >
-                  <SheetIcon className="h-5 w-5" aria-hidden="true" />
+                  {factsheetGlyph(sheet.icon, "h-5 w-5")}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
@@ -182,7 +184,6 @@ export function FactsheetsSearchPage({
         <section aria-label="Factsheet results" className="mt-4 grid gap-3.5 sm:grid-cols-2">
           {results.map((sheet) => {
             const theme = categoryTheme(sheet.category);
-            const SheetIcon = factsheetIcon(sheet.icon);
             return (
               <Link
                 key={sheet.slug}
@@ -196,7 +197,7 @@ export function FactsheetsSearchPage({
                     className="grid h-10 w-10 place-items-center rounded-xl"
                     style={{ backgroundColor: theme.soft, color: theme.accent }}
                   >
-                    <SheetIcon className="h-5 w-5" aria-hidden="true" />
+                    {factsheetGlyph(sheet.icon, "h-5 w-5")}
                   </span>
                   <span
                     className="rounded-md px-2 py-1 text-2xs font-bold"
@@ -226,8 +227,9 @@ export function FactsheetsSearchPage({
       <aside className="mt-5 flex gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--info)]" aria-hidden="true" />
         <p className="text-sm-minus leading-5 text-[color:var(--text-muted)]">
-          <strong className="font-bold text-[color:var(--text-heading)]">Content status:</strong> Every sheet is
-          clinician-reviewed and dated. Connect only governance-approved patient information before publication.
+          <strong className="font-bold text-[color:var(--text-heading)]">Content status:</strong> These sheets are
+          dated demonstration content with public source links. Connect only governance-approved patient information
+          before publication.
         </p>
       </aside>
     </div>

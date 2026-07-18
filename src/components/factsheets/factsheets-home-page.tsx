@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BookOpenText, Check, ShieldCheck } from "lucide-react";
+import { ArrowRight, BookOpenText, Clock, ShieldCheck } from "lucide-react";
 
 import {
   categoryCount,
@@ -7,7 +7,7 @@ import {
   factsheetCategories,
   featuredFactsheets,
 } from "@/components/factsheets/factsheets-data";
-import { factsheetCategoryIcons, factsheetIcon } from "@/components/factsheets/factsheets-icons";
+import { factsheetCategoryGlyph, factsheetGlyph } from "@/components/factsheets/factsheets-icons";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -24,7 +24,7 @@ export function FactsheetsHomePage() {
         <ModeHomeHero
           testId="factsheets-home"
           title="Clear information for the next conversation."
-          subtitle="Find a short, plain-language factsheet to support a patient conversation — sourced, locally approved, and easy to take away."
+          subtitle="Find a short, plain-language factsheet to support a patient conversation — sourced, dated, and easy to take away."
           icon={BookOpenText}
         />
 
@@ -38,7 +38,6 @@ export function FactsheetsHomePage() {
           <p className={cn(eyebrowText, "text-center sm:text-left")}>Browse by topic</p>
           <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
             {factsheetCategories.map((category) => {
-              const CategoryIcon = factsheetCategoryIcons[category];
               const theme = categoryTheme(category);
               return (
                 <Link
@@ -50,7 +49,7 @@ export function FactsheetsHomePage() {
                     className="grid h-5 w-5 shrink-0 place-items-center rounded-full"
                     style={{ backgroundColor: theme.soft, color: theme.accent }}
                   >
-                    <CategoryIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                    {factsheetCategoryGlyph(category, "h-3.5 w-3.5")}
                   </span>
                   {category}
                   <span className="text-2xs font-bold tabular-nums text-[color:var(--text-soft)]">
@@ -75,7 +74,7 @@ export function FactsheetsHomePage() {
                 Start with a factsheet
               </h2>
               <p className="mt-1 text-sm-minus font-medium text-[color:var(--text-muted)]">
-                Reviewed, dated, and written in plain language.
+                Dated demonstration content, written in plain language.
               </p>
             </div>
             <Link
@@ -90,7 +89,6 @@ export function FactsheetsHomePage() {
           <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             {featured.map((sheet) => {
               const theme = categoryTheme(sheet.category);
-              const SheetIcon = factsheetIcon(sheet.icon);
               return (
                 <Link
                   key={sheet.slug}
@@ -104,7 +102,7 @@ export function FactsheetsHomePage() {
                       className="grid h-10 w-10 place-items-center rounded-lg"
                       style={{ backgroundColor: theme.soft, color: theme.accent }}
                     >
-                      <SheetIcon className="h-5 w-5" aria-hidden="true" />
+                      {factsheetGlyph(sheet.icon, "h-5 w-5")}
                     </span>
                     <span
                       className="rounded-md px-2 py-1 text-2xs font-bold"
@@ -123,9 +121,9 @@ export function FactsheetsHomePage() {
                     {sheet.summary}
                   </p>
                   <div className="mt-4 flex items-center gap-3">
-                    <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-[color:var(--success)]">
-                      <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                      Reviewed
+                    <span className="inline-flex items-center gap-1.5 text-2xs font-bold text-[color:var(--text-muted)]">
+                      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                      Updated {sheet.reviewedOn}
                     </span>
                     <span className="text-xs text-[color:var(--text-soft)]">{sheet.readTime}</span>
                   </div>
@@ -138,7 +136,7 @@ export function FactsheetsHomePage() {
         <div className="w-full px-4 pt-1 sm:px-0">
           <ModeHomeVerificationFooter
             icon={ShieldCheck}
-            label="Clinician-reviewed patient information"
+            label="Demonstration patient information"
             body="Connect only governance-approved content before publication"
           />
         </div>

@@ -30,11 +30,20 @@ describe("factsheet library", () => {
       expect(sheet.summary).toBeTruthy();
       expect(sheet.audience).toBeTruthy();
       expect(sheet.readTime).toBeTruthy();
-      // Every sheet carries a human review month and at least one cited source.
+      // Every sheet carries a content date month and at least one cited source.
+      // `reviewedOn` is a demonstration currency stamp — not clinician approval.
       expect(sheet.reviewedOn).toBeTruthy();
       expect(sheet.sources.length).toBeGreaterThan(0);
       expect(factsheetCategories).toContain(sheet.category);
       expect(kinds.has(sheet.kind)).toBe(true);
+    }
+  });
+
+  it("attaches verifiable https URLs to every cited source", () => {
+    for (const sheet of factsheets) {
+      for (const source of sheet.sources) {
+        expect(source.url, `${sheet.slug} source ${source.n}`).toMatch(/^https:\/\//);
+      }
     }
   });
 

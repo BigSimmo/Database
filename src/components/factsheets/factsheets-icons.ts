@@ -13,6 +13,7 @@ import {
   Wind,
   type LucideIcon,
 } from "lucide-react";
+import { createElement } from "react";
 
 import type { FactsheetCategory, FactsheetIconKey } from "@/components/factsheets/factsheets-data";
 
@@ -41,4 +42,16 @@ export const factsheetCategoryIcons: Record<FactsheetCategory, LucideIcon> = {
 
 export function factsheetIcon(key: FactsheetIconKey): LucideIcon {
   return factsheetIcons[key];
+}
+
+/**
+ * Render a Lucide glyph without binding a capitalised component to a render-body
+ * local (which `react-hooks/static-components` forbids).
+ */
+export function factsheetGlyph(icon: FactsheetIconKey, className: string) {
+  return createElement(factsheetIcons[icon], { className, "aria-hidden": "true" });
+}
+
+export function factsheetCategoryGlyph(category: FactsheetCategory, className: string) {
+  return createElement(factsheetCategoryIcons[category], { className, "aria-hidden": "true" });
 }
