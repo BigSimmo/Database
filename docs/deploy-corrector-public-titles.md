@@ -1,7 +1,9 @@
-# Deploy runbook — public-titles corrector migration (F10)
+# Deploy runbook — public-title corrector migrations (F10)
 
-Applies migration `supabase/migrations/20260717120000_corrector_public_titles_only.sql`
-to the live **Clinical KB Database** project (`sjrfecxgysukkwxsowpy`).
+Covers the ordered corrector migrations
+`supabase/migrations/20260717120000_corrector_public_titles_only.sql` and
+`supabase/migrations/20260717171000_public_title_corrector.sql` for the live
+**Clinical KB Database** project (`sjrfecxgysukkwxsowpy`).
 
 **What it does:** scopes `public.correct_clinical_query_terms` (the clinical query-term
 corrector) so its spell-correction vocabulary is built only from the **public
@@ -9,13 +11,33 @@ corrector) so its spell-correction vocabulary is built only from the **public
 closes a cross-tenant side-channel where a `SECURITY DEFINER` read leaked private
 documents' title/alias tokens into other tenants' query corrections.
 
-**Risk:** low and reversible. It is a `CREATE OR REPLACE FUNCTION` (+ `revoke`/`grant`) —
-no data migration, no index build, no locks, signature unchanged. Validated on a
-Supabase preview branch and by `npm run drift:manifest` (real Postgres replay).
+**Risk:** medium and reversible with a reviewed forward migration. The `…120000`
+privacy baseline is a signature-compatible `CREATE OR REPLACE FUNCTION`. The later
+`…171000` implementation creates and backfills `document_title_words`, adds indexes
+and a synchronization trigger, then replaces the same corrector without weakening
+the public-only vocabulary boundary. It does not rewrite clinical source content,
+but its DDL, index build, and backfill require the normal production-change controls.
 
-**Status when this runbook was written:** the code side is fully merged to `main` —
-migration (#697), plus `schema.sql` mirror + regenerated `drift-manifest.json` (#701).
-The **only remaining step is applying the migration to the live project** (this step).
+**Repository status:** both corrector migrations and their schema mirror are merged.
+Live apply state is deliberately **unconfirmed** in this document. Never assume either
+corrector migration is the sole pending migration; inspect the linked migration table
+and review the complete pending sequence immediately before an authorized apply.
+
+## Required migration order
+
+Supabase applies migrations by filename. The relevant ordered sequence is:
+
+1. `20260717120000_corrector_public_titles_only.sql` — establishes the public-only
+   privacy baseline.
+2. `20260717170000_registry_projection_cleanup.sql` — the earlier performance
+   migration in the current chain; see
+   [operator-apply-performance-latency-remediation.md](operator-apply-performance-latency-remediation.md).
+3. `20260717171000_public_title_corrector.sql` — installs the indexed public-title
+   vocabulary while preserving the baseline's owner scoping.
+
+Other reviewed repository migrations can appear between or after these entries. Do
+not selectively mark migrations applied, reorder filenames, or skip an earlier pending
+migration to reach the corrector.
 
 ---
 
@@ -56,21 +78,24 @@ npx supabase link --project-ref sjrfecxgysukkwxsowpy      # may prompt for the D
 
 ```bash
 npm run check:supabase-project        # must print: Clinical KB Database / sjrfecxgysukkwxsowpy
-npx supabase migration list --linked  # 20260717120000_corrector_public_titles_only must be the pending one
+npx supabase migration list --linked  # review every local/remote row and its order
 ```
 
-**Stop** if `check:supabase-project` shows staging/another project, if unexpected
-migrations are pending, or if local/remote history looks divergent
-(see `docs/supabase-migration-reconciliation.md`).
+Confirm that any pending corrector entries use the exact filenames above, that
+`…120000` precedes `…171000`, and that `…170000` is not skipped when it is pending.
+It is valid for an earlier migration to already be recorded remotely. **Stop** if
+`check:supabase-project` shows staging/another project, any pending migration has not
+been reviewed and authorized as part of this rollout, or local/remote history looks
+divergent (see `docs/supabase-migration-reconciliation.md`).
 
-Optional — before applying, `npm run check:drift` will report the corrector as the
-pending difference (manifest scoped, live still unscoped). That is expected and is what
-the push clears.
+Optional — before applying, `npm run check:drift` can identify repository/live schema
+differences. Treat its output as evidence to review, not proof that the corrector is the
+only pending change.
 
 ### 4. Apply
 
 ```bash
-npx supabase db push        # review the listed migration, confirm with `y`
+npx supabase db push        # applies every pending migration; review the full list before confirming
 ```
 
 ### 5. Verify
@@ -100,7 +125,9 @@ in step 1 will fail — then use Option A instead.
 Keep Codex's **"ask before running commands" / approval** setting ON. Start a task on
 `BigSimmo/Database` and paste:
 
-> Deploy the already-merged migration `supabase/migrations/20260717120000_corrector_public_titles_only.sql`
+> Deploy the already-merged corrector migrations
+> `supabase/migrations/20260717120000_corrector_public_titles_only.sql` and
+> `supabase/migrations/20260717171000_public_title_corrector.sql`
 > to the **live production** Supabase project **Clinical KB Database** (ref
 > `sjrfecxgysukkwxsowpy`), using the repo's linked-migration workflow. This is a
 > production clinical database — treat every step as confirmation-required and **pause
@@ -108,14 +135,16 @@ Keep Codex's **"ask before running commands" / approval** setting ON. Start a ta
 >
 > 1. Run `npm run check:supabase-project` and show me the full output. Confirm it targets
 >    `sjrfecxgysukkwxsowpy` (production), not staging. If it targets anything else, **stop**.
-> 2. Run `npx supabase migration list --linked` and show me the output. Confirm
->    `20260717120000_corrector_public_titles_only` is pending and local/remote history is
->    aligned. If any other unexpected migration is pending, or history is divergent,
->    **stop and ask me**.
+> 2. Run `npx supabase migration list --linked` and show me the output. Confirm local
+>    and remote history are aligned; if pending, `20260717120000` must precede
+>    `20260717170000`, which must precede `20260717171000`. Enumerate every other
+>    pending migration. If any pending entry has not been reviewed for this rollout,
+>    or history is divergent, **stop and ask me**.
 > 3. If either command above fails because production credentials aren't configured in
 >    this environment, **stop and tell me** — do not try to work around it.
 > 4. **PAUSE and wait for me to reply "go" before applying anything.**
-> 5. After I say go: run `npx supabase db push` to apply the pending migration.
+> 5. After I approve the exact list: run `npx supabase db push` to apply that reviewed
+>    pending sequence. Stop if the CLI proposes a different list.
 > 6. Verify: run `npm run check:drift` (must report "No unexpected schema drift") and
 >    `npm run check:supabase-project`. Show me both outputs.
 >
@@ -124,24 +153,29 @@ Keep Codex's **"ask before running commands" / approval** setting ON. Start a ta
 Your two decision points:
 
 - After steps 1–2: reply **"go"** only if the project is `Clinical KB Database /
-sjrfecxgysukkwxsowpy` and the sole pending migration is this one. Otherwise stop and
-  review the output.
+sjrfecxgysukkwxsowpy` and every pending migration, in order, is expected and
+  authorized. Otherwise stop and review the output.
 - After the push: ✅ `check:drift` = "No unexpected schema drift" → done.
 
 ---
 
 ## Rollback
 
-Not expected — the scoped version is strictly safer and signature-compatible. If ever
-needed, `CREATE OR REPLACE` the prior (unscoped) definition and regenerate the manifest;
-but there is no functional reason to revert.
+Do **not** restore the pre-`…120000` unscoped corrector: that would reopen the private
+title/alias side channel. If the indexed `…171000` implementation must be backed out,
+prepare and review a new forward migration that first restores the exact public-scoped
+function definition from `20260717120000_corrector_public_titles_only.sql`, then removes
+the title-word trigger/table/indexes only after dependency and lock review. Keep the
+public-only predicate throughout, take the normal backup, and verify drift and the
+function definition after the authorized apply. Never edit migration history or run an
+ad hoc unscoped `CREATE OR REPLACE` in production.
 
 ## Why `check:drift` flips green after applying
 
-Before the deploy, `main` carries the scoped corrector in `schema.sql` + the drift
-manifest, while live still runs the unscoped version — so `check:drift` reports the
-corrector as pending. `supabase db push` brings live into line, so the post-apply
-`check:drift` matches the manifest and reports clean.
+When live is behind the repository, `main` carries the final corrector and related
+objects in `schema.sql` plus the drift manifest. Applying the complete reviewed pending
+sequence brings live into line; only then should the post-apply `check:drift` match the
+manifest and report clean. A clean result does not replace the migration-history check.
 
 ## Related
 

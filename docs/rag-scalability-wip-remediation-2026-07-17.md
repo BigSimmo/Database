@@ -1,5 +1,15 @@
 # RAG-scalability WIP review — remediation report (2026-07-17)
 
+> [!IMPORTANT]
+> **Superseded historical record.** The deferred registry-cleanup and public-title
+> corrector work described below was later implemented in
+> `20260717170000_registry_projection_cleanup.sql` and
+> `20260717171000_public_title_corrector.sql`. Do not use this report's status or next
+> steps as current operator guidance. Use
+> [operator-apply-performance-latency-remediation.md](operator-apply-performance-latency-remediation.md),
+> [deploy-corrector-public-titles.md](deploy-corrector-public-titles.md), and
+> [operator-backlog.md](operator-backlog.md) instead.
+
 **Status:** F11 shipped and merged; all correctness findings verified moot on this
 branch; scalability build recorded and deferred pending go-ahead.
 **Responds to:** the "Handover — RAG scalability WIP review findings (2026-07-15)"
