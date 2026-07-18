@@ -100,8 +100,10 @@ describe("PwaLifecycle", () => {
       });
       return registration;
     };
-    const ownRegistration = makeRegistration("http://localhost/sw.js");
-    const foreignRegistration = makeRegistration("http://localhost/other-worker.js");
+    const ownRegistration = makeRegistration(new URL("/sw.js", window.location.origin).href);
+    // Nested path ending in /sw.js: proves teardown exact-matches the owned
+    // worker URL instead of suffix-matching.
+    const foreignRegistration = makeRegistration(new URL("/other-app/sw.js", window.location.origin).href);
     Object.defineProperty(container, "getRegistrations", {
       configurable: true,
       value: vi.fn().mockResolvedValue([ownRegistration, foreignRegistration]),

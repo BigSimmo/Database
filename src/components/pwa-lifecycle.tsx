@@ -66,12 +66,16 @@ function rememberInstallDismissal() {
 
 async function teardownLocalPwa() {
   try {
+    // Exact-match the owned worker URL: a suffix check would also catch an
+    // unrelated same-origin worker registered at a nested path like
+    // /other-app/sw.js.
+    const ownedWorkerUrl = new URL(SERVICE_WORKER_URL, window.location.origin).href;
     const registrations = await navigator.serviceWorker.getRegistrations();
     await Promise.allSettled(
       registrations
         .filter((registration) =>
-          [registration.active, registration.waiting, registration.installing].some((worker) =>
-            worker?.scriptURL.endsWith(SERVICE_WORKER_URL),
+          [registration.active, registration.waiting, registration.installing].some(
+            (worker) => worker?.scriptURL === ownedWorkerUrl,
           ),
         )
         .map((registration) => registration.unregister()),
