@@ -81,12 +81,7 @@ export function computeScrollHideUpdate(params: {
   // clear of the bottom) can reveal. This intentionally does not depend on the
   // previous offset's relationship to the maximum, which the browser's per-frame
   // clamping makes unreliable during the collapse.
-  if (
-    currentlyHidden &&
-    maxOffset !== undefined &&
-    offset < lastOffset &&
-    offset >= maxOffset - bottomClampTolerance
-  ) {
+  if (currentlyHidden && maxOffset !== undefined && offset < lastOffset && offset >= maxOffset - bottomClampTolerance) {
     return { hidden: true, lastOffset: offset, direction: null, directionTravel: 0 };
   }
 
