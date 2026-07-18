@@ -1272,11 +1272,17 @@ export function buildClinicalTextSearchQuery(query: string) {
     (hasAgitationArousalTypo && /\bagitation\b/i.test(correctedQueryText) && /\barousal\b/i.test(correctedQueryText)) ||
     /\bagitation\b/i.test(correctedQueryText);
   const agitationMedicationIntent = medicationDoseEvidenceQueryIntent(query);
+  // Chart/dose/route/options expand into medication-chart terms. Bare "table" or
+  // "management" alone must not — those appear in topic lookups like
+  // "which table covers … pharmacological management" and broad management questions.
+  const agitationChartSurfaceMatch =
+    /\b(?:dose|dosing|route|oral|intramuscular|im|po|chart|options?|listed)\b/i.test(correctedQueryText);
   const wantsAgitationMedicationChart =
     hasAgitationArousalContext &&
     (agitationMedicationIntent.asksAmount ||
       agitationMedicationIntent.asksRoute ||
-      agitationMedicationIntent.asksFrequency);
+      agitationMedicationIntent.asksFrequency ||
+      agitationChartSurfaceMatch);
   const wantsAgitationArousal =
     hasAgitationArousalContext &&
     (wantsAgitationMedicationChart ||
@@ -1294,7 +1300,11 @@ export function buildClinicalTextSearchQuery(query: string) {
     normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "monitoring");
   } else if (wantsAgitationMedicationChart) {
     const requestedDoseRouteTerms = medicationDoseEvidenceSearchTerms(query);
-    normalizedTokens.splice(0, normalizedTokens.length, "agitation", "arousal", ...requestedDoseRouteTerms);
+    const medicationChartTokens =
+      requestedDoseRouteTerms.length > 0
+        ? ["agitation", "arousal", ...requestedDoseRouteTerms]
+        : ["agitation", "arousal", "pharmacological", "management", "medication", "chart", "dose", "route", "im", "po"];
+    normalizedTokens.splice(0, normalizedTokens.length, ...medicationChartTokens);
   } else if (wantsAgitationArousal) {
     normalizedTokens.splice(0, normalizedTokens.length, "agitation", "arousal", "pharmacological", "management");
   } else if (/\badmission\b/i.test(query) && /\bcommunity patients?\b/i.test(query)) {
