@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -66,6 +67,27 @@ describe("PWA manifest and public bootstrap resources", () => {
     expect(offlineHtml).toMatch(/private clinical documents/i);
     expect(offlineHtml).toMatch(/does not store or\s+replay/i);
     expect(offlineHtml).toMatch(/queries, answers, documents, uploads, signed URLs, or API responses/i);
+  });
+
+  it("binds the precached offline document to the service-worker cache version", () => {
+    // The offline document is precached at install time only, so an edit that
+    // ships without a CACHE_VERSION bump strands installed clients on the old
+    // copy indefinitely (docs/pwa.md rules 1 and 5). Update BOTH fields of
+    // this pairing together: bump CACHE_VERSION in public/sw.js to a brand-new
+    // value (never reuse a previous one, even for rollbacks) and record the
+    // new offline.html hash here.
+    const expectedPairing = {
+      cacheVersion: "2026-07-15-v1",
+      offlineHtmlSha256: "52d290906336bf7d6d71797e3ede038e0ac84c826dc1c09f04f3f27d29117f8a",
+    };
+
+    const workerSource = readFileSync(join(process.cwd(), "public", "sw.js"), "utf8");
+    const cacheVersion = workerSource.match(/const CACHE_VERSION = "([^"]+)";/)?.[1];
+    const offlineHtml = readFileSync(join(process.cwd(), "public", "offline.html"), "utf8");
+    const offlineHtmlSha256 = createHash("sha256").update(offlineHtml).digest("hex");
+
+    expect(cacheVersion).toBeTruthy();
+    expect({ cacheVersion, offlineHtmlSha256 }).toEqual(expectedPairing);
   });
 
   it("sets explicit no-cache and scope headers for the service-worker entry point", () => {
