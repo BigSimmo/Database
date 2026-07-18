@@ -52,7 +52,7 @@ function normalizeSectionHeading(value) {
 
 function section(body, heading) {
   const source = String(body ?? "");
-  const headings = [...source.matchAll(/^#{2,6}\s+(.+?)\s*$/gim)];
+  const headings = [...source.matchAll(/^#{2,6}[ \t]+(.+?)[ \t]*$/gim)];
   const targetHeading = normalizeSectionHeading(heading);
   const matchIndex = headings.findIndex((match) => normalizeSectionHeading(match[1]) === targetHeading);
   if (matchIndex < 0) return "";
