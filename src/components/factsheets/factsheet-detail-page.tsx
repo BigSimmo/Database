@@ -184,26 +184,48 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
             <section className="mt-7">
               <Heading>Where this information comes from</Heading>
               <div className="mt-3 grid gap-2">
-                {factsheet.sources.map((source) => (
-                  <div
-                    key={source.n}
-                    className="flex items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3.5 py-3"
-                  >
-                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] font-mono text-xs font-bold text-[color:var(--text-muted)]">
-                      {source.n}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-[color:var(--text-heading)]">{source.title}</p>
-                      <p className="text-xs text-[color:var(--text-soft)]">
-                        {source.org} · {source.year}
-                      </p>
+                {factsheet.sources.map((source) => {
+                  const rowClass =
+                    "flex items-center gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3.5 py-3";
+                  const inner = (
+                    <>
+                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] font-mono text-xs font-bold text-[color:var(--text-muted)]">
+                        {source.n}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold text-[color:var(--text-heading)]">{source.title}</p>
+                        <p className="text-xs text-[color:var(--text-soft)]">
+                          {source.org} · {source.year}
+                        </p>
+                      </div>
+                      <span className="rounded-md bg-[color:var(--surface-inset)] px-2 py-0.5 text-2xs font-bold text-[color:var(--text-muted)]">
+                        {source.tag}
+                      </span>
+                      {/* Only advertise an outbound link when a verifiable URL exists. */}
+                      {source.url ? (
+                        <ArrowUpRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden="true" />
+                      ) : null}
+                    </>
+                  );
+                  return source.url ? (
+                    <a
+                      key={source.n}
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cn(
+                        rowClass,
+                        "transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                      )}
+                    >
+                      {inner}
+                    </a>
+                  ) : (
+                    <div key={source.n} className={rowClass}>
+                      {inner}
                     </div>
-                    <span className="rounded-md bg-[color:var(--surface-inset)] px-2 py-0.5 text-2xs font-bold text-[color:var(--text-muted)]">
-                      {source.tag}
-                    </span>
-                    <ArrowUpRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden="true" />
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </section>
 

@@ -36,6 +36,13 @@ export type FactsheetSource = {
   org: string;
   year: string;
   tag: string;
+  /**
+   * Canonical URL for the cited source. Optional: only governance-approved,
+   * verifiable links belong here. When present the detail page renders the
+   * citation as an outbound link; when absent it renders as a plain citation
+   * (no external-link affordance) rather than implying an openable source.
+   */
+  url?: string;
 };
 
 type FactsheetBase = {
@@ -563,7 +570,11 @@ export function filterFactsheets(query: string, category?: string): Factsheet[] 
     .filter((sheet) => !activeCategory || sheet.category === activeCategory)
     .filter((sheet) => {
       if (!q) return true;
-      return `${sheet.title} ${sheet.summary} ${sheet.category} ${sheet.audience}`.toLowerCase().includes(q);
+      // Include the brand suffix (e.g. "(Zoloft)") so brand-name searches resolve
+      // even though it is stored separately from the title.
+      return `${sheet.title} ${sheet.brand ?? ""} ${sheet.summary} ${sheet.category} ${sheet.audience}`
+        .toLowerCase()
+        .includes(q);
     });
 }
 
