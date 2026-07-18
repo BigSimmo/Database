@@ -28,9 +28,9 @@ describe("design-system contract helpers", () => {
     const reportFailure = vi.fn();
     const therapySource = [
       ".tc-app { color: #123456; }",
-      ".tc-paper { color: #ffffff; }",
+      ".tc-paper { /* a closing brace here must be inert: } */ color: #ffffff; }",
       ".tc-app-after-paper { color: #654321; }",
-      "@media print { body { background: #ffffff; } }",
+      "@media print { /* an opening brace here must be inert: { */ body { background: #ffffff; } }",
     ].join("\n");
     const scopedTherapy = rawColorContractSource(
       "src/components/therapy-compass/therapy-compass.css",

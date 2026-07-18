@@ -998,25 +998,25 @@
 }
 
 @media print {
-  @page {
+  @page therapy-compass-sheet {
     size: a4 portrait;
     margin: 14mm;
   }
 
-  body {
+  body:has(.tc-root) {
     background: #ffffff !important;
   }
 
-  body * {
+  body:has(.tc-root) * {
     visibility: hidden !important;
   }
 
-  .tc-paper,
-  .tc-paper * {
+  body:has(.tc-root) .tc-paper,
+  body:has(.tc-root) .tc-paper * {
     visibility: visible !important;
   }
 
-  .tc-paper {
+  body:has(.tc-root) .tc-paper {
     position: absolute !important;
     top: 0;
     left: 0;
@@ -1025,9 +1025,10 @@
     margin: 0 !important;
     border: 0 !important;
     box-shadow: none !important;
+    page: therapy-compass-sheet;
   }
 
-  .tc-no-print {
+  body:has(.tc-root) .tc-no-print {
     display: none !important;
   }
 }

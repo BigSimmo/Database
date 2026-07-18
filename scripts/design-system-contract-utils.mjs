@@ -116,12 +116,25 @@ function balancedBlockRange(source, marker) {
   let depth = 0;
   let quote = null;
   let escaped = false;
+  let inComment = false;
   for (let index = openingBrace; index < source.length; index += 1) {
     const character = source[index];
+    if (inComment) {
+      if (character === "*" && source[index + 1] === "/") {
+        inComment = false;
+        index += 1;
+      }
+      continue;
+    }
     if (quote) {
       if (escaped) escaped = false;
       else if (character === "\\") escaped = true;
       else if (character === quote) quote = null;
+      continue;
+    }
+    if (character === "/" && source[index + 1] === "*") {
+      inComment = true;
+      index += 1;
       continue;
     }
     if (character === '"' || character === "'") {

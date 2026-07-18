@@ -25,6 +25,13 @@ function responsiveStackCount(source: string) {
   return classCount(source, "tc-mobile-stack") + classCount(source, "tc-stack-sm");
 }
 
+function openingTagWith(source: string, tagName: string, attributes: string[]) {
+  const lookaheads = attributes
+    .map((attribute) => `(?=[^>]*${attribute.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`)
+    .join("");
+  return source.match(new RegExp(`<${tagName}${lookaheads}[^>]*>`))?.[0];
+}
+
 function contrastRatio(firstHex: string, secondHex: string) {
   const luminance = (hex: string) => {
     const channels = hex
@@ -93,18 +100,50 @@ describe("Therapy Compass responsive contract", () => {
   });
 
   it("uses complete toggle semantics and preserves full-size control hit targets", () => {
-    for (const source of [briefSource, compareSource]) {
-      expect(source).toContain('role="group"');
-      expect(source).toContain("aria-pressed=");
-      expect(source).not.toContain('role="tab"');
-      expect(source).not.toContain("aria-selected=");
-    }
+    const briefGroupTag = openingTagWith(briefSource, "div", [
+      'role="group"',
+      'aria-label="Brief intervention duration"',
+    ]);
+    const compareGroupTag = openingTagWith(compareSource, "div", ['role="group"', 'aria-label="Comparison fields"']);
+    expect(briefGroupTag).toBeTruthy();
+    expect(compareGroupTag).toBeTruthy();
 
-    expect(sheetsSource).toContain("aria-expanded={open}");
-    expect(therapyCssSource).toMatch(
-      /\.tc-clinician-track\s*\{[\s\S]*?width:\s*var\(--spacing-tap\);[\s\S]*?height:\s*var\(--spacing-tap\);/,
+    for (const state of ['b.briefTab === "5min"', 'b.briefTab === "15min"', 'b.briefTab === "ground"']) {
+      expect(openingTagWith(briefSource, "button", [`aria-pressed={${state}}`])).toBeTruthy();
+    }
+    for (const state of ['b.cmpTab === "priorities"', 'b.cmpTab === "differences"', 'b.cmpTab === "all"']) {
+      expect(openingTagWith(compareSource, "button", [`aria-pressed={${state}}`])).toBeTruthy();
+    }
+    expect(briefSource).not.toContain('role="tab"');
+    expect(briefSource).not.toContain("aria-selected=");
+    expect(compareSource).not.toContain('role="tab"');
+    expect(compareSource).not.toContain("aria-selected=");
+
+    const pickerTriggerTag = openingTagWith(sheetsSource, "button", [
+      'className="tc-btn tc-screens-sheets-screen-051"',
+      "aria-expanded={open}",
+    ]);
+    expect(pickerTriggerTag).toBeTruthy();
+
+    const clinicianTrackRule = therapyCssSource.match(/\.tc-clinician-track\s*\{([^}]*)\}/)?.[1] ?? "";
+    const clinicianTrackVisualRule = therapyCssSource.match(/\.tc-clinician-track::before\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(clinicianTrackRule).toContain("width: var(--spacing-tap);");
+    expect(clinicianTrackRule).toContain("height: var(--spacing-tap);");
+    expect(clinicianTrackVisualRule).toContain("width: 42px;");
+    expect(clinicianTrackVisualRule).toContain("height: 24px;");
+  });
+
+  it("scopes print hiding and page sizing to the mounted Therapy route", () => {
+    const printBlock = therapyCssSource.slice(
+      therapyCssSource.indexOf("@media print"),
+      therapyCssSource.indexOf("/* Static screen rules"),
     );
-    expect(therapyCssSource).toMatch(/\.tc-clinician-track::before\s*\{[\s\S]*?width:\s*42px;[\s\S]*?height:\s*24px;/);
+
+    expect(printBlock).toContain("@page therapy-compass-sheet");
+    expect(printBlock).toContain("body:has(.tc-root) *");
+    expect(printBlock).toContain("body:has(.tc-root) .tc-paper");
+    expect(printBlock).toContain("page: therapy-compass-sheet;");
+    expect(printBlock).not.toMatch(/\n\s*body\s+\*/);
   });
 });
 
