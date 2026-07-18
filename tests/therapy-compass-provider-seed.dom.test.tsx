@@ -68,4 +68,30 @@ describe("TcProvider URL-driven seeding", () => {
     );
     expect(getByTestId("probe").getAttribute("data-screen")).toBe("detail");
   });
+
+  it("clears the seeded query when navigating from ?q=… back to a query-less URL", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
+
+    navState.pathname = "/therapy-compass/search";
+    navState.search = "q=act";
+    const { getByTestId, rerender } = render(
+      <TcProvider>
+        <Probe />
+      </TcProvider>,
+    );
+    expect(getByTestId("probe").getAttribute("data-query")).toBe("act");
+
+    // Navigating to the query-less search URL must reset the query so the rendered
+    // state matches the URL (not leave a stale "act").
+    navState.search = "";
+    rerender(
+      <TcProvider>
+        <Probe />
+      </TcProvider>,
+    );
+    expect(getByTestId("probe").getAttribute("data-query")).toBe("");
+  });
 });

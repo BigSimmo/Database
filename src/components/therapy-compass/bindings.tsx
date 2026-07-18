@@ -252,13 +252,15 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const [selectedPathwaySlug, setSelectedPathwaySlug] = useState<string | null>(null);
 
   // Seed the search query from a `?q=` deep link (universal-search "view all" or a
-  // recent-search pick) and re-seed when the deep link changes, using the render-phase
-  // "adjust state when a value changes" pattern so live typing between deep links is
-  // preserved without a setState-in-effect cascade.
+  // recent-search pick) and re-sync whenever the deep link changes, using the
+  // render-phase "adjust state when a value changes" pattern so live typing between
+  // deep links is preserved without a setState-in-effect cascade. The sync is
+  // unconditional (including an empty `q`) so navigating from `?q=act` back to a
+  // query-less URL clears the stale query and the rendered state matches the URL.
   const [seededQuery, setSeededQuery] = useState(qParam);
   if (qParam !== seededQuery) {
     setSeededQuery(qParam);
-    if (qParam) setSearch((prev) => ({ ...prev, query: qParam }));
+    setSearch((prev) => ({ ...prev, query: qParam }));
   }
 
   const [cmpTab, setCmpTab] = useState("differences");

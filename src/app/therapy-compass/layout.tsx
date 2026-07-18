@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { GlobalSearchShell } from "@/components/clinical-dashboard/global-search-shell";
 import { TherapyCompassWorkspace } from "@/components/therapy-compass";
@@ -11,7 +11,11 @@ import { TherapyCompassWorkspace } from "@/components/therapy-compass";
 export default function TherapyCompassLayout({ children }: { children: ReactNode }) {
   return (
     <GlobalSearchShell initialMode="therapy-compass" searchComposerVisible={false}>
-      <TherapyCompassWorkspace>{children}</TherapyCompassWorkspace>
+      {/* The workspace provider reads useSearchParams; an explicit boundary lets the
+          route family prerender on its own, independent of the shell's Suspense. */}
+      <Suspense fallback={null}>
+        <TherapyCompassWorkspace>{children}</TherapyCompassWorkspace>
+      </Suspense>
     </GlobalSearchShell>
   );
 }

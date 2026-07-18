@@ -400,6 +400,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "/dsm/diagnoses/[slug]",
         "/dsm/diagnoses/[slug]/differentials",
         "/formulation/[slug]",
+        "/therapy-compass/[slug]",
         "/medications/[slug]",
       ].includes(route.route),
   );

@@ -40,6 +40,16 @@ export function therapySlugs(): string[] {
   return therapyRecords.map((record) => record.slug);
 }
 
+/** Slugs whose record ships a brief-intervention version (the rest 404 that route). */
+export function therapyBriefSlugs(): string[] {
+  return therapyRecords.filter((record) => record.briefInterventionAvailable).map((record) => record.slug);
+}
+
+/** Slugs whose record ships a patient sheet (the rest 404 that route). */
+export function therapySheetSlugs(): string[] {
+  return therapyRecords.filter((record) => record.patientSheetAvailable).map((record) => record.slug);
+}
+
 /** True when a therapy still awaits qualified-clinician sign-off. */
 export function therapyNeedsReview(record: TherapyIndexRecord): boolean {
   return record.reviewStatus !== "reviewed";
