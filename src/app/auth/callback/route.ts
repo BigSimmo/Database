@@ -1,3 +1,4 @@
+import type { SetAllCookies } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -25,14 +26,26 @@ export async function GET(request: Request) {
     return failure("missing_auth_code");
   }
 
-  const supabase = await createSupabaseServerClient();
+  const authCookies: Parameters<SetAllCookies>[0] = [];
+  const authHeaders = new Headers();
+  const setAllCookies: SetAllCookies = (cookiesToSet, responseHeaders) => {
+    authCookies.push(...cookiesToSet);
+    for (const [name, value] of Object.entries(responseHeaders)) authHeaders.set(name, value);
+  };
+  const withAuthMutations = (response: NextResponse) => {
+    for (const { name, value, options } of authCookies) response.cookies.set(name, value, options);
+    authHeaders.forEach((value, name) => response.headers.set(name, value));
+    return response;
+  };
+
+  const supabase = await createSupabaseServerClient({ setAllCookies });
   if (!supabase) {
     return failure("auth_unconfigured");
   }
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
-    return failure(error.message);
+    return withAuthMutations(failure(error.message));
   }
-  return NextResponse.redirect(`${origin}${next}`);
+  return withAuthMutations(NextResponse.redirect(`${origin}${next}`));
 }
