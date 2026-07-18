@@ -167,7 +167,7 @@ export function CompareScreen() {
               onClick={() => b.removeCompare(t.slug)}
               title={`Remove ${t.name}`}
               style={s(
-                `display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:none;background:transparent;color:var(--text-soft);cursor:pointer;border-radius:7px;`,
+                `display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border:none;background:transparent;color:var(--text-soft);cursor:pointer;border-radius:7px;`,
               )}
             >
               <XIcon size={15} strokeWidth={1.9} />
@@ -222,6 +222,7 @@ export function CompareScreen() {
 
           {/* table */}
           <div
+            className="tc-scroll-sm"
             style={s(
               `background:var(--surface);border:1px solid var(--border);border-top:none;border-radius:0 0 16px 16px;box-shadow:var(--shadow-soft);overflow:hidden;`,
             )}

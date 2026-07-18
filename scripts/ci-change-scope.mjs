@@ -89,6 +89,11 @@ const uiPatterns = [
   "src/components",
   "src/styles",
   "public",
+  // Answer progress is a production Playwright journey even though its
+  // historical filename does not start with `ui-`. Keep its CI trigger in
+  // lockstep with playwright.config.ts so an edited assertion cannot evade
+  // the required UI job (Vitest does not collect *.spec.ts files).
+  "tests/answer-progress-ui-smoke.spec.ts",
   /^tests\/ui-.*\.spec\.ts$/,
   /^tests\/playwright-.*\.ts$/,
   /^playwright(?:\..*)?\.config\.ts$/,
@@ -419,6 +424,12 @@ function selfTest() {
     source_changed: true,
     ui_changed: true,
     build_changed: true,
+  });
+  assertScope("answer-progress-playwright", ["tests/answer-progress-ui-smoke.spec.ts"], {
+    source_changed: true,
+    coverage_changed: true,
+    ui_changed: true,
+    build_changed: false,
   });
   assertScope("db", ["supabase/migrations/20260710000000_example.sql"], {
     db_changed: true,

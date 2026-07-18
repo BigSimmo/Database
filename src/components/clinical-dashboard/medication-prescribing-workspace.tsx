@@ -469,7 +469,6 @@ function MedicationResults({
       <div className="hidden lg:block">
         <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} />
       </div>
-      <UniversalSearchAlsoMatches modeId="prescribing" query={query} className="medication-also-matches" />
       <div className="medication-results-inset min-w-0 space-y-2 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-semibold uppercase text-[color:var(--text-soft)]">Medication search</p>
@@ -509,7 +508,7 @@ function MedicationResults({
             <button
               type="button"
               onClick={() => setActiveFilter("best")}
-              className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-semibold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               Show all {totalAvailable} matches
             </button>
@@ -692,6 +691,8 @@ function MedicationResults({
           );
         })}
       </div>
+
+      <UniversalSearchAlsoMatches modeId="prescribing" query={query} className="medication-also-matches" />
 
       <StatusNotice
         realDataReady={realDataReady}
