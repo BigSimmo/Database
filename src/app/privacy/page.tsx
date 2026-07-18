@@ -25,9 +25,8 @@ const SECTIONS: Section[] = [
     body: (
       <>
         Clinical KB is a knowledge base over clinical reference material. It is{" "}
-        <strong>not a patient-record system</strong>
-        and does not ask for patient data. The main privacy risk is incidental patient information entered into a
-        free-text question or uploaded document.
+        <strong>not a patient-record system</strong> and does not ask for patient data. The main privacy risk is
+        incidental patient information entered into a free-text question or uploaded document.
       </>
     ),
   },

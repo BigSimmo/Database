@@ -78,3 +78,69 @@ findings as "clean before the pattern spreads," not shipped-primitive regression
 - Raw palette: `rg '\b(bg|text|border|ring|from|to|via|fill|stroke)-(gray|slate|…|rose)-(50|…|950)\b' src/components -g '*.tsx'`
 - Dead bridge: `rg '("|'"'"'| )(bg-surface|text-muted|text-heading|…)( |"|'"'"')' src` → 0 hits.
 - Arbitrary values ranked: `rg -oN '…-\[[^]]+\]' src/components -g '*.tsx' | sort | uniq -c | sort -rn`
+
+## July 18 run — Phase 5 design-polish sweep (re-score + live route sweep)
+
+Scope: full re-run of the July 3 grep method on current `main`, plus a live
+route sweep — 15 production routes × (1440×1000 desktop + 390×844 phone),
+320×844 spot checks on the 4 densest routes, and dark / reduced-motion /
+forced-colors desktop spots on `/`, `/differentials`, `/documents/search`.
+Server identity confirmed via `/api/local-project-id` before attaching.
+
+**Score: 92/100** — 0 critical · 0 medium · 2 low (naming consistency and the
+mockup-file palette leaks, both unchanged P3 charter exclusions).
+
+### Re-score of July 3 findings
+
+| Item                              | July 3           | July 18                                                                                                                                                          |
+| --------------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1 dead `@theme inline` bridge    | Fix              | ✅ Resolved (bridge deleted).                                                                                                                                    |
+| M2 raw-palette tone helpers       | Done on branch   | ✅ Landed; production `src/components` has 0 raw-palette classes (3 mockup files only).                                                                          |
+| M3 ~295 hardcoded px font sizes   | Partly unblocked | ✅ Adopted; `check:type-scale --strict` passes with 0 arbitrary sizes in `src`.                                                                                  |
+| L4 hardcoded white/black neutrals | Polish           | ✅ Down to 4 sites, all the deliberate `ring-1 ring-white/N dark:ring-white/10` glass-highlight idiom with explicit dark variants. 0 accent-button `text-white`. |
+| L5 `border-blue-400`              | Polish           | ✅ Gone.                                                                                                                                                         |
+| L6 tap-target magic numbers       | Done             | ✅ Holds (0 arbitrary tap tokens).                                                                                                                               |
+| L7 `rounded-[var(--radius-lg)]`   | Polish           | ✅ Gone.                                                                                                                                                         |
+| L8 recipe contract docs           | Done             | ✅ Holds (`09-ui-primitives-recipes.md`).                                                                                                                        |
+
+Hex audit note: every current hex hit in production components is a legitimate
+class — print-handout surfaces (`FactsheetPrintSheet`, therapy-compass sheet
+`@media print`), official provider brand marks (Google/Microsoft), web-vitals
+console-log colors, PR-number code comments (regex false positives), and the
+white switch-knob-on-accent-track pattern.
+
+### Route sweep result
+
+43 captures: 0 horizontal overflow at any viewport (including 320px), 0
+console errors, 0 failed network requests. Mode-home template routes render
+consistently across desktop/phone/320; dark theme and reduced-motion spots
+clean.
+
+### New findings (all fixed in this pass)
+
+1. **Forced-colors blank button labels** (`globals.css` forced-colors block).
+   Chromium paints a Canvas backplate behind every glyph run in forced-colors
+   mode, so glyph tokens that resolved to the Canvas/ButtonFace family
+   (`--command-contrast`, `--primary-contrast`, `--clinical-accent-contrast`,
+   `--danger-solid-contrast`) rendered solid-button labels as blank boxes —
+   invisible to axe, which reads CSS rather than painted pixels. SVG strokes
+   get no backplate, so the dark `--command` fill also swallowed ButtonText
+   icons. Fix: command controls flatten to the native HCM pairing
+   (ButtonFace fill / ButtonText glyphs); accent fills keep their system
+   colors and flip only their glyph tokens to ButtonText. Regression-locked by
+   a new `ui-accessibility.spec.ts` test asserting the glyph tokens never
+   resolve to the Canvas color.
+2. **Tools quick-action rail title truncation at 1440×1000**
+   (`applications-launcher-page.tsx`). The desktop 6-up rail left ~85px for
+   text against ~92px titles ("Ask eviden…", "Safety che…"). Fix: tightened
+   card metrics (icon column 2.25rem→2rem, gap-3→gap-2, px-3→px-2.5, icon
+   h-9→h-8); all six titles now render whole, descriptions remain
+   designed-supplementary ellipsis (full copy lives in the All-tools cards and
+   aria-labels). Phone icon-grid variant untouched.
+3. **Privacy-page microcopy** (`src/app/privacy/page.tsx`). JSX drops a
+   newline adjacent to a tag, rendering "…patient-record systemand does not
+   ask…". Fixed with an explicit `{" "}`; locked by a `privacy-ui.test.ts`
+   assertion.
+
+Observation, no action: a sub-perceptual glass-header backdrop-gradient ghost
+at the content top-left (visible only at 4× zoom) — by-design translucency.

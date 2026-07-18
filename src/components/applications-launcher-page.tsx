@@ -287,14 +287,14 @@ function QuickActions({ onSelect, mobile }: { onSelect: (id: string) => void; mo
               focusRing,
               mobile
                 ? "grid h-14 min-w-0 place-items-center gap-0.5 rounded-lg px-1 py-1.5 text-center"
-                : "grid min-h-14 grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-3 rounded-lg px-3 py-2.5",
+                : "grid min-h-14 grid-cols-[2rem_minmax(0,1fr)] items-center gap-2 rounded-lg px-2.5 py-2.5",
             )}
           >
             <span
               className={cn(
                 "grid place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
                 appIconTone(app),
-                mobile ? "h-7 w-7" : "h-9 w-9",
+                mobile ? "h-7 w-7" : "h-8 w-8",
               )}
             >
               <Icon className={mobile ? "h-4 w-4" : "h-5 w-5"} aria-hidden />

@@ -169,6 +169,48 @@ test.describe("Clinical KB accessibility media smoke", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("solid-button label tokens stay legible with forced colors", async ({ page }) => {
+    // Chromium paints a Canvas backplate behind every glyph run in forced-colors
+    // mode: a label whose color resolves into the Canvas/ButtonFace family
+    // disappears into its own backplate (axe cannot see this — it reads CSS,
+    // not painted pixels). Lock the glyph tokens to a non-Canvas resolution.
+    await page.emulateMedia({ forcedColors: "active" });
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+    await expectDashboardUsable(page);
+
+    const newChat = page.getByRole("button", { name: "New chat" }).first();
+    await expect(newChat).toBeVisible();
+    const { canvas, buttonLabelColor, tokenColors } = await newChat.evaluate((button) => {
+      const probe = document.createElement("span");
+      document.body.append(probe);
+      const resolveColor = (value: string) => {
+        probe.style.color = "";
+        probe.style.color = value;
+        return getComputedStyle(probe).color;
+      };
+      const resolvedCanvas = resolveColor("Canvas");
+      const glyphTokens = [
+        "--command-contrast",
+        "--primary-contrast",
+        "--clinical-accent-contrast",
+        "--danger-solid-contrast",
+      ].map((token) => [token, resolveColor(`var(${token})`)] as const);
+      probe.remove();
+      return {
+        canvas: resolvedCanvas,
+        buttonLabelColor: getComputedStyle(button).color,
+        tokenColors: glyphTokens,
+      };
+    });
+
+    expect(buttonLabelColor).not.toBe(canvas);
+    for (const [token, color] of tokenColors) {
+      expect(`${token}: ${color}`).not.toBe(`${token}: ${canvas}`);
+    }
+  });
+
   test("dashboard remains usable at 200 percent zoom", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await mockMinimalDashboardApi(page);

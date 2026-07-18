@@ -32,6 +32,9 @@ describe("privacy UI", () => {
     ]) {
       expect(markup).toContain(heading);
     }
+    // JSX drops a newline adjacent to a tag, so the space after the bolded
+    // phrase must be explicit or this renders as "systemand".
+    expect(markup).toContain("not a patient-record system</strong> and does not ask for patient data");
     expect(markup).toContain("Generated answer text is also omitted from durable query logs by default");
     expect(markup).toContain("application service in Singapore");
     expect(markup).toContain("Railway in Singapore");
