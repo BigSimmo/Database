@@ -60,12 +60,14 @@ security definer
 set search_path = public, pg_catalog, pg_temp
 as $$
 begin
-  if TG_OP = 'DELETE' or (TG_OP = 'UPDATE' and OLD.status = 'indexed' and NEW.status <> 'indexed') then
+  if TG_OP = 'DELETE' or
+     (TG_OP = 'UPDATE' and OLD.status = 'indexed' and NEW.status is distinct from 'indexed') then
     delete from public.document_title_words where document_id = OLD.id;
   end if;
 
-  if (TG_OP = 'INSERT' and NEW.status = 'indexed') or 
-     (TG_OP = 'UPDATE' and NEW.status = 'indexed' and (OLD.status <> 'indexed' or OLD.title <> NEW.title)) then
+  if (TG_OP = 'INSERT' and NEW.status = 'indexed') or
+     (TG_OP = 'UPDATE' and NEW.status = 'indexed' and
+       (OLD.status is distinct from 'indexed' or OLD.title is distinct from NEW.title)) then
     
     if TG_OP = 'UPDATE' then
       delete from public.document_title_words where document_id = NEW.id;

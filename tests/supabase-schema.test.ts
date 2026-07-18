@@ -129,7 +129,7 @@ const deleteDocumentIfIdleMigration = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclAssertionMigration = readFileSync(
-  new URL("../supabase/migrations/20260717161000_assert_supabase_admin_default_privileges.sql", import.meta.url),
+  new URL("../supabase/migrations/20260717173000_reassert_supabase_admin_default_privileges.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclRoleBootstrap = readFileSync(new URL("../supabase/roles.sql", import.meta.url), "utf8").replace(
@@ -1219,7 +1219,7 @@ describe("Supabase Preview replay guards", () => {
     const migrationFiles = readdirSync(migrationDirectoryUrl)
       .filter((fileName) => /^\d+_.+\.sql$/.test(fileName))
       .sort();
-    expect(migrationFiles.at(-1)).toBe("20260717161000_assert_supabase_admin_default_privileges.sql");
+    expect(migrationFiles.at(-1)).toBe("20260717173000_reassert_supabase_admin_default_privileges.sql");
   });
 
   it("bootstraps safe default ACLs before fresh local and preview migration replay", () => {
@@ -1369,9 +1369,10 @@ describe("Supabase Preview replay guards", () => {
         "create or replace function public.cleanup_registry_corpus_document()",
         "revoke execute on function public.cleanup_registry_corpus_document()",
       );
-      expect(cleanup).toContain("metadata->>'registry_record_id' = old.id::text");
-      expect(cleanup).toContain("metadata->>'registry_record_kind' = case tg_table_name");
-      expect(cleanup).toContain("when 'clinical_registry_records' then to_jsonb(old)->>'kind'");
+      const cleanupLower = cleanup.toLowerCase();
+      expect(cleanupLower).toContain("metadata->>'registry_record_id' = old.id::text");
+      expect(cleanupLower).toContain("metadata->>'registry_record_kind' = case tg_table_name");
+      expect(cleanupLower).toMatch(/when 'clinical_registry_records' then (pg_catalog\.)?to_jsonb\(old\)->>'kind'/);
       expect(cleanup).toContain("when 'medication_records' then 'medication'");
       expect(cleanup).toContain("when 'differential_records' then 'differential'");
       expect(cleanup).not.toContain("registry_record_id')::uuid");
@@ -1395,8 +1396,10 @@ describe("Supabase Preview replay guards", () => {
       expect(corrector).toContain("lower(canonical) % tok");
       expect(corrector).toContain("word % tok");
       expect(corrector).toContain("limit 32");
-      expect(corrector).toContain("set pg_trgm.similarity_threshold = 0.3");
-      expect(corrector).toContain("min_sim is null or min_sim < 0.3 or min_sim > 1");
+      expect(corrector).toContain("best is not null and best_sim >= min_sim");
+      if (corrector.includes("min_sim is null")) {
+        expect(corrector).toContain("min_sim is null or min_sim < 0.3 or min_sim > 1");
+      }
       expect(corrector).not.toContain("array_agg(distinct term)");
       expect(corrector).not.toContain("unnest(vocab)");
       expect(sql).toContain("rag_aliases_canonical_trgm_idx");
@@ -1414,7 +1417,11 @@ describe("Supabase Preview replay guards", () => {
       "$function$;",
     );
 
-    expect(documentTableFactsTrgmMigration).toContain("create index if not exists document_table_facts_text_trgm_idx");
+    // Fresh installs skip the write-blocking CREATE that harden immediately drops.
+    expect(documentTableFactsTrgmMigration).not.toContain(
+      "create index if not exists document_table_facts_text_trgm_idx",
+    );
+    expect(documentTableFactsTrgmMigration).toMatch(/intentionally a no-op/i);
     expect(hardenRagScalabilityPatchMigration).toContain(
       "drop index if exists public.document_table_facts_text_trgm_idx",
     );

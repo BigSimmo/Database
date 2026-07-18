@@ -1440,7 +1440,7 @@ export function MasterSearchHeader({
           closeButtonClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           contentClassName={cn(
             "bg-[color:var(--surface-lux)]",
-            scopeSheetFullscreen ? "max-h-dvh" : "max-h-[min(84dvh,42rem)]",
+            scopeSheetFullscreen ? "max-h-full" : "max-h-[min(84dvh,42rem)]",
             "sm:max-h-[min(88dvh,44rem)] sm:max-w-xl",
           )}
           bodyClassName={cn(
@@ -1583,7 +1583,13 @@ export function MasterSearchHeader({
             onBlur={(event) => {
               const nextFocusedElement = event.relatedTarget;
               if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) return;
-              setModeMenuOpen(false);
+              // Defer dismiss so a pointer activation on a menuitem can land before
+              // unmount; keyboard leave (Tab/Shift+Tab) still closes on the next frame.
+              const menuRoot = event.currentTarget;
+              window.requestAnimationFrame(() => {
+                if (menuRoot.contains(document.activeElement)) return;
+                setModeMenuOpen(false);
+              });
             }}
             className={cn("relative z-[60] min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
           >
@@ -1592,6 +1598,7 @@ export function MasterSearchHeader({
               type="button"
               onClick={() => {
                 setActionMenuOpen(false);
+                setCommandDropdownOpen(false);
                 closeScope(false);
                 setModeMenuOpen((open) => !open);
               }}
@@ -1637,6 +1644,11 @@ export function MasterSearchHeader({
                 id="app-mode-menu"
                 role="menu"
                 aria-label="Choose app mode"
+                onMouseDown={(event) => {
+                  // Keep focus on the mode trigger so blur-to-dismiss does not
+                  // unmount options before the click lands.
+                  event.preventDefault();
+                }}
                 className="polished-scroll fixed left-[max(0.5rem,var(--safe-area-left))] right-[max(0.5rem,var(--safe-area-right))] top-[calc(4.25rem+env(safe-area-inset-top))] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] overflow-y-auto rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10 sm:absolute sm:left-0 sm:right-auto sm:top-[calc(100%+0.5rem)] sm:w-[min(21rem,calc(100vw-2rem))]"
               >
                 {visibleAppModeOptions.map((mode, index) => {
@@ -1690,7 +1702,7 @@ export function MasterSearchHeader({
             ) : null}
           </div>
 
-          <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
+          <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-2 justify-self-end">
             {isWorkflowHeader ? (
               <>
                 <button
