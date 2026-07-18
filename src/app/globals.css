@@ -1122,7 +1122,8 @@ summary::-webkit-details-marker {
 .chat-composer-shell-base {
   display: flex;
   align-items: center;
-  border: 1px solid;
+  border-width: 1px;
+  border-style: solid;
   border-radius: 999px;
 }
 
