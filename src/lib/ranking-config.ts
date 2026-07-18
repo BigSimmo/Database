@@ -1,3 +1,5 @@
+import type { RagQueryClass } from "./types";
+
 // Central, tunable ranking configuration for the app-layer retrieval rerank (W6).
 //
 // Rationale: the second-stage rerank weights, the document-diversity control, and the
@@ -63,12 +65,52 @@ export type FreshnessConfig = {
 
 export type RankingConfig = {
   secondStage: SecondStageWeights;
+  /** Query-class-specific multipliers over deterministic relevance features. */
+  featureFusion: Record<RagQueryClass, RankingFeatureWeights>;
   /** Demotion subtracted per EXTRA chunk from the same document (0 = diversity OFF). CI-16. */
   documentDiversityPenalty: number;
   /** Maximum cumulative diversity demotion for any single chunk. */
   documentDiversityPenaltyCap: number;
   freshness: FreshnessConfig;
 };
+
+export type RankingFeatureWeights = {
+  hybridRelevance: number;
+  lexicalCoverage: number;
+  reciprocalRankFusion: number;
+  titleSectionRelevance: number;
+  metadataRelevance: number;
+  clinicalEvidence: number;
+};
+
+export const neutralRankingFeatureWeights: RankingFeatureWeights = {
+  hybridRelevance: 1,
+  lexicalCoverage: 1,
+  reciprocalRankFusion: 1,
+  titleSectionRelevance: 1,
+  metadataRelevance: 1,
+  clinicalEvidence: 1,
+};
+
+const ragQueryClasses: RagQueryClass[] = [
+  "document_lookup",
+  "table_threshold",
+  "medication_dose_risk",
+  "comparison",
+  "broad_summary",
+  "unsupported_or_general",
+];
+
+function defaultFeatureFusion(): Record<RagQueryClass, RankingFeatureWeights> {
+  const fusion = Object.fromEntries(
+    ragQueryClasses.map((queryClass) => [queryClass, { ...neutralRankingFeatureWeights }]),
+  ) as Record<RagQueryClass, RankingFeatureWeights>;
+  // Snapshot v1 coordinate tuning: 1.0 -> 0.9 improved broad-summary objective
+  // 0.969703 -> 0.989912 with document recall 1.0, content recall 0.9, and no
+  // hard-negative failures. Every other class retained the neutral configuration.
+  fusion.broad_summary.clinicalEvidence = 0.9;
+  return fusion;
+}
 
 export const defaultRankingConfig: RankingConfig = {
   secondStage: {
@@ -89,6 +131,9 @@ export const defaultRankingConfig: RankingConfig = {
     lowIndexQualityPenalty: 0.035,
     lowIndexQualityThreshold: 0.55,
   },
+  // Per-class overrides are accepted only when the offline tuner improves the objective while
+  // recall and high-risk hard-negative constraints remain green.
+  featureFusion: defaultFeatureFusion(),
   documentDiversityPenalty: 0.02,
   documentDiversityPenaltyCap: 0.12,
   freshness: {
@@ -107,6 +152,22 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function num(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function nonNegativeNum(value: unknown, fallback: number): number {
+  return Math.max(0, num(value, fallback));
+}
+
+function resolveFeatureWeights(value: unknown, fallback: RankingFeatureWeights): RankingFeatureWeights {
+  const raw = asRecord(value);
+  return {
+    hybridRelevance: nonNegativeNum(raw.hybridRelevance, fallback.hybridRelevance),
+    lexicalCoverage: nonNegativeNum(raw.lexicalCoverage, fallback.lexicalCoverage),
+    reciprocalRankFusion: nonNegativeNum(raw.reciprocalRankFusion, fallback.reciprocalRankFusion),
+    titleSectionRelevance: nonNegativeNum(raw.titleSectionRelevance, fallback.titleSectionRelevance),
+    metadataRelevance: nonNegativeNum(raw.metadataRelevance, fallback.metadataRelevance),
+    clinicalEvidence: nonNegativeNum(raw.clinicalEvidence, fallback.clinicalEvidence),
+  };
 }
 
 function round4(value: number): number {
@@ -131,6 +192,7 @@ export function resolveRankingConfig(raw?: string | null): RankingConfig {
   const d = defaultRankingConfig;
   const ss = asRecord(parsed.secondStage);
   const fr = asRecord(parsed.freshness);
+  const fusion = asRecord(parsed.featureFusion);
   return {
     secondStage: {
       positionBase: num(ss.positionBase, d.secondStage.positionBase),
@@ -153,6 +215,12 @@ export function resolveRankingConfig(raw?: string | null): RankingConfig {
       lowIndexQualityPenalty: num(ss.lowIndexQualityPenalty, d.secondStage.lowIndexQualityPenalty),
       lowIndexQualityThreshold: num(ss.lowIndexQualityThreshold, d.secondStage.lowIndexQualityThreshold),
     },
+    featureFusion: Object.fromEntries(
+      ragQueryClasses.map((queryClass) => [
+        queryClass,
+        resolveFeatureWeights(fusion[queryClass], d.featureFusion[queryClass]),
+      ]),
+    ) as Record<RagQueryClass, RankingFeatureWeights>,
     documentDiversityPenalty: Math.max(0, num(parsed.documentDiversityPenalty, d.documentDiversityPenalty)),
     documentDiversityPenaltyCap: Math.max(0, num(parsed.documentDiversityPenaltyCap, d.documentDiversityPenaltyCap)),
     freshness: {

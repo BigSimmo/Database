@@ -416,12 +416,26 @@ export type SearchScoreExplanation = {
   clinicalSignalBoost: number;
   penalty: number;
   rawPenalty?: number;
+  /**
+   * Unbounded application-layer relevance score used for ordering. Unlike finalScore,
+   * this retains the magnitude of boosts and signed penalties after confidence saturates.
+   */
+  rankScore: number;
+  /** Existing public confidence signal, clamped to the inclusive 0-1 range. */
   finalScore: number;
   finalRank?: number;
-  // Pre-clamp boost sum: finalScore saturates at 1.0 for heavily-boosted results, so this
-  // carries the discrimination the clamp discards. Used only as a deep tiebreak — it must
-  // never reorder results above finalScore.
+  /** Compatibility alias for rankScore retained for older telemetry and fixtures. */
   preClampFinalScore?: number;
+  /** Numeric inputs to the deterministic query-class fusion. Fixed adjustments are not tunable. */
+  fusionSignals?: {
+    hybridRelevance: number;
+    lexicalCoverage: number;
+    reciprocalRankFusion: number;
+    titleSectionRelevance: number;
+    metadataRelevance: number;
+    clinicalEvidence: number;
+    fixedAdjustment: number;
+  };
   strategy: "weighted_hybrid" | "weighted_hybrid_rrf_blend";
 };
 

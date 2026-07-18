@@ -82,6 +82,27 @@ export type SearchTelemetry = {
   source_image_satisfied?: boolean;
   second_stage_rerank_used?: boolean;
   second_stage_rerank_latency_ms?: number;
+  semantic_rerank_eligibility?:
+    | "disabled"
+    | "provider_unavailable"
+    | "request_mode"
+    | "insufficient_candidates"
+    | "unambiguous"
+    | "eligible_score_gap"
+    | "eligible_ranking_disagreement";
+  semantic_rerank_invoked?: boolean;
+  semantic_rerank_model?: string;
+  semantic_rerank_candidate_count?: number;
+  semantic_rerank_latency_ms?: number;
+  semantic_rerank_outcome?: "not_invoked" | "reordered" | "unchanged" | "fallback";
+  semantic_rerank_fallback_reason?:
+    | "timeout"
+    | "refusal"
+    | "malformed_output"
+    | "missing_candidate_id"
+    | "duplicate_candidate_id"
+    | "unknown_candidate_id"
+    | "provider_error";
   visual_direct_image_count?: number;
   weighted_top_score?: number;
   rrf_top_score?: number;

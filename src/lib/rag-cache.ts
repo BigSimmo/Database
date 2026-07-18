@@ -84,6 +84,8 @@ export type AnswerGenerationFingerprintInput = {
   classifierPromptVersion: string;
   retrievalVersion: string;
   indexingPromptVersion: string;
+  semanticRerankEnabled: boolean;
+  semanticRerankModel: string;
 };
 
 export function buildAnswerGenerationFingerprint(input: AnswerGenerationFingerprintInput) {
@@ -109,6 +111,8 @@ export function answerGenerationFingerprint() {
     classifierPromptVersion: ragQueryClassifierPromptVersion,
     retrievalVersion: ragDeepMemoryVersion,
     indexingPromptVersion: ragIndexingPromptVersion,
+    semanticRerankEnabled: env.RAG_SEMANTIC_RERANK_ENABLED,
+    semanticRerankModel: env.OPENAI_RERANK_MODEL,
   });
 }
 
@@ -233,6 +237,7 @@ export function retrievalPlanCacheQuery(
     `lexicalOnly:${args.lexicalOnly ? "1" : "0"}`,
     `rag:${ragDeepMemoryVersion}`,
     `force:${args.forceEmbedding ? 1 : 0}`,
+    ...(env.RAG_SEMANTIC_RERANK_ENABLED ? [`semanticRerank:${env.OPENAI_RERANK_MODEL}`] : []),
   ].join("|");
   return queryCacheKeyForStorage(cacheKey);
 }
@@ -303,6 +308,11 @@ export async function getCachedSearch(
       embedding_latency_ms: 0,
       supabase_rpc_latency_ms: 0,
       rerank_latency_ms: 0,
+      semantic_rerank_invoked: false,
+      semantic_rerank_candidate_count: 0,
+      semantic_rerank_latency_ms: 0,
+      semantic_rerank_outcome: "not_invoked" as const,
+      semantic_rerank_fallback_reason: undefined,
       shared_cache_hit: false,
       shared_cache_status: undefined,
       shared_cache_miss_reason: null,
@@ -495,6 +505,13 @@ export async function getSharedCachedSearch(
         source_image_satisfied: payload.telemetry?.source_image_satisfied ?? false,
         second_stage_rerank_used: payload.telemetry?.second_stage_rerank_used ?? false,
         second_stage_rerank_latency_ms: 0,
+        semantic_rerank_eligibility: payload.telemetry?.semantic_rerank_eligibility,
+        semantic_rerank_invoked: false,
+        semantic_rerank_model: payload.telemetry?.semantic_rerank_model,
+        semantic_rerank_candidate_count: 0,
+        semantic_rerank_latency_ms: 0,
+        semantic_rerank_outcome: "not_invoked" as const,
+        semantic_rerank_fallback_reason: undefined,
         visual_direct_image_count: payload.telemetry?.visual_direct_image_count ?? 0,
         weighted_top_score: payload.telemetry?.weighted_top_score ?? 0,
         rrf_top_score: payload.telemetry?.rrf_top_score ?? 0,
