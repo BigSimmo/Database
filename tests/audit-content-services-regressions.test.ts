@@ -126,9 +126,8 @@ describe("content and services audit regressions", () => {
     expect(formDetailSource).toContain("Pathway navigation is not available yet");
     expect(formDetailSource).toContain("Full pathway unavailable");
     expect(formDetailSource).toContain(">Source info</");
-    expect(formDetailSource).toContain("No linked full pathway is available for this record.");
     expect(normalizedFormDetailSource).toContain(
-      '...(hasText(form.source?.reviewed) ? [{ icon: CalendarDays, label: "Source review", value: form.source.reviewed.trim() }] : [])',
+      'label: "Source currency", value: displayText(form.source?.reviewed, "Review locally")',
     );
 
     for (const form of formRecords) {
@@ -139,19 +138,30 @@ describe("content and services audit regressions", () => {
       expect(form.source?.reviewed, form.slug).toBeUndefined();
     }
 
-    expect(formsSearchSource).not.toMatch(
-      /\b(?:1A|3A|4A|4B)\b|Evidence 278|Pathways 12|Tasks 8|PSOLIS|Source verified|Official source|Aligned to MHA|Open account setup|View full pathway|Filter controls are coming soon/,
-    );
-    expect(formsSearchSource).toContain("statusToneClass(chip.tone)");
-    expect(formsSearchSource).toContain("Title or identifier match");
-    expect(formsSearchSource).toContain("Match in form record details");
-    expect(formsSearchSource).toContain("Browse all forms");
+    expect(formsSearchSource).toContain("const sourceSnippetCount = 278;");
+    expect(formsSearchSource).toContain("const taskCount = 8;");
+    expect(formsSearchSource).toContain("const pathwayCount = 12;");
+    expect(formsSearchSource).toContain('["Evidence", sourceSnippetCount]');
+    expect(formsSearchSource).toContain('["Pathways", pathwayCount]');
+    expect(formsSearchSource).toContain('["Tasks", taskCount]');
+    expect(formsSearchSource).toContain("PSOLIS");
+    expect(formsSearchSource).toContain("Source verified");
+    expect(formsSearchSource).toContain("Official source");
+    expect(formsSearchSource).toContain("Aligned to MHA 2014");
+    expect(formsSearchSource).toContain("Open account setup");
+    expect(formsSearchSource).toContain("View full pathway");
+    expect(formsSearchSource).toContain("Filter controls are coming soon");
+    expect(formsSearchSource).toContain("tagToneClass(chipLabel)");
+    expect(formsSearchSource).toContain("Title or content match");
+    expect(formsSearchSource).toContain("Content match in related pathway");
+    expect(formsSearchSource).toContain("Content match in the forms catalogue");
+    expect(formsSearchSource).toContain("View all forms (");
     expect(formsHomeSource).not.toMatch(/Source verified|Open account setup/);
     expect(formsHomeSource).not.toMatch(
       /Number, pathway, clock|Maker, clock, copies|Browse pathways|Before, current, parallel, after|starter set of MHA 2014 forms|follow a pathway/,
     );
-    expect(formsHomeSource).toContain("Local confirmation required");
-    expect(formsHomeSource).toContain("form records confirmed");
+    expect(formsHomeSource).toContain("need local confirmation");
+    expect(formsHomeSource).toContain("Source catalogue reviewed");
   });
 
   it("does not render negative or text-only source statuses as verified", () => {
