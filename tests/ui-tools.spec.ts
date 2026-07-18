@@ -906,6 +906,7 @@ test.describe("Clinical KB tools launcher", () => {
       page.getByTestId("form-search-result-transport-crisis-form").getByLabel("Open Transport order"),
     ).toHaveAttribute("href", "/forms/transport-crisis-form");
     await expect(page.getByRole("button", { name: "Refine" })).toHaveCount(0);
+    await expect(page.getByTestId("form-search-results")).not.toContainText(/pathway/i);
     await expect(page.getByText(/Evidence 278|Pathways 12|Tasks 8|Source verified|Aligned to MHA 2014/)).toHaveCount(0);
     await expect(page.getByText(/PSOLIS Transport|View full pathway/)).toHaveCount(0);
     await expect(page.getByTestId("service-search-results")).toHaveCount(0);
@@ -1008,6 +1009,7 @@ test.describe("Clinical KB tools launcher", () => {
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
     await expect(page.getByTestId("form-search-mobile-result-transport-crisis-form")).toContainText("Transport order");
+    await expect(page.getByTestId("form-search-mobile-results")).not.toContainText(/pathway/i);
     await expect(page.getByText(/PSOLIS Transport|View full pathway|Source verified/)).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("transport");
     await expectNoPageHorizontalOverflow(page);

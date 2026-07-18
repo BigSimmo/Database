@@ -2520,6 +2520,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     allowGlobalSearch: args.allowGlobalSearch,
     matchCount: textCandidateCount,
     telemetry,
+    signal: args.signal,
   });
   telemetry.text_candidate_count = textData.length;
   telemetry.text_fast_path_latency_ms = Date.now() - textRpcStartedAt;
@@ -2626,7 +2627,9 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       matchCount: Math.min(candidateCount, 48),
       telemetry,
       cache: chunkLoadCache,
+      signal: args.signal,
     });
+    throwIfAborted(args.signal);
     const tableFactLatencyMs = Date.now() - tableFactStartedAt;
     telemetry.supabase_rpc_latency_ms += tableFactLatencyMs;
     recordRetrievalLayer(telemetry, "table_facts", tableFactCandidates.length, {
@@ -2649,7 +2652,9 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       documentIds: documentFilterList,
       matchCount: candidateCount,
       telemetry,
+      signal: args.signal,
     });
+    throwIfAborted(args.signal);
     const documentLookupLatencyMs = Date.now() - documentLookupStartedAt;
     telemetry.supabase_rpc_latency_ms += documentLookupLatencyMs;
     recordRetrievalLayer(telemetry, "document_lookup", documentLookupData.length, {
@@ -2813,6 +2818,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         matchCount: Math.min(candidateCount, 48),
         telemetry,
         cache: chunkLoadCache,
+        signal: args.signal,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
@@ -2829,6 +2835,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
         matchCount: Math.min(candidateCount, 64),
         telemetry,
         cache: chunkLoadCache,
+        signal: args.signal,
       });
       return { candidates, latencyMs: Date.now() - startedAt };
     })(),
@@ -2846,10 +2853,12 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
           document_filters: documentFilterList ?? undefined,
           ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
         },
+        args.signal,
       );
       return { data, error, latencyMs: Date.now() - startedAt };
     })(),
   ]);
+  throwIfAborted(args.signal);
   // The three calls overlap, so charge wall-clock once rather than summing per-call latencies.
   telemetry.supabase_rpc_latency_ms += Date.now() - parallelRpcStartedAt;
 
@@ -2953,6 +2962,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
           document_filter: documentFilter ?? undefined,
           ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
         },
+        args.signal,
       );
 
       if (error) throw new Error(error.message);
@@ -2962,6 +2972,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     if (!args.forceEmbedding && textFastResults.length > 0) return [] as SearchResult[][];
     throw error;
   });
+  throwIfAborted(args.signal);
   const fallbackLatencyMs = Date.now() - fallbackRpcStartedAt;
   telemetry.supabase_rpc_latency_ms += fallbackLatencyMs;
   telemetry.vector_candidate_count = resultSets.reduce((count, resultSet) => count + resultSet.length, 0);

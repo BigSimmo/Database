@@ -86,7 +86,7 @@ function compactMatchReason(match: FormSearchMatch, query: string) {
   if (match.reasons.includes("title")) {
     return trimmedQuery ? `Title or content match for "${trimmedQuery}"` : "Title or content match";
   }
-  if (match.reasons.includes("record fields")) return "Content match in related pathway";
+  if (match.reasons.includes("record fields")) return "Content match in record details";
   return "Content match in the forms catalogue";
 }
 

@@ -191,6 +191,7 @@ export async function searchTextChunkCandidates(args: {
   allowGlobalSearch?: boolean;
   matchCount: number;
   telemetry?: SearchTelemetry;
+  signal?: AbortSignal;
 }) {
   const runChunkText = async (queryText: string, matchCount: number) => {
     const accessScope = retrievalAccessScopeForArgs(args);
@@ -204,6 +205,7 @@ export async function searchTextChunkCandidates(args: {
         document_filters: args.documentIds ?? undefined,
         ...retrievalRpcScopeArgs(accessScope),
       },
+      args.signal,
     );
     // Report the error before returning empty so a schema drift on this
     // most-terminal lexical layer surfaces in hybrid_rpc_errors telemetry
@@ -388,6 +390,7 @@ async function fetchBestDocumentLookupChunks(args: {
   ownerId?: string;
   accessScope?: RetrievalAccessScope;
   allowGlobalSearch?: boolean;
+  signal?: AbortSignal;
 }) {
   const terms = documentLookupChunkTerms(args.query);
   const { data: rpcChunks, error: rpcError } = await callVersionedRetrievalRpc(
@@ -400,6 +403,7 @@ async function fetchBestDocumentLookupChunks(args: {
       match_count: Math.max(args.limit * 3, 24),
       ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
     },
+    args.signal,
   );
   if (!rpcError && rpcChunks?.length) {
     const ranked = (rpcChunks as DocumentLookupChunkRow[])
@@ -511,6 +515,7 @@ export async function searchDocumentLookupFastPath(args: {
   documentIds?: string[];
   matchCount: number;
   telemetry?: SearchTelemetry;
+  signal?: AbortSignal;
 }): Promise<SearchResult[]> {
   if (!args.ownerId) return [] as SearchResult[];
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
@@ -527,6 +532,7 @@ export async function searchDocumentLookupFastPath(args: {
         match_count: matchCount,
         ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
       },
+      args.signal,
     );
     if (error) recordHybridRpcError(args.telemetry, "match_documents_for_query", error);
     if (error || !data?.length) return [] as DocumentLookupRow[];
@@ -578,6 +584,7 @@ export async function searchDocumentLookupFastPath(args: {
     limit: Math.max(args.matchCount, rankedDocuments.length * 4),
     ownerId: args.ownerId,
     accessScope: args.accessScope,
+    signal: args.signal,
   });
 
   if (!chunks.length) return [];
@@ -942,6 +949,7 @@ export async function searchTableFactCandidates(args: {
   matchCount: number;
   telemetry?: SearchTelemetry;
   cache?: ChunkLoadCache;
+  signal?: AbortSignal;
 }) {
   const variants = (args.queryVariants?.length ? args.queryVariants : [buildClinicalTextSearchQuery(args.query)]).slice(
     0,
@@ -958,6 +966,7 @@ export async function searchTableFactCandidates(args: {
         document_filters: args.documentIds ?? undefined,
         ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
       },
+      args.signal,
     );
     if (error) recordHybridRpcError(args.telemetry, "match_document_table_facts_text", error);
     if (error || !data?.length) return [] as TableFactRpcRow[];
@@ -1014,6 +1023,7 @@ export async function searchEmbeddingFieldCandidates(args: {
   matchCount: number;
   telemetry?: SearchTelemetry;
   cache?: ChunkLoadCache;
+  signal?: AbortSignal;
 }) {
   const { data, error } = await callVersionedRetrievalRpc(
     args.supabase,
@@ -1027,6 +1037,7 @@ export async function searchEmbeddingFieldCandidates(args: {
       document_filters: args.documentIds ?? undefined,
       ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
     },
+    args.signal,
   );
   if (error) recordHybridRpcError(args.telemetry, "match_document_embedding_fields_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];
@@ -1079,6 +1090,7 @@ export async function searchIndexUnitCandidates(args: {
   matchCount: number;
   telemetry?: SearchTelemetry;
   cache?: ChunkLoadCache;
+  signal?: AbortSignal;
 }) {
   const { data, error } = await callVersionedRetrievalRpc(
     args.supabase,
@@ -1092,6 +1104,7 @@ export async function searchIndexUnitCandidates(args: {
       document_filters: args.documentIds ?? undefined,
       ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
     },
+    args.signal,
   );
   if (error) recordHybridRpcError(args.telemetry, "match_document_index_units_hybrid", error);
   if (error || !data?.length) return [] as SearchResult[];

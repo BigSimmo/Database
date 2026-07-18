@@ -137,7 +137,8 @@ describe("content and services audit regressions", () => {
     }
 
     expect(formsSearchSource).toContain("Title or content match");
-    expect(formsSearchSource).toContain("Content match in related pathway");
+    expect(formsSearchSource).toContain("Content match in record details");
+    expect(formsSearchSource).not.toContain("Content match in related pathway");
     expect(formsSearchSource).toContain("View all forms");
     expect(formsHomeSource).not.toMatch(/Source verified|Open account setup/);
     expect(formsHomeSource).not.toMatch(
