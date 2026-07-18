@@ -478,6 +478,8 @@ function logWeakSearch(args: {
 }
 
 function telemetryLatencyMs(telemetry: Record<string, unknown>) {
+  const total = telemetry.search_total_latency_ms;
+  if (typeof total === "number" && Number.isFinite(total)) return total;
   const keys = ["text_fast_path_latency_ms", "embedding_latency_ms", "supabase_rpc_latency_ms", "rerank_latency_ms"];
   return keys.reduce((sum, key) => {
     const value = telemetry[key];
@@ -514,6 +516,8 @@ function telemetryRecord(telemetry: Record<string, unknown>, key: string) {
 
 function retrievalDecisionTelemetry(telemetry: Record<string, unknown>) {
   return {
+    search_total_latency_ms: telemetryNumber(telemetry, "search_total_latency_ms"),
+    retrieval_phase_latencies_ms: telemetryRecord(telemetry, "retrieval_phase_latencies_ms"),
     retrieval_plan: telemetryString(telemetry, "retrieval_plan"),
     retrieval_query_variant_count: telemetryNumber(telemetry, "retrieval_query_variant_count"),
     text_candidate_budget: telemetryNumber(telemetry, "text_candidate_budget"),
@@ -823,6 +827,8 @@ async function buildScopedSearchPayload(
       smart_api_display_mode: smartApiPlan.displayMode,
       smart_api_source_link_count: smartApiPlan.sourceLinkCount,
       search_cache_hit: search.telemetry.search_cache_hit,
+      search_total_latency_ms: search.telemetry.search_total_latency_ms,
+      retrieval_phase_latencies_ms: search.telemetry.retrieval_phase_latencies_ms,
       shared_cache_hit: search.telemetry.shared_cache_hit,
       shared_cache_status: search.telemetry.shared_cache_status,
       shared_cache_miss_reason: search.telemetry.shared_cache_miss_reason,
