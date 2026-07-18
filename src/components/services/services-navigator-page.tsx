@@ -332,6 +332,7 @@ function RightRail({
             type="button"
             onClick={clearSelectedServices}
             disabled={selected.length === 0}
+            title={selected.length === 0 ? "No selected services to clear" : "Clear selected services"}
           >
             Clear
           </button>

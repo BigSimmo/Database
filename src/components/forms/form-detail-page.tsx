@@ -494,10 +494,6 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
   const relatedTags = useMemo(() => [...(form.tags ?? []), ...(form.catchments ?? [])].slice(0, 8), [form]);
 
   function goBack() {
-    if (window.history.length > 1) {
-      router.back();
-      return;
-    }
     router.push(appModeHomeHref("forms", { focus: true }));
   }
 

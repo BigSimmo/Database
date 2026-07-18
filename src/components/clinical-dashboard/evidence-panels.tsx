@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { type RefObject, useId, useState } from "react";
+import { type KeyboardEvent as ReactKeyboardEvent, type RefObject, useId, useRef, useState } from "react";
 import {
   Activity,
   CircleAlert,
@@ -626,6 +626,7 @@ export function ClinicalNotesChecklistPanel({
   const tabs = clinicalNotesAvailableTabs(detailSections);
   const defaultTab = tabs.find((tab) => tab.id === "actions")?.id ?? tabs[0]?.id ?? "actions";
   const [requestedTab, setRequestedTab] = useState<ClinicalNotesTabId>(defaultTab);
+  const tabRefs = useRef(new Map<ClinicalNotesTabId, HTMLButtonElement>());
   const tabBaseId = useId();
   const tabButtonId = (id: ClinicalNotesTabId) => `${tabBaseId}-tab-${id}`;
   const notesPanelId = `${tabBaseId}-panel`;
@@ -644,6 +645,25 @@ export function ClinicalNotesChecklistPanel({
 
   const showTabStrip = tabs.length > 1;
 
+  function handleTabKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    const order = tabs.map((tab) => tab.id);
+    const index = order.indexOf(activeTab);
+    const next =
+      event.key === "ArrowRight"
+        ? order[(index + 1) % order.length]
+        : event.key === "ArrowLeft"
+          ? order[(index - 1 + order.length) % order.length]
+          : event.key === "Home"
+            ? order[0]
+            : event.key === "End"
+              ? order[order.length - 1]
+              : null;
+    if (!next) return;
+    event.preventDefault();
+    if (next !== activeTab) setRequestedTab(next);
+    tabRefs.current.get(next)?.focus();
+  }
+
   return (
     <section data-testid="clinical-notes-checklist" className="flex min-h-0 min-w-0 flex-1 flex-col">
       {showTabStrip ? (
@@ -651,6 +671,7 @@ export function ClinicalNotesChecklistPanel({
           <div
             role="tablist"
             aria-label="Clinical notes categories"
+            onKeyDown={handleTabKeyDown}
             className={cn(
               "grid min-w-0 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]",
               tabs.length === 2 ? "grid-cols-2" : "grid-cols-3",
@@ -661,6 +682,10 @@ export function ClinicalNotesChecklistPanel({
               return (
                 <button
                   key={tab.id}
+                  ref={(element) => {
+                    if (element) tabRefs.current.set(tab.id, element);
+                    else tabRefs.current.delete(tab.id);
+                  }}
                   type="button"
                   role="tab"
                   id={tabButtonId(tab.id)}

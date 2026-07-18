@@ -13,6 +13,11 @@ const BASE = "/therapy-compass-data";
 // shared across every screen.
 let cache: Promise<TherapyDataset> | null = null;
 
+/** Test helper: drop the session-scoped dataset cache between cases. */
+export function clearTherapyDataCache() {
+  cache = null;
+}
+
 async function fetchJson<T>(path: string): Promise<T> {
   const res = await fetch(path);
   if (!res.ok) throw new Error(`Failed to load ${path}: ${res.status}`);

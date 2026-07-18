@@ -132,6 +132,37 @@ test.describe("universal search typeahead", () => {
     await expect(page.getByRole("option", { name: /View all in Differentials/ })).toBeVisible();
   });
 
+  test("exposes the keyboard-highlighted option from the focused combobox", async ({ page }) => {
+    await mockUniversalSearch(page);
+    const input = await openComposer(page);
+    await input.fill("acamprosate");
+
+    const listbox = page.getByRole("listbox", { name: "Documents search suggestions" });
+    await expect(listbox).toBeVisible();
+    await expect(page.getByText("Medications · 1")).toBeVisible();
+    expect(await input.getAttribute("aria-activedescendant")).toBeNull();
+
+    await input.press("ArrowDown");
+    const firstSelectedOption = listbox.getByRole("option", { selected: true });
+    await expect(firstSelectedOption).toHaveCount(1);
+    const firstActiveId = await firstSelectedOption.getAttribute("id");
+    expect(firstActiveId).toBeTruthy();
+    await expect(input).toBeFocused();
+    await expect(input).toHaveAttribute("aria-activedescendant", firstActiveId!);
+
+    await input.press("ArrowDown");
+    const secondSelectedOption = listbox.getByRole("option", { selected: true });
+    await expect(secondSelectedOption).toHaveCount(1);
+    const secondActiveId = await secondSelectedOption.getAttribute("id");
+    expect(secondActiveId).toBeTruthy();
+    expect(secondActiveId).not.toBe(firstActiveId);
+    await expect(input).toHaveAttribute("aria-activedescendant", secondActiveId!);
+
+    await input.press("Escape");
+    await expect(listbox).toBeHidden();
+    expect(await input.getAttribute("aria-activedescendant")).toBeNull();
+  });
+
   test("does not count document-only hits as visible Medication rows", async ({ page }) => {
     await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
       await fulfillUniversalSearch(route, {

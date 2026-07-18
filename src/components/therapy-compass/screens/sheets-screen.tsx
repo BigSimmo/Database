@@ -42,7 +42,7 @@ export function SheetsScreen() {
             Design, personalise and print a plain-language handout from a source-grounded record.
           </p>
         </div>
-        <div style={s(`display:flex;gap:10px;`)}>
+        <div className="tc-mobile-wrap" style={s(`display:flex;gap:10px;`)}>
           <button
             type="button"
             className="tc-btn"
@@ -63,7 +63,7 @@ export function SheetsScreen() {
       >
         {/* BUILDER */}
         <div
-          className="tc-builder-panel"
+          className="tc-builder-panel tc-mobile-static"
           style={s(`display:flex;flex-direction:column;gap:16px;position:sticky;top:84px;`)}
         >
           <div
@@ -160,6 +160,7 @@ export function SheetsScreen() {
             )}
           >
             <div
+              className="tc-mobile-wrap"
               style={s(
                 // Fixed ink (light-mode --clinical-accent): the paper is pinned white in
                 // both themes, so a theme-reactive accent would turn bright cyan in dark.

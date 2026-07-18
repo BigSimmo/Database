@@ -59,7 +59,10 @@ describe("Therapy Compass production-mode wiring", () => {
     // Home uses ModeHomeMain; workspace must not wrap home in a second <main>.
     expect(homeSrc).toMatch(/ModeHomeMain/);
     expect(workspaceSrc).toMatch(/asMain=\{!isHome\}/);
-    expect(workspaceSrc).toContain("const useMainLandmark = asMain || Boolean(b.error);");
+    expect(workspaceSrc).toContain(
+      "const homeNeedsMainLandmark = Boolean(b.error) || (b.loading && b.therapies.length === 0);",
+    );
+    expect(workspaceSrc).toContain("const useMainLandmark = asMain || homeNeedsMainLandmark;");
     expect(workspaceSrc).toContain('const Tag = useMainLandmark ? "main" : "div"');
   });
 

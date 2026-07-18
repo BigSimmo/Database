@@ -27,18 +27,38 @@ const CSS = `
 }
 @media (max-width: 640px) {
   .tc-root .tc-main { padding: 20px 16px 32px !important; }
-  .tc-root .tc-topnav { padding: 12px 16px !important; gap: 12px !important; }
+  .tc-root .tc-topnav { padding: 12px 16px !important; gap: 10px !important; }
+  .tc-root .tc-topnav-copy { display: none !important; }
   /* Phone: multi-column grids with fixed/minmax tracks would otherwise overflow
      a 390px viewport and clip clinical content (contraindications, review
      columns). Collapse them to a single stacked column. */
-  .tc-root .tc-stack-sm { grid-template-columns: 1fr !important; }
+  .tc-root .tc-stack-sm,
+  .tc-root .tc-mobile-stack { grid-template-columns: minmax(0, 1fr) !important; }
+  .tc-root .tc-mobile-grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .tc-root .tc-mobile-static { position: static !important; top: auto !important; }
+  .tc-root .tc-mobile-wrap { flex-wrap: wrap !important; }
+  .tc-root .tc-home-search { display: grid !important; gap: 8px; }
+  .tc-root .tc-home-search > svg { top: 19px; }
+  .tc-root .tc-home-search-input { padding-right: 16px !important; }
+  .tc-root .tc-home-search-button { position: static !important; width: 100%; }
+  .tc-root .tc-pathway-list { border-right: 0 !important; border-bottom: 1px solid var(--border); }
+  .tc-root .tc-compare-tabs {
+    gap: 18px !important;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+  }
+  .tc-root .tc-compare-tabs > * { flex: none; }
   /* Phone: the comparison table must keep its column structure, so make the
      table scroll horizontally instead of clipping the right-hand therapies. */
-  .tc-root .tc-scroll-sm {
+  .tc-root .tc-scroll-sm,
+  .tc-root .tc-compare-table {
     overflow-x: auto !important;
-    overscroll-behavior-x: contain;
+    overscroll-behavior-inline: contain;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
   }
+  .tc-root .tc-paper { padding: 28px 22px !important; }
 }
 @media print {
   @page { size: A4 portrait; margin: 14mm; }

@@ -192,6 +192,7 @@ export function CompareScreen() {
         <>
           {/* decision summary */}
           <div
+            className="tc-mobile-stack"
             style={s(
               `display:grid;grid-template-columns:1.1fr 1fr 1fr;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-soft);overflow:hidden;margin-bottom:20px;`,
             )}
@@ -208,7 +209,10 @@ export function CompareScreen() {
           </div>
 
           {/* tabs */}
-          <div style={s(`display:flex;gap:26px;border-bottom:1px solid var(--border);margin-bottom:2px;`)}>
+          <div
+            className="tc-compare-tabs"
+            style={s(`display:flex;gap:26px;border-bottom:1px solid var(--border);margin-bottom:2px;`)}
+          >
             <button type="button" className="tc-btn" onClick={b.setTabPriorities} style={b.tabPriorities}>
               Priorities
             </button>

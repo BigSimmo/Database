@@ -41,7 +41,7 @@ export function RouteErrorBoundary({
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     console.error(logLabel, error);
-    headingRef.current?.focus();
+    headingRef.current?.focus({ preventScroll: true });
   }, [error, logLabel]);
 
   return (
@@ -64,7 +64,9 @@ export function RouteErrorBoundary({
           {title}
         </h1>
 
-        <p className="mt-2 text-sm leading-relaxed text-[color:var(--text-muted)]">{description}</p>
+        <p role="alert" className="mt-2 text-sm leading-relaxed text-[color:var(--text-muted)]">
+          {description}
+        </p>
 
         {error.digest && (
           <div className="mt-4 rounded-lg bg-[color:var(--surface-subtle)] p-2 font-mono text-xs text-[color:var(--text-muted)]">
