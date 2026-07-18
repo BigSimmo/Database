@@ -3648,7 +3648,7 @@ export function ClinicalDashboard({
                 ) : error ? (
                   <EmptyState
                     icon={CircleAlert}
-                    title="Answer unavailable"
+                    title={activeModeResultKind === "answer" ? "Answer unavailable" : "Search unavailable"}
                     body={error}
                     live="assertive"
                     tone="danger"
