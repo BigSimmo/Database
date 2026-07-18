@@ -1,4 +1,8 @@
-import { getPresentationWorkflowSelectionForDiagnosisIds } from "@/lib/differentials";
+/**
+ * Client-safe differentials href helpers.
+ * Keep this module free of `@/lib/differentials` / snapshot imports so the
+ * clinical-dashboard client bundle stays fixture-free.
+ */
 
 export function differentialRouteWithQuery(path: string, query: string, selectedIds?: Iterable<string>) {
   const params = new URLSearchParams();
@@ -10,11 +14,11 @@ export function differentialRouteWithQuery(path: string, query: string, selected
   return suffix ? `${path}?${suffix}` : path;
 }
 
+/**
+ * Compare-selected CTA href. Resolves the presentation workflow on the server
+ * via `/differentials/presentations` (see presentations/route.ts) so the client
+ * never loads the differentials snapshot just to build a link.
+ */
 export function differentialSelectedCompareHref(query: string, selectedIds: Iterable<string>) {
-  const selection = getPresentationWorkflowSelectionForDiagnosisIds(selectedIds);
-  return differentialRouteWithQuery(
-    `/differentials/presentations/${selection?.workflow.id ?? "acute-confusion-encephalopathy"}`,
-    query,
-    selection?.diagnosisIds,
-  );
+  return differentialRouteWithQuery("/differentials/presentations", query, selectedIds);
 }
