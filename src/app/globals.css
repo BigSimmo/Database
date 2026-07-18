@@ -2362,7 +2362,9 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --danger: Mark;
     --danger-soft: Canvas;
     --danger-solid: Mark;
-    --danger-solid-contrast: ButtonText;
+    /* Mark's palette-paired foreground — ButtonText is not guaranteed to
+       contrast a Mark fill in arbitrary user schemes. */
+    --danger-solid-contrast: MarkText;
     --tone-purple: CanvasText;
     --tone-indigo: CanvasText;
     --tone-rose: CanvasText;
