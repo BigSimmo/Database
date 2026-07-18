@@ -17,7 +17,7 @@ const appDir = path.join(process.cwd(), "src", "app");
 const siteMapPath = path.join(process.cwd(), "docs", "site-map.md");
 const medicationSlugs = ["acamprosate"] as const;
 
-type RouteKind = "page" | "api";
+type RouteKind = "page" | "handler";
 
 type DiscoveredRoute = {
   route: string;
@@ -32,14 +32,23 @@ type RedirectRoute = {
 
 type SiteMapData = {
   pageRoutes: DiscoveredRoute[];
+  publicRouteHandlers: DiscoveredRoute[];
   apiRoutes: DiscoveredRoute[];
-  appRouteHandlers: DiscoveredRoute[];
   redirects: RedirectRoute[];
   nonRoutedMockupArtifacts: string[];
 };
 
+const productRouteHandlerPaths = new Set(["/applications", "/differentials/presentations", "/medications"]);
+
+const documentedRedirectTargets: Record<string, string> = {
+  "/applications": "/tools",
+  "/differentials/presentations": "/differentials/presentations/[slug]",
+  "/medications": "/?mode=prescribing",
+};
+
 const routeDescriptions: Record<string, string> = {
   "/": "Main Clinical KB shell.",
+  "/applications": "Legacy application launcher redirect to Tools.",
   "/differentials": "Differentials home and search surface.",
   "/differentials/diagnoses": "Diagnosis stream.",
   "/differentials/diagnoses/[slug]": "Differential diagnosis detail.",
@@ -83,6 +92,11 @@ const routeDescriptions: Record<string, string> = {
   "/therapy-compass/[slug]": "Therapy record detail.",
   "/therapy-compass/[slug]/brief": "Therapy brief-intervention view.",
   "/therapy-compass/[slug]/sheet": "Therapy patient-sheet builder.",
+};
+
+const publicRouteHandlerDescriptions: Record<string, string> = {
+  "/auth/callback": "Authentication callback handler.",
+  "/icons/[variant]": "Dynamically generated application icon handler.",
 };
 
 const apiDescriptions: Record<string, string> = {
@@ -141,8 +155,16 @@ function routeSegment(segment: string) {
   return segment;
 }
 
+function isApiRoute(route: string) {
+  return route === "/api" || route.startsWith("/api/");
+}
+
 function fileToRoute(filePath: string, kind: RouteKind) {
-  const suffix = kind === "page" ? "page.tsx" : "route.ts";
+  const suffix = path.basename(filePath);
+  const expectedSuffixes = kind === "page" ? ["page.tsx"] : ["route.ts", "route.tsx"];
+  if (!expectedSuffixes.includes(suffix)) {
+    throw new Error(`Unsupported ${kind} route file: ${filePath}`);
+  }
   const relative = toPosixPath(path.relative(appDir, filePath));
   const withoutFile = relative.slice(0, -suffix.length).replace(/\/$/, "");
   const segments = withoutFile.split("/").filter(Boolean).map(routeSegment).filter(Boolean);
@@ -163,8 +185,9 @@ function collectFiles(root: string, targetFileName: string): string[] {
 }
 
 function discoverRoutes(kind: RouteKind): DiscoveredRoute[] {
-  const targetFile = kind === "page" ? "page.tsx" : "route.ts";
-  return collectFiles(appDir, targetFile)
+  const targetFiles = kind === "page" ? ["page.tsx"] : ["route.ts", "route.tsx"];
+  return targetFiles
+    .flatMap((targetFile) => collectFiles(appDir, targetFile))
     .map((file) => ({
       route: fileToRoute(file, kind),
       file: toPosixPath(path.relative(process.cwd(), file)),
@@ -172,34 +195,12 @@ function discoverRoutes(kind: RouteKind): DiscoveredRoute[] {
     .sort((left, right) => left.route.localeCompare(right.route) || left.file.localeCompare(right.file));
 }
 
-function isApiRoute(route: string) {
-  return route === "/api" || route.startsWith("/api/");
-}
-
-function extractRedirectTarget(source: string): string | null {
-  const pageRedirect = source.match(/\bredirect\(\s*["']([^"']+)["']\s*\)/)?.[1];
-  if (pageRedirect) return pageRedirect;
-
-  const urlRedirect = source.match(/NextResponse\.redirect\(\s*new URL\(\s*["']([^"']+)["']/)?.[1];
-  if (urlRedirect) return urlRedirect;
-
-  const pathnameRedirect = source.match(/\.pathname\s*=\s*["']([^"']+)["']/)?.[1];
-  if (pathnameRedirect) return pathnameRedirect;
-
-  // Template-literal destination builders with a stable route prefix.
-  const presentationsRedirect = source.match(/`(\/differentials\/presentations\/)\$\{/)?.[1];
-  if (presentationsRedirect && source.includes("NextResponse.redirect")) {
-    return `${presentationsRedirect}[slug]`;
-  }
-
-  return null;
-}
-
 function discoverRedirects(routes: DiscoveredRoute[]): RedirectRoute[] {
   return routes
     .map((route) => {
       const source = readFileSync(path.join(process.cwd(), route.file), "utf8");
-      const target = extractRedirectTarget(source);
+      const target =
+        documentedRedirectTargets[route.route] ?? source.match(/\bredirect\(\s*["']([^"']+)["']\s*\)/)?.[1];
       return target ? { ...route, target } : null;
     })
     .filter((value): value is RedirectRoute => Boolean(value))
@@ -216,20 +217,13 @@ function discoverNonRoutedMockupArtifacts() {
 
 export function collectSiteMapData(): SiteMapData {
   const pageRoutes = discoverRoutes("page");
-  const routeHandlers = discoverRoutes("api");
-  const apiRoutes = routeHandlers.filter((route) => isApiRoute(route.route));
-  const nonApiHandlers = routeHandlers.filter((route) => !isApiRoute(route.route));
-  const redirects = [...discoverRedirects(pageRoutes), ...discoverRedirects(nonApiHandlers)].sort(
-    (left, right) => left.route.localeCompare(right.route) || left.file.localeCompare(right.file),
-  );
-  const redirectRoutes = new Set(redirects.map((redirect) => redirect.route));
-  const appRouteHandlers = nonApiHandlers.filter((route) => !redirectRoutes.has(route.route));
-
+  const routeHandlers = discoverRoutes("handler");
+  const publicRouteHandlers = routeHandlers.filter((route) => !isApiRoute(route.route));
   return {
     pageRoutes,
-    apiRoutes,
-    appRouteHandlers,
-    redirects,
+    publicRouteHandlers,
+    apiRoutes: routeHandlers.filter((route) => isApiRoute(route.route)),
+    redirects: discoverRedirects([...pageRoutes, ...publicRouteHandlers]),
     nonRoutedMockupArtifacts: discoverNonRoutedMockupArtifacts(),
   };
 }
@@ -410,6 +404,9 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
       ].includes(route.route),
   );
   const mockupRoutes = data.pageRoutes.filter((route) => route.route.startsWith("/mockups"));
+  const publicUtilityRouteHandlers = data.publicRouteHandlers.filter(
+    (route) => !productRouteHandlerPaths.has(route.route),
+  );
 
   const lines = [
     "# Clinical KB Site Map",
@@ -417,7 +414,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
     "This file is generated by `npm run sitemap:update`. Run `npm run sitemap:check` to verify it is current.",
     "",
     ...section(
-      "Main product pages",
+      "Main product routes",
       productRoutes.map((route) => routeLine(route, routeDescriptions)),
     ),
     ...section("Mode/query routes", renderModeRoutes()),
@@ -497,22 +494,20 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         : []),
     ]),
     ...section(
+      "Public utility route handlers",
+      publicUtilityRouteHandlers.map((route) => routeLine(route, publicRouteHandlerDescriptions)),
+    ),
+    ...section(
       "API routes",
       data.apiRoutes.map((route) => routeLine(route, apiDescriptions)),
     ),
-    ...(data.appRouteHandlers.length
-      ? section(
-          "App route handlers",
-          data.appRouteHandlers.map((route) => routeLine(route, routeDescriptions)),
-        )
-      : []),
     ...section(
       "Redirects",
       data.redirects.length
         ? data.redirects.map((redirect) =>
             bullet(redirect.route, `Redirects to \`${redirect.target}\`. Source: \`${redirect.file}\`.`),
           )
-        : ["- No redirects discovered."],
+        : ["- No page-level redirects discovered."],
     ),
     ...section("Known caveats and stale-path flags", [
       "- `/mockups/*` prototype routes are development-only; production returns 404 and `robots.txt` disallows indexing.",
