@@ -130,10 +130,14 @@ describe("audit navigation and auth regressions", () => {
     expect(clinicalDashboardSource).toContain("aria-selected={active}");
     expect(clinicalDashboardSource).toContain("aria-controls={tab.panelId}");
     expect(clinicalDashboardSource).toContain("tabIndex={active ? 0 : -1}");
-    expect(clinicalDashboardSource).toContain('role="tabpanel"');
+    expect(clinicalDashboardSource).toContain('role={uploadUsesDesktopRegions ? "region" : "tabpanel"}');
     for (const tab of ["setup", "upload", "jobs", "quality"]) {
-      expect(clinicalDashboardSource).toContain(`aria-labelledby="dashboard-upload-tab-${tab}"`);
+      expect(clinicalDashboardSource).toContain(`"dashboard-upload-tab-${tab}"`);
     }
+    for (const section of ["setup", "upload", "indexing", "quality"]) {
+      expect(clinicalDashboardSource).toContain(`id="dashboard-${section}-section-heading"`);
+    }
+    expect(clinicalDashboardSource).toContain("subscribeToUploadDesktopLayout");
     expect(clinicalDashboardSource).toContain('event.key === "ArrowRight"');
     expect(clinicalDashboardSource).toContain('event.key === "ArrowLeft"');
     expect(clinicalDashboardSource).toContain('event.key === "Home"');

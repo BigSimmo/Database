@@ -364,6 +364,8 @@ test.describe("Clinical KB tools launcher", () => {
       await expect(page.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Quick tool shortcuts" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "All tools" })).toBeVisible();
+      await expect(page.locator("#launcher-results-panel")).toHaveAttribute("role", "group");
+      await expect(page.locator("#launcher-results-panel")).toHaveAttribute("aria-label", "All tools");
       if (viewport.name === "mobile") {
         await page.getByTestId("application-row-medication-prescribing").click();
         const selectedSheet = page.getByRole("dialog", { name: "Medication Prescribing" });

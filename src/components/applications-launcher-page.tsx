@@ -705,8 +705,8 @@ export function ApplicationsLauncherWorkspace({
     ? selectedId
     : (filteredApps[0]?.id ?? selectedId);
   const selectedApp = appById(effectiveSelectedId);
-  // Label the panel by the selected tab's visible label (mobile-only tabs like
-  // "More" included) so assistive tech hears a region name matching the tab.
+  // Label the results by the selected filter's visible label (mobile-only filters
+  // like "More" included) so assistive tech hears which result set is active.
   const activeFilterLabel =
     desktopFilters.find((filter) => filter.id === activeFilter)?.label ??
     mobileFilters.find((filter) => filter.id === activeFilter)?.label;
@@ -796,12 +796,7 @@ export function ApplicationsLauncherWorkspace({
           </div>
         </div>
 
-        <div
-          id="launcher-results-panel"
-          role="tabpanel"
-          aria-label={resultsPanelLabel}
-          className="grid grid-cols-1 gap-4"
-        >
+        <div id="launcher-results-panel" role="group" aria-label={resultsPanelLabel} className="grid grid-cols-1 gap-4">
           {filteredApps.length === 0 ? (
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 py-10 text-center shadow-[var(--shadow-inset)]">
               <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{copy.emptyTitle}</p>

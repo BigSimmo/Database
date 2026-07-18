@@ -2728,6 +2728,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=answer");
 
     const appModeButton = page.getByRole("button", { name: "Mode Answer" });
+    await waitForReactEventHandler(appModeButton, "onClick");
     await appModeButton.click();
     const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
     await expect(appModeMenu).toBeVisible();

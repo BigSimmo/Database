@@ -51,6 +51,10 @@ describe("Therapy Compass required data recovery", () => {
       </TherapyCompassWorkspace>,
     );
 
+    expect(screen.getByRole("status")).toHaveTextContent("Loading therapy catalogue");
+    expect(screen.queryByText(/Search 0 source-grounded therapy records/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Frequently used therapies" })).not.toBeInTheDocument();
+
     expect(await screen.findByRole("alert")).toHaveTextContent("Therapy Compass could not load");
     expect(screen.queryByRole("heading", { name: "What therapy are you looking for?" })).not.toBeInTheDocument();
 

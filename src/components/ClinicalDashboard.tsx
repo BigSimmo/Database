@@ -32,6 +32,7 @@ import {
   useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
@@ -123,6 +124,23 @@ const FavouritesHub = dynamic(
   () => import("@/components/clinical-dashboard/favourites-hub").then((m) => m.FavouritesHub),
   { ssr: false },
 );
+
+const uploadDesktopMediaQuery = "(min-width: 1024px)";
+
+function subscribeToUploadDesktopLayout(callback: () => void) {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => {};
+  const media = window.matchMedia(uploadDesktopMediaQuery);
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
+}
+
+function getUploadDesktopLayoutSnapshot() {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia(uploadDesktopMediaQuery).matches
+  );
+}
 const MedicationPrescribingWorkspace = dynamic(
   () =>
     import("@/components/clinical-dashboard/medication-prescribing-workspace").then(
@@ -661,6 +679,11 @@ export function ClinicalDashboard({
   const [documentsDrawerMode, setDocumentsDrawerMode] = useState<DocumentDrawerMode>("library");
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [uploadMobileTab, setUploadMobileTab] = useState<UploadIndexingTab>("upload");
+  const uploadUsesDesktopRegions = useSyncExternalStore(
+    subscribeToUploadDesktopLayout,
+    getUploadDesktopLayoutSnapshot,
+    () => false,
+  );
   const uploadTabRefs = useRef(new Map<UploadIndexingTab, HTMLButtonElement>());
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
@@ -4063,14 +4086,19 @@ export function ClinicalDashboard({
                       <div className="grid gap-4 lg:grid-cols-2">
                         <div
                           id="dashboard-setup-section"
-                          role="tabpanel"
-                          aria-labelledby="dashboard-upload-tab-setup"
+                          role={uploadUsesDesktopRegions ? "region" : "tabpanel"}
+                          aria-labelledby={
+                            uploadUsesDesktopRegions ? "dashboard-setup-section-heading" : "dashboard-upload-tab-setup"
+                          }
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
                             uploadMobileTab !== "setup" && "hidden lg:block",
                           )}
                         >
-                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                          <p
+                            id="dashboard-setup-section-heading"
+                            className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}
+                          >
                             Developer setup status
                           </p>
                           <SetupChecklist checks={setupChecks} />
@@ -4078,14 +4106,21 @@ export function ClinicalDashboard({
                         </div>
                         <div
                           id="dashboard-upload-section"
-                          role="tabpanel"
-                          aria-labelledby="dashboard-upload-tab-upload"
+                          role={uploadUsesDesktopRegions ? "region" : "tabpanel"}
+                          aria-labelledby={
+                            uploadUsesDesktopRegions
+                              ? "dashboard-upload-section-heading"
+                              : "dashboard-upload-tab-upload"
+                          }
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
                             uploadMobileTab !== "upload" && "hidden lg:block",
                           )}
                         >
-                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                          <p
+                            id="dashboard-upload-section-heading"
+                            className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}
+                          >
                             Clinical upload
                           </p>
                           <UploadPanel
@@ -4100,14 +4135,21 @@ export function ClinicalDashboard({
                         </div>
                         <div
                           id="dashboard-indexing-section"
-                          role="tabpanel"
-                          aria-labelledby="dashboard-upload-tab-jobs"
+                          role={uploadUsesDesktopRegions ? "region" : "tabpanel"}
+                          aria-labelledby={
+                            uploadUsesDesktopRegions
+                              ? "dashboard-indexing-section-heading"
+                              : "dashboard-upload-tab-jobs"
+                          }
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
                             uploadMobileTab !== "jobs" && "hidden lg:block",
                           )}
                         >
-                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                          <p
+                            id="dashboard-indexing-section-heading"
+                            className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}
+                          >
                             Indexing progress
                           </p>
                           <IndexingMonitor
@@ -4122,14 +4164,21 @@ export function ClinicalDashboard({
                         </div>
                         <div
                           id="dashboard-quality-section"
-                          role="tabpanel"
-                          aria-labelledby="dashboard-upload-tab-quality"
+                          role={uploadUsesDesktopRegions ? "region" : "tabpanel"}
+                          aria-labelledby={
+                            uploadUsesDesktopRegions
+                              ? "dashboard-quality-section-heading"
+                              : "dashboard-upload-tab-quality"
+                          }
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
                             uploadMobileTab !== "quality" && "hidden lg:block",
                           )}
                         >
-                          <p className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}>
+                          <p
+                            id="dashboard-quality-section-heading"
+                            className={cn("text-xs font-bold uppercase tracking-[0.08em]", textMuted)}
+                          >
                             Ingestion quality console
                           </p>
                           <IngestionQualityConsole

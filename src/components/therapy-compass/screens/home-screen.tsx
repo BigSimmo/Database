@@ -7,6 +7,7 @@ import { commandControl, linkButton } from "../controls";
 import type { Therapy } from "../data/types";
 import { ChevronRightIcon, CompassIcon, FileTextIcon, PathwayIcon, ScaleIcon, SearchIcon, SparkleIcon } from "../icons";
 import { s } from "../style-utils";
+import { LoadingState } from "../ui";
 
 const SUGGESTIONS = [
   "Anxiety in outpatient care",
@@ -27,6 +28,8 @@ const FEATURED_SLUGS = [
 export function HomeScreen() {
   const b = useTcBindings();
   const [query, setLocalQuery] = useState("");
+
+  if (b.loading) return <LoadingState label="Loading therapy catalogue…" />;
 
   const bySlug = new Map(b.therapies.map((t) => [t.slug, t]));
   const featured: Therapy[] = FEATURED_SLUGS.map((sl) => bySlug.get(sl)).filter((t): t is Therapy => Boolean(t));
