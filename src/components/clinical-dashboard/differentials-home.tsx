@@ -284,7 +284,7 @@ function ResultTypeTabs({
             aria-label={`${tab.label} (${tab.count})`}
             onClick={() => onFilterChange(tab.id)}
             className={cn(
-              "inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-bold min-[390px]:text-sm",
+              "inline-flex min-h-tap shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-bold min-[390px]:text-sm",
               resultTypeTabFocusRing,
               active
                 ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
@@ -340,7 +340,7 @@ function SelectionToggle({ selected, onClick, label }: { selected: boolean; onCl
       aria-label={`${selected ? "Remove" : "Add"} ${label} ${selected ? "from" : "to"} comparison`}
       onClick={onClick}
       className={cn(
-        "grid h-11 w-11 shrink-0 place-items-center rounded-md border text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        "grid h-tap w-tap shrink-0 place-items-center rounded-md border text-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
         selected
           ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
           : "border-[color:var(--border-strong)] bg-[color:var(--surface)] text-transparent hover:text-[color:var(--text-soft)]",
@@ -1092,7 +1092,7 @@ function SearchResultsView({
 
             <Link
               href={differentialRouteWithQuery("/differentials/diagnoses", query)}
-              className="hidden min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] lg:inline-flex"
+              className="hidden min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] lg:inline-flex"
             >
               View all catalogue matches ({results.length})
               <ChevronRight className="h-4 w-4" aria-hidden />

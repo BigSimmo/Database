@@ -3,7 +3,6 @@
 import { useTcBindings } from "../bindings";
 import { outlineControl, softControl } from "../controls";
 import { SearchIcon, SearchXIcon, XIcon } from "../icons";
-import { s } from "../style-utils";
 import { EmptyState, LoadingState } from "../ui";
 import { ResultCard } from "../therapy-card";
 
@@ -18,44 +17,35 @@ export function SearchScreen() {
   const shown = results.slice(0, MAX_CARDS);
 
   return (
-    <section data-screen-label="Search" style={s(`max-width:1180px;margin:0 auto;`)}>
-      <h1 style={s(`margin:0 0 6px;font-size:27px;font-weight:680;color:var(--text-heading);letter-spacing:-0.02em;`)}>
-        Therapy Search
-      </h1>
-      <p style={s(`margin:0 0 22px;font-size:14.5px;color:var(--text-muted);`)}>
+    <section data-screen-label="Search" className="tc-screens-search-screen-001">
+      <h1 className="tc-screens-search-screen-002">Therapy Search</h1>
+      <p className="tc-screens-search-screen-003">
         Find source-grounded therapy records by problem, symptom, skill or population.
       </p>
 
-      <div style={s(`display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;`)}>
-        <label style={s(`flex:1;min-width:260px;position:relative;display:flex;align-items:center;`)}>
-          <SearchIcon size={19} strokeWidth={1.8} style={s(`position:absolute;left:16px;color:var(--text-soft);`)} />
+      <div className="tc-screens-search-screen-004">
+        <label className="tc-screens-search-screen-005">
+          <SearchIcon size={19} strokeWidth={1.8} className="tc-screens-search-screen-006" />
           <input
             value={q}
             onChange={(e) => b.setQuery(e.target.value)}
             placeholder="Search anxiety, trauma, CBT, relapse prevention…"
             aria-label="Search therapies"
-            style={s(
-              `width:100%;height:52px;padding:0 16px 0 46px;border:1px solid var(--border-strong);border-radius:13px;background:var(--surface);color:var(--text);font-size:16px;font-family:inherit;outline:none;box-shadow:var(--shadow-tight);`,
-            )}
+            className="tc-screens-search-screen-007"
           />
         </label>
       </div>
 
-      <div style={s(`display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px;`)}>
+      <div className="tc-screens-search-screen-008">
         {QUICK_TAGS.map((tag) => {
           const on = b.search.tags.includes(tag);
           return (
             <button
               key={tag}
               type="button"
-              className="tc-btn"
+              className={`tc-btn ${softControl}${on ? " tc-is-selected" : ""}`}
               onClick={() => b.toggleTag(tag)}
-              style={s(
-                softControl +
-                  (on
-                    ? "border:1px solid var(--clinical-accent-border);background:var(--clinical-accent-soft);color:var(--clinical-accent-hover);font-weight:600;"
-                    : ""),
-              )}
+              aria-pressed={on}
             >
               {tag}
             </button>
@@ -63,38 +53,21 @@ export function SearchScreen() {
         })}
         <button
           type="button"
-          className="tc-btn"
+          className={`tc-btn ${softControl}${b.search.reviewedOnly ? " tc-is-success" : ""}`}
           onClick={b.toggleReviewedOnly}
-          style={s(
-            softControl +
-              (b.search.reviewedOnly
-                ? "border:1px solid var(--success-border);background:var(--success-bg);color:var(--success-text);font-weight:600;"
-                : ""),
-          )}
+          aria-pressed={b.search.reviewedOnly}
         >
           Reviewed only
         </button>
         <button
           type="button"
-          className="tc-btn"
+          className={`tc-btn ${softControl}${b.search.briefOnly ? " tc-is-selected" : ""}`}
           onClick={b.toggleBriefOnly}
-          style={s(
-            softControl +
-              (b.search.briefOnly
-                ? "border:1px solid var(--clinical-accent-border);background:var(--clinical-accent-soft);color:var(--clinical-accent-hover);font-weight:600;"
-                : ""),
-          )}
+          aria-pressed={b.search.briefOnly}
         >
           Brief available
         </button>
-        <button
-          type="button"
-          className="tc-btn"
-          onClick={b.clearSearch}
-          style={s(
-            `display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 16px;border:1px dashed var(--border-strong);border-radius:11px;background:transparent;color:var(--text-soft);font-size:13.5px;font-weight:500;cursor:pointer;font-family:inherit;`,
-          )}
-        >
+        <button type="button" className="tc-btn tc-screens-search-screen-009" onClick={b.clearSearch}>
           <XIcon size={15} strokeWidth={1.8} />
           Clear
         </button>
@@ -104,10 +77,10 @@ export function SearchScreen() {
         <LoadingState />
       ) : (
         <>
-          <div style={s(`display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;`)}>
-            <div style={s(`display:flex;align-items:baseline;gap:10px;`)}>
-              <span style={s(`font-size:15px;font-weight:650;color:var(--text-heading);`)}>Top results</span>
-              <span style={s(`font-size:13px;color:var(--text-soft);`)}>
+          <div className="tc-screens-search-screen-010">
+            <div className="tc-screens-search-screen-011">
+              <span className="tc-screens-search-screen-012">Top results</span>
+              <span className="tc-screens-search-screen-013">
                 {results.length === 0
                   ? "No matches"
                   : `${Math.min(shown.length, results.length)} of ${results.length} record${results.length === 1 ? "" : "s"}`}
@@ -121,13 +94,13 @@ export function SearchScreen() {
               title="No therapies match those filters"
               body="Try a broader term, remove a tag, or clear the filters to browse the full library."
               action={
-                <button type="button" className="tc-btn" onClick={b.clearSearch} style={s(outlineControl)}>
+                <button type="button" className={`tc-btn ${outlineControl}`} onClick={b.clearSearch}>
                   Clear filters
                 </button>
               }
             />
           ) : (
-            <div style={s(`display:flex;flex-direction:column;gap:14px;`)}>
+            <div className="tc-screens-search-screen-014">
               {shown.map((t) => (
                 <ResultCard key={t.slug} therapy={t} />
               ))}

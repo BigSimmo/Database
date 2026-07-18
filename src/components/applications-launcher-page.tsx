@@ -348,7 +348,7 @@ function FilterTabs({
               aria-controls="launcher-results-panel"
               onClick={() => onFilterChange(filter.id)}
               className={cn(
-                "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg border px-4 text-xs font-bold transition",
+                "inline-flex min-h-tap items-center justify-center whitespace-nowrap rounded-lg border px-4 text-xs font-bold transition",
                 active
                   ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
                   : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-heading)]",
@@ -376,7 +376,7 @@ function FilterTabs({
               aria-controls="launcher-results-panel"
               onClick={() => onFilterChange(filter.id)}
               className={cn(
-                "inline-flex min-h-11 shrink-0 items-center justify-center gap-0.5 whitespace-nowrap rounded-lg border px-2 text-2xs font-bold transition",
+                "inline-flex min-h-tap shrink-0 items-center justify-center gap-0.5 whitespace-nowrap rounded-lg border px-2 text-2xs font-bold transition",
                 active
                   ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
                   : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",

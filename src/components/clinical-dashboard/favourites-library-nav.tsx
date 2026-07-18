@@ -204,7 +204,7 @@ function SidebarRow({ entry }: { entry: SidebarEntry }) {
       aria-pressed={entry.active}
       onClick={entry.onClick}
       className={cn(
-        "flex min-h-11 w-full items-center gap-2.5 rounded-lg border px-2.5 text-left text-sm-minus font-semibold transition",
+        "flex min-h-tap w-full items-center gap-2.5 rounded-lg border px-2.5 text-left text-sm-minus font-semibold transition",
         entry.active
           ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[inset_2px_0_0_var(--clinical-accent)]"
           : "border-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
@@ -245,7 +245,7 @@ export function FavouritesSidebar({
           type="button"
           onClick={() => onCollapsedChange(false)}
           className={cn(
-            "group mb-3 grid h-11 w-11 place-items-center rounded-lg border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
+            "group mb-3 grid h-tap w-tap place-items-center rounded-lg border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
             focusRing,
           )}
           aria-label="Expand library sidebar"
@@ -272,7 +272,7 @@ export function FavouritesSidebar({
                     title={entry.label}
                     onClick={entry.onClick}
                     className={cn(
-                      "relative grid h-11 w-11 place-items-center rounded-lg border transition",
+                      "relative grid h-tap w-tap place-items-center rounded-lg border transition",
                       entry.active
                         ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[inset_2px_0_0_var(--clinical-accent)]"
                         : "border-transparent text-[color:var(--text-muted)] hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
@@ -305,7 +305,7 @@ export function FavouritesSidebar({
           type="button"
           onClick={() => onCollapsedChange(true)}
           className={cn(
-            "grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
+            "grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-transparent text-[color:var(--text-muted)] transition hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
             focusRing,
           )}
           aria-label="Compact library sidebar"

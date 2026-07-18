@@ -5,7 +5,6 @@ import {
   ChevronRight,
   Clock3,
   FileText,
-  Loader2,
   LogOut,
   Mail,
   ShieldAlert,
@@ -17,6 +16,7 @@ import {
 import { ProviderBrandIcon } from "@/components/clinical-dashboard/provider-brand-icons";
 import { AUTH_EMAIL_STORAGE_KEY, type OAuthProvider, useAuthSession } from "@/lib/supabase/client";
 import {
+  AsyncButton,
   cn,
   fieldControlWithIcon,
   fieldIcon,
@@ -208,14 +208,16 @@ export function AuthPanel() {
             </span>
           )}
         </label>
-        <button type="submit" disabled={busy || !email.trim()} className={cn(primaryControl, "w-full")}>
-          {busy ? (
-            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-          ) : (
-            <Mail aria-hidden="true" className="h-4 w-4" />
-          )}
+        <AsyncButton
+          type="submit"
+          busy={busy}
+          busyLabel={isExpired ? "Sending fresh link…" : "Sending link…"}
+          disabled={!email.trim()}
+          idleIcon={<Mail aria-hidden="true" className="h-4 w-4" />}
+          className={cn(primaryControl, "w-full")}
+        >
           {isExpired ? "Send fresh link" : "Continue with email"}
-        </button>
+        </AsyncButton>
 
         <div className="flex items-center gap-3 py-1 text-xs font-medium text-[color:var(--text-soft)]">
           <span className="h-px flex-1 bg-[color:var(--border)]" />
@@ -253,7 +255,7 @@ function ProviderButton({ provider, onClick }: { provider: "Apple" | "Google" | 
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+      className="flex min-h-tap w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
     >
       <ProviderMark provider={provider} />
       <span className="min-w-0 flex-1 truncate">Continue with {provider}</span>

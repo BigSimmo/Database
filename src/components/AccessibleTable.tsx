@@ -440,7 +440,7 @@ export function AccessibleTable({
               event.stopPropagation();
               openDialog(event.currentTarget);
             }}
-            className="relative z-50 mt-2 inline-flex min-h-11 w-full items-center justify-center gap-2 scroll-mb-[calc(18rem+env(safe-area-inset-bottom))] rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
+            className="relative z-50 mt-2 inline-flex min-h-tap w-full items-center justify-center gap-2 scroll-mb-[calc(18rem+env(safe-area-inset-bottom))] rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--border-strong)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[color:var(--focus)]/25"
           >
             <span>Expand table</span>
             <Maximize2 className="h-4 w-4" aria-hidden />

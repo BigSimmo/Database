@@ -406,7 +406,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
           <ChevronLeft aria-hidden="true" className="h-4 w-4" />
         </button>
         {pagesReady ? (
-          <label className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-1.5 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:flex-none sm:gap-2 sm:px-3">
+          <label className="flex min-h-tap min-w-0 flex-1 items-center justify-center gap-1 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-1.5 text-sm font-medium text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:flex-none sm:gap-2 sm:px-3">
             <span className="hidden sm:inline">Page</span>
             <input
               aria-label="PDF page number"
@@ -418,7 +418,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
                 if (event.key === "Enter") jumpToPage(Number(pageInput) || page);
               }}
               inputMode="numeric"
-              className="nums h-11 w-full min-w-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-center text-sm font-semibold text-[color:var(--text)] outline-none transition focus:border-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-14 sm:flex-none"
+              className="nums h-tap w-full min-w-0 rounded-md border border-[color:var(--border)] bg-[color:var(--surface)] text-center text-sm font-semibold text-[color:var(--text)] outline-none transition focus:border-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-14 sm:flex-none"
             />
             <span className="nums shrink-0 whitespace-nowrap text-sm-minus font-semibold sm:text-sm">
               of {totalPages}
@@ -453,7 +453,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
             disabled={!pagesReady}
             aria-label="Fit page width and enter fullscreen"
             className={cn(
-              "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md border px-3 text-xs font-semibold transition",
+              "inline-flex min-h-tap min-w-tap items-center justify-center gap-2 rounded-md border px-3 text-xs font-semibold transition",
               "disabled:cursor-not-allowed disabled:opacity-45",
               fitWidth || fullscreenActive
                 ? "border-[color:var(--clinical-accent)]/35 bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -518,7 +518,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
               href={url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-[color:var(--clinical-accent)]"
+              className="inline-flex min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-[color:var(--clinical-accent)]"
             >
               <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
               Source PDF
