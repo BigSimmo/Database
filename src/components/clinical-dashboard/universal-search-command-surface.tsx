@@ -49,6 +49,7 @@ const domainsByTargetMode: Partial<Record<AppModeId, UniversalSearchDomain[]>> =
   dsm: ["dsm"],
   specifiers: ["specifiers"],
   formulation: ["formulation"],
+  "therapy-compass": ["therapies"],
   tools: ["tools"],
 };
 
@@ -62,6 +63,7 @@ const domainHeadings: Record<UniversalSearchDomain, string> = {
   dsm: "DSM-5 Diagnoses",
   specifiers: "Specifiers",
   formulation: "Formulation",
+  therapies: "Therapies",
   tools: "Tools",
 };
 

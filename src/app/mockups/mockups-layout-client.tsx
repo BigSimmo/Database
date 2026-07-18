@@ -13,10 +13,6 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isSourceOverlayRedesignMockup = pathname === "/mockups/document-search/source-overlays";
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
-  // Therapy Compass keeps the universal header + rail but provides its own
-  // primary search surface, so the shared bottom composer is hidden (as with
-  // the tools/favourites mockups).
-  const isTherapyCompassMockup = pathname.startsWith("/mockups/therapy-compass");
   // The calculators search page owns its own search input (top on desktop, docked
   // at the bottom on phones), so the shared universal composer is suppressed here
   // to avoid a second, floating search bar.
@@ -38,7 +34,6 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isFavouritesPageMockup &&
         !isStandaloneDocumentFlow &&
         !isUniversalSearchRedesignMockup &&
-        !isTherapyCompassMockup &&
         !isCalculatorsSearchPageMockup
       }
       chromeVisible={!isSourceOverlayRedesignMockup}
