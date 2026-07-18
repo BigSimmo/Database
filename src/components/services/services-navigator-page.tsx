@@ -301,10 +301,6 @@ function RightRail({
   const comparisonExpanded = showComparison && comparisonAvailable;
   const confidenceTotal = counts.high + counts.medium + counts.low + counts.unknown;
 
-  // Keep rail toggles mounted across selection-count changes. Derived expanded
-  // flags below already hide checklist/comparison when the current selection
-  // cannot support them, so no effect-driven setState is required.
-
   const rows: Array<[string, number, LucideIcon, string]> = [
     ["Meets", counts.meets, CircleCheck, "text-[color:var(--success)]"],
     ["Caution", counts.cautions, CircleAlert, "text-[color:var(--warning)]"],
@@ -609,6 +605,7 @@ export function ServicesNavigatorPage() {
       }
       sidebar={
         <RightRail
+          key={selected.length === 0 ? "empty" : selected.length === 1 ? "single" : "multiple"}
           matches={displayedMatches}
           selected={selected}
           onClearSelected={() => setSelectedSlugs([])}
@@ -731,9 +728,9 @@ export function ServicesNavigatorPage() {
               />
             ))}
           </div>
+          <UniversalSearchAlsoMatches modeId="services" query={query} />
         </>
       )}
-      <UniversalSearchAlsoMatches modeId="services" query={query} />
     </SearchResultsLayout>
   );
 }
