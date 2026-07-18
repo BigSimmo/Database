@@ -35,7 +35,7 @@ import {
 } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
-import { isLocalNoAuthMode, publicUploadsEnabled } from "@/lib/client-env";
+import { isLocalNoAuthMode, publicUploadsEnabled, resolveClientDemoMode } from "@/lib/client-env";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import {
@@ -782,7 +782,11 @@ export function ClinicalDashboard({
   const browserAuthUnavailableDemoFallback = !auth.isConfigured && supabaseEnvStatus !== "ready";
   const localNoAuthMode = isLocalNoAuthMode();
   const explicitDemoMode = demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-  const clientDemoMode = explicitDemoMode || browserAuthUnavailableDemoFallback || localNoAuthMode;
+  const clientDemoMode = resolveClientDemoMode({
+    explicitDemoMode,
+    authUnavailableFallback: browserAuthUnavailableDemoFallback,
+    localNoAuthMode,
+  });
   const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
   const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
   useEffect(() => {
@@ -834,8 +838,7 @@ export function ClinicalDashboard({
       setAnswerThreadBootstrapped(true);
     });
   }, [answerThreadOwnerId, authStatus]);
-  const uploadReadOnlyMode =
-    demoMode || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || browserAuthUnavailableDemoFallback;
+  const uploadReadOnlyMode = clientDemoMode;
   const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
   const canUsePublicSearchApis = localProjectReady && hasReadyPublicSearchSetup(setupChecks);
   const canUseDegradedLocalSearchApis =
@@ -3491,7 +3494,7 @@ export function ClinicalDashboard({
           tabIndex={-1}
           onScroll={handleMainScroll}
           className={cn(
-            "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus:outline-none",
+            "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
             // Answer view: the glass header is absolute over this scroll container,
             // so <main> reserves its exact height as top padding (72px borderless
             // bar = 4rem content/padding + the max(0.5rem, safe-area) top inset —

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
+import { resolveClientDemoMode } from "@/lib/client-env";
 
 const routeSource = readFileSync(new URL("../src/app/favourites/page.tsx", import.meta.url), "utf8");
 const librarySource = readFileSync(
@@ -29,13 +30,40 @@ describe("favourites demo-data boundary", () => {
     expect(dashboardSource).toContain("demoMode={clientDemoMode}");
     expect(hubSource).toContain("...(demoMode ? favouriteItems : [])");
     expect(hubSource).not.toContain("[...favouriteItems, ...savedRegistryFavourites]");
-    expect(hubSource).toContain('title="Additional sort options are coming soon"');
-    expect(hubSource).toContain('title="Adding favourites from this screen is coming soon"');
-    expect(hubSource).toContain('title="Creating favourite sets is coming soon"');
+    expect(hubSource).toContain('aria-describedby="favourites-sort-unavailable"');
+    expect(hubSource).toContain('aria-describedby="favourites-add-unavailable"');
+    expect(hubSource).toContain('aria-describedby="favourites-new-set-unavailable"');
     expect(hubSource).toContain("Browse sets");
     expect(dashboardSource).not.toContain("Favourite creation is ready to connect.");
     expect(globalShellSource).toContain("demoMode={clientDemoMode}");
     expect(universalSearchSource).toContain("...(demoMode ? favouriteItems : [])");
     expect(universalSearchSource).not.toContain("[...favouriteItems, ...savedRegistryFavourites]");
+  });
+
+  it("fails closed in production while preserving explicit and non-production demo modes", () => {
+    expect(
+      resolveClientDemoMode({
+        explicitDemoMode: false,
+        authUnavailableFallback: true,
+        localNoAuthMode: false,
+        environment: "production",
+      }),
+    ).toBe(false);
+    expect(
+      resolveClientDemoMode({
+        explicitDemoMode: true,
+        authUnavailableFallback: true,
+        localNoAuthMode: false,
+        environment: "production",
+      }),
+    ).toBe(true);
+    expect(
+      resolveClientDemoMode({
+        explicitDemoMode: false,
+        authUnavailableFallback: true,
+        localNoAuthMode: false,
+        environment: "development",
+      }),
+    ).toBe(true);
   });
 });

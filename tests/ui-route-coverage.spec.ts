@@ -370,7 +370,11 @@ test.describe("previously uncovered production routes", () => {
         await skipLink.focus();
         await expect(skipLink).toBeVisible();
         await skipLink.press("Enter");
-        await expect(currentPage.locator("#main-content")).toBeFocused();
+        const mainContent = currentPage.locator("#main-content");
+        await expect(mainContent).toBeFocused();
+        await expect
+          .poll(() => mainContent.evaluate((element) => window.getComputedStyle(element).outlineStyle))
+          .not.toBe("none");
       },
     );
   });

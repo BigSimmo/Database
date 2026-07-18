@@ -307,26 +307,35 @@ export function FavouritesHub({
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:justify-end">
           <button
             type="button"
-            disabled
-            title="Additional sort options are coming soon"
-            className={cn(floatingControl, "min-h-11 cursor-not-allowed px-3 text-xs opacity-60 sm:min-h-9 sm:px-2.5")}
+            aria-disabled="true"
+            aria-describedby="favourites-sort-unavailable"
+            className={cn(
+              floatingControl,
+              "min-h-11 cursor-not-allowed px-3 text-xs opacity-60 hover:border-[color:var(--border-lux)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-inset)] sm:min-h-9 sm:px-2.5",
+            )}
           >
             <ArrowUpDown aria-hidden="true" className="h-4 w-4" />
             Recent
           </button>
+          <span id="favourites-sort-unavailable" className="sr-only">
+            Additional sort options are coming soon.
+          </span>
           <button
             type="button"
-            disabled
-            title="Adding favourites from this screen is coming soon"
+            aria-disabled="true"
+            aria-describedby="favourites-add-unavailable"
             className={cn(
               primaryControl,
-              "min-h-11 cursor-not-allowed justify-center px-3 text-xs opacity-60 sm:min-h-9 sm:px-2.5",
+              "min-h-11 cursor-not-allowed justify-center px-3 text-xs opacity-60 hover:bg-[color:var(--command)] hover:shadow-[var(--shadow-tight)] active:translate-y-0 sm:min-h-9 sm:px-2.5",
             )}
           >
             <Plus aria-hidden="true" className="h-4 w-4" />
             <span className="hidden sm:inline">Add favourite</span>
             <span className="sm:hidden">Add</span>
           </button>
+          <span id="favourites-add-unavailable" className="sr-only">
+            Adding favourites from this screen is coming soon.
+          </span>
         </div>
       </div>
 
@@ -445,13 +454,19 @@ export function FavouritesHub({
             </div>
             <button
               type="button"
-              disabled
-              title="Creating favourite sets is coming soon"
-              className={cn(floatingControl, "mt-3 min-h-9 w-full cursor-not-allowed px-3 text-xs opacity-60")}
+              aria-disabled="true"
+              aria-describedby="favourites-new-set-unavailable"
+              className={cn(
+                floatingControl,
+                "mt-3 min-h-9 w-full cursor-not-allowed px-3 text-xs opacity-60 hover:border-[color:var(--border-lux)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-inset)]",
+              )}
             >
               <Plus aria-hidden="true" className="h-4 w-4" />
               New set
             </button>
+            <span id="favourites-new-set-unavailable" className="sr-only">
+              Creating favourite sets is coming soon.
+            </span>
           </section>
         </aside>
       </div>

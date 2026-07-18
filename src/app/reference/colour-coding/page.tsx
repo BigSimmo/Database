@@ -31,7 +31,14 @@ const TONE_SAMPLE_LABEL: Record<(typeof SEMANTIC_TONES)[number], string> = {
 
 export default function ColourCodingReferencePage() {
   return (
-    <main id="main-content" tabIndex={-1} className={cn(searchPageCanvas, "outline-none")}>
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className={cn(
+        searchPageCanvas,
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
+      )}
+    >
       <div className={cn(searchPageShell)}>
         <div className={cn(searchPageContainer, "space-y-6")}>
           <header className="space-y-2">
