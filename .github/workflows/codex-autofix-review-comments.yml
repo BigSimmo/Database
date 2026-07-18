@@ -167,21 +167,22 @@ jobs:
               }));
               const changedFilePaths = (file) =>
                 [file.filename, file.previous_filename].filter(Boolean);
+              const routeableFilePaths = (file) =>
+                changedFilePaths(file).filter(
+                  (filePath) =>
+                    !excludedAutomaticRoutePathPatterns.some((pattern) => pattern.test(filePath)),
+                );
               const routeableFiles = normalizedFiles.filter(
-                (file) =>
-                  changedFilePaths(file).some(
-                    (filePath) =>
-                      !excludedAutomaticRoutePathPatterns.some((pattern) => pattern.test(filePath)),
-                  ),
+                (file) => routeableFilePaths(file).length > 0,
               );
               const highRiskFiles = routeableFiles.filter((file) =>
-                changedFilePaths(file).some((filePath) =>
+                routeableFilePaths(file).some((filePath) =>
                   highRiskPathPatterns.some((pattern) => pattern.test(filePath)),
                 ),
               );
               const changedSourceFiles = routeableFiles.filter(
                 (file) =>
-                  changedFilePaths(file).some(
+                  routeableFilePaths(file).some(
                     (filePath) =>
                       sourcePathPattern.test(filePath) && sourceExtensionPattern.test(filePath),
                   ),

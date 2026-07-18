@@ -517,6 +517,22 @@ describe("Codex auto-resolve request script", () => {
     expect(result.createdComments[0]?.body).toContain("codex-autoresolve-route:high-risk-path");
   });
 
+  it("does not route an excluded previous test path as high risk after a docs-only rename", async () => {
+    const result = await runRequestScript({
+      files: [
+        {
+          additions: 1,
+          deletions: 1,
+          filename: "docs/search-route.md",
+          previous_filename: "src/app/api/search/route.test.ts",
+        },
+      ],
+    });
+
+    expect(result.createdComments).toHaveLength(0);
+    expect(result.notices).toContainEqual(expect.stringContaining("low-risk pull request"));
+  });
+
   it.each([
     "src/data/therapies-index.json",
     ".github/actions/setup-node-cached/action.yml",
