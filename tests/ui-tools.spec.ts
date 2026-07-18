@@ -1024,6 +1024,10 @@ test.describe("Clinical KB tools launcher", () => {
     const dock = page.locator("form.answer-footer-search-dock");
     await expect(dock).toBeVisible();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    // The global Playwright config emulates prefers-reduced-motion:reduce to
+    // avoid animation races.  Temporarily lift it so motion-reduce:transition-none
+    // does not suppress the transition we are about to verify.
+    await page.emulateMedia({ reducedMotion: "no-preference" });
     const transition = await dock.evaluate((node) => {
       const style = window.getComputedStyle(node);
       const durationMs = Math.max(
@@ -1035,6 +1039,7 @@ test.describe("Clinical KB tools launcher", () => {
       );
       return { durationMs, property: style.transitionProperty };
     });
+    await page.emulateMedia({ reducedMotion: "reduce" });
     expect(transition.property).toMatch(/transform|all/);
     expect(transition.durationMs).toBeGreaterThanOrEqual(100);
 
