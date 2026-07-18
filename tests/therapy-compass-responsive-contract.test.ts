@@ -51,9 +51,10 @@ describe("Therapy Compass responsive contract", () => {
 
   it("marks every fixed screen/card grid for phone reflow without changing its desktop template", () => {
     expect(responsiveStackCount(therapyCardSource)).toBeGreaterThanOrEqual(2);
-    expect(responsiveStackCount(homeSource)).toBeGreaterThanOrEqual(3);
-    expect(homeSource).toContain('className="tc-home-search"');
-    expect(homeSource).toContain("tc-home-search-button");
+    expect(homeSource).toContain("ModeHomeMain");
+    expect(homeSource).toContain("ModeHomeTemplate");
+    expect(homeSource).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
+    expect(homeSource).toContain("ModeHomeVerificationFooter");
     expect(responsiveStackCount(detailSource)).toBeGreaterThanOrEqual(2);
     expect(detailSource).toContain('className="tc-mobile-static"');
     expect(responsiveStackCount(compareSource)).toBeGreaterThanOrEqual(1);
@@ -93,7 +94,6 @@ describe("clinical accent contrast contract", () => {
     const sources = [
       read(`${therapyPath}/controls.ts`),
       read(`${therapyPath}/ui.tsx`),
-      homeSource,
       recommendSource,
       pathwaysSource,
       briefSource,

@@ -250,6 +250,7 @@ function GlobalStandaloneSearchShellClient({
       (searchMode === "specifiers" && pathname === "/specifiers") ||
       (searchMode === "formulation" && pathname === "/formulation") ||
       (searchMode === "factsheets" && pathname === "/factsheets") ||
+      (searchMode === "therapy-compass" && pathname === "/therapy-compass") ||
       (searchMode === "tools" && pathname === "/tools"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
