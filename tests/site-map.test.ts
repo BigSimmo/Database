@@ -63,6 +63,10 @@ describe("tracked sitemap", () => {
 
   it("keeps public redirect handlers out of API routes and records their redirects", () => {
     const data = collectSiteMapData();
+    const productSection = siteMap.slice(
+      siteMap.indexOf("## Main product routes"),
+      siteMap.indexOf("## Mode/query routes"),
+    );
     const apiSection = siteMap.slice(siteMap.indexOf("## API routes"), siteMap.indexOf("## Redirects"));
     const expectedProductHandlers = [
       ["/applications", "src/app/applications/route.ts", "/tools"],
