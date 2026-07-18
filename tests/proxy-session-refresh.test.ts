@@ -12,20 +12,29 @@ vi.mock("@supabase/ssr", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@supabase/ssr")>();
   return {
     ...actual,
-    createServerClient: vi.fn((_url, _key, options: { cookies: { setAll: (cookies: never[]) => void } }) => ({
-      auth: {
-        getClaims: async () => {
-          options.cookies.setAll([
-            {
-              name: "sb-unit-test-auth-token",
-              value: "rotated-session",
-              options: { path: "/", httpOnly: true },
-            },
-          ] as never[]);
-          return getClaims();
+    createServerClient: vi.fn(
+      (_url, _key, options: { cookies: { setAll: (cookies: never[], headers: Record<string, string>) => void } }) => ({
+        auth: {
+          getClaims: async () => {
+            options.cookies.setAll(
+              [
+                {
+                  name: "sb-unit-test-auth-token",
+                  value: "rotated-session",
+                  options: { path: "/", httpOnly: true },
+                },
+              ] as never[],
+              {
+                "Cache-Control": "private, no-cache, no-store, must-revalidate, max-age=0",
+                Expires: "0",
+                Pragma: "no-cache",
+              },
+            );
+            return getClaims();
+          },
         },
-      },
-    })),
+      }),
+    ),
   };
 });
 
@@ -58,6 +67,9 @@ describe("proxy session refresh scoping", () => {
 
     expect(getClaims).toHaveBeenCalledTimes(1);
     expect(response.cookies.get("sb-unit-test-auth-token")?.value).toBe("rotated-session");
+    expect(response.headers.get("cache-control")).toBe("private, no-cache, no-store, must-revalidate, max-age=0");
+    expect(response.headers.get("expires")).toBe("0");
+    expect(response.headers.get("pragma")).toBe("no-cache");
     expect(response.headers.get("content-security-policy")).toBeTruthy();
   });
 
