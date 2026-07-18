@@ -6,6 +6,8 @@ const SERVICE_WORKER_URL = "/sw.js";
 const INSTALL_DISMISSAL_KEY = "clinical-kb-pwa-install-dismissed-at";
 const INSTALL_DISMISSAL_MS = 30 * 24 * 60 * 60 * 1000;
 const UPDATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+const PWA_CACHE_PREFIX = "clinical-kb-pwa-";
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 
 type InstallChoice = { outcome: "accepted" | "dismissed"; platform: string };
 
@@ -62,6 +64,34 @@ function rememberInstallDismissal() {
   }
 }
 
+async function teardownLocalPwa() {
+  try {
+    // Exact-match the owned worker URL: a suffix check would also catch an
+    // unrelated same-origin worker registered at a nested path like
+    // /other-app/sw.js.
+    const ownedWorkerUrl = new URL(SERVICE_WORKER_URL, window.location.origin).href;
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.allSettled(
+      registrations
+        .filter((registration) =>
+          [registration.active, registration.waiting, registration.installing].some(
+            (worker) => worker?.scriptURL === ownedWorkerUrl,
+          ),
+        )
+        .map((registration) => registration.unregister()),
+    );
+    if ("caches" in window) {
+      const cacheNames = await window.caches.keys();
+      await Promise.allSettled(
+        cacheNames.filter((name) => name.startsWith(PWA_CACHE_PREFIX)).map((name) => window.caches.delete(name)),
+      );
+    }
+  } catch {
+    // Teardown is a local-dev convenience; on failure the documented manual
+    // DevTools path in docs/pwa.md still applies.
+  }
+}
+
 const cardClassName =
   "pointer-events-auto rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-4 text-[color:var(--text)] shadow-[var(--shadow-elevated)]";
 const primaryButtonClassName =
@@ -72,7 +102,9 @@ const secondaryButtonClassName =
 /**
  * Owns installability, service-worker updates, and cross-route connectivity UI.
  * The worker is production-first; `?pwa-dev=1` enables a cache-safe localhost
- * path for focused browser tests without persisting normal HMR assets.
+ * path for focused browser tests without persisting normal HMR assets, and
+ * `?pwa-dev=0` (local hosts only) unregisters that worker and deletes the
+ * owned caches again.
  */
 export function PwaLifecycle() {
   const isOnline = useSyncExternalStore(subscribeConnectivity, getConnectivitySnapshot, getServerConnectivitySnapshot);
@@ -144,9 +176,17 @@ export function PwaLifecycle() {
   }, []);
 
   useEffect(() => {
-    const developmentOptIn = new URLSearchParams(window.location.search).get("pwa-dev") === "1";
-    if (process.env.NODE_ENV !== "production" && !developmentOptIn) return;
     if (!("serviceWorker" in navigator) || window.isSecureContext === false) return;
+
+    const pwaDevFlag = new URLSearchParams(window.location.search).get("pwa-dev");
+    if (pwaDevFlag === "0" && LOCAL_HOSTNAMES.has(window.location.hostname)) {
+      // Explicit local opt-out: unregister the worker a previous `?pwa-dev=1`
+      // session installed and delete the owned caches. Non-local hosts ignore
+      // the flag entirely.
+      void teardownLocalPwa();
+      return;
+    }
+    if (process.env.NODE_ENV !== "production" && pwaDevFlag !== "1") return;
 
     let cancelled = false;
     let cancelScheduledRegistration: () => void = () => {};
