@@ -2,6 +2,6 @@
   "$comment": "Client JS bundle-size budget captured from a known-good production build. CI fails when total gzip size grows beyond tolerancePct; refresh intentionally with `npm run check:bundle-budget -- --update`.",
   "enforce": true,
   "tolerancePct": 10,
-  "totalGzipBytes": 1363382,
-  "updatedAt": "2026-07-17T12:11:55.267Z"
+  "totalGzipBytes": 1309274,
+  "updatedAt": "2026-07-18T15:49:00.100Z"
 }

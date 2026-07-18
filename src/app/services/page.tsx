@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import { ServicesHomePage } from "@/components/services/services-home-page";
 import { ServicesNavigatorPage } from "@/components/services/services-navigator-page";
+import { defaultServiceSlug } from "@/lib/services";
 
 type ServicesSearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -19,7 +20,9 @@ export default async function ServicesIndexRoute({ searchParams }: { searchParam
   const hasSubmittedSearch = readFirstSearchParam(resolvedSearchParams.run) === "1" && query.length > 0;
 
   if (!hasSubmittedSearch) {
-    return <ServicesHomePage />;
+    // Computed server-side so the client route chunk never bundles the
+    // services snapshot behind @/lib/services.
+    return <ServicesHomePage defaultServiceSlug={defaultServiceSlug() ?? null} />;
   }
 
   return (
