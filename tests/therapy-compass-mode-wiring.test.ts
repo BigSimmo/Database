@@ -46,4 +46,33 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(bindingsSrc).toMatch(/resolveRoute\(pathname\)/);
     expect(bindingsSrc).toMatch(/searchParams\.get\("q"\)/);
   });
+
+  it("keeps a single main landmark on the therapy home route", () => {
+    const workspaceSrc = readFileSync(
+      new URL("../src/components/therapy-compass/workspace.tsx", import.meta.url),
+      "utf8",
+    );
+    const homeSrc = readFileSync(
+      new URL("../src/components/therapy-compass/screens/home-screen.tsx", import.meta.url),
+      "utf8",
+    );
+    // Home uses ModeHomeMain; workspace must not wrap home in a second <main>.
+    expect(homeSrc).toMatch(/ModeHomeMain/);
+    expect(workspaceSrc).toMatch(/asMain=\{!isHome\}/);
+    expect(workspaceSrc).toContain("const useMainLandmark = asMain || Boolean(b.error);");
+    expect(workspaceSrc).toContain('const Tag = useMainLandmark ? "main" : "div"');
+  });
+
+  it("wires therapy-compass home into the shared desktop composer portal", () => {
+    const shellSrc = readFileSync(
+      new URL("../src/components/clinical-dashboard/global-search-shell.tsx", import.meta.url),
+      "utf8",
+    );
+    const homeSrc = readFileSync(
+      new URL("../src/components/therapy-compass/screens/home-screen.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(homeSrc).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
+    expect(shellSrc).toContain('searchMode === "therapy-compass" && pathname === "/therapy-compass"');
+  });
 });
