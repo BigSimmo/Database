@@ -3716,10 +3716,6 @@ export function ClinicalDashboard({
                     </div>
                   ) : null)}
 
-                {showUniversalAlsoMatches && activeModeResultKind !== "answer" ? (
-                  <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
-                ) : null}
-
                 {activeModeResultKind === "differentials" ? (
                   <DifferentialsHome
                     query={query}
@@ -3880,7 +3876,7 @@ export function ClinicalDashboard({
                   />
                 ) : null}
 
-                {showUniversalAlsoMatches && activeModeResultKind === "answer" ? (
+                {showUniversalAlsoMatches ? (
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
               </section>
