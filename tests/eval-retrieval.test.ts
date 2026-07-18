@@ -60,6 +60,30 @@ describe("golden retrieval eval helpers", () => {
     expect(evaluated.failures).toEqual([]);
   });
 
+  it("exposes total and phase latency telemetry in retrieval evaluation output", () => {
+    const evaluated = evaluateGoldenRetrievalCase({
+      testCase: {
+        id: "latency-telemetry",
+        query: "What ANC threshold applies?",
+        expectedQueryClass: "table_threshold",
+        expectedDocumentSubstrings: [],
+        expectedContentTerms: [],
+        topK: 8,
+        expectTableEvidence: false,
+      },
+      results: [result()],
+      telemetry: {
+        query_class: "table_threshold",
+        search_total_latency_ms: 321,
+        retrieval_phase_latencies_ms: { query_classification: 12, metadata_hydration: 34 },
+      },
+      latencyMs: 321,
+    });
+
+    expect(evaluated.searchTotalLatencyMs).toBe(321);
+    expect(evaluated.retrievalPhaseLatenciesMs).toEqual({ query_classification: 12, metadata_hydration: 34 });
+  });
+
   it("scores ideal graded signal ranking, coverage, and irrelevant sources", () => {
     const evaluated = evaluateGoldenRetrievalCase({
       testCase: {

@@ -1,0 +1,3265 @@
+{
+  "schema": "rag-ranking-candidate-snapshot",
+  "version": 1,
+  "sourceCaseCount": 36,
+  "sanitization": {
+    "candidateIdentity": "sha256",
+    "excludes": ["raw_uuid", "source_passage", "patient_data", "provider_metadata", "document_storage_path"]
+  },
+  "cases": [
+    {
+      "id": "clozapine-anc-threshold",
+      "query": "What ANC or FBC threshold should withhold clozapine?",
+      "queryClass": "table_threshold",
+      "expectedLabels": {
+        "documents": ["Clozapine"],
+        "content": ["clozapine", "anc", "fbc OR full blood count OR wbc", "withhold OR cease OR stop OR red"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:18b95a26d2eced1278ce8387f2c0ff19423eac8efedc0cc7ba8f3c950c1c7591",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": 0.032,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.155,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.484,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:f47c216792b3d610579149f30db877764b0ea377bd7572bdbd275e942bbcde7f",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.215,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.288,
+            "fixedAdjustment": -0.015
+          }
+        },
+        {
+          "candidateHash": "sha256:29975350a3caea87605abdef49debabf07b6537124a6cc69a9a130142ab06761",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.185,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.468,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:941c370a6602d449b0a8cf961d1f437f5d622aca8c1ab900a19edf09d00cdea6",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": 0.032,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.216,
+            "clinicalEvidence": 0.304,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:533a54f4fd523e5e14cde5f6e31c5d3a0bb97c142734e6fc23a8a1460a728e4b",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": 0.032,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.181,
+            "clinicalEvidence": 0.304,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:fc0e6d4f98a99b1cc4831a6415513249c7d997226d4c97a23e1f224af4db1f09",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.7,
+            "lexicalCoverage": 0.02,
+            "reciprocalRankFusion": 0.03,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0.04,
+            "clinicalEvidence": -0.02,
+            "fixedAdjustment": -0.3
+          },
+          "hardNegative": {
+            "category": "wrong_medication_document",
+            "risk": "high"
+          }
+        }
+      ]
+    },
+    {
+      "id": "agitation-im-po-options",
+      "query": "What IM or PO options are listed for agitation?",
+      "queryClass": "medication_dose_risk",
+      "expectedLabels": {
+        "documents": ["AgitationArousalPharmaMgt"],
+        "content": ["agitation", "im", "po"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:e7f6af178b90ed4364148bc06c32c823da56cba344c2ffb2cd090cc8dd2171fc",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.026664,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.185,
+            "metadataRelevance": 0.018,
+            "clinicalEvidence": 0.531336,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:a7ace82c910eb673eb30d3940b941fc9087d4c4cc3946557d78a6b28f709b826",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.026664,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.053,
+            "clinicalEvidence": 0.531336,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:a74b519ae746a0b5251f794a091ed327068223169965c99b30b76499903279e3",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.026664,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.155,
+            "metadataRelevance": 0.053,
+            "clinicalEvidence": 0.531336,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:91627a1406d2a56c07f52032dc92257da971c0f887e467c45285cb07cdc91b0d",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.026664,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.185,
+            "metadataRelevance": 0.018,
+            "clinicalEvidence": 0.531336,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:fe8e8263f7149d3812a3b63495ccf5c7e3f52bfe606a75f90711c7962ae7f7d4",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.026664,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.018,
+            "clinicalEvidence": 0.431336,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:38a0631b99ca688c5db629e16ed9800221336e8187143360e7909db8aa2cc0a3",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.7,
+            "lexicalCoverage": 0.02,
+            "reciprocalRankFusion": 0.03,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0.04,
+            "clinicalEvidence": -0.02,
+            "fixedAdjustment": -0.3
+          },
+          "hardNegative": {
+            "category": "dose_administration_boilerplate",
+            "risk": "high"
+          }
+        }
+      ]
+    },
+    {
+      "id": "patient-safety-plan-include",
+      "query": "What should a patient safety plan include?",
+      "queryClass": "document_lookup",
+      "expectedLabels": {
+        "documents": ["PtSafetyPlan"],
+        "content": ["safety", "plan"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:ba8a9a6a10a43448c9e3e4c937a33d9252fcc193963487854fefaa51d4993311",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.2,
+            "metadataRelevance": 0.201,
+            "clinicalEvidence": -0.052,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:d8a875f788a242d219cef64f700654b7e5647a72a53a0fdfc0d44a360417e05b",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.225,
+            "clinicalEvidence": -0.024,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:224eb9f643abceef10bcbf3f43134d8aa9ff4088b38409d61e380b11953883d3",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.201,
+            "clinicalEvidence": -0.052,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:f5e60cdc9fef469fa89de09c4ef12d7c4d08110df0c6c112d0707484ac40f5f9",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.201,
+            "clinicalEvidence": -0.024,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:b608dea4915c0fc00ec3836d6e7b29a8e7a49ebd8d99a1d50d2bc48fe783b0fc",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.225,
+            "clinicalEvidence": -0.024,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:0f6b223985af56270e17614b41e05c3080e2884ee80910e6fe253c515be03fa3",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.78,
+            "lexicalCoverage": 0.02,
+            "reciprocalRankFusion": 0.03,
+            "titleSectionRelevance": 0.16,
+            "metadataRelevance": 0.04,
+            "clinicalEvidence": -0.02,
+            "fixedAdjustment": -0.18
+          },
+          "hardNegative": {
+            "category": "document_version_duplicate",
+            "risk": "medium"
+          }
+        }
+      ]
+    },
+    {
+      "id": "active-community-patient-ed",
+      "query": "How are active community patients in ED managed?",
+      "queryClass": "document_lookup",
+      "expectedLabels": {
+        "documents": ["ActiveCommunityPtED"],
+        "content": ["community", "ed"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:66d2690adeaa24e82763769dd1f4a881b765623aebd4ed04ec8b4acbffce7590",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": -0.08,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.08,
+            "fixedAdjustment": -0.235
+          }
+        },
+        {
+          "candidateHash": "sha256:6216157ea495fa7748eb638acdc3f6409c521c5b748ceaf0d38e1ae8b950d7b9",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.133,
+            "clinicalEvidence": -0.024,
+            "fixedAdjustment": -0.22
+          }
+        },
+        {
+          "candidateHash": "sha256:1c590863ca0ec9aadc24f2072b220ef25fbcf748aadd3853ed34eff761100f95",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.166,
+            "clinicalEvidence": 0.356,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:1dfd7a4659f7a20751405873c743882c39af240bde4ae547cf16ae0aa43ccd29",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": -0.08,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.08,
+            "fixedAdjustment": -0.233
+          }
+        },
+        {
+          "candidateHash": "sha256:f8c990321c366f05a9485e09c31ff931b623b4cc02796a598e0e707d41c86f51",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.166,
+            "clinicalEvidence": 0.328,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:f7450f2255477a0716e040bbac5fe773bc4fe0f239a7da63ca75bdfd9608231b",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.78,
+            "lexicalCoverage": 0.02,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.16,
+            "metadataRelevance": 0.04,
+            "clinicalEvidence": -0.02,
+            "fixedAdjustment": -0.18
+          },
+          "hardNegative": {
+            "category": "document_version_duplicate",
+            "risk": "medium"
+          }
+        }
+      ]
+    },
+    {
+      "id": "admission-discharge-comparison",
+      "query": "Compare admission and discharge requirements",
+      "queryClass": "comparison",
+      "expectedLabels": {
+        "documents": ["AdmissionCommunityPts", "Discharge"],
+        "content": ["admission", "discharge"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:7e693f6da9dda4a34da1a077bdad0205dba1f06902bfce696e485f802c1b9eaa",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.7479,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.18,
+            "clinicalEvidence": -0.027,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:215558bbab8b2a8e6d9116660b8d2f6193bf8ec659a7426d6297bbb7e5fec4cd",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.7958,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.053,
+            "clinicalEvidence": 0.06,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:5c1d8e0cdc708f5cd1343051ad2960c97fbd713cc0954913ade37273bf6e0885",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6187,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.18,
+            "clinicalEvidence": 0.221,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:e3c6492cd4f6163bf4b3931a70536d882c42ec64e47a9df06e4a36ef8fe71cf3",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.7467,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.18,
+            "clinicalEvidence": 0.013,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:c38f3152b469054c2b4606a2bf14c186653cd86c2725d066d0a33a697ce65a9a",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6121,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.155,
+            "metadataRelevance": 0.176,
+            "clinicalEvidence": 0.013,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:f8798e5b83d7f6368c3dcd9abec9582a304c7e335313d195600b15717bffeb64",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.78,
+            "lexicalCoverage": 0.08,
+            "reciprocalRankFusion": 0.03,
+            "titleSectionRelevance": 0.16,
+            "metadataRelevance": 0.04,
+            "clinicalEvidence": 0.04,
+            "fixedAdjustment": -0.18
+          },
+          "hardNegative": {
+            "category": "comparison_single_document_crowding",
+            "risk": "medium"
+          }
+        }
+      ]
+    },
+    {
+      "id": "show-source-table-image",
+      "query": "Show the source table image for clozapine ANC monitoring",
+      "queryClass": "table_threshold",
+      "expectedLabels": {
+        "documents": ["Clozapine"],
+        "content": ["clozapine", "anc", "monitoring"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:cd88a9ed4bcf0f27bc72ec2da0e4e1f318e395f334b8b527fa3085a1a5e5d4ae",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.5824,
+            "lexicalCoverage": 0.080712,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.22,
+            "clinicalEvidence": 0.558288,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:f3ab8df80a989b913f94ba38f41e2da02ee41348312ec288eb86de7d73d7f311",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5826,
+            "lexicalCoverage": 0.080712,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.217,
+            "clinicalEvidence": 0.450288,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:5dc00a57869f9625e81ca1ec3d18e63984d3a3e6c8727142bd06f6a1054f9427",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.583,
+            "lexicalCoverage": 0.034288,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.217,
+            "clinicalEvidence": 0.433712,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:46e61efc3e0bd844c645ce4efff428f147a611d9b094644883aa3d512a6c7131",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.582,
+            "lexicalCoverage": 0.148568,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.22,
+            "clinicalEvidence": 0.551432,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:134c93f60e9cc22c49a6842b91dcb2f2f6777e1c109ebcaa6e0e2f848204bb50",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5932,
+            "lexicalCoverage": 0.034288,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.217,
+            "clinicalEvidence": 0.461712,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "flowchart-next-step",
+      "query": "In the clinical flowchart, what is the next step after red-zone risk?",
+      "queryClass": "document_lookup",
+      "expectedLabels": {
+        "documents": ["risk", "flow"],
+        "content": ["risk", "red", "escalate OR urgent OR review"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:e999b4d849f95b6369ab81d1a43764290cbf4905f3c9ddb6360c5a0a7bdcdd38",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6982,
+            "lexicalCoverage": 0.022856,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.193144,
+            "fixedAdjustment": -0.0526
+          }
+        },
+        {
+          "candidateHash": "sha256:60051f896288a3b2667029ab50fe43a1926804e174ef6ce5783e848819e63d48",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6676,
+            "lexicalCoverage": 0.034288,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.09,
+            "metadataRelevance": 0.098,
+            "clinicalEvidence": 0.283712,
+            "fixedAdjustment": -0.18
+          }
+        },
+        {
+          "candidateHash": "sha256:e6550f903a93f73d91e3e24828e91442ee00fab487cfda523a6982fcc0808f9d",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6583,
+            "lexicalCoverage": 0.034288,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0.116,
+            "clinicalEvidence": 0.181712,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:8e065686cd96c7007adbace4f56490d31351771cbfe9192c8784990c1008e0cb",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6335,
+            "lexicalCoverage": 0.022856,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0.133,
+            "clinicalEvidence": 0.353144,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:0f3562c6dd3c0e792a83872ddf8827239e62a91a9afac810b315240d53deb9d6",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.619,
+            "lexicalCoverage": 0.022856,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.137144,
+            "fixedAdjustment": -0.0526
+          }
+        },
+        {
+          "candidateHash": "sha256:fe5765eac6190b941d63bd52db54bdb9561f0d84d215ae31bd8c552ae183bb51",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.7,
+            "lexicalCoverage": 0.02,
+            "reciprocalRankFusion": 0.03,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0.04,
+            "clinicalEvidence": -0.02,
+            "fixedAdjustment": -0.3
+          },
+          "hardNegative": {
+            "category": "flowchart_missing_action",
+            "risk": "high"
+          }
+        },
+        {
+          "candidateHash": "sha256:dd4de43f7ea51d39eb9180875236790efe871001c09e981b1e8d47c78793824e",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.7,
+            "lexicalCoverage": 0.02,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0.04,
+            "clinicalEvidence": -0.02,
+            "fixedAdjustment": -0.3
+          },
+          "hardNegative": {
+            "category": "flowchart_missing_action",
+            "risk": "high"
+          }
+        }
+      ]
+    },
+    {
+      "id": "patient-property-visual-table",
+      "query": "What items are shown in the patient property restricted-items table?",
+      "queryClass": "table_threshold",
+      "expectedLabels": {
+        "documents": ["Patient Property"],
+        "content": ["patient", "property", "restricted OR prohibited", "items"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:58fa4908f11d0554648c0669e5945ebb33bb8218a5ac538eac5c7c4a636123ab",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.146664,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.018,
+            "clinicalEvidence": 0.261336,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:1434b018468f2e5630e3ce8b56fa7e8ea4a3cd4424ca294f57fa0318efc6697f",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.8543,
+            "lexicalCoverage": 0.088336,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0.058,
+            "clinicalEvidence": 0.274664,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:fbaec1e1586ac284f524f40508dbc2875d47ec555991d77fc57f9ab39a82097c",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.8744,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.06,
+            "metadataRelevance": 0,
+            "clinicalEvidence": -0.012,
+            "fixedAdjustment": -0.0405
+          }
+        },
+        {
+          "candidateHash": "sha256:eaf8736dc5148e2e119442ec0d67d0891b9ddbc569f33fd1e7c4d0b07544e57f",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.088336,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.018,
+            "clinicalEvidence": 0.106664,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:8f9d7a1eb79f2b46512d1c565cdaeb3ec7bd82a2183a90b63c394d380deb0f6d",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.8118,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.058,
+            "clinicalEvidence": 0.104,
+            "fixedAdjustment": -0.04
+          }
+        }
+      ]
+    },
+    {
+      "id": "medication-chart-dose-route",
+      "query": "What dose and route are shown in the agitation medication chart?",
+      "queryClass": "medication_dose_risk",
+      "expectedLabels": {
+        "documents": ["AgitationArousalPharmaMgt"],
+        "content": ["dose", "route", "im OR po", "mg OR microgram"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:ec1a05c84e85d614483f7b3428706b60d4edd907bed3d22f1c849b044c117499",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.185,
+            "metadataRelevance": 0.106,
+            "clinicalEvidence": 0.714,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:8c486a6b0b60c698d3029c657e904ccb588972d60a971b520845bb7833787b7e",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.146664,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.141,
+            "clinicalEvidence": 0.783336,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:23aca1eea6051e7d7e0e992d67b0848627807bfaa91207dc79f1fdeb6f008b82",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.215,
+            "metadataRelevance": 0.141,
+            "clinicalEvidence": 0.714,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:271d95671513ce97a3308dcf00683cf43859c2ba12dbeebb834be7f46fcbc8ce",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.185,
+            "metadataRelevance": 0.106,
+            "clinicalEvidence": 0.714,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:ab053759fc52b77ad920c72fc70d3f653c5a3d31198afab735aa8b2ff0308abf",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.071,
+            "clinicalEvidence": 0.446,
+            "fixedAdjustment": -0.04
+          }
+        }
+      ]
+    },
+    {
+      "id": "monitoring-threshold-from-chart",
+      "query": "What clozapine ANC or FBC monitoring threshold is shown in the source chart?",
+      "queryClass": "table_threshold",
+      "expectedLabels": {
+        "documents": ["Clozapine"],
+        "content": ["monitoring", "threshold", "anc OR fbc OR wbc"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:53f6dfb70c7e8c77027a74bfa8aa5cb23653f78a70061d12d0231f19b81acd0d",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5824,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.22,
+            "clinicalEvidence": 0.58,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:09f3399b3a7ef3f85bf284e1a59133544b2dbc29adeaff99cbd51a4e72395c21",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5826,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.199,
+            "clinicalEvidence": 0.456,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:fd7dd3ce12951f5684275c1fcaf959f758cad01e4d84c6fe33593264078b6dcc",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.583,
+            "lexicalCoverage": 0.03,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.199,
+            "clinicalEvidence": 0.438,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:d2b32b4f08e3566bac9f43f46c978061b170da7c213b04d5acf36c59d14cee48",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.582,
+            "lexicalCoverage": 0.14,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.22,
+            "clinicalEvidence": 0.56,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:d25d9cbeb3858d45c5d45fedf0a8c26e6eb41c695183150922e20c8c4ae448ca",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5932,
+            "lexicalCoverage": 0.03,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.199,
+            "clinicalEvidence": 0.494,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "alcohol-withdrawal-management",
+      "query": "What is the recommended management of alcohol withdrawal?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Alcohol withdrawal"],
+        "content": ["alcohol", "withdrawal"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:8b6735cc02e6b1ad22f6305388e4578ff8c0f8789d85bcb3e2c8a20615e8f3f4",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6315,
+            "lexicalCoverage": 0.088336,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0.176,
+            "clinicalEvidence": 0.002664,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:a2cc918c5d2162aa5548f8b8eee5f265a69db84b1207851a9b8e3fd69541b7b5",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6291,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.26,
+            "metadataRelevance": 0.176,
+            "clinicalEvidence": 0.004,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:4dfc7e2b1d5f9760900f066ae6b0c77233ef39e81c12545048872ac3995be084",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6283,
+            "lexicalCoverage": 0.088336,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.26,
+            "metadataRelevance": 0.176,
+            "clinicalEvidence": 0.002664,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:6e849d86809bf7c95dceea0bb1efab269a5f83b4918830e2dc13896cbd39616d",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6176,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.176,
+            "clinicalEvidence": 0.004,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:1a735526b68f054c0621316020b74471969d6f7fb7ae3f87242072eae1d78864",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.5877,
+            "lexicalCoverage": 0.088336,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.071,
+            "clinicalEvidence": 0.002664,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "opioid-use-disorder-management",
+      "query": "How is opioid use disorder managed?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Opioid use disorder"],
+        "content": ["opioid", "disorder"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:0eb73fb6dd6a2a550383ce9adfa36da307d488fca3981303ab2cc9df09306a67",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.305,
+            "metadataRelevance": 0.174,
+            "clinicalEvidence": 0.004,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:262b7bd059c111a8279aca3325b1cdd7576673aba8fc7d6e2d50d32ef0cf4c29",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.305,
+            "metadataRelevance": 0.174,
+            "clinicalEvidence": 0.004,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:2d8716b5999d15bea5a814986c49fc3d28fdde4558be1a257bcc0c56c260e064",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.305,
+            "metadataRelevance": 0.174,
+            "clinicalEvidence": 0.004,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:a86cde17bf0ec95832a2e15506495c5efa7861c5f6e51fa5be136ffad0e7d0ab",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.305,
+            "metadataRelevance": 0.174,
+            "clinicalEvidence": 0.004,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "insomnia-assessment-management",
+      "query": "How should insomnia be assessed and managed?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Insomnia"],
+        "content": ["insomnia", "sleep"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:3aac8ec01fbafe49736dd1167a59da7cfc6b8cd07cf27ddf4b5422d7d61f01ef",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6599,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0,
+            "clinicalEvidence": -0.012,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:c0d2104071b038c4330b853b59c3db6787666c021d885f508de212630b04f98d",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6232,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.06,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.088,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:0217161979b2e02205ec2fabdcff2a810d081a5016523a48f60c87cb05dac6b4",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.619,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0,
+            "clinicalEvidence": -0.012,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:0b3a76159c291d50a5ed500a0a17ccb4a2a99e9e20a372d751314582dc9fb99a",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6051,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0,
+            "clinicalEvidence": -0.012,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:7035d684fa0a6aaaf4c2f686c12bf1a17ee1eded7caad4b9e726e8333214f4ec",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6015,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.155,
+            "metadataRelevance": 0.018,
+            "clinicalEvidence": -0.012,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "suicide-risk-mitigation-guidance",
+      "query": "Summarise strategies to reduce inpatient suicide",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Suicide risk mitigation"],
+        "content": ["suicide"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:62ca83643d6cf06c04531f73f9ea591eb8977a0ac9cbd485969d483234536264",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.032,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0.106,
+            "clinicalEvidence": 0.024,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:49497ddaf718463bfda79f2cc6448fc4cada7b23a6d498785a9cbd9a4fa77d33",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": -0.064,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.141,
+            "clinicalEvidence": 0.012,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:264da4c4a757a830c974c96bf51468b065a2c75157c72926d1660673ce100ba8",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.032,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.155,
+            "metadataRelevance": 0.106,
+            "clinicalEvidence": -0.004,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:244e8b2f4e4e36d41b9d1301168b22800180bd7f13222293b83ebc0165c770fb",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0.089,
+            "clinicalEvidence": 0.008,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:c15b394f9e7486527f07325ff0f5a6644119b763bd8ca709a06c9c2763644f5c",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": -0.064,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.053,
+            "clinicalEvidence": 0.012,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "schizophrenia-overview",
+      "query": "Give an overview of schizophrenia assessment and treatment",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Schizophrenia"],
+        "content": ["schizophrenia", "treatment OR antipsychotic OR management"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:52391017ee911b7c32f169ee4d5653af8a27b28bfd31cc10006fd215d3cb8ac1",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": -0.064,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.185,
+            "metadataRelevance": 0.088,
+            "clinicalEvidence": 0.012,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:7bde3ec6ada828f8e587f4b583d9806afe2384b7907b5ecd3f7a5fc5fb85bdf2",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.032,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.106,
+            "clinicalEvidence": 0.024,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:d97e5b5961fa7d9097b7ca1bec0486a7f3f3076d902f29e2942506ad1c290e78",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.032,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.155,
+            "metadataRelevance": 0.106,
+            "clinicalEvidence": 0.024,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:03be0d6a3d23d3dd5c0fb0eddc0bcf89d3c27a30bc3b9b4edb16327aefbe824f",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.155,
+            "metadataRelevance": 0.106,
+            "clinicalEvidence": 0.036,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:cbcdc71020c49e14041553589bc8ea123e48ad12af1713c6838c0be3095bc8d8",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": -0.064,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0.088,
+            "clinicalEvidence": 0.012,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "bipolar-management-summary",
+      "query": "Summarise the management of bipolar disorder in adults",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Bipolar disorder in adults"],
+        "content": ["bipolar", "lithium OR mood OR treatment"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:f4afd56d63a1e35b8e7d5e155569bf127f29a6267d2621fb6110a6fee966bbd9",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5837,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.305,
+            "metadataRelevance": 0.124,
+            "clinicalEvidence": -0.024,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:2f2b52d68054bd9979bf2aca81b4730b7b8138ee514327d96c8861454e40a8b8",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5823,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.215,
+            "metadataRelevance": 0.124,
+            "clinicalEvidence": -0.024,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:cc75a27ecb55bf2f68d6237c2e4641dc79ca64e21736a73973d5c15d7e5e470c",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5803,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.215,
+            "metadataRelevance": 0.124,
+            "clinicalEvidence": -0.052,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:2e38ec26bf35ef8df053282b98b9aa5a5ed8d3cdc80e9a2fffa7981d745e343d",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5803,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.215,
+            "metadataRelevance": 0.124,
+            "clinicalEvidence": -0.024,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "depression-adults-vs-children",
+      "query": "Compare depression in adults versus depression in children",
+      "queryClass": "comparison",
+      "expectedLabels": {
+        "documents": ["Depression in adults", "Depression in children"],
+        "content": ["depression"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:90ccc743a491dd192463648de04bb78e93adb65264a86521dd878ee3aa91511d",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.275,
+            "metadataRelevance": 0.089,
+            "clinicalEvidence": 0.033,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:b63ac393b82c8f19b2de4ac914398514431b83134847b89b1f04e343b4aa8272",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.275,
+            "metadataRelevance": 0.089,
+            "clinicalEvidence": 0.061,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:7a73fea0417f96f5abdefabdd01d9d1040abb13f05a50ffedfac556c779a0023",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.2,
+            "metadataRelevance": 0.159,
+            "clinicalEvidence": 0.033,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:c95a6156559d2f78bc24fe64b2c062694594e129dec5801d1cae88b9a63f7c0f",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.275,
+            "metadataRelevance": 0.089,
+            "clinicalEvidence": 0.033,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:2d021b8d5ec4f1b886f281097d8ae934a92bb3160100a9cf14aeff159d234ec2",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.215,
+            "metadataRelevance": 0.089,
+            "clinicalEvidence": 0.005,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:5ffe7c9077a04ddaa9177a6a384a162ebb068dfcf0789f4dcdfc24e7b34b0e78",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.78,
+            "lexicalCoverage": 0.08,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.16,
+            "metadataRelevance": 0.04,
+            "clinicalEvidence": 0.04,
+            "fixedAdjustment": -0.18
+          },
+          "hardNegative": {
+            "category": "comparison_single_document_crowding",
+            "risk": "medium"
+          }
+        }
+      ]
+    },
+    {
+      "id": "alcohol-ciwa-scoring",
+      "query": "Explain the CIWA-Ar scoring used in alcohol withdrawal",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Alcohol withdrawal"],
+        "content": ["alcohol", "ciwa OR withdrawal OR score"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:06fd9f5c2976e3c2095ba5a68deb781a2eacd97f26662736d455978a5ba5444c",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0.071,
+            "clinicalEvidence": 0.044,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:e93c279ba0c4aba7103ea22d189ca7d61e63a78797622ce8d403fc8d530878c3",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.026664,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.106,
+            "clinicalEvidence": 0.029336,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:4bcc095a5154be591b58e0b16e81933d0860f55480fbcf5792febb3f8f9ebb2f",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.026664,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.176,
+            "clinicalEvidence": 0.029336,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:9c92bdb90bdbc7a413bb166b7013b94096631b4bb53d2ffa47da24653a4a55ba",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.026664,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.185,
+            "metadataRelevance": 0.106,
+            "clinicalEvidence": 0.029336,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:bf27e9375ef39bfec76727cf3cdacdfa753416e81d1066d731c25510d7b27a1e",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0.071,
+            "clinicalEvidence": 0.016,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "opioid-withdrawal-doses",
+      "query": "What medication doses are used for opioid withdrawal?",
+      "queryClass": "medication_dose_risk",
+      "expectedLabels": {
+        "documents": ["Opioid use disorder"],
+        "content": ["opioid", "withdrawal", "buprenorphine OR methadone OR dose"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:597f5c085e7d785e8a72b0275d406c8166fbb9cc6c20e6048a3e55ed9379a76b",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.581,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.215,
+            "clinicalEvidence": 0.11,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:ef32eb379a85963d25beba7ab5de48d8df523dbf16ac490e36e539cfdaaa805a",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5877,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.03,
+            "metadataRelevance": 0.18,
+            "clinicalEvidence": 0.126,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:4493cd516858c22e3ec315f90ec711e3351effc84e9dde0e8c42d94d005e9ccf",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5862,
+            "lexicalCoverage": 0.144,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0.194,
+            "clinicalEvidence": 0.126,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:8d618805d52daab34425be014304fc8a142ff6dac834e9f9ae9767fe6f6f600b",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5843,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.185,
+            "metadataRelevance": 0.159,
+            "clinicalEvidence": 0.126,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:3007a03013d0add3c62fc2505dac62bda96d8791094723f022f0ac8a8e0b242a",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.5843,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.159,
+            "clinicalEvidence": 0.126,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:3aec456d21b4635b880ae0e9ab606eace62832ae9355db8083e0205d1f07b774",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.7,
+            "lexicalCoverage": 0.02,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0.04,
+            "clinicalEvidence": -0.02,
+            "fixedAdjustment": -0.3
+          },
+          "hardNegative": {
+            "category": "dose_administration_boilerplate",
+            "risk": "high"
+          }
+        }
+      ]
+    },
+    {
+      "id": "postnatal-depression-treatment",
+      "query": "How is postnatal depression treated?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Postnatal depression"],
+        "content": ["postnatal", "depression"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:f65c33cbe3cce10c83ded0da96fa8422541e14705ec9d3297703b244682aa546",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6242,
+            "lexicalCoverage": 0.088336,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0.106,
+            "clinicalEvidence": 0.002664,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:30f7128f19cd75801c6e4a3dde94f55aacef49b938951a040c31708a313e81ea",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6003,
+            "lexicalCoverage": 0.088336,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.106,
+            "clinicalEvidence": 0.002664,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:b99a9d82de732c069d772425a9737ad1c70aadf9a51ad197cfee70927950a416",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.597,
+            "lexicalCoverage": 0.088336,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0.106,
+            "clinicalEvidence": 0.002664,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:1ef76c9470b593d62ed0f94753b558a172f2efee29191c32d630cced5c63f001",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.593,
+            "lexicalCoverage": 0.088336,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.106,
+            "clinicalEvidence": 0.002664,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:aad8c6174de4eef3adbcefc01ed0ed4c4ed3ba35394746bc64abdc9c9c2c555f",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5824,
+            "lexicalCoverage": 0.088336,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0.036,
+            "clinicalEvidence": 0.002664,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "bipolar-vs-schizoaffective",
+      "query": "Compare bipolar disorder and schizoaffective disorder",
+      "queryClass": "comparison",
+      "expectedLabels": {
+        "documents": ["Bipolar disorder in adults", "Schizoaffective disorder"],
+        "content": ["bipolar", "schizoaffective"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:c16609993baeb00cc7dec5f05f0b6c52fc78543f5640fc9735aa6f4fecc7f1f0",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.621,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.275,
+            "metadataRelevance": 0.054,
+            "clinicalEvidence": 0.045,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:a334f14873180afbd3e71ad727b2a7e8768b29ca864165f6b031ee2cc2eb4d33",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6011,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.275,
+            "metadataRelevance": 0.089,
+            "clinicalEvidence": 0.045,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:578a6db896efad566ec2c12b4383c9f0656014af330cabf6f436b799a247db59",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6204,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.215,
+            "metadataRelevance": 0.054,
+            "clinicalEvidence": 0.045,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:3b8fb2b4c30deaafa5af2ad6d18738a384a62aa28120a53252a02954792cc341",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5995,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0.072,
+            "clinicalEvidence": 0.02,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:34a7bbb9ea81904ea04922272bf8445957484fc9c4f5fa6b96cf7505b18efdc8",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5995,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0.072,
+            "clinicalEvidence": 0.02,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "lithium-therapy-monitoring",
+      "query": "What monitoring is required for lithium therapy?",
+      "queryClass": "medication_dose_risk",
+      "expectedLabels": {
+        "documents": [],
+        "content": ["lithium", "monitor OR level OR thyroid OR renal OR tsh"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:4cdafc24d0783c1822aacc13feaee970ded6ce618c8b913cee69b5715757b934",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.5937,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.185,
+            "metadataRelevance": 0.176,
+            "clinicalEvidence": 0.039,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:905db7a5f186a620d87acb0bf2b729e4416bc61295a5b056dffb3512401ea9ea",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5854,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.141,
+            "clinicalEvidence": 0.039,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:9600dcc291e047da7b0244f928a2e5b8e2548f523b7fbebac0b88205999a19d9",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5809,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0.053,
+            "clinicalEvidence": 0.039,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:d54bf0e610ff17012453f56b6fbfa13a50c94f9cc32dedc37600d7f1dc27d856",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.5952,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.176,
+            "clinicalEvidence": 0.039,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:6cd4173b6cc0b5dc11a5d4f15277f314602340c6e2873b8dae6ab687160ac8e2",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.583,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.141,
+            "clinicalEvidence": 0.011,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:2f90f76cb801766198bdc1d8f31b7c4d7edc43b70846362eeba0f5883856c160",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.7,
+            "lexicalCoverage": 0.02,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0.04,
+            "clinicalEvidence": -0.02,
+            "fixedAdjustment": -0.3
+          },
+          "hardNegative": {
+            "category": "wrong_medication_document",
+            "risk": "high"
+          }
+        }
+      ]
+    },
+    {
+      "id": "alcohol-ciwa-threshold",
+      "query": "What CIWA-Ar score threshold requires drug treatment in alcohol withdrawal?",
+      "queryClass": "table_threshold",
+      "expectedLabels": {
+        "documents": ["Alcohol withdrawal"],
+        "content": ["alcohol", "withdrawal", "ciwa OR score OR threshold"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:bfa6a52dd421a13753e72978b7f5995012ef53ac56bd99c2858d916057c644d8",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.092144,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.275,
+            "metadataRelevance": 0.164,
+            "clinicalEvidence": 0.102856,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:a1627bb0a5b60167146d735f43e98f9be1a6b013e837354af88350dec8c9bae7",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.080712,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.215,
+            "metadataRelevance": 0.18,
+            "clinicalEvidence": 0.070288,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:1b6b5b3d53852786ec07a6ead7f7c780f9b0f18b645a33682a2f5048983d082a",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.092144,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.18,
+            "clinicalEvidence": 0.086856,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:b22be18321d8bea1572a72ba3b30e81a064bf1d70b4cf3688d1510c0565f433f",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.034288,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.275,
+            "metadataRelevance": 0.164,
+            "clinicalEvidence": 0.081712,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:91f12d7afd43a02cd725af84b3f04e8fb57052f83c47c96a3da9faef8d42da57",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.092144,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.29,
+            "metadataRelevance": 0.164,
+            "clinicalEvidence": 0.202856,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:a92dae62eee5ee128c5823154183b1d05400f3f0cb0f7d6864890b934aa483aa",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.7,
+            "lexicalCoverage": 0.02,
+            "reciprocalRankFusion": 0.03,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0.04,
+            "clinicalEvidence": -0.02,
+            "fixedAdjustment": -0.3
+          },
+          "hardNegative": {
+            "category": "mismatched_threshold",
+            "risk": "high"
+          }
+        }
+      ]
+    },
+    {
+      "id": "clozapine-cbc-abbreviation-threshold",
+      "query": "What CBC (complete blood count) or neutrophil threshold should withhold clozapine?",
+      "queryClass": "table_threshold",
+      "expectedLabels": {
+        "documents": ["Clozapine"],
+        "content": [
+          "clozapine",
+          "anc OR neutrophil",
+          "fbc OR full blood count OR wbc OR wcc",
+          "withhold OR cease OR stop OR red"
+        ]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:50852a374b2b4c9c5d9fea4f2911f14ddacc515a8f4ba87090ac2f5d5381722b",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": -0.07,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.182,
+            "clinicalEvidence": 0.298,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:256aad17d02eb772cc11cf2899206bfc4d54e6956ef1a6b9452fcb16c20ed842",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": 0.085,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.245,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.494,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:9f45b5de32b08705eb1493c038aa79d42cd6c1252fdd8be70b6e3a7b526c93e9",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": 0.085,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.155,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.314,
+            "fixedAdjustment": -0.015
+          }
+        },
+        {
+          "candidateHash": "sha256:1450c2111c7fc29ef049bb69e1c1e5c72c55839d5721c46def4b244acc36a4cd",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.245,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.504,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:3138495f10c9fc8903463052d5a5708b10628ba84b2bbc325c661664196766be",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 1,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.275,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.34,
+            "fixedAdjustment": -0.015
+          }
+        },
+        {
+          "candidateHash": "sha256:ca09ae51b1600747e8244daa17edb513e49780ea551d18b41411e0ea5f884aec",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.7,
+            "lexicalCoverage": 0.02,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0.04,
+            "clinicalEvidence": -0.02,
+            "fixedAdjustment": -0.3
+          },
+          "hardNegative": {
+            "category": "mismatched_threshold",
+            "risk": "high"
+          }
+        }
+      ]
+    },
+    {
+      "id": "vector-ptsd",
+      "query": "How is post-traumatic stress disorder managed in a person with intrusive flashbacks, nightmares, hyperarousal and avoidance after a traumatic event?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Traumatic Stress"],
+        "content": ["trauma OR traumatic OR ptsd OR flashback"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:f91c20282cdb8d613fbc65e2b69dcc656c77595f03ecf90c36871a5b1f8b8956",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6646,
+            "lexicalCoverage": 0.07808,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.38,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.05692,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:d8454ac2a0caff70ed5d6bf833e5f09a0c03b8f3bf05211d1382c97b28d83588",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6454,
+            "lexicalCoverage": 0.07808,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.38,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.05692,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:e7befad952f7e43b9feece39c15284ceb477dd44b6bbdf99e6fc9bd253eac4aa",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6417,
+            "lexicalCoverage": 0.07808,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.38,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.05692,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:222522ad8457259fa1e9d370553a5e71c717942b6017b32e1d53f9787bde8fa9",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6314,
+            "lexicalCoverage": 0.153848,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.38,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.026152,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:1167bc782539e1c5a69efeff292ee8c8249e91d15d63e75872e357156bdc2ee7",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5142,
+            "lexicalCoverage": 0.03692,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.08,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.06308,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "vector-ocd",
+      "query": "How is obsessive-compulsive disorder managed in a person with distressing intrusive obsessions and repetitive compulsive rituals?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Obsessive"],
+        "content": ["obsess OR compuls OR intrusive OR ocd"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:cfd9e75a8a4d0b2ac9fb6e341bd70c14fd6fcf9df7ea9e95bdbb30c0010a9a46",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6811,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.35,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.06,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:d8360b4912b5cb065a65490d908b351e6a65d5dcdd95a337039fc98cf2f90324",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6743,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.35,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.152,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:b67123e1bd899b279409b2dbdad91af3bdfba6b84a8730876a6aac988d0f28fd",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6358,
+            "lexicalCoverage": 0.032,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.35,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.168,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:6a8d6f94cb44a320a857f8a20871c006d32829b333987addc5bc0d9dfc2deaa2",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.631,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.35,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.06,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:203875fb1bf695133216b479ea1f8e6719e0a5ea878b9dcc5e081a9011c4f193",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6172,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.06,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "vector-panic",
+      "query": "How is panic disorder managed in a person with recurrent unexpected panic attacks, palpitations and anticipatory anxiety?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Panic"],
+        "content": ["panic OR attack OR anxiety"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:33bd61e5d1c712305088813f3cf8aded0f0f4deaa6bf522184aed447d441d9f2",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6909,
+            "lexicalCoverage": 0.144,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.245,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.036,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:0bde55007bc0280bb2b81aa1598ee61e849656352f18c5221caa78254756a726",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6826,
+            "lexicalCoverage": 0.091,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.215,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.044,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:eb9d01cee7100334fc125258df9ca0234b9f3fbff53f99384869132db1a4395e",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6763,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.245,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.06,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:9fcddc8a0cd71e7c1bc393c0057b85825d6601a50230b84101ad368d2300f8d0",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6693,
+            "lexicalCoverage": 0.032,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.245,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.052,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:d6cbd1963fd965ffae1bdea6e6d007fe2dab165f3a95ffbfea9ef159c7b0dbc8",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.5423,
+            "lexicalCoverage": 0.083,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.052,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "vector-anorexia",
+      "query": "How is anorexia nervosa managed in a person with severe dietary restriction, intense fear of weight gain and body-image disturbance?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Anorexia"],
+        "content": ["anorexia OR eating OR weight"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:4a8a536e6f40aa870c65292c94f25db91ee674f3b92360d8f89d56bd2c795526",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6558,
+            "lexicalCoverage": 0.030768,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.069232,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:d4a4f138b0e995881116b656f4462c406d856f439fc306f0329650b3e7252aa5",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6551,
+            "lexicalCoverage": 0.018464,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.065536,
+            "fixedAdjustment": -0.04
+          }
+        },
+        {
+          "candidateHash": "sha256:f5eebe8e4148cdb6ec2abc548bc179d75476abd22c8f2fc0cb59b1483dbffea1",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6478,
+            "lexicalCoverage": 0.024616,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.159384,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:9f63b2dc738751960fcc04c02f9f775288c07ede43bc75ddf574071506476de0",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6423,
+            "lexicalCoverage": -0.067696,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.143696,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:2af901ccb36ba7f09e5aa3eb06e3f480550d2e882bf829cfa6d666cb0fcb5591",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6096,
+            "lexicalCoverage": -0.073848,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.155,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.021848,
+            "fixedAdjustment": -0.04
+          }
+        }
+      ]
+    },
+    {
+      "id": "vector-gad-worry",
+      "query": "How is a patient managed who has persistent, excessive worry about many everyday things that they find very hard to control, along with restlessness and muscle tension?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Generalised Anxiety"],
+        "content": ["worry OR anxiety OR generalised", "cbt OR ssri OR snri OR antidepressant OR psychotherapy"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:67e64cacfa9c121fe01f1348b6e5f68e06fab68319de1c1d724f0fda5b93a33d",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5968,
+            "lexicalCoverage": -0.08,
+            "reciprocalRankFusion": 0.005,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.02,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:bee5e0b2dac8e32b313800e1a5b0452e8f081992ede5d5c5c3b442773d189dea",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5868,
+            "lexicalCoverage": 0.021336,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.098664,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:566c9c54798b96173059ff82194e43e3b4fa609672152a576389d6b2888540c8",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5818,
+            "lexicalCoverage": -0.08,
+            "reciprocalRankFusion": 0.0043,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.02,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:34290cb896cec07a560de42025169edc92299be726c1919cfa724c2fd7a031a4",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.581,
+            "lexicalCoverage": -0.08,
+            "reciprocalRankFusion": 0.0046,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.02,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:1cf4a33b2daa1ee8bae4d7d2789260014a21255774ff292e503b874233dfd06d",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5714,
+            "lexicalCoverage": -0.074664,
+            "reciprocalRankFusion": 0.004,
+            "titleSectionRelevance": 0.11,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.042664,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "vector-tourette",
+      "query": "How is Tourette syndrome managed in a child with chronic motor tics and vocal tics?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Tourette"],
+        "content": ["tic OR tics OR tourette"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:331748ab098422e11e406a95c604c87cf28d3498ec8c575aac9ce4bf2cd032d4",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6821,
+            "lexicalCoverage": 0.14,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.04,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:92a3ea836a8d142f6d87cfee08bbfc8b5ea4d6788aabea2120dbe42decc1fc64",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6671,
+            "lexicalCoverage": 0.085,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.106,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:00cb33853177bdba3463d3bef8f902180ee53423b4abcf96f50270819517c5ed",
+          "relevanceGrade": 2,
+          "documentMatch": true,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.6629,
+            "lexicalCoverage": 0.085,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0,
+            "clinicalEvidence": -0.022,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:caf14f20f8b52775aaf0854605cb89f58b08db6594cbbdb31a7773bf9eaaeae8",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6622,
+            "lexicalCoverage": 0.15,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0,
+            "clinicalEvidence": -0.014,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:9b26ec5e1da919ff27d3ee349db316ee1ad87845e2d7b217b45636df57c32522",
+          "relevanceGrade": 0,
+          "documentMatch": false,
+          "contentMatch": false,
+          "features": {
+            "hybridRelevance": 0.5353,
+            "lexicalCoverage": 0.03,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.026,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "vector-postnatal",
+      "query": "How is postnatal (postpartum) depression managed in a new mother who develops low mood and poor bonding with her infant in the first weeks postpartum?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Postnatal"],
+        "content": ["postnatal OR postpartum OR perinatal OR depression"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:6d62cc20f2cccea8db71bef9b947d4b62e33a7215e089cfa0d2d8a2f9ebfb330",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6917,
+            "lexicalCoverage": 0.02,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.036,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:949c351c089934c1649111942b61241db23b9a26c6cef6238ed9e521754d7ac7",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.691,
+            "lexicalCoverage": -0.065,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.069,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:d0aeefa6ded852b748c0d3b762115ebeb19ba7eb3fb3c91f6140c2d2c29f28d9",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6858,
+            "lexicalCoverage": -0.065,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.069,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:1d9f652e399b63cc4bd0cf4cdde0398319d28fe290b53cd6b9deed02170c39e1",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6712,
+            "lexicalCoverage": 0.08,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.055,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:37ff1a52d7cf44a7a07f3f8016b0860d0ff942db01f648b5a66b3498eb30c07c",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6533,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.06,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "vector-bipolar",
+      "query": "How is bipolar disorder managed in an adult with recurrent episodes of mania and depression?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Bipolar"],
+        "content": ["bipolar OR mania OR manic OR mood"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:a4c3977c3ce956ca8285143f03632485e6d7dc23c9a30edb6c941a4b904c5921",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.7828,
+            "lexicalCoverage": 0.148568,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.275,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.031432,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:fef81f85f1413b1fa2e71252f5c7cb5297d8389bbe994fcef3ee246a26a764ed",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.748,
+            "lexicalCoverage": 0.148568,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.275,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.031432,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:73131017148b86aae9cbaf291b92922f765a20dfa8410bc2a6bc0d3b3d9495f3",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.726,
+            "lexicalCoverage": 0.148568,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.215,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.031432,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:e19257a302ba1858a288f0fafb61dca497196fa1bc1b47af45d68db3f5de2cb2",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.7253,
+            "lexicalCoverage": 0.080712,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.275,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.038288,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "vector-adhd",
+      "query": "How is attention deficit hyperactivity disorder managed in an adult with inattention, distractibility and impulsivity?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Attention Deficit Hyperactivity"],
+        "content": ["attention OR adhd OR hyperactiv OR impuls"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:d6ca67b2f43f15535dbeb622f7a8f23f98e6ccadf65abf175b232840f71ac8c8",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.7203,
+            "lexicalCoverage": 0.085,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.38,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.05,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:de71c7d50a1dd0bc708855380ce86d7abd1adbd6ab69f1454c7e7f424ec6e8c3",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6946,
+            "lexicalCoverage": 0.085,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.38,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.05,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:62fb1f274f5f0a791289b14608b7774caa9bf2fcd6deff2575d579983412b12c",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6934,
+            "lexicalCoverage": 0.085,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.38,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.15,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:7db48f4f6a8ee629d881da8c48e74d21d7957188e8b144b8508125fe533e2f50",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6899,
+            "lexicalCoverage": 0.085,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.38,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.05,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:0cb5711debb50d866039ddb9f70874ee04fe05a4c90c0fe4ee9ffaff89fef464",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6631,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.38,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.06,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "vector-opioid",
+      "query": "How is opioid use disorder managed in a person dependent on heroin?",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Opioid Use Disorder"],
+        "content": ["opioid OR heroin OR opiate OR methadone OR buprenorphine"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:cfaf690c0f3be833919805e991e57f4e4d30bdfdb7beeed5ac69d6f0e997aa36",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.695,
+            "lexicalCoverage": 0.088336,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.305,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.046664,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:93c30dadb4a7b0d3571ef7c4c0ed8a2279439916d3836791fbe86d02aeb5dbbc",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6826,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.305,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.144,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:cd9223c604107c79be77999a68a3e9cd7364ec7e723f01631c37fb2f03a332b6",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6769,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.305,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.044,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:51a1c52f8a7a5e556ee177449a25da3d3c83c3583ff8895b509f3aa6c6ad6bee",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6745,
+            "lexicalCoverage": 0.075,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.305,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.044,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:c259da66322e20c1e96dc74a142e65acdbb8a289e4c0a5fb118797eb8ea4e086",
+          "relevanceGrade": 1,
+          "documentMatch": false,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.6318,
+            "lexicalCoverage": 0.026664,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0,
+            "metadataRelevance": 0,
+            "clinicalEvidence": 0.029336,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "bare-topic-bipolar",
+      "query": "bipolar disorder",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Bipolar"],
+        "content": ["bipolar OR mania OR manic OR mood"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:0250afe55a4b465b397d67d212f4cb26248fb6751b0c28a625aacb5451cfb1ba",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0.121,
+            "clinicalEvidence": -0.024,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:42f16dcf37033f11d8721447528719c94ceefb77a1112d3b66527ab615bca90b",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.121,
+            "clinicalEvidence": -0.024,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:79cf0475129f9b18271e77ee89326757ff26fec0962fa4361ece59a9dd8f6a47",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.17,
+            "metadataRelevance": 0.121,
+            "clinicalEvidence": -0.024,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:44f49c906d3ba0557ffeaecb3a68b01512e2396c86920b68548c37fd386439db",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.23,
+            "metadataRelevance": 0.121,
+            "clinicalEvidence": -0.024,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "bare-topic-anorexia",
+      "query": "anorexia management",
+      "queryClass": "broad_summary",
+      "expectedLabels": {
+        "documents": ["Anorexia"],
+        "content": ["anorexia OR eating OR weight"]
+      },
+      "candidates": [
+        {
+          "candidateHash": "sha256:0caa9699a635cb629f789819b6742408ea99062637b0f46fb86a3d7ed2b633f5",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.018,
+            "clinicalEvidence": -0.052,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:8a898b793f5d47ca4a7803c130989dcd2cf4672eb4de322693c909f4e10b2536",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.125,
+            "metadataRelevance": 0.018,
+            "clinicalEvidence": -0.052,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:0c367c16685a0cd593b445b153e9b33751e12e32821f931c037da11f6c45faed",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.155,
+            "metadataRelevance": 0.018,
+            "clinicalEvidence": -0.052,
+            "fixedAdjustment": 0
+          }
+        },
+        {
+          "candidateHash": "sha256:e827471c1a5c160ea929a3e53d104310c137a62ceeb232c1deee7a3fdae64d39",
+          "relevanceGrade": 3,
+          "documentMatch": true,
+          "contentMatch": true,
+          "features": {
+            "hybridRelevance": 0.97,
+            "lexicalCoverage": 0.16,
+            "reciprocalRankFusion": 0,
+            "titleSectionRelevance": 0.155,
+            "metadataRelevance": 0.018,
+            "clinicalEvidence": -0.052,
+            "fixedAdjustment": 0
+          }
+        }
+      ]
+    }
+  ]
+}

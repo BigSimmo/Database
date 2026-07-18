@@ -84,6 +84,8 @@ export type AnswerGenerationFingerprintInput = {
   classifierPromptVersion: string;
   retrievalVersion: string;
   indexingPromptVersion: string;
+  semanticRerankEnabled: boolean;
+  semanticRerankModel: string;
 };
 
 export function buildAnswerGenerationFingerprint(input: AnswerGenerationFingerprintInput) {
@@ -109,6 +111,8 @@ export function answerGenerationFingerprint() {
     classifierPromptVersion: ragQueryClassifierPromptVersion,
     retrievalVersion: ragDeepMemoryVersion,
     indexingPromptVersion: ragIndexingPromptVersion,
+    semanticRerankEnabled: env.RAG_SEMANTIC_RERANK_ENABLED,
+    semanticRerankModel: env.OPENAI_RERANK_MODEL,
   });
 }
 
@@ -144,6 +148,7 @@ export async function getCachedAnswer(
     "query" | "documentId" | "documentIds" | "ownerId" | "accessScope" | "skipCache" | "queryMode"
   >,
   startedAt: number,
+  options?: { indexingVersionAtRequestStart?: string | null },
 ): Promise<RagAnswer | null> {
   if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache) return null;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return null;
@@ -155,7 +160,7 @@ export async function getCachedAnswer(
     answerCache.delete(key);
     return null;
   }
-  const indexingVersion = await cacheIndexingVersion(args);
+  const indexingVersion = options?.indexingVersionAtRequestStart ?? (await cacheIndexingVersion(args));
   if (cached.indexingVersion !== indexingVersion) {
     answerCache.delete(key);
     return null;
@@ -181,12 +186,8 @@ export async function setCachedAnswer(
   if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache) return;
   if (env.RAG_ANSWER_CACHE_TTL_MS <= 0 || env.RAG_ANSWER_CACHE_SIZE <= 0) return;
 
-  if (options?.indexingVersionAtRetrievalStart) {
-    const currentIndexingVersion = await cacheIndexingVersion(args);
-    if (currentIndexingVersion !== options.indexingVersionAtRetrievalStart) return;
-  }
-
-  const indexingVersion = await cacheIndexingVersion(args);
+  const indexingVersion = await cacheIndexingVersion(args, { forceRefresh: true });
+  if (options?.indexingVersionAtRetrievalStart && indexingVersion !== options.indexingVersionAtRetrievalStart) return;
   const key = scopedAnswerCacheKey(args);
   answerCache.set(key, {
     expiresAt: Date.now() + env.RAG_ANSWER_CACHE_TTL_MS,
@@ -199,7 +200,7 @@ export async function setCachedAnswer(
     if (!oldestKey) break;
     answerCache.delete(oldestKey);
   }
-  setSharedCachedAnswer(args, answer);
+  setSharedCachedAnswer(args, answer, indexingVersion);
 }
 
 function stableHash(value: string) {
@@ -236,6 +237,7 @@ export function retrievalPlanCacheQuery(
     `lexicalOnly:${args.lexicalOnly ? "1" : "0"}`,
     `rag:${ragDeepMemoryVersion}`,
     `force:${args.forceEmbedding ? 1 : 0}`,
+    ...(env.RAG_SEMANTIC_RERANK_ENABLED ? [`semanticRerank:${env.OPENAI_RERANK_MODEL}`] : []),
   ].join("|");
   return queryCacheKeyForStorage(cacheKey);
 }
@@ -256,6 +258,8 @@ function normalizeCacheStorageTelemetry(telemetry: SearchTelemetry): SearchTelem
     shared_cache_hit: false,
     shared_cache_status: undefined,
     shared_cache_miss_reason: null,
+    search_total_latency_ms: undefined,
+    retrieval_phase_latencies_ms: undefined,
   };
 }
 
@@ -267,10 +271,15 @@ export function isSearchCacheEnabled(args: Pick<SearchChunksArgs, "skipCache">):
   return !args.skipCache && env.RAG_SEARCH_CACHE_TTL_MS > 0 && env.RAG_SEARCH_CACHE_SIZE > 0;
 }
 
+export function isSearchCacheLookupEnabled(args: Pick<SearchChunksArgs, "skipCache">): boolean {
+  return !args.skipCache && env.RAG_SEARCH_CACHE_TTL_MS > 0;
+}
+
 export async function getCachedSearch(
   args: SearchChunksArgs,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
+  options?: { indexingVersionAtRequestStart?: string | null },
 ): Promise<{ results: SearchResult[]; telemetry: SearchTelemetry } | null> {
   throwIfAborted(args.signal);
   if (!isSearchCacheEnabled(args)) return null;
@@ -282,7 +291,7 @@ export async function getCachedSearch(
     searchCache.delete(key);
     return null;
   }
-  const indexingVersion = await cacheIndexingVersion(args);
+  const indexingVersion = options?.indexingVersionAtRequestStart ?? (await cacheIndexingVersion(args));
   throwIfAborted(args.signal);
   if (cached.indexingVersion !== indexingVersion) {
     searchCache.delete(key);
@@ -299,6 +308,11 @@ export async function getCachedSearch(
       embedding_latency_ms: 0,
       supabase_rpc_latency_ms: 0,
       rerank_latency_ms: 0,
+      semantic_rerank_invoked: false,
+      semantic_rerank_candidate_count: 0,
+      semantic_rerank_latency_ms: 0,
+      semantic_rerank_outcome: "not_invoked" as const,
+      semantic_rerank_fallback_reason: undefined,
       shared_cache_hit: false,
       shared_cache_status: undefined,
       shared_cache_miss_reason: null,
@@ -333,7 +347,7 @@ export async function setCachedSearch(
     if (!oldestKey) break;
     searchCache.delete(oldestKey);
   }
-  setSharedCachedSearch(args, results, cacheTelemetry, queryVariants);
+  setSharedCachedSearch(args, results, cacheTelemetry, indexingVersion, queryVariants);
 }
 
 type SharedCacheKind = "search" | "answer";
@@ -427,6 +441,7 @@ export async function getSharedCachedSearch(
   args: SearchChunksArgs,
   queryClass?: RagQueryClass,
   queryVariants: string[] = [],
+  options?: { indexingVersionAtRequestStart?: string | null },
 ): Promise<
   | { kind: "hit"; results: SearchResult[]; telemetry: SearchTelemetry }
   | { kind: "miss"; reason: SharedCacheMissReason }
@@ -435,7 +450,7 @@ export async function getSharedCachedSearch(
   throwIfAborted(args.signal);
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return null;
   const normalizedQuery = retrievalPlanCacheQuery(args, queryClass, queryVariants);
-  const indexingVersion = await cacheIndexingVersion(args);
+  const indexingVersion = options?.indexingVersionAtRequestStart ?? (await cacheIndexingVersion(args));
   try {
     let query = sharedCacheSelector(createAdminClient(), "search", args, indexingVersion, normalizedQuery);
     if (args.signal) query = query.abortSignal(args.signal);
@@ -490,6 +505,13 @@ export async function getSharedCachedSearch(
         source_image_satisfied: payload.telemetry?.source_image_satisfied ?? false,
         second_stage_rerank_used: payload.telemetry?.second_stage_rerank_used ?? false,
         second_stage_rerank_latency_ms: 0,
+        semantic_rerank_eligibility: payload.telemetry?.semantic_rerank_eligibility,
+        semantic_rerank_invoked: false,
+        semantic_rerank_model: payload.telemetry?.semantic_rerank_model,
+        semantic_rerank_candidate_count: 0,
+        semantic_rerank_latency_ms: 0,
+        semantic_rerank_outcome: "not_invoked" as const,
+        semantic_rerank_fallback_reason: undefined,
         visual_direct_image_count: payload.telemetry?.visual_direct_image_count ?? 0,
         weighted_top_score: payload.telemetry?.weighted_top_score ?? 0,
         rrf_top_score: payload.telemetry?.rrf_top_score ?? 0,
@@ -508,10 +530,11 @@ export async function getSharedCachedAnswer(
     "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode" | "forceEmbedding"
   >,
   startedAt: number,
+  options?: { indexingVersionAtRequestStart?: string | null },
 ) {
   if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return null;
   try {
-    const indexingVersion = await cacheIndexingVersion(args);
+    const indexingVersion = options?.indexingVersionAtRequestStart ?? (await cacheIndexingVersion(args));
     const { data, error } = await sharedCacheSelector(
       createAdminClient(),
       "answer",
@@ -546,13 +569,13 @@ async function replaceSharedCacheRow(
   >,
   payload: unknown,
   ttlMs: number,
+  indexingVersion: string,
   normalizedQuery: string = queryCacheKeyForStorage(normalizedCacheQuery(`${modeKey(args)} ${args.query}`)),
 ) {
   if (ttlMs <= 0) return;
   try {
     if (args.signal?.aborted) return;
     const supabase = createAdminClient();
-    const indexingVersion = await cacheIndexingVersion(args);
     let deleteQuery = supabase
       .from("rag_response_cache")
       .delete()
@@ -587,6 +610,7 @@ function setSharedCachedSearch(
   args: SearchChunksArgs,
   results: SearchResult[],
   telemetry: SearchTelemetry,
+  indexingVersion: string,
   queryVariants: string[] = [],
 ) {
   if (args.skipCache || env.RAG_SEARCH_CACHE_TTL_MS <= 0) return;
@@ -595,6 +619,7 @@ function setSharedCachedSearch(
     args,
     { results: cloneSearchResults(results), telemetry },
     env.RAG_SEARCH_CACHE_TTL_MS,
+    indexingVersion,
     retrievalPlanCacheQuery(args, telemetry.query_class, queryVariants),
   );
 }
@@ -605,6 +630,7 @@ function setSharedCachedAnswer(
     "query" | "documentId" | "documentIds" | "ownerId" | "skipCache" | "queryMode" | "forceEmbedding"
   >,
   answer: RagAnswer,
+  indexingVersion: string,
 ) {
   if (!answerCacheAllowedForOwner(args.ownerId) || args.skipCache || env.RAG_ANSWER_CACHE_TTL_MS <= 0) return;
   void replaceSharedCacheRow(
@@ -612,6 +638,7 @@ function setSharedCachedAnswer(
     args,
     { answer: cloneAnswer(answer) },
     env.RAG_ANSWER_CACHE_TTL_MS,
+    indexingVersion,
     sharedAnswerNormalizedQuery(args),
   );
 }

@@ -91,14 +91,14 @@ export function DifferentialStreamPage({ stream, query = "" }: DifferentialStrea
           <div className="flex flex-wrap gap-2">
             <Link
               href="/differentials"
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface)]"
+              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface)]"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
               Back to differential home
             </Link>
             <Link
               href={appModeHomeHref("differentials", { focus: true })}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] hover:opacity-90"
+              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] hover:opacity-90"
             >
               <ArrowRight className="h-4 w-4" aria-hidden />
               Open differential search
