@@ -95,8 +95,8 @@ describe("audit navigation and auth regressions", () => {
       "const uploadReadOnlyMode =",
       "const canUsePrivateApis =",
     );
-    expect(uploadReadOnlyContract).toContain("const uploadReadOnlyMode = resolveClientDemoMode({");
-    expect(uploadReadOnlyContract).toContain("localNoAuthMode: false");
+    expect(uploadReadOnlyContract).toContain("const uploadReadOnlyMode = resolveUploadReadOnlyMode({");
+    expect(uploadReadOnlyContract).toContain("authUnavailableFallback: browserAuthUnavailableDemoFallback");
     expect(uploadReadOnlyContract).not.toMatch(/const uploadReadOnlyMode = clientDemoMode\b/);
 
     const privateCapabilityContract = sourceSegment(
