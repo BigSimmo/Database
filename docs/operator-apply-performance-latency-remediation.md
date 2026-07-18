@@ -9,6 +9,11 @@ The migration chain orders
 migration workflow; do not mark either migration applied manually or skip the cleanup
 migration to reach the corrector.
 
+The corrector has a separate stale-title-word rollout blocker caused by the earlier
+`20260714180000` migration. Clear the invariant in
+[deploy-corrector-public-titles.md](deploy-corrector-public-titles.md) before applying
+or enabling `20260717171000`.
+
 ## Registry projection index on a busy database
 
 `20260717170000_registry_projection_cleanup.sql` creates
