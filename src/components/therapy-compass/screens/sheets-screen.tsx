@@ -344,7 +344,9 @@ function TherapyPicker() {
     const base = q.trim()
       ? searchTherapies(b.therapies, { query: q, tags: [], briefOnly: false, sheetOnly: false, reviewedOnly: false })
       : b.therapies;
-    return base.slice(0, 8);
+    // Only offer therapies that actually ship a patient sheet — selecting one now
+    // navigates to its /sheet subroute, which 404s for records without a sheet.
+    return base.filter((x) => x.patientSheetAvailable).slice(0, 8);
   }, [q, b.therapies]);
 
   return (

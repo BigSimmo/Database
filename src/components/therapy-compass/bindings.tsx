@@ -307,6 +307,15 @@ export function TcProvider({ children }: { children: ReactNode }) {
     const patchSearch = (patch: Partial<SearchOptions>) => setSearch((prev) => ({ ...prev, ...patch }));
     const openSlug = (slug: string, sub?: "brief" | "sheet") =>
       router.push(sub ? `${BASE}/${slug}/${sub}` : `${BASE}/${slug}`);
+    // Some records ship no brief-intervention / patient-sheet version, and those
+    // subroutes 404. Route to the artifact only when the record actually has it;
+    // otherwise fall back to the therapy's (always-valid) detail page so an entry
+    // point never dead-ends on a 404.
+    const hasBrief = (slug: string | null | undefined) =>
+      !!slug && (bySlug.get(slug)?.briefInterventionAvailable ?? false);
+    const hasSheet = (slug: string | null | undefined) => !!slug && (bySlug.get(slug)?.patientSheetAvailable ?? false);
+    const openBriefOr = (slug: string) => openSlug(slug, hasBrief(slug) ? "brief" : undefined);
+    const openSheetOr = (slug: string) => openSlug(slug, hasSheet(slug) ? "sheet" : undefined);
 
     return {
       loading,
@@ -327,8 +336,8 @@ export function TcProvider({ children }: { children: ReactNode }) {
       goPathways: () => go("pathways"),
       // Brief / sheet / detail are therapy sub-routes, so the no-arg nav buttons
       // open them for the currently-selected therapy (defaulting to the first).
-      goBrief: () => (effectiveSelectedSlug ? openSlug(effectiveSelectedSlug, "brief") : go("home")),
-      goSheets: () => (effectiveSelectedSlug ? openSlug(effectiveSelectedSlug, "sheet") : go("home")),
+      goBrief: () => (effectiveSelectedSlug ? openBriefOr(effectiveSelectedSlug) : go("home")),
+      goSheets: () => (effectiveSelectedSlug ? openSheetOr(effectiveSelectedSlug) : go("home")),
       goDetail: () => (effectiveSelectedSlug ? openSlug(effectiveSelectedSlug) : go("home")),
       goReview: () => go("review"),
       isSearch: screen === "search",
@@ -354,9 +363,20 @@ export function TcProvider({ children }: { children: ReactNode }) {
       selectedTherapy,
       relatedForSelected,
       open: (slug) => openSlug(slug),
-      openBrief: (slug) => openSlug(slug, "brief"),
-      openSheet: (slug) => openSlug(slug, "sheet"),
-      select: (slug) => setSelectedSlug(slug),
+      openBrief: (slug) => openBriefOr(slug),
+      openSheet: (slug) => openSheetOr(slug),
+      // On a routed brief/sheet/detail screen the URL slug wins over `selectedSlug`,
+      // so a picker choice must navigate to the chosen therapy's matching subroute
+      // (falling back to detail when it lacks that artifact) instead of only setting
+      // state — otherwise the visible selection would stay pinned to the URL.
+      select: (slug) =>
+        screen === "brief"
+          ? openBriefOr(slug)
+          : screen === "sheets"
+            ? openSheetOr(slug)
+            : screen === "detail"
+              ? openSlug(slug)
+              : setSelectedSlug(slug),
 
       search,
       searchResults,
@@ -470,6 +490,7 @@ export function TcProvider({ children }: { children: ReactNode }) {
     retry,
     data,
     therapies,
+    bySlug,
     unreviewedTherapies,
     pathways,
     screen,
