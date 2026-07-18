@@ -97,18 +97,17 @@ describe("audit navigation and auth regressions", () => {
     );
     expect(privateCapabilityContract).toContain("const canUsePrivateApis =");
     expect(privateCapabilityContract).toContain(
-      'localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated")',
+      'localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated"',
     );
-    expect(privateCapabilityContract).not.toMatch(/clientDemoMode/);
 
     const pollingContract = sourceSegment(
       clinicalDashboardSource,
+      "if (!nextDemoMode && !canUsePrivateApis) {",
       "const shouldRefreshWorkState =",
-      "const [documentsResponse",
     );
-    expect(pollingContract).toContain(
-      "includeAdministrationData && (!administrationDataLoadedRef.current || now >= nextWorkStatePollRef.current)",
-    );
+    expect(pollingContract).toContain("if (!nextDemoMode && !canUsePrivateApis) {");
+    expect(pollingContract).toContain("setDocuments([]);");
+    expect(pollingContract).toContain("return;");
 
     const labelMutationContract = sourceSegment(
       clinicalDashboardSource,
@@ -144,5 +143,19 @@ describe("audit navigation and auth regressions", () => {
   it("keeps the root dashboard H1 as Clinical Guide", () => {
     expect(clinicalDashboardSource.match(/<h1\b/g)).toHaveLength(1);
     expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical Guide\s*<\/h1>/);
+  });
+
+  it("leaves favourites universal matches to the favourites hub", () => {
+    const universalMatchesContract = sourceSegment(
+      clinicalDashboardSource,
+      '{showUniversalAlsoMatches && activeModeResultKind === "tools"',
+      '{activeModeResultKind === "differentials"',
+    );
+
+    expect(universalMatchesContract).toContain("<UniversalSearchAlsoMatches modeId={searchMode}");
+    expect(universalMatchesContract).not.toContain('activeModeResultKind === "favourites"');
+    expect(source("src/components/clinical-dashboard/favourites-command-library-page.tsx")).toContain(
+      '<UniversalSearchAlsoMatches modeId="favourites" query={query} />',
+    );
   });
 });

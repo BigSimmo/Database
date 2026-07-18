@@ -900,6 +900,10 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(
       page.getByTestId("form-search-result-transport-crisis-form").getByLabel("Open Transport order"),
     ).toHaveAttribute("href", "/forms/transport-crisis-form");
+    await expect(page.getByRole("button", { name: "Refine" })).toHaveCount(0);
+    await expect(page.getByTestId("form-search-results")).not.toContainText(/pathway/i);
+    await expect(page.getByText(/Evidence 278|Pathways 12|Tasks 8|Source verified|Aligned to MHA 2014/)).toHaveCount(0);
+    await expect(page.getByText(/PSOLIS Transport|View full pathway/)).toHaveCount(0);
     await expect(page.getByTestId("service-search-results")).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
@@ -1000,11 +1004,14 @@ test.describe("Clinical KB tools launcher", () => {
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
     await expect(page.getByTestId("form-search-mobile-result-transport-crisis-form")).toContainText("Transport order");
+    await expect(page.getByTestId("form-search-mobile-results")).not.toContainText(/pathway/i);
+    await expect(page.getByText(/PSOLIS Transport|View full pathway|Source verified/)).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("transport");
     await expectNoPageHorizontalOverflow(page);
   });
 
   test("phone bottom search dock hides while scrolling down on search results", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/forms?q=transport&focus=1&run=1");
 
@@ -1012,6 +1019,20 @@ test.describe("Clinical KB tools launcher", () => {
     const dock = page.locator("form.answer-footer-search-dock");
     await expect(dock).toBeVisible();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    const transition = await dock.evaluate((node) => {
+      const style = window.getComputedStyle(node);
+      const durationMs = Math.max(
+        ...style.transitionDuration.split(",").map((value) => {
+          const normalized = value.trim();
+          const duration = Number.parseFloat(normalized);
+          return normalized.endsWith("ms") ? duration : duration * 1000;
+        }),
+      );
+      return { durationMs, property: style.transitionProperty };
+    });
+    expect(transition.property).toMatch(/transform|all/);
+    expect(transition.durationMs).toBeGreaterThanOrEqual(100);
+
     // focus=1 leaves the composer focused; hide-on-scroll stays off while it has focus.
     const input = visibleGlobalSearchInput(page).first();
     await input.focus();
