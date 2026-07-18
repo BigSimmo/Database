@@ -220,7 +220,7 @@ test.describe("universal search typeahead", () => {
   test("keeps compact cross-mode matches visible after submission", async ({ page }) => {
     await mockUniversalSearch(page);
     const universalRequest = page.waitForRequest(/\/api\/search\/universal(?:\?.*)?$/);
-    await page.goto("/services?q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
+    await page.goto("/services?q=13YARN&run=1", { waitUntil: "domcontentloaded" });
 
     await expect(page.getByTestId("universal-also-matches")).toBeVisible();
     await expect(page.getByText("Also matches in other modes")).toBeVisible();
