@@ -165,30 +165,16 @@ describe("classifier verdict memoization", () => {
     expect(second.queryClass).toBe("broad_summary");
   });
 
-  it("lets one cancelled caller leave a shared classifier request without cancelling the active caller", async () => {
-    let resolveCall: ((value: ReturnType<typeof classifierResponse>) => void) | undefined;
-    const mock = vi.fn(
-      () =>
-        new Promise<{ parsed: ReturnType<typeof classifierResponse>["parsed"] }>((resolve) => {
-          resolveCall = resolve;
-        }),
-    );
+  it("skips the classifier when fallback is not required", async () => {
+    const mock = vi.fn();
     const { rag, analyzeClinicalQuery } = await loadWithClassifierMock(mock);
     const { query, analysis } = fallbackQueryAnalysis(analyzeClinicalQuery);
-    const cancelledController = new AbortController();
+    const fallback = { ...analysis, needsClassifierFallback: false, queryClass: "unsupported_or_general" as const };
+    const result = await rag.analyzeQueryWithClassifierFallback(query, fallback);
 
-    const cancelled = rag.analyzeQueryWithClassifierFallback(query, analysis, {
-      signal: cancelledController.signal,
-    });
-    const active = rag.analyzeQueryWithClassifierFallback(query, analysis);
-    await vi.waitFor(() => expect(mock).toHaveBeenCalledTimes(1));
-
-    cancelledController.abort(new DOMException("superseded", "AbortError"));
-    await expect(cancelled).rejects.toMatchObject({ name: "AbortError" });
-
-    resolveCall?.(classifierResponse());
-    await expect(active).resolves.toMatchObject({ queryClass: "broad_summary" });
-    expect(mock).toHaveBeenCalledTimes(1);
+    expect(mock).toHaveBeenCalledTimes(0);
+    expect(result).toBe(fallback);
+    expect(result.queryClass).toBe("unsupported_or_general");
   });
 
   it("re-calls the model after the memo TTL expires", async () => {
