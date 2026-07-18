@@ -40,7 +40,12 @@ describe("differentials navigation", () => {
     const location = response.headers.get("location");
     expect(location).toMatch(/^\/differentials\/presentations\/[^/?]+/);
     expect(location).toContain("q=Pain");
-    expect(location).toContain("ids=");
     expect(location).not.toContain("0.0.0.0");
+
+    const parsedUrl = new URL(location!, "http://placeholder.invalid");
+    const idsParam = parsedUrl.searchParams.get("ids");
+    expect(idsParam).toBeTruthy();
+    const parsedIds = idsParam!.split(",");
+    expect(parsedIds).toEqual(["anorexia-nervosa", "bulimia-nervosa-binge-purge-pattern"]);
   });
 });
