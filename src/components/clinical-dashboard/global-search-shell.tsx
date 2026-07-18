@@ -260,7 +260,7 @@ function GlobalStandaloneSearchShellClient({
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
   // Standalone mode homes portal the composer into the hero (in-flow at every
   // width), so phones need no bottom-dock clearance there.
-  const mobileComposerReserve = !shouldShowSearchComposer
+  const visibleMobileComposerReserve = !shouldShowSearchComposer
     ? "2rem"
     : isStandaloneModeHome
       ? "2rem"
@@ -271,6 +271,15 @@ function GlobalStandaloneSearchShellClient({
           : useCompactBottomSearch
             ? "calc(5.5rem + env(safe-area-inset-bottom))"
             : "calc(9rem + env(safe-area-inset-bottom))";
+  // When phone chrome hides on downward scroll, release the large bottom
+  // composer reserve as well. Otherwise long content reaches the end of the
+  // internal scrollport while a toolbar-sized blank band remains between the
+  // page and Safari's collapsed address bar. Keep only a small safe-area
+  // breathing room so the site content, not the background, fills the revealed
+  // edge-to-edge viewport.
+  const mobileComposerReserve = phoneScrollHide.hidden
+    ? "max(0.75rem, env(safe-area-inset-bottom))"
+    : visibleMobileComposerReserve;
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
