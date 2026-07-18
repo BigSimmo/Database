@@ -340,12 +340,9 @@ export function imagePlacementDedupeKey(input: {
 }): string | null {
   const bboxKey = stableBboxKey(input.image.bbox);
   if (bboxKey === null) return null;
-  return [
-    input.imageHash,
-    input.image.sourceKind ?? "embedded",
-    input.image.pageNumber ?? "page:null",
-    bboxKey,
-  ].join("|");
+  return [input.imageHash, input.image.sourceKind ?? "embedded", input.image.pageNumber ?? "page:null", bboxKey].join(
+    "|",
+  );
 }
 
 function bboxLooksLikeHeaderOrFooter(bbox: unknown) {
