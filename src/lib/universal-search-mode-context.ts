@@ -16,6 +16,9 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   // Therapy Compass leads with its own therapy library, exposed to cross-entity
   // search as the "therapies" domain.
   "therapy-compass": ["therapies"],
+  // Factsheets searches its own local patient-information library, not a
+  // cross-entity search domain, so it declares no preferred universal domains.
+  factsheets: [],
 };
 
 const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {
