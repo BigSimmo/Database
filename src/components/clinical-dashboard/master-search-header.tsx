@@ -1364,7 +1364,7 @@ export function MasterSearchHeader({
                 <button
                   type="button"
                   onClick={onClearQuery}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:h-12 sm:w-12"
                   aria-label="Clear search question"
                 >
                   <X aria-hidden="true" className="h-4 w-4" />
@@ -1386,9 +1386,9 @@ export function MasterSearchHeader({
               aria-label={selectedSearch.submitAriaLabel}
             >
               {loading ? (
-                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="size-icon-lg animate-spin" />
               ) : usesSendAffordance ? (
-                <Send aria-hidden="true" className="h-4 w-4" />
+                <Send aria-hidden="true" className="size-icon-lg" />
               ) : usesModeIdentityAffordance ? (
                 <ModeIdentityIcon className="size-icon-lg" />
               ) : (
@@ -1604,8 +1604,15 @@ export function MasterSearchHeader({
               }}
               onKeyDown={handleModeTriggerKeyDown}
               className={cn(
-                "universal-header-mode-button inline-grid h-12 w-[min(13rem,calc(100vw-11.5rem))] min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-auto sm:min-w-[13rem] sm:pr-3",
-                isWorkflowHeader && "h-11 w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]",
+                // Size utilities live in the per-variant branch, never the shared
+                // base: cn() is plain concat (no tailwind-merge), so keeping the
+                // default h-/w-/min-w- here too made the workflow overrides dead —
+                // Tailwind v4 emits same-property utilities in canonical order and
+                // the base won at every breakpoint but lg:.
+                "universal-header-mode-button inline-grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                isWorkflowHeader
+                  ? "h-11 w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
+                  : "h-12 w-[min(13rem,calc(100vw-11.5rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
               )}
               aria-haspopup="menu"
               aria-expanded={modeMenuOpen}
