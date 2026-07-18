@@ -1391,6 +1391,7 @@ export async function analyzeQueryWithClassifierFallback(
     storeClassifierVerdictMemo(memoKey, verdict);
     return applyClassifierVerdict(analysis, verdict);
   } catch (error) {
+    if (opts?.signal?.aborted) throw opts.signal.reason ?? error;
     if (
       error &&
       (error instanceof DOMException || typeof error === "object") &&
@@ -2846,6 +2847,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
           document_filters: documentFilterList ?? undefined,
           ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
         },
+        args.signal,
       );
       return { data, error, latencyMs: Date.now() - startedAt };
     })(),
@@ -2953,6 +2955,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
           document_filter: documentFilter ?? undefined,
           ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
         },
+        args.signal,
       );
 
       if (error) throw new Error(error.message);
