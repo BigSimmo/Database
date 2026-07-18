@@ -74,9 +74,11 @@ describe("content and services audit regressions", () => {
     expect(normalizedServiceNavigatorSource).not.toContain(
       'key={selected.length === 0 ? "empty" : selected.length === 1 ? "single" : "multiple"}',
     );
-    expect(serviceNavigatorSource).toContain("useEffect(");
-    expect(serviceNavigatorSource).toContain("if (selected.length === 0) setShowChecklistDetails(false)");
-    expect(serviceNavigatorSource).toContain("if (!comparisonAvailable) setShowComparison(false)");
+    expect(serviceNavigatorSource).not.toContain("useEffect(");
+    expect(serviceNavigatorSource).toContain("const checklistExpanded = showChecklistDetails && selected.length > 0");
+    expect(serviceNavigatorSource).toContain("const comparisonExpanded = showComparison && comparisonAvailable");
+    expect(serviceNavigatorSource).toContain("if (remainingCount === 0) setShowChecklistDetails(false)");
+    expect(serviceNavigatorSource).toContain("if (remainingCount < 2) setShowComparison(false)");
     expect(serviceNavigatorSource).toContain("aria-pressed={selected}");
     expect(serviceNavigatorSource).toContain("Add ${service.title} to comparison");
     expect(serviceNavigatorSource).toContain("Remove ${service.title} from comparison");
