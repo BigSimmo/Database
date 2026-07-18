@@ -245,6 +245,7 @@ describe("app mode search contract", () => {
         "formulation",
         "prescribing",
         "tools",
+        "therapy-compass",
       ]),
     );
     expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).not.toContain("profile");
@@ -264,6 +265,7 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("formulation", "production")).toBe(true);
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
     expect(isAppModeVisible("tools", "production")).toBe(true);
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
     expect(productionModes).not.toContain("evidence");
     expect(productionModes).toContain("services");
     expect(productionModes).toContain("forms");
@@ -274,6 +276,7 @@ describe("app mode search contract", () => {
     expect(productionModes).toContain("formulation");
     expect(productionModes).toContain("prescribing");
     expect(productionModes).toContain("tools");
+    expect(productionModes).toContain("therapy-compass");
     expect(developmentModes).toEqual(
       expect.arrayContaining([
         "answer",
@@ -287,16 +290,24 @@ describe("app mode search contract", () => {
         "formulation",
         "prescribing",
         "tools",
+        "therapy-compass",
       ]),
     );
     expect(developmentModes).not.toContain("evidence");
   });
 
+<<<<<<< HEAD
   it("surfaces Therapy Compass in production discovery", () => {
     // Now live: the mode appears in the production sidebar, MODE dropdown, and
     // universal search. Individual therapy records still carry their own
     // review-status badge until qualified-clinician sign-off, so unreviewed
     // content stays labelled at the point of use rather than gated out entirely.
+=======
+  it("surfaces Therapy Compass in production discovery after clinician sign-off", () => {
+    // The re-curated therapy pathways have qualified-clinician sign-off, so the
+    // devOnly gate is removed and Therapy is a first-class mode: visible in the
+    // production sidebar and MODE dropdown as well as the dev switcher.
+>>>>>>> origin/main
     expect(isAppModeId("therapy-compass")).toBe(true);
     expect(isAppModeVisible("therapy-compass", "development")).toBe(true);
     expect(isAppModeVisible("therapy-compass", "production")).toBe(true);

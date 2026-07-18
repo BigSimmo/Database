@@ -313,10 +313,16 @@ export const appModeDefinitions = [
     label: "Therapy",
     description: "Source-grounded therapy decision support",
     href: "/therapy-compass",
+<<<<<<< HEAD
     // Live in production: surfaced in the sidebar, MODE dropdown, and universal
     // search. Individual therapy records still carry their own review-status
     // badge ("Needs source review") until qualified-clinician sign-off, so
     // unreviewed content stays clearly labelled at the point of use.
+=======
+    // Cleared for production discovery: the re-curated therapy pathways have
+    // qualified-clinician sign-off, so Therapy is now a first-class mode in the
+    // production sidebar and MODE dropdown (no longer devOnly-gated).
+>>>>>>> origin/main
     search: {
       // Therapy Compass owns its in-tool search over the imported therapy library
       // (not the document corpus), so it borrows the benign "tools" search kind and
