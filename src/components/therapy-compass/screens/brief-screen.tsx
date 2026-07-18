@@ -75,7 +75,7 @@ export function BriefScreen() {
             Fast scripts and steps drawn from each record&rsquo;s delivery fields.
           </p>
         </div>
-        <div style={s(`display:flex;gap:10px;`)}>
+        <div className="tc-mobile-wrap" style={s(`display:flex;gap:10px;`)}>
           <button
             type="button"
             className="tc-btn"
@@ -206,6 +206,7 @@ export function BriefScreen() {
               </button>
             </div>
             <div
+              className="tc-mobile-grid-2"
               style={s(
                 `display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;`,
               )}
@@ -221,7 +222,10 @@ export function BriefScreen() {
             </div>
           </div>
 
-          <div style={s(`display:grid;grid-template-columns:1.6fr 1fr;gap:16px;align-items:start;`)}>
+          <div
+            className="tc-mobile-stack"
+            style={s(`display:grid;grid-template-columns:1.6fr 1fr;gap:16px;align-items:start;`)}
+          >
             <div
               style={s(
                 `background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-soft);padding:20px 22px;min-width:0;`,

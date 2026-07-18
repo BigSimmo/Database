@@ -61,3 +61,7 @@
 Final result: **blocked**.
 
 Blocker: an independent source visual target is required to certify concept fidelity. Implementation-level responsive, interaction, accessibility, and regression QA passed, but the design cannot honestly be declared pixel-faithful to an external approved concept that was not supplied.
+
+## Follow-up audit — 2026-07-17
+
+The exhaustive line-level design, accessibility, UX, interaction, and route-coverage follow-up is documented in [`docs/design-audit-2026-07-17.md`](docs/design-audit-2026-07-17.md). It preserves the fixes above, avoids duplicating this pass, and records the new P1/P2/P3 fixes plus the exact local verification limitations.

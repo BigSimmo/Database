@@ -136,6 +136,7 @@ function documentScopeMeta(document: ClinicalDocument) {
 }
 
 export function MasterSearchHeader({
+  demoMode,
   documents,
   documentTotal,
   query,
@@ -184,6 +185,7 @@ export function MasterSearchHeader({
   onMobileBack,
   hideOnScroll,
 }: {
+  demoMode: boolean;
   documents: ClinicalDocument[];
   documentTotal?: number;
   query: string;
@@ -290,6 +292,7 @@ export function MasterSearchHeader({
   const [actionMenuPlacement, setActionMenuPlacement] = useState<ModeActionPlacement>("up");
   const [commandDropdownOpen, setCommandDropdownOpen] = useState(false);
   const [commandListboxId, setCommandListboxId] = useState<string>();
+  const [commandActiveItemId, setCommandActiveItemId] = useState<string | null>(null);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
@@ -1267,6 +1270,7 @@ export function MasterSearchHeader({
           />
         ) : null}
         <UniversalSearchCommandSurface
+          demoMode={demoMode}
           modeId={searchMode}
           query={query}
           recentQueries={recentQueries}
@@ -1296,6 +1300,7 @@ export function MasterSearchHeader({
           onRunModeAction={runModeAction}
           onCommandScopesChange={(scopes) => onCommandScopesChange?.(scopes)}
           onListboxIdReady={setCommandListboxId}
+          onActiveItemIdChange={setCommandActiveItemId}
           onFocusSearchInput={() => queryInputRef?.current?.focus()}
         >
           <div
@@ -1348,6 +1353,7 @@ export function MasterSearchHeader({
                 aria-expanded={commandDropdownOpen}
                 aria-controls={commandDropdownOpen ? commandListboxId : undefined}
                 aria-autocomplete="list"
+                aria-activedescendant={commandDropdownOpen ? (commandActiveItemId ?? undefined) : undefined}
                 aria-describedby={showsComposerPrivacyNotice ? composerPrivacyWarningId : undefined}
                 // React's onChange already fires on every input event; a duplicate
                 // onInput called onQueryChange twice per keystroke, doubling the

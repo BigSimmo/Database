@@ -340,6 +340,7 @@ function CommandDropdown({
 }
 
 export function UniversalSearchCommandSurface({
+  demoMode,
   modeId,
   query,
   recentQueries,
@@ -355,9 +356,11 @@ export function UniversalSearchCommandSurface({
   onInputKeyDown,
   onFocusSearchInput,
   onListboxIdReady,
+  onActiveItemIdChange,
   placement = "inline",
   children,
 }: {
+  demoMode: boolean;
   modeId: AppModeId;
   query: string;
   recentQueries: string[];
@@ -373,6 +376,7 @@ export function UniversalSearchCommandSurface({
   onInputKeyDown?: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
   onFocusSearchInput?: () => void;
   onListboxIdReady?: (listboxId: string) => void;
+  onActiveItemIdChange?: (activeItemId: string | null) => void;
   placement?: CommandSurfacePlacement;
   children: ReactNode;
 }) {
@@ -420,7 +424,10 @@ export function UniversalSearchCommandSurface({
     contextMode: modeId,
   });
   const savedRegistryFavourites = useSavedRegistryFavourites();
-  const allFavouriteItems = useMemo(() => [...favouriteItems, ...savedRegistryFavourites], [savedRegistryFavourites]);
+  const allFavouriteItems = useMemo(
+    () => [...(demoMode ? favouriteItems : []), ...savedRegistryFavourites],
+    [demoMode, savedRegistryFavourites],
+  );
   const favouriteMatches = useMemo(
     () => rankLocalFavourites(allFavouriteItems, trimmedQuery),
     [allFavouriteItems, trimmedQuery],
@@ -928,6 +935,10 @@ export function UniversalSearchCommandSurface({
   useEffect(() => {
     onListboxIdReady?.(listboxId);
   }, [listboxId, onListboxIdReady]);
+
+  useEffect(() => {
+    onActiveItemIdChange?.(dropdownOpen ? activeItemId : null);
+  }, [activeItemId, dropdownOpen, onActiveItemIdChange]);
 
   useEffect(() => {
     if (!dropdownOpen) return;

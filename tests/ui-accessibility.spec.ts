@@ -11,7 +11,41 @@ const readySetupChecks = [
 ];
 const uiAssertionTimeoutMs = 5_000;
 
+async function blockExternalRequests(page: Page) {
+  await page.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    if (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      !["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname)
+    ) {
+      await route.abort("blockedbyclient");
+      return;
+    }
+    await route.fallback();
+  });
+}
+
 async function mockMinimalDashboardApi(page: Page) {
+  await blockExternalRequests(page);
+  await page.route(/\/api\/local-project-id$/, async (route) => {
+    await route.fulfill({
+      json: {
+        appName: "Clinical KB",
+        projectId: "test-project",
+        identityPath: "/api/local-project-id",
+        localServer: {
+          currentUrl: "http://localhost:4298",
+          currentPort: 4298,
+          projectPortStart: 4298,
+          projectPortEnd: 53210,
+          safeLocalOrigin: true,
+          requestOrigin: null,
+          requestReferer: null,
+          unsafeLocalCaller: null,
+        },
+      },
+    });
+  });
   await page.route("**/api/setup-status**", async (route) => {
     await route.fulfill({
       json: { demoMode: false, checks: readySetupChecks },
@@ -31,10 +65,60 @@ async function mockMinimalDashboardApi(page: Page) {
   await page.route(/\/api\/ingestion\/batches(?:\?.*)?$/, async (route) => {
     await route.fulfill({ json: { batches: [] } });
   });
+  await page.route(/\/api\/ingestion\/quality(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { items: [] } });
+  });
+  await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
+    await route.fulfill({ json: { records: [], total: 0, governance: {} } });
+  });
+  await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      json: {
+        query: "",
+        contextMode: "differentials",
+        preferredDomains: [],
+        domainOrder: [],
+        groups: [],
+      },
+    });
+  });
 }
 
-async function gotoApp(page: Page) {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+async function mockDifferentialSearch(page: Page) {
+  await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
+    await route.fulfill({
+      json: {
+        results: [],
+        visualEvidence: [],
+        relatedDocuments: [],
+        documentMatches: [
+          {
+            document_id: "11111111-1111-4111-8111-111111111111",
+            title: "Acute confusion differential guide",
+            file_name: "acute-confusion-differentials.pdf",
+            labels: [],
+            summarySnippet: "Reviewed acute confusion differential guidance.",
+            bestPages: [1],
+            bestChunkIds: ["chunk-acute-confusion"],
+            imageCount: 0,
+            tableCount: 0,
+            matchReason: "Matched indexed passage",
+            score: 0.93,
+          },
+        ],
+        relevance: { verdict: "strong", score: 0.91, directSourceCount: 1, weakSourceCount: 0 },
+        smartPanel: {},
+        telemetry: { query_class: "differential_compare", retrieval_strategy: "text_fast_path" },
+        scope: { queryMode: "compare_guidance" },
+        sourceGovernanceWarnings: [],
+        demoMode: true,
+      },
+    });
+  });
+}
+
+async function gotoApp(page: Page, path = "/") {
+  await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
 }
 
@@ -94,7 +178,7 @@ async function expectNoBlockingAxeViolations(page: Page, testInfo: TestInfo, opt
   expect(summary, "axe found critical/serious WCAG A/AA violations").toEqual([]);
 }
 
-test.describe("Clinical KB accessibility media smoke", () => {
+test.describe("Clinical KB accessibility coverage", () => {
   test.describe.configure({ timeout: 60_000 });
 
   test("dashboard remains usable with reduced motion", async ({ page }) => {
@@ -202,5 +286,92 @@ test.describe("Clinical KB accessibility media smoke", () => {
     // color-contrast is unreliable under forced-colors emulation (the OS palette overrides
     // author colors); contrast is asserted by the default-colors scan instead.
     await expectNoBlockingAxeViolations(page, testInfo, { disableRules: ["color-contrast"] });
+  });
+
+  test("differential result types are pressed filters instead of tabs", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockMinimalDashboardApi(page);
+    await mockDifferentialSearch(page);
+    await gotoApp(page, "/differentials");
+
+    await page.locator('input[placeholder="Ask or search a presentation"]:visible').first().fill("acute confusion");
+    await page.locator('button[aria-label="Search differential presentations"]:visible').click();
+    await expect(page.getByTestId("differentials-search-results")).toBeVisible();
+
+    const filterGroup = page.getByRole("group", { name: "Result type" });
+    await expect(filterGroup).toBeVisible();
+    await expect(filterGroup.getByRole("tab")).toHaveCount(0);
+    const allFilter = filterGroup.getByRole("button", { name: /^All \(\d+\)$/ });
+    const presentationsFilter = filterGroup.getByRole("button", { name: /^Presentations \(\d+\)$/ });
+    const diagnosesFilter = filterGroup.getByRole("button", { name: /^Diagnoses \(\d+\)$/ });
+    await expect(allFilter).toHaveAttribute("aria-pressed", "true");
+    await expect(presentationsFilter).toHaveAttribute("aria-pressed", "false");
+
+    await presentationsFilter.focus();
+    await page.keyboard.press("Space");
+    await expect(presentationsFilter).toHaveAttribute("aria-pressed", "true");
+    await expect(allFilter).toHaveAttribute("aria-pressed", "false");
+
+    await diagnosesFilter.focus();
+    await page.keyboard.press("Enter");
+    await expect(diagnosesFilter).toHaveAttribute("aria-pressed", "true");
+    await expect(presentationsFilter).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("upload and indexing tabs expose panel associations and roving keyboard activation", async ({ page }) => {
+    await page.setViewportSize({ width: 414, height: 820 });
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+
+    const uploadButton = page.getByRole("button", { name: /Upload document/i });
+    await expect(uploadButton).toBeVisible();
+    await uploadButton.click();
+    const drawer = page.getByRole("dialog", { name: "Upload and indexing" });
+    await expect(drawer).toBeVisible();
+
+    const tablist = drawer.getByRole("tablist", { name: "Upload and indexing sections" });
+    const setupTab = tablist.getByRole("tab", { name: "Setup", exact: true });
+    const uploadTab = tablist.getByRole("tab", { name: "Upload", exact: true });
+    const jobsTab = tablist.getByRole("tab", { name: "Jobs", exact: true });
+    const qualityTab = tablist.getByRole("tab", { name: "Quality", exact: true });
+    const associations = [
+      [setupTab, "dashboard-setup-section"],
+      [uploadTab, "dashboard-upload-section"],
+      [jobsTab, "dashboard-indexing-section"],
+      [qualityTab, "dashboard-quality-section"],
+    ] as const;
+
+    for (const [tab, panelId] of associations) {
+      const tabId = await tab.getAttribute("id");
+      expect(tabId).toBeTruthy();
+      await expect(tab).toHaveAttribute("aria-controls", panelId);
+      await expect(drawer.locator(`#${panelId}`)).toHaveAttribute("aria-labelledby", tabId!);
+    }
+
+    await expect(uploadTab).toHaveAttribute("aria-selected", "true");
+    await expect(uploadTab).toHaveAttribute("tabindex", "0");
+    await expect(jobsTab).toHaveAttribute("tabindex", "-1");
+    await uploadTab.focus();
+
+    await page.keyboard.press("ArrowRight");
+    await expect(jobsTab).toBeFocused();
+    await expect(jobsTab).toHaveAttribute("aria-selected", "true");
+    await expect(drawer.locator("#dashboard-indexing-section")).toBeVisible();
+
+    await page.keyboard.press("ArrowLeft");
+    await expect(uploadTab).toBeFocused();
+    await expect(uploadTab).toHaveAttribute("aria-selected", "true");
+
+    await page.keyboard.press("Home");
+    await expect(setupTab).toBeFocused();
+    await expect(setupTab).toHaveAttribute("aria-selected", "true");
+
+    await page.keyboard.press("End");
+    await expect(qualityTab).toBeFocused();
+    await expect(qualityTab).toHaveAttribute("aria-selected", "true");
+
+    await page.keyboard.press("ArrowRight");
+    await expect(setupTab).toBeFocused();
+    await expect(setupTab).toHaveAttribute("aria-selected", "true");
   });
 });

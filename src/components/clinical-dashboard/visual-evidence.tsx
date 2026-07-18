@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { type KeyboardEvent, useId, useRef, useState } from "react";
 import {
   CircleAlert,
   BookOpen,
@@ -378,6 +378,8 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
   const claimRows = claimRowsForEvidencePanel(rows, renderModel);
   const directCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Direct").length;
   const partialCount = claimRows.filter((row) => supportLabel(row.supportLevel) === "Partial").length;
+  const claimRowClassName =
+    "grid min-h-[76px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-3 text-left last:border-b-0";
 
   if (!claimRows.length) {
     return <EmptyState icon={BookOpen} title={emptyStates.evidenceMap.title} body={emptyStates.evidenceMap.body} />;
@@ -409,29 +411,52 @@ function EvidenceClaimsList({ rows, renderModel }: { rows: AnswerEvidenceMapRow[
       </div>
 
       <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-        {claimRows.map((row, index) => (
-          <Link
-            key={`${row.id}:${index}`}
-            href={row.href ?? "#"}
-            data-testid={row.href ? "evidence-map-open-source" : undefined}
-            aria-disabled={!row.href}
-            className={cn(
-              "grid min-h-[76px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] px-3 py-3 text-left last:border-b-0 transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
-              !row.href && "pointer-events-none",
-            )}
-            aria-label={`Open source for ${row.section}`}
-          >
-            <span className="grid h-7 w-7 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)]" />
-            <span className={cn("h-2.5 w-2.5 rounded-full", supportDotClass(row.supportLevel))} />
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{row.section}</span>
-              <span className={cn("mt-1 line-clamp-2 block text-xs leading-5", textMuted)}>
-                {row.detail || row.bestLinkedPassage || row.bestSourceLabel}
+        {claimRows.map((row, index) => {
+          const content = (
+            <>
+              <span className="grid h-7 w-7 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)]" />
+              <span className={cn("h-2.5 w-2.5 rounded-full", supportDotClass(row.supportLevel))} />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-[color:var(--text-heading)]">{row.section}</span>
+                <span className={cn("mt-1 line-clamp-2 block text-xs leading-5", textMuted)}>
+                  {row.detail || row.bestLinkedPassage || row.bestSourceLabel}
+                </span>
               </span>
-            </span>
-            <ChevronDown aria-hidden="true" className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
-          </Link>
-        ))}
+              {row.href ? (
+                <ChevronDown aria-hidden="true" className="h-4 w-4 -rotate-90 text-[color:var(--text-muted)]" />
+              ) : (
+                <span className="text-2xs font-semibold text-[color:var(--text-muted)]">Source unavailable</span>
+              )}
+            </>
+          );
+
+          if (!row.href) {
+            return (
+              <div
+                key={`${row.id}:${index}`}
+                data-testid="evidence-map-source-unavailable"
+                className={claimRowClassName}
+              >
+                {content}
+              </div>
+            );
+          }
+
+          return (
+            <Link
+              key={`${row.id}:${index}`}
+              href={row.href}
+              data-testid="evidence-map-open-source"
+              className={cn(
+                claimRowClassName,
+                "transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
+              )}
+              aria-label={`Open source for ${row.section}`}
+            >
+              {content}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
@@ -495,9 +520,40 @@ export function MobileEvidenceSheetContent({
   const order = evidenceTabOrder(answer, renderModel);
   const [selectedTab, setSelectedTab] = useState<EvidenceTabName | null>(() => initialTab ?? null);
   const activeTab = selectedTab && order.includes(selectedTab) ? selectedTab : order[0];
-  const panelIdFor = (tab: EvidenceTabName) => `mobile-evidence-panel-${tab.toLowerCase()}`;
+  const tabSetId = useId();
+  const tabRefs = useRef<Partial<Record<EvidenceTabName, HTMLButtonElement | null>>>({});
+  const tabIdFor = (tab: EvidenceTabName) => `${tabSetId}-mobile-evidence-tab-${tab.toLowerCase()}`;
+  const panelIdFor = (tab: EvidenceTabName) => `${tabSetId}-mobile-evidence-panel-${tab.toLowerCase()}`;
   const [added, setAdded] = useState(false);
   const primarySourceHref = renderModel.primarySources[0]?.href;
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, tab: EvidenceTabName) {
+    const currentIndex = order.indexOf(tab);
+    let nextIndex: number;
+
+    switch (event.key) {
+      case "ArrowRight":
+        nextIndex = (currentIndex + 1) % order.length;
+        break;
+      case "ArrowLeft":
+        nextIndex = (currentIndex - 1 + order.length) % order.length;
+        break;
+      case "Home":
+        nextIndex = 0;
+        break;
+      case "End":
+        nextIndex = order.length - 1;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    const nextTab = order[nextIndex];
+    setSelectedTab(nextTab);
+    tabRefs.current[nextTab]?.focus();
+  }
+
   async function copyEvidence() {
     if (renderModel.quoteCards.length) {
       onCopyQuotes();
@@ -534,11 +590,16 @@ export function MobileEvidenceSheetContent({
                 key={tab}
                 type="button"
                 role="tab"
+                ref={(node) => {
+                  tabRefs.current[tab] = node;
+                }}
                 aria-selected={selected}
                 aria-controls={panelIdFor(tab)}
-                id={`mobile-evidence-tab-${tab.toLowerCase()}`}
+                id={tabIdFor(tab)}
+                tabIndex={selected ? 0 : -1}
                 data-testid={`mobile-evidence-tab-${tab.toLowerCase()}`}
                 onClick={() => setSelectedTab(tab)}
+                onKeyDown={(event) => handleTabKeyDown(event, tab)}
                 className={cn(
                   "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition",
                   selected
@@ -563,7 +624,7 @@ export function MobileEvidenceSheetContent({
               key={tab}
               id={panelIdFor(tab)}
               role="tabpanel"
-              aria-labelledby={`mobile-evidence-tab-${tab.toLowerCase()}`}
+              aria-labelledby={tabIdFor(tab)}
               data-testid={`mobile-evidence-panel-${tab.toLowerCase()}`}
               hidden={!selected}
               className="min-h-[220px]"

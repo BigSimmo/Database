@@ -36,7 +36,7 @@ export function TherapyCompassNav() {
             <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
           </svg>
         </span>
-        <span style={s(`display:flex;flex-direction:column;line-height:1.15;`)}>
+        <span className="tc-topnav-copy" style={s(`display:flex;flex-direction:column;line-height:1.15;`)}>
           <span style={s(`font-size:14px;font-weight:650;color:var(--text-heading);letter-spacing:-0.01em;`)}>
             Therapy
           </span>

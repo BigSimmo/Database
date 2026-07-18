@@ -14,7 +14,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     console.error("Fatal error captured by global-error boundary:", error);
-    headingRef.current?.focus();
+    headingRef.current?.focus({ preventScroll: true });
   }, [error]);
 
   return (
@@ -27,6 +27,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           alignItems: "center",
           justifyContent: "center",
           padding: "1rem",
+          colorScheme: "light dark",
           backgroundColor: "Canvas",
           color: "CanvasText",
           fontFamily:
@@ -68,11 +69,11 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
               style={{
                 margin: "0 0 1.25rem",
                 borderRadius: "0.5rem",
-                backgroundColor: "Canvas",
+                backgroundColor: "Field",
                 padding: "0.5rem",
                 fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
                 fontSize: "0.75rem",
-                color: "CanvasText",
+                color: "FieldText",
                 wordBreak: "break-all",
               }}
             >

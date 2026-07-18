@@ -229,7 +229,6 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
   const { data, loading, error, retry } = useTherapyData();
   const therapies = useMemo(() => data?.therapies ?? [], [data]);
   const pathways = useMemo(() => data?.pathways ?? [], [data]);

@@ -1497,9 +1497,29 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const clinicalNotesSheet = page.getByRole("dialog", { name: "Clinical notes" });
     await expect(clinicalNotesSheet).toBeVisible();
     await expect(clinicalNotesSheet.getByTestId("clinical-notes-checklist")).toBeVisible();
-    await expect(clinicalNotesSheet.getByRole("tab", { name: /Essentials/ })).toBeVisible();
-    await expect(clinicalNotesSheet.getByRole("tab", { name: /Actions/ })).toBeVisible();
-    await expect(clinicalNotesSheet.getByRole("tab", { name: /Safety/ })).toBeVisible();
+    const essentialsTab = clinicalNotesSheet.getByRole("tab", { name: /Essentials/ });
+    const actionsTab = clinicalNotesSheet.getByRole("tab", { name: /Actions/ });
+    const safetyTab = clinicalNotesSheet.getByRole("tab", { name: /Safety/ });
+    await expect(essentialsTab).toBeVisible();
+    await expect(actionsTab).toBeVisible();
+    await expect(safetyTab).toBeVisible();
+    await expect(actionsTab).toHaveAttribute("aria-selected", "true");
+    await actionsTab.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(safetyTab).toBeFocused();
+    await expect(safetyTab).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("ArrowLeft");
+    await expect(actionsTab).toBeFocused();
+    await expect(actionsTab).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("Home");
+    await expect(essentialsTab).toBeFocused();
+    await expect(essentialsTab).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("End");
+    await expect(safetyTab).toBeFocused();
+    await expect(safetyTab).toHaveAttribute("aria-selected", "true");
+    await page.keyboard.press("ArrowLeft");
+    await expect(actionsTab).toBeFocused();
+    await expect(actionsTab).toHaveAttribute("aria-selected", "true");
     expect(await clinicalNotesSheet.getByTestId("clinical-note-row").count()).toBeGreaterThan(0);
     const linkedNoteRow = clinicalNotesSheet.getByTestId("clinical-note-row").first();
     await expect(linkedNoteRow).toHaveAttribute("href", /\/documents\//);
@@ -2631,7 +2651,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByTestId("favourites-hub").getByText("13YARN").first()).toBeVisible();
   });
 
-  test("favourites command library opens item workspace on row selection at 2xl", async ({ page }) => {
+  test("favourites command library exposes truthful item details and a keyboard-operable action menu", async ({
+    page,
+  }) => {
     await page.setViewportSize({ width: 1536, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/favourites");
@@ -2639,10 +2661,38 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
     await expect(page.getByTestId("favourites-item-workspace")).toHaveCount(0);
 
-    await page.getByTestId("favourite-row-acamprosate-renal-screen").click();
+    await page.getByTestId("favourite-row-lithium-monitoring-guideline").locator("button[aria-pressed]").click();
     const workspace = page.getByTestId("favourites-item-workspace");
     await expect(workspace).toBeVisible();
-    await expect(workspace.getByRole("heading", { name: "Acamprosate renal screen", level: 3 })).toBeVisible();
+    await expect(workspace.getByRole("heading", { name: "Lithium monitoring guideline", level: 3 })).toBeVisible();
+
+    await workspace.getByRole("button", { name: "Evidence" }).click();
+    await expect(workspace).not.toContainText("BNF - Acamprosate");
+    await workspace.getByRole("button", { name: "Notes" }).click();
+    await expect(workspace).toContainText("No personal note is saved for this item.");
+
+    const moreActions = page.getByRole("button", { name: "More actions for Lithium monitoring guideline" });
+    await moreActions.focus();
+    await page.keyboard.press("ArrowDown");
+    const menu = page.getByRole("menu");
+    await expect(menu.getByRole("menuitem", { name: "Ask Lithium monitoring guideline" })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(menu.getByRole("menuitem", { name: "Copy citation" })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(menu.getByRole("menuitem", { name: "Copied" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(moreActions).toBeFocused();
+  });
+
+  test("favourites mobile cards keep their links and menus as separate native controls", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/favourites");
+
+    const hub = page.getByTestId("favourites-hub");
+    await expect(hub.locator('article[role="button"]')).toHaveCount(0);
+    await expect(hub.getByRole("link", { name: "Open Acamprosate renal screen" })).toBeVisible();
+    await expect(hub.getByRole("button", { name: "More actions for Acamprosate renal screen" })).toBeVisible();
   });
 
   test("mobile favourite cards keep selection and actions as independent touch controls", async ({ page }) => {
@@ -2910,11 +2960,35 @@ test.describe("Clinical KB UI smoke coverage", () => {
       "Medication Prescribing",
     );
     await expect(page.getByTestId("tools-hub").getByText("Selected tool")).toHaveCount(0);
-    await expect(page.getByTestId("tools-hub").getByTestId("application-row-medication-prescribing")).toHaveAttribute(
-      "href",
-      "/?mode=prescribing",
-    );
+    const detailsButton = page
+      .getByTestId("tools-hub")
+      .getByRole("button", { name: "View details for Medication Prescribing" });
+    await expect(detailsButton).toHaveAttribute("aria-haspopup", "dialog");
+    await detailsButton.click();
+    await expect(
+      page.getByRole("dialog", { name: "Medication Prescribing" }).locator('a[href="/?mode=prescribing"]').first(),
+    ).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("services decision rail does not present unfinished actions as available", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/services?q=mental%20health&focus=1&run=1");
+
+    const navigator = page.getByRole("main");
+    await expect(navigator).toBeVisible();
+    await expect(navigator.getByRole("button", { name: "Edit" })).toBeDisabled();
+    await expect(navigator.getByRole("button", { name: "Review details" })).toBeDisabled();
+    await expect(navigator.getByRole("button", { name: "View details" })).toBeDisabled();
+    const compare = navigator.getByRole("button", { name: /Compare selected/ });
+    await expect(compare).toBeDisabled();
+    await expect(compare).toHaveAttribute("title", "Service comparison is coming soon");
+    const clear = navigator.getByRole("button", { name: "Clear" });
+    await expect(clear).toBeEnabled();
+    await clear.click();
+    await expect(navigator.getByText("Selected services (0)")).toBeVisible();
+    await expect(compare).toHaveAttribute("title", "Select at least two services before comparing");
   });
 
   test("search regressions avoid fetch errors and open viewer hits @critical", async ({ page }) => {

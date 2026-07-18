@@ -51,12 +51,15 @@ export function HomeScreen() {
           What therapy are you looking for?
         </h1>
         <p style={s(`margin:0 auto 24px;font-size:15px;color:var(--text-muted);max-width:56ch;`)}>
-          Search {b.therapies.length || "200+"} source-grounded therapy records by problem, symptom, skill or population
-          — or jump into a clinical pathway.
+          Search {b.therapies.length} source-grounded therapy {b.therapies.length === 1 ? "record" : "records"} by
+          problem, symptom, skill or population — or jump into a clinical pathway.
         </p>
       </div>
 
-      <div style={s(`display:flex;align-items:center;max-width:760px;margin:0 auto 14px;position:relative;`)}>
+      <div
+        className="tc-home-search"
+        style={s(`display:flex;align-items:center;max-width:760px;margin:0 auto 14px;position:relative;`)}
+      >
         <SearchIcon size={20} strokeWidth={1.8} style={s(`position:absolute;left:18px;color:var(--text-soft);`)} />
         <input
           value={query}
@@ -66,13 +69,14 @@ export function HomeScreen() {
           }}
           placeholder="Search problem, symptom, therapy, skill, population…"
           aria-label="Search therapies"
+          className="tc-home-search-input"
           style={s(
             `width:100%;height:58px;padding:0 130px 0 50px;border:1px solid var(--border-strong);border-radius:15px;background:var(--surface);color:var(--text);font-size:16px;font-family:inherit;outline:none;box-shadow:var(--shadow-soft);`,
           )}
         />
         <button
           type="button"
-          className="tc-btn"
+          className="tc-btn tc-home-search-button"
           onClick={submit}
           style={s(`position:absolute;right:8px;${commandControl}height:44px;padding:0 20px;`)}
         >
@@ -98,7 +102,10 @@ export function HomeScreen() {
       </div>
 
       {/* quick tools */}
-      <div style={s(`display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:30px;`)}>
+      <div
+        className="tc-mobile-stack"
+        style={s(`display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:30px;`)}
+      >
         <QuickTool
           icon={SparkleIcon}
           title="Recommend a therapy"
@@ -126,7 +133,10 @@ export function HomeScreen() {
           View all pathways
         </button>
       </div>
-      <div style={s(`display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:30px;`)}>
+      <div
+        className="tc-mobile-stack"
+        style={s(`display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:30px;`)}
+      >
         {pathways.map((p) => (
           <button
             key={p.slug}
@@ -173,7 +183,7 @@ export function HomeScreen() {
           Browse library
         </button>
       </div>
-      <div style={s(`display:grid;grid-template-columns:1fr 1fr;gap:12px;`)}>
+      <div className="tc-mobile-stack" style={s(`display:grid;grid-template-columns:1fr 1fr;gap:12px;`)}>
         {featuredList.map((t) => (
           <button
             key={t.slug}

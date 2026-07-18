@@ -168,6 +168,7 @@ export function RecommendScreen() {
               </div>
             </div>
             <div
+              className="tc-mobile-stack"
               style={s(
                 `display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;`,
               )}

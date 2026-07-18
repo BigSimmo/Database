@@ -192,7 +192,9 @@ function DesktopComparisonTable({
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
+            disabled
+            title="Selection editing is not available in this comparison view"
+            className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
           >
             <CircleCheck className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
             {workflow.selectedCount} of {workflow.totalCount} selected
@@ -200,7 +202,9 @@ function DesktopComparisonTable({
           </button>
           <button
             type="button"
-            className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
+            disabled
+            title="Column editing is not available in this comparison view"
+            className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
           >
             <SlidersHorizontal className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
             Edit columns
@@ -231,7 +235,7 @@ function DesktopComparisonTable({
               >
                 Criteria
                 <span className="mt-1.5 block text-2xs font-bold normal-case text-[color:var(--text-muted)]">
-                  Reorder
+                  Comparison detail
                 </span>
               </th>
               {candidates.map((candidate) => (
@@ -322,13 +326,16 @@ function SelectedDifferentialsPanel({
   candidates: CandidateView[];
 }) {
   const selectedCandidates = candidates.filter((candidate) => candidate.selected);
+  const remainingCount = Math.max(workflow.totalCount - selectedCandidates.length, 0);
   return (
     <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-extrabold uppercase text-[color:var(--text-muted)]">
           Selected differentials ({selectedCandidates.length} of {workflow.totalCount})
         </h2>
-        <span className="text-xs font-bold text-[color:var(--clinical-accent)]">+2</span>
+        {remainingCount > 0 ? (
+          <span className="text-xs font-bold text-[color:var(--clinical-accent)]">+{remainingCount} not selected</span>
+        ) : null}
       </div>
       <div className="mt-3 flex flex-wrap gap-2 text-[color:var(--text-muted)]">
         {selectedCandidates.map((candidate) => {
@@ -337,7 +344,9 @@ function SelectedDifferentialsPanel({
           );
         })}
       </div>
-      <p className="mt-3 text-xs font-medium text-[color:var(--text-muted)]">Long press to reorder. Tap to remove.</p>
+      <p className="mt-3 text-xs font-medium text-[color:var(--text-muted)]">
+        Open a selected differential to review its clinical record.
+      </p>
       <ul className="polished-scroll mt-3 max-h-[11rem] overflow-y-auto pr-1">
         {selectedCandidates.map((candidate) => (
           <li
@@ -351,7 +360,7 @@ function SelectedDifferentialsPanel({
               <CircleCheck className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
               <span className="truncate">{candidate.record.title}</span>
             </Link>
-            <MoreHorizontal className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
+            <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
           </li>
         ))}
       </ul>
@@ -532,7 +541,9 @@ function MobileComparison({
       <div className="grid grid-cols-[minmax(0,1fr)_3rem] gap-2">
         <button
           type="button"
-          className="inline-flex min-h-11 items-center justify-between gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
+          disabled
+          title="Selection editing is not available in this comparison view"
+          className="inline-flex min-h-11 cursor-not-allowed items-center justify-between gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
         >
           <span className="inline-flex min-w-0 items-center gap-2">
             <BrainCircuit className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
@@ -542,8 +553,10 @@ function MobileComparison({
         </button>
         <button
           type="button"
-          className="grid h-11 w-12 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)]"
-          aria-label="Filter differential columns"
+          disabled
+          title="Column filters are not available in this comparison view"
+          className="grid h-11 w-12 cursor-not-allowed place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
+          aria-label="Column filters unavailable"
         >
           <Filter className="h-4 w-4" aria-hidden />
         </button>

@@ -23,7 +23,16 @@ import {
   WifiOff,
   Wrench,
 } from "lucide-react";
-import { type CSSProperties, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { isLocalNoAuthMode, publicUploadsEnabled } from "@/lib/client-env";
@@ -652,6 +661,7 @@ export function ClinicalDashboard({
   const [documentsDrawerMode, setDocumentsDrawerMode] = useState<DocumentDrawerMode>("library");
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [uploadMobileTab, setUploadMobileTab] = useState<UploadIndexingTab>("upload");
+  const uploadTabRefs = useRef(new Map<UploadIndexingTab, HTMLButtonElement>());
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
@@ -3226,6 +3236,7 @@ export function ClinicalDashboard({
     id: UploadIndexingTab;
     label: string;
     summary: string;
+    tabId: string;
     panelId: string;
     icon: typeof UploadCloud;
   }> = [
@@ -3233,6 +3244,7 @@ export function ClinicalDashboard({
       id: "setup",
       label: "Setup",
       summary: `${setupReadyCount}/${setupCheckCount} ready`,
+      tabId: "dashboard-upload-tab-setup",
       panelId: "dashboard-setup-section",
       icon: ListChecks,
     },
@@ -3240,6 +3252,7 @@ export function ClinicalDashboard({
       id: "upload",
       label: "Upload",
       summary: uploadReadOnlyMode || !canUploadDocuments ? "Locked" : "Ready",
+      tabId: "dashboard-upload-tab-upload",
       panelId: "dashboard-upload-section",
       icon: UploadCloud,
     },
@@ -3251,6 +3264,7 @@ export function ClinicalDashboard({
         : failedUploadWork
           ? `${failedUploadWork} failed`
           : "Idle",
+      tabId: "dashboard-upload-tab-jobs",
       panelId: "dashboard-indexing-section",
       icon: RefreshCw,
     },
@@ -3258,10 +3272,31 @@ export function ClinicalDashboard({
       id: "quality",
       label: "Quality",
       summary: qualityItems.length ? `${qualityItems.length} review` : "Clear",
+      tabId: "dashboard-upload-tab-quality",
       panelId: "dashboard-quality-section",
       icon: ShieldAlert,
     },
   ];
+
+  function handleUploadTabKeyDown(event: ReactKeyboardEvent<HTMLElement>) {
+    const order = uploadTabs.map((tab) => tab.id);
+    const index = order.indexOf(uploadMobileTab);
+    const next =
+      event.key === "ArrowRight"
+        ? order[(index + 1) % order.length]
+        : event.key === "ArrowLeft"
+          ? order[(index - 1 + order.length) % order.length]
+          : event.key === "Home"
+            ? order[0]
+            : event.key === "End"
+              ? order[order.length - 1]
+              : null;
+    if (!next) return;
+    event.preventDefault();
+    if (next !== uploadMobileTab) setUploadMobileTab(next);
+    uploadTabRefs.current.get(next)?.focus();
+  }
+
   const handleUploadQueued = () => {
     setUserStartedIngestion(true);
     setIndexingActive(true);
@@ -3385,6 +3420,7 @@ export function ClinicalDashboard({
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
         <MasterSearchHeader
+          demoMode={clientDemoMode}
           documents={documents}
           documentTotal={indexedDocumentTotal}
           query={query}
@@ -3754,14 +3790,12 @@ export function ClinicalDashboard({
                 ) : activeModeResultKind === "favourites" ? (
                   <FavouritesHub
                     query={query}
+                    demoMode={clientDemoMode}
                     onClearQuery={() => {
                       setQuery("");
                       setModeSearchSubmitted(false);
                       router.replace(appModeHomeHref("favourites", { focus: true, queryMode, scopeFilters }));
                     }}
-                    onAddFavourite={() =>
-                      setActionNotice({ tone: "success", message: "Favourite creation is ready to connect." })
-                    }
                     desktopComposerSlotId={desktopHomeComposerSlotId}
                   />
                 ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
@@ -3980,6 +4014,7 @@ export function ClinicalDashboard({
                       <div
                         role="tablist"
                         aria-label="Upload and indexing sections"
+                        onKeyDown={handleUploadTabKeyDown}
                         className="grid grid-cols-4 gap-2 lg:hidden"
                       >
                         {uploadTabs.map((tab) => {
@@ -3988,10 +4023,18 @@ export function ClinicalDashboard({
                           return (
                             <button
                               key={tab.id}
+                              ref={(element) => {
+                                if (element) uploadTabRefs.current.set(tab.id, element);
+                                else uploadTabRefs.current.delete(tab.id);
+                              }}
                               type="button"
                               role="tab"
+                              id={tab.tabId}
                               aria-selected={active}
                               aria-controls={tab.panelId}
+                              aria-label={tab.label}
+                              aria-describedby={`${tab.tabId}-summary`}
+                              tabIndex={active ? 0 : -1}
                               onClick={() => setUploadMobileTab(tab.id)}
                               className={cn(
                                 "min-h-[56px] rounded-lg border px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] active:translate-y-px",
@@ -4004,7 +4047,10 @@ export function ClinicalDashboard({
                                 <Icon className="h-3.5 w-3.5" />
                                 {tab.label}
                               </span>
-                              <span className="mt-1 block truncate text-2xs font-semibold opacity-80">
+                              <span
+                                id={`${tab.tabId}-summary`}
+                                className="mt-1 block truncate text-2xs font-semibold opacity-80"
+                              >
                                 {tab.summary}
                               </span>
                             </button>
@@ -4015,7 +4061,7 @@ export function ClinicalDashboard({
                         <div
                           id="dashboard-setup-section"
                           role="tabpanel"
-                          aria-label="Setup"
+                          aria-labelledby="dashboard-upload-tab-setup"
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
                             uploadMobileTab !== "setup" && "hidden lg:block",
@@ -4030,7 +4076,7 @@ export function ClinicalDashboard({
                         <div
                           id="dashboard-upload-section"
                           role="tabpanel"
-                          aria-label="Upload"
+                          aria-labelledby="dashboard-upload-tab-upload"
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
                             uploadMobileTab !== "upload" && "hidden lg:block",
@@ -4052,7 +4098,7 @@ export function ClinicalDashboard({
                         <div
                           id="dashboard-indexing-section"
                           role="tabpanel"
-                          aria-label="Jobs"
+                          aria-labelledby="dashboard-upload-tab-jobs"
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
                             uploadMobileTab !== "jobs" && "hidden lg:block",
@@ -4074,7 +4120,7 @@ export function ClinicalDashboard({
                         <div
                           id="dashboard-quality-section"
                           role="tabpanel"
-                          aria-label="Quality"
+                          aria-labelledby="dashboard-upload-tab-quality"
                           className={cn(
                             "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
                             uploadMobileTab !== "quality" && "hidden lg:block",

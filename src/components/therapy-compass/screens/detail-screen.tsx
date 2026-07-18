@@ -96,7 +96,7 @@ export function DetailScreen() {
           </div>
 
           {/* QUICK TILES */}
-          <div style={s(`display:grid;grid-template-columns:1fr 1fr;gap:14px;`)}>
+          <div className="tc-mobile-stack" style={s(`display:grid;grid-template-columns:1fr 1fr;gap:14px;`)}>
             <Tile
               icon={ShieldIcon}
               eyebrow="USE WHEN"
@@ -201,7 +201,10 @@ export function DetailScreen() {
         </div>
 
         {/* RIGHT RAIL */}
-        <div style={s(`display:flex;flex-direction:column;gap:16px;position:sticky;top:84px;`)}>
+        <div
+          className="tc-mobile-static"
+          style={s(`display:flex;flex-direction:column;gap:16px;position:sticky;top:84px;`)}
+        >
           <div style={s(card + "padding:20px;")}>
             <div style={s(`font-size:14px;font-weight:650;color:var(--text-heading);margin-bottom:14px;`)}>
               At a glance

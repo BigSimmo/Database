@@ -1,18 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import {
-  ArrowUpDown,
-  ChevronDown,
-  Filter,
-  Folder,
-  FolderInput,
-  Heart,
-  Plus,
-  Search,
-  ShieldCheck,
-  X,
-} from "lucide-react";
+import { ArrowUpDown, ChevronDown, Filter, Folder, Heart, Plus, Search, ShieldCheck, X } from "lucide-react";
 import { useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
@@ -40,20 +29,24 @@ function favouriteMatchesQuery(value: { title: string; meta?: string; set?: stri
 export function FavouritesHub({
   query,
   onClearQuery,
-  onAddFavourite,
   desktopComposerSlotId,
+  demoMode,
   headingLevel = 2,
 }: {
   query: string;
   onClearQuery: () => void;
-  onAddFavourite: () => void;
   desktopComposerSlotId?: string;
+  demoMode: boolean;
   headingLevel?: 1 | 2;
 }) {
   const savedRegistryFavourites = useSavedRegistryFavourites();
-  const allFavouriteItems = useMemo(() => [...favouriteItems, ...savedRegistryFavourites], [savedRegistryFavourites]);
+  const allFavouriteItems = useMemo(
+    () => [...(demoMode ? favouriteItems : []), ...savedRegistryFavourites],
+    [demoMode, savedRegistryFavourites],
+  );
   const allFavouriteSets = useMemo(() => {
-    const savedSetTitles = new Set(favouriteSets.map((set) => set.title));
+    const prototypeSets = demoMode ? favouriteSets : [];
+    const savedSetTitles = new Set(prototypeSets.map((set) => set.title));
     const dynamicSets: FavouriteSet[] = Array.from(new Set(savedRegistryFavourites.map((item) => item.set)))
       .filter((title): title is string => Boolean(title) && !savedSetTitles.has(title))
       .map((title) => ({
@@ -67,13 +60,13 @@ export function FavouritesHub({
         keywords: title.toLowerCase(),
       }));
     return [
-      ...favouriteSets.map((set) => ({
+      ...prototypeSets.map((set) => ({
         ...set,
         count: allFavouriteItems.filter((item) => item.set === set.title).length,
       })),
       ...dynamicSets,
     ].filter((set) => set.count > 0);
-  }, [allFavouriteItems, savedRegistryFavourites]);
+  }, [allFavouriteItems, demoMode, savedRegistryFavourites]);
   const [selectedTab, setSelectedTab] = useState<FavouriteTabId>("all");
   const [tabMenuOpen, setTabMenuOpen] = useState(false);
   const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
@@ -312,14 +305,23 @@ export function FavouritesHub({
           ) : null}
         </div>
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:justify-end">
-          <button type="button" className={cn(floatingControl, "min-h-11 px-3 text-xs sm:min-h-9 sm:px-2.5")}>
+          <button
+            type="button"
+            disabled
+            title="Additional sort options are coming soon"
+            className={cn(floatingControl, "min-h-11 cursor-not-allowed px-3 text-xs opacity-60 sm:min-h-9 sm:px-2.5")}
+          >
             <ArrowUpDown aria-hidden="true" className="h-4 w-4" />
             Recent
           </button>
           <button
             type="button"
-            onClick={onAddFavourite}
-            className={cn(primaryControl, "min-h-11 justify-center px-3 text-xs sm:min-h-9 sm:px-2.5")}
+            disabled
+            title="Adding favourites from this screen is coming soon"
+            className={cn(
+              primaryControl,
+              "min-h-11 cursor-not-allowed justify-center px-3 text-xs opacity-60 sm:min-h-9 sm:px-2.5",
+            )}
           >
             <Plus aria-hidden="true" className="h-4 w-4" />
             <span className="hidden sm:inline">Add favourite</span>
@@ -392,7 +394,7 @@ export function FavouritesHub({
 
             {showItems
               ? visibleItems.map((item) => (
-                  <FavouriteItemRow key={item.id} item={item} onMoveToSet={() => setSelectedTab("sets")} />
+                  <FavouriteItemRow key={item.id} item={item} onBrowseSets={() => setSelectedTab("sets")} />
                 ))
               : null}
 
@@ -443,8 +445,9 @@ export function FavouritesHub({
             </div>
             <button
               type="button"
-              onClick={onAddFavourite}
-              className={cn(floatingControl, "mt-3 min-h-9 w-full px-3 text-xs")}
+              disabled
+              title="Creating favourite sets is coming soon"
+              className={cn(floatingControl, "mt-3 min-h-9 w-full cursor-not-allowed px-3 text-xs opacity-60")}
             >
               <Plus aria-hidden="true" className="h-4 w-4" />
               New set
@@ -458,7 +461,7 @@ export function FavouritesHub({
   );
 }
 
-function FavouriteItemRow({ item, onMoveToSet }: { item: FavouriteItem; onMoveToSet: () => void }) {
+function FavouriteItemRow({ item, onBrowseSets }: { item: FavouriteItem; onBrowseSets: () => void }) {
   const Icon = item.icon;
   return (
     <article className="grid min-h-[4.25rem] grid-cols-[2.5rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-[color:var(--border)] py-2.5 last:border-b-0">
@@ -479,21 +482,18 @@ function FavouriteItemRow({ item, onMoveToSet }: { item: FavouriteItem; onMoveTo
         <Link href={item.href} className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
           {item.primaryAction}
         </Link>
-        <button type="button" onClick={onMoveToSet} className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
-          <FolderInput aria-hidden="true" className="h-3.5 w-3.5" />
-          Move
+        <button type="button" onClick={onBrowseSets} className={cn(floatingControl, "min-h-9 px-2.5 text-xs")}>
+          <Folder aria-hidden="true" className="h-3.5 w-3.5" />
+          Browse sets
         </button>
       </div>
-      <button
-        type="button"
-        onClick={() => {
-          window.location.href = item.href;
-        }}
+      <Link
+        href={item.href}
         className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] sm:hidden"
         aria-label={`Open ${item.title}`}
       >
         <ChevronDown aria-hidden="true" className="-rotate-90 h-4 w-4" />
-      </button>
+      </Link>
     </article>
   );
 }

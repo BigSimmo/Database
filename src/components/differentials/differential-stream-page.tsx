@@ -59,7 +59,7 @@ export function DifferentialStreamPage({ stream, query = "" }: DifferentialStrea
             <span className="text-sm text-[color:var(--text-muted)]">Diagnosis-focused differential content</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            {copy.cards.map((card) => (
+            {copy.cards.map((card, index) => (
               <Link
                 key={card.id}
                 href={card.href}
@@ -68,8 +68,8 @@ export function DifferentialStreamPage({ stream, query = "" }: DifferentialStrea
                 <h3 className="text-sm font-bold text-[color:var(--text-heading)]">{card.title}</h3>
                 <p className="mt-1 text-sm text-[color:var(--text-muted)]">{card.description}</p>
                 <ul className="mt-2 flex flex-col gap-1 text-xs leading-6 text-[color:var(--text-soft)]">
-                  {card.examples.map((example) => (
-                    <li key={example} className="flex items-start gap-2">
+                  {card.examples.map((example, index) => (
+                    <li key={`${card.href}:${index}:${example}`} className="flex items-start gap-2">
                       <FileText className="mt-0.5 h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
                       {example}
                     </li>

@@ -1,4 +1,5 @@
 import { FavouritesCommandLibraryPage } from "@/components/clinical-dashboard/favourites-command-library-page";
+import { isDemoMode } from "@/lib/env";
 
 type FavouritesPageProps = {
   searchParams?: Promise<{
@@ -16,5 +17,5 @@ export default async function FavouritesPage({ searchParams }: FavouritesPagePro
 
   // No key={query} remount: query is a pure prop, and remounting on query
   // change wiped the set/type/view/sort selections when clearing a search.
-  return <FavouritesCommandLibraryPage query={query} />;
+  return <FavouritesCommandLibraryPage query={query} demoMode={isDemoMode()} />;
 }

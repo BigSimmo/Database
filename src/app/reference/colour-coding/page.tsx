@@ -31,7 +31,7 @@ const TONE_SAMPLE_LABEL: Record<(typeof SEMANTIC_TONES)[number], string> = {
 
 export default function ColourCodingReferencePage() {
   return (
-    <main className={cn(searchPageCanvas)}>
+    <main id="main-content" tabIndex={-1} className={cn(searchPageCanvas, "outline-none")}>
       <div className={cn(searchPageShell)}>
         <div className={cn(searchPageContainer, "space-y-6")}>
           <header className="space-y-2">

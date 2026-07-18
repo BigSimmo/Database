@@ -314,11 +314,8 @@ function GlobalStandaloneSearchShellClient({
   // Recent queries are owner-scoped session state (2026-07-13 audit, finding 4):
   // the legacy unscoped localStorage value could resurface another account's
   // clinical queries on a shared workstation, so it is deleted, never read.
-  const recentQueriesOwnerId =
-    auth.session?.user.id ??
-    (!auth.isConfigured || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || isLocalNoAuthMode()
-      ? demoRecentQueryOwnerId
-      : null);
+  const clientDemoMode = !auth.isConfigured || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || isLocalNoAuthMode();
+  const recentQueriesOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
 
   useEffect(() => {
     clearLegacyRecentQueries();
@@ -512,6 +509,7 @@ function GlobalStandaloneSearchShellClient({
       <div className="flex min-w-0 flex-col max-sm:h-full max-sm:min-h-0 max-sm:overflow-hidden sm:min-h-dvh">
         <div className={mobileChromeVisible ? undefined : "hidden lg:block"}>
           <MasterSearchHeader
+            demoMode={clientDemoMode}
             documents={[]}
             documentTotal={0}
             query={query}

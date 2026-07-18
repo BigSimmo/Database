@@ -10,16 +10,17 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 // Prototype /mockups journeys live in their own advisory project so a red
 // mockup can never mask a production-journey regression (PT-05). The two
 // Tag-level filters keep production and prototype journeys disjoint even when
-// they share a spec file.
+// they share a spec file. Every required browser project uses the same
+// production matcher and tag exclusion.
 const productionSpecPattern =
-  /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|pwa))\.spec\.ts/;
+  /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|pwa|route-coverage))\.spec\.ts/;
 const mockupSpecPattern = /.*ui-(tools|tools-collapse|tools-task-directory)\.spec\.ts/;
 const mockupTag = /@mockup/;
 
 export default defineConfig({
   testDir: "./tests",
   testMatch:
-    /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|tools-collapse|tools-task-directory|overlap|universal-search|specifiers|formulation|pwa))\.spec\.ts/,
+    /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|tools-collapse|tools-task-directory|overlap|universal-search|specifiers|formulation|pwa|route-coverage))\.spec\.ts/,
   timeout: 60_000,
   retries: 0,
   // Fail the run if a stray `test.only` is committed: otherwise it silently
