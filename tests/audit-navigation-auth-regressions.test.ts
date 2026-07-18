@@ -95,9 +95,14 @@ describe("audit navigation and auth regressions", () => {
       "const uploadReadOnlyMode =",
       "const canUsePrivateApis =",
     );
+    // Uploads stay writable in local no-auth; only explicit demo / auth-unavailable lock them.
     expect(uploadReadOnlyContract).toContain("const uploadReadOnlyMode = resolveUploadReadOnlyMode({");
+    expect(uploadReadOnlyContract).toContain("explicitDemoMode,");
     expect(uploadReadOnlyContract).toContain("authUnavailableFallback: browserAuthUnavailableDemoFallback");
+    expect(uploadReadOnlyContract).not.toContain("localNoAuthMode");
     expect(uploadReadOnlyContract).not.toMatch(/const uploadReadOnlyMode = clientDemoMode\b/);
+    expect(uploadReadOnlyContract).not.toMatch(/const uploadReadOnlyMode = resolveClientDemoMode\b/);
+    expect(source("src/lib/client-env.ts")).toContain("localNoAuthMode: false");
 
     const privateCapabilityContract = sourceSegment(
       clinicalDashboardSource,
