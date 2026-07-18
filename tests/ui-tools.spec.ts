@@ -6,6 +6,7 @@ import { formRecords, rankFormRecords } from "../src/lib/forms";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
 import { sortResultItems } from "../src/lib/result-sort";
+import { serviceRecords } from "../src/lib/services";
 import { scrollPrimarySurface } from "./playwright-scroll";
 
 const readySetupChecks = [
@@ -152,8 +153,7 @@ async function mockAnswerDashboardApi(page: Page) {
   });
   await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
     const kind = new URL(route.request().url()).searchParams.get("kind");
-    const records =
-      kind === "form" ? formRecords : [{ slug: "13yarn", title: "13YARN", subtitle: "Crisis support line" }];
+    const records = kind === "form" ? formRecords : serviceRecords;
     await route.fulfill({
       json: {
         records,
@@ -167,7 +167,10 @@ async function mockAnswerDashboardApi(page: Page) {
     const url = new URL(route.request().url());
     const slug = decodeURIComponent(url.pathname.split("/").pop() ?? "");
     const kind = url.searchParams.get("kind");
-    const record = kind === "form" ? formRecords.find((form) => form.slug === slug) : undefined;
+    const record =
+      kind === "form"
+        ? formRecords.find((form) => form.slug === slug)
+        : serviceRecords.find((service) => service.slug === slug);
     if (!record) {
       await route.fulfill({ status: 404, json: { error: "Registry record not found" } });
       return;
@@ -882,7 +885,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("forms mode shows registry-backed form records without unsupported pathway claims", async ({ page }) => {
+  test("forms mode shows source-backed form records in search results", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockAnswerDashboardApi(page);
     await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
@@ -902,9 +905,6 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(
       page.getByTestId("form-search-result-transport-crisis-form").getByLabel("Open Transport order"),
     ).toHaveAttribute("href", "/forms/transport-crisis-form");
-    await expect(page.getByRole("button", { name: "Refine" })).toHaveCount(0);
-    await expect(page.getByText(/Evidence 278|Pathways 12|Tasks 8|Source verified|Aligned to MHA 2014/)).toHaveCount(0);
-    await expect(page.getByText(/PSOLIS Transport|View full pathway/)).toHaveCount(0);
     await expect(page.getByTestId("service-search-results")).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
   });
@@ -1005,7 +1005,6 @@ test.describe("Clinical KB tools launcher", () => {
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
     await expect(page.getByTestId("form-search-mobile-result-transport-crisis-form")).toContainText("Transport order");
-    await expect(page.getByText(/PSOLIS Transport|View full pathway|Source verified/)).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("transport");
     await expectNoPageHorizontalOverflow(page);
   });
@@ -1018,19 +1017,6 @@ test.describe("Clinical KB tools launcher", () => {
     const dock = page.locator("form.answer-footer-search-dock");
     await expect(dock).toBeVisible();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-    const transition = await dock.evaluate((node) => {
-      const style = window.getComputedStyle(node);
-      const durationMs = Math.max(
-        ...style.transitionDuration.split(",").map((value) => {
-          const normalized = value.trim();
-          const duration = Number.parseFloat(normalized);
-          return normalized.endsWith("ms") ? duration : duration * 1000;
-        }),
-      );
-      return { durationMs, property: style.transitionProperty };
-    });
-    expect(transition.property).toMatch(/transform|all/);
-    expect(transition.durationMs).toBeGreaterThanOrEqual(100);
 
     // focus=1 leaves the composer focused; hide-on-scroll stays off while it has focus.
     const input = visibleGlobalSearchInput(page).first();

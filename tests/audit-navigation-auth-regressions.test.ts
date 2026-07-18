@@ -43,6 +43,14 @@ describe("audit navigation and auth regressions", () => {
       "https://clinical-kb.test/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
     );
 
+    const presentationsEmptyQueryFallback = redirectPresentations(
+      new NextRequest("https://clinical-kb.test/differentials/presentations?query=%20%20&q=delirium"),
+    );
+    expect(presentationsEmptyQueryFallback.status).toBe(307);
+    expect(presentationsEmptyQueryFallback.headers.get("location")).toBe(
+      "https://clinical-kb.test/differentials/presentations/acute-confusion-encephalopathy?q=delirium",
+    );
+
     const medications = redirectMedications(new NextRequest("https://clinical-kb.test/medications?ignored=1"));
     expect(medications.status).toBe(307);
     expect(medications.headers.get("location")).toBe("https://clinical-kb.test/?mode=prescribing");
@@ -124,7 +132,7 @@ describe("audit navigation and auth regressions", () => {
     expect(uploadMutationContract).toContain("if (!canUsePrivateApis) {");
   });
 
-  it("keeps the root dashboard H1 as Clinical KB", () => {
+  it("keeps the root dashboard H1 as Clinical Guide", () => {
     expect(clinicalDashboardSource.match(/<h1\b/g)).toHaveLength(1);
     expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical Guide\s*<\/h1>/);
   });
