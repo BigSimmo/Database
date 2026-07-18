@@ -12,33 +12,37 @@ import {
 } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { defaultServiceSlug } from "@/lib/services";
 import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-registry-records";
 
-const taskCards: ModeHomeAction[] = [
-  {
-    title: "Search services",
-    description: "Need, catchment, provider, keyword.",
-    icon: FileSearch,
-    href: appModeHomeHref("services", { focus: true }),
-  },
-  {
-    title: "Check catchment",
-    description: "Region, public/private, eligibility.",
-    icon: MapPinned,
-    href: `/services/${defaultServiceSlug() ?? ""}`,
-  },
-  {
-    title: "Browse referral pathways",
-    description: "Crisis, youth, Aboriginal health, telehealth.",
-    icon: Route,
-    href: appModeHomeHref("services", {
-      query: "crisis youth Aboriginal health telehealth referral pathway",
-      focus: true,
-      run: true,
-    }),
-  },
-];
+// The default service slug is computed server-side (app/services/page.tsx) and
+// passed as a prop: a direct `@/lib/services` value import here would compile
+// the full services snapshot (~100 KB gzip) into this client route chunk.
+function buildTaskCards(defaultServiceSlug: string | null): ModeHomeAction[] {
+  return [
+    {
+      title: "Search services",
+      description: "Need, catchment, provider, keyword.",
+      icon: FileSearch,
+      href: appModeHomeHref("services", { focus: true }),
+    },
+    {
+      title: "Check catchment",
+      description: "Region, public/private, eligibility.",
+      icon: MapPinned,
+      href: `/services/${defaultServiceSlug ?? ""}`,
+    },
+    {
+      title: "Browse referral pathways",
+      description: "Crisis, youth, Aboriginal health, telehealth.",
+      icon: Route,
+      href: appModeHomeHref("services", {
+        query: "crisis youth Aboriginal health telehealth referral pathway",
+        focus: true,
+        run: true,
+      }),
+    },
+  ];
+}
 
 const commonPathways: ModeHomePill[] = [
   {
@@ -78,7 +82,8 @@ const commonPathways: ModeHomePill[] = [
   },
 ];
 
-export function ServicesHomePage() {
+export function ServicesHomePage({ defaultServiceSlug = null }: { defaultServiceSlug?: string | null }) {
+  const taskCards = buildTaskCards(defaultServiceSlug);
   const registry = useRegistryRecords("service");
   const verifiedCount = countVerifiedRegistryRecords(registry);
   const registryReady = registry.status === "ready";
