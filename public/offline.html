@@ -9,11 +9,38 @@
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#060708" />
     <title>Clinical KB is offline</title>
     <style>
+      /* Standalone page: cannot import globals.css, so the Clinical White /
+         Aegean Graphite tokens are mirrored here as local custom properties.
+         Each value is annotated with its source token from
+         docs/redesign/permanent-colour-direction.md and src/app/globals.css.
+         Editing this file requires a new unique CACHE_VERSION in public/sw.js
+         (enforced by the pairing guard in tests/pwa-manifest.test.ts). */
       :root {
         color-scheme: light dark;
-        font-family: Arial, Helvetica, sans-serif;
-        background: #f4f7f8;
-        color: #142126;
+        /* System stack: the app's webfont cannot load here (zero external
+           requests), so approximate its metrics with the platform UI face. */
+        font-family:
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          Arial,
+          sans-serif;
+        --page-background: #ffffff; /* --background */
+        --page-surface: #fcfcfd; /* --surface-raised */
+        --page-border: #e5e7eb; /* --border */
+        --page-border-lux: rgb(205 213 223 / 55%); /* --border-lux */
+        --page-text: #101418; /* --text */
+        --page-heading: #080b0f; /* --text-heading */
+        --page-muted: #475467; /* --text-muted */
+        --page-accent: #0b6f86; /* --clinical-accent */
+        --page-accent-hover: #095d70; /* --clinical-accent-hover */
+        --page-accent-contrast: #ffffff; /* --clinical-accent-contrast */
+        --page-focus: var(--page-accent); /* --focus: var(--clinical-accent) */
+        --page-glow: rgb(11 111 134 / 10%); /* accent at low alpha */
+        --page-shadow: 0 1rem 3rem rgb(16 20 24 / 10%);
+        background: var(--page-background);
+        color: var(--page-text);
       }
 
       * {
@@ -29,16 +56,16 @@
         place-items: center;
         padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right))
           max(1.25rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
-        background: radial-gradient(circle at 15% 10%, rgba(11, 111, 134, 0.12), transparent 34rem), #f4f7f8;
+        background: radial-gradient(circle at 15% 10%, var(--page-glow), transparent 34rem) var(--page-background);
       }
 
       main {
         width: min(100%, 34rem);
         padding: clamp(1.5rem, 5vw, 2.5rem);
-        border: 1px solid #cbd7da;
+        border: 1px solid var(--page-border-lux);
         border-radius: 1.25rem;
-        background: rgba(255, 255, 255, 0.96);
-        box-shadow: 0 1rem 3rem rgba(20, 33, 38, 0.12);
+        background: var(--page-surface);
+        box-shadow: var(--page-shadow);
       }
 
       .mark {
@@ -48,14 +75,15 @@
         place-items: center;
         margin-bottom: 1.25rem;
         border-radius: 1rem;
-        background: #0b6f86;
-        color: #ffffff;
+        background: var(--page-accent);
+        color: var(--page-accent-contrast);
         font-size: 1.5rem;
         font-weight: 800;
       }
 
       h1 {
         margin: 0;
+        color: var(--page-heading);
         font-size: clamp(1.75rem, 6vw, 2.35rem);
         line-height: 1.08;
         letter-spacing: -0.035em;
@@ -63,14 +91,14 @@
 
       p {
         margin: 1rem 0 0;
-        color: #465b63;
+        color: var(--page-muted);
         font-size: 1rem;
         line-height: 1.65;
       }
 
       .privacy-note {
         padding-top: 1rem;
-        border-top: 1px solid #dbe3e5;
+        border-top: 1px solid var(--page-border);
         font-size: 0.9rem;
       }
 
@@ -82,53 +110,35 @@
         margin-top: 1.5rem;
         padding: 0.75rem 1rem;
         border-radius: 0.75rem;
-        background: #0b6f86;
-        color: #ffffff;
-        font-weight: 750;
+        background: var(--page-accent);
+        color: var(--page-accent-contrast);
+        font-weight: 700;
         text-decoration: none;
       }
 
       a:hover {
-        background: #075b6e;
+        background: var(--page-accent-hover);
       }
 
       a:focus-visible {
-        outline: 3px solid #f59e0b;
+        outline: 3px solid var(--page-focus);
         outline-offset: 3px;
       }
 
       @media (prefers-color-scheme: dark) {
         :root {
-          background: #060708;
-          color: #f1f6f7;
-        }
-
-        body {
-          background: radial-gradient(circle at 15% 10%, rgba(76, 207, 208, 0.12), transparent 34rem), #060708;
-        }
-
-        main {
-          border-color: #344147;
-          background: rgba(17, 20, 22, 0.96);
-          box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.45);
-        }
-
-        .mark,
-        a {
-          background: #4ccfd0;
-          color: #04252a;
-        }
-
-        a:hover {
-          background: #72dcdd;
-        }
-
-        p {
-          color: #b8c6ca;
-        }
-
-        .privacy-note {
-          border-color: #344147;
+          --page-background: #060708; /* dark --background */
+          --page-surface: #171a1d; /* dark --surface-raised */
+          --page-border: rgba(255, 255, 255, 0.08); /* dark --border-lux */
+          --page-border-lux: rgba(255, 255, 255, 0.08); /* dark --border-lux */
+          --page-text: #f5f7f7; /* dark --text */
+          --page-heading: #f5f7f7; /* dark headings share --text */
+          --page-muted: #a7b0ad; /* dark --text-muted */
+          --page-accent: #4ccfd0; /* dark --clinical-accent */
+          --page-accent-hover: #72dcdd; /* dark accent, one step lighter */
+          --page-accent-contrast: #04252a; /* brand dark ink */
+          --page-glow: rgb(76 207 208 / 10%);
+          --page-shadow: 0 1rem 3rem rgb(0 0 0 / 45%);
         }
       }
 
