@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type SetAllCookies } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 import { env } from "@/lib/env";
@@ -17,6 +17,14 @@ export function publicSupabaseConfig(): { url: string; key: string } | null {
   return { url, key };
 }
 
+type SupabaseServerClientOptions = {
+  /**
+   * Route handlers that construct their own response must apply both the
+   * rotated auth cookies and the accompanying anti-cache headers to it.
+   */
+  setAllCookies?: SetAllCookies;
+};
+
 /**
  * Cookie-aware Supabase client for Server Components and Route Handlers. Reads
  * (and, where the context allows, refreshes) the user's `@supabase/ssr` session
@@ -24,7 +32,7 @@ export function publicSupabaseConfig(): { url: string; key: string } | null {
  * absent so callers can fall back to demo behaviour. RLS applies to this client
  * (unlike the service-role admin client).
  */
-export async function createSupabaseServerClient() {
+export async function createSupabaseServerClient(options: SupabaseServerClientOptions = {}) {
   const config = publicSupabaseConfig();
   if (!config) return null;
 
@@ -34,7 +42,11 @@ export async function createSupabaseServerClient() {
       getAll() {
         return cookieStore.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet, responseHeaders) {
+        if (options.setAllCookies) {
+          return options.setAllCookies(cookiesToSet, responseHeaders);
+        }
+
         try {
           for (const { name, value, options } of cookiesToSet) {
             cookieStore.set(name, value, options);
