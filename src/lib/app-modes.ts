@@ -15,6 +15,7 @@ export const appModeIds = [
   "prescribing",
   "tools",
   "therapy-compass",
+  "factsheets",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -336,6 +337,31 @@ export const appModeDefinitions = [
       badgeLabel: null,
     },
   },
+  {
+    id: "factsheets",
+    label: "Factsheets",
+    description: "Plain-language patient information to read, save, and print",
+    href: "/factsheets",
+    search: {
+      // Factsheets owns its own in-tool search over the local patient-information
+      // library (not the document corpus), so it borrows the benign "tools" search
+      // kind — like Therapy Compass — while keeping the shared composer visible.
+      kind: "tools",
+      placeholder: "Search a medicine, condition, therapy or test…",
+      inputAriaLabel: "Search patient information factsheets",
+      submitIdleLabel: "Sheets",
+      submitBusyLabel: "Sheets",
+      submitAriaLabel: "Search patient information factsheets",
+      emptyTitle: "Search patient information",
+      readyTitle: "Find a patient factsheet",
+      progressLabel: "Searching patient factsheets.",
+      resultKind: "tools",
+      resultHeading: "Factsheets",
+      statusLabel: "Factsheets",
+      nextStep: "Open a factsheet to read, save, or print",
+      badgeLabel: null,
+    },
+  },
 ] as const satisfies readonly AppModeDefinition[];
 
 export function appModeDefinition(modeId: AppModeId) {
@@ -369,6 +395,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "specifiers",
   "formulation",
   "therapy-compass",
+  "factsheets",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {
@@ -387,7 +414,8 @@ export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOpti
     appendSearchNavigationContext(namespacedParams, options);
 
     const suffix = namespacedParams.toString();
-    const namespacedHref = modeId === "dsm" && query ? "/dsm/search" : mode.href;
+    const namespacedHref =
+      query && modeId === "dsm" ? "/dsm/search" : query && modeId === "factsheets" ? "/factsheets/search" : mode.href;
     return suffix ? `${namespacedHref}?${suffix}` : namespacedHref;
   }
 
