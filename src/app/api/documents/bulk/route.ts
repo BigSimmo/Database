@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
@@ -129,6 +130,17 @@ export async function POST(request: Request) {
 
     const supabase = createAdminClient();
     const user = await requireAuthenticatedUser(request, supabase);
+
+    const rateLimit = await consumeApiRateLimit({
+      supabase,
+      ownerId: user.id,
+      bucket: "document_admin",
+      allowInMemoryFallbackOnUnavailable: true,
+    });
+    if (rateLimit.limited) {
+      return rateLimitJsonResponse("Too many document administration requests. Retry shortly.", rateLimit);
+    }
+
     const ids = Array.from(new Set(parsed.documentIds));
 
     const { data: documents, error: documentsError } = await supabase

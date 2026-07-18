@@ -436,6 +436,22 @@ html {
   scroll-padding-top: calc(4rem + env(safe-area-inset-top));
 }
 
+/*
+ * Interface density scales the rem baseline so every rem-based size shifts
+ * together. "Comfortable" is the browser default (16px) and sets no attribute,
+ * so the untouched default experience is unchanged. The attribute is applied on
+ * <html> before first paint (layout.tsx inline script) and kept in sync by
+ * useAppPreferences. The unlayered 16px mobile input floor above still wins for
+ * form controls so iOS never zooms.
+ */
+html[data-density="compact"] {
+  font-size: 15px;
+}
+
+html[data-density="spacious"] {
+  font-size: 17px;
+}
+
 body {
   min-height: 100%;
   min-height: 100svh;
@@ -1442,6 +1458,21 @@ summary::-webkit-details-marker {
   color: var(--clinical-accent);
 }
 
+/* Touch devices: suggestion/follow-up chips are primary tap targets (the
+   follow-ups sit directly under the composer and each fires a new search).
+   Meet the 44px tap floor and widen the gap so neighbouring chips in the
+   horizontal scroll row don't invite mis-taps. Fine-pointer (mouse) users keep
+   the compact 32px chip — no desktop visual change. */
+@media (pointer: coarse) {
+  .answer-suggestion-chips {
+    gap: 0.5rem;
+  }
+
+  .answer-suggestion-chip {
+    min-height: var(--spacing-tap);
+  }
+}
+
 .answer-suggestion-chip:disabled {
   cursor: not-allowed;
 }
@@ -1511,8 +1542,14 @@ summary::-webkit-details-marker {
   padding-inline: 0.25rem;
 }
 
+/* Phone answer dock: the "Try next" chip row sits directly above the pill with
+   no flex-gap owner (showFooterSearchChips is false on phones), so this margin
+   is the sole separator. It must stay positive — a negative value tucked the
+   chips' rounded underside beneath the pill's top edge/focus glow, reading as a
+   collision. Keep the gap just large enough to read as intentional without
+   pushing the row up into the content that shows through the scrim above. */
 .answer-footer-search-edge .answer-suggestion-row-composer-followups {
-  margin-bottom: -0.125rem;
+  margin-bottom: 0.4375rem;
 }
 
 @media (max-width: 639px) {
@@ -2181,6 +2218,26 @@ summary::-webkit-details-marker {
   .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
     transform: none !important;
   }
+}
+
+/*
+ * Explicit "Reduce motion" preference from the settings surface. Mirrors the
+ * prefers-reduced-motion suppression above so users can opt in regardless of
+ * their OS setting. The attribute is set on <html> before first paint by the
+ * inline script in layout.tsx and kept in sync by useAppPreferences.
+ */
+html[data-motion="reduced"] *,
+html[data-motion="reduced"] *::before,
+html[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+  transition-duration: 0.01ms !important;
+}
+
+html[data-motion="reduced"] .source-capsule-hit:hover .source-capsule-face,
+html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
+  transform: none !important;
 }
 
 @media (forced-colors: active) {

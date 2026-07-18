@@ -1,0 +1,128 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+import { NextRequest } from "next/server";
+import { describe, expect, it } from "vitest";
+
+import { GET as redirectApplications, HEAD as headApplications } from "@/app/applications/route";
+import { GET as redirectPresentations, HEAD as headPresentations } from "@/app/differentials/presentations/route";
+import { GET as redirectMedications, HEAD as headMedications } from "@/app/medications/route";
+import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
+
+function source(relativePath: string) {
+  return readFileSync(resolve(process.cwd(), relativePath), "utf8");
+}
+
+function sourceSegment(contents: string, startMarker: string, endMarker: string) {
+  const start = contents.indexOf(startMarker);
+  const end = contents.indexOf(endMarker, start + startMarker.length);
+  if (start < 0 || end < 0) {
+    throw new Error(`Could not locate source segment from ${startMarker} to ${endMarker}.`);
+  }
+  return contents.slice(start, end);
+}
+
+const clinicalDashboardSource = source("src/components/ClinicalDashboard.tsx");
+const masterSearchHeaderSource = source("src/components/clinical-dashboard/master-search-header.tsx");
+
+describe("audit navigation and auth regressions", () => {
+  it("redirects exact legacy route handlers at request time while retaining useful query state", () => {
+    const applications = redirectApplications(
+      new NextRequest("https://clinical-kb.test/applications?q=acute+care&tag=one&tag=two"),
+    );
+    expect(applications.status).toBe(307);
+    expect(applications.headers.get("location")).toBe("https://clinical-kb.test/tools?q=acute+care&tag=one&tag=two");
+
+    const presentations = redirectPresentations(
+      new NextRequest(
+        "https://clinical-kb.test/differentials/presentations?query=+acute+confusion+&q=ignored&ids=DELIRIUM,unknown,delirium",
+      ),
+    );
+    expect(presentations.status).toBe(307);
+    expect(presentations.headers.get("location")).toBe(
+      "https://clinical-kb.test/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
+    );
+
+    const medications = redirectMedications(new NextRequest("https://clinical-kb.test/medications?ignored=1"));
+    expect(medications.status).toBe(307);
+    expect(medications.headers.get("location")).toBe("https://clinical-kb.test/?mode=prescribing");
+
+    expect([headApplications, headPresentations, headMedications]).toEqual([
+      redirectApplications,
+      redirectPresentations,
+      redirectMedications,
+    ]);
+  });
+
+  it("sanitizes root legacy mode aliases before request-time redirects", () => {
+    const favourites = legacyHomeRedirectUrl(
+      new URL("https://clinical-kb.test/?mode=favourites&q=+lithium+&focus=1&run=0&extra=drop"),
+      "GET",
+    );
+    const differentials = legacyHomeRedirectUrl(
+      new URL("https://clinical-kb.test/?mode=differentials&q=acute+confusion&run=1&run=0"),
+      "HEAD",
+    );
+    const specifiers = legacyHomeRedirectUrl(
+      new URL("https://clinical-kb.test/?mode=specifiers&focus=1&unexpected=drop"),
+      "GET",
+    );
+
+    expect(favourites?.toString()).toBe("https://clinical-kb.test/favourites?q=lithium&focus=1");
+    expect(differentials?.toString()).toBe("https://clinical-kb.test/differentials?q=acute+confusion&run=1");
+    expect(specifiers?.toString()).toBe("https://clinical-kb.test/specifiers?focus=1");
+    expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=favourites"), "POST")).toBeNull();
+    expect(legacyHomeRedirectUrl(new URL("https://clinical-kb.test/?mode=answer"), "GET")).toBeNull();
+    expect(source("src/proxy.ts")).toContain("legacyHomeRedirectUrl(request.nextUrl, request.method)");
+  });
+
+  it("closes the master mode menu when focus leaves its wrapper", () => {
+    const focusLeaveContract = sourceSegment(
+      masterSearchHeaderSource,
+      "ref={modeMenuRef}",
+      'className={cn("relative z-[60]',
+    );
+
+    expect(focusLeaveContract).toContain("onBlur={(event) => {");
+    expect(focusLeaveContract).toContain("const nextFocusedElement = event.relatedTarget;");
+    expect(focusLeaveContract).toContain("event.currentTarget.contains(nextFocusedElement)");
+    expect(focusLeaveContract).toContain("setModeMenuOpen(false);");
+  });
+
+  it("gates private polling and mutations on local readiness plus authenticated status", () => {
+    const privateCapabilityContract = sourceSegment(
+      clinicalDashboardSource,
+      "const canUsePrivateApis =",
+      "const canUploadDocuments =",
+    );
+    expect(privateCapabilityContract).toContain("const canUsePrivateApis =");
+    expect(privateCapabilityContract).toContain("localNoAuthMode");
+
+    const pollingContract = sourceSegment(
+      clinicalDashboardSource,
+      "if (!nextDemoMode && !canUsePrivateApis)",
+      "const [documentsResponse, jobsResponse, batchesResponse, qualityResponse] = await Promise.all([",
+    );
+    expect(pollingContract).toContain("if (!nextDemoMode && !canUsePrivateApis)");
+    expect(pollingContract).toContain("includeAdministrationData &&");
+
+    const labelMutationContract = sourceSegment(
+      clinicalDashboardSource,
+      "const mutateDocumentLabel = useCallback(",
+      "const handleDocumentDeleted = useCallback(",
+    );
+    expect(labelMutationContract).toContain("if (!canUsePrivateApis) return false;");
+
+    const uploadMutationContract = sourceSegment(
+      clinicalDashboardSource,
+      "function openUploadDrawer()",
+      "function openEvidenceDrawer()",
+    );
+    expect(uploadMutationContract).toContain("if (!canUsePrivateApis) {");
+  });
+
+  it("keeps the root dashboard H1 as Clinical KB", () => {
+    expect(clinicalDashboardSource.match(/<h1\b/g)).toHaveLength(1);
+    expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical (?:Guide|KB)\s*<\/h1>/);
+  });
+});

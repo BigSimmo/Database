@@ -30,8 +30,8 @@ export function OtherScreen() {
         </span>
         <h1 style={s(`margin:0 0 8px;font-size:24px;font-weight:680;color:var(--text-heading);`)}>{b.otherLabel}</h1>
         <p style={s(`margin:0 0 22px;font-size:14.5px;color:var(--text-muted);`)}>
-          This surface uses the same Therapy Compass shell. Pick a tool from the top navigation to keep exploring the
-          clinical workspace.
+          This surface uses the same Therapy shell. Pick a tool from the top navigation to keep exploring the clinical
+          workspace.
         </p>
         <div style={s(`display:flex;gap:10px;justify-content:center;flex-wrap:wrap;`)}>
           <button type="button" className="tc-btn" onClick={b.goHome} style={s(commandControl)}>
@@ -78,6 +78,7 @@ export function OtherScreen() {
         {queue.map((t) => (
           <div
             key={t.slug}
+            className="tc-stack-sm"
             style={s(
               `display:grid;grid-template-columns:minmax(200px,1.4fr) repeat(3,minmax(110px,1fr)) auto;gap:20px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-tight);padding:16px 20px;`,
             )}

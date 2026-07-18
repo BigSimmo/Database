@@ -137,7 +137,7 @@ export function RecommendScreen() {
             <div style={s(`display:flex;align-items:flex-start;gap:14px;margin-bottom:18px;`)}>
               <span
                 style={s(
-                  `display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:11px;background:var(--clinical-accent);color:#fff;flex:none;`,
+                  `display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:11px;background:var(--clinical-accent);color:var(--clinical-accent-contrast);flex:none;`,
                 )}
               >
                 <SparkleIcon size={20} strokeWidth={1.7} />
@@ -188,7 +188,7 @@ export function RecommendScreen() {
                     className="tc-btn"
                     onClick={() => b.open(top.slug)}
                     style={s(
-                      `flex:1;height:38px;border:none;border-radius:9px;background:var(--clinical-accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;`,
+                      `flex:1;height:38px;border:none;border-radius:9px;background:var(--clinical-accent);color:var(--clinical-accent-contrast);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;`,
                     )}
                   >
                     Open record
@@ -215,6 +215,7 @@ export function RecommendScreen() {
             {rest.map(({ therapy: t }, i) => (
               <div
                 key={t.slug}
+                className="tc-stack-sm"
                 style={s(
                   `display:grid;grid-template-columns:auto minmax(220px,1.3fr) 1.1fr 1.1fr auto;gap:20px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-tight);padding:16px 20px;`,
                 )}
@@ -251,7 +252,7 @@ export function RecommendScreen() {
                     className="tc-btn"
                     onClick={() => b.open(t.slug)}
                     style={s(
-                      `height:34px;padding:0 12px;border:none;border-radius:8px;background:var(--clinical-accent);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;`,
+                      `height:34px;padding:0 12px;border:none;border-radius:8px;background:var(--clinical-accent);color:var(--clinical-accent-contrast);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;`,
                     )}
                   >
                     Open

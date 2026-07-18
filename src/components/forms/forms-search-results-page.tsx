@@ -35,6 +35,7 @@ import {
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
+import { FormCodeBadge } from "@/components/forms/form-code-badge";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
 import { sortResultItems, type ResultSortValue } from "@/lib/result-sort";
@@ -64,63 +65,6 @@ const refineFilters: {
 
 function resultCode(match: FormSearchMatch, index: number) {
   return formCatalogDetails(match.service)?.form ?? String(index + 1);
-}
-
-// Form codes are mostly short ("1A", "10D") but some carry a trailing qualifier
-// ("6B Attachment"). Splitting on the first space lets the badge show the code
-// prominently while the qualifier renders as a compact sub-label, so long codes
-// no longer overflow the fixed chip.
-function splitFormCode(code: string): { head: string; qualifier: string | null } {
-  const trimmed = code.trim();
-  const spaceIndex = trimmed.indexOf(" ");
-  if (spaceIndex === -1) return { head: trimmed, qualifier: null };
-  return {
-    head: trimmed.slice(0, spaceIndex),
-    qualifier: trimmed.slice(spaceIndex + 1).trim() || null,
-  };
-}
-
-// Scale the code down as it gets longer so a four-character head ("3A/4B") still
-// fits the chip without clipping.
-function formHeadSizeClass(head: string, variant: "md" | "sm") {
-  const length = head.length;
-  if (variant === "sm") {
-    if (length <= 2) return "text-lg";
-    if (length === 3) return "text-base";
-    return "text-sm";
-  }
-  if (length <= 2) return "text-2xl";
-  if (length === 3) return "text-xl";
-  return "text-base";
-}
-
-function FormCodeBadge({ code, variant = "md" }: { code: string; variant?: "md" | "sm" }) {
-  const { head, qualifier } = splitFormCode(code);
-  const isSm = variant === "sm";
-  return (
-    <div
-      className={cn(
-        "flex shrink-0 flex-col items-center justify-center overflow-hidden rounded-xl border border-[color:var(--clinical-accent-border)] bg-gradient-to-b from-[color:var(--clinical-accent-soft)] to-[color-mix(in_srgb,var(--clinical-accent-soft)_55%,var(--surface))] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
-        isSm ? "h-12 w-12 gap-0 px-0.5" : "h-14 w-16 gap-0.5 px-0.5",
-      )}
-    >
-      {/* Expose the whole code as one string for assistive tech and text queries;
-          the split visual fragments below are decorative and hidden from the a11y tree. */}
-      <span className="sr-only">{qualifier ? `${head} ${qualifier}` : head}</span>
-      <span aria-hidden className={cn("font-extrabold leading-none", formHeadSizeClass(head, variant), codeText)}>
-        {head}
-      </span>
-      {qualifier ? (
-        <span
-          aria-hidden
-          title={qualifier}
-          className="w-full truncate text-center text-4xs font-bold uppercase leading-none tracking-tight opacity-75"
-        >
-          {qualifier}
-        </span>
-      ) : null}
-    </div>
-  );
 }
 
 function tagToneClass(label: string) {
@@ -231,7 +175,7 @@ function RefineBar({ open, onToggle, panelId }: { open: boolean; onToggle: () =>
       aria-controls={panelId}
       onClick={onToggle}
       className={cn(
-        "inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border px-3.5 text-sm font-extrabold transition",
+        "inline-flex min-h-tap shrink-0 items-center gap-2 rounded-lg border px-3.5 text-sm font-extrabold transition",
         searchFocusRing,
         open
           ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -554,7 +498,7 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
       <Link
         href="/forms"
         className={cn(
-          "mx-auto mt-2 flex min-h-9 w-fit items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
+          "mx-auto mt-2 flex min-h-tap w-fit items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
           searchFocusRing,
         )}
       >
@@ -658,7 +602,7 @@ function RegistryStatusNotice({ status }: { status: RegistryRequestStatus }) {
       {notice.action ? (
         <Link
           href={notice.action.href}
-          className="inline-flex min-h-8 items-center justify-center rounded-md bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
+          className="inline-flex min-h-tap items-center justify-center rounded-md bg-[color:var(--command)] px-3 text-xs font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
         >
           {notice.action.label}
         </Link>
@@ -708,7 +652,6 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                 onSortChange={setSortValue}
               />
             </div>
-            <UniversalSearchAlsoMatches modeId="forms" query={query} />
             {query.trim() && displayedMatches.length === 0 ? (
               <SearchResultsEmptyState
                 modeId="forms"
@@ -742,6 +685,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                 </div>
               </>
             )}
+            <UniversalSearchAlsoMatches modeId="forms" query={query} />
           </>
         ) : null}
         <div className="hidden lg:block">

@@ -33,11 +33,11 @@ import {
   appBackdrop,
   answerSurface,
   cn,
+  EmptyState,
   floatingControl,
   InlineNotice,
   primaryControl,
   textMuted,
-  toneInfo,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
@@ -376,7 +376,7 @@ function PriorAnswerTurnSurface({
           type="button"
           onClick={onToggleCollapsed}
           aria-expanded={!collapsed}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-1 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-1 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
         >
           <ChevronDown className={cn("h-4 w-4 transition-transform", !collapsed && "rotate-180")} aria-hidden="true" />
           {collapsed ? "Show previous answer" : "Hide previous answer"}
@@ -3598,100 +3598,90 @@ export function ClinicalDashboard({
                   {activeModeSearch.resultHeading}
                 </h2>
                 {answerLifecycle.status === "cancelled" && activeModeResultKind === "answer" ? (
-                  <div
-                    role="status"
-                    aria-live="polite"
-                    data-testid="answer-cancelled"
-                    className={cn(
-                      "flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4 text-sm",
-                      toneInfo,
-                    )}
-                  >
-                    <div>
-                      <p className="font-semibold text-[color:var(--text-heading)]">Generation stopped</p>
-                      <p className={textMuted}>No partial clinical answer was kept.</p>
-                    </div>
-                    <button
-                      type="button"
-                      className={cn(primaryControl, "text-xs")}
-                      onClick={() => void ask(answerLifecycle.query ?? query)}
-                    >
-                      <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                      Run again
-                    </button>
-                  </div>
-                ) : error && errorKind === "no-results" && activeModeResultKind === "answer" ? (
-                  <div
-                    role="status"
-                    data-testid="answer-no-results"
-                    className={cn("rounded-lg border p-4 text-sm", toneInfo)}
-                  >
-                    <div className="flex items-start gap-2">
-                      <Search aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
-                      <div className="min-w-0 space-y-1">
-                        <p className="font-semibold text-[color:var(--text-heading)]">
-                          {answerRecovery.noResults.heading}
-                        </p>
-                        <p className={textMuted}>{answerRecovery.noResults.body}</p>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                  <EmptyState
+                    icon={Square}
+                    title="Generation stopped"
+                    body="No partial clinical answer was kept. You can safely run the same question again."
+                    live="polite"
+                    testId="answer-cancelled"
+                    actions={
                       <button
                         type="button"
-                        data-testid="answer-no-results-rephrase"
-                        onClick={() => focusComposerInput()}
                         className={cn(primaryControl, "text-xs")}
+                        onClick={() => void ask(answerLifecycle.query ?? query)}
                       >
-                        {answerRecovery.rephrase}
+                        <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                        Run again
                       </button>
-                      <button
-                        type="button"
-                        data-testid="answer-no-results-search-documents"
-                        onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
-                        className={cn(floatingControl, "text-xs")}
-                      >
-                        <FileText aria-hidden="true" className="h-4 w-4" />
-                        {answerRecovery.searchDocuments}
-                      </button>
-                    </div>
-                  </div>
-                ) : error ? (
-                  <div
-                    role="alert"
-                    data-testid="answer-error"
-                    className="rounded-lg border border-[color:var(--danger)]/30 bg-[color:var(--danger-soft)] p-3 text-sm font-medium text-[color:var(--danger)]"
-                  >
-                    <div className="flex items-start gap-2">
-                      <CircleAlert aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
-                      <span className="min-w-0">{error}</span>
-                    </div>
-                    {activeModeResultKind === "answer" && lastFailedQuery && (
-                      <div className="mt-3 flex flex-wrap gap-2">
+                    }
+                  />
+                ) : error && errorKind === "no-results" && activeModeResultKind === "answer" ? (
+                  <EmptyState
+                    icon={Search}
+                    title={answerRecovery.noResults.heading}
+                    body={answerRecovery.noResults.body}
+                    live="polite"
+                    tone="info"
+                    testId="answer-no-results"
+                    actions={
+                      <>
                         <button
                           type="button"
-                          data-testid="answer-error-retry"
-                          onClick={() => {
-                            const retryQuery = lastFailedQuery ?? query;
-                            setError(null);
-                            void ask(retryQuery);
-                          }}
-                          className={cn(floatingControl, "text-xs")}
+                          data-testid="answer-no-results-rephrase"
+                          onClick={() => focusComposerInput()}
+                          className={cn(primaryControl, "text-xs")}
                         >
-                          <RefreshCw aria-hidden="true" className="h-4 w-4" />
-                          {answerRecovery.retry}
+                          {answerRecovery.rephrase}
                         </button>
                         <button
                           type="button"
-                          data-testid="answer-error-search-documents"
+                          data-testid="answer-no-results-search-documents"
                           onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
                           className={cn(floatingControl, "text-xs")}
                         >
                           <FileText aria-hidden="true" className="h-4 w-4" />
                           {answerRecovery.searchDocuments}
                         </button>
-                      </div>
-                    )}
-                  </div>
+                      </>
+                    }
+                  />
+                ) : error ? (
+                  <EmptyState
+                    icon={CircleAlert}
+                    title={activeModeResultKind === "answer" ? "Answer unavailable" : "Search unavailable"}
+                    body={error}
+                    live="assertive"
+                    tone="danger"
+                    testId="answer-error"
+                    actions={
+                      activeModeResultKind === "answer" && lastFailedQuery ? (
+                        <>
+                          <button
+                            type="button"
+                            data-testid="answer-error-retry"
+                            onClick={() => {
+                              const retryQuery = lastFailedQuery ?? query;
+                              setError(null);
+                              void ask(retryQuery);
+                            }}
+                            className={cn(floatingControl, "text-xs")}
+                          >
+                            <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                            {answerRecovery.retry}
+                          </button>
+                          <button
+                            type="button"
+                            data-testid="answer-error-search-documents"
+                            onClick={() => crossModeSearch("documents", (lastFailedQuery ?? query).trim())}
+                            className={cn(floatingControl, "text-xs")}
+                          >
+                            <FileText aria-hidden="true" className="h-4 w-4" />
+                            {answerRecovery.searchDocuments}
+                          </button>
+                        </>
+                      ) : undefined
+                    }
+                  />
                 ) : null}
 
                 {searchMode !== "prescribing" &&
@@ -3718,17 +3708,13 @@ export function ClinicalDashboard({
                         type="button"
                         onClick={stopSearch}
                         data-testid="stop-answer"
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                        className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 py-1 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                       >
                         <Square aria-hidden="true" className="h-3 w-3 shrink-0 fill-current" />
                         Stop
                       </button>
                     </div>
                   ) : null)}
-
-                {showUniversalAlsoMatches && activeModeResultKind !== "answer" ? (
-                  <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
-                ) : null}
 
                 {activeModeResultKind === "differentials" ? (
                   <DifferentialsHome
@@ -3833,7 +3819,7 @@ export function ClinicalDashboard({
                           type="button"
                           data-testid="answer-thread-show-earlier"
                           onClick={() => setShowEarlierTurns(true)}
-                          className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                          className="inline-flex min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                         >
                           Show earlier messages ({hiddenPriorTurnCount})
                         </button>
@@ -3890,7 +3876,7 @@ export function ClinicalDashboard({
                   />
                 ) : null}
 
-                {showUniversalAlsoMatches && activeModeResultKind === "answer" ? (
+                {showUniversalAlsoMatches ? (
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
               </section>
@@ -4124,8 +4110,6 @@ export function ClinicalDashboard({
           open={settingsOpen}
           onClose={closeSettings}
           identity={sidebarIdentity}
-          theme={theme}
-          onToggleTheme={toggleTheme}
           onSignOut={auth.signOut}
           onOpenGuide={openGuide}
         />

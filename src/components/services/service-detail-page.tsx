@@ -509,7 +509,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   return (
     <main
       data-testid="service-detail-page"
-      className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 py-4 pb-[calc(10rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
+      className="min-h-[calc(100dvh-4rem)] max-sm:shrink-0 bg-[color:var(--background)] px-3 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
     >
       <div className={pageContainer}>
         {notice ? (
@@ -526,7 +526,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
               type="button"
               onClick={() => setNotice(null)}
               aria-label="Dismiss service notification"
-              className="grid h-8 w-8 place-items-center rounded-md transition hover:bg-[color:var(--surface)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="grid size-tap place-items-center rounded-md transition hover:bg-[color:var(--surface)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               <X className="h-4 w-4" aria-hidden />
             </button>

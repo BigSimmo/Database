@@ -15,6 +15,24 @@ function eventHitsRef(event: Event, ref: DismissableLayerRef) {
   return target instanceof Node && element.contains(target);
 }
 
+/**
+ * Restore focus after a dismissable surface closes, but do not steal focus if the
+ * user/test already moved it (e.g. opened the app-mode menu in the same frame
+ * window as Escape's deferred restore).
+ */
+export function restoreFocusUnlessMoved(target: HTMLElement | null | undefined) {
+  if (!target) return false;
+  // Matching global-search-shell's focus=1 guard: an open mode menu means focus
+  // was intentionally moved off the prior surface.
+  if (document.getElementById("app-mode-menu")) return false;
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && active !== document.body && active !== target) {
+    return false;
+  }
+  target.focus({ preventScroll: true });
+  return true;
+}
+
 export function useDismissableLayer({
   enabled,
   refs,
@@ -40,7 +58,7 @@ export function useDismissableLayer({
       onDismiss("escape");
       window.requestAnimationFrame(() => {
         window.requestAnimationFrame(() => {
-          restoreFocusRef?.current?.focus({ preventScroll: true });
+          restoreFocusUnlessMoved(restoreFocusRef?.current);
         });
       });
     }

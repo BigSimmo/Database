@@ -377,6 +377,123 @@ function SetBrowseCard({
   );
 }
 
+/**
+ * Surfaces the sidebar's primary quick views (All / Source-backed / Pinned /
+ * Recently used) as a horizontally scrollable chip rail below `lg`, where the
+ * full sidebar is hidden. Keeps small-screen navigation at parity with desktop.
+ */
+export function FavouritesMobileQuickViews({
+  items,
+  selectedSetId,
+  selectedTypeId,
+  viewMode,
+  onSelectSet,
+  onSelectType,
+  onSelectViewMode,
+}: Pick<
+  FavouritesNavProps,
+  "items" | "selectedSetId" | "selectedTypeId" | "viewMode" | "onSelectSet" | "onSelectType" | "onSelectViewMode"
+>) {
+  const sourceBackedCount = items.filter(isSourceBacked).length;
+  const pinnedCount = items.filter((item) => item.pinned).length;
+  const allActive = !selectedSetId && viewMode === "all" && selectedTypeId === "all";
+
+  const chips: Array<{
+    id: string;
+    icon: LucideIcon;
+    label: string;
+    count: number;
+    active: boolean;
+    onClick: () => void;
+  }> = [
+    {
+      id: "all",
+      icon: LayoutGrid,
+      label: "All",
+      count: items.length,
+      active: allActive,
+      onClick: () => {
+        onSelectViewMode("all");
+        onSelectSet(null);
+        onSelectType("all");
+      },
+    },
+    {
+      id: "source-backed",
+      icon: ShieldCheck,
+      label: "Source-backed",
+      count: sourceBackedCount,
+      active: viewMode === "source-backed",
+      onClick: () => {
+        onSelectSet(null);
+        onSelectViewMode(viewMode === "source-backed" ? "all" : "source-backed");
+      },
+    },
+    {
+      id: "pinned",
+      icon: Pin,
+      label: "Pinned",
+      count: pinnedCount,
+      active: viewMode === "pinned",
+      onClick: () => {
+        onSelectSet(null);
+        onSelectViewMode(viewMode === "pinned" ? "all" : "pinned");
+      },
+    },
+    {
+      id: "recent",
+      icon: Search,
+      label: "Recently used",
+      count: items.length,
+      active: viewMode === "recent",
+      onClick: () => {
+        onSelectSet(null);
+        onSelectViewMode(viewMode === "recent" ? "all" : "recent");
+      },
+    },
+  ];
+
+  return (
+    <section className="min-w-0 max-w-full lg:hidden" data-testid="favourites-quick-views" aria-label="Quick views">
+      <div className="-mx-4 overflow-x-auto overscroll-x-contain px-4 pb-1 [scrollbar-width:none] sm:-mx-6 sm:px-6">
+        <div className="flex w-max max-w-none gap-2 pr-1">
+          {chips.map((chip) => {
+            const Icon = chip.icon;
+            return (
+              <button
+                key={chip.id}
+                type="button"
+                aria-pressed={chip.active}
+                onClick={chip.onClick}
+                className={cn(
+                  "inline-flex h-tap shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-sm-minus font-semibold transition",
+                  chip.active
+                    ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)]"
+                    : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                  focusRing,
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                <span className="whitespace-nowrap">{chip.label}</span>
+                <span
+                  className={cn(
+                    "nums rounded-full px-1.5 text-2xs font-bold leading-none",
+                    chip.active
+                      ? "bg-[color:var(--clinical-accent)]/12 text-[color:var(--clinical-accent)]"
+                      : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+                  )}
+                >
+                  {chip.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function FavouritesMobileBrowseRail({
   sets,
   selectedSetId,
