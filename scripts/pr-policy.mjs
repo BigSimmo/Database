@@ -42,10 +42,19 @@ function normalizePath(filePath) {
     .replace(/^\.\/+/, "");
 }
 
+function normalizeSectionHeading(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+#+\s*$/, "")
+    .trim()
+    .toLowerCase();
+}
+
 function section(body, heading) {
   const source = String(body ?? "");
-  const headings = [...source.matchAll(/^##\s+(.+?)\s*$/gim)];
-  const matchIndex = headings.findIndex((match) => match[1]?.trim().toLowerCase() === heading.toLowerCase());
+  const headings = [...source.matchAll(/^#{2,6}\s+(.+?)\s*$/gim)];
+  const targetHeading = normalizeSectionHeading(heading);
+  const matchIndex = headings.findIndex((match) => normalizeSectionHeading(match[1]) === targetHeading);
   if (matchIndex < 0) return "";
   const start = (headings[matchIndex]?.index ?? 0) + (headings[matchIndex]?.[0].length ?? 0);
   const end = headings[matchIndex + 1]?.index ?? source.length;
@@ -254,6 +263,13 @@ function selfTest() {
     operationalRisk: false,
     ui: false,
   });
+  assert.equal(
+    section(
+      "### Summary ###\n\n- concise summary\n\n### Verification\n\n- [x] `npm run verify:pr-local`\n",
+      "Summary",
+    ),
+    "- concise summary",
+  );
   const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
   for (const item of requiredClinicalGovernanceItems)
     assert.match(template, new RegExp(`- \\[ \\] ${item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
