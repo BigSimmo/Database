@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-18T08:58:41.495Z",
+  "generated_at": "2026-07-18T14:23:15.039Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "302a9ecec8e69564d50035be8480fa5e5686ca6136d96978f2188ecf5fb58be1",
-  "replay_seconds": 18,
+  "schema_sha256": "3a2bd3f0de8dd1d16857100556c9bee604b063eedcb9eb5e7ab959e4799d28f0",
+  "replay_seconds": 20,
   "snapshot": {
     "views": [
       {
@@ -6336,6 +6336,11 @@
         "table": "document_sections"
       },
       {
+        "def": "CREATE TRIGGER document_title_words_enforce_public_scope BEFORE INSERT OR UPDATE ON public.document_title_words FOR EACH ROW EXECUTE FUNCTION public.enforce_document_title_word_scope()",
+        "name": "document_title_words_enforce_public_scope",
+        "table": "document_title_words"
+      },
+      {
         "def": "CREATE TRIGGER documents_require_publication_approval BEFORE INSERT OR UPDATE ON public.documents FOR EACH ROW EXECUTE FUNCTION public.guard_document_publication_transition()",
         "name": "documents_require_publication_approval",
         "table": "documents"
@@ -6596,6 +6601,13 @@
         ],
         "def_hash": "4f3e6b143eba09bf1bed09b6ec9f71b8",
         "signature": "public.document_summary_text(uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres"
+        ],
+        "def_hash": "2314085d7e21c5d54f3997e00fd8cdd9",
+        "signature": "public.enforce_document_title_word_scope()"
       },
       {
         "acl": [

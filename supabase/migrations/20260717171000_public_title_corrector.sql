@@ -53,6 +53,20 @@ create trigger documents_sync_title_words
   after insert or update of title, status, owner_id or delete on public.documents
   for each row execute function public.sync_document_title_words();
 
+-- Purge vocabulary created by 20260714180000 before installing the
+-- table-backed corrector below. A later forward migration repeats this cleanup
+-- for environments where this migration was already applied.
+delete from public.document_title_words dtw
+where not exists (
+  select 1
+  from public.documents d
+  where d.id = dtw.document_id
+    and d.owner_id is null
+    and d.status = 'indexed'
+    and length(dtw.word) between 4 and 40
+    and dtw.word = any (regexp_split_to_array(lower(d.title), '[^a-z]+'))
+);
+
 insert into public.document_title_words (word, document_id)
 select distinct lower(title_word), d.id
 from public.documents d
