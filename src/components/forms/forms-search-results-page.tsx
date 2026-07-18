@@ -46,9 +46,7 @@ type FormsSearchResultsPageProps = {
   query: string;
 };
 
-const sourceSnippetCount = 278;
-const taskCount = 8;
-const pathwayCount = 12;
+const supportsPathwayClaims = false;
 
 const refineFilters: {
   icon: LucideIcon;
@@ -94,9 +92,6 @@ function ResultTabs({ formsCount }: { formsCount: number }) {
   const tabs = [
     ["Results", null],
     ["Forms", formsCount],
-    ["Evidence", sourceSnippetCount],
-    ["Pathways", pathwayCount],
-    ["Tasks", taskCount],
   ] as const;
 
   return (
@@ -688,13 +683,9 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
             <UniversalSearchAlsoMatches modeId="forms" query={query} />
           </>
         ) : null}
-        <div className="hidden lg:block">
-          <PathwayPanel />
-        </div>
-        <div className="lg:hidden">
-          <MobilePathway />
-        </div>
-        {registryReady ? <VerifiedFooter /> : null}
+        <div className="hidden lg:block">{supportsPathwayClaims ? <PathwayPanel /> : null}</div>
+        <div className="lg:hidden">{supportsPathwayClaims ? <MobilePathway /> : null}</div>
+        {registryReady && supportsPathwayClaims ? <VerifiedFooter /> : null}
       </main>
     </div>
   );
