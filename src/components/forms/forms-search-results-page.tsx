@@ -664,14 +664,16 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                   </div>
                   <div className="flex items-center gap-2 pb-1.5">
                     <ResultSortControl value={sortValue} onChange={setSortValue} className="md:hidden" />
-                    <RefineBar
-                      open={refineOpen}
-                      onToggle={() => setRefineOpen((open) => !open)}
-                      panelId={refinePanelId}
-                    />
+                    {supportsPathwayClaims ? (
+                      <RefineBar
+                        open={refineOpen}
+                        onToggle={() => setRefineOpen((open) => !open)}
+                        panelId={refinePanelId}
+                      />
+                    ) : null}
                   </div>
                 </div>
-                <RefinePanel open={refineOpen} panelId={refinePanelId} />
+                {supportsPathwayClaims ? <RefinePanel open={refineOpen} panelId={refinePanelId} /> : null}
                 <div className="hidden md:block">
                   <ResultsTable matches={displayedMatches} query={query} sortValue={sortValue} />
                 </div>
