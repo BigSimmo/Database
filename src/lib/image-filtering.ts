@@ -9,7 +9,7 @@ export type CheapImageFilterInput = {
   bytesLength: number;
   imageHash: string;
   seenHashes: Set<string>;
-  image: Pick<ExtractedImage, "bbox" | "height" | "width" | "sourceKind">;
+  image: Pick<ExtractedImage, "bbox" | "height" | "width" | "sourceKind"> & Partial<Pick<ExtractedImage, "pageNumber">>;
 };
 
 export type ClassifiedImage = {
@@ -320,6 +320,31 @@ export function normalizeImageBbox(value: unknown): [number, number, number, num
   return coords.every((coord): coord is number => coord !== null) ? (coords as [number, number, number, number]) : null;
 }
 
+function stableBboxKey(bbox: unknown): string | null {
+  const coords = normalizeImageBbox(bbox);
+  // Missing/malformed bboxes must not share one sentinel (e.g. "bbox:null"): that would
+  // falsely collapse distinct unknown placements on the same page into a single de-dupe key.
+  // Only comparable coordinates participate in cheap placement de-dupe.
+  return coords ? coords.map((coord) => Number(coord.toFixed(2))).join(",") : null;
+}
+
+// Exact byte hash alone is too broad for ingestion de-dupe: some PDF extractors can emit
+// visually identical table/diagram crops from different page contexts, and dropping every
+// later occurrence loses operator-visible clinical evidence. Limit cheap de-dupe to the
+// same extracted placement; header/footer/logo filters still remove repeated decorative
+// assets across pages. Returns null when bbox placement is not comparable so callers can
+// skip de-dupe rather than collide unknown placements.
+export function imagePlacementDedupeKey(input: {
+  imageHash: string;
+  image: Pick<ExtractedImage, "bbox" | "sourceKind"> & Partial<Pick<ExtractedImage, "pageNumber">>;
+}): string | null {
+  const bboxKey = stableBboxKey(input.image.bbox);
+  if (bboxKey === null) return null;
+  return [input.imageHash, input.image.sourceKind ?? "embedded", input.image.pageNumber ?? "page:null", bboxKey].join(
+    "|",
+  );
+}
+
 function bboxLooksLikeHeaderOrFooter(bbox: unknown) {
   const coords = normalizeImageBbox(bbox);
   if (!coords) return false;
@@ -335,7 +360,9 @@ export function cheapImageSkipReason(input: CheapImageFilterInput) {
   const width = image.width ?? null;
   const height = image.height ?? null;
 
-  if (seenHashes.has(imageHash)) return "duplicate image";
+  const placementKey = imagePlacementDedupeKey({ imageHash, image });
+  // Only de-dupe when placement is comparable; unknown/malformed bboxes stay unique.
+  if (placementKey !== null && seenHashes.has(placementKey)) return "duplicate image";
   if (sourceKind === "embedded" && bytesLength < 4096) return "small decorative image";
   if (width && height) {
     const shortestSide = Math.min(width, height);
