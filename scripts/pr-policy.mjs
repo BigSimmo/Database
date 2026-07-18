@@ -264,10 +264,7 @@ function selfTest() {
     ui: false,
   });
   assert.equal(
-    section(
-      "### Summary ###\n\n- concise summary\n\n### Verification\n\n- [x] `npm run verify:pr-local`\n",
-      "Summary",
-    ),
+    section("### Summary ###\n\n- concise summary\n\n### Verification\n\n- [x] `npm run verify:pr-local`\n", "Summary"),
     "- concise summary",
   );
   const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
