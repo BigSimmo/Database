@@ -2846,6 +2846,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
           document_filters: documentFilterList ?? undefined,
           ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
         },
+        args.signal,
       );
       return { data, error, latencyMs: Date.now() - startedAt };
     })(),
@@ -2953,12 +2954,14 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
           document_filter: documentFilter ?? undefined,
           ...retrievalRpcScopeArgs(retrievalAccessScopeForArgs(args)),
         },
+        args.signal,
       );
 
       if (error) throw new Error(error.message);
       return (data ?? []) as SearchResult[];
     }),
   ).catch((error) => {
+    if (args.signal?.aborted) throw error;
     if (!args.forceEmbedding && textFastResults.length > 0) return [] as SearchResult[][];
     throw error;
   });

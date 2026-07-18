@@ -99,6 +99,7 @@ export async function callVersionedRetrievalRpc<T extends unknown[] = unknown[]>
   };
   const versioned = await executeRpc(versionedName, args);
   if (versioned && !isMissingRetrievalRpcError(versioned.error)) return versioned;
+  if (signal?.aborted) return versioned;
   const legacyArgs = { ...args };
   delete legacyArgs.include_public;
   const ownerResult = await executeRpc(legacyName, legacyArgs);
@@ -111,6 +112,7 @@ export async function callVersionedRetrievalRpc<T extends unknown[] = unknown[]>
   ) {
     return ownerResult;
   }
+  if (signal?.aborted) return ownerResult;
   const publicResult = await executeRpc(legacyName, {
     ...legacyArgs,
     owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
