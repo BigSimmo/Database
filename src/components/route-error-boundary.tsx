@@ -59,7 +59,7 @@ export function RouteErrorBoundary({
         <h1
           ref={headingRef}
           tabIndex={-1}
-          className="mt-4 text-lg font-semibold tracking-tight text-[color:var(--text-heading)] focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-[color:var(--focus-ring,Highlight)]"
+          className="mt-4 text-lg font-semibold tracking-tight text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus-ring,Highlight)]"
         >
           {title}
         </h1>
