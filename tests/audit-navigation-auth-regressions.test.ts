@@ -124,7 +124,7 @@ describe("audit navigation and auth regressions", () => {
     expect(uploadMutationContract).toContain("if (!canUsePrivateApis) {");
   });
 
-  it("keeps the root dashboard H1 as Clinical KB", () => {
+  it("keeps the root dashboard H1 as Clinical Guide", () => {
     expect(clinicalDashboardSource.match(/<h1\b/g)).toHaveLength(1);
     expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical Guide\s*<\/h1>/);
   });
