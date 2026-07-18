@@ -2335,16 +2335,24 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --primary: LinkText;
     --primary-strong: LinkText;
     --primary-soft: Canvas;
-    --primary-contrast: Canvas;
+    --primary-contrast: ButtonText;
     --surface-chrome: Canvas;
-    --command: ButtonText;
-    --command-hover: ButtonText;
-    --command-contrast: ButtonFace;
+    /* Chromium paints a Canvas backplate behind every glyph run in
+       forced-colors mode, so label/glyph tokens must never resolve to the
+       Canvas/ButtonFace family — Canvas-on-Canvas glyphs vanish and solid
+       buttons render blank label boxes. SVG icon strokes get no backplate at
+       all, so the dark command fill also cannot survive: it would swallow
+       ButtonText icons. Command controls therefore flatten to the native HCM
+       button pairing (ButtonFace fill, ButtonText glyphs); accent fills keep
+       their system colors and flip only their glyph tokens. */
+    --command: ButtonFace;
+    --command-hover: ButtonFace;
+    --command-contrast: ButtonText;
     --clinical-accent: LinkText;
     --clinical-accent-hover: LinkText;
     --clinical-accent-soft: Canvas;
     --clinical-accent-border: ButtonBorder;
-    --clinical-accent-contrast: Canvas;
+    --clinical-accent-contrast: ButtonText;
     --info: LinkText;
     --info-soft: Canvas;
     --success: CanvasText;
@@ -2354,7 +2362,9 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --danger: Mark;
     --danger-soft: Canvas;
     --danger-solid: Mark;
-    --danger-solid-contrast: Canvas;
+    /* Mark's palette-paired foreground — ButtonText is not guaranteed to
+       contrast a Mark fill in arbitrary user schemes. */
+    --danger-solid-contrast: MarkText;
     --tone-purple: CanvasText;
     --tone-indigo: CanvasText;
     --tone-rose: CanvasText;
