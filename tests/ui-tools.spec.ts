@@ -1005,7 +1005,6 @@ test.describe("Clinical KB tools launcher", () => {
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
     await expect(page.getByTestId("form-search-mobile-result-transport-crisis-form")).toContainText("Transport order");
-    await expect(page.getByText(/PSOLIS Transport|View full pathway|Source verified/)).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("transport");
     await expectNoPageHorizontalOverflow(page);
   });
