@@ -838,7 +838,13 @@ export function ClinicalDashboard({
       setAnswerThreadBootstrapped(true);
     });
   }, [answerThreadOwnerId, authStatus]);
-  const uploadReadOnlyMode = clientDemoMode;
+  // Local no-auth still has private upload APIs (`canUsePrivateApis`); do not lock the
+  // upload drawer just because `resolveClientDemoMode` treats no-auth as demo for favourites.
+  const uploadReadOnlyMode = resolveClientDemoMode({
+    explicitDemoMode,
+    authUnavailableFallback: browserAuthUnavailableDemoFallback,
+    localNoAuthMode: false,
+  });
   const localDevCanAttemptPrivateApis = process.env.NODE_ENV !== "production" && hasReadyPublicSearchSetup(setupChecks);
   const canUsePublicSearchApis = localProjectReady && hasReadyPublicSearchSetup(setupChecks);
   const canUseDegradedLocalSearchApis =
