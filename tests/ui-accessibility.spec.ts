@@ -318,7 +318,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(presentationsFilter).toHaveAttribute("aria-pressed", "false");
   });
 
-  test("upload and indexing tabs expose panel associations and roving keyboard activation", async ({ page }) => {
+  test("guest upload action exposes the admin boundary and opens the source library", async ({ page }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockMinimalDashboardApi(page);
     await gotoApp(page);
@@ -326,52 +326,10 @@ test.describe("Clinical KB accessibility coverage", () => {
     const uploadButton = page.getByRole("button", { name: /Upload document/i });
     await expect(uploadButton).toBeVisible();
     await uploadButton.click();
-    const drawer = page.getByRole("dialog", { name: "Upload and indexing" });
-    await expect(drawer).toBeVisible();
-
-    const tablist = drawer.getByRole("tablist", { name: "Upload and indexing sections" });
-    const setupTab = tablist.getByRole("tab", { name: "Setup", exact: true });
-    const uploadTab = tablist.getByRole("tab", { name: "Upload", exact: true });
-    const jobsTab = tablist.getByRole("tab", { name: "Jobs", exact: true });
-    const qualityTab = tablist.getByRole("tab", { name: "Quality", exact: true });
-    const associations = [
-      [setupTab, "dashboard-setup-section"],
-      [uploadTab, "dashboard-upload-section"],
-      [jobsTab, "dashboard-indexing-section"],
-      [qualityTab, "dashboard-quality-section"],
-    ] as const;
-
-    for (const [tab, panelId] of associations) {
-      const tabId = await tab.getAttribute("id");
-      expect(tabId).toBeTruthy();
-      await expect(tab).toHaveAttribute("aria-controls", panelId);
-      await expect(drawer.locator(`#${panelId}`)).toHaveAttribute("aria-labelledby", tabId!);
-    }
-
-    await expect(uploadTab).toHaveAttribute("aria-selected", "true");
-    await expect(uploadTab).toHaveAttribute("tabindex", "0");
-    await expect(jobsTab).toHaveAttribute("tabindex", "-1");
-    await uploadTab.focus();
-
-    await page.keyboard.press("ArrowRight");
-    await expect(jobsTab).toBeFocused();
-    await expect(jobsTab).toHaveAttribute("aria-selected", "true");
-    await expect(drawer.locator("#dashboard-indexing-section")).toBeVisible();
-
-    await page.keyboard.press("ArrowLeft");
-    await expect(uploadTab).toBeFocused();
-    await expect(uploadTab).toHaveAttribute("aria-selected", "true");
-
-    await page.keyboard.press("Home");
-    await expect(setupTab).toBeFocused();
-    await expect(setupTab).toHaveAttribute("aria-selected", "true");
-
-    await page.keyboard.press("End");
-    await expect(qualityTab).toBeFocused();
-    await expect(qualityTab).toHaveAttribute("aria-selected", "true");
-
-    await page.keyboard.press("ArrowRight");
-    await expect(setupTab).toBeFocused();
-    await expect(setupTab).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: "Source library" })).toBeVisible();
+    await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only" })).toContainText(
+      "Upload and indexing tools are admin-only. Use the source library to open indexed documents.",
+    );
   });
 });

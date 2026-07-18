@@ -1,7 +1,10 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
 
-export function GET(request: NextRequest) {
-  return NextResponse.redirect(new URL("/?mode=prescribing", request.url));
+export function GET(_request: NextRequest) {
+  return new Response(null, {
+    status: 307,
+    headers: { Location: "/?mode=prescribing" },
+  });
 }
 
 export const HEAD = GET;

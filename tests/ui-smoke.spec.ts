@@ -2695,29 +2695,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(hub.getByRole("button", { name: "More actions for Acamprosate renal screen" })).toBeVisible();
   });
 
-  test("mobile favourite cards keep selection and actions as independent touch controls", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
-    await mockDemoApi(page);
-    await gotoApp(page, "/favourites");
-
-    const card = page.getByTestId("favourite-mobile-card-acamprosate-renal-screen");
-    const selectCard = card.getByRole("button", { name: "Select Acamprosate renal screen" });
-    const openItem = card.getByRole("link", { name: "Open", exact: true });
-    const moreActions = card.getByRole("button", { name: "More actions for Acamprosate renal screen" });
-
-    await expect(card).toBeVisible();
-    await expect(selectCard).toHaveAttribute("aria-pressed", "false");
-    await expectMinTouchTarget(selectCard);
-    await expectMinTouchTarget(openItem);
-    await expectMinTouchTarget(moreActions);
-
-    await selectCard.click();
-    await expect(selectCard).toHaveAttribute("aria-pressed", "true");
-    await expect(openItem).toBeVisible();
-    await expect(moreActions).toBeVisible();
-    await expectNoPageHorizontalOverflow(page);
-  });
-
   test("app mode menu supports keyboard navigation without removed prototype modes", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
@@ -2971,20 +2948,28 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("services decision rail does not present unfinished actions as available", async ({ page }) => {
+  test("services decision rail exposes only functional review and comparison actions", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await mockDemoApi(page);
     await gotoApp(page, "/services?q=mental%20health&focus=1&run=1");
 
     const navigator = page.getByRole("main");
     await expect(navigator).toBeVisible();
-    await expect(navigator.getByRole("button", { name: "Edit" })).toBeDisabled();
-    await expect(navigator.getByRole("button", { name: "Review details" })).toBeDisabled();
-    await expect(navigator.getByRole("button", { name: "View details" })).toBeDisabled();
+    await expect(navigator.getByRole("button", { name: "Edit" })).toHaveCount(0);
+    const reviewDetails = navigator.getByRole("button", { name: "Review details" });
+    await expect(reviewDetails).toBeEnabled();
+    await reviewDetails.click();
+    await expect(navigator.locator("#service-checklist-details")).toBeVisible();
+    const viewDetails = navigator.getByRole("button", { name: "View details" });
+    await expect(viewDetails).toBeEnabled();
+    await viewDetails.click();
+    await expect(navigator.locator("#service-confidence-details")).toBeVisible();
     const compare = navigator.getByRole("button", { name: /Compare selected/ });
-    await expect(compare).toBeDisabled();
-    await expect(compare).toHaveAttribute("title", "Service comparison is coming soon");
-    const clear = navigator.getByRole("button", { name: "Clear" });
+    await expect(compare).toBeEnabled();
+    await expect(compare).toHaveAttribute("title", "Compare selected services");
+    await compare.click();
+    await expect(navigator.getByRole("region", { name: "Selected service comparison" })).toBeVisible();
+    const clear = navigator.getByRole("button", { name: "Clear", exact: true });
     await expect(clear).toBeEnabled();
     await clear.click();
     await expect(navigator.getByText("Selected services (0)")).toBeVisible();

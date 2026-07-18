@@ -224,7 +224,7 @@ test.describe("previously uncovered production routes", () => {
       },
       async (currentPage) => {
         const search = currentPage
-          .getByRole("navigation", { name: "Therapy Compass sections" })
+          .getByRole("navigation", { name: "Therapy sections" })
           .getByRole("button", { name: "Search", exact: true });
         await expect(search).toBeEnabled();
         await search.click();

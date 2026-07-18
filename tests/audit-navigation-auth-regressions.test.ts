@@ -31,7 +31,7 @@ describe("audit navigation and auth regressions", () => {
       new NextRequest("https://clinical-kb.test/applications?q=acute+care&tag=one&tag=two"),
     );
     expect(applications.status).toBe(307);
-    expect(applications.headers.get("location")).toBe("https://clinical-kb.test/tools?q=acute+care&tag=one&tag=two");
+    expect(applications.headers.get("location")).toBe("/tools?q=acute+care&tag=one&tag=two");
 
     const presentations = redirectPresentations(
       new NextRequest(
@@ -40,12 +40,12 @@ describe("audit navigation and auth regressions", () => {
     );
     expect(presentations.status).toBe(307);
     expect(presentations.headers.get("location")).toBe(
-      "https://clinical-kb.test/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
+      "/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
     );
 
     const medications = redirectMedications(new NextRequest("https://clinical-kb.test/medications?ignored=1"));
     expect(medications.status).toBe(307);
-    expect(medications.headers.get("location")).toBe("https://clinical-kb.test/?mode=prescribing");
+    expect(medications.headers.get("location")).toBe("/?mode=prescribing");
 
     expect([headApplications, headPresentations, headMedications]).toEqual([
       redirectApplications,
@@ -123,6 +123,22 @@ describe("audit navigation and auth regressions", () => {
       "function openEvidenceDrawer()",
     );
     expect(uploadMutationContract).toContain("if (!canUsePrivateApis) {");
+  });
+
+  it("keeps the private upload workspace tabs and panels programmatically associated", () => {
+    expect(clinicalDashboardSource).toContain('aria-label="Upload and indexing sections"');
+    expect(clinicalDashboardSource).toContain('role="tab"');
+    expect(clinicalDashboardSource).toContain("aria-selected={active}");
+    expect(clinicalDashboardSource).toContain("aria-controls={tab.panelId}");
+    expect(clinicalDashboardSource).toContain("tabIndex={active ? 0 : -1}");
+    expect(clinicalDashboardSource).toContain('role="tabpanel"');
+    for (const tab of ["setup", "upload", "jobs", "quality"]) {
+      expect(clinicalDashboardSource).toContain(`aria-labelledby="dashboard-upload-tab-${tab}"`);
+    }
+    expect(clinicalDashboardSource).toContain('event.key === "ArrowRight"');
+    expect(clinicalDashboardSource).toContain('event.key === "ArrowLeft"');
+    expect(clinicalDashboardSource).toContain('event.key === "Home"');
+    expect(clinicalDashboardSource).toContain('event.key === "End"');
   });
 
   it("keeps the root dashboard H1 as Clinical Guide", () => {

@@ -59,7 +59,7 @@ export function DifferentialStreamPage({ stream, query = "" }: DifferentialStrea
             <span className="text-sm text-[color:var(--text-muted)]">Diagnosis-focused differential content</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            {copy.cards.map((card, index) => (
+            {copy.cards.map((card) => (
               <Link
                 key={card.id}
                 href={card.href}

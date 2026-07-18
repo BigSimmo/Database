@@ -449,14 +449,17 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(toolsHub.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
     await expect(toolsHub.getByTestId("global-search-input")).toBeVisible();
     await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
-    await expect(toolsHub.getByRole("link", { name: "Launch Medication Prescribing" })).toBeVisible();
+    const medicationDetails = toolsHub.getByRole("button", { name: "View details for Medication Prescribing" });
+    await expect(medicationDetails).toHaveAttribute("aria-haspopup", "dialog");
     await expect(toolsHub.getByTestId("application-card-documents")).toBeHidden();
     await expect(toolsHub.getByTestId("tool-mode-result-medications")).toHaveCount(0);
 
-    await expect(toolsHub.getByRole("link", { name: "Launch Medication Prescribing" })).toHaveAttribute(
-      "href",
-      "/?mode=prescribing",
-    );
+    await medicationDetails.click();
+    const medicationDialog = page.getByRole("dialog", { name: "Medication Prescribing" });
+    await expect(medicationDialog).toBeVisible();
+    const medicationLaunch = medicationDialog.locator('a[href="/?mode=prescribing"]').first();
+    await expect(medicationLaunch).toBeVisible();
+    await expect(medicationLaunch).toHaveAttribute("href", "/?mode=prescribing");
     await expectNoPageHorizontalOverflow(page);
   });
 

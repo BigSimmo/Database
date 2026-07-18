@@ -20,6 +20,10 @@ function classCount(source: string, className: string) {
   return source.match(new RegExp(`className="[^"]*\\b${className}\\b[^"]*"`, "g"))?.length ?? 0;
 }
 
+function responsiveStackCount(source: string) {
+  return classCount(source, "tc-mobile-stack") + classCount(source, "tc-stack-sm");
+}
+
 function contrastRatio(firstHex: string, secondHex: string) {
   const luminance = (hex: string) => {
     const channels = hex
@@ -46,23 +50,23 @@ describe("Therapy Compass responsive contract", () => {
   });
 
   it("marks every fixed screen/card grid for phone reflow without changing its desktop template", () => {
-    expect(classCount(therapyCardSource, "tc-mobile-stack")).toBeGreaterThanOrEqual(2);
-    expect(classCount(homeSource, "tc-mobile-stack")).toBeGreaterThanOrEqual(3);
+    expect(responsiveStackCount(therapyCardSource)).toBeGreaterThanOrEqual(2);
+    expect(responsiveStackCount(homeSource)).toBeGreaterThanOrEqual(3);
     expect(homeSource).toContain('className="tc-home-search"');
     expect(homeSource).toContain("tc-home-search-button");
-    expect(classCount(detailSource, "tc-mobile-stack")).toBeGreaterThanOrEqual(2);
+    expect(responsiveStackCount(detailSource)).toBeGreaterThanOrEqual(2);
     expect(detailSource).toContain('className="tc-mobile-static"');
-    expect(compareSource).toContain('className="tc-mobile-stack"');
+    expect(responsiveStackCount(compareSource)).toBeGreaterThanOrEqual(1);
     expect(compareSource).toContain('className="tc-compare-tabs"');
-    expect(compareSource).toContain('className="tc-compare-table tc-scroll"');
-    expect(classCount(recommendSource, "tc-mobile-stack")).toBeGreaterThanOrEqual(2);
-    expect(pathwaysSource).toContain('className="tc-mobile-stack"');
+    expect(compareSource).toMatch(/className="(?:tc-compare-table tc-scroll|tc-scroll-sm)"/);
+    expect(responsiveStackCount(recommendSource)).toBeGreaterThanOrEqual(2);
+    expect(responsiveStackCount(pathwaysSource)).toBeGreaterThanOrEqual(1);
     expect(pathwaysSource).toContain('className="tc-pathway-list"');
-    expect(classCount(briefSource, "tc-mobile-stack")).toBeGreaterThanOrEqual(2);
+    expect(responsiveStackCount(briefSource)).toBeGreaterThanOrEqual(2);
     expect(briefSource).toContain('className="tc-mobile-grid-2"');
-    expect(sheetsSource).toContain('className="tc-mobile-stack"');
+    expect(responsiveStackCount(sheetsSource)).toBeGreaterThanOrEqual(1);
     expect(sheetsSource).toContain("tc-builder-panel tc-mobile-static");
-    expect(otherSource).toContain('className="tc-mobile-stack"');
+    expect(responsiveStackCount(otherSource)).toBeGreaterThanOrEqual(1);
 
     expect(therapyCardSource).toContain("grid-template-columns:minmax(280px,1fr) minmax(400px,1.35fr) auto");
     expect(detailSource).toContain("grid-template-columns:minmax(0,1fr) 344px");

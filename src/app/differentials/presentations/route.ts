@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
 
 import { getPresentationWorkflowSelectionForDiagnosisIds } from "@/lib/differentials";
 
@@ -9,13 +9,16 @@ export function GET(request: NextRequest) {
     .map((id) => id.trim())
     .filter(Boolean);
   const selection = getPresentationWorkflowSelectionForDiagnosisIds(selectedIds);
-  const destination = new URL(
-    `/differentials/presentations/${selection?.workflow.id ?? "acute-confusion-encephalopathy"}`,
-    request.url,
-  );
-  if (query) destination.searchParams.set("q", query);
-  if (selection?.diagnosisIds.length) destination.searchParams.set("ids", selection.diagnosisIds.join(","));
-  return NextResponse.redirect(destination);
+  const destinationParams = new URLSearchParams();
+  if (query) destinationParams.set("q", query);
+  if (selection?.diagnosisIds.length) destinationParams.set("ids", selection.diagnosisIds.join(","));
+  const suffix = destinationParams.size ? `?${destinationParams.toString()}` : "";
+  return new Response(null, {
+    status: 307,
+    headers: {
+      Location: `/differentials/presentations/${selection?.workflow.id ?? "acute-confusion-encephalopathy"}${suffix}`,
+    },
+  });
 }
 
 export const HEAD = GET;
