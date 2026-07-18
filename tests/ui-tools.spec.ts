@@ -1015,6 +1015,9 @@ test.describe("Clinical KB tools launcher", () => {
 
   test("phone bottom search dock hides while scrolling down on search results", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    // Suite-wide reducedMotion collapses transition durations; this case asserts the
+    // non-reduced dock hide animation, so restore motion for this test only.
+    await page.emulateMedia({ reducedMotion: "no-preference" });
     await gotoLauncher(page, "/forms?q=transport&focus=1&run=1");
 
     await expect(page.getByTestId("form-search-mobile-results")).toBeVisible();
