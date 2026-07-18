@@ -57,15 +57,16 @@ describe("Therapy Compass required data recovery", () => {
       </TherapyCompassWorkspace>,
     );
 
-    expect(await screen.findByRole("heading", { name: "What therapy are you looking for?" })).toBeInTheDocument();
-    expect(screen.getByText(/Search 200\+ source-grounded therapy records by/)).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent("Loading therapy library…");
     expect(screen.queryByText(/Search 0 source-grounded therapy/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "What therapy are you looking for?" })).not.toBeInTheDocument();
 
     release(undefined);
 
     await waitFor(() =>
-      expect(screen.getByText(/Search 1 source-grounded therapy records by/)).toBeInTheDocument(),
+      expect(screen.getByText(/Search 1 source-grounded therapy record by/)).toBeInTheDocument(),
     );
+    expect(screen.getByRole("heading", { name: "What therapy are you looking for?" })).toBeInTheDocument();
     expect(screen.queryByText(/Search 0 source-grounded therapy/)).not.toBeInTheDocument();
   });
 
@@ -88,8 +89,7 @@ describe("Therapy Compass required data recovery", () => {
       </TherapyCompassWorkspace>,
     );
 
-    expect(screen.getByRole("heading", { name: "What therapy are you looking for?" })).toBeInTheDocument();
-    expect(screen.getByText(/Search 200\+ source-grounded therapy records by/)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Loading therapy library");
     expect(screen.queryByText(/Search 0 source-grounded therapy records/)).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Frequently used therapies" })).not.toBeInTheDocument();
 
@@ -100,7 +100,7 @@ describe("Therapy Compass required data recovery", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByRole("heading", { name: "What therapy are you looking for?" })).toBeInTheDocument();
-    expect(screen.getByText(/Search 1 source-grounded therapy records by/)).toBeInTheDocument();
+    expect(screen.getByText(/Search 1 source-grounded therapy record by/)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
   });
