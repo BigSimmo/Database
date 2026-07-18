@@ -15,8 +15,9 @@ const TARGET_SPECIFIER = "@/lib/services";
 // Side-effect imports have no `from` clause but still execute the module.
 const SIDE_EFFECT_IMPORT_PATTERN = /^import\s+["']([^"']+)["']/gm;
 // Dynamic import() expressions defer loading but still emit client JavaScript
-// for the target, so they count as runtime edges too.
-const DYNAMIC_IMPORT_PATTERN = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g;
+// for the target, so they count as runtime edges too — including with
+// webpack/Next magic comments before the specifier.
+const DYNAMIC_IMPORT_PATTERN = /\bimport\s*\(\s*(?:\/\*[\s\S]*?\*\/\s*)*["']([^"']+)["'][\s\S]*?\)/g;
 // import/export ... from "..." — clause analysed by hasRuntimeBindings below so
 // `import type`, `export type`, and named clauses whose specifiers are all
 // `type X` (including multiline) stay allowed while default, namespace, mixed,
