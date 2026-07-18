@@ -62,12 +62,13 @@ function TherapyCompassDataError() {
   );
 }
 
-function TherapyCompassMain({ children }: { children: ReactNode }) {
+function TherapyCompassMain({ children, showFooter }: { children: ReactNode; showFooter: boolean }) {
   const b = useTcBindings();
   return (
     <main className="tc-main" style={s(`min-width:0;padding:32px 40px 40px;`)}>
       {b.error ? <TherapyCompassDataError /> : children}
-      <TherapyCompassFooter />
+      {/* Home uses ModeHomeTemplate's verification footer; skip the workspace copy there. */}
+      {showFooter ? <TherapyCompassFooter /> : null}
     </main>
   );
 }
@@ -78,7 +79,7 @@ function TherapyCompassMain({ children }: { children: ReactNode }) {
  * are shared across every `/therapy-compass/*` route, while each route renders
  * its own screen into the workspace's main content. The design's bespoke left
  * rail is dropped in favour of the app's universal rail; its destinations live in
- * the horizontal in-content nav under the global header, and the content closes
+ * the horizontal in-content nav under the global header, and non-home routes close
  * with the universal clinical verification footer.
  */
 export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
@@ -93,7 +94,7 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
         style={s(`min-height:calc(100dvh - 4rem);background:var(--surface-chrome);color:var(--text);`)}
       >
         {isHome ? null : <TherapyCompassNav />}
-        <TherapyCompassMain>{children}</TherapyCompassMain>
+        <TherapyCompassMain showFooter={!isHome}>{children}</TherapyCompassMain>
       </div>
     </TcProvider>
   );
