@@ -2962,6 +2962,14 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       return (data ?? []) as SearchResult[];
     }),
   ).catch((error) => {
+    if (args.signal?.aborted) throw args.signal.reason ?? error;
+    if (
+      error &&
+      (error instanceof DOMException || typeof error === "object") &&
+      (error as { name?: string }).name === "AbortError"
+    ) {
+      throw error;
+    }
     if (!args.forceEmbedding && textFastResults.length > 0) return [] as SearchResult[][];
     throw error;
   });
