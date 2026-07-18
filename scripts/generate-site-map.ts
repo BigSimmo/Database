@@ -41,7 +41,7 @@ const productRouteHandlerPaths = new Set(["/applications", "/differentials/prese
 
 const documentedRedirectTargets: Record<string, string> = {
   "/applications": "/tools",
-  "/differentials/presentations": "/differentials/presentations/[workflow-slug]",
+  "/differentials/presentations": "/differentials/presentations/[slug]",
   "/medications": "/?mode=prescribing",
 };
 

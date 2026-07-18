@@ -43,9 +43,9 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     // Disable CSS/web animations suite-wide so a click can't land mid-transition
-    // on a moving target (documented races in ui-stress/ui-smoke). The dedicated
-    // reduced-motion a11y spec emulates a per-test mode, so suite-wide settings
-    // remain stable across builds.
+    // on a moving target (documented races in ui-stress/ui-smoke). Set via
+    // contextOptions (the supported form in this Playwright build); the dedicated
+    // reduced-motion a11y spec emulates it per-test too, so it is unaffected.
     contextOptions: { reducedMotion: "reduce" },
   },
   projects: [
@@ -55,7 +55,6 @@ export default defineConfig({
       grepInvert: mockupTag,
       use: {
         ...devices["Desktop Chrome"],
-        contextOptions: { reducedMotion: "no-preference" },
         ...(chromiumExecutablePath ? { launchOptions: { executablePath: chromiumExecutablePath } } : {}),
       },
     },
