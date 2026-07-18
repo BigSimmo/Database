@@ -76,7 +76,11 @@ type LocalFavouriteMatch = {
   score: number;
 };
 
-function rankLocalFavourites(items: FavouriteItem[], query: string): LocalFavouriteMatch[] {
+function rankLocalFavourites(
+  items: FavouriteItem[],
+  query: string,
+  includePrototypeSets: boolean,
+): LocalFavouriteMatch[] {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return [];
   const tokens = normalized.split(/\s+/).filter(Boolean);
@@ -103,18 +107,20 @@ function rankLocalFavourites(items: FavouriteItem[], query: string): LocalFavour
     if ((byKey.get(key)?.score ?? -1) < score) byKey.set(key, match);
   }
 
-  for (const set of favouriteSets) {
-    const text = [set.title, set.meta, set.keywords].join(" ").toLowerCase();
-    if (!tokens.every((token) => text.includes(token))) continue;
-    const score = set.title.toLowerCase().includes(normalized) ? 100 : 8;
-    byKey.set(`set:${set.id}`, {
-      id: `set:${set.id}`,
-      title: set.title,
-      subtitle: `${set.count} saved ${set.count === 1 ? "item" : "items"} · ${set.meta}`,
-      href: `/favourites?q=${encodeURIComponent(set.title)}&run=1`,
-      standalone: true,
-      score,
-    });
+  if (includePrototypeSets) {
+    for (const set of favouriteSets) {
+      const text = [set.title, set.meta, set.keywords].join(" ").toLowerCase();
+      if (!tokens.every((token) => text.includes(token))) continue;
+      const score = set.title.toLowerCase().includes(normalized) ? 100 : 8;
+      byKey.set(`set:${set.id}`, {
+        id: `set:${set.id}`,
+        title: set.title,
+        subtitle: `${set.count} saved ${set.count === 1 ? "item" : "items"} · ${set.meta}`,
+        href: `/favourites?q=${encodeURIComponent(set.title)}&run=1`,
+        standalone: true,
+        score,
+      });
+    }
   }
 
   return [...byKey.values()].sort((left, right) => right.score - left.score || left.title.localeCompare(right.title));
@@ -429,8 +435,8 @@ export function UniversalSearchCommandSurface({
     [demoMode, savedRegistryFavourites],
   );
   const favouriteMatches = useMemo(
-    () => rankLocalFavourites(allFavouriteItems, trimmedQuery),
-    [allFavouriteItems, trimmedQuery],
+    () => rankLocalFavourites(allFavouriteItems, trimmedQuery, demoMode),
+    [allFavouriteItems, demoMode, trimmedQuery],
   );
   const savedHrefs = useMemo(() => new Set(allFavouriteItems.map((item) => item.href)), [allFavouriteItems]);
 

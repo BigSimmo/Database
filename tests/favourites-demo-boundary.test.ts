@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
-import { resolveClientDemoMode } from "@/lib/client-env";
+import { resolveClientDemoMode, resolveUploadReadOnlyMode } from "@/lib/client-env";
 
 const routeSource = readFileSync(new URL("../src/app/favourites/page.tsx", import.meta.url), "utf8");
 const librarySource = readFileSync(
@@ -42,6 +42,8 @@ describe("favourites demo-data boundary", () => {
     expect(globalShellSource).toContain("demoMode={clientDemoMode}");
     expect(universalSearchSource).toContain("...(demoMode ? favouriteItems : [])");
     expect(universalSearchSource).not.toContain("[...favouriteItems, ...savedRegistryFavourites]");
+    expect(universalSearchSource).toContain("if (includePrototypeSets)");
+    expect(universalSearchSource).toContain("rankLocalFavourites(allFavouriteItems, trimmedQuery, demoMode)");
   });
 
   it("fails closed in production while preserving explicit and non-production demo modes", () => {
@@ -101,8 +103,23 @@ describe("favourites demo-data boundary", () => {
         environment: "development",
       }),
     ).toBe(false);
-    expect(dashboardSource).toContain("localNoAuthMode: false");
-    expect(dashboardSource).toMatch(/const uploadReadOnlyMode = resolveClientDemoMode\(\{/);
+    const browserAuthUnavailableDemoFallback = true;
+    expect(
+      resolveUploadReadOnlyMode({
+        explicitDemoMode: false,
+        authUnavailableFallback: browserAuthUnavailableDemoFallback,
+        environment: "development",
+      }),
+    ).toBe(true);
+    expect(
+      resolveUploadReadOnlyMode({
+        explicitDemoMode: false,
+        authUnavailableFallback: false,
+        environment: "development",
+      }),
+    ).toBe(false);
+    expect(dashboardSource).toMatch(/const uploadReadOnlyMode = resolveUploadReadOnlyMode\(\{/);
+    expect(dashboardSource).toContain("authUnavailableFallback: browserAuthUnavailableDemoFallback");
     expect(dashboardSource).not.toMatch(/const uploadReadOnlyMode = clientDemoMode\b/);
   });
 });

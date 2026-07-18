@@ -17,6 +17,23 @@ export function resolveClientDemoMode({
   return explicitDemoMode || (environment !== "production" && (authUnavailableFallback || localNoAuthMode));
 }
 
+export function resolveUploadReadOnlyMode({
+  explicitDemoMode,
+  authUnavailableFallback,
+  environment = process.env.NODE_ENV,
+}: {
+  explicitDemoMode: boolean;
+  authUnavailableFallback: boolean;
+  environment?: string;
+}) {
+  return resolveClientDemoMode({
+    explicitDemoMode,
+    authUnavailableFallback,
+    localNoAuthMode: false,
+    environment,
+  });
+}
+
 export function publicUploadsEnabled() {
   return process.env.NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED === "true";
 }
