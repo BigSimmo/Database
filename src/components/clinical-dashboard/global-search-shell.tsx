@@ -164,6 +164,7 @@ function GlobalStandaloneSearchShellClient({
   useEffect(() => {
     reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   }, [phoneScrollHide.reportScroll]);
+  const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
   const visibleShellModes = useMemo(() => {
     const modes = visibleAppModeDefinitions();
     if (!availableModeIds?.length) return modes;
@@ -271,13 +272,14 @@ function GlobalStandaloneSearchShellClient({
           : useCompactBottomSearch
             ? "calc(5.5rem + env(safe-area-inset-bottom))"
             : "calc(9rem + env(safe-area-inset-bottom))";
-  // When phone chrome hides on downward scroll, release the large bottom
-  // composer reserve as well. Otherwise long content reaches the end of the
-  // internal scrollport while a toolbar-sized blank band remains between the
-  // page and Safari's collapsed address bar. Keep only a small safe-area
+  // When the bottom composer is actually hidden (accounting for scroll-hidden
+  // state plus all menu/focus conditions that keep it visible), release the
+  // large bottom composer reserve. Otherwise long content reaches the end of
+  // the internal scrollport while a toolbar-sized blank band remains between
+  // the page and Safari's collapsed address bar. Keep only a small safe-area
   // breathing room so the site content, not the background, fills the revealed
   // edge-to-edge viewport.
-  const mobileComposerReserve = phoneScrollHide.hidden
+  const mobileComposerReserve = bottomComposerHidden
     ? "max(0.75rem, env(safe-area-inset-bottom))"
     : visibleMobileComposerReserve;
 
@@ -586,6 +588,7 @@ function GlobalStandaloneSearchShellClient({
             // collapses the header/composer to hand space back to content.
             hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
             queryInputAutoFocus={searchParams.get("focus") === "1"}
+            onBottomComposerHiddenChange={setBottomComposerHidden}
           />
         </div>
 
