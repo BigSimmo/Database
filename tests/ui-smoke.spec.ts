@@ -873,7 +873,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await gotoApp(page, "/");
       await waitForDemoDashboardReady(page);
 
-      await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toHaveCount(1);
+      await expect(page.getByRole("heading", { level: 1, name: "Clinical KB" })).toHaveCount(1);
       await expect(page.getByRole("heading", { name: "Answer" })).toBeVisible();
       await expect(visibleQuestionInput(page)).toBeVisible();
       await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toHaveText(/^\s*Ask\s*$/);
@@ -1268,7 +1268,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Generate source-backed answer" })).toBeEnabled();
     await expect(page.getByTestId("answer-grounding-chip")).toHaveCount(0);
     expect(answerRequests).toEqual([]);
-    await expect(page.getByRole("heading", { level: 1, name: "Clinical Guide" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Clinical KB" })).toBeVisible();
     await expectDomIntegrity(page, { mobileNav: true, mobileFabReady: false });
     await expectNoPageHorizontalOverflow(page);
   });
