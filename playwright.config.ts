@@ -44,10 +44,9 @@ export default defineConfig({
     screenshot: "only-on-failure",
     // Disable CSS/web animations suite-wide so a click can't land mid-transition
     // on a moving target (documented races in ui-stress/ui-smoke). The dedicated
-    // reduced-motion a11y spec emulates it per-test too, so it is unaffected.
-    contextOptions: {
-      reducedMotion: "reduce",
-    },
+    // reduced-motion a11y spec emulates a per-test mode, so suite-wide settings
+    // remain stable across builds.
+    contextOptions: { reducedMotion: "reduce" },
   },
   projects: [
     {
