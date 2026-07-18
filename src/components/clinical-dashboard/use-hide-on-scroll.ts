@@ -22,6 +22,10 @@ const minimumDelta = 4;
 // chrome at a direction change.
 const hideIntentDistance = 24;
 const revealIntentDistance = 12;
+// How close to the bottom edge (px) counts as "pinned to the bottom". When the
+// offset is this near the maximum, an upward reading is the viewport growing
+// under a collapsing header rather than a real scroll, so it must not reveal.
+const bottomClampTolerance = 1;
 
 type ScrollDirection = "down" | "up" | null;
 export interface ScrollMetrics {
@@ -65,16 +69,27 @@ export function computeScrollHideUpdate(params: {
     return { hidden: false, lastOffset: offset, direction: null, directionTravel: 0 };
   }
 
-  // Collapsing in-flow chrome grows the scroll viewport. At the bottom the
-  // browser clamps scrollTop to the new maximum and emits an apparent upward
-  // scroll even though the user is still moving down. Keep the chrome hidden
-  // and rebase intent so that layout feedback cannot start a hide/show loop.
-  if (
-    currentlyHidden &&
-    maxOffset !== undefined &&
-    lastOffset > maxOffset + minimumDelta &&
-    Math.abs(offset - maxOffset) <= 1
-  ) {
+  // Collapsing in-flow chrome grows the scroll viewport: as the header hands its
+  // height back to the content, the browser clamps scrollTop to the new, smaller
+  // maximum and emits an apparent upward scroll even though the user is moving
+  // down or holding at the bottom. A collapse animates over several frames, so
+  // this clamp repeats frame after frame; if any frame's phantom "up" reveals
+  // the chrome, the viewport shrinks again and a hide/reveal scroll-bounce
+  // begins. While the chrome is hidden and the offset stays pinned to the bottom
+  // edge, treat every upward reading as layout feedback — hold the hidden state
+  // and rebase intent so only a genuine upward scroll (one that pulls the offset
+  // clear of the bottom) can reveal. This intentionally does not depend on the
+  // previous offset's relationship to the maximum, which the browser's per-frame
+  // clamping makes unreliable during the collapse.
+  //
+  // The bottom test is deliberately one-sided (`offset >= maxOffset - tol`, not
+  // `|offset - maxOffset| <= tol`): iOS rubber-band overscroll at the bottom can
+  // report a scrollTop *past* the maximum, and while the content springs back
+  // the reading moves up. That is still the bottom edge, not a scroll away from
+  // it, so it must hold hidden too — mirroring the `offset < 0` guard that holds
+  // state through top overscroll. A symmetric window would instead reveal the
+  // chrome mid-rubber-band, reintroducing the flicker this guard removes.
+  if (currentlyHidden && maxOffset !== undefined && offset < lastOffset && offset >= maxOffset - bottomClampTolerance) {
     return { hidden: true, lastOffset: offset, direction: null, directionTravel: 0 };
   }
 
