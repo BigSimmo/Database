@@ -18,11 +18,15 @@ const readySetupChecks = [
   { id: "worker", label: "npm run worker running", status: "unknown", detail: "Worker not required for UI smoke." },
 ];
 
-const testServiceSlugs = ["13yarn", "city-east-community-mental-health-service"] as const;
+const testServiceSlugs = ["13yarn", "city-east-community-mental-health-service"];
 const testServiceRecords = serviceRecords.filter((service) => testServiceSlugs.includes(service.slug));
+const testServiceSlugSet = new Set(testServiceSlugs);
 
 function serviceRecordForSlug(slug: string) {
   const normalizedSlug = decodeURIComponent(slug.trim()).toLowerCase();
+  if (!testServiceSlugSet.has(normalizedSlug)) {
+    return null;
+  }
   return testServiceRecords.find((record) => record.slug === normalizedSlug) ?? null;
 }
 

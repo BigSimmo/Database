@@ -669,14 +669,16 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                   </div>
                   <div className="flex items-center gap-2 pb-1.5">
                     <ResultSortControl value={sortValue} onChange={setSortValue} className="md:hidden" />
-                    <RefineBar
-                      open={refineOpen}
-                      onToggle={() => setRefineOpen((open) => !open)}
-                      panelId={refinePanelId}
-                    />
+                    {!registry.demoMode ? (
+                      <RefineBar
+                        open={refineOpen}
+                        onToggle={() => setRefineOpen((open) => !open)}
+                        panelId={refinePanelId}
+                      />
+                    ) : null}
                   </div>
                 </div>
-                <RefinePanel open={refineOpen} panelId={refinePanelId} />
+                {registry.demoMode ? null : <RefinePanel open={refineOpen} panelId={refinePanelId} />}
                 <div className="hidden md:block">
                   <ResultsTable matches={displayedMatches} query={query} sortValue={sortValue} />
                 </div>
@@ -688,13 +690,17 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
             <UniversalSearchAlsoMatches modeId="forms" query={query} />
           </>
         ) : null}
-        <div className="hidden lg:block">
-          <PathwayPanel />
-        </div>
-        <div className="lg:hidden">
-          <MobilePathway />
-        </div>
-        {registryReady ? <VerifiedFooter /> : null}
+        {registryReady && !registry.demoMode ? (
+          <>
+            <div className="hidden lg:block">
+              <PathwayPanel />
+            </div>
+            <div className="lg:hidden">
+              <MobilePathway />
+            </div>
+            <VerifiedFooter />
+          </>
+        ) : null}
       </main>
     </div>
   );
