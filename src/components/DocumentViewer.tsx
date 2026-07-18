@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import {
   CircleAlert,
@@ -64,7 +65,6 @@ import {
 } from "@/components/ui-primitives";
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
-import { NativePdfEmbed, PdfCanvasViewer } from "@/components/document-viewer/pdf-canvas-viewer";
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
@@ -104,6 +104,34 @@ import {
 import { buildDocumentSummaryBadges } from "@/lib/document-summary-badges";
 import { documentSummaryQuestion } from "@/lib/answer-contract";
 import type { DocumentDetailPayload } from "@/lib/document-detail-contract";
+
+// pdf-canvas-viewer is only needed after a source document has loaded and the
+// user is viewing a PDF. Keeping it out of the document route's initial client
+// chunk avoids parsing its reader controls for image, text, and download-only
+// documents. pdf.js itself remains loaded on demand by that component.
+const PdfCanvasViewer = dynamic(
+  () => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.PdfCanvasViewer),
+  {
+    ssr: false,
+    loading: () => <PdfPreviewLoading />,
+  },
+);
+const NativePdfEmbed = dynamic(
+  () => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.NativePdfEmbed),
+  { ssr: false, loading: () => <PdfPreviewLoading /> },
+);
+
+function PdfPreviewLoading() {
+  return (
+    <div
+      aria-busy="true"
+      aria-live="polite"
+      className="grid min-h-64 place-items-center bg-[color:var(--surface-inset)] p-5 text-center text-sm text-[color:var(--text-muted)] sm:min-h-72"
+    >
+      Loading PDF reader…
+    </div>
+  );
+}
 
 type PageRow = {
   id: string;
@@ -3073,7 +3101,7 @@ export function DocumentViewer({
           onBlurCapture={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setComposerChromeFocused(false);
           }}
-          className="document-viewer-composer floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-xl max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none"
+          className="document-viewer-composer floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] ring-1 ring-white/35 dark:ring-white/10 backdrop-blur-xl max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none"
         >
           <button
             type="button"

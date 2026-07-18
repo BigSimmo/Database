@@ -426,18 +426,51 @@ export function LoadingPanel({
   );
 }
 
-export function EmptyState({ icon: Icon, title, body }: { icon?: IconComponent; title: string; body: string }) {
+export function EmptyState({
+  icon: Icon,
+  title,
+  body,
+  actions,
+  live,
+  tone = "neutral",
+  testId,
+}: {
+  icon?: IconComponent;
+  title: string;
+  body: string;
+  /** Optional controls stay within the shared state surface rather than becoming a second panel. */
+  actions?: ReactNode;
+  /** Announce a state transition only when the state is introduced dynamically. */
+  live?: "polite" | "assertive";
+  tone?: "neutral" | "info" | "danger";
+  testId?: string;
+}) {
   return (
-    <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5">
+    <div
+      data-testid={testId}
+      role={live === "assertive" ? "alert" : live === "polite" ? "status" : undefined}
+      className={cn(
+        "rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5",
+        tone === "info" && "border-[color:var(--info-border)] bg-[color:var(--info-soft)]",
+        tone === "danger" && "border-[color:var(--danger-border)] bg-[color:var(--danger-soft)]",
+      )}
+    >
       <div className="flex items-start gap-3">
         {Icon && (
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--text-muted)]">
+          <span
+            className={cn(
+              "grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[color:var(--surface)] text-[color:var(--text-muted)]",
+              tone === "info" && "bg-[color:var(--info-soft)] text-[color:var(--info)]",
+              tone === "danger" && "bg-[color:var(--danger-soft)] text-[color:var(--danger)]",
+            )}
+          >
             <Icon className="size-icon-md sm:size-icon-lg" />
           </span>
         )}
         <div className="min-w-0">
           <p className="font-semibold text-[color:var(--text)]">{title}</p>
           <p className={cn("mt-1 leading-6", textMuted)}>{body}</p>
+          {actions ? <div className="mt-3 flex flex-wrap gap-2">{actions}</div> : null}
         </div>
       </div>
     </div>
