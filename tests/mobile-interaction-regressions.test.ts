@@ -24,6 +24,7 @@ describe("mobile interaction regressions", () => {
   it("leaves phone vertical scrolling to the shared shell", () => {
     const presentationSource = source("src/components/differentials/differential-presentation-workflow-page.tsx");
     const favouritesSource = source("src/components/clinical-dashboard/favourites-command-library-page.tsx");
+    const differentialsHomeSource = source("src/components/clinical-dashboard/differentials-home.tsx");
 
     expect(presentationSource).toMatch(
       /data-testid="differential-presentation-page"\s+className="[^"]*min-h-0[^"]*overflow-x-clip[^"]*sm:min-h-\[calc\(100dvh-4rem\)\]/,
@@ -32,6 +33,13 @@ describe("mobile interaction regressions", () => {
       /data-testid="favourites-hub"\s+className="[^"]*min-h-0[^"]*overflow-x-clip[^"]*sm:min-h-\[calc\(100dvh-4rem\)\]/,
     );
     expect(favouritesSource).toContain('"grid min-h-0 min-w-0 overflow-x-clip sm:min-h-[calc(100dvh-4rem)]"');
+    // overflow-x-hidden would force overflow-y:auto and nest a scrollport under #main-content.
+    expect(differentialsHomeSource).toMatch(
+      /data-testid="differentials-search-results"[\s\S]*?className="[^"]*overflow-x-clip[^"]*"/,
+    );
+    expect(differentialsHomeSource).not.toMatch(
+      /data-testid="differentials-search-results"[\s\S]*?className="[^"]*overflow-x-hidden[^"]*"/,
+    );
   });
 
   it("keeps phone quick actions and the privacy link at the semantic tap size", () => {
