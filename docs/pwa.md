@@ -173,7 +173,9 @@ clinical-kb-pwa-static-<CACHE_VERSION>
 Operational rules:
 
 1. Bump `CACHE_VERSION` whenever the offline document, precache contents, cache allowlist, strategy, or response
-   semantics change, and whenever a deployment must force eviction of previously cached assets.
+   semantics change, and whenever a deployment must force eviction of previously cached assets. A guard in
+   `tests/pwa-manifest.test.ts` binds the `offline.html` content hash to `CACHE_VERSION`, so an offline-document edit
+   cannot ship without a version bump.
 2. Change the worker script in the same deployment. `/sw.js` is served with `no-cache, no-store, must-revalidate`, and
    registration uses `updateViaCache: "none"`, so the browser can detect the new script.
 3. Activation deletes only owned obsolete caches. It retains the two newest prior static caches and the new worker
@@ -184,7 +186,9 @@ Operational rules:
 5. Do not reuse an old cache version after a rollback. A rollback may encounter clients and caches from the newer
    release; publish another unique version if cache semantics need to move backward.
 6. Do not remove `/sw.js` as a way to retire the PWA. Installed workers can outlive that response. A future retirement
-   must ship an explicit worker that deletes the owned cache prefix and unregisters itself.
+   must ship an explicit worker that deletes the owned cache prefix and unregisters itself. The committed retirement
+   worker at `public/sw-kill-switch.js` implements exactly this: deploy its content as `/sw.js` in a single release
+   (never delete the route). Its behavior is locked by `tests/pwa-kill-switch.test.ts`.
 7. CacheStorage is evictable and installation can fail under storage pressure. The application must remain a fully
    usable online website when that happens; it does not request persistent storage for these replaceable public assets.
 
@@ -243,9 +247,10 @@ Normal development sessions do not register a worker. For focused testing:
 3. In browser DevTools, wait for `/sw.js` to be activated and controlling the page.
 4. Test navigation fallback and CacheStorage as described below. Local runtime caching of HMR and Next.js chunks is
    disabled by the worker.
-5. When finished, use DevTools **Application -> Service Workers -> Unregister**, then clear the two
-   `clinical-kb-pwa-*` caches. The query flag prevents new registration; it does not automatically remove a worker
-   registered during an earlier opt-in session.
+5. When finished, open the same URL with `/?pwa-dev=0`: on local hosts this unregisters the worker and deletes the
+   `clinical-kb-pwa-*` caches automatically. The manual path still works too — DevTools
+   **Application -> Service Workers -> Unregister**, then clear the two `clinical-kb-pwa-*` caches. Loading without any
+   flag only prevents new registration; it does not remove a worker registered during an earlier opt-in session.
 
 Use local/static/mocked checks by default:
 
