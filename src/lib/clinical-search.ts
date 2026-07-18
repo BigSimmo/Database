@@ -1275,8 +1275,9 @@ export function buildClinicalTextSearchQuery(query: string) {
   // Chart/dose/route/options expand into medication-chart terms. Bare "table" or
   // "management" alone must not — those appear in topic lookups like
   // "which table covers … pharmacological management" and broad management questions.
-  const agitationChartSurfaceMatch =
-    /\b(?:dose|dosing|route|oral|intramuscular|im|po|chart|options?|listed)\b/i.test(correctedQueryText);
+  const agitationChartSurfaceMatch = /\b(?:dose|dosing|route|oral|intramuscular|im|po|chart|options?|listed)\b/i.test(
+    correctedQueryText,
+  );
   const wantsAgitationMedicationChart =
     hasAgitationArousalContext &&
     (agitationMedicationIntent.asksAmount ||
