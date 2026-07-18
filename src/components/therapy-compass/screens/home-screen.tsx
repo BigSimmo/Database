@@ -60,9 +60,7 @@ export function HomeScreen() {
         >
           What therapy are you looking for?
         </h1>
-        <p style={s(`margin:0 auto 24px;font-size:15px;color:var(--text-muted);max-width:56ch;`)}>
-          {therapyCountCopy}
-        </p>
+        <p style={s(`margin:0 auto 24px;font-size:15px;color:var(--text-muted);max-width:56ch;`)}>{therapyCountCopy}</p>
       </div>
 
       <div
