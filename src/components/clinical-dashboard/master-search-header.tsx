@@ -1581,13 +1581,7 @@ export function MasterSearchHeader({
             onBlur={(event) => {
               const nextFocusedElement = event.relatedTarget;
               if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) return;
-              // Defer dismiss so a pointer activation on a menuitem can land before
-              // unmount; keyboard leave (Tab/Shift+Tab) still closes on the next frame.
-              const menuRoot = event.currentTarget;
-              window.requestAnimationFrame(() => {
-                if (menuRoot.contains(document.activeElement)) return;
-                setModeMenuOpen(false);
-              });
+              setModeMenuOpen(false);
             }}
             className={cn("relative z-[60] min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
           >
