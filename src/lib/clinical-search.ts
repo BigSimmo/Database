@@ -1224,6 +1224,7 @@ export function medicationDoseEvidenceSearchTerms(query: string) {
 
   return [...new Set(terms.filter(Boolean))];
 }
+
 /** Whether the query explicitly asks for dose, route, or frequency evidence. */
 export function isMedicationDoseEvidenceQuery(query: string) {
   const intent = medicationDoseEvidenceQueryIntent(query);

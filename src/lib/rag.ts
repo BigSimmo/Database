@@ -901,6 +901,7 @@ function hasValidatedRoutineExtractiveRecovery(args: {
     routeReason: `${args.route.reason}; validated_routine_extractive_recovery`,
   });
 }
+
 /**
  * Generic LAI-management questions repeatedly time out in generation despite strong direct
  * source support. Skip that paid tail only when the question asks no specific clinical detail
