@@ -243,6 +243,7 @@ describe("app mode search contract", () => {
         "formulation",
         "prescribing",
         "tools",
+        "therapy-compass",
       ]),
     );
     expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).not.toContain("profile");
@@ -262,6 +263,7 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("formulation", "production")).toBe(true);
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
     expect(isAppModeVisible("tools", "production")).toBe(true);
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
     expect(productionModes).not.toContain("evidence");
     expect(productionModes).toContain("services");
     expect(productionModes).toContain("forms");
@@ -272,6 +274,7 @@ describe("app mode search contract", () => {
     expect(productionModes).toContain("formulation");
     expect(productionModes).toContain("prescribing");
     expect(productionModes).toContain("tools");
+    expect(productionModes).toContain("therapy-compass");
     expect(developmentModes).toEqual(
       expect.arrayContaining([
         "answer",
@@ -285,20 +288,20 @@ describe("app mode search contract", () => {
         "formulation",
         "prescribing",
         "tools",
+        "therapy-compass",
       ]),
     );
     expect(developmentModes).not.toContain("evidence");
   });
 
-  it("holds Therapy Compass out of production discovery until clinician sign-off", () => {
-    // Gated devOnly while the re-curated therapy pathways await qualified-clinician
-    // sign-off: available in the dev switcher, hidden from the production sidebar and
-    // MODE dropdown. Flipping this to visible should be a deliberate, reviewed act —
-    // hence this guard fails until devOnly is removed from the mode definition.
+  it("surfaces Therapy Compass in production discovery after clinician sign-off", () => {
+    // The re-curated therapy pathways have qualified-clinician sign-off, so the
+    // devOnly gate is removed and Therapy is a first-class mode: visible in the
+    // production sidebar and MODE dropdown as well as the dev switcher.
     expect(isAppModeId("therapy-compass")).toBe(true);
     expect(isAppModeVisible("therapy-compass", "development")).toBe(true);
-    expect(isAppModeVisible("therapy-compass", "production")).toBe(false);
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
     expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).toContain("therapy-compass");
-    expect(visibleAppModeDefinitions("production").map((mode) => mode.id)).not.toContain("therapy-compass");
+    expect(visibleAppModeDefinitions("production").map((mode) => mode.id)).toContain("therapy-compass");
   });
 });
