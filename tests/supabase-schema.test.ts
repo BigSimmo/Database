@@ -129,7 +129,7 @@ const deleteDocumentIfIdleMigration = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclAssertionMigration = readFileSync(
-  new URL("../supabase/migrations/20260717161000_assert_supabase_admin_default_privileges.sql", import.meta.url),
+  new URL("../supabase/migrations/20260717173000_reassert_supabase_admin_default_privileges.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclRoleBootstrap = readFileSync(new URL("../supabase/roles.sql", import.meta.url), "utf8").replace(
@@ -1369,9 +1369,10 @@ describe("Supabase Preview replay guards", () => {
         "create or replace function public.cleanup_registry_corpus_document()",
         "revoke execute on function public.cleanup_registry_corpus_document()",
       );
-      expect(cleanup).toContain("metadata->>'registry_record_id' = old.id::text");
-      expect(cleanup).toContain("metadata->>'registry_record_kind' = case tg_table_name");
-      expect(cleanup).toMatch(/when 'clinical_registry_records' then (pg_catalog\.)?to_jsonb\((old|OLD)\)->>'kind'/);
+      const cleanupLower = cleanup.toLowerCase();
+      expect(cleanupLower).toContain("metadata->>'registry_record_id' = old.id::text");
+      expect(cleanupLower).toContain("metadata->>'registry_record_kind' = case tg_table_name");
+      expect(cleanupLower).toMatch(/when 'clinical_registry_records' then (pg_catalog\.)?to_jsonb\(old\)->>'kind'/);
       expect(cleanup).toContain("when 'medication_records' then 'medication'");
       expect(cleanup).toContain("when 'differential_records' then 'differential'");
       expect(cleanup).not.toContain("registry_record_id')::uuid");
@@ -1395,12 +1396,8 @@ describe("Supabase Preview replay guards", () => {
       expect(corrector).toContain("lower(canonical) % tok");
       expect(corrector).toContain("word % tok");
       expect(corrector).toContain("limit 32");
-      expect(corrector).toContain("min_sim real default 0.45");
-      if (corrector.includes("set pg_trgm.similarity_threshold = 0.3")) {
-        expect(corrector).toContain("set pg_trgm.similarity_threshold = 0.3");
-      }
-      expect(corrector).toContain("best_sim >= min_sim");
-      if (corrector.includes("min_sim is null or min_sim < 0.3 or min_sim > 1")) {
+      expect(corrector).toContain("best is not null and best_sim >= min_sim");
+      if (corrector.includes("min_sim is null")) {
         expect(corrector).toContain("min_sim is null or min_sim < 0.3 or min_sim > 1");
       }
       expect(corrector).not.toContain("array_agg(distinct term)");

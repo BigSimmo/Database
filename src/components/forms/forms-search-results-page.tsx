@@ -46,9 +46,7 @@ type FormsSearchResultsPageProps = {
   query: string;
 };
 
-const sourceSnippetCount = 278;
-const taskCount = 8;
-const pathwayCount = 12;
+const supportsPathwayClaims = false;
 
 const refineFilters: {
   icon: LucideIcon;
@@ -59,7 +57,9 @@ const refineFilters: {
 }[] = [
   { icon: Shield, title: "High risk only", subtitle: "Show high risk forms", enabled: false, danger: true },
   { icon: FileText, title: "Official forms", subtitle: "Limit to official forms", enabled: true },
-  { icon: Workflow, title: "Pathway linked", subtitle: "Show pathway-linked", enabled: true },
+  ...(supportsPathwayClaims
+    ? [{ icon: Workflow, title: "Pathway linked", subtitle: "Show pathway-linked", enabled: true }]
+    : []),
   { icon: Search, title: "Source matches", subtitle: "Require source match", enabled: false },
 ];
 
@@ -86,7 +86,7 @@ function compactMatchReason(match: FormSearchMatch, query: string) {
   if (match.reasons.includes("title")) {
     return trimmedQuery ? `Title or content match for "${trimmedQuery}"` : "Title or content match";
   }
-  if (match.reasons.includes("record fields")) return "Content match in related pathway";
+  if (match.reasons.includes("record fields")) return "Content match in record details";
   return "Content match in the forms catalogue";
 }
 
@@ -94,9 +94,6 @@ function ResultTabs({ formsCount }: { formsCount: number }) {
   const tabs = [
     ["Results", null],
     ["Forms", formsCount],
-    ["Evidence", sourceSnippetCount],
-    ["Pathways", pathwayCount],
-    ["Tasks", taskCount],
   ] as const;
 
   return (
@@ -669,14 +666,16 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                   </div>
                   <div className="flex items-center gap-2 pb-1.5">
                     <ResultSortControl value={sortValue} onChange={setSortValue} className="md:hidden" />
-                    <RefineBar
-                      open={refineOpen}
-                      onToggle={() => setRefineOpen((open) => !open)}
-                      panelId={refinePanelId}
-                    />
+                    {supportsPathwayClaims ? (
+                      <RefineBar
+                        open={refineOpen}
+                        onToggle={() => setRefineOpen((open) => !open)}
+                        panelId={refinePanelId}
+                      />
+                    ) : null}
                   </div>
                 </div>
-                <RefinePanel open={refineOpen} panelId={refinePanelId} />
+                {supportsPathwayClaims ? <RefinePanel open={refineOpen} panelId={refinePanelId} /> : null}
                 <div className="hidden md:block">
                   <ResultsTable matches={displayedMatches} query={query} sortValue={sortValue} />
                 </div>
@@ -688,13 +687,9 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
             <UniversalSearchAlsoMatches modeId="forms" query={query} />
           </>
         ) : null}
-        <div className="hidden lg:block">
-          <PathwayPanel />
-        </div>
-        <div className="lg:hidden">
-          <MobilePathway />
-        </div>
-        {registryReady ? <VerifiedFooter /> : null}
+        <div className="hidden lg:block">{supportsPathwayClaims ? <PathwayPanel /> : null}</div>
+        <div className="lg:hidden">{supportsPathwayClaims ? <MobilePathway /> : null}</div>
+        {registryReady && supportsPathwayClaims ? <VerifiedFooter /> : null}
       </main>
     </div>
   );

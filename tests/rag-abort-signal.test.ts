@@ -36,22 +36,31 @@ describe("RAG abort signal propagation", () => {
   it("attaches the caller signal to versioned retrieval RPC builders", async () => {
     const controller = new AbortController();
     const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+    const abortSignal = vi.fn(async () => ({ data: [], error: null }));
     const supabase = {
-      rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
+      rpc: vi.fn((name: string, args: Record<string, unknown>) => {
         rpcCalls.push({ name, args });
-        return { data: [], error: null };
+        return { abortSignal };
       }),
     };
     const { callVersionedRetrievalRpc } = await import("../src/lib/rag-candidate-sources");
 
-    await callVersionedRetrievalRpc(supabase as never, "match_document_chunks_text_v2", "match_document_chunks_text", {
-      query_text: "clozapine",
-      match_count: 8,
-    });
+    await callVersionedRetrievalRpc(
+      supabase as never,
+      "match_document_chunks_text_v2",
+      "match_document_chunks_text",
+      {
+        query_text: "clozapine",
+        match_count: 8,
+      },
+      controller.signal,
+    );
 
     expect(rpcCalls[0]?.name).toBe("match_document_chunks_text_v2");
     expect(rpcCalls[0]?.args).toMatchObject({ query_text: "clozapine", match_count: 8 });
     expect(rpcCalls[0]?.args?.signal).toBeUndefined();
+    expect(abortSignal).toHaveBeenCalledOnce();
+    expect(abortSignal).toHaveBeenCalledWith(controller.signal);
     expect(controller.signal.aborted).toBe(false);
   });
 
