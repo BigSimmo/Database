@@ -201,6 +201,28 @@ describe("computeScrollHideUpdate", () => {
     });
   });
 
+  it("holds the chrome hidden while a bottom rubber-band overscroll springs back", () => {
+    // iOS reports a scrollTop past the maximum during bottom overscroll; as the
+    // content springs back the reading moves up but is still the bottom edge.
+    // A symmetric `|offset - maxOffset| <= tolerance` window would fall through
+    // here and reveal the chrome mid-rubber-band — the one-sided test holds it.
+    expect(
+      computeScrollHideUpdate({
+        offset: 930,
+        lastOffset: 962,
+        maxOffset: 900,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 120,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 930,
+      direction: null,
+      directionTravel: 0,
+    });
+  });
+
   it("ignores an upward clamp caused by the viewport growing at the bottom", () => {
     const clamped = computeScrollHideUpdate({
       offset: 900,

@@ -81,6 +81,14 @@ export function computeScrollHideUpdate(params: {
   // clear of the bottom) can reveal. This intentionally does not depend on the
   // previous offset's relationship to the maximum, which the browser's per-frame
   // clamping makes unreliable during the collapse.
+  //
+  // The bottom test is deliberately one-sided (`offset >= maxOffset - tol`, not
+  // `|offset - maxOffset| <= tol`): iOS rubber-band overscroll at the bottom can
+  // report a scrollTop *past* the maximum, and while the content springs back
+  // the reading moves up. That is still the bottom edge, not a scroll away from
+  // it, so it must hold hidden too — mirroring the `offset < 0` guard that holds
+  // state through top overscroll. A symmetric window would instead reveal the
+  // chrome mid-rubber-band, reintroducing the flicker this guard removes.
   if (currentlyHidden && maxOffset !== undefined && offset < lastOffset && offset >= maxOffset - bottomClampTolerance) {
     return { hidden: true, lastOffset: offset, direction: null, directionTravel: 0 };
   }
