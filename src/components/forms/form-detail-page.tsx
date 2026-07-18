@@ -421,7 +421,7 @@ function ActionPanel({
             href={sourceHref}
             target="_blank"
             rel="noopener noreferrer"
-            className={cn(primaryControl, "min-h-11 w-full px-3")}
+            className={cn(primaryControl, "min-h-tap w-full px-3")}
           >
             <ExternalLink className="h-4 w-4" aria-hidden />
             Open official source
@@ -429,13 +429,13 @@ function ActionPanel({
         ) : (
           <span className={cn(floatingControl, "min-h-11 w-full px-3 opacity-70")}>Source unavailable</span>
         )}
-        <button type="button" onClick={onCopy} className={cn(floatingControl, "min-h-11 w-full px-3")}>
+        <button type="button" onClick={onCopy} className={cn(floatingControl, "min-h-tap w-full px-3")}>
           <Download className="h-4 w-4" aria-hidden />
           Copy details
         </button>
       </div>
       {hrefForCall ? (
-        <a href={hrefForCall} className={cn(floatingControl, "mt-2 min-h-11 w-full px-3")}>
+        <a href={hrefForCall} className={cn(floatingControl, "mt-2 min-h-tap w-full px-3")}>
           <Phone className="h-4 w-4" aria-hidden />
           Call contact
         </a>
@@ -608,7 +608,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                     onClick={toggleSaved}
                     aria-label={saved ? "Remove saved form" : "Save form"}
                     aria-pressed={saved}
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                    className="grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   >
                     {saved ? (
                       <BookmarkCheck className="h-5 w-5" aria-hidden />
@@ -624,7 +624,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
                     }}
                     aria-label={form.source?.url ? "Open official source for this form" : "Official source unavailable"}
                     title={form.source?.url ? undefined : "Official source unavailable"}
-                    className="hidden min-h-11 shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition enabled:hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
+                    className="hidden min-h-tap shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition enabled:hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
                   >
                     <FileText className="h-4 w-4" aria-hidden />
                     <span>Source</span>

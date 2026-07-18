@@ -472,7 +472,7 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
           openMenu(event.key === "ArrowUp" ? "last" : "first");
         }}
         className={cn(
-          "grid h-11 w-11 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+          "grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
           focusRing,
         )}
       >

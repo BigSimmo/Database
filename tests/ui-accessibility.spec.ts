@@ -374,4 +374,70 @@ test.describe("Clinical KB accessibility coverage", () => {
       "Upload and indexing tools are admin-only. Use the source library to open indexed documents.",
     );
   });
+
+  test("Therapy Compass preserves focus, selection, tap targets, and fixed paper tokens", async ({
+    page,
+  }, testInfo) => {
+    test.setTimeout(300_000);
+    await page.emulateMedia({ colorScheme: "dark" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/therapy-compass", { waitUntil: "domcontentloaded" });
+
+    await expect(page.getByRole("heading", { name: "What therapy are you looking for?" })).toBeVisible({
+      timeout: 60_000,
+    });
+
+    for (const width of [320, 390, 639, 768, 1440, 1920]) {
+      await page.setViewportSize({ width, height: width < 768 ? 844 : 900 });
+      await expectNoPageHorizontalOverflow(page);
+    }
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/therapy-compass/search", { waitUntil: "domcontentloaded" });
+    await expect(page.getByRole("heading", { name: "Therapy Search" })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveAttribute("aria-current", "page");
+
+    const searchInput = page.getByRole("textbox", { name: "Search therapies" });
+    await searchInput.focus();
+    const inputFocus = await searchInput.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) };
+    });
+    expect(inputFocus.outlineStyle).not.toBe("none");
+    expect(inputFocus.outlineWidth).toBeGreaterThanOrEqual(2);
+
+    const clearButtonSize = await page
+      .locator('[data-screen-label="Search"]')
+      .getByRole("button", { name: "Clear", exact: true })
+      .evaluate((element) => {
+        const bounds = element.getBoundingClientRect();
+        return { width: bounds.width, height: bounds.height };
+      });
+    expect(clearButtonSize.height).toBeGreaterThanOrEqual(44);
+
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.goto("/therapy-compass/cognitive-behavioural-therapy-cbt/sheet", {
+      waitUntil: "domcontentloaded",
+    });
+    await expect(page.getByRole("heading", { name: "Patient Sheet Builder" })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("button", { name: "Plain", exact: true })).toHaveAttribute("aria-pressed", "true");
+
+    const paper = page.locator(".tc-paper");
+    const paperColors = await paper.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        background: style.backgroundColor,
+        ink: style.getPropertyValue("--tc-paper-ink").trim(),
+        muted: style.getPropertyValue("--tc-paper-muted").trim(),
+      };
+    });
+    expect(paperColors).toEqual({ background: "rgb(255, 255, 255)", ink: "#0f1720", muted: "#5b6472" });
+
+    const editable = paper.locator('[contenteditable="true"]').first();
+    await editable.focus();
+    const editableOutline = await editable.evaluate((element) => getComputedStyle(element).outlineStyle);
+    expect(editableOutline).not.toBe("none");
+    await expectNoBlockingAxeViolations(page, testInfo);
+  });
 });

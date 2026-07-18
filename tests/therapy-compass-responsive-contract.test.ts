@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 const therapyPath = "src/components/therapy-compass";
 
-const stylesSource = read(`${therapyPath}/styles.tsx`);
+const therapyCssSource = read(`${therapyPath}/therapy-compass.css`);
 const therapyCardSource = read(`${therapyPath}/therapy-card.tsx`);
 const homeSource = read(`${therapyPath}/screens/home-screen.tsx`);
 const modeHomeTemplateSource = read("src/components/mode-home-template.tsx");
@@ -41,13 +41,13 @@ function contrastRatio(firstHex: string, secondHex: string) {
 
 describe("Therapy Compass responsive contract", () => {
   it("defines one scoped phone reflow and a local comparison scroller", () => {
-    expect(stylesSource).toMatch(/@media \(max-width: 640px\)/);
-    expect(stylesSource).toContain(".tc-root .tc-mobile-stack { grid-template-columns: minmax(0, 1fr) !important; }");
-    expect(stylesSource).toContain(".tc-root .tc-mobile-grid-2");
-    expect(stylesSource).toContain(".tc-root .tc-mobile-static");
-    expect(stylesSource).toContain(".tc-root .tc-home-search");
-    expect(stylesSource).toContain(".tc-root .tc-compare-table");
-    expect(stylesSource).toContain("overflow-x: auto !important;");
+    expect(therapyCssSource).toMatch(/@media \(max-width: 640px\)/);
+    expect(therapyCssSource).toContain(".tc-root .tc-mobile-stack");
+    expect(therapyCssSource).toContain("grid-template-columns: minmax(0, 1fr) !important;");
+    expect(therapyCssSource).toContain(".tc-root .tc-mobile-grid-2");
+    expect(therapyCssSource).toContain(".tc-root .tc-mobile-static");
+    expect(therapyCssSource).toContain(".tc-root .tc-compare-table");
+    expect(therapyCssSource).toContain("overflow-x: auto !important;");
   });
 
   it("marks every fixed screen/card grid for phone reflow without changing its desktop template", () => {
@@ -59,24 +59,24 @@ describe("Therapy Compass responsive contract", () => {
     expect(homeSource).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
     expect(homeSource).toContain("ModeHomeVerificationFooter");
     expect(responsiveStackCount(detailSource)).toBeGreaterThanOrEqual(2);
-    expect(detailSource).toContain('className="tc-mobile-static"');
+    expect(detailSource).toContain("tc-mobile-static");
     expect(responsiveStackCount(compareSource)).toBeGreaterThanOrEqual(1);
-    expect(compareSource).toContain('className="tc-compare-tabs"');
-    expect(compareSource).toMatch(/className="(?:tc-compare-table tc-scroll|tc-scroll-sm)"/);
+    expect(compareSource).toContain("tc-compare-tabs");
+    expect(compareSource).toContain("tc-compare-table tc-scroll-sm");
     expect(responsiveStackCount(recommendSource)).toBeGreaterThanOrEqual(2);
     expect(responsiveStackCount(pathwaysSource)).toBeGreaterThanOrEqual(1);
-    expect(pathwaysSource).toContain('className="tc-pathway-list"');
+    expect(pathwaysSource).toContain("tc-pathway-list");
     expect(responsiveStackCount(briefSource)).toBeGreaterThanOrEqual(2);
-    expect(briefSource).toContain('className="tc-mobile-grid-2"');
+    expect(briefSource).toContain("tc-mobile-grid-2");
     expect(responsiveStackCount(sheetsSource)).toBeGreaterThanOrEqual(1);
     expect(sheetsSource).toContain("tc-builder-panel tc-mobile-static");
     expect(responsiveStackCount(otherSource)).toBeGreaterThanOrEqual(1);
 
-    expect(therapyCardSource).toContain("grid-template-columns:minmax(280px,1fr) minmax(400px,1.35fr) auto");
-    expect(detailSource).toContain("grid-template-columns:minmax(0,1fr) 344px");
-    expect(pathwaysSource).toContain("grid-template-columns:320px minmax(0,1fr)");
-    expect(briefSource).toContain("grid-template-columns:300px minmax(0,1fr)");
-    expect(sheetsSource).toContain("grid-template-columns:340px minmax(0,1fr)");
+    expect(therapyCssSource).toContain("grid-template-columns: minmax(280px, 1fr) minmax(400px, 1.35fr) auto");
+    expect(therapyCssSource).toContain("grid-template-columns: minmax(0, 1fr) 344px");
+    expect(therapyCssSource).toContain("grid-template-columns: 320px minmax(0, 1fr)");
+    expect(therapyCssSource).toContain("grid-template-columns: 300px minmax(0, 1fr)");
+    expect(therapyCssSource).toContain("grid-template-columns: 340px minmax(0, 1fr)");
   });
 
   it("renders the unavailable Favourite action honestly disabled", () => {
@@ -87,7 +87,8 @@ describe("Therapy Compass responsive contract", () => {
     expect(favouriteButton).toBeTruthy();
     expect(favouriteButton).toContain("disabled");
     expect(favouriteButton).toContain('aria-label="Favourite saving is not available yet"');
-    expect(favouriteButton).toContain("cursor:not-allowed");
+    expect(favouriteButton).toContain("tc-therapy-card-009");
+    expect(therapyCssSource).toMatch(/\.tc-therapy-card-009\s*\{[\s\S]*?cursor:\s*not-allowed;/);
     expect(favouriteButton).not.toContain("onClick");
   });
 });
@@ -106,8 +107,8 @@ describe("clinical accent contrast contract", () => {
     for (const source of sources) {
       expect(source).not.toMatch(/background:var\(--clinical-accent\);color:#(?:fff|ffffff)/i);
       expect(source).not.toMatch(/bg-\[color:var\(--clinical-accent\)\][^"\n]*\btext-white\b/);
-      expect(source).toContain("clinical-accent-contrast");
     }
+    expect(therapyCssSource).toContain("color: var(--clinical-accent-contrast)");
     expect(homeSource).toContain("ModeHomeTemplate");
     expect(homeSource).not.toMatch(/background:var\(--clinical-accent\);color:#(?:fff|ffffff)/i);
     expect(homeSource).not.toMatch(/bg-\[color:var\(--clinical-accent\)\][^"\n]*\btext-white\b/);

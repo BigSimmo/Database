@@ -107,7 +107,7 @@ export const SignedImage = memo(function SignedImage({
           <button
             type="button"
             onClick={retryImage}
-            className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
+            className="mt-3 inline-flex min-h-tap items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
           >
             {retryLabel}
           </button>

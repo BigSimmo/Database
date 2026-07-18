@@ -23,10 +23,10 @@ describe("overlay and global CSS contracts", () => {
     expect(occurrenceCount(globalStylesSource, "--ease-emphasized:")).toBe(1);
   });
 
-  it("keeps one authoritative 430px answer-action sizing block", () => {
+  it("keeps one authoritative 430px composer-action sizing block", () => {
     expect(occurrenceCount(globalStylesSource, "@media (max-width: 430px)")).toBe(1);
     expect(globalStylesSource).toMatch(
-      /@media \(max-width: 430px\) \{[\s\S]*?\.answer-footer-search-action,[\s\S]*?min-height: 2\.75rem;[\s\S]*?\.answer-footer-search-action svg,[\s\S]*?height: 1\.1rem;/,
+      /@media \(max-width: 430px\) \{[\s\S]*?\.chat-composer-icon-button,[\s\S]*?min-height: 2\.75rem;[\s\S]*?\.chat-composer-icon-button svg,[\s\S]*?height: 1\.1rem;/,
     );
   });
 });
