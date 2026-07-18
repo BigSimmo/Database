@@ -30,6 +30,7 @@ import { useDifferentialSearch } from "@/components/clinical-dashboard/use-diffe
 import { useResultSort } from "@/components/use-result-sort";
 import { cn } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
+import { differentialRouteWithQuery, differentialSelectedCompareHref } from "@/lib/differentials-navigation";
 import { differentialsMobileCompareAddonSlotId } from "@/lib/mode-home-composer";
 import {
   composeDifferentialSearchResults,
@@ -111,17 +112,6 @@ const candidateIconBySlug: Array<[string, LucideIcon]> = [
   ["delirium", BrainCircuit],
 ];
 
-function routeWithQuery(path: string, query: string, selectedIds?: Set<string>) {
-  const params = new URLSearchParams();
-  const trimmedQuery = query.trim();
-  if (trimmedQuery) params.set("q", trimmedQuery);
-  if (selectedIds && selectedIds.size > 0) {
-    params.set("ids", Array.from(selectedIds).join(","));
-  }
-  const suffix = params.toString();
-  return suffix ? `${path}?${suffix}` : path;
-}
-
 /**
  * Mobile/tablet floating compare action. Portals into the search composer's
  * addon slot so it stays anchored beside the active result controls, but
@@ -162,7 +152,7 @@ function DifferentialsMobileCompareBar({
     <div aria-live="polite" className="flex w-full justify-center">
       {hasSelection ? (
         <Link
-          href={routeWithQuery("/differentials/presentations", query, selectedIds)}
+          href={differentialSelectedCompareHref(query, selectedIds)}
           data-testid="differentials-compare-selected-mobile"
           className="inline-flex min-h-12 max-w-full items-center gap-2.5 rounded-full border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] py-1 pl-4 pr-2.5 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition active:bg-[color:var(--clinical-accent-hover)]"
         >
@@ -599,7 +589,7 @@ function SafetyCard({ safety, query }: { safety: string; query: string }) {
           </h2>
           <p className="mt-2 text-sm font-semibold leading-6 text-[color:var(--text-heading)]">{safety}</p>
           <Link
-            href={routeWithQuery("/differentials/presentations", query)}
+            href={differentialRouteWithQuery("/differentials/presentations", query)}
             className="mt-2 inline-flex min-h-tap items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
           >
             View presentation guide
@@ -929,14 +919,14 @@ function SearchResultsView({
           </p>
           <div className="flex flex-wrap gap-2">
             <Link
-              href={routeWithQuery("/differentials/presentations", query)}
+              href={differentialRouteWithQuery("/differentials/presentations", query)}
               className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)]"
             >
               Browse presentations
               <ChevronRight className="h-4 w-4" aria-hidden />
             </Link>
             <Link
-              href={routeWithQuery("/differentials/diagnoses", query)}
+              href={differentialRouteWithQuery("/differentials/diagnoses", query)}
               className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)]"
             >
               Browse diagnoses
@@ -1097,7 +1087,7 @@ function SearchResultsView({
             </div>
 
             <Link
-              href={routeWithQuery("/differentials/diagnoses", query)}
+              href={differentialRouteWithQuery("/differentials/diagnoses", query)}
               className="hidden min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 text-sm font-extrabold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)] lg:inline-flex"
             >
               View all catalogue matches ({results.length})
@@ -1106,7 +1096,7 @@ function SearchResultsView({
 
             {selectedCount > 0 ? (
               <Link
-                href={routeWithQuery("/differentials/presentations", query, comparisonIds)}
+                href={differentialSelectedCompareHref(query, comparisonIds)}
                 className="hidden min-h-14 w-full items-center justify-center gap-3 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-base font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition hover:bg-[color:var(--clinical-accent-hover)] lg:inline-flex"
               >
                 <GitCompareArrows className="h-5 w-5" aria-hidden />
@@ -1205,12 +1195,12 @@ export function DifferentialsHome({
   function handleAction(action: DifferentialAction) {
     if (action.target === "presentations") {
       if (onOpenPresentations) onOpenPresentations(action.query);
-      else router.push(routeWithQuery("/differentials/presentations", action.query));
+      else router.push(differentialRouteWithQuery("/differentials/presentations", action.query));
       return;
     }
     if (action.target === "diagnoses") {
       if (onOpenDiagnoses) onOpenDiagnoses(action.query);
-      else router.push(routeWithQuery("/differentials/diagnoses", action.query));
+      else router.push(differentialRouteWithQuery("/differentials/diagnoses", action.query));
       return;
     }
     runSearch(action.query);
