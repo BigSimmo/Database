@@ -2,6 +2,12 @@
 
 This document turns the current process review into phased, durable repo practice. It separates changes that already take effect from work that should stay explicit until it is implemented.
 
+## Repository cleanup follow-ups (2026-07-19)
+
+- **High-priority local process ownership:** `scripts/run-eval-safe.mjs` still scans for and terminates residual repository processes through `cleanupResidualEvaluationProcesses()`. A superseded RAG safety worktree contained a narrower child-owned `terminateOwnedProcessTree(child.pid)` approach plus a regression test proving unrelated Vitest, Playwright, and Next processes remain untouched. Do not cherry-pick that stale worktree wholesale; isolate this process-ownership fix on current `main`, then verify it statically without starting a provider-backed evaluation. Modifying or exercising the eval workflow remains approval-gated.
+- **Provider-gated RAG safety ideas:** the same stale worktree contained conservative answer-quality thresholds, an evaluation cost-cap preflight, production-safety validation, deep-health assessment, and citation/vector proof tests. Its 754-line retrieval migration and route changes conflict with the later public-title privacy and migration chain and must not be replayed. If explicitly approved, rescope only the still-relevant preflight utilities and tests against current `main`; keep live OpenAI/Supabase validation separate.
+- **Semantic reranking rollout debt:** PR #901 keeps `RAG_SEMANTIC_RERANK_ENABLED=false`. Do not enable it until the provider-backed 36/36 retrieval-quality gate and an ambiguity-focused canary are explicitly approved and recorded.
+
 ## Staging tenancy evidence
 
 The provider-backed A/B tenancy regression is intentionally outside local and PR
