@@ -243,6 +243,7 @@ describe("app mode search contract", () => {
         "formulation",
         "prescribing",
         "tools",
+        "therapy-compass",
       ]),
     );
     expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).not.toContain("profile");
@@ -262,6 +263,7 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("formulation", "production")).toBe(true);
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
     expect(isAppModeVisible("tools", "production")).toBe(true);
+    expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
     expect(productionModes).not.toContain("evidence");
     expect(productionModes).toContain("services");
     expect(productionModes).toContain("forms");
@@ -272,6 +274,7 @@ describe("app mode search contract", () => {
     expect(productionModes).toContain("formulation");
     expect(productionModes).toContain("prescribing");
     expect(productionModes).toContain("tools");
+    expect(productionModes).toContain("therapy-compass");
     expect(developmentModes).toEqual(
       expect.arrayContaining([
         "answer",
@@ -285,6 +288,7 @@ describe("app mode search contract", () => {
         "formulation",
         "prescribing",
         "tools",
+        "therapy-compass",
       ]),
     );
     expect(developmentModes).not.toContain("evidence");
