@@ -35,8 +35,17 @@ function minimumAuditMetadata(entry: AuditLogEntry): Record<string, boolean | nu
         ...(fileSize !== undefined ? { fileSize } : {}),
       };
     }
-    case "document_delete":
-      return typeof metadata.storageRemoved === "boolean" ? { storageRemoved: metadata.storageRemoved } : {};
+    case "document_delete": {
+      // DELETE routes pass a removed-object count; older callers may pass a boolean.
+      const storageRemoved = metadata.storageRemoved;
+      if (typeof storageRemoved === "number" && Number.isFinite(storageRemoved)) {
+        return { storageRemoved };
+      }
+      if (typeof storageRemoved === "boolean") {
+        return { storageRemoved };
+      }
+      return {};
+    }
     case "document_rename":
     case "document_label_change":
       return {};

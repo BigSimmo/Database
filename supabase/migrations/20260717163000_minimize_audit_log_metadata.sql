@@ -11,7 +11,9 @@ set metadata = case action
     'fileSize', case when jsonb_typeof(metadata -> 'fileSize') = 'number' then metadata -> 'fileSize' end
   ))
   when 'document_delete' then jsonb_strip_nulls(jsonb_build_object(
-    'storageRemoved', case when jsonb_typeof(metadata -> 'storageRemoved') = 'boolean' then metadata -> 'storageRemoved' end
+    'storageRemoved', case
+      when jsonb_typeof(metadata -> 'storageRemoved') in ('number', 'boolean') then metadata -> 'storageRemoved'
+    end
   ))
   else '{}'::jsonb
 end
