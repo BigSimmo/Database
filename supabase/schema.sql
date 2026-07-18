@@ -848,6 +848,8 @@ create index if not exists rag_aliases_type_enabled_idx
   on public.rag_aliases(alias_type, enabled);
 create index if not exists rag_aliases_alias_trgm_idx
   on public.rag_aliases using gin (lower(alias) gin_trgm_ops);
+create index if not exists rag_aliases_canonical_trgm_idx
+  on public.rag_aliases using gin (lower(canonical) gin_trgm_ops);
 create index if not exists rag_response_cache_expiry_idx
   on public.rag_response_cache(expires_at);
 create index if not exists rag_response_cache_owner_kind_idx
@@ -3473,16 +3475,21 @@ CREATE OR REPLACE FUNCTION public.correct_clinical_query_terms(input_query text,
  LANGUAGE plpgsql
  STABLE SECURITY DEFINER
  SET search_path TO 'public', 'extensions', 'pg_temp'
+ SET pg_trgm.similarity_threshold = 0.3
 AS $function$
 declare
-  vocab text[];
   tokens text[];
   tok text;
   best text;
   best_sim real;
+  vocab text[];
   corrected text[] := array[]::text[];
   changed boolean := false;
 begin
+  if min_sim is null or min_sim < 0.3 or min_sim > 1 then
+    raise exception 'min_sim must be between 0.3 and 1.0' using errcode = '22023';
+  end if;
+
   if input_query is null or length(trim(input_query)) = 0 then
     return input_query;
   end if;
@@ -3504,15 +3511,45 @@ begin
 
   tokens := regexp_split_to_array(lower(input_query), '\s+');
   foreach tok in array tokens loop
-    if length(tok) < 4 or tok = any(vocab) then
+    if length(tok) < 4 then
       corrected := corrected || tok;
       continue;
     end if;
     best := null;
     best_sim := 0;
-    select v, similarity(v, tok) into best, best_sim
-    from unnest(vocab) as v
-    order by similarity(v, tok) desc
+    select candidate.term, similarity(candidate.term, tok)
+      into best, best_sim
+    from (
+      (
+        select lower(alias) as term
+        from public.rag_aliases
+        where enabled
+          and length(alias) between 4 and 40
+          and lower(alias) % tok
+        order by similarity(lower(alias), tok) desc, lower(alias)
+        limit 32
+      )
+      union all
+      (
+        select lower(canonical) as term
+        from public.rag_aliases
+        where enabled
+          and length(canonical) between 4 and 40
+          and lower(canonical) % tok
+        order by similarity(lower(canonical), tok) desc, lower(canonical)
+        limit 32
+      )
+      union all
+      (
+        select word as term
+        from public.document_title_words
+        where length(word) between 4 and 40
+          and word % tok
+        order by similarity(word, tok) desc, word
+        limit 32
+      )
+    ) candidate
+    order by similarity(candidate.term, tok) desc, candidate.term
     limit 1;
     if best is not null and best_sim >= min_sim and best <> tok and length(best) >= length(tok) then
       corrected := corrected || best;
