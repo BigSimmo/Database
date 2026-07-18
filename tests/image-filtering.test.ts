@@ -19,7 +19,9 @@ describe("smart image filtering", () => {
       pageNumber: 1,
       bbox: [10, 20, 610, 420] as [number, number, number, number],
     };
-    const seenHashes = new Set([imagePlacementDedupeKey({ imageHash: "abc", image })]);
+    const placementKey = imagePlacementDedupeKey({ imageHash: "abc", image });
+    expect(placementKey).toBeTruthy();
+    const seenHashes = new Set([placementKey!]);
     expect(
       cheapImageSkipReason({
         bytesLength: 80_000,
@@ -39,7 +41,9 @@ describe("smart image filtering", () => {
       bbox: [10, 20, 610, 420] as [number, number, number, number],
     };
     const secondImage = { ...firstImage, pageNumber: 2 };
-    const seenHashes = new Set([imagePlacementDedupeKey({ imageHash: "same-bytes", image: firstImage })]);
+    const placementKey = imagePlacementDedupeKey({ imageHash: "same-bytes", image: firstImage });
+    expect(placementKey).toBeTruthy();
+    const seenHashes = new Set([placementKey!]);
 
     expect(
       cheapImageSkipReason({
@@ -49,6 +53,68 @@ describe("smart image filtering", () => {
         image: secondImage,
       }),
     ).toBeNull();
+  });
+
+  it("does not collapse missing or malformed bboxes into one shared de-dupe key", () => {
+    const base = {
+      sourceKind: "embedded" as const,
+      width: 600,
+      height: 400,
+      pageNumber: 1,
+    };
+    const missingBbox = { ...base, bbox: null as unknown as [number, number, number, number] };
+    const malformedBbox = {
+      ...base,
+      bbox: { x0: 10, y0: 20, x1: 610, y1: 420 } as unknown as [number, number, number, number],
+    };
+
+    expect(imagePlacementDedupeKey({ imageHash: "same-bytes", image: missingBbox })).toBeNull();
+    expect(imagePlacementDedupeKey({ imageHash: "same-bytes", image: malformedBbox })).toBeNull();
+
+    const seenHashes = new Set<string>();
+    expect(
+      cheapImageSkipReason({
+        bytesLength: 80_000,
+        imageHash: "same-bytes",
+        seenHashes,
+        image: missingBbox,
+      }),
+    ).toBeNull();
+    // Even if a caller mistakenly records a sentinel, unknown placements must not de-dupe.
+    seenHashes.add("same-bytes|embedded|1|bbox:null");
+    expect(
+      cheapImageSkipReason({
+        bytesLength: 80_000,
+        imageHash: "same-bytes",
+        seenHashes,
+        image: malformedBbox,
+      }),
+    ).toBeNull();
+  });
+
+  it("still de-dupes true identical placements when bbox coordinates match", () => {
+    const image = {
+      sourceKind: "table_crop" as const,
+      width: 600,
+      height: 400,
+      pageNumber: 3,
+      bbox: [12.345, 20.001, 610.004, 420.009] as [number, number, number, number],
+    };
+    const samePlacement = {
+      ...image,
+      // Rounding-equivalent coords must share the placement key.
+      bbox: [12.35, 20, 610, 420.01] as [number, number, number, number],
+    };
+    const placementKey = imagePlacementDedupeKey({ imageHash: "table-bytes", image });
+    expect(placementKey).toBe(imagePlacementDedupeKey({ imageHash: "table-bytes", image: samePlacement }));
+    expect(
+      cheapImageSkipReason({
+        bytesLength: 80_000,
+        imageHash: "table-bytes",
+        seenHashes: new Set([placementKey!]),
+        image: samePlacement,
+      }),
+    ).toBe("duplicate image");
   });
 
   it("skips likely header or footer logos", () => {

@@ -926,7 +926,8 @@ async function uploadAndCaptionImages(
       noteSkippedImage(skipReasons, skipReason);
       continue;
     }
-    seenImagePlacements.add(imagePlacementDedupeKey({ imageHash, image }));
+    const placementKey = imagePlacementDedupeKey({ imageHash, image });
+    if (placementKey) seenImagePlacements.add(placementKey);
 
     const nearbyText = image.pageNumber ? pagesByNumber.get(image.pageNumber) : undefined;
     const tableMetadata = imageTableMetadata(image);

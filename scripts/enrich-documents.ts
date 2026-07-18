@@ -292,6 +292,7 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
       cheapImageSkipReason,
       classifiedImageSkipReason,
       clinicalImagePolicyVersion,
+      imagePlacementDedupeKey,
       lightweightPerceptualHash,
       normalizeImageBbox,
     },
@@ -332,17 +333,19 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
     const bytes = Buffer.from(await download.data.arrayBuffer());
     const imageHash = image.image_hash ?? hashBytes(bytes);
     const perceptualHash = lightweightPerceptualHash(imageHash, image.width, image.height);
+    const filterImage = {
+      bbox: normalizeImageBbox(image.bbox),
+      width: image.width,
+      height: image.height,
+      pageNumber: typeof image.page_number === "number" ? image.page_number : undefined,
+      sourceKind: image.source_kind as
+        "embedded" | "table_crop" | "diagram_crop" | "page_region" | "fallback" | undefined,
+    };
     const cheapSkip = cheapImageSkipReason({
       bytesLength: bytes.length,
       imageHash,
       seenHashes,
-      image: {
-        bbox: normalizeImageBbox(image.bbox),
-        width: image.width,
-        height: image.height,
-        sourceKind: image.source_kind as
-          "embedded" | "table_crop" | "diagram_crop" | "page_region" | "fallback" | undefined,
-      },
+      image: filterImage,
     });
 
     if (cheapSkip) {
@@ -359,7 +362,8 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
       skipped += 1;
       continue;
     }
-    seenHashes.add(imageHash);
+    const placementKey = imagePlacementDedupeKey({ imageHash, image: filterImage });
+    if (placementKey) seenHashes.add(placementKey);
 
     const baseAssessment = assessClinicalImageUse({
       imageType: image.image_type,
