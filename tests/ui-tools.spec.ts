@@ -168,7 +168,9 @@ async function mockAnswerDashboardApi(page: Page) {
     const slug = decodeURIComponent(url.pathname.split("/").pop() ?? "");
     const kind = url.searchParams.get("kind");
     const record =
-      kind === "form" ? formRecords.find((form) => form.slug === slug) : serviceRecords.find((service) => service.slug === slug);
+      kind === "form"
+        ? formRecords.find((form) => form.slug === slug)
+        : serviceRecords.find((service) => service.slug === slug);
     if (!record) {
       await route.fulfill({ status: 404, json: { error: "Registry record not found" } });
       return;
