@@ -194,7 +194,7 @@ function DesktopComparisonTable({
             type="button"
             disabled
             title="Selection editing is not available in this comparison view"
-            className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
+            className="inline-flex min-h-tap cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
           >
             <CircleCheck className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
             {workflow.selectedCount} of {workflow.totalCount} selected
@@ -204,7 +204,7 @@ function DesktopComparisonTable({
             type="button"
             disabled
             title="Column editing is not available in this comparison view"
-            className="inline-flex min-h-11 cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
+            className="inline-flex min-h-tap cursor-not-allowed items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
           >
             <SlidersHorizontal className="h-4 w-4 text-[color:var(--clinical-accent)]" aria-hidden />
             Edit columns
@@ -212,7 +212,7 @@ function DesktopComparisonTable({
         </div>
         <Link
           href="/differentials/diagnoses"
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
+          className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
         >
           More differentials
           <ChevronRight className="h-4 w-4" aria-hidden />
@@ -543,7 +543,7 @@ function MobileComparison({
           type="button"
           disabled
           title="Selection editing is not available in this comparison view"
-          className="inline-flex min-h-11 cursor-not-allowed items-center justify-between gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
+          className="inline-flex min-h-tap cursor-not-allowed items-center justify-between gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
         >
           <span className="inline-flex min-w-0 items-center gap-2">
             <BrainCircuit className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
@@ -555,7 +555,7 @@ function MobileComparison({
           type="button"
           disabled
           title="Column filters are not available in this comparison view"
-          className="grid h-11 w-12 cursor-not-allowed place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
+          className="grid h-tap w-12 cursor-not-allowed place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text-muted)] opacity-60 shadow-[var(--shadow-inset)]"
           aria-label="Column filters unavailable"
         >
           <Filter className="h-4 w-4" aria-hidden />
@@ -570,14 +570,14 @@ function MobileComparison({
       <div className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-2 gap-2 rounded-t-xl border-t border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent)] p-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom))] shadow-[var(--shadow-elevated)]">
         <Link
           href={`/differentials/presentations/${workflow.id}`}
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-contrast)]/40 bg-[color:var(--clinical-accent-contrast)]/5 px-2 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] sm:text-sm"
+          className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-contrast)]/40 bg-[color:var(--clinical-accent-contrast)]/5 px-2 text-xs font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset)] sm:text-sm"
         >
           <GitCompareArrows className="h-4 w-4" aria-hidden />
           Compare ({workflow.selectedCount} selected)
         </Link>
         <CopyAfterReviewButton
           text={comparisonCopy(workflow, candidates)}
-          className="min-h-11 bg-[color:var(--surface)] px-2 !text-xs !text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-raised)] sm:!text-sm"
+          className="min-h-tap bg-[color:var(--surface)] px-2 !text-xs !text-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-raised)] sm:!text-sm"
         />
       </div>
     </section>
@@ -599,7 +599,7 @@ function MobileTabs({ workflow }: { workflow: DifferentialPresentationWorkflow }
             href={active ? `/differentials/presentations/${workflow.id}` : `/differentials/diagnoses/${firstCandidate}`}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "min-h-11 border-b-2 px-1 py-3",
+              "min-h-tap border-b-2 px-1 py-3",
               active
                 ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
                 : "border-transparent text-[color:var(--text-muted)]",
@@ -685,7 +685,7 @@ export function DifferentialPresentationWorkflowPage({
             <div className="hidden items-center gap-2 xl:flex">
               <Link
                 href="/differentials/diagnoses"
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
               >
                 <GitCompareArrows className="h-4 w-4" aria-hidden />
                 Switch differential

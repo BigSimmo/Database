@@ -1,24 +1,19 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { AlertIcon, ShieldCheckIcon } from "./icons";
 import { reviewStatusMeta } from "./data/select";
-import { s } from "./style-utils";
 
 // ---- tag pill -----------------------------------------------------------
 
 type Tone = "neutral" | "purple" | "info" | "success" | "warning" | "accent";
 
-const TONE_STYLE: Record<Tone, string> = {
-  neutral: "background:var(--surface-inset);color:var(--text-muted);border:1px solid var(--border);",
-  // The design's "CBT-family" purple is a categorical (non-semantic) colour; it
-  // maps to the --type-source purple triad, which carries proper light/dark
-  // values so the chip inverts in dark mode instead of staying a bright patch.
-  purple: "background:var(--type-source-soft);color:var(--type-source);border:1px solid var(--type-source-border);",
-  info: "background:var(--info-bg);color:var(--info-text);border:1px solid var(--info-border);",
-  success: "background:var(--success-bg);color:var(--success-text);border:1px solid var(--success-border);",
-  warning: "background:var(--warning-bg);color:var(--warning-text);border:1px solid var(--warning-border);",
-  accent:
-    "background:var(--clinical-accent-soft);color:var(--clinical-accent-hover);border:1px solid var(--clinical-accent-border);",
+const TONE_CLASS: Record<Tone, string> = {
+  neutral: "tc-tone-neutral",
+  purple: "tc-tone-purple",
+  info: "tc-tone-info",
+  success: "tc-tone-success",
+  warning: "tc-tone-warning",
+  accent: "tc-tone-accent",
 };
 
 export function tagTone(tag: string): Tone {
@@ -31,22 +26,14 @@ export function tagTone(tag: string): Tone {
 }
 
 export function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?: Tone }) {
-  return (
-    <span
-      style={s(
-        `font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:7px;white-space:nowrap;` + TONE_STYLE[tone],
-      )}
-    >
-      {children}
-    </span>
-  );
+  return <span className={`tc-tag ${TONE_CLASS[tone]}`}>{children}</span>;
 }
 
 export function TagRow({ tags, max = 5 }: { tags: string[]; max?: number }) {
   const shown = tags.slice(0, max);
   const extra = tags.length - shown.length;
   return (
-    <div style={s(`display:flex;flex-wrap:wrap;gap:7px;`)}>
+    <div className="tc-ui-001">
       {shown.map((tag) => (
         <Tag key={tag} tone={tagTone(tag)}>
           {tag}
@@ -64,12 +51,7 @@ export function StatusBadge({ status }: { status: string }) {
   const tone = meta.tone === "success" ? "success" : meta.tone === "warning" ? "warning" : "neutral";
   const Icon = meta.tone === "success" ? ShieldCheckIcon : AlertIcon;
   return (
-    <span
-      style={s(
-        `display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:650;padding:5px 11px;border-radius:8px;` +
-          TONE_STYLE[tone],
-      )}
-    >
+    <span className={`tc-status-badge ${TONE_CLASS[tone]}`}>
       <Icon size={14} strokeWidth={1.9} />
       {meta.label}
     </span>
@@ -87,17 +69,8 @@ export function IconTile({
   size?: number;
   variant?: "accent" | "soft";
 }) {
-  const bg =
-    variant === "accent"
-      ? "background:var(--clinical-accent);color:var(--clinical-accent-contrast);"
-      : "background:var(--clinical-accent-soft);color:var(--clinical-accent);";
   return (
-    <span
-      style={s(
-        `display:inline-flex;align-items:center;justify-content:center;width:${size}px;height:${size}px;border-radius:12px;flex:none;` +
-          bg,
-      )}
-    >
+    <span className={`tc-icon-tile tc-icon-tile-${size} tc-icon-tile-${variant}`}>
       <Icon size={Math.round(size * 0.5)} />
     </span>
   );
@@ -107,20 +80,9 @@ export function IconTile({
 
 export function LoadingState({ label = "Loading therapy library…" }: { label?: string }) {
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      style={s(
-        `display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:280px;color:var(--text-soft);`,
-      )}
-    >
-      <span
-        className="tc-spin"
-        style={s(
-          `width:34px;height:34px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--clinical-accent);`,
-        )}
-      />
-      <span style={s(`font-size:14px;font-weight:500;`)}>{label}</span>
+    <div role="status" aria-live="polite" className="tc-ui-002">
+      <span className="tc-spin tc-ui-003" />
+      <span className="tc-ui-004">{label}</span>
     </div>
   );
 }
@@ -137,21 +99,13 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div
-      style={s(
-        `display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:48px 24px;background:var(--surface);border:1px dashed var(--border-strong);border-radius:16px;`,
-      )}
-    >
-      <span
-        style={s(
-          `display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;border-radius:14px;background:var(--clinical-accent-soft);color:var(--clinical-accent);margin-bottom:2px;`,
-        )}
-      >
+    <div className="tc-ui-005">
+      <span className="tc-ui-006">
         <Icon size={26} />
       </span>
-      <div style={s(`font-size:17px;font-weight:680;color:var(--text-heading);`)}>{title}</div>
-      <p style={s(`margin:0;max-width:44ch;font-size:13.5px;line-height:1.55;color:var(--text-muted);`)}>{body}</p>
-      {action ? <div style={s(`margin-top:8px;`)}>{action}</div> : null}
+      <div className="tc-ui-007">{title}</div>
+      <p className="tc-ui-008">{body}</p>
+      {action ? <div className="tc-ui-009">{action}</div> : null}
     </div>
   );
 }
@@ -159,33 +113,26 @@ export function EmptyState({
 // ---- small building blocks ---------------------------------------------
 
 export function SectionHeading({ children }: { children: ReactNode }) {
-  return <div style={s(`font-size:15px;font-weight:650;color:var(--text-heading);`)}>{children}</div>;
+  return <div className="tc-ui-010">{children}</div>;
 }
 
-export function Eyebrow({ children, color }: { children: ReactNode; color?: string }) {
-  return (
-    <span style={s(`font-size:10.5px;font-weight:700;letter-spacing:0.05em;color:${color ?? "var(--text-soft)"};`)}>
-      {children}
-    </span>
-  );
+export function Eyebrow({ children, tone = "neutral" }: { children: ReactNode; tone?: Tone }) {
+  return <span className={`tc-eyebrow ${TONE_CLASS[tone]}`}>{children}</span>;
 }
 
 /** A completeness meter (0–100) used on cards and the detail rail. */
 export function Meter({ value, label }: { value: number | null; label: string }) {
   const v = Math.max(0, Math.min(100, value ?? 0));
   return (
-    <div style={s(`display:flex;flex-direction:column;gap:4px;min-width:0;`)}>
-      <div style={s(`display:flex;align-items:center;justify-content:space-between;gap:8px;`)}>
-        <span style={s(`font-size:11px;color:var(--text-soft);`)}>{label}</span>
-        <span style={s(`font-size:11px;font-weight:650;color:var(--text-muted);`)}>
-          {value == null ? "—" : `${v}%`}
-        </span>
+    <div className="tc-ui-011">
+      <div className="tc-ui-012">
+        <span className="tc-ui-013">{label}</span>
+        <span className="tc-ui-014">{value == null ? "—" : `${v}%`}</span>
       </div>
-      <span style={s(`height:5px;border-radius:3px;background:var(--surface-inset);overflow:hidden;`)}>
+      <span className="tc-ui-015">
         <span
-          style={s(
-            `display:block;height:100%;border-radius:3px;width:${v}%;background:${v >= 80 ? "var(--success-solid, var(--success-text))" : v >= 50 ? "var(--clinical-accent)" : "var(--warning-text)"};`,
-          )}
+          className={`tc-meter-fill ${v >= 80 ? "tc-meter-success" : v >= 50 ? "tc-meter-accent" : "tc-meter-warning"}`}
+          style={{ "--tc-meter-width": `${v}%` } as CSSProperties}
         />
       </span>
     </div>

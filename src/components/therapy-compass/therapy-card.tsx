@@ -16,7 +16,6 @@ import {
   HeartIcon,
   ScaleIcon,
 } from "./icons";
-import { s } from "./style-utils";
 import { Eyebrow, IconTile, TagRow } from "./ui";
 
 /** Large search-result card with why-matched / avoid / best-fit columns. */
@@ -24,40 +23,20 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
   const b = useTcBindings();
   const inCompare = b.isInCompare(therapy.slug);
   return (
-    <article
-      style={s(
-        `background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-soft);overflow:hidden;`,
-      )}
-    >
-      <div
-        className="tc-stack-sm"
-        style={s(
-          `display:grid;grid-template-columns:minmax(280px,1fr) minmax(400px,1.35fr) auto;gap:22px;padding:20px 22px;align-items:start;`,
-        )}
-      >
-        <div style={s(`display:flex;gap:15px;min-width:0;`)}>
+    <article className="tc-therapy-card-001">
+      <div className="tc-stack-sm tc-therapy-card-002">
+        <div className="tc-therapy-card-003">
           <IconTile icon={ScaleIcon} />
-          <div style={s(`min-width:0;`)}>
-            <h3
-              style={s(
-                `margin:0 0 5px;font-size:16.5px;font-weight:650;color:var(--text-heading);letter-spacing:-0.01em;`,
-              )}
-            >
-              {therapy.name}
-            </h3>
-            <p style={s(`margin:0 0 11px;font-size:13.5px;line-height:1.5;color:var(--text-muted);`)}>
+          <div className="tc-therapy-card-004">
+            <h3 className="tc-therapy-card-005">{therapy.name}</h3>
+            <p className="tc-therapy-card-006">
               {summarise(therapy.clinicalSummary, 1) || therapy.bestUsedFor || therapy.category}
             </p>
             <TagRow tags={therapy.tags.length ? therapy.tags : [therapy.category]} max={4} />
           </div>
         </div>
 
-        <div
-          className="tc-stack-sm"
-          style={s(
-            `display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;`,
-          )}
-        >
+        <div className="tc-stack-sm tc-therapy-card-007">
           <CardCell
             icon={CrosshairIcon}
             eyebrow="WHY MATCHED"
@@ -82,49 +61,37 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           />
         </div>
 
-        <div style={s(`display:flex;gap:4px;`)}>
+        <div className="tc-therapy-card-008">
           <button
             type="button"
-            className="tc-btn"
+            className="tc-btn tc-therapy-card-009"
             disabled
             title="Favourite saving is not available yet"
             aria-label="Favourite saving is not available yet"
-            style={s(
-              `display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text-soft);cursor:not-allowed;opacity:.65;`,
-            )}
           >
             <HeartIcon size={17} />
           </button>
         </div>
       </div>
-      <div style={s(`display:flex;gap:10px;padding:0 22px 20px;flex-wrap:wrap;`)}>
+      <div className="tc-therapy-card-010">
         <button
           type="button"
-          className="tc-btn"
+          className={`tc-btn ${accentControl} tc-flex-control`}
           onClick={() => b.open(therapy.slug)}
-          style={s(accentControl + "flex:1;min-width:150px;height:44px;")}
         >
           <ExternalLinkIcon size={16} strokeWidth={1.8} />
           Open record
         </button>
         <button
           type="button"
-          className="tc-btn"
+          className={`tc-btn ${outlineControl}${inCompare ? " tc-is-selected" : ""}`}
           onClick={() => b.toggleCompare(therapy.slug)}
-          style={s(
-            outlineControl +
-              `height:44px;${inCompare ? "border-color:var(--clinical-accent);color:var(--clinical-accent-hover);" : ""}`,
-          )}
+          aria-pressed={inCompare}
         >
           <ScaleIcon size={16} />
           {inCompare ? "In compare" : "Compare"}
         </button>
-        <button
-          type="button"
-          className="tc-btn"
-          onClick={() => b.openSheet(therapy.slug)}
-          style={s(outlineControl + "height:44px;")}
-        >
+        <button type="button" className={`tc-btn ${outlineControl}`} onClick={() => b.openSheet(therapy.slug)}>
           <FileTextIcon size={16} />
           Patient sheet
         </button>
@@ -144,17 +111,13 @@ function CardCell({
   tone: "accent" | "warning" | "muted";
   text: string;
 }) {
-  const bg = tone === "warning" ? "var(--warning-bg)" : "var(--surface)";
-  const color =
-    tone === "accent" ? "var(--clinical-accent)" : tone === "warning" ? "var(--warning-text)" : "var(--text-soft)";
-  const body = tone === "warning" ? "var(--warning-text)" : "var(--text-muted)";
   return (
-    <div style={s(`padding:12px 13px;background:${bg};`)}>
-      <div style={s(`display:flex;align-items:center;gap:6px;margin-bottom:7px;color:${color};`)}>
+    <div className={`tc-card-cell tc-card-cell-${tone}`}>
+      <div className="tc-card-cell-heading">
         <Icon size={13} strokeWidth={1.9} />
-        <Eyebrow color={color}>{eyebrow}</Eyebrow>
+        <Eyebrow tone={tone === "muted" ? "neutral" : tone}>{eyebrow}</Eyebrow>
       </div>
-      <p style={s(`margin:0;font-size:12.5px;line-height:1.45;color:${body};`)}>{text}</p>
+      <p>{text}</p>
     </div>
   );
 }
@@ -176,31 +139,21 @@ export function TherapyListItem({
   return (
     <button
       type="button"
-      className="tc-btn tc-row"
+      className={`tc-btn tc-row tc-therapy-list-item${active ? " tc-is-active" : ""}`}
       onClick={onClick}
-      style={s(
-        `display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border:1px solid ${active ? "var(--clinical-accent-border)" : "var(--border)"};border-radius:12px;background:${active ? "var(--clinical-accent-soft)" : "var(--surface)"};text-align:left;cursor:pointer;`,
-      )}
+      aria-pressed={active}
     >
       <IconTile icon={ScaleIcon} size={38} variant={active ? "accent" : "soft"} />
-      <span style={s(`flex:1;min-width:0;`)}>
-        <span style={s(`display:block;font-size:13.5px;font-weight:650;color:var(--text-heading);`)}>
-          {therapy.name}
-        </span>
-        <span
-          style={s(
-            `display:block;font-size:12px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`,
-          )}
-        >
-          {subtitle ?? therapy.bestUsedFor ?? therapy.category}
-        </span>
+      <span className="tc-therapy-card-011">
+        <span className="tc-therapy-card-012">{therapy.name}</span>
+        <span className="tc-therapy-card-013">{subtitle ?? therapy.bestUsedFor ?? therapy.category}</span>
       </span>
       {trailing ?? (
-        <span style={s(`color:var(--text-soft);flex:none;`)}>
+        <span className="tc-therapy-card-014">
           {therapy.reviewStatus === "reviewed" ? null : <AlertIcon size={15} strokeWidth={1.8} />}
         </span>
       )}
-      <ChevronRightIcon size={15} strokeWidth={1.8} style={s(`color:var(--text-soft);flex:none;`)} />
+      <ChevronRightIcon size={15} strokeWidth={1.8} className="tc-therapy-card-015" />
     </button>
   );
 }
