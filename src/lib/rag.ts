@@ -711,26 +711,29 @@ export function applySecondStageRerankIfNeeded(args: {
         ),
       );
       return {
-        ...result,
-        score_explanation: result.score_explanation
-          ? {
-              ...result.score_explanation,
-              rankScore: Number(rankScore.toFixed(4)),
-              preClampFinalScore: Number(rankScore.toFixed(4)),
-              finalScore: Number(finalScore.toFixed(4)),
-            }
-          : result.score_explanation,
-        match_explanation: {
-          ...result.match_explanation,
-          reasons: Array.from(new Set([...(result.match_explanation?.reasons ?? []), "second_stage_rerank"])),
+        rankScore,
+        result: {
+          ...result,
+          score_explanation: result.score_explanation
+            ? {
+                ...result.score_explanation,
+                rankScore: Number(rankScore.toFixed(4)),
+                preClampFinalScore: Number(rankScore.toFixed(4)),
+                finalScore: Number(finalScore.toFixed(4)),
+              }
+            : result.score_explanation,
+          match_explanation: {
+            ...result.match_explanation,
+            reasons: Array.from(new Set([...(result.match_explanation?.reasons ?? []), "second_stage_rerank"])),
+          },
         },
       };
     })
-    .sort(
-      (left, right) =>
-        (right.score_explanation?.rankScore ?? right.hybrid_score ?? right.similarity ?? 0) -
-          (left.score_explanation?.rankScore ?? left.hybrid_score ?? left.similarity ?? 0) ||
-        left.id.localeCompare(right.id),
+    .sort((left, right) => right.rankScore - left.rankScore || left.result.id.localeCompare(right.result.id))
+    .map(({ result }, index) =>
+      result.score_explanation
+        ? { ...result, score_explanation: { ...result.score_explanation, finalRank: index + 1 } }
+        : result,
     );
   args.telemetry.second_stage_rerank_used = true;
   args.telemetry.second_stage_rerank_latency_ms =

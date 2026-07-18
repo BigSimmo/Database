@@ -3,10 +3,12 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   RANKING_SNAPSHOT_VERSION,
+  evaluateRankingCases,
   scoreSnapshotCandidate,
   tuneRankingSnapshot,
   validateRankingSnapshot,
 } from "../scripts/lib/ranking-tuning";
+import { candidateFeatures, labelMatches } from "../scripts/lib/ranking-snapshot-builder";
 import { defaultRankingConfig, neutralRankingFeatureWeights } from "../src/lib/ranking-config";
 
 const snapshotPath = resolve("scripts/fixtures/rag-ranking-candidate-snapshot.v1.json");
@@ -14,6 +16,35 @@ const snapshotText = readFileSync(snapshotPath, "utf8");
 const snapshot = validateRankingSnapshot(JSON.parse(snapshotText));
 
 describe("offline ranking candidate snapshot", () => {
+  it("matches label alternatives as complete tokens", () => {
+    expect(labelMatches("ED IM PO options", "ed OR im OR po")).toBe(true);
+    expect(labelMatches("managed over time with support", "ed OR im OR po")).toBe(false);
+    expect(labelMatches("Full-blood-count monitoring", "full blood count")).toBe(true);
+  });
+
+  it("uses exact runtime fusion signals before legacy aggregate reconstruction", () => {
+    const fusionSignals = {
+      hybridRelevance: 0.71,
+      lexicalCoverage: 0.12,
+      reciprocalRankFusion: 0.03,
+      titleSectionRelevance: 0.18,
+      metadataRelevance: 0.09,
+      clinicalEvidence: -0.04,
+      fixedAdjustment: -0.22,
+    };
+    expect(
+      candidateFeatures({
+        hybrid_score: 0.99,
+        score_explanation: {
+          weightedHybridScore: 0.98,
+          metadataBoost: 0.5,
+          clinicalSignalBoost: 0.6,
+          fusionSignals,
+        },
+      }),
+    ).toEqual(fusionSignals);
+  });
+
   it("is versioned, complete, and excludes raw candidate/source data", () => {
     expect(snapshot.version).toBe(RANKING_SNAPSHOT_VERSION);
     expect(snapshot.cases).toHaveLength(36);
@@ -56,9 +87,45 @@ describe("offline ranking candidate snapshot", () => {
     });
     expect(high - low).toBeCloseTo(candidate.features.clinicalEvidence, 8);
   });
+
+  it("rejects malformed fields before treating the snapshot as trusted", () => {
+    const invalidSourceCount = structuredClone(snapshot);
+    invalidSourceCount.sourceCaseCount = 35;
+    expect(() => validateRankingSnapshot(invalidSourceCount)).toThrow(/sourceCaseCount/);
+
+    const invalidSanitization = structuredClone(snapshot);
+    invalidSanitization.sanitization.candidateIdentity = "raw" as never;
+    expect(() => validateRankingSnapshot(invalidSanitization)).toThrow(/sanitization/);
+
+    const invalidLabels = structuredClone(snapshot);
+    invalidLabels.cases[0].expectedLabels.documents = [42 as never];
+    expect(() => validateRankingSnapshot(invalidLabels)).toThrow(/expectedLabels\.documents/);
+
+    const invalidMatchFlag = structuredClone(snapshot);
+    invalidMatchFlag.cases[0].candidates[0].documentMatch = "false" as never;
+    expect(() => validateRankingSnapshot(invalidMatchFlag)).toThrow(/match flags/);
+
+    const invalidHardNegative = structuredClone(snapshot);
+    const hardNegative = invalidHardNegative.cases
+      .flatMap((testCase) => testCase.candidates)
+      .find((candidate) => candidate.hardNegative);
+    expect(hardNegative).toBeDefined();
+    hardNegative!.hardNegative = null as never;
+    expect(() => validateRankingSnapshot(invalidHardNegative)).toThrow(/invalid hard negative/);
+  });
 });
 
 describe("offline ranking tuner", () => {
+  it("reports missing-positive retrieval separately from hard-negative ordering", () => {
+    const missingPositiveCases = snapshot.cases.filter((testCase) =>
+      ["agitation-im-po-options", "flowchart-next-step"].includes(testCase.id),
+    );
+    const metrics = evaluateRankingCases(missingPositiveCases, neutralRankingFeatureWeights);
+    expect(metrics.missingPositiveCases).toBe(2);
+    expect(metrics.hardNegativeAccuracy).toBe(1);
+    expect(metrics.highRiskHardNegativeFailures).toBe(0);
+  });
+
   it("is deterministic and only selects constrained improvements", () => {
     const first = tuneRankingSnapshot(snapshot);
     const second = tuneRankingSnapshot(snapshot);

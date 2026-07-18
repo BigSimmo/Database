@@ -59,6 +59,7 @@ export type RankingSnapshot = {
 
 export type RankingMetrics = {
   caseCount: number;
+  missingPositiveCases: number;
   mrrAt10: number;
   ndcgAt10: number;
   hardNegativeAccuracy: number;
@@ -86,6 +87,23 @@ const queryClasses: RagQueryClass[] = [
   "unsupported_or_general",
 ];
 
+const hardNegativeCategories: NonNullable<RankingSnapshotCandidate["hardNegative"]>["category"][] = [
+  "dose_administration_boilerplate",
+  "wrong_medication_document",
+  "mismatched_threshold",
+  "flowchart_missing_action",
+  "document_version_duplicate",
+  "comparison_single_document_crowding",
+];
+
+const requiredSanitizationExcludes = [
+  "raw_uuid",
+  "source_passage",
+  "patient_data",
+  "provider_metadata",
+  "document_storage_path",
+] as const;
+
 function round6(value: number): number {
   return Number(value.toFixed(6));
 }
@@ -105,6 +123,19 @@ export function validateRankingSnapshot(value: unknown): RankingSnapshot {
   if (!Array.isArray(value.cases) || value.cases.length !== 36) {
     throw new Error("Ranking snapshot must contain exactly 36 cases");
   }
+  if (value.sourceCaseCount !== value.cases.length) {
+    throw new Error("Ranking snapshot sourceCaseCount must match cases.length");
+  }
+  if (!isRecord(value.sanitization) || value.sanitization.candidateIdentity !== "sha256") {
+    throw new Error("Ranking snapshot sanitization.candidateIdentity must be sha256");
+  }
+  if (
+    !Array.isArray(value.sanitization.excludes) ||
+    value.sanitization.excludes.some((item) => typeof item !== "string" || !item) ||
+    requiredSanitizationExcludes.some((item) => !(value.sanitization.excludes as unknown[]).includes(item))
+  ) {
+    throw new Error("Ranking snapshot sanitization.excludes is invalid");
+  }
 
   const seenCaseIds = new Set<string>();
   let hardNegativeCount = 0;
@@ -119,6 +150,15 @@ export function validateRankingSnapshot(value: unknown): RankingSnapshot {
     if (!queryClasses.includes(testCase.queryClass as RagQueryClass)) {
       throw new Error(`cases[${caseIndex}].queryClass is invalid`);
     }
+    if (!isRecord(testCase.expectedLabels)) {
+      throw new Error(`cases[${caseIndex}].expectedLabels is invalid`);
+    }
+    for (const key of ["documents", "content"] as const) {
+      const labels = testCase.expectedLabels[key];
+      if (!Array.isArray(labels) || labels.some((label) => typeof label !== "string" || !label.trim())) {
+        throw new Error(`cases[${caseIndex}].expectedLabels.${key} is invalid`);
+      }
+    }
     if (!Array.isArray(testCase.candidates) || testCase.candidates.length < 2) {
       throw new Error(`cases[${caseIndex}] must contain at least two candidates`);
     }
@@ -130,13 +170,27 @@ export function validateRankingSnapshot(value: unknown): RankingSnapshot {
       if (![0, 1, 2, 3].includes(candidate.relevanceGrade as number)) {
         throw new Error(`cases[${caseIndex}].candidates[${candidateIndex}] has an invalid grade`);
       }
+      if (typeof candidate.documentMatch !== "boolean" || typeof candidate.contentMatch !== "boolean") {
+        throw new Error(`cases[${caseIndex}].candidates[${candidateIndex}] has invalid match flags`);
+      }
       if (!isRecord(candidate.features)) {
         throw new Error(`cases[${caseIndex}].candidates[${candidateIndex}] has invalid features`);
       }
       for (const key of [...rankingFeatureKeys, "fixedAdjustment"] as const) {
         assertFiniteNumber(candidate.features[key], `candidate feature ${key}`);
       }
-      if (candidate.hardNegative !== undefined) hardNegativeCount += 1;
+      if (candidate.hardNegative !== undefined) {
+        if (
+          !isRecord(candidate.hardNegative) ||
+          !hardNegativeCategories.includes(
+            candidate.hardNegative.category as NonNullable<RankingSnapshotCandidate["hardNegative"]>["category"],
+          ) ||
+          !["high", "medium"].includes(candidate.hardNegative.risk as string)
+        ) {
+          throw new Error(`cases[${caseIndex}].candidates[${candidateIndex}] has an invalid hard negative`);
+        }
+        hardNegativeCount += 1;
+      }
     }
   }
   if (hardNegativeCount < 12) throw new Error("Ranking snapshot must contain at least 12 hard negatives");
@@ -190,6 +244,7 @@ export function evaluateRankingCases(cases: RankingSnapshotCase[], weights: Rank
   if (cases.length === 0) {
     return {
       caseCount: 0,
+      missingPositiveCases: 0,
       mrrAt10: 0,
       ndcgAt10: 0,
       hardNegativeAccuracy: 1,
@@ -207,19 +262,21 @@ export function evaluateRankingCases(cases: RankingSnapshotCase[], weights: Rank
   let correctHardNegatives = 0;
   let hardNegativeCount = 0;
   let highRiskFailures = 0;
+  let missingPositiveCases = 0;
 
   for (const testCase of cases) {
     const ranked = rankSnapshotCandidates(testCase, weights);
     const topFive = ranked.slice(0, 5);
     const firstRelevantIndex = ranked.findIndex((candidate) => candidate.relevanceGrade > 0);
+    if (firstRelevantIndex < 0) missingPositiveCases += 1;
     mrr += reciprocalRank(ranked);
     ndcg += ndcgAt10(ranked);
     documentRecall += topFive.some((candidate) => candidate.documentMatch) ? 1 : 0;
     contentRecall += topFive.some((candidate) => candidate.contentMatch) ? 1 : 0;
     ranked.forEach((candidate, index) => {
-      if (!candidate.hardNegative) return;
+      if (!candidate.hardNegative || firstRelevantIndex < 0) return;
       hardNegativeCount += 1;
-      const passed = firstRelevantIndex >= 0 && index > firstRelevantIndex;
+      const passed = index > firstRelevantIndex;
       if (passed) correctHardNegatives += 1;
       if (!passed && candidate.hardNegative.risk === "high") highRiskFailures += 1;
     });
@@ -230,6 +287,7 @@ export function evaluateRankingCases(cases: RankingSnapshotCase[], weights: Rank
   const hardNegativeAccuracy = round6(hardNegativeCount ? correctHardNegatives / hardNegativeCount : 1);
   return {
     caseCount: cases.length,
+    missingPositiveCases,
     mrrAt10,
     ndcgAt10: ndcgScore,
     hardNegativeAccuracy,

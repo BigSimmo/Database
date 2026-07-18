@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { RagQueryClass } from "../src/lib/types";
+import { candidateFeatures, labelMatches, type ArtifactCandidate } from "./lib/ranking-snapshot-builder";
 import {
   RANKING_SNAPSHOT_VERSION,
   type RankingCandidateFeatures,
@@ -9,28 +10,6 @@ import {
   type RankingSnapshotCandidate,
   validateRankingSnapshot,
 } from "./lib/ranking-tuning";
-
-type ArtifactScoreExplanation = {
-  lexicalCoverageScore?: number;
-  weightedHybridScore?: number;
-  rrfBoost?: number;
-  sectionTitleMatchBoost?: number;
-  titleBoost?: number;
-  metadataMatchScore?: number;
-  metadataBoost?: number;
-  clinicalSignalBoost?: number;
-  penalty?: number;
-};
-
-type ArtifactCandidate = {
-  chunk_id?: string;
-  title?: string;
-  file_name?: string;
-  hybrid_score?: number;
-  similarity?: number;
-  content_preview?: string;
-  score_explanation?: ArtifactScoreExplanation;
-};
 
 type ArtifactCase = {
   id: string;
@@ -49,50 +28,8 @@ function argument(name: string): string | undefined {
   return index < 0 ? undefined : process.argv[index + 1];
 }
 
-function round6(value: number): number {
-  return Number(value.toFixed(6));
-}
-
-function finite(value: unknown, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
-}
-
 function candidateHash(value: string): string {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
-}
-
-function labelMatches(text: string, label: string): boolean {
-  return label
-    .split(/\s+OR\s+/i)
-    .map((part) => part.trim().toLowerCase())
-    .filter(Boolean)
-    .some((part) => text.includes(part));
-}
-
-function lexicalContribution(coverage: number): number {
-  const density = Math.min(0.08, Math.max(0, coverage) * 0.08);
-  const direct = coverage >= 0.75 ? 0.08 : coverage >= 0.5 ? 0.035 : coverage <= 0.2 ? -0.08 : 0;
-  return round6(density + direct);
-}
-
-function candidateFeatures(candidate: ArtifactCandidate): RankingCandidateFeatures {
-  const explanation = candidate.score_explanation ?? {};
-  const coverage = finite(explanation.lexicalCoverageScore);
-  const lexical = lexicalContribution(coverage);
-  const titleSection = finite(explanation.sectionTitleMatchBoost);
-  const title = finite(explanation.titleBoost);
-  const sectionContribution = titleSection - title;
-  return {
-    hybridRelevance: round6(
-      finite(explanation.weightedHybridScore, Math.min(1, finite(candidate.hybrid_score, candidate.similarity ?? 0))),
-    ),
-    lexicalCoverage: lexical,
-    reciprocalRankFusion: round6(finite(explanation.rrfBoost)),
-    titleSectionRelevance: round6(titleSection),
-    metadataRelevance: round6(Math.max(0, finite(explanation.metadataMatchScore))),
-    clinicalEvidence: round6(finite(explanation.clinicalSignalBoost) - lexical - sectionContribution),
-    fixedAdjustment: round6(Math.min(0, finite(explanation.metadataBoost)) + Math.min(0, finite(explanation.penalty))),
-  };
 }
 
 const hardNegativeTemplates: Array<{

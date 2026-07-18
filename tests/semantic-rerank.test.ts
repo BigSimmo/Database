@@ -56,6 +56,10 @@ function telemetry(): SearchTelemetry {
   return {} as SearchTelemetry;
 }
 
+function expectFinalRanks(results: SearchResult[]) {
+  expect(results.map((item) => item.score_explanation?.finalRank)).toEqual(results.map((_item, index) => index + 1));
+}
+
 function parsedGenerator(ranking: Array<{ candidateId: string; relevanceScore: number }>) {
   const mock = vi.fn<SemanticRerankGenerator>(async () => ({
     parsed: { ranking },
@@ -65,7 +69,7 @@ function parsedGenerator(ranking: Array<{ candidateId: string; relevanceScore: n
 }
 
 describe("ambiguity-only semantic reranking", () => {
-  it("makes no call and preserves the exact ordering reference when disabled", async () => {
+  it("makes no call and preserves the ordering when disabled", async () => {
     const results = [result({ id: "a", rankScore: 1 }), result({ id: "b", rankScore: 0.99 })];
     const { mock, generate } = parsedGenerator([]);
     const metrics = telemetry();
@@ -79,7 +83,8 @@ describe("ambiguity-only semantic reranking", () => {
       generate,
     });
 
-    expect(reranked).toBe(results);
+    expect(reranked.map((item) => item.id)).toEqual(results.map((item) => item.id));
+    expectFinalRanks(reranked);
     expect(mock).not.toHaveBeenCalled();
     expect(metrics).toMatchObject({
       semantic_rerank_eligibility: "disabled",
@@ -94,29 +99,29 @@ describe("ambiguity-only semantic reranking", () => {
     const unavailable = telemetry();
     const requestMode = telemetry();
 
-    expect(
-      await semanticRerankIfAmbiguous({
-        query: "clinical question",
-        results,
-        telemetry: unavailable,
-        enabled: true,
-        providerAvailable: false,
-        generate,
-      }),
-    ).toBe(results);
+    const unavailableResults = await semanticRerankIfAmbiguous({
+      query: "clinical question",
+      results,
+      telemetry: unavailable,
+      enabled: true,
+      providerAvailable: false,
+      generate,
+    });
+    expect(unavailableResults.map((item) => item.id)).toEqual(results.map((item) => item.id));
+    expectFinalRanks(unavailableResults);
     expect(unavailable.semantic_rerank_eligibility).toBe("provider_unavailable");
 
-    expect(
-      await semanticRerankIfAmbiguous({
-        query: "clinical question",
-        results,
-        telemetry: requestMode,
-        enabled: true,
-        providerAvailable: true,
-        requestModeEligible: false,
-        generate,
-      }),
-    ).toBe(results);
+    const requestModeResults = await semanticRerankIfAmbiguous({
+      query: "clinical question",
+      results,
+      telemetry: requestMode,
+      enabled: true,
+      providerAvailable: true,
+      requestModeEligible: false,
+      generate,
+    });
+    expect(requestModeResults.map((item) => item.id)).toEqual(results.map((item) => item.id));
+    expectFinalRanks(requestModeResults);
     expect(requestMode.semantic_rerank_eligibility).toBe("request_mode");
     expect(mock).not.toHaveBeenCalled();
   });
@@ -138,7 +143,8 @@ describe("ambiguity-only semantic reranking", () => {
       generate,
     });
 
-    expect(reranked).toBe(results);
+    expect(reranked.map((item) => item.id)).toEqual(results.map((item) => item.id));
+    expectFinalRanks(reranked);
     expect(mock).not.toHaveBeenCalled();
     expect(metrics.semantic_rerank_eligibility).toBe("unambiguous");
   });
@@ -169,8 +175,10 @@ describe("ambiguity-only semantic reranking", () => {
     expect(mock).toHaveBeenCalledTimes(1);
     expect(reranked.map((item) => item.id)).toEqual(["b", "a", "c"]);
     expect(new Set(reranked.map((item) => item.id))).toEqual(new Set(results.map((item) => item.id)));
-    for (const item of reranked) {
-      expect(item.score_explanation).toEqual(before.find((candidate) => candidate.id === item.id)?.score_explanation);
+    for (const [index, item] of reranked.entries()) {
+      const { finalRank, ...actualExplanation } = item.score_explanation!;
+      expect(actualExplanation).toEqual(before.find((candidate) => candidate.id === item.id)?.score_explanation);
+      expect(finalRank).toBe(index + 1);
       expect(item.hybrid_score).toBe(before.find((candidate) => candidate.id === item.id)?.hybrid_score);
     }
     expect(metrics).toMatchObject({
@@ -252,7 +260,8 @@ describe("ambiguity-only semantic reranking", () => {
       generate,
     });
 
-    expect(reranked).toBe(results);
+    expect(reranked.map((item) => item.id)).toEqual(results.map((item) => item.id));
+    expectFinalRanks(reranked);
     expect(metrics.semantic_rerank_outcome).toBe("fallback");
     expect(metrics.semantic_rerank_fallback_reason).toBe(reason);
   });
@@ -277,10 +286,36 @@ describe("ambiguity-only semantic reranking", () => {
       generate,
     });
 
-    expect(reranked).toBe(results);
+    expect(reranked.map((item) => item.id)).toEqual(results.map((item) => item.id));
+    expectFinalRanks(reranked);
     expect(metrics.semantic_rerank_outcome).toBe("fallback");
     expect(metrics.semantic_rerank_fallback_reason).toBe(reason);
     expect(JSON.stringify(metrics)).not.toContain(message);
+  });
+
+  it("rethrows caller cancellation instead of failing open", async () => {
+    const results = [result({ id: "a", rankScore: 1 }), result({ id: "b", rankScore: 0.99 })];
+    const controller = new AbortController();
+    const reason = new DOMException("caller cancelled", "AbortError");
+    const generate = vi.fn(async () => {
+      controller.abort(reason);
+      throw reason;
+    }) as unknown as SemanticRerankGenerator;
+    const metrics = telemetry();
+
+    await expect(
+      semanticRerankIfAmbiguous({
+        query: "clinical question",
+        results,
+        telemetry: metrics,
+        signal: controller.signal,
+        enabled: true,
+        providerAvailable: true,
+        generate,
+      }),
+    ).rejects.toBe(reason);
+    expect(metrics.semantic_rerank_outcome).not.toBe("fallback");
+    expect(metrics.semantic_rerank_fallback_reason).toBeUndefined();
   });
 
   it("uses strict bounded untrusted-evidence prompting and low-cost request settings", async () => {

@@ -83,6 +83,7 @@ describe("second-stage rank score", () => {
     });
 
     expect(ranked.map((item) => item.id)).toEqual(["relevant", "demoted"]);
+    expect(ranked.map((item) => item.score_explanation?.finalRank)).toEqual([1, 2]);
     expect(ranked.find((item) => item.id === "demoted")?.hybrid_score).toBe(0.8);
     expect(ranked.find((item) => item.id === "relevant")?.hybrid_score).toBe(0.79);
     expect(ranked[0].score_explanation?.finalScore).toBeGreaterThanOrEqual(0);
@@ -107,5 +108,32 @@ describe("second-stage rank score", () => {
     expect(ranked[0].score_explanation?.rankScore).toBe(1.49);
     expect(ranked[0].score_explanation?.preClampFinalScore).toBe(1.49);
     expect(ranked[0].score_explanation?.finalScore).toBe(0.69);
+    expect(ranked.map((item) => item.score_explanation?.finalRank)).toEqual([1, 2]);
+  });
+
+  it("sorts by the computed second-stage score even when score explanations are absent", () => {
+    const doseEvidenceWithoutExplanation = result({
+      id: "dose-evidence-without-explanation",
+      document_id: "dose-doc",
+      hybrid_score: 0.82,
+      content: "Give 5 mg orally when clinically indicated.",
+    });
+    delete doseEvidenceWithoutExplanation.score_explanation;
+    const supported = result({
+      id: "supported",
+      document_id: "current-doc",
+      hybrid_score: 0.84,
+      score_explanation: explanation(0.84),
+    });
+
+    const ranked = applySecondStageRerankIfNeeded({
+      queryClass: "medication_dose_risk",
+      results: [doseEvidenceWithoutExplanation, supported],
+      telemetry: {} as SearchTelemetry,
+      topK: 2,
+    });
+
+    expect(ranked.map((item) => item.id)).toEqual(["dose-evidence-without-explanation", "supported"]);
+    expect(ranked[1].score_explanation?.finalRank).toBe(2);
   });
 });

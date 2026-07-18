@@ -84,6 +84,8 @@ export type AnswerGenerationFingerprintInput = {
   classifierPromptVersion: string;
   retrievalVersion: string;
   indexingPromptVersion: string;
+  semanticRerankEnabled: boolean;
+  semanticRerankModel: string;
 };
 
 export function buildAnswerGenerationFingerprint(input: AnswerGenerationFingerprintInput) {
@@ -109,6 +111,8 @@ export function answerGenerationFingerprint() {
     classifierPromptVersion: ragQueryClassifierPromptVersion,
     retrievalVersion: ragDeepMemoryVersion,
     indexingPromptVersion: ragIndexingPromptVersion,
+    semanticRerankEnabled: env.RAG_SEMANTIC_RERANK_ENABLED,
+    semanticRerankModel: env.OPENAI_RERANK_MODEL,
   });
 }
 

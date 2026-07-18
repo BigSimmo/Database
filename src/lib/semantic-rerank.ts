@@ -79,6 +79,23 @@ function lexicalScore(result: SearchResult): number {
   return result.lexical_score ?? result.score_explanation?.lexicalCoverageScore ?? result.text_rank ?? 0;
 }
 
+function withFinalRanks(results: SearchResult[]): SearchResult[] {
+  let changed = false;
+  const ranked = results.map((result, index) => {
+    if (!result.score_explanation || result.score_explanation.finalRank === index + 1) return result;
+    changed = true;
+    return {
+      ...result,
+      score_explanation: { ...result.score_explanation, finalRank: index + 1 },
+    };
+  });
+  return changed ? ranked : results;
+}
+
+function callerAbortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
+}
+
 function topBy(results: SearchResult[], score: (result: SearchResult) => number): SearchResult | undefined {
   return [...results].sort((left, right) => score(right) - score(left) || left.id.localeCompare(right.id))[0];
 }
@@ -203,22 +220,22 @@ export async function semanticRerankIfAmbiguous(args: {
   const model = args.model ?? env.OPENAI_RERANK_MODEL;
   if (!enabled) {
     setNotInvoked(args.telemetry, "disabled", model);
-    return args.results;
+    return withFinalRanks(args.results);
   }
   if (args.requestModeEligible === false) {
     setNotInvoked(args.telemetry, "request_mode", model);
-    return args.results;
+    return withFinalRanks(args.results);
   }
   const providerAvailable = args.providerAvailable ?? (hasUsableOpenAIKey() && !isSourceOnlyMode());
   if (!providerAvailable) {
     setNotInvoked(args.telemetry, "provider_unavailable", model);
-    return args.results;
+    return withFinalRanks(args.results);
   }
 
   const band = ambiguityBand(args.results);
   if (band.results.length < 2) {
     setNotInvoked(args.telemetry, band.eligibility, model);
-    return args.results;
+    return withFinalRanks(args.results);
   }
 
   const aliases = band.results.map((result, index) => ({ alias: `candidate_${index + 1}`, result }));
@@ -262,7 +279,7 @@ export async function semanticRerankIfAmbiguous(args: {
     if (response.truncated || response.status === "incomplete" || invalid) {
       args.telemetry.semantic_rerank_outcome = "fallback";
       args.telemetry.semantic_rerank_fallback_reason = invalid ?? "malformed_output";
-      return args.results;
+      return withFinalRanks(args.results);
     }
 
     const relevanceByAlias = new Map(
@@ -281,11 +298,12 @@ export async function semanticRerankIfAmbiguous(args: {
     args.telemetry.semantic_rerank_outcome = reordered.some((result, index) => result.id !== args.results[index]?.id)
       ? "reordered"
       : "unchanged";
-    return reordered;
+    return withFinalRanks(reordered);
   } catch (error) {
+    if (args.signal?.aborted) throw callerAbortReason(args.signal);
     args.telemetry.semantic_rerank_outcome = "fallback";
     args.telemetry.semantic_rerank_fallback_reason = providerFailureReason(error);
-    return args.results;
+    return withFinalRanks(args.results);
   } finally {
     args.telemetry.semantic_rerank_latency_ms = Date.now() - startedAt;
   }
