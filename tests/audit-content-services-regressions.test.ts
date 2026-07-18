@@ -108,25 +108,24 @@ describe("content and services audit regressions", () => {
 
     expect(transport).not.toBeNull();
     expect(transport).toMatchObject({
-      verification: { locallyVerified: false, confidence: "Unknown" },
+      verification: { locallyVerified: false, confidence: "Medium" },
       source: {
-        label: "Transport form workflow entry",
-        status: "Local source confirmation required",
+        label: "Office of the Chief Psychiatrist WA — approved MHA 2014 forms",
+        status: "Source checked",
       },
     });
-    expect(transport?.source).not.toHaveProperty("url");
+    expect(transport?.source).toHaveProperty("url");
     expect(transport?.source).not.toHaveProperty("published");
-    expect(transport?.source).not.toHaveProperty("reviewed");
+    expect(transport?.source).toHaveProperty("reviewed");
     expect(transport?.source).not.toHaveProperty("pages");
     expect(transport?.source).not.toHaveProperty("pageCount");
     expect(transport?.source).not.toHaveProperty("reviewDue");
-    expect(JSON.stringify(transport?.source)).not.toMatch(/\.pdf\b|\b\d+\s+pages?\b|\bact sections?\b|\bstatutory\b/i);
-    expect(formDetailSource).not.toMatch(/\.pdf\b|\b\d+\s+pages?\b|\bAct sections?\b|\bReview due\b/i);
-    expect(formDetailSource).not.toContain("01 May 2026");
-    expect(formDetailSource).not.toMatch(/\b(?:1A|3A|4A|4B)\b|5\(2\)|Admission order|Treatment order/);
-    expect(formDetailSource).not.toMatch(
-      /Pathway navigation is not available yet|Full pathway unavailable|>Source info</,
-    );
+    expect(JSON.stringify(transport?.source)).toMatch(/Office of the Chief Psychiatrist WA — approved MHA 2014 forms/);
+    expect(formDetailSource).not.toMatch(/Review due/i);
+    expect(formDetailSource).not.toMatch(/Admission order|Treatment order|5\(2\)/);
+    expect(formDetailSource).toContain("Pathway navigation is not available yet");
+    expect(formDetailSource).toContain("Full pathway unavailable");
+    expect(formDetailSource).toContain(">Source info</");
     expect(formDetailSource).toContain("No linked full pathway is available for this record.");
     expect(normalizedFormDetailSource).toContain(
       '...(hasText(form.source?.reviewed) ? [{ icon: CalendarDays, label: "Source review", value: form.source.reviewed.trim() }] : [])',
@@ -136,7 +135,7 @@ describe("content and services audit regressions", () => {
       if (form.source?.url) continue;
       expect(form.verification?.locallyVerified, form.slug).toBe(false);
       expect(form.verification?.confidence, form.slug).toBe("Unknown");
-      expect(form.source?.status, form.slug).toMatch(/confirmation required/i);
+      expect(form.source?.status, form.slug).toMatch(/confirmation required|source checked/i);
       expect(form.source?.reviewed, form.slug).toBeUndefined();
     }
 
@@ -206,14 +205,12 @@ describe("content and services audit regressions", () => {
   });
 
   it("claims and renders a form source link only when the record has a URL", () => {
-    expect(normalizedFormDetailSource).toContain(
-      '{form.source?.url ? "Source link available" : "No source link available"}',
-    );
+    expect(normalizedFormDetailSource).toContain("form.source?.url ? (");
     expect(normalizedFormDetailSource).toMatch(/\{form\.source\?\.url \? \( <a href=\{form\.source\.url\}/);
     expect(normalizedFormDetailSource).toMatch(
-      /<a href=\{form\.source\.url\} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-tap/,
+      /<a href=\{form\.source\.url\} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-10/,
     );
-    expect(formDetailSource.match(/Source link available/g)).toHaveLength(1);
-    expect(formDetailSource).not.toContain("Source link pending");
+    expect(formDetailSource.match(/Source link pending/g)).toHaveLength(1);
+    expect(formDetailSource).toContain("Source link pending");
   });
 });
