@@ -24,6 +24,41 @@ describe("/auth/callback", () => {
     expect(exchangeCodeForSession).toHaveBeenCalledWith("pkce-code");
   });
 
+  it("forwards auth cookies and anti-cache headers to the final redirect", async () => {
+    const createSupabaseServerClient = vi.fn(
+      async (options: {
+        setAllCookies: (
+          cookies: Array<{ name: string; value: string; options: Record<string, unknown> }>,
+          headers: Record<string, string>,
+        ) => void;
+      }) => ({
+        auth: {
+          exchangeCodeForSession: vi.fn(async () => {
+            options.setAllCookies(
+              [{ name: "sb-session", value: "session-value", options: { httpOnly: true, path: "/" } }],
+              {
+                "Cache-Control": "private, no-cache, no-store, must-revalidate, max-age=0",
+                Expires: "0",
+                Pragma: "no-cache",
+              },
+            );
+            return { error: null };
+          }),
+        },
+      }),
+    );
+    vi.doMock("@/lib/supabase/server", () => ({ createSupabaseServerClient }));
+    const { GET } = await import("../src/app/auth/callback/route");
+
+    const response = await GET(callbackRequest("code=pkce-code&next=%2Fdocuments"));
+
+    expect(createSupabaseServerClient).toHaveBeenCalledWith({ setAllCookies: expect.any(Function) });
+    expect(response.cookies.get("sb-session")?.value).toBe("session-value");
+    expect(response.headers.get("cache-control")).toBe("private, no-cache, no-store, must-revalidate, max-age=0");
+    expect(response.headers.get("expires")).toBe("0");
+    expect(response.headers.get("pragma")).toBe("no-cache");
+  });
+
   it.each(["https://evil.example/steal", "//evil.example/steal"])("rejects unsafe redirect target %s", async (next) => {
     const exchangeCodeForSession = vi.fn(async () => ({ error: null }));
     vi.doMock("@/lib/supabase/server", () => ({
@@ -73,14 +108,37 @@ describe("/auth/callback", () => {
   });
 
   it("surfaces exchange failures without redirecting into the app", async () => {
-    const exchangeCodeForSession = vi.fn(async () => ({ error: { message: "Code verifier mismatch" } }));
+    const exchangeCodeForSession = vi.fn(async (code: string) => {
+      void code;
+      return { error: { message: "Code verifier mismatch" } };
+    });
     vi.doMock("@/lib/supabase/server", () => ({
-      createSupabaseServerClient: vi.fn(async () => ({ auth: { exchangeCodeForSession } })),
+      createSupabaseServerClient: vi.fn(
+        async (options: {
+          setAllCookies: (
+            cookies: Array<{ name: string; value: string; options: Record<string, unknown> }>,
+            headers: Record<string, string>,
+          ) => void;
+        }) => ({
+          auth: {
+            exchangeCodeForSession: vi.fn(async (code: string) => {
+              options.setAllCookies([{ name: "sb-session", value: "", options: { maxAge: 0 } }], {
+                "Cache-Control": "private, no-store",
+                Pragma: "no-cache",
+              });
+              return exchangeCodeForSession(code);
+            }),
+          },
+        }),
+      ),
     }));
     const { GET } = await import("../src/app/auth/callback/route");
 
     const response = await GET(callbackRequest("code=bad-code&next=%2Fdocuments"));
 
     expect(response.headers.get("location")).toBe("https://clinical.example/?auth_error=Code%20verifier%20mismatch");
+    expect(response.cookies.get("sb-session")?.value).toBe("");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("pragma")).toBe("no-cache");
   });
 });
