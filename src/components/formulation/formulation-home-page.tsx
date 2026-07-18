@@ -202,8 +202,6 @@ function FormulationResults({ query }: { query: string }) {
         </p>
       </header>
 
-      <UniversalSearchAlsoMatches modeId="formulation" query={query} />
-
       <section
         aria-label="Filter mechanism results"
         className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_16rem] sm:items-center"
@@ -310,6 +308,8 @@ function FormulationResults({ query }: { query: string }) {
           ))}
         </section>
       )}
+
+      <UniversalSearchAlsoMatches modeId="formulation" query={query} />
 
       <FormulationSafetyNote />
     </FormulationPageShell>
