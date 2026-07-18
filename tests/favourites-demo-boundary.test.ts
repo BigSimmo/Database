@@ -28,7 +28,10 @@ const mobileCardSource = librarySource.slice(
 
 describe("favourites demo-data boundary", () => {
   it("passes trusted server demo state and never merges prototype favourites into live mode unconditionally", () => {
-    expect(routeSource).toContain("demoMode={isDemoMode()}");
+    expect(routeSource).toContain("const demoMode = resolveClientDemoMode({");
+    expect(routeSource).toContain("explicitDemoMode: isDemoMode(),");
+    expect(routeSource).toContain("localNoAuthMode: isLocalNoAuthMode(),");
+    expect(routeSource).toContain("demoMode={demoMode}");
     expect(librarySource).toContain("...(demoMode ? prototypeFavouriteItems : [])");
     expect(librarySource).not.toContain("[...prototypeFavouriteItems, ...savedRegistryFavourites]");
     expect(dashboardSource).toContain("demoMode={clientDemoMode}");

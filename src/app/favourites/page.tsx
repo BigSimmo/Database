@@ -1,5 +1,6 @@
 import { FavouritesCommandLibraryPage } from "@/components/clinical-dashboard/favourites-command-library-page";
-import { isDemoMode } from "@/lib/env";
+import { resolveClientDemoMode } from "@/lib/client-env";
+import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 
 type FavouritesPageProps = {
   searchParams?: Promise<{
@@ -14,8 +15,13 @@ function firstSearchParam(value: string | string[] | undefined) {
 export default async function FavouritesPage({ searchParams }: FavouritesPageProps) {
   const params = searchParams ? await searchParams : {};
   const query = firstSearchParam(params.q)?.trim() ?? "";
+  const demoMode = resolveClientDemoMode({
+    explicitDemoMode: isDemoMode(),
+    authUnavailableFallback: false,
+    localNoAuthMode: isLocalNoAuthMode(),
+  });
 
   // No key={query} remount: query is a pure prop, and remounting on query
   // change wiped the set/type/view/sort selections when clearing a search.
-  return <FavouritesCommandLibraryPage query={query} demoMode={isDemoMode()} />;
+  return <FavouritesCommandLibraryPage query={query} demoMode={demoMode} />;
 }
