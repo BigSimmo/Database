@@ -1,1 +1,1 @@
-export { TherapyCompassPage } from "./therapy-compass-page";
+export { TherapyCompassWorkspace } from "./workspace";

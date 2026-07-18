@@ -21,6 +21,7 @@ import { fetchOwnerRegistryRows, mergeRegistryRecordsWithDefaults } from "@/lib/
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";
 import { searchFormulationMechanisms } from "@/lib/formulation";
 import { searchSpecifiers as searchPsychiatricSpecifiers } from "@/lib/specifiers";
+import { searchTherapyRecords, therapyNeedsReview } from "@/lib/therapies";
 import { rankToolRecords } from "@/lib/tools-catalog";
 import type { ClinicalQueryAnalysis, SearchResult } from "@/lib/types";
 import { universalSearchDomains, type UniversalSearchDomain } from "@/lib/universal-search-domains";
@@ -399,6 +400,23 @@ async function searchSpecifiersDomain(args: ResolvedSearchArgs): Promise<Univers
     }));
 }
 
+async function searchTherapiesDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
+  return searchTherapyRecords(args.baseQuery)
+    .slice(0, args.limitPerDomain)
+    .map(({ record, score }) => ({
+      id: record.slug,
+      kind: "therapies" as const,
+      title: record.name,
+      subtitle: record.clinicalSummary ?? record.bestUsedFor ?? undefined,
+      href: `/therapy-compass/${record.slug}`,
+      score,
+      // Surface review status inline (205/211 records still await sign-off) so an
+      // unreviewed therapy is flagged in discovery, not just on its detail page.
+      badge: therapyNeedsReview(record) ? "Needs source review" : (record.category ?? undefined),
+      meta: record.targetSymptoms ?? record.category ?? undefined,
+    }));
+}
+
 function searchResultDocumentHref(result: SearchResult) {
   const metadata =
     result.source_metadata && typeof result.source_metadata === "object"
@@ -504,6 +522,7 @@ const domainAdapters: Record<
   dsm: { run: searchDsmDomain, timeoutMs: registryDomainTimeoutMs },
   specifiers: { run: searchSpecifiersDomain, timeoutMs: registryDomainTimeoutMs },
   formulation: { run: searchFormulationDomain, timeoutMs: registryDomainTimeoutMs },
+  therapies: { run: searchTherapiesDomain, timeoutMs: registryDomainTimeoutMs },
   tools: { run: searchToolsDomain, timeoutMs: registryDomainTimeoutMs },
 };
 
@@ -711,6 +730,8 @@ export function universalSearchViewAllHref(domain: UniversalSearchDomain, query:
       return `/specifiers?q=${encodeURIComponent(query)}&run=1`;
     case "formulation":
       return `/formulation?q=${encodeURIComponent(query)}&run=1`;
+    case "therapies":
+      return `/therapy-compass/search?q=${encodeURIComponent(query)}&run=1`;
     case "tools":
       return `/?mode=tools&q=${encodeURIComponent(query)}&run=1`;
   }

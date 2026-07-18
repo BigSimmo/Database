@@ -313,11 +313,10 @@ export const appModeDefinitions = [
     label: "Therapy Compass",
     description: "Source-grounded therapy decision support",
     href: "/therapy-compass",
-    // Held out of production discovery until the re-curated therapy pathways
-    // receive qualified-clinician sign-off. Stays available in the dev switcher;
-    // hidden from the production sidebar and MODE dropdown. Flip to false (or
-    // remove) once the sequencing is clinically approved.
-    devOnly: true,
+    // Live in production: surfaced in the sidebar, MODE dropdown, and universal
+    // search. Individual therapy records still carry their own review-status
+    // badge ("Needs source review") until qualified-clinician sign-off, so
+    // unreviewed content stays clearly labelled at the point of use.
     search: {
       // Therapy Compass owns its in-tool search over the imported therapy library
       // (not the document corpus), so it borrows the benign "tools" search kind and

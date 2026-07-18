@@ -1,14 +1,14 @@
 "use client";
 
 /**
- * Scoped helper + print styles for the Therapy Compass mockup.
+ * Scoped helper + print styles for Therapy Compass.
  *
  * The design export shipped a global `<style>` block; we scope the interactive
  * helpers under `.tc-root` so they never leak to the rest of the app, and keep
  * a print rule that reveals only the patient-sheet "paper" (hiding the app
  * chrome, the tool rail and the builder controls). Because this `<style>` is
- * rendered by the Therapy Compass component, it is only present in the DOM on
- * the `/mockups/therapy-compass` route.
+ * rendered by the Therapy Compass workspace, it is only present in the DOM on
+ * the `/therapy-compass/*` routes.
  */
 const CSS = `
 .tc-root .tc-scroll { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
