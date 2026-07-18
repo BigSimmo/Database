@@ -263,6 +263,7 @@ function renderModeRoutes() {
     prescribing: appModeHomeHref("prescribing", { query: "acamprosate renal dose", focus: true, run: true }),
     tools: appModeHomeHref("tools", { query: "medications", focus: true, run: true }),
     "therapy-compass": appModeHomeHref("therapy-compass", { query: "behavioural activation", focus: true, run: true }),
+    factsheets: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
   };
 
   return appModeDefinitions.map((mode) =>

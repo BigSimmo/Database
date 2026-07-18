@@ -26,6 +26,7 @@ describe("app mode search contract", () => {
     expect(universalSearchModeForDomain("formulation")).toBe("formulation");
     expect(universalSearchModeForDomain("therapies")).toBe("therapy-compass");
     expect(universalSearchPreferredDomains("favourites")).toEqual([]);
+    expect(universalSearchPreferredDomains("factsheets")).toEqual([]);
   });
 
   it("requires every mode to declare its search behavior and copy", () => {
@@ -153,6 +154,22 @@ describe("app mode search contract", () => {
     );
   });
 
+  it("routes factsheets searches to the dedicated patient-information library", () => {
+    const config = appModeSearchConfig("factsheets");
+    const mode = appModeDefinitions.find((definition) => definition.id === "factsheets");
+
+    expect(isSearchableAppMode("factsheets")).toBe(true);
+    expect(mode?.label).toBe("Factsheets");
+    expect(mode?.href).toBe("/factsheets");
+    // Borrows the benign "tools" kind (like Therapy Compass) while keeping the shared composer.
+    expect(config.kind).toBe("tools");
+    expect(config.resultKind).toBe("tools");
+    expect(appModeHomeHref("factsheets")).toBe("/factsheets");
+    expect(appModeHomeHref("factsheets", { query: "  sertraline  ", run: true, focus: true })).toBe(
+      "/factsheets/search?q=sertraline&focus=1&run=1",
+    );
+  });
+
   it("keeps source-library shortcut searches in their active mode family", () => {
     expect(appModeCanUseSourceLibraryShortcut("answer")).toBe(false);
     expect(appModeCanUseSourceLibraryShortcut("tools")).toBe(false);
@@ -246,6 +263,7 @@ describe("app mode search contract", () => {
         "prescribing",
         "tools",
         "therapy-compass",
+        "factsheets",
       ]),
     );
     expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).not.toContain("profile");
@@ -266,6 +284,7 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("prescribing", "production")).toBe(true);
     expect(isAppModeVisible("tools", "production")).toBe(true);
     expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
+    expect(isAppModeVisible("factsheets", "production")).toBe(true);
     expect(productionModes).not.toContain("evidence");
     expect(productionModes).toContain("services");
     expect(productionModes).toContain("forms");
@@ -277,6 +296,7 @@ describe("app mode search contract", () => {
     expect(productionModes).toContain("prescribing");
     expect(productionModes).toContain("tools");
     expect(productionModes).toContain("therapy-compass");
+    expect(productionModes).toContain("factsheets");
     expect(developmentModes).toEqual(
       expect.arrayContaining([
         "answer",
@@ -291,6 +311,7 @@ describe("app mode search contract", () => {
         "prescribing",
         "tools",
         "therapy-compass",
+        "factsheets",
       ]),
     );
     expect(developmentModes).not.toContain("evidence");
