@@ -29,12 +29,19 @@ export function HomeScreen() {
   const b = useTcBindings();
   const [query, setLocalQuery] = useState("");
 
-  if (b.loading) return <LoadingState label="Loading therapy catalogue…" />;
+  // First paint / slow fetch: therapies is [] while loading — avoid advertising “0 records”.
+  if (b.loading && b.therapies.length === 0) {
+    return <LoadingState label="Loading therapy library…" />;
+  }
 
   const bySlug = new Map(b.therapies.map((t) => [t.slug, t]));
   const featured: Therapy[] = FEATURED_SLUGS.map((sl) => bySlug.get(sl)).filter((t): t is Therapy => Boolean(t));
   const featuredList = (featured.length ? featured : b.therapies).slice(0, 6);
   const pathways = b.pathways.slice(0, 3);
+  const therapyCountCopy =
+    b.therapies.length === 0
+      ? "Search source-grounded therapy records by problem, symptom, skill or population — or jump into a clinical pathway."
+      : `Search ${b.therapies.length} source-grounded therapy ${b.therapies.length === 1 ? "record" : "records"} by problem, symptom, skill or population — or jump into a clinical pathway.`;
 
   const submit = () => b.submitQuery(query);
 
@@ -53,10 +60,7 @@ export function HomeScreen() {
         >
           What therapy are you looking for?
         </h1>
-        <p style={s(`margin:0 auto 24px;font-size:15px;color:var(--text-muted);max-width:56ch;`)}>
-          Search {b.therapies.length} source-grounded therapy {b.therapies.length === 1 ? "record" : "records"} by
-          problem, symptom, skill or population — or jump into a clinical pathway.
-        </p>
+        <p style={s(`margin:0 auto 24px;font-size:15px;color:var(--text-muted);max-width:56ch;`)}>{therapyCountCopy}</p>
       </div>
 
       <div

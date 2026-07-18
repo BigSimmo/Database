@@ -90,6 +90,15 @@ describe("audit navigation and auth regressions", () => {
   });
 
   it("gates private polling and mutations on local readiness plus authenticated status", () => {
+    const uploadReadOnlyContract = sourceSegment(
+      clinicalDashboardSource,
+      "const uploadReadOnlyMode =",
+      "const canUsePrivateApis =",
+    );
+    expect(uploadReadOnlyContract).toContain("const uploadReadOnlyMode = resolveClientDemoMode({");
+    expect(uploadReadOnlyContract).toContain("localNoAuthMode: false");
+    expect(uploadReadOnlyContract).not.toMatch(/const uploadReadOnlyMode = clientDemoMode\b/);
+
     const privateCapabilityContract = sourceSegment(
       clinicalDashboardSource,
       "const canUsePrivateApis =",

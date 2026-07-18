@@ -82,4 +82,27 @@ describe("favourites demo-data boundary", () => {
       '"xl:bg-[color:var(--clinical-accent-soft)]/45 xl:shadow-[inset_3px_0_0_var(--clinical-accent)]"',
     );
   });
+
+  it("keeps upload read-only independent of local no-auth demo treatment", () => {
+    // Local no-auth is demo for favourites/recent-query owners, but uploads must stay writable.
+    expect(
+      resolveClientDemoMode({
+        explicitDemoMode: false,
+        authUnavailableFallback: false,
+        localNoAuthMode: true,
+        environment: "development",
+      }),
+    ).toBe(true);
+    expect(
+      resolveClientDemoMode({
+        explicitDemoMode: false,
+        authUnavailableFallback: false,
+        localNoAuthMode: false,
+        environment: "development",
+      }),
+    ).toBe(false);
+    expect(dashboardSource).toContain("localNoAuthMode: false");
+    expect(dashboardSource).toMatch(/const uploadReadOnlyMode = resolveClientDemoMode\(\{/);
+    expect(dashboardSource).not.toMatch(/const uploadReadOnlyMode = clientDemoMode\b/);
+  });
 });
