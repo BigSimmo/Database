@@ -2684,15 +2684,42 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(moreActions).toBeFocused();
   });
 
-  test("favourites mobile cards keep their links and menus as separate native controls", async ({ page }) => {
+  test("favourites disable item selection below xl while keeping navigation and actions", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockDemoApi(page);
     await gotoApp(page, "/favourites");
 
     const hub = page.getByTestId("favourites-hub");
     await expect(hub.locator('article[role="button"]')).toHaveCount(0);
-    await expect(hub.getByRole("link", { name: "Open Acamprosate renal screen" })).toBeVisible();
-    await expect(hub.getByRole("button", { name: "More actions for Acamprosate renal screen" })).toBeVisible();
+    const card = hub.locator("article").filter({ hasText: "Acamprosate renal screen" });
+    const openItem = card.getByRole("link", { name: "Open Acamprosate renal screen" });
+    const moreActions = card.getByRole("button", { name: "More actions for Acamprosate renal screen" });
+
+    await expect(card).toBeVisible();
+    await expect(card.locator("button[aria-pressed]")).toHaveCount(0);
+    await expectMinTouchTarget(openItem);
+    await expectMinTouchTarget(moreActions);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 1180, height: 820 });
+    const row = page.getByTestId("favourite-row-acamprosate-renal-screen");
+    await expect(row).toBeVisible();
+    await expect(row.locator("button[aria-pressed]")).toBeHidden();
+    await expect(row.locator("td").first().getByRole("link")).toBeVisible();
+    await expect(row.getByRole("link", { name: "Open Acamprosate renal screen" })).toBeVisible();
+    await expect(row.getByRole("button", { name: "More actions for Acamprosate renal screen" })).toBeVisible();
+
+    await page.setViewportSize({ width: 1536, height: 900 });
+    const selectItem = row.locator("button[aria-pressed]");
+    await expect(selectItem).toBeVisible();
+    await selectItem.click();
+    await expect(page.getByTestId("favourites-item-workspace")).toBeVisible();
+
+    await page.setViewportSize({ width: 1180, height: 820 });
+    await expect(page.getByTestId("favourites-item-workspace")).toBeHidden();
+    await expect(selectItem).toBeHidden();
+    await expect(row).not.toHaveClass(/(^|\s)bg-\[/);
+    await expectNoPageHorizontalOverflow(page);
   });
 
   test("app mode menu supports keyboard navigation without removed prototype modes", async ({ page }) => {

@@ -21,6 +21,10 @@ const universalSearchSource = readFileSync(
   new URL("../src/components/clinical-dashboard/universal-search-command-surface.tsx", import.meta.url),
   "utf8",
 );
+const mobileCardSource = librarySource.slice(
+  librarySource.indexOf("function FavouriteMobileCard"),
+  librarySource.indexOf("function FavouritesTable"),
+);
 
 describe("favourites demo-data boundary", () => {
   it("passes trusted server demo state and never merges prototype favourites into live mode unconditionally", () => {
@@ -65,5 +69,17 @@ describe("favourites demo-data boundary", () => {
         environment: "development",
       }),
     ).toBe(true);
+  });
+
+  it("limits item selection to xl tables and keeps mobile cards action-only", () => {
+    expect(mobileCardSource).toContain("function FavouriteMobileCard({ item }: { item: FavouriteItem })");
+    expect(mobileCardSource).not.toContain("aria-pressed");
+    expect(mobileCardSource).not.toContain("onSelect");
+    expect(mobileCardSource).toContain("<RowActionsMenu item={item} />");
+    expect(librarySource).toContain('"hidden min-w-0 max-w-full items-center gap-2.5 rounded-md text-left xl:flex"');
+    expect(librarySource).toContain('"block min-w-0 max-w-full rounded-md text-left xl:hidden"');
+    expect(librarySource).toContain(
+      '"xl:bg-[color:var(--clinical-accent-soft)]/45 xl:shadow-[inset_3px_0_0_var(--clinical-accent)]"',
+    );
   });
 });

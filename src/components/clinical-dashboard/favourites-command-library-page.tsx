@@ -698,7 +698,7 @@ function FavouritesTable({
                   className={cn(
                     "relative h-14 transition hover:bg-[color:var(--surface-subtle)]",
                     selected &&
-                      "bg-[color:var(--clinical-accent-soft)]/45 shadow-[inset_3px_0_0_var(--clinical-accent)]",
+                      "xl:bg-[color:var(--clinical-accent-soft)]/45 xl:shadow-[inset_3px_0_0_var(--clinical-accent)]",
                   )}
                 >
                   <td className="px-3.5 align-middle">
