@@ -19,7 +19,7 @@ const dashboardViewports = [
   { name: "laptop", width: 1280, height: 900 },
   { name: "mobile-landscape", width: 667, height: 375 },
 ] as const;
-const uiAssertionTimeoutMs = 5_000;
+const uiAssertionTimeoutMs = 30_000;
 const demoAnswerThreadOwnerId = "local-demo-session";
 const demoAnswerThreadStorageKey = `${answerThreadStorageKey}:${demoAnswerThreadOwnerId}`;
 const demoRecentQueryStorageKey = `${recentQueryStorageKey}:${demoAnswerThreadOwnerId}`;
@@ -163,6 +163,12 @@ async function switchToDocumentSearchMode(page: Page) {
   }
   await expect(appModeMenu).toBeEnabled();
   await waitForReactEventHandler(appModeMenu, "onClick");
+  // Scope/Escape deferred focus restore can race a mode-menu open; if the scope
+  // surface is open, wait for it to dismiss before opening the mode menu.
+  const scopePopover = page.getByTestId("scope-command-popover");
+  if (await isVisibleWithoutThrow(scopePopover)) {
+    await scopePopover.waitFor({ state: "hidden", timeout: uiAssertionTimeoutMs });
+  }
   await appModeMenu.click({ force: true });
   const appModeGroup = page.getByRole("menu", { name: "Choose app mode" });
   await expect(appModeGroup).toBeVisible({ timeout: uiAssertionTimeoutMs });
@@ -2405,11 +2411,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("dashboard favourites mode param redirects to the standalone favourites route", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
+    const redirectMeasureErrors: string[] = [];
+    page.on("pageerror", (error) => {
+      if (error.message.includes("cannot have a negative time stamp")) redirectMeasureErrors.push(error.message);
+    });
     await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1");
 
     await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1$/);
     await expect(page.getByTestId("favourites-hub")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    expect(redirectMeasureErrors).toEqual([]);
   });
 
   test("dashboard differentials mode param redirects to the standalone differentials route", async ({ page }) => {

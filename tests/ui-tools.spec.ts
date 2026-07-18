@@ -6,6 +6,7 @@ import { formRecords, rankFormRecords } from "../src/lib/forms";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
 import { sortResultItems } from "../src/lib/result-sort";
+import { serviceRecords } from "../src/lib/services";
 import { scrollPrimarySurface } from "./playwright-scroll";
 
 const readySetupChecks = [
@@ -152,8 +153,7 @@ async function mockAnswerDashboardApi(page: Page) {
   });
   await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
     const kind = new URL(route.request().url()).searchParams.get("kind");
-    const records =
-      kind === "form" ? formRecords : [{ slug: "13yarn", title: "13YARN", subtitle: "Crisis support line" }];
+    const records = kind === "form" ? formRecords : serviceRecords;
     await route.fulfill({
       json: {
         records,
@@ -167,7 +167,10 @@ async function mockAnswerDashboardApi(page: Page) {
     const url = new URL(route.request().url());
     const slug = decodeURIComponent(url.pathname.split("/").pop() ?? "");
     const kind = url.searchParams.get("kind");
-    const record = kind === "form" ? formRecords.find((form) => form.slug === slug) : undefined;
+    const record =
+      kind === "form"
+        ? formRecords.find((form) => form.slug === slug)
+        : serviceRecords.find((service) => service.slug === slug);
     if (!record) {
       await route.fulfill({ status: 404, json: { error: "Registry record not found" } });
       return;
@@ -1603,6 +1606,7 @@ test.describe("Clinical KB service detail page", () => {
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {
     test(`13YARN service detail is usable at ${viewport.name}`, async ({ page }) => {
+      await mockAnswerDashboardApi(page);
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await gotoLauncher(page, "/services/13yarn");
 
@@ -1623,7 +1627,40 @@ test.describe("Clinical KB service detail page", () => {
     });
   }
 
+  test("long mobile service details clear the bottom search dock at the scroll endpoint", async ({ page }) => {
+    await mockAnswerDashboardApi(page);
+    await page.setViewportSize({ width: 390, height: 820 });
+    await gotoLauncher(page, "/services/city-east-community-mental-health-service");
+
+    const servicePage = page.getByTestId("service-detail-page");
+    const footer = servicePage.getByText("Information accuracy may vary. Confirm locally before use.");
+    const scrollport = page.locator("#main-content");
+    await expect(servicePage).toBeVisible();
+    await scrollport.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
+
+    await expect
+      .poll(() => scrollport.evaluate((element) => element.scrollHeight - element.clientHeight - element.scrollTop))
+      .toBeLessThanOrEqual(1);
+
+    const clearance = await footer.evaluate((element) => {
+      const scrollElement = document.querySelector<HTMLElement>("#main-content");
+      const dock = document.querySelector<HTMLElement>(
+        "form.answer-footer-search-dock, form.answer-footer-search-edge",
+      );
+      if (!scrollElement || !dock) return null;
+      return {
+        footerBottom: element.getBoundingClientRect().bottom,
+        scrollBottom: scrollElement.getBoundingClientRect().bottom,
+        dockHeight: dock.getBoundingClientRect().height,
+      };
+    });
+
+    expect(clearance).not.toBeNull();
+    expect(clearance!.footerBottom).toBeLessThanOrEqual(clearance!.scrollBottom - clearance!.dockHeight - 8);
+  });
+
   test("service navigator action uses the shared global search route", async ({ page }) => {
+    await mockAnswerDashboardApi(page);
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services/13yarn");
 
@@ -1634,6 +1671,7 @@ test.describe("Clinical KB service detail page", () => {
   });
 
   test("service detail actions save, copy, and back from direct entry", async ({ page }) => {
+    await mockAnswerDashboardApi(page);
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services/13yarn");
 

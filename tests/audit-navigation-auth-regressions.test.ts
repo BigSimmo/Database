@@ -43,6 +43,14 @@ describe("audit navigation and auth regressions", () => {
       "https://clinical-kb.test/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
     );
 
+    const presentationsEmptyQueryFallback = redirectPresentations(
+      new NextRequest("https://clinical-kb.test/differentials/presentations?query=%20%20&q=delirium"),
+    );
+    expect(presentationsEmptyQueryFallback.status).toBe(307);
+    expect(presentationsEmptyQueryFallback.headers.get("location")).toBe(
+      "https://clinical-kb.test/differentials/presentations/acute-confusion-encephalopathy?q=delirium",
+    );
+
     const medications = redirectMedications(new NextRequest("https://clinical-kb.test/medications?ignored=1"));
     expect(medications.status).toBe(307);
     expect(medications.headers.get("location")).toBe("https://clinical-kb.test/?mode=prescribing");
@@ -93,23 +101,26 @@ describe("audit navigation and auth regressions", () => {
     const privateCapabilityContract = sourceSegment(
       clinicalDashboardSource,
       "const canUsePrivateApis =",
-      "const canUploadDocuments =",
+      "const canRunSearch =",
     );
     expect(privateCapabilityContract).toContain("const canUsePrivateApis =");
-    expect(privateCapabilityContract).toContain("localNoAuthMode");
+    expect(privateCapabilityContract).toContain(
+      'localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated"',
+    );
 
     const pollingContract = sourceSegment(
       clinicalDashboardSource,
-      "if (!nextDemoMode && !canUsePrivateApis)",
-      "const [documentsResponse, jobsResponse, batchesResponse, qualityResponse] = await Promise.all([",
+      "if (!nextDemoMode && !canUsePrivateApis) {",
+      "const shouldRefreshWorkState =",
     );
-    expect(pollingContract).toContain("if (!nextDemoMode && !canUsePrivateApis)");
-    expect(pollingContract).toContain("includeAdministrationData &&");
+    expect(pollingContract).toContain("if (!nextDemoMode && !canUsePrivateApis) {");
+    expect(pollingContract).toContain("setDocuments([]);");
+    expect(pollingContract).toContain("return;");
 
     const labelMutationContract = sourceSegment(
       clinicalDashboardSource,
-      "const mutateDocumentLabel = useCallback(",
-      "const handleDocumentDeleted = useCallback(",
+      "const mutateDocumentLabel =",
+      "const handleDocumentDeleted =",
     );
     expect(labelMutationContract).toContain("if (!canUsePrivateApis) return false;");
 
@@ -121,8 +132,8 @@ describe("audit navigation and auth regressions", () => {
     expect(uploadMutationContract).toContain("if (!canUsePrivateApis) {");
   });
 
-  it("keeps the root dashboard H1 as Clinical KB", () => {
+  it("keeps the root dashboard H1 as Clinical Guide", () => {
     expect(clinicalDashboardSource.match(/<h1\b/g)).toHaveLength(1);
-    expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical (?:Guide|KB)\s*<\/h1>/);
+    expect(clinicalDashboardSource).toMatch(/<h1 className="sr-only">\s*Clinical Guide\s*<\/h1>/);
   });
 });
