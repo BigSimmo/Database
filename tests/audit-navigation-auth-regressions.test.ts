@@ -43,7 +43,7 @@ describe("audit navigation and auth regressions", () => {
       "/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
     );
 
-    const medications = redirectMedications(new NextRequest("https://clinical-kb.test/medications?ignored=1"));
+    const medications = redirectMedications();
     expect(medications.status).toBe(307);
     expect(medications.headers.get("location")).toBe("/?mode=prescribing");
 
