@@ -54,6 +54,14 @@ function resolveImport(specifier: string, fromFile: string): string | null {
   return null;
 }
 
+// Every on-disk shape the "@/lib/services" module could resolve to, so
+// relative-path imports are treated identically to the alias.
+const SERVICES_MODULE_PATHS = new Set(
+  ["lib/services.ts", "lib/services.tsx", "lib/services/index.ts", "lib/services/index.tsx"].map((candidate) =>
+    join(SRC_ROOT, candidate),
+  ),
+);
+
 interface ModuleInfo {
   importsServices: boolean;
   isClientEntry: boolean;
@@ -69,8 +77,16 @@ function buildModuleGraph(): Map<string, ModuleInfo> {
     let importsServices = false;
 
     const recordRuntimeSpecifier = (specifier: string) => {
-      if (specifier === TARGET_SPECIFIER || specifier.startsWith(`${TARGET_SPECIFIER}/`)) importsServices = true;
       const resolved = resolveImport(specifier, filePath);
+      // Match the alias text AND the resolved file, so relative specifiers
+      // like ../lib/services are caught identically.
+      if (
+        specifier === TARGET_SPECIFIER ||
+        specifier.startsWith(`${TARGET_SPECIFIER}/`) ||
+        (resolved !== null && SERVICES_MODULE_PATHS.has(resolved))
+      ) {
+        importsServices = true;
+      }
       if (resolved) valueImports.push(resolved);
     };
 
