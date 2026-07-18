@@ -56,11 +56,13 @@ jobs:
             const highRiskPathPatterns = [
               /^supabase\//,
               /^src\/app\/api\//,
+              /^src\/data\//,
               /^src\/(?:lib|app|components)\/.*(?:auth|permission|privacy|security|rag|retriev|rank|search|answer|clinical|citation|source|document|upload|download|billing|payment|quota|job|worker)/i,
               /^src\/(?:proxy|instrumentation(?:-client)?)\.ts$/,
               /^src\/lib\/(?:env|client-env|security-headers)\.ts$/,
               /^scripts\/.*(?:ingest|reindex|migration|governance|production|deploy|drift|supabase)/i,
-              /^\.github\/workflows\//,
+              /^scripts\/(?:check-(?:codex-autofix-workflow|github-action-pins)|github-action-pins)\.mjs$/,
+              /^\.github\/(?:actions|workflows)\//,
               /^(?:package|package-lock)\.json$/,
               /^(?:next|playwright|vitest)(?:\..+)?\.config\.[cm]?[jt]s$/,
               /^(?:Dockerfile|railway\.json|nixpacks\.toml)$/,
@@ -156,19 +158,34 @@ jobs:
                 throw error;
               }
 
+              const normalizeChangedPath = (value) =>
+                (value || "").replaceAll("\\", "/").replace(/^\.\/+/, "");
               const normalizedFiles = changedFiles.map((file) => ({
                 ...file,
-                filename: (file.filename || "").replaceAll("\\", "/").replace(/^\.\/+/, ""),
+                filename: normalizeChangedPath(file.filename),
+                previous_filename: normalizeChangedPath(file.previous_filename),
               }));
+              const changedFilePaths = (file) =>
+                [file.filename, file.previous_filename].filter(Boolean);
+              const routeableFilePaths = (file) =>
+                changedFilePaths(file).filter(
+                  (filePath) =>
+                    !excludedAutomaticRoutePathPatterns.some((pattern) => pattern.test(filePath)),
+                );
               const routeableFiles = normalizedFiles.filter(
-                (file) => !excludedAutomaticRoutePathPatterns.some((pattern) => pattern.test(file.filename)),
+                (file) => routeableFilePaths(file).length > 0,
               );
               const highRiskFiles = routeableFiles.filter((file) =>
-                highRiskPathPatterns.some((pattern) => pattern.test(file.filename)),
+                routeableFilePaths(file).some((filePath) =>
+                  highRiskPathPatterns.some((pattern) => pattern.test(filePath)),
+                ),
               );
               const changedSourceFiles = routeableFiles.filter(
                 (file) =>
-                  sourcePathPattern.test(file.filename) && sourceExtensionPattern.test(file.filename),
+                  routeableFilePaths(file).some(
+                    (filePath) =>
+                      sourcePathPattern.test(filePath) && sourceExtensionPattern.test(filePath),
+                  ),
               );
               const sourceChurn = changedSourceFiles.reduce(
                 (total, file) => total + (file.additions || 0) + (file.deletions || 0),

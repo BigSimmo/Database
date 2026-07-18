@@ -52,7 +52,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 | Route                                                                                                     | File                                   |
 | --------------------------------------------------------------------------------------------------------- | -------------------------------------- |
 | `/`                                                                                                       | `src/app/page.tsx`                     |
-| `/applications`                                                                                           | `src/app/applications/page.tsx`        |
+| `/applications`                                                                                           | `src/app/applications/route.ts`        |
 | `/differentials`, `/diagnoses`, `/presentations`                                                          | `src/app/differentials/`               |
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/dsm/`                         |
 | `/documents/search`, `/source`, `/evidence`, `/[id]`                                                      | `src/app/documents/`                   |

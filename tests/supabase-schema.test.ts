@@ -129,7 +129,7 @@ const deleteDocumentIfIdleMigration = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclAssertionMigration = readFileSync(
-  new URL("../supabase/migrations/20260717161000_assert_supabase_admin_default_privileges.sql", import.meta.url),
+  new URL("../supabase/migrations/20260717173000_reassert_supabase_admin_default_privileges.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclRoleBootstrap = readFileSync(new URL("../supabase/roles.sql", import.meta.url), "utf8").replace(
@@ -213,6 +213,14 @@ const documentTableFactsTrgmMigration = readFileSync(
 ).replace(/\s+/g, " ");
 const hardenRagScalabilityPatchMigration = readFileSync(
   new URL("../supabase/migrations/20260717010000_harden_rag_scalability_patch.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const documentTitleWordScopeMigration = readFileSync(
+  new URL("../supabase/migrations/20260718223000_enforce_public_title_word_scope.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const publicTitleCorrectorMigration = readFileSync(
+  new URL("../supabase/migrations/20260717171000_public_title_corrector.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 
@@ -1219,7 +1227,13 @@ describe("Supabase Preview replay guards", () => {
     const migrationFiles = readdirSync(migrationDirectoryUrl)
       .filter((fileName) => /^\d+_.+\.sql$/.test(fileName))
       .sort();
-    expect(migrationFiles.at(-1)).toBe("20260717173000_reassert_supabase_admin_default_privileges.sql");
+    expect(migrationFiles.at(-1)).toBe("20260718223000_enforce_public_title_word_scope.sql");
+    expect(documentTitleWordScopeMigration).toContain(
+      "v_status := public.default_privileges_status('supabase_admin', 'public')",
+    );
+    expect(documentTitleWordScopeMigration).toContain(
+      "message = 'Unsafe supabase_admin default privileges; title-word privacy migration blocked.'",
+    );
   });
 
   it("bootstraps safe default ACLs before fresh local and preview migration replay", () => {
@@ -1362,6 +1376,84 @@ describe("Supabase Preview replay guards", () => {
     }
   });
 
+  it("purges legacy private title words and enforces an indexed-public source invariant", () => {
+    for (const sql of [schema, documentTitleWordScopeMigration]) {
+      const normalized = sql.toLowerCase();
+      const guardFunction = finalSqlSegment(
+        sql,
+        "create or replace function public.enforce_document_title_word_scope()",
+        "revoke execute on function public.enforce_document_title_word_scope()",
+      );
+
+      expect(guardFunction).toContain("security definer set search_path = ''");
+      expect(guardFunction).toContain("d.id = new.document_id");
+      expect(guardFunction).toContain("d.owner_id is null");
+      expect(guardFunction).toContain("d.status = 'indexed'");
+      expect(guardFunction).toContain("pg_catalog.length(new.word) between 4 and 40");
+      expect(guardFunction).toContain(
+        "new.word = any ( pg_catalog.regexp_split_to_array(pg_catalog.lower(d.title), '[^a-z]+') )",
+      );
+      expect(guardFunction).toContain("for share");
+      expect(guardFunction).toContain("if not found then");
+      expect(guardFunction).toContain("using errcode = '23514'");
+      expect(normalized).toContain(
+        "revoke execute on function public.enforce_document_title_word_scope() from public, anon, authenticated, service_role",
+      );
+      expect(normalized).toContain(
+        "create trigger document_title_words_enforce_public_scope before insert or update on public.document_title_words",
+      );
+
+      const guardIndex = normalized.indexOf("create trigger document_title_words_enforce_public_scope");
+      const purgeIndex = normalized.indexOf("delete from public.document_title_words dtw", guardIndex);
+      const repairIndex = normalized.indexOf("insert into public.document_title_words (word, document_id)", purgeIndex);
+      expect(guardIndex).toBeGreaterThanOrEqual(0);
+      expect(purgeIndex).toBeGreaterThan(guardIndex);
+      expect(repairIndex).toBeGreaterThan(purgeIndex);
+
+      const purge = normalized.slice(purgeIndex, repairIndex);
+      expect(purge).toContain("where not exists");
+      expect(purge).toContain("d.id = dtw.document_id");
+      expect(purge).toContain("d.owner_id is null");
+      expect(purge).toContain("d.status = 'indexed'");
+      expect(purge).toContain("pg_catalog.length(dtw.word) between 4 and 40");
+      expect(purge).toContain(
+        "dtw.word = any ( pg_catalog.regexp_split_to_array(pg_catalog.lower(d.title), '[^a-z]+') )",
+      );
+    }
+
+    expect(documentTitleWordScopeMigration).toContain(
+      "revoke execute on function public.sync_document_title_words() from public, anon, authenticated, service_role",
+    );
+    expect(documentTitleWordScopeMigration).toContain(
+      "revoke all on table public.document_title_words from public, anon, authenticated",
+    );
+    expect(documentTitleWordScopeMigration).toContain(
+      "grant select, insert, update, delete on table public.document_title_words to service_role",
+    );
+    expect(documentTitleWordScopeMigration).toContain(
+      "add constraint document_title_words_word_length check (pg_catalog.length(word) between 4 and 40) not valid",
+    );
+    expect(documentTitleWordScopeMigration).toContain(
+      "add constraint document_title_words_lowercase check (word = pg_catalog.lower(word)) not valid",
+    );
+    expect(documentTitleWordScopeMigration).toContain("validate constraint document_title_words_word_length");
+    expect(documentTitleWordScopeMigration).toContain("validate constraint document_title_words_lowercase");
+    expect(documentTitleWordScopeMigration).toContain(
+      "raise exception 'document_title_words contains rows outside the indexed public title corpus' using errcode = '23514'",
+    );
+
+    const initialCorrectorMigration = publicTitleCorrectorMigration.toLowerCase();
+    const initialPurgeIndex = initialCorrectorMigration.indexOf("delete from public.document_title_words dtw");
+    const tableBackedCorrectorIndex = initialCorrectorMigration.indexOf(
+      "create or replace function public.correct_clinical_query_terms(",
+    );
+    expect(initialPurgeIndex).toBeGreaterThanOrEqual(0);
+    expect(tableBackedCorrectorIndex).toBeGreaterThan(initialPurgeIndex);
+    expect(initialCorrectorMigration.slice(initialPurgeIndex, tableBackedCorrectorIndex)).toContain(
+      "d.owner_id is null",
+    );
+  });
+
   it("hardens registry cleanup without UUID casts or cross-registry collisions", () => {
     for (const sql of [schema, hardenRagScalabilityPatchMigration]) {
       const cleanup = finalSqlSegment(
@@ -1369,9 +1461,10 @@ describe("Supabase Preview replay guards", () => {
         "create or replace function public.cleanup_registry_corpus_document()",
         "revoke execute on function public.cleanup_registry_corpus_document()",
       );
-      expect(cleanup).toContain("metadata->>'registry_record_id' = old.id::text");
-      expect(cleanup).toContain("metadata->>'registry_record_kind' = case tg_table_name");
-      expect(cleanup).toMatch(/when 'clinical_registry_records' then (pg_catalog\.)?to_jsonb\((old|OLD)\)->>'kind'/);
+      const cleanupLower = cleanup.toLowerCase();
+      expect(cleanupLower).toContain("metadata->>'registry_record_id' = old.id::text");
+      expect(cleanupLower).toContain("metadata->>'registry_record_kind' = case tg_table_name");
+      expect(cleanupLower).toMatch(/when 'clinical_registry_records' then (pg_catalog\.)?to_jsonb\(old\)->>'kind'/);
       expect(cleanup).toContain("when 'medication_records' then 'medication'");
       expect(cleanup).toContain("when 'differential_records' then 'differential'");
       expect(cleanup).not.toContain("registry_record_id')::uuid");
@@ -1395,12 +1488,8 @@ describe("Supabase Preview replay guards", () => {
       expect(corrector).toContain("lower(canonical) % tok");
       expect(corrector).toContain("word % tok");
       expect(corrector).toContain("limit 32");
-      expect(corrector).toContain("min_sim real default 0.45");
-      if (corrector.includes("set pg_trgm.similarity_threshold = 0.3")) {
-        expect(corrector).toContain("set pg_trgm.similarity_threshold = 0.3");
-      }
-      expect(corrector).toContain("best_sim >= min_sim");
-      if (corrector.includes("min_sim is null or min_sim < 0.3 or min_sim > 1")) {
+      expect(corrector).toContain("best is not null and best_sim >= min_sim");
+      if (corrector.includes("min_sim is null")) {
         expect(corrector).toContain("min_sim is null or min_sim < 0.3 or min_sim > 1");
       }
       expect(corrector).not.toContain("array_agg(distinct term)");
