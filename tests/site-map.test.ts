@@ -73,7 +73,7 @@ describe("tracked sitemap", () => {
       [
         "/differentials/presentations",
         "src/app/differentials/presentations/route.ts",
-        "/differentials/presentations/[workflow-slug]",
+        "/differentials/presentations/[slug]",
       ],
       ["/medications", "src/app/medications/route.ts", "/?mode=prescribing"],
     ] as const;
