@@ -137,6 +137,92 @@ describe("computeScrollHideUpdate", () => {
     });
   });
 
+  it("holds the chrome hidden across a multi-frame collapse clamp at the bottom", () => {
+    // As the collapsing header hands its height back to the scroll container,
+    // maxOffset shrinks frame by frame and the browser clamps scrollTop to it,
+    // so each reading looks like a small upward scroll while the offset stays
+    // pinned to the (moving) bottom edge. Include a frame whose shrink is only
+    // `minimumDelta` — the case the previous `lastOffset > maxOffset + delta`
+    // guard let slip through and reveal the chrome, starting the bounce.
+    const clampFrames = [1000, 996, 988, 980, 974, 970, 968, 940, 928];
+    let state = {
+      hidden: true,
+      lastOffset: clampFrames[0],
+      direction: "down" as "down" | "up" | null,
+      directionTravel: 160,
+    };
+    for (const offset of clampFrames.slice(1)) {
+      state = computeScrollHideUpdate({
+        offset,
+        lastOffset: state.lastOffset,
+        // offset is pinned to the shrinking bottom edge each frame.
+        maxOffset: offset,
+        currentlyHidden: state.hidden,
+        direction: state.direction,
+        directionTravel: state.directionTravel,
+      });
+      expect(state.hidden).toBe(true);
+      expect(state.lastOffset).toBe(offset);
+    }
+
+    // Once the collapse settles, a genuine upward scroll that pulls the offset
+    // clear of the bottom still reveals the chrome.
+    const revealed = computeScrollHideUpdate({
+      offset: 900,
+      lastOffset: state.lastOffset,
+      maxOffset: 928,
+      currentlyHidden: state.hidden,
+      direction: state.direction,
+      directionTravel: state.directionTravel,
+    });
+    expect(revealed.hidden).toBe(false);
+    expect(revealed.direction).toBe("up");
+  });
+
+  it("does not reveal on a small phantom clamp when the offset stays pinned to the bottom", () => {
+    // Single frame: a 4px upward clamp while glued to the bottom edge. The old
+    // guard required the previous offset to sit more than `minimumDelta` above
+    // the new maximum, which fails here, so the phantom read reached the reveal
+    // path. It must be treated as layout feedback instead.
+    expect(
+      computeScrollHideUpdate({
+        offset: 968,
+        lastOffset: 972,
+        maxOffset: 968,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 120,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 968,
+      direction: null,
+      directionTravel: 0,
+    });
+  });
+
+  it("holds the chrome hidden while a bottom rubber-band overscroll springs back", () => {
+    // iOS reports a scrollTop past the maximum during bottom overscroll; as the
+    // content springs back the reading moves up but is still the bottom edge.
+    // A symmetric `|offset - maxOffset| <= tolerance` window would fall through
+    // here and reveal the chrome mid-rubber-band — the one-sided test holds it.
+    expect(
+      computeScrollHideUpdate({
+        offset: 930,
+        lastOffset: 962,
+        maxOffset: 900,
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 120,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 930,
+      direction: null,
+      directionTravel: 0,
+    });
+  });
+
   it("ignores an upward clamp caused by the viewport growing at the bottom", () => {
     const clamped = computeScrollHideUpdate({
       offset: 900,
