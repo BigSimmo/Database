@@ -106,7 +106,9 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
         style={s(`min-height:calc(100dvh - 4rem);background:var(--surface-chrome);color:var(--text);`)}
       >
         {isHome ? null : <TherapyCompassNav />}
-        <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>{children}</TherapyCompassMain>
+        <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>
+          {children}
+        </TherapyCompassMain>
       </div>
     </TcProvider>
   );

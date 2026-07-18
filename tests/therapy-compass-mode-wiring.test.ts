@@ -61,5 +61,4 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(workspaceSrc).toMatch(/asMain=\{!isHome\}/);
     expect(workspaceSrc).toContain('const Tag = asMain ? "main" : "div"');
   });
-
 });
