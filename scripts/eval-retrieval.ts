@@ -72,6 +72,8 @@ export type GoldenRetrievalResult = {
   irrelevantSourceRateAt10: number;
   requiredSignalCoverageAt10: number;
   latencyMs: number;
+  searchTotalLatencyMs?: number;
+  retrievalPhaseLatenciesMs?: Record<string, number>;
   retrievalStrategy: string | null;
   retrievalPlan: string | null;
   embeddingSkipped: boolean;
@@ -572,6 +574,8 @@ export function evaluateGoldenRetrievalCase(args: {
     source_image_required?: boolean | null;
     source_image_satisfied?: boolean | null;
     second_stage_rerank_used?: boolean | null;
+    search_total_latency_ms?: number | null;
+    retrieval_phase_latencies_ms?: Record<string, number> | null;
   };
   latencyMs: number;
   timedOut?: boolean;
@@ -650,6 +654,8 @@ export function evaluateGoldenRetrievalCase(args: {
     contentReciprocalRankAt10: contentReciprocalRankAt10(args.testCase.expectedContentTerms, args.results),
     ...signalMetrics,
     latencyMs: args.latencyMs,
+    searchTotalLatencyMs: args.telemetry.search_total_latency_ms ?? undefined,
+    retrievalPhaseLatenciesMs: args.telemetry.retrieval_phase_latencies_ms ?? undefined,
     retrievalStrategy: args.telemetry.retrieval_strategy ?? null,
     retrievalPlan: args.telemetry.retrieval_plan ?? null,
     embeddingSkipped: args.telemetry.embedding_skipped ?? false,
@@ -773,10 +779,12 @@ export function summarizeGoldenRetrievalResults(results: GoldenRetrievalResult[]
 }
 
 function latencyFromTelemetry(telemetry: {
+  search_total_latency_ms?: number;
   supabase_rpc_latency_ms?: number;
   embedding_latency_ms?: number;
   rerank_latency_ms?: number;
 }) {
+  if (typeof telemetry.search_total_latency_ms === "number") return telemetry.search_total_latency_ms;
   return (
     (telemetry.supabase_rpc_latency_ms ?? 0) +
     (telemetry.embedding_latency_ms ?? 0) +

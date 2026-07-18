@@ -27,10 +27,16 @@ export type SearchChunksArgs = {
   forceEmbedding?: boolean;
   // Lightweight-preview only: return lexical/trigram candidates without an embedding call.
   lexicalOnly?: boolean;
+  /** Internal: shares one request-start indexing-version resolution across nested cache reads. */
+  cacheContext?: {
+    indexingVersionAtRequestStart?: Promise<string>;
+  };
 };
 
 export type SearchTelemetry = {
   search_cache_hit: boolean;
+  search_total_latency_ms?: number;
+  retrieval_phase_latencies_ms?: Record<string, number>;
   shared_cache_hit?: boolean;
   shared_cache_status?: "hit" | "miss";
   shared_cache_miss_reason?: string | null;
