@@ -219,6 +219,10 @@ const documentTitleWordScopeMigration = readFileSync(
   new URL("../supabase/migrations/20260718223000_enforce_public_title_word_scope.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const publicTitleCorrectorMigration = readFileSync(
+  new URL("../supabase/migrations/20260717171000_public_title_corrector.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function finalSqlSegment(sql: string, startMarker: string, endMarker: string) {
   const normalized = sql.toLowerCase();
@@ -1436,6 +1440,17 @@ describe("Supabase Preview replay guards", () => {
     expect(documentTitleWordScopeMigration).toContain("validate constraint document_title_words_lowercase");
     expect(documentTitleWordScopeMigration).toContain(
       "raise exception 'document_title_words contains rows outside the indexed public title corpus' using errcode = '23514'",
+    );
+
+    const initialCorrectorMigration = publicTitleCorrectorMigration.toLowerCase();
+    const initialPurgeIndex = initialCorrectorMigration.indexOf("delete from public.document_title_words dtw");
+    const tableBackedCorrectorIndex = initialCorrectorMigration.indexOf(
+      "create or replace function public.correct_clinical_query_terms(",
+    );
+    expect(initialPurgeIndex).toBeGreaterThanOrEqual(0);
+    expect(tableBackedCorrectorIndex).toBeGreaterThan(initialPurgeIndex);
+    expect(initialCorrectorMigration.slice(initialPurgeIndex, tableBackedCorrectorIndex)).toContain(
+      "d.owner_id is null",
     );
   });
 
