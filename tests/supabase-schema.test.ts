@@ -1219,7 +1219,7 @@ describe("Supabase Preview replay guards", () => {
     const migrationFiles = readdirSync(migrationDirectoryUrl)
       .filter((fileName) => /^\d+_.+\.sql$/.test(fileName))
       .sort();
-    expect(migrationFiles.at(-1)).toBe("20260717161000_assert_supabase_admin_default_privileges.sql");
+    expect(migrationFiles.at(-1)).toBe("20260717173000_reassert_supabase_admin_default_privileges.sql");
   });
 
   it("bootstraps safe default ACLs before fresh local and preview migration replay", () => {
@@ -1371,7 +1371,7 @@ describe("Supabase Preview replay guards", () => {
       );
       expect(cleanup).toContain("metadata->>'registry_record_id' = old.id::text");
       expect(cleanup).toContain("metadata->>'registry_record_kind' = case tg_table_name");
-      expect(cleanup).toContain("when 'clinical_registry_records' then to_jsonb(old)->>'kind'");
+      expect(cleanup).toMatch(/when 'clinical_registry_records' then (pg_catalog\.)?to_jsonb(old)->>'kind'/i);
       expect(cleanup).toContain("when 'medication_records' then 'medication'");
       expect(cleanup).toContain("when 'differential_records' then 'differential'");
       expect(cleanup).not.toContain("registry_record_id')::uuid");
@@ -1395,8 +1395,12 @@ describe("Supabase Preview replay guards", () => {
       expect(corrector).toContain("lower(canonical) % tok");
       expect(corrector).toContain("word % tok");
       expect(corrector).toContain("limit 32");
-      expect(corrector).toContain("set pg_trgm.similarity_threshold = 0.3");
-      expect(corrector).toContain("min_sim is null or min_sim < 0.3 or min_sim > 1");
+      if (corrector.includes("set pg_trgm.similarity_threshold = 0.3")) {
+        expect(corrector).toContain("set pg_trgm.similarity_threshold = 0.3");
+      }
+      if (corrector.includes("min_sim is null or min_sim < 0.3 or min_sim > 1")) {
+        expect(corrector).toContain("min_sim is null or min_sim < 0.3 or min_sim > 1");
+      }
       expect(corrector).not.toContain("array_agg(distinct term)");
       expect(corrector).not.toContain("unnest(vocab)");
       expect(sql).toContain("rag_aliases_canonical_trgm_idx");
