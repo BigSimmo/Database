@@ -601,7 +601,6 @@ export function ServicesNavigatorPage() {
             sortValue={sortValue}
             onSortChange={setSortValue}
           />
-          <UniversalSearchAlsoMatches modeId="services" query={query} />
         </>
       }
       sidebar={
@@ -731,6 +730,7 @@ export function ServicesNavigatorPage() {
           </div>
         </>
       )}
+      <UniversalSearchAlsoMatches modeId="services" query={query} />
     </SearchResultsLayout>
   );
 }

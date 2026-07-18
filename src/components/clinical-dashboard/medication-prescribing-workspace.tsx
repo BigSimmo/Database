@@ -469,7 +469,6 @@ function MedicationResults({
       <div className="hidden lg:block">
         <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} />
       </div>
-      <UniversalSearchAlsoMatches modeId="prescribing" query={query} className="medication-also-matches" />
       <div className="medication-results-inset min-w-0 space-y-2 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
         <div className="min-w-0 space-y-1">
           <p className="text-xs font-semibold uppercase text-[color:var(--text-soft)]">Medication search</p>
@@ -692,6 +691,8 @@ function MedicationResults({
           );
         })}
       </div>
+
+      <UniversalSearchAlsoMatches modeId="prescribing" query={query} className="medication-also-matches" />
 
       <StatusNotice
         realDataReady={realDataReady}
