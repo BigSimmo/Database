@@ -43,6 +43,72 @@ describe("writeAuditLog", () => {
     });
   });
 
+  it("drops user-controlled document text from indefinitely retained audit metadata", async () => {
+    const client = mockClient(async () => ({ error: null }));
+
+    await writeAuditLog(client, {
+      ownerId: "owner-1",
+      action: "document_upload",
+      resourceId: "doc-1",
+      metadata: {
+        fileName: "Jane Doe MRN 123456.pdf",
+        contentHash: "content-derived-identifier",
+        fileType: "application/pdf",
+        fileSize: 1234,
+        nested: { title: "Patient Jane Doe" },
+      },
+    });
+
+    expect(client.insertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: { fileType: "application/pdf", fileSize: 1234 } }),
+    );
+    expect(JSON.stringify(client.insertSpy.mock.calls[0]?.[0])).not.toContain("Jane Doe");
+    expect(JSON.stringify(client.insertSpy.mock.calls[0]?.[0])).not.toContain("content-derived-identifier");
+  });
+
+  it("does not retain previous or replacement titles for rename events", async () => {
+    const client = mockClient(async () => ({ error: null }));
+
+    await writeAuditLog(client, {
+      ownerId: "owner-1",
+      action: "document_rename",
+      resourceId: "doc-1",
+      metadata: { previousTitle: "Jane Doe", newTitle: "Patient Smith" },
+    });
+
+    expect(client.insertSpy).toHaveBeenCalledWith(expect.objectContaining({ metadata: {} }));
+  });
+
+  it("retains numeric storageRemoved counts from document deletes", async () => {
+    const client = mockClient(async () => ({ error: null }));
+
+    await writeAuditLog(client, {
+      ownerId: "owner-1",
+      action: "document_delete",
+      resourceId: "doc-1",
+      metadata: {
+        storageRemoved: 2,
+        title: "Jane Doe MRN 123456.pdf",
+      },
+    });
+
+    expect(client.insertSpy).toHaveBeenCalledWith(expect.objectContaining({ metadata: { storageRemoved: 2 } }));
+    expect(JSON.stringify(client.insertSpy.mock.calls[0]?.[0])).not.toContain("Jane Doe");
+  });
+
+  it("retains boolean storageRemoved flags from legacy delete callers", async () => {
+    const client = mockClient(async () => ({ error: null }));
+
+    await writeAuditLog(client, {
+      ownerId: "owner-1",
+      action: "document_delete",
+      resourceId: "doc-1",
+      metadata: { storageRemoved: true },
+    });
+
+    expect(client.insertSpy).toHaveBeenCalledWith(expect.objectContaining({ metadata: { storageRemoved: true } }));
+  });
+
   it("does not throw when the insert returns an error", async () => {
     const client = mockClient(async () => ({ error: { message: "insert failed" } }));
     await expect(writeAuditLog(client, { ownerId: "o", action: "document_rename" })).resolves.toBeUndefined();

@@ -307,7 +307,10 @@ export async function POST(request: Request) {
       action: "document_upload",
       resourceType: "document",
       resourceId: documentId,
-      metadata: { fileName: file.name, fileType: file.type, fileSize: file.size, contentHash },
+      // `audit_logs` is retained indefinitely. Keep only operational facts there;
+      // the user-controlled filename and content hash remain on the scoped document
+      // record, not in the durable audit trail.
+      metadata: { fileType: file.type, fileSize: file.size },
     });
 
     return NextResponse.json({ document, job }, { status: 201 });
