@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 
 import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
@@ -61,13 +62,31 @@ function TherapyCompassDataError() {
   );
 }
 
-function TherapyCompassMain({ children }: { children: ReactNode }) {
+function TherapyCompassMain({
+  children,
+  showFooter,
+  asMain,
+}: {
+  children: ReactNode;
+  showFooter: boolean;
+  /** Home renders ModeHomeMain; keep a non-main shell so landmarks are not nested. */
+  asMain: boolean;
+}) {
   const b = useTcBindings();
+  // Home normally leaves <main> to ModeHomeMain. On catalogue load failure the
+  // home child (and its landmark) is replaced by TherapyCompassDataError, so
+  // promote this shell to <main> for the error state only.
+  const useMainLandmark = asMain || Boolean(b.error);
+  const Tag = useMainLandmark ? "main" : "div";
+  // Home padding comes from ModeHomeMain; non-home routes keep the workspace gutter.
+  // Error-on-home still needs the non-home gutter so the alert isn't flush.
+  const style = asMain || b.error ? s(`min-width:0;padding:32px 40px 40px;`) : s(`min-width:0;`);
   return (
-    <main className="tc-main" style={s(`min-width:0;padding:32px 40px 40px;`)}>
+    <Tag className="tc-main" style={style}>
       {b.error ? <TherapyCompassDataError /> : children}
-      <TherapyCompassFooter />
-    </main>
+      {/* Home uses ModeHomeTemplate's verification footer; skip the workspace copy there. */}
+      {showFooter ? <TherapyCompassFooter /> : null}
+    </Tag>
   );
 }
 
@@ -77,10 +96,13 @@ function TherapyCompassMain({ children }: { children: ReactNode }) {
  * are shared across every `/therapy-compass/*` route, while each route renders
  * its own screen into the workspace's main content. The design's bespoke left
  * rail is dropped in favour of the app's universal rail; its destinations live in
- * the horizontal in-content nav under the global header, and the content closes
+ * the horizontal in-content nav under the global header, and non-home routes close
  * with the universal clinical verification footer.
  */
 export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isHome = pathname === "/therapy-compass";
+
   return (
     <TcProvider>
       <TherapyCompassStyles />
@@ -88,8 +110,10 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
         className="tc-root"
         style={s(`min-height:calc(100dvh - 4rem);background:var(--surface-chrome);color:var(--text);`)}
       >
-        <TherapyCompassNav />
-        <TherapyCompassMain>{children}</TherapyCompassMain>
+        {isHome ? null : <TherapyCompassNav />}
+        <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>
+          {children}
+        </TherapyCompassMain>
       </div>
     </TcProvider>
   );
