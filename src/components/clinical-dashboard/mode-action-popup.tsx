@@ -922,7 +922,11 @@ export function ModeActionPopup({
           className={cn(
             chatComposerIconButton,
             triggerClassName,
-            open && "bg-[color:var(--surface-subtle)] text-[color:var(--text)] motion-safe:rotate-45",
+            // `rotate-45` (not `motion-safe:rotate-45`): the open "+"→"×" state is
+            // information, not decoration. The global reduced-motion rule makes the
+            // transform instant, so gating it on motion-safe wrongly dropped the
+            // affordance entirely for those users.
+            open && "bg-[color:var(--surface-subtle)] text-[color:var(--text)] rotate-45",
           )}
           aria-label={buttonLabel}
           aria-controls={open ? "daily-actions-sheet" : undefined}
