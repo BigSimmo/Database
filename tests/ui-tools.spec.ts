@@ -5,6 +5,7 @@ import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
 import { formRecords, rankFormRecords } from "../src/lib/forms";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
+import { serviceRecords } from "../src/lib/services";
 import { sortResultItems } from "../src/lib/result-sort";
 import { scrollPrimarySurface } from "./playwright-scroll";
 
@@ -152,8 +153,7 @@ async function mockAnswerDashboardApi(page: Page) {
   });
   await page.route(/\/api\/registry\/records(?:\?.*)?$/, async (route) => {
     const kind = new URL(route.request().url()).searchParams.get("kind");
-    const records =
-      kind === "form" ? formRecords : [{ slug: "13yarn", title: "13YARN", subtitle: "Crisis support line" }];
+    const records = kind === "form" ? formRecords : serviceRecords;
     await route.fulfill({
       json: {
         records,
@@ -167,7 +167,8 @@ async function mockAnswerDashboardApi(page: Page) {
     const url = new URL(route.request().url());
     const slug = decodeURIComponent(url.pathname.split("/").pop() ?? "");
     const kind = url.searchParams.get("kind");
-    const record = kind === "form" ? formRecords.find((form) => form.slug === slug) : undefined;
+    const record =
+      kind === "form" ? formRecords.find((form) => form.slug === slug) : serviceRecords.find((service) => service.slug === slug);
     if (!record) {
       await route.fulfill({ status: 404, json: { error: "Registry record not found" } });
       return;
