@@ -19,7 +19,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { cn } from "@/components/ui-primitives";
 import { ModeHomeStatusNotice } from "@/components/mode-home-template";
@@ -300,6 +300,13 @@ function RightRail({
   const confidenceExpanded = showConfidenceDetails && matches.length > 0;
   const comparisonExpanded = showComparison && comparisonAvailable;
   const confidenceTotal = counts.high + counts.medium + counts.low + counts.unknown;
+
+  // Keep rail toggles mounted across selection-count changes; only close panels
+  // that are invalid for the current selection size.
+  useEffect(() => {
+    if (selected.length === 0) setShowChecklistDetails(false);
+    if (!comparisonAvailable) setShowComparison(false);
+  }, [selected.length, comparisonAvailable]);
 
   const rows: Array<[string, number, LucideIcon, string]> = [
     ["Meets", counts.meets, CircleCheck, "text-[color:var(--success)]"],
@@ -605,7 +612,6 @@ export function ServicesNavigatorPage() {
       }
       sidebar={
         <RightRail
-          key={selected.length === 0 ? "empty" : selected.length === 1 ? "single" : "multiple"}
           matches={displayedMatches}
           selected={selected}
           onClearSelected={() => setSelectedSlugs([])}

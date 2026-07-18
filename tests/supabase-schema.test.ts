@@ -1417,7 +1417,11 @@ describe("Supabase Preview replay guards", () => {
       "$function$;",
     );
 
-    expect(documentTableFactsTrgmMigration).toContain("create index if not exists document_table_facts_text_trgm_idx");
+    // Fresh installs skip the write-blocking CREATE that harden immediately drops.
+    expect(documentTableFactsTrgmMigration).not.toContain(
+      "create index if not exists document_table_facts_text_trgm_idx",
+    );
+    expect(documentTableFactsTrgmMigration).toMatch(/intentionally a no-op/i);
     expect(hardenRagScalabilityPatchMigration).toContain(
       "drop index if exists public.document_table_facts_text_trgm_idx",
     );
