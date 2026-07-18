@@ -81,6 +81,30 @@ export function authorizationHeadersForAccessToken(accessToken: string | null | 
   return { authorization: `Bearer ${accessToken}` };
 }
 
+/**
+ * Decide the trusted initial auth state from a server-verifying `getUser()` and a
+ * storage-only `getSession()`. `getSession()` reads the token from local storage
+ * WITHOUT validating it; `getUser()` re-validates it against the Supabase auth server.
+ * The stored session (and its access token) is trusted only when the auth server
+ * confirmed a user whose id matches that session, so a stale, tampered, or expired
+ * local token resolves to signed-out instead of presenting as authenticated. Data
+ * access is already safe — every API route re-validates the bearer token server-side
+ * ([auth.ts](src/lib/supabase/auth.ts)) — so this is defense-in-depth for the client UI.
+ */
+export type InitialAuthResolution =
+  { status: "authenticated"; session: Session } | { status: "signed_out"; session: null };
+
+export function resolveInitialAuthState(args: {
+  verifiedUserId: string | null;
+  session: Session | null;
+}): InitialAuthResolution {
+  const { verifiedUserId, session } = args;
+  if (verifiedUserId && session && session.user.id === verifiedUserId) {
+    return { status: "authenticated", session };
+  }
+  return { status: "signed_out", session: null };
+}
+
 function authCallbackRedirect() {
   if (typeof window === "undefined") return undefined;
   return `${window.location.origin}${AUTH_CALLBACK_PATH}`;
@@ -126,16 +150,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initializeSession = async () => {
       try {
-        const { data, error: sessionError } = await client.auth.getSession();
+        // Validate the stored token against the auth server before trusting it.
+        // getSession() only reads the token from storage; getUser() re-validates it
+        // with Supabase auth, so a stale/tampered/expired local session cannot present
+        // as authenticated (or send a bad bearer token) on load.
+        const [userResult, sessionResult] = await Promise.all([client.auth.getUser(), client.auth.getSession()]);
         if (!active) return;
-        if (sessionError) {
-          setStatus("error");
-          setError("Session could not be loaded.");
-          return;
-        }
-        setSession(data.session);
-        setStatus(data.session ? "authenticated" : "signed_out");
-        if (data.session) {
+        const verifiedUserId = userResult.error ? null : (userResult.data.user?.id ?? null);
+        const resolved = resolveInitialAuthState({ verifiedUserId, session: sessionResult.data.session });
+        setSession(resolved.session);
+        setStatus(resolved.status);
+        if (resolved.status === "authenticated") {
           setError(null);
           setNotice(null);
         } else {
@@ -157,7 +182,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = client.auth.onAuthStateChange((_event, nextSession) => {
+    } = client.auth.onAuthStateChange((event, nextSession) => {
+      // initializeSession() owns the initial state and validates it via getUser();
+      // the INITIAL_SESSION replay re-reads the *unverified* stored session, so skip it
+      // here to avoid a stale token presenting as authenticated after validation.
+      // Later events (SIGNED_IN, TOKEN_REFRESHED, SIGNED_OUT, …) come from real auth
+      // transitions and are trusted. Supabase warns against awaiting other auth calls
+      // inside this callback, so validation stays in initializeSession, not here.
+      if (event === "INITIAL_SESSION") return;
       setSession(nextSession);
       setStatus(nextSession ? "authenticated" : "signed_out");
       if (nextSession) {

@@ -30,6 +30,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
       )}
     >
       <div
+        className="tc-stack-sm"
         style={s(
           `display:grid;grid-template-columns:minmax(280px,1fr) minmax(400px,1.35fr) auto;gap:22px;padding:20px 22px;align-items:start;`,
         )}
@@ -52,6 +53,7 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
         </div>
 
         <div
+          className="tc-stack-sm"
           style={s(
             `display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;`,
           )}
@@ -84,9 +86,11 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           <button
             type="button"
             className="tc-btn"
-            title="Favourite"
+            disabled
+            title="Favourites are not available yet"
+            aria-label="Favourites are coming soon"
             style={s(
-              `display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text-soft);cursor:pointer;`,
+              `display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text-soft);cursor:not-allowed;opacity:.65;`,
             )}
           >
             <HeartIcon size={17} />

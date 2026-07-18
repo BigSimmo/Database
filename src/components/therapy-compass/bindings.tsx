@@ -24,6 +24,7 @@ export type TcBindings = {
   // ---- data -----------------------------------------------------------
   loading: boolean;
   error: string | null;
+  retryData: () => void;
   therapies: Therapy[];
   unreviewedTherapies: Therapy[];
   reviewCount: number;
@@ -161,7 +162,7 @@ const TcContext = createContext<TcBindings | null>(null);
 
 function navStyle(active: boolean): CSSProperties {
   const base =
-    "display:inline-flex;align-items:center;gap:8px;flex:none;padding:8px 13px;border:1px solid transparent;border-radius:10px;background:transparent;font-family:inherit;font-size:13.5px;white-space:nowrap;cursor:pointer;text-decoration:none;transition:background .12s ease,color .12s ease,border-color .12s ease;";
+    "display:inline-flex;align-items:center;gap:8px;flex:none;min-height:44px;box-sizing:border-box;padding:8px 13px;border:1px solid transparent;border-radius:10px;background:transparent;font-family:inherit;font-size:13.5px;white-space:nowrap;cursor:pointer;text-decoration:none;transition:background .12s ease,color .12s ease,border-color .12s ease;";
   return s(
     active
       ? base +
@@ -171,7 +172,7 @@ function navStyle(active: boolean): CSSProperties {
 }
 function tabStyle(active: boolean): CSSProperties {
   const base =
-    "padding:10px 4px;border:none;background:transparent;font-size:14px;cursor:pointer;font-family:inherit;transition:color .12s ease;";
+    "display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:10px 4px;border:none;background:transparent;font-size:14px;cursor:pointer;font-family:inherit;transition:color .12s ease;";
   return s(
     active
       ? base + "color:var(--clinical-accent-hover);font-weight:650;border-bottom:2px solid var(--clinical-accent);"
@@ -180,7 +181,7 @@ function tabStyle(active: boolean): CSSProperties {
 }
 function segStyle(active: boolean): CSSProperties {
   const base =
-    "padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .12s ease;";
+    "display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .12s ease;";
   return s(
     active
       ? base + "background:var(--surface);color:var(--clinical-accent-hover);box-shadow:var(--shadow-tight);"
@@ -189,7 +190,7 @@ function segStyle(active: boolean): CSSProperties {
 }
 function chipStyle(on: boolean): CSSProperties {
   const base =
-    "padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .12s ease;";
+    "display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .12s ease;";
   return s(
     on
       ? base +
@@ -207,7 +208,7 @@ export function TcProvider({
   initialQuery?: string;
   autoRunSearch?: boolean;
 }) {
-  const { data, loading, error } = useTherapyData();
+  const { data, loading, error, retry } = useTherapyData();
   const therapies = useMemo(() => data?.therapies ?? [], [data]);
   const pathways = useMemo(() => data?.pathways ?? [], [data]);
 
@@ -271,6 +272,7 @@ export function TcProvider({
     return {
       loading,
       error,
+      retryData: retry,
       therapies,
       unreviewedTherapies,
       reviewCount: unreviewedTherapies.length,
@@ -429,6 +431,7 @@ export function TcProvider({
   }, [
     loading,
     error,
+    retry,
     data,
     therapies,
     unreviewedTherapies,

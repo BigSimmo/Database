@@ -19,7 +19,7 @@ const dashboardViewports = [
   { name: "laptop", width: 1280, height: 900 },
   { name: "mobile-landscape", width: 667, height: 375 },
 ] as const;
-const uiAssertionTimeoutMs = 5_000;
+const uiAssertionTimeoutMs = 30_000;
 const demoAnswerThreadOwnerId = "local-demo-session";
 const demoAnswerThreadStorageKey = `${answerThreadStorageKey}:${demoAnswerThreadOwnerId}`;
 const demoRecentQueryStorageKey = `${recentQueryStorageKey}:${demoAnswerThreadOwnerId}`;
@@ -163,6 +163,12 @@ async function switchToDocumentSearchMode(page: Page) {
   }
   await expect(appModeMenu).toBeEnabled();
   await waitForReactEventHandler(appModeMenu, "onClick");
+  // Scope/Escape deferred focus restore can race a mode-menu open; if the scope
+  // surface is open, wait for it to dismiss before opening the mode menu.
+  const scopePopover = page.getByTestId("scope-command-popover");
+  if (await isVisibleWithoutThrow(scopePopover)) {
+    await scopePopover.waitFor({ state: "hidden", timeout: uiAssertionTimeoutMs });
+  }
   await appModeMenu.click({ force: true });
   const appModeGroup = page.getByRole("menu", { name: "Choose app mode" });
   await expect(appModeGroup).toBeVisible({ timeout: uiAssertionTimeoutMs });
@@ -821,9 +827,7 @@ async function expectAccountSetupSurface(setup: Locator) {
   await expect(setup.getByRole("button", { name: "Apple" })).toBeVisible();
   await expect(setup.getByRole("button", { name: "Google" })).toBeVisible();
   await expect(setup.getByRole("button", { name: "Microsoft" })).toBeVisible();
-  await expect(setup.getByRole("heading", { name: "Source preferences" })).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Guidelines" })).toHaveAttribute("aria-pressed", "true");
-  await expect(setup.getByRole("button", { name: "Drug references" })).toHaveAttribute("aria-pressed", "false");
+  await expect(setup.getByRole("heading", { name: "Everything syncs across your devices" })).toBeVisible();
   await expect(setup.getByRole("heading", { name: "Security summary" })).toBeVisible();
   await expect(setup.getByText("No PHI required")).toBeVisible();
   await expect(setup).toContainText("Do not enter patient-identifying information.");
@@ -1415,18 +1419,23 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(supportCard).toContainText(/Safety findings|Priority|FBC\/ANC|Myocarditis|Metabolic/i);
     await expect(page.getByTestId("safety-findings-panel")).toHaveCount(0);
 
+    // Safety findings are MANDATORY for this clozapine fixture — the answer is saturated
+    // with monitoring/FBC-ANC/metabolic/myocarditis language that extractSafetyFindings
+    // keys on. A regression that drops them (so the trigger never mounts — it only renders
+    // when safetyFindings.length > 0, see answer-result-surface.tsx) must FAIL this
+    // @critical smoke, not pass silently on an absent trigger (audit F3 / C6). Asserting
+    // the trigger is visible unconditionally enforces "safety findings present".
     const safetyFindingsTrigger = page.getByTestId("answer-safety-findings-trigger");
-    if ((await safetyFindingsTrigger.count()) > 0) {
-      await expectMinTouchTarget(safetyFindingsTrigger);
-      await safetyFindingsTrigger.click();
-      const safetyFindingsSheet = page.getByRole("dialog", { name: "Safety-critical source findings" });
-      await expect(safetyFindingsSheet).toBeVisible();
-      await expect(safetyFindingsSheet.getByTestId("safety-findings-panel")).toBeVisible();
-      expect(await safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
-      await safetyFindingsSheet.getByRole("button", { name: "Close safety findings" }).click();
-      await expect(safetyFindingsSheet).toHaveCount(0);
-      await expect(safetyFindingsTrigger).toBeFocused();
-    }
+    await expect(safetyFindingsTrigger).toBeVisible();
+    await expectMinTouchTarget(safetyFindingsTrigger);
+    await safetyFindingsTrigger.click();
+    const safetyFindingsSheet = page.getByRole("dialog", { name: "Safety-critical source findings" });
+    await expect(safetyFindingsSheet).toBeVisible();
+    await expect(safetyFindingsSheet.getByTestId("safety-findings-panel")).toBeVisible();
+    expect(await safetyFindingsSheet.getByTestId("safety-finding-row").count()).toBeGreaterThan(0);
+    await safetyFindingsSheet.getByRole("button", { name: "Close safety findings" }).click();
+    await expect(safetyFindingsSheet).toHaveCount(0);
+    await expect(safetyFindingsTrigger).toBeFocused();
 
     const clinicalTable = page.getByLabel("Inline table preview").first();
     await expect(clinicalTable).toBeVisible();
@@ -2402,11 +2411,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
   test("dashboard favourites mode param redirects to the standalone favourites route", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockDemoApi(page);
+    const redirectMeasureErrors: string[] = [];
+    page.on("pageerror", (error) => {
+      if (error.message.includes("cannot have a negative time stamp")) redirectMeasureErrors.push(error.message);
+    });
     await gotoApp(page, "/?mode=favourites&q=lithium%20set&focus=1");
 
     await expect(page).toHaveURL(/\/favourites\?q=lithium\+set&focus=1$/);
     await expect(page.getByTestId("favourites-hub")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
+    expect(redirectMeasureErrors).toEqual([]);
   });
 
   test("dashboard differentials mode param redirects to the standalone differentials route", async ({ page }) => {

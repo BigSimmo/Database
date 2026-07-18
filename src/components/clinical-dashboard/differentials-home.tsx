@@ -431,7 +431,7 @@ function DesktopResultRow({
         <MatchBadge label={result.matchLabel} />
         <Link
           href={result.href}
-          className="inline-flex min-h-10 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
+          className="inline-flex min-h-tap items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
         >
           <ExternalLink className="h-4 w-4" aria-hidden />
           Open page
@@ -440,7 +440,7 @@ function DesktopResultRow({
           <button
             type="button"
             onClick={onToggle}
-            className="inline-flex min-h-10 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
+            className="inline-flex min-h-tap items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
           >
             <GitCompareArrows className="h-4 w-4" aria-hidden />
             {selected ? "Compared" : "Compare"}
@@ -467,14 +467,14 @@ function MobileResultCard({
 
   return (
     <article className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-      <div className="grid grid-cols-[2rem_2.5rem_minmax(0,1fr)_2.75rem] items-start gap-2">
+      <div className="grid grid-cols-[2rem_2.75rem_minmax(0,1fr)_2.75rem] items-start gap-2">
         <span className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-sm font-extrabold text-[color:var(--text-muted)]">
           {index + 1}
         </span>
         <Link
           href={result.href}
           aria-label={`Open ${result.title}`}
-          className="grid h-10 w-10 place-items-center rounded-md text-[color:var(--text-muted)]"
+          className="grid size-tap place-items-center rounded-md text-[color:var(--text-muted)]"
         >
           <Icon className="h-6 w-6 stroke-[1.75]" aria-hidden />
         </Link>
@@ -482,7 +482,7 @@ function MobileResultCard({
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <Link
               href={result.href}
-              className="inline-flex min-h-10 min-w-0 items-center text-sm font-extrabold leading-5 text-[color:var(--text-heading)]"
+              className="inline-flex min-h-tap min-w-0 items-center text-sm font-extrabold leading-5 text-[color:var(--text-heading)]"
             >
               <span className="line-clamp-2">{result.title}</span>
             </Link>
@@ -563,7 +563,7 @@ function BestAnswerCard({
               <StatusBadge status={best.status} />
               <Link
                 href={best.href}
-                className="inline-flex min-h-6 items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
+                className="inline-flex min-h-tap items-center gap-1 text-xs font-bold text-[color:var(--clinical-accent)]"
               >
                 Open page
                 <ExternalLink className="h-3 w-3" aria-hidden />
@@ -600,7 +600,7 @@ function SafetyCard({ safety, query }: { safety: string; query: string }) {
           <p className="mt-2 text-sm font-semibold leading-6 text-[color:var(--text-heading)]">{safety}</p>
           <Link
             href={routeWithQuery("/differentials/presentations", query)}
-            className="mt-2 inline-flex min-h-8 items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
+            className="mt-2 inline-flex min-h-tap items-center gap-1.5 text-sm font-bold text-[color:var(--clinical-accent)]"
           >
             View presentation guide
             <ExternalLink className="h-3.5 w-3.5" aria-hidden />
@@ -646,7 +646,7 @@ function UrgencyCard({ results }: { results: DifferentialResult[] }) {
           <Link
             key={result.id}
             href={result.href}
-            className="grid min-h-10 grid-cols-[5.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] px-2 text-sm font-bold text-[color:var(--text-heading)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
+            className="grid min-h-tap grid-cols-[5.25rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md border border-[color:var(--border)] px-2 text-sm font-bold text-[color:var(--text-heading)] transition hover:border-[color:var(--clinical-accent-border)] hover:text-[color:var(--clinical-accent)]"
           >
             <StatusBadge status={result.status} />
             <span className="truncate">{result.title}</span>
@@ -718,7 +718,7 @@ function SourceStatusCard({
           type="button"
           onClick={onRunSourceSearch}
           disabled={loading}
-          className="mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60"
+          className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:border-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60"
         >
           <Search className="h-4 w-4" aria-hidden />
           {loading ? "Searching sources" : "Run source search"}
@@ -883,7 +883,6 @@ function SearchResultsView({
         sortValue={sortValue}
         onSortChange={setSortValue}
       />
-      <UniversalSearchAlsoMatches modeId="differentials" query={query} />
       <p
         data-testid="differentials-catalogue-notice"
         className="flex items-start gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/50 px-3 py-1.5 text-xs font-semibold leading-5 text-[color:var(--info)] sm:py-2 sm:text-sm"
@@ -931,14 +930,14 @@ function SearchResultsView({
           <div className="flex flex-wrap gap-2">
             <Link
               href={routeWithQuery("/differentials/presentations", query)}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)]"
+              className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)]"
             >
               Browse presentations
               <ChevronRight className="h-4 w-4" aria-hidden />
             </Link>
             <Link
               href={routeWithQuery("/differentials/diagnoses", query)}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)]"
+              className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)]"
             >
               Browse diagnoses
               <ChevronRight className="h-4 w-4" aria-hidden />
@@ -947,7 +946,7 @@ function SearchResultsView({
               type="button"
               onClick={rerunSearch}
               disabled={loading}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text-heading)] disabled:cursor-wait disabled:opacity-60"
             >
               <Search className="h-4 w-4" aria-hidden />
               {loading ? "Searching sources" : "Run source search"}
@@ -982,7 +981,7 @@ function SearchResultsView({
                     type="button"
                     onClick={rerunSearch}
                     disabled={loading}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)] disabled:cursor-wait disabled:opacity-60"
+                    className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)] disabled:cursor-wait disabled:opacity-60"
                   >
                     <Search className="h-4 w-4" aria-hidden />
                     {loading ? "Searching sources" : "Run source search"}
@@ -1044,7 +1043,7 @@ function SearchResultsView({
                     type="button"
                     onClick={rerunSearch}
                     disabled={loading}
-                    className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60"
+                    className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60"
                   >
                     <Search className="h-3.5 w-3.5" aria-hidden />
                     {loading ? "Searching…" : "Run source search"}
@@ -1141,6 +1140,8 @@ function SearchResultsView({
       {best ? (
         <DifferentialsMobileCompareBar selectedCount={selectedCount} selectedIds={comparisonIds} query={query} />
       ) : null}
+
+      <UniversalSearchAlsoMatches modeId="differentials" query={query} />
 
       <p className="pb-3 text-center text-xs font-medium text-[color:var(--text-muted)] lg:hidden">
         Clinical decision support only. Review before use.
@@ -1253,7 +1254,7 @@ export function DifferentialsHome({
           <button
             type="button"
             onClick={() => router.push("/differentials/presentations?q=recent+differential+review")}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-xs font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-sm"
+            className="inline-flex min-h-tap items-center gap-1.5 rounded-full px-2 text-xs font-bold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:px-3 sm:text-sm"
           >
             View all
             <ChevronRight className="h-4 w-4" aria-hidden />

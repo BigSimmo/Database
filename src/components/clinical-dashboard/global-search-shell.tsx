@@ -47,6 +47,7 @@ import { isLocalNoAuthMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
+import { shouldRenderClinicalDashboard, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
@@ -118,35 +119,23 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
       : initialSearchMode;
   const requestedQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
   const hasSubmittedModeSearch = searchParams.get("run") === "1" && requestedQuery.length > 0;
-  const isHomeRoute = pathname === "/";
-  const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search");
-  const shouldRenderDashboardSearch =
-    hasSubmittedModeSearch &&
-    resolvedSearchMode !== "services" &&
-    resolvedSearchMode !== "forms" &&
-    resolvedSearchMode !== "favourites" &&
-    resolvedSearchMode !== "differentials" &&
-    resolvedSearchMode !== "dsm" &&
-    resolvedSearchMode !== "specifiers" &&
-    resolvedSearchMode !== "formulation" &&
-    // Therapy Compass owns its route with an in-tool search; a run-enabled link
-    // (/therapy-compass?q=…&run=1) must keep rendering the tool, not the dashboard.
-    resolvedSearchMode !== "therapy-compass" &&
-    !isDocumentSearchMockupRoute;
-  const isMedicationDetailRoute = /^\/medications\/[^/]+$/.test(pathname);
-  const shouldRenderClinicalDashboard = !isMedicationDetailRoute && (isHomeRoute || shouldRenderDashboardSearch);
+  const rendersClinicalDashboard = shouldRenderClinicalDashboard({
+    hasSubmittedSearch: hasSubmittedModeSearch,
+    mode: resolvedSearchMode,
+    pathname,
+  });
 
   // Wrap both render paths so the patient-considerations profile is shared
   // between the prescribing workspace (ClinicalDashboard) and the medication
   // detail pages (standalone shell), backed by sessionStorage across navigation.
   return (
     <PatientProfileProvider>
-      {shouldRenderClinicalDashboard ? (
+      {rendersClinicalDashboard ? (
         <ClinicalDashboard
           initialSearchMode={resolvedSearchMode}
           initialQuery={requestedQuery}
           focusSearch={searchParams.get("focus") === "1"}
-          autoRunSearch={isHomeRoute ? hasSubmittedModeSearch : true}
+          autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
         />
       ) : (
         <GlobalStandaloneSearchShellClient {...props} />
@@ -237,7 +226,6 @@ function GlobalStandaloneSearchShellClient({
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
-  const isDocumentSearchMockupRoute = pathname.startsWith("/mockups/document-search");
   const isDocumentCommandSearchView = pathname === "/documents/search" && requestedQuery.length > 0;
   const useCompactBottomSearch = hasSubmittedModeSearch || isDocumentCommandSearchView;
   const differentialsCompareAddonActive =
@@ -246,22 +234,14 @@ function GlobalStandaloneSearchShellClient({
   // standalone routes; the shell must not swap them to the dashboard. On the
   // home route the dashboard always renders, so these exclusions only apply
   // to the standalone pages.
-  const shouldRenderDashboardSearch =
-    hasSubmittedModeSearch &&
-    resolvedSearchMode !== "services" &&
-    resolvedSearchMode !== "forms" &&
-    resolvedSearchMode !== "favourites" &&
-    resolvedSearchMode !== "differentials" &&
-    resolvedSearchMode !== "dsm" &&
-    resolvedSearchMode !== "specifiers" &&
-    resolvedSearchMode !== "formulation" &&
-    // Therapy Compass owns its route with an in-tool search; a run-enabled link
-    // (/therapy-compass?q=…&run=1) must keep rendering the tool, not the dashboard.
-    resolvedSearchMode !== "therapy-compass" &&
-    !isDocumentSearchMockupRoute;
+  const rendersDashboardSearch = shouldRenderDashboardSearch({
+    hasSubmittedSearch: hasSubmittedModeSearch,
+    mode: resolvedSearchMode,
+    pathname,
+  });
   const isStandaloneModeHome =
     !hasSubmittedModeSearch &&
-    !shouldRenderDashboardSearch &&
+    !rendersDashboardSearch &&
     ((searchMode === "services" && pathname === "/services") ||
       (searchMode === "forms" && pathname === "/forms") ||
       (searchMode === "favourites" && pathname === "/favourites") ||
@@ -311,6 +291,16 @@ function GlobalStandaloneSearchShellClient({
   useEffect(() => {
     if (!requestedFocus) return undefined;
     const focusInput = () => {
+      // The focus=1 hydration retry (rAF + 300ms) can land after a user/test opens
+      // the app-mode menu. Re-focusing the composer then blurs the menu wrapper and
+      // blur-dismiss closes it before a mode option can be chosen.
+      // Guard both: open menu DOM (activeElement is often <body> mid-transition) and
+      // any intentional focus already moved off the composer.
+      if (document.getElementById("app-mode-menu")) return;
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active !== document.body && active !== inputRef.current) {
+        return;
+      }
       inputRef.current?.focus({ preventScroll: true });
     };
     const frame = window.requestAnimationFrame(focusInput);
@@ -476,7 +466,12 @@ function GlobalStandaloneSearchShellClient({
   return (
     <div
       className={cn(
-        "min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:h-dvh max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
+        // Phone shell height comes from inset-0 alone, never 100dvh: iOS Safari
+        // re-resolves dvh lazily when its toolbar collapses/expands (especially
+        // with body scrolling disabled like here), leaving a dead band between
+        // the clipped shell and the toolbar. Fixed insets track the live
+        // viewport through the whole transition, so content stays edge to edge.
+        "sm:min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         shouldShowDesktopSidebar &&
           "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
@@ -514,7 +509,7 @@ function GlobalStandaloneSearchShellClient({
         </div>
       ) : null}
 
-      <div className="flex min-h-dvh min-w-0 flex-col max-sm:h-dvh max-sm:min-h-0 max-sm:overflow-hidden">
+      <div className="flex min-w-0 flex-col max-sm:h-full max-sm:min-h-0 max-sm:overflow-hidden sm:min-h-dvh">
         <div className={mobileChromeVisible ? undefined : "hidden lg:block"}>
           <MasterSearchHeader
             documents={[]}
@@ -611,8 +606,6 @@ function GlobalStandaloneSearchShellClient({
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         identity={sidebarIdentity}
-        theme={theme}
-        onToggleTheme={toggleTheme}
         onSignOut={auth.signOut}
         onOpenGuide={openGuide}
       />

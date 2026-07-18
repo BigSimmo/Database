@@ -44,15 +44,47 @@ function TherapyCompassShell() {
     >
       <TherapyCompassNav />
       <main className="tc-main" style={s(`min-width:0;padding:32px 40px 40px;`)}>
-        {b.isHome && <HomeScreen />}
-        {b.isSearch && <SearchScreen />}
-        {b.isDetail && <DetailScreen />}
-        {b.isCompare && <CompareScreen />}
-        {b.isRecommend && <RecommendScreen />}
-        {b.isPathways && <PathwaysScreen />}
-        {b.isBrief && <BriefScreen />}
-        {b.isSheets && <SheetsScreen />}
-        {b.isOther && <OtherScreen />}
+        {b.error ? (
+          <section
+            role="alert"
+            aria-live="assertive"
+            aria-busy={b.loading}
+            style={s(
+              `max-width:42rem;margin:40px auto;padding:24px;border:1px solid var(--danger);border-radius:16px;background:var(--danger-soft);`,
+            )}
+          >
+            <h1 style={s(`margin:0 0 8px;color:var(--text-heading);font-size:20px;`)}>
+              Therapy Compass could not load
+            </h1>
+            <p style={s(`margin:0 0 16px;color:var(--text-muted);line-height:1.5;`)}>
+              The therapy catalogue is unavailable. No results are being shown as a substitute.
+            </p>
+            <button
+              type="button"
+              className="tc-btn"
+              onClick={b.retryData}
+              disabled={b.loading}
+              aria-disabled={b.loading}
+              style={s(
+                `padding:10px 14px;border:0;border-radius:8px;background:var(--clinical-accent);color:var(--clinical-accent-contrast);font-weight:650;opacity:${b.loading ? "0.7" : "1"};`,
+              )}
+            >
+              {b.loading ? "Retrying…" : "Retry"}
+            </button>
+          </section>
+        ) : (
+          <>
+            {b.isHome && <HomeScreen />}
+            {b.isSearch && <SearchScreen />}
+            {b.isDetail && <DetailScreen />}
+            {b.isCompare && <CompareScreen />}
+            {b.isRecommend && <RecommendScreen />}
+            {b.isPathways && <PathwaysScreen />}
+            {b.isBrief && <BriefScreen />}
+            {b.isSheets && <SheetsScreen />}
+            {b.isOther && <OtherScreen />}
+          </>
+        )}
         <TherapyCompassFooter />
       </main>
     </div>

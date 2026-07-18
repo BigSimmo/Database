@@ -43,6 +43,7 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
+import { FormCodeBadge, splitFormCode } from "@/components/forms/form-code-badge";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, type FormRecord } from "@/lib/form-ranker";
 import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/service-ranker";
@@ -91,11 +92,10 @@ function chipToneClass(tone: ServiceChipTone | null | undefined) {
   return toneNeutral;
 }
 
-function sourceToneClass(form: FormRecord) {
+export function sourceToneClass(form: FormRecord) {
   const status = form.source?.status?.toLowerCase() ?? "";
-  if (form.verification?.locallyVerified || status.includes("checked") || status.includes("verified"))
-    return toneSuccess;
-  if (status.includes("required") || status.includes("review")) return toneWarning;
+  if (/required|review|unverified|not verified|unchecked|pending|unknown|confirm/.test(status)) return toneWarning;
+  if (form.verification?.locallyVerified === true) return toneSuccess;
   return toneNeutral;
 }
 
@@ -202,6 +202,25 @@ function DetailCard({ card }: { card: ServiceSummaryCard }) {
   );
 }
 
+// Compact code cell for the pathway before/parallel/after lists. Visually it
+// shows only the short head ("6B") so a qualifier like "6B attachment" can't
+// overflow the fixed-width column, but the full code is exposed to assistive
+// tech via an sr-only label (the decorative head is aria-hidden) and to sighted
+// users via a tooltip — matching FormCodeBadge's pattern.
+function PathwayStepCode({ code }: { code: string }) {
+  const { head, qualifier } = splitFormCode(code);
+  const fullCode = qualifier ? `${head} ${qualifier}` : head;
+  return (
+    <span
+      className={cn("truncate text-sm font-bold text-[color:var(--text-heading)]", codeText)}
+      title={qualifier ? fullCode : undefined}
+    >
+      <span className="sr-only">{fullCode}</span>
+      <span aria-hidden>{head}</span>
+    </span>
+  );
+}
+
 function PathwayContextCard({
   form,
   code,
@@ -252,7 +271,7 @@ function PathwayContextCard({
                 key={`${item.code}-${item.title}`}
                 className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
               >
-                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
+                <PathwayStepCode code={item.code} />
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
             ))}
@@ -261,9 +280,9 @@ function PathwayContextCard({
         <div className="relative rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35 p-3">
           <span className="absolute -left-[1.55rem] top-4 h-4 w-4 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-accent)]" />
           <p className="mb-2 text-2xs font-bold uppercase text-[color:var(--text-soft)]">Current</p>
-          <div className="flex items-center gap-2">
-            <span className={cn("text-2xl font-bold text-[color:var(--clinical-accent)]", codeText)}>{code}</span>
-            <p className="text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
+          <div className="flex items-center gap-2.5">
+            <FormCodeBadge code={code} variant="sm" />
+            <p className="min-w-0 text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
           </div>
           <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)]">
             You are here
@@ -279,7 +298,7 @@ function PathwayContextCard({
                 key={`${item.code}-${item.title}`}
                 className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
               >
-                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
+                <PathwayStepCode code={item.code} />
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
             ))}
@@ -294,7 +313,7 @@ function PathwayContextCard({
                 key={`${item.code}-${item.title}`}
                 className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
               >
-                <span className={cn("text-sm font-bold text-[color:var(--text-heading)]", codeText)}>{item.code}</span>
+                <PathwayStepCode code={item.code} />
                 <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
               </div>
             ))}
@@ -532,7 +551,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               type="button"
               onClick={() => setNotice(null)}
               aria-label="Dismiss form notification"
-              className="grid h-8 w-8 place-items-center rounded-md transition hover:bg-[color:var(--surface)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              className="grid size-tap place-items-center rounded-md transition hover:bg-[color:var(--surface)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
             >
               <X className="h-4 w-4" aria-hidden />
             </button>
@@ -562,14 +581,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
           <div className="min-w-0 space-y-4">
             <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
               <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
-                <div
-                  className={cn(
-                    "grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] text-xl font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-24 sm:w-24 sm:text-4xl",
-                    codeText,
-                  )}
-                >
-                  {code}
-                </div>
+                <FormCodeBadge code={code} variant="hero" />
                 <div className="min-w-0">
                   <h1 className="max-w-4xl text-3xl font-extrabold leading-[1.05] text-[color:var(--text-heading)] sm:text-4xl">
                     {form.title}

@@ -39,7 +39,9 @@ export type ApiRateLimitBucket =
   | "bulk_reindex"
   | "source_review"
   | "answer_feedback"
-  | "registry";
+  | "registry"
+  | "document_admin"
+  | "ingestion_admin";
 
 export type ApiRateLimitResult = {
   limited: boolean;
@@ -60,6 +62,12 @@ const apiRateLimitDefaults = {
   source_review: { limit: 30, windowSeconds: 60 },
   answer_feedback: { limit: 30, windowSeconds: 60 },
   registry: { limit: 120, windowSeconds: 60 },
+  // Authenticated owner document-admin writes (bulk metadata, label edits, table-fact review).
+  // Generous for interactive single-owner admin use, bounded against an abusive/compromised client.
+  document_admin: { limit: 60, windowSeconds: 60 },
+  // Authenticated owner ingestion/eval admin tooling (ingestion-quality dashboard, eval-case capture).
+  // Generous for interactive/polling admin use, bounded against an abusive/compromised client.
+  ingestion_admin: { limit: 60, windowSeconds: 60 },
 } as const satisfies Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>;
 
 const anonymousApiRateLimitDefaults: Partial<Record<ApiRateLimitBucket, { limit: number; windowSeconds: number }>> = {
