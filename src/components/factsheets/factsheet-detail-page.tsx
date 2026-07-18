@@ -532,20 +532,20 @@ function FactsheetBody({
             <Heading>What helps</Heading>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               {factsheet.helps.map((help) => (
-                  <div
-                    key={help.title}
-                    className="flex flex-col gap-2.5 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4"
+                <div
+                  key={help.title}
+                  className="flex flex-col gap-2.5 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] p-4"
+                >
+                  <span
+                    className="grid h-10 w-10 place-items-center rounded-lg"
+                    style={{ backgroundColor: theme.soft, color: theme.accent }}
                   >
-                    <span
-                      className="grid h-10 w-10 place-items-center rounded-lg"
-                      style={{ backgroundColor: theme.soft, color: theme.accent }}
-                    >
-                      {factsheetGlyph(help.icon, "h-5 w-5")}
-                    </span>
-                    <p className="text-sm font-bold text-[color:var(--text-heading)]">{help.title}</p>
-                    <p className="text-pretty text-xs leading-5 text-[color:var(--text-muted)]">{help.body}</p>
-                  </div>
-                ))}
+                    {factsheetGlyph(help.icon, "h-5 w-5")}
+                  </span>
+                  <p className="text-sm font-bold text-[color:var(--text-heading)]">{help.title}</p>
+                  <p className="text-pretty text-xs leading-5 text-[color:var(--text-muted)]">{help.body}</p>
+                </div>
+              ))}
             </div>
           </section>
           <div

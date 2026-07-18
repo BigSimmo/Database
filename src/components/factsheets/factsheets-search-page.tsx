@@ -227,9 +227,9 @@ export function FactsheetsSearchPage({
       <aside className="mt-5 flex gap-3 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--info)]" aria-hidden="true" />
         <p className="text-sm-minus leading-5 text-[color:var(--text-muted)]">
-          <strong className="font-bold text-[color:var(--text-heading)]">Content status:</strong> These sheets are
-          dated demonstration content with public source links. Connect only governance-approved patient information
-          before publication.
+          <strong className="font-bold text-[color:var(--text-heading)]">Content status:</strong> These sheets are dated
+          demonstration content with public source links. Connect only governance-approved patient information before
+          publication.
         </p>
       </aside>
     </div>
