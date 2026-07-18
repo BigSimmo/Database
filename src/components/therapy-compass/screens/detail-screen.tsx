@@ -155,17 +155,19 @@ export function DetailScreen() {
 
           {/* ACTIONS */}
           <div style={s(`display:flex;flex-wrap:wrap;gap:10px;`)}>
-            <button
-              type="button"
-              className="tc-btn"
-              onClick={() => b.openSheet(t.slug)}
-              style={s(
-                `display:inline-flex;align-items:center;gap:9px;height:46px;padding:0 20px;border:none;border-radius:12px;background:var(--command);color:var(--command-contrast);font-size:14px;font-weight:600;box-shadow:var(--shadow-tight);cursor:pointer;font-family:inherit;`,
-              )}
-            >
-              <FileTextIcon size={17} />
-              Generate patient sheet
-            </button>
+            {t.patientSheetAvailable ? (
+              <button
+                type="button"
+                className="tc-btn"
+                onClick={() => b.openSheet(t.slug)}
+                style={s(
+                  `display:inline-flex;align-items:center;gap:9px;height:46px;padding:0 20px;border:none;border-radius:12px;background:var(--command);color:var(--command-contrast);font-size:14px;font-weight:600;box-shadow:var(--shadow-tight);cursor:pointer;font-family:inherit;`,
+                )}
+              >
+                <FileTextIcon size={17} />
+                Generate patient sheet
+              </button>
+            ) : null}
             <button
               type="button"
               className="tc-btn"

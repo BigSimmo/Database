@@ -85,13 +85,23 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
     const specifiers = specifierResponse.groups.find((group) => group.kind === "specifiers");
     expect(specifiers?.items[0]?.title).toBe("With mixed features");
     expect(specifiers?.items[0]?.href).toBe("/specifiers/with-mixed-features");
+
+    const therapyResponse = await runUniversalSearch({
+      query: "acceptance and commitment therapy",
+      limitPerDomain: 5,
+      demo: true,
+    });
+    const therapies = therapyResponse.groups.find((group) => group.kind === "therapies");
+    expect(therapies?.items[0]?.title.toLowerCase()).toContain("acceptance");
+    expect(therapies?.items[0]?.href).toBe("/therapy-compass/acceptance-and-commitment-therapy-act");
   });
 
-  it("keeps view-all destinations separate for specifiers and formulation", async () => {
+  it("keeps view-all destinations separate for specifiers, formulation, and therapies", async () => {
     const { universalSearchViewAllHref } = await loadUniversalSearch();
 
     expect(universalSearchViewAllHref("specifiers", "mixed features")).toBe("/specifiers?q=mixed%20features&run=1");
     expect(universalSearchViewAllHref("formulation", "rumination")).toBe("/formulation?q=rumination&run=1");
+    expect(universalSearchViewAllHref("therapies", "grounding")).toBe("/therapy-compass/search?q=grounding&run=1");
   });
 
   it("filters to requested domains only", async () => {
@@ -113,6 +123,7 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
         "dsm",
         "specifiers",
         "formulation",
+        "therapies",
         "tools",
       ].filter((domain) => ["tools", "differentials"].includes(domain)),
     );
@@ -653,6 +664,7 @@ describe("GET /api/search/universal (live public/owner path)", () => {
         "dsm",
         "specifiers",
         "formulation",
+        "therapies",
         "tools",
       ],
     }));

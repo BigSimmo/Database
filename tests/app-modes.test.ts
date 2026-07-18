@@ -21,8 +21,10 @@ describe("app mode search contract", () => {
     expect(universalSearchPreferredDomains("differentials")).toEqual(["differentials", "presentations"]);
     expect(universalSearchPreferredDomains("specifiers")).toEqual(["specifiers"]);
     expect(universalSearchPreferredDomains("formulation")).toEqual(["formulation"]);
+    expect(universalSearchPreferredDomains("therapy-compass")).toEqual(["therapies"]);
     expect(universalSearchModeForDomain("specifiers")).toBe("specifiers");
     expect(universalSearchModeForDomain("formulation")).toBe("formulation");
+    expect(universalSearchModeForDomain("therapies")).toBe("therapy-compass");
     expect(universalSearchPreferredDomains("favourites")).toEqual([]);
   });
 

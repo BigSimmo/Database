@@ -11,6 +11,7 @@ import { formulationMechanisms } from "@/lib/formulation";
 import { formRecords } from "@/lib/forms";
 import { serviceRecords } from "@/lib/services";
 import { specifierRecords } from "@/lib/specifiers";
+import { therapySlugs } from "@/lib/therapies";
 
 const appDir = path.join(process.cwd(), "src", "app");
 const siteMapPath = path.join(process.cwd(), "docs", "site-map.md");
@@ -41,7 +42,7 @@ const productRouteHandlerPaths = new Set(["/applications", "/differentials/prese
 
 const documentedRedirectTargets: Record<string, string> = {
   "/applications": "/tools",
-  "/differentials/presentations": "/differentials/presentations/[slug]",
+  "/differentials/presentations": "/differentials/presentations/[workflow-slug]",
   "/medications": "/?mode=prescribing",
 };
 
@@ -61,9 +62,6 @@ const routeDescriptions: Record<string, string> = {
   "/documents/search": "Documents search command centre.",
   "/documents/source": "Compatibility redirect to the canonical live document viewer when a valid id is supplied.",
   "/documents/source/evidence": "Compatibility redirect sharing the canonical live document viewer handoff.",
-  "/factsheets": "Patient information sheet library.",
-  "/factsheets/[slug]": "Patient information sheet detail.",
-  "/factsheets/search": "Patient information sheet search.",
   "/favourites": "Saved clinical items and sets.",
   "/forms": "Forms home and search surface.",
   "/forms/[slug]": "Registry-backed form detail.",
@@ -82,6 +80,15 @@ const routeDescriptions: Record<string, string> = {
   "/specifiers/builder": "Structured diagnostic wording builder.",
   "/specifiers/compare": "Side-by-side psychiatric specifier comparison.",
   "/specifiers/map": "Psychiatric specifier family map.",
+  "/therapy-compass": "Therapy Compass home (source-grounded therapy decision support).",
+  "/therapy-compass/search": "Therapy library search surface.",
+  "/therapy-compass/recommend": "Recommend a therapy from a clinical question and constraints.",
+  "/therapy-compass/compare": "Side-by-side therapy comparison.",
+  "/therapy-compass/pathways": "Problem-based clinical therapy pathways.",
+  "/therapy-compass/review": "Therapy records awaiting qualified-clinician source review.",
+  "/therapy-compass/[slug]": "Therapy record detail.",
+  "/therapy-compass/[slug]/brief": "Therapy brief-intervention view.",
+  "/therapy-compass/[slug]/sheet": "Therapy patient-sheet builder.",
 };
 
 const publicRouteHandlerDescriptions: Record<string, string> = {
@@ -390,6 +397,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "/dsm/diagnoses/[slug]",
         "/dsm/diagnoses/[slug]/differentials",
         "/formulation/[slug]",
+        "/therapy-compass/[slug]",
         "/medications/[slug]",
       ].includes(route.route),
   );
@@ -459,6 +467,8 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
         "/formulation/[slug]",
         formulationMechanisms.map((mechanism) => mechanism.id),
       ),
+      "",
+      ...renderSlugInventory("Therapy slugs", "/therapy-compass/[slug]", therapySlugs()),
       "",
       ...renderSlugInventory("Medication slugs", "/medications/[slug]", medicationSlugs),
     ]),

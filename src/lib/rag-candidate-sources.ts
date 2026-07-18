@@ -44,13 +44,6 @@ import type { DocumentIndexUnitMatch, DocumentMemoryCard, SearchResult } from "@
 // the floor, which is how the live schema drift (42702) went unnoticed. Log it structurally and,
 // where telemetry is in scope, record the failing RPC + code so it shows up in rag_retrieval_logs.
 export type SupabaseRpcError = { message?: string; code?: string; details?: string; hint?: string } | null;
-type RpcResult<T> = Promise<{ data: T | null; error: SupabaseRpcError }>;
-type AbortableRpc<T> = RpcResult<T> & {
-  abortSignal?: (signal: AbortSignal) => RpcResult<T>;
-};
-type SupabaseRpcClient = {
-  rpc: (name: string, rpcArgs: Record<string, unknown>) => AbortableRpc<unknown[]> | PromiseLike<unknown>;
-};
 
 function legacyRankFields(versionedName: string) {
   if (versionedName === "match_document_chunks_v2") return ["similarity"];
@@ -88,20 +81,15 @@ export async function callVersionedRetrievalRpc<T extends unknown[] = unknown[]>
   versionedName: string,
   legacyName: string,
   args: Record<string, unknown>,
-  signal?: AbortSignal,
 ): Promise<{ data: T | null; error: SupabaseRpcError }> {
-  const client = supabase as unknown as SupabaseRpcClient;
-  const executeRpc = async (name: string, rpcArgs: Record<string, unknown>) => {
-    const pending = client.rpc(name, rpcArgs) as AbortableRpc<T>;
-    const pendingWithAbort =
-      signal && typeof pending.abortSignal === "function" ? pending.abortSignal(signal) : pending;
-    return await pendingWithAbort;
+  const client = supabase as unknown as {
+    rpc: (name: string, rpcArgs: Record<string, unknown>) => Promise<{ data: T | null; error: SupabaseRpcError }>;
   };
-  const versioned = await executeRpc(versionedName, args);
+  const versioned = await client.rpc(versionedName, args);
   if (versioned && !isMissingRetrievalRpcError(versioned.error)) return versioned;
   const legacyArgs = { ...args };
   delete legacyArgs.include_public;
-  const ownerResult = await executeRpc(legacyName, legacyArgs);
+  const ownerResult = await client.rpc(legacyName, legacyArgs);
   const ownerFilter = String(args.owner_filter ?? "");
   if (
     ownerResult.error ||
@@ -111,7 +99,7 @@ export async function callVersionedRetrievalRpc<T extends unknown[] = unknown[]>
   ) {
     return ownerResult;
   }
-  const publicResult = await executeRpc(legacyName, {
+  const publicResult = await client.rpc(legacyName, {
     ...legacyArgs,
     owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
   });
