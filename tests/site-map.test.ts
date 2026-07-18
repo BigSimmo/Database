@@ -61,13 +61,10 @@ describe("tracked sitemap", () => {
     for (const redirect of data.redirects) expectDocumentedRoute(redirect.route);
   });
 
-  it("keeps public redirect handlers in product routes and API handlers in the API section", () => {
+  it("keeps public redirect handlers out of API routes and records their redirects", () => {
     const data = collectSiteMapData();
-    const productSection = siteMap.slice(
-      siteMap.indexOf("## Main product routes"),
-      siteMap.indexOf("## Mode/query routes"),
-    );
     const apiSection = siteMap.slice(siteMap.indexOf("## API routes"), siteMap.indexOf("## Redirects"));
+    const redirectsSection = siteMap.slice(siteMap.indexOf("## Redirects"), siteMap.indexOf("## Known caveats"));
     const expectedProductHandlers = [
       ["/applications", "src/app/applications/route.ts", "/tools"],
       [
@@ -126,8 +123,8 @@ describe("tracked sitemap", () => {
       expect(data.publicRouteHandlers).toContainEqual({ route, file });
       expect(data.apiRoutes).not.toContainEqual({ route, file });
       expect(data.redirects).toContainEqual({ route, file, target });
-      expect(productSection).toContain(`\`${route}\``);
       expect(apiSection).not.toContain(`\`${route}\``);
+      expect(redirectsSection).toContain(`\`${route}\``);
     }
   });
 
