@@ -126,13 +126,14 @@ export function validateRankingSnapshot(value: unknown): RankingSnapshot {
   if (value.sourceCaseCount !== value.cases.length) {
     throw new Error("Ranking snapshot sourceCaseCount must match cases.length");
   }
-  if (!isRecord(value.sanitization) || value.sanitization.candidateIdentity !== "sha256") {
+  const sanitization = value.sanitization;
+  if (!isRecord(sanitization) || sanitization.candidateIdentity !== "sha256") {
     throw new Error("Ranking snapshot sanitization.candidateIdentity must be sha256");
   }
   if (
-    !Array.isArray(value.sanitization.excludes) ||
-    value.sanitization.excludes.some((item) => typeof item !== "string" || !item) ||
-    requiredSanitizationExcludes.some((item) => !(value.sanitization.excludes as unknown[]).includes(item))
+    !Array.isArray(sanitization.excludes) ||
+    sanitization.excludes.some((item) => typeof item !== "string" || !item) ||
+    requiredSanitizationExcludes.some((item) => !(sanitization.excludes as unknown[]).includes(item))
   ) {
     throw new Error("Ranking snapshot sanitization.excludes is invalid");
   }
