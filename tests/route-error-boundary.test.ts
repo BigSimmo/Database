@@ -19,6 +19,8 @@ describe("RouteErrorBoundary", () => {
 
     expect(markup).toContain("Something went wrong");
     expect(markup).toContain("Try again");
+    expect(markup).toContain('tabindex="-1"');
+    expect(markup).toContain('role="alert"');
     // Reload is opt-in; it is not shown by default.
     expect(markup).not.toContain("Reload page");
   });
@@ -66,8 +68,12 @@ describe("global-error boundary", () => {
     expect(markup).toContain("<body");
     expect(markup).toContain("Something went wrong");
     expect(markup).toContain("Reload page");
+    expect(markup).toContain('tabindex="-1"');
+    expect(markup).toContain('role="alert"');
     // Must use inline styling, never the app's CSS-var theme tokens that may have failed to load.
     expect(markup).toContain("background-color");
+    expect(markup).toContain("color-scheme:light dark");
+    expect(markup).toContain("CanvasText");
     expect(markup).not.toContain("var(--");
   });
 });

@@ -44,7 +44,7 @@ export function PathwaysScreen() {
             Problem-based workflows generated from imported therapy records.
           </p>
         </div>
-        <div style={s(`display:flex;gap:10px;`)}>
+        <div className="tc-mobile-wrap" style={s(`display:flex;gap:10px;`)}>
           <button type="button" className="tc-btn" onClick={b.goReview} style={s(outlineControl + "height:44px;")}>
             <ChecklistIcon size={16} />
             Review queue
@@ -59,7 +59,7 @@ export function PathwaysScreen() {
         )}
       >
         {/* pathway list */}
-        <div style={s(`border-right:1px solid var(--border);padding:18px;`)}>
+        <div className="tc-pathway-list" style={s(`border-right:1px solid var(--border);padding:18px;`)}>
           <div style={s(`font-size:15px;font-weight:650;color:var(--text-heading);margin-bottom:14px;`)}>Pathways</div>
           <div style={s(`display:flex;flex-direction:column;gap:10px;`)}>
             {b.pathways.map((p) => {
@@ -227,7 +227,7 @@ export function PathwaysScreen() {
               "Review source status, missing fields and patient-specific factors before clinical use."}
           </div>
         </div>
-        <div style={s(`display:flex;gap:9px;`)}>
+        <div className="tc-mobile-wrap" style={s(`display:flex;gap:9px;`)}>
           <button
             type="button"
             className="tc-btn"

@@ -43,7 +43,7 @@ import {
   visibleAppModeDefinitions,
   type AppModeId,
 } from "@/lib/app-modes";
-import { isLocalNoAuthMode } from "@/lib/client-env";
+import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
@@ -316,11 +316,12 @@ function GlobalStandaloneSearchShellClient({
   // Recent queries are owner-scoped session state (2026-07-13 audit, finding 4):
   // the legacy unscoped localStorage value could resurface another account's
   // clinical queries on a shared workstation, so it is deleted, never read.
-  const recentQueriesOwnerId =
-    auth.session?.user.id ??
-    (!auth.isConfigured || process.env.NEXT_PUBLIC_DEMO_MODE === "true" || isLocalNoAuthMode()
-      ? demoRecentQueryOwnerId
-      : null);
+  const clientDemoMode = resolveClientDemoMode({
+    explicitDemoMode: process.env.NEXT_PUBLIC_DEMO_MODE === "true",
+    authUnavailableFallback: !auth.isConfigured,
+    localNoAuthMode: isLocalNoAuthMode(),
+  });
+  const recentQueriesOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
 
   useEffect(() => {
     clearLegacyRecentQueries();
@@ -459,7 +460,11 @@ function GlobalStandaloneSearchShellClient({
   if (!chromeVisible) {
     return (
       <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
-        <div id="main-content" tabIndex={-1} className="min-h-dvh min-w-0 overflow-x-hidden focus:outline-none">
+        <div
+          id="main-content"
+          tabIndex={-1}
+          className="min-h-dvh min-w-0 overflow-x-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+        >
           {children}
         </div>
       </div>
@@ -515,6 +520,7 @@ function GlobalStandaloneSearchShellClient({
       <div className="flex min-w-0 flex-col max-sm:h-full max-sm:min-h-0 max-sm:overflow-hidden sm:min-h-dvh">
         <div className={mobileChromeVisible ? undefined : "hidden lg:block"}>
           <MasterSearchHeader
+            demoMode={clientDemoMode}
             documents={[]}
             documentTotal={0}
             query={query}
@@ -584,7 +590,7 @@ function GlobalStandaloneSearchShellClient({
             // auto, which turns #main-content into the sticky scrollport while the
             // window does the actual scrolling — silently disabling every
             // position:sticky descendant (e.g. the document viewer rail).
-            "min-w-0 focus:outline-none max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
+            "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
             !reservesFloatingComposer
               ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
               : searchMode === "answer"

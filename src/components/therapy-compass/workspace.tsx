@@ -73,14 +73,14 @@ function TherapyCompassMain({
   asMain: boolean;
 }) {
   const b = useTcBindings();
-  // Home normally leaves <main> to ModeHomeMain. On catalogue load failure the
-  // home child (and its landmark) is replaced by TherapyCompassDataError, so
-  // promote this shell to <main> for the error state only.
-  const useMainLandmark = asMain || Boolean(b.error);
+  // Home normally leaves <main> to ModeHomeMain. Initial loading and load
+  // failure replace that child, so the workspace must own the landmark then.
+  const homeNeedsMainLandmark = Boolean(b.error) || (b.loading && b.therapies.length === 0);
+  const useMainLandmark = asMain || homeNeedsMainLandmark;
   const Tag = useMainLandmark ? "main" : "div";
   // Home padding comes from ModeHomeMain; non-home routes keep the workspace gutter.
-  // Error-on-home still needs the non-home gutter so the alert isn't flush.
-  const style = asMain || b.error ? s(`min-width:0;padding:32px 40px 40px;`) : s(`min-width:0;`);
+  // Loading/error-on-home still need the non-home gutter so feedback isn't flush.
+  const style = asMain || homeNeedsMainLandmark ? s(`min-width:0;padding:32px 40px 40px;`) : s(`min-width:0;`);
   return (
     <Tag className="tc-main" style={style}>
       {b.error ? <TherapyCompassDataError /> : children}

@@ -6,7 +6,6 @@ import {
   ChevronDown,
   ChevronsRight,
   Copy,
-  Edit3,
   ExternalLink,
   FileText,
   Folder,
@@ -76,19 +75,8 @@ type FavouriteSet = {
   meta?: string;
 };
 
-type SourceRecord = {
-  title: string;
-  type: string;
-};
-
 const focusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-
-const sourceRecords: SourceRecord[] = [
-  { title: "NICE CKS - Alcohol dependence", type: "Guideline" },
-  { title: "BNF - Acamprosate", type: "BNF" },
-  { title: "Medsafe - Acamprosate data sheet", type: "Datasheet" },
-];
 
 const typeStyles: Record<FavouriteType, string> = {
   Medication:
@@ -148,6 +136,42 @@ function lastUsedScore(lastUsed: string): number {
 
 function isSourceBacked(item: FavouriteItem): boolean {
   return Boolean(item.evidence && item.evidence !== "Run" && item.evidence !== "Saved query");
+}
+
+function favouriteCitationText(item: FavouriteItem): string {
+  const evidenceLine = isSourceBacked(item) ? `Evidence: ${item.evidence}` : item.description;
+  return `${item.title}\n${evidenceLine}\n${item.href}`;
+}
+
+async function copyFavouriteCitation(item: FavouriteItem): Promise<boolean> {
+  const text = favouriteCitationText(item);
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to the local selection-based copy path.
+    }
+  }
+
+  const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    return document.execCommand("copy");
+  } catch {
+    return false;
+  } finally {
+    textarea.remove();
+    previouslyFocused?.focus({ preventScroll: true });
+  }
 }
 
 function toCommandItem(item: PrototypeFavouriteItem): FavouriteItem {
@@ -328,7 +352,7 @@ function ActiveFilterChips({
   );
 }
 
-function ContinueStrip({ item, onSelect }: { item: FavouriteItem; onSelect: (id: string) => void }) {
+function ContinueStrip({ item }: { item: FavouriteItem }) {
   const Icon = item.icon;
   return (
     <section
@@ -340,11 +364,7 @@ function ContinueStrip({ item, onSelect }: { item: FavouriteItem; onSelect: (id:
         <div className="flex min-w-0 flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3 sm:px-4">
           <div className="flex min-w-0 items-start gap-3 sm:flex-1">
             <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-            <button
-              type="button"
-              onClick={() => onSelect(item.id)}
-              className={cn("min-w-0 flex-1 text-left", focusRing)}
-            >
+            <Link href={item.href} className={cn("min-w-0 flex-1 text-left", focusRing)}>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                 <p className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--success)]">
                   Continue
@@ -356,10 +376,11 @@ function ContinueStrip({ item, onSelect }: { item: FavouriteItem; onSelect: (id:
               <p className="mt-0.5 text-2xs font-medium leading-snug text-[color:var(--text-muted)]">
                 {item.set} · last opened {item.lastUsed}
               </p>
-            </button>
+            </Link>
           </div>
           <Link
             href={item.href}
+            aria-label={`Continue ${item.title}`}
             className={cn(
               "inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)] sm:min-h-9 sm:w-auto",
               focusRing,
@@ -381,8 +402,11 @@ function ContinueStrip({ item, onSelect }: { item: FavouriteItem; onSelect: (id:
  */
 function RowActionsMenu({ item }: { item: FavouriteItem }) {
   const [open, setOpen] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuId = `favourite-actions-${item.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  const triggerId = `${menuId}-trigger`;
 
   useDismissableLayer({
     enabled: open,
@@ -393,15 +417,60 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
 
   const actionLabel = item.action === "Copy" ? "Open" : item.action;
 
+  function focusMenuItem(position: "first" | "last") {
+    window.requestAnimationFrame(() => {
+      const items = Array.from(
+        menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? [],
+      );
+      const target = position === "first" ? items[0] : items.at(-1);
+      target?.focus({ preventScroll: true });
+    });
+  }
+
+  function openMenu(position: "first" | "last" = "first") {
+    setOpen(true);
+    setCopyStatus("idle");
+    focusMenuItem(position);
+  }
+
+  function handleMenuKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([disabled])') ?? []);
+    const currentIndex = items.findIndex((candidate) => candidate === document.activeElement);
+
+    if (event.key === "Tab") {
+      setOpen(false);
+      return;
+    }
+
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowDown") nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % items.length;
+    if (event.key === "ArrowUp")
+      nextIndex = currentIndex < 0 ? items.length - 1 : (currentIndex - 1 + items.length) % items.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = items.length - 1;
+
+    if (nextIndex !== null && items[nextIndex]) {
+      event.preventDefault();
+      items[nextIndex].focus({ preventScroll: true });
+    }
+  }
+
   return (
     <div className="relative">
       <button
         ref={buttonRef}
+        id={triggerId}
         type="button"
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-controls={open ? menuId : undefined}
         aria-label={`More actions for ${item.title}`}
-        onClick={() => setOpen((current) => !current)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+        onKeyDown={(event) => {
+          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+          event.preventDefault();
+          openMenu(event.key === "ArrowUp" ? "last" : "first");
+        }}
         className={cn(
           "grid h-11 w-11 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
           focusRing,
@@ -412,12 +481,16 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
       {open ? (
         <div
           ref={menuRef}
+          id={menuId}
           role="menu"
+          aria-labelledby={triggerId}
+          onKeyDown={handleMenuKeyDown}
           className="absolute right-0 top-full z-20 mt-1 min-w-[11rem] overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 shadow-[var(--shadow-soft)]"
         >
           <Link
             href={item.href}
             role="menuitem"
+            aria-label={`${actionLabel} ${item.title}`}
             className={cn(
               "flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
               focusRing,
@@ -434,10 +507,13 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
               "flex min-h-tap w-full items-center gap-2 px-3 py-2 text-left text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
               focusRing,
             )}
-            onClick={() => setOpen(false)}
+            onClick={async () => {
+              const copied = await copyFavouriteCitation(item);
+              setCopyStatus(copied ? "copied" : "failed");
+            }}
           >
             <Copy className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
-            Copy citation
+            {copyStatus === "copied" ? "Copied" : copyStatus === "failed" ? "Copy failed" : "Copy citation"}
           </button>
           <button
             type="button"
@@ -451,83 +527,55 @@ function RowActionsMenu({ item }: { item: FavouriteItem }) {
           </button>
         </div>
       ) : null}
+      <span className="sr-only" role="status" aria-live="polite">
+        {copyStatus === "copied"
+          ? `${item.title} citation copied`
+          : copyStatus === "failed"
+            ? "Unable to copy citation"
+            : ""}
+      </span>
     </div>
   );
 }
 
-function FavouriteMobileCard({
-  item,
-  selected,
-  onSelect,
-}: {
-  item: FavouriteItem;
-  selected: boolean;
-  onSelect: (id: string) => void;
-}) {
+function FavouriteMobileCard({ item }: { item: FavouriteItem }) {
   return (
-    <article
-      data-testid={`favourite-mobile-card-${item.id}`}
-      className={cn(
-        "relative min-w-0 max-w-full rounded-xl border bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)]",
-        selected
-          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)]/35 shadow-[inset_3px_0_0_var(--clinical-accent)]"
-          : "border-[color:var(--border)]",
-      )}
-    >
-      <button
-        type="button"
-        onClick={() => onSelect(item.id)}
-        aria-pressed={selected}
-        aria-label={item.pinned ? `Select ${item.title}, pinned` : `Select ${item.title}`}
-        className={cn("absolute inset-0 cursor-pointer rounded-xl", focusRing)}
-      />
-
-      <div className="pointer-events-none relative min-w-0">
-        <div className="flex items-start gap-2.5">
-          <MiniIconTile icon={item.icon} active={selected} />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start gap-1.5">
-              {item.pinned ? (
-                <Pin
-                  className="mt-1 h-3 w-3 shrink-0 -rotate-45 fill-current text-[color:var(--clinical-accent)]"
-                  aria-hidden
-                />
-              ) : null}
-              <h3 className="line-clamp-2 text-sm-minus font-bold leading-5 text-[color:var(--text-heading)]">
-                {item.title}
-              </h3>
-            </div>
-            <p className="mt-0.5 line-clamp-1 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
-              {item.description}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+    <article className="min-w-0 max-w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-tight)]">
+      <div className="min-w-0">
+        <h3 className="line-clamp-2 text-sm-minus font-bold leading-5 text-[color:var(--text-heading)]">
+          {item.title}
+        </h3>
+        <p className="mt-1 line-clamp-2 text-2xs font-medium leading-4 text-[color:var(--text-muted)]">
+          {item.description}
+        </p>
+        <div className="mt-3 flex flex-wrap gap-1.5">
           <SmallChip className={typeStyles[item.type]}>{item.type}</SmallChip>
           {isSourceBacked(item) ? (
             <SmallChip className="border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]">
-              <ShieldCheck className="h-3 w-3" aria-hidden />
               Source-backed
             </SmallChip>
           ) : null}
         </div>
-
-        <div className="mt-2.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-2xs font-semibold text-[color:var(--text-muted)]">
-          <span className="inline-flex min-w-0 items-center gap-1">
-            <Folder className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span className="min-w-0 truncate text-[color:var(--text-heading)]">{item.set}</span>
-          </span>
-          <span className="text-[color:var(--text-soft)]" aria-hidden>
-            ·
-          </span>
-          <span className="whitespace-nowrap text-[color:var(--text-heading)]">{item.lastUsed}</span>
-        </div>
       </div>
 
-      <div className="relative z-[1] mt-3 grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2">
+      <dl className="mt-3 grid gap-2 border-t border-[color:var(--border)] pt-3 text-2xs font-semibold">
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <dt className="inline-flex items-center gap-1.5 text-[color:var(--text-muted)]">
+            <Folder className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            Set
+          </dt>
+          <dd className="min-w-0 truncate text-right text-[color:var(--text-heading)]">{item.set}</dd>
+        </div>
+        <div className="flex min-w-0 items-center justify-between gap-3">
+          <dt className="text-[color:var(--text-muted)]">Last used</dt>
+          <dd className="min-w-0 truncate text-right text-[color:var(--text-heading)]">{item.lastUsed}</dd>
+        </div>
+      </dl>
+
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2">
         <Link
           href={item.href}
+          aria-label={`Open ${item.title}`}
           className={cn(
             "inline-flex h-tap min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-sm-minus font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
             focusRing,
@@ -647,11 +695,10 @@ function FavouritesTable({
                 <tr
                   key={item.id}
                   data-testid={`favourite-row-${item.id}`}
-                  onClick={() => onSelectItem(item.id)}
                   className={cn(
-                    "relative h-14 cursor-pointer transition hover:bg-[color:var(--surface-subtle)]",
+                    "relative h-14 transition hover:bg-[color:var(--surface-subtle)]",
                     selected &&
-                      "bg-[color:var(--clinical-accent-soft)]/45 shadow-[inset_3px_0_0_var(--clinical-accent)]",
+                      "xl:bg-[color:var(--clinical-accent-soft)]/45 xl:shadow-[inset_3px_0_0_var(--clinical-accent)]",
                   )}
                 >
                   <td className="px-3.5 align-middle">
@@ -659,7 +706,10 @@ function FavouritesTable({
                       type="button"
                       onClick={() => onSelectItem(item.id)}
                       aria-pressed={selected}
-                      className={cn("flex min-w-0 max-w-full items-center gap-2.5 rounded-md text-left", focusRing)}
+                      className={cn(
+                        "hidden min-w-0 max-w-full items-center gap-2.5 rounded-md text-left xl:flex",
+                        focusRing,
+                      )}
                     >
                       <MiniIconTile icon={item.icon} active={selected} className={rowIconClass} />
                       <span className="flex min-w-0 flex-1 flex-col">
@@ -682,6 +732,17 @@ function FavouritesTable({
                         </span>
                       </span>
                     </button>
+                    <Link
+                      href={item.href}
+                      className={cn("block min-w-0 max-w-full rounded-md text-left xl:hidden", focusRing)}
+                    >
+                      <span className="line-clamp-1 block text-sm-minus font-bold text-[color:var(--text-heading)]">
+                        {item.title}
+                      </span>
+                      <span className="mt-0.5 line-clamp-1 block text-2xs font-medium text-[color:var(--text-muted)]">
+                        {item.description}
+                      </span>
+                    </Link>
                   </td>
                   <td className="px-3 align-middle">
                     <SmallChip className={typeStyles[item.type]}>{item.type}</SmallChip>
@@ -713,6 +774,7 @@ function FavouritesTable({
                     <div className="flex items-center justify-end gap-2">
                       <Link
                         href={item.href}
+                        aria-label={`Open ${item.title}`}
                         className={cn(
                           "inline-flex h-9 min-w-16 items-center justify-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-3 text-2xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]",
                           focusRing,
@@ -753,12 +815,7 @@ function FavouritesTable({
 
       <div className="grid min-w-0 gap-3 bg-[color:var(--surface-wash)] p-3 sm:hidden">
         {tableRows.map((item) => (
-          <FavouriteMobileCard
-            key={item.id}
-            item={item}
-            selected={selectedItemId === item.id}
-            onSelect={onSelectItem}
-          />
+          <FavouriteMobileCard key={item.id} item={item} />
         ))}
         {tableRows.length === 0 ? (
           <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-8 text-center">
@@ -776,12 +833,13 @@ function FavouritesTable({
 
 function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<"summary" | "evidence" | "notes">("summary");
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
   const Icon = item.icon;
   const actionLabel = item.action === "Copy" ? "Open" : item.action;
 
   return (
     <aside
-      className="hidden min-w-0 border-l border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-6 2xl:block"
+      className="hidden min-w-0 border-l border-[color:var(--border)] bg-[color:var(--surface)] px-5 py-6 xl:block"
       data-testid="favourites-item-workspace"
     >
       <div className="flex min-h-10 items-center justify-between gap-3 border-b border-[color:var(--border)] pb-3">
@@ -869,53 +927,34 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
         {activeTab === "evidence" ? (
           <section>
             <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-              Sources (3)
+              Evidence
             </h3>
-            <div className="grid gap-2">
-              {sourceRecords.map((source, index) => (
-                <div
-                  key={source.title}
-                  className="grid min-h-11 grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5"
-                >
-                  <span className="nums grid h-5 w-5 place-items-center rounded bg-[color:var(--surface-subtle)] text-2xs font-semibold text-[color:var(--text-muted)]">
-                    {index + 1}
-                  </span>
-                  <span className="truncate text-2xs font-semibold text-[color:var(--text-heading)]">
-                    {source.title}
-                  </span>
-                  <SmallChip className="border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]">
-                    {source.type}
-                  </SmallChip>
+            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+              {isSourceBacked(item) ? (
+                <div className="flex min-w-0 items-start gap-2">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+                  <p className="min-w-0 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+                    {item.evidence}
+                  </p>
                 </div>
-              ))}
+              ) : (
+                <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                  No linked evidence source is saved for this item.
+                </p>
+              )}
             </div>
           </section>
         ) : null}
 
         {activeTab === "notes" ? (
           <section>
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <h3 className="text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                Personal note
-              </h3>
-              <button
-                type="button"
-                className={cn(
-                  "inline-flex items-center gap-1 text-2xs font-bold text-[color:var(--clinical-accent)]",
-                  focusRing,
-                )}
-              >
-                <Edit3 className="h-3.5 w-3.5" aria-hidden />
-                Edit
-              </button>
-            </div>
+            <h3 className="mb-2 text-2xs font-semibold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+              Personal note
+            </h3>
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
-              <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
-                Useful for older patients with fluctuating eGFR. Check adherence section on page 4.
+              <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                No personal note is saved for this item.
               </p>
-              <span className="mt-3 block text-2xs font-medium text-[color:var(--text-muted)]">
-                Updated 11 May 2024
-              </span>
             </div>
           </section>
         ) : null}
@@ -927,14 +966,25 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
           <div className="grid gap-2">
             <button
               type="button"
+              onClick={async () => {
+                const copied = await copyFavouriteCitation(item);
+                setCopyStatus(copied ? "copied" : "failed");
+              }}
               className={cn(
                 "inline-flex h-9 items-center justify-start gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]",
                 focusRing,
               )}
             >
               <Copy className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
-              Copy citation
+              {copyStatus === "copied" ? "Copied" : copyStatus === "failed" ? "Copy failed" : "Copy citation"}
             </button>
+            <span className="sr-only" role="status" aria-live="polite">
+              {copyStatus === "copied"
+                ? `${item.title} citation copied`
+                : copyStatus === "failed"
+                  ? "Unable to copy citation"
+                  : ""}
+            </span>
             <button
               type="button"
               disabled
@@ -963,14 +1013,14 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
   );
 }
 
-export function FavouritesCommandLibraryPage({ query = "" }: { query?: string }) {
+export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?: string; demoMode: boolean }) {
   const router = useRouter();
   const command = useSearchCommand();
   const [navCollapsed, setNavCollapsed] = useFavouritesNavCollapsed();
   const savedRegistryFavourites = useSavedRegistryFavourites();
   const items = useMemo(
-    () => [...prototypeFavouriteItems, ...savedRegistryFavourites].map(toCommandItem),
-    [savedRegistryFavourites],
+    () => [...(demoMode ? prototypeFavouriteItems : []), ...savedRegistryFavourites].map(toCommandItem),
+    [demoMode, savedRegistryFavourites],
   );
   const sets = useMemo(() => buildFavouriteSets(items), [items]);
   const [selectedTypeId, setSelectedTypeId] = useState("all");
@@ -1023,8 +1073,8 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
           navCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[17.5rem_minmax(0,1fr)]",
           selectedItem &&
             (navCollapsed
-              ? "2xl:grid-cols-[5.25rem_minmax(0,1fr)_23rem]"
-              : "2xl:grid-cols-[17.5rem_minmax(0,1fr)_23rem]"),
+              ? "xl:grid-cols-[5.25rem_minmax(0,1fr)_23rem]"
+              : "xl:grid-cols-[17.5rem_minmax(0,1fr)_23rem]"),
         )}
       >
         <FavouritesSidebar
@@ -1095,9 +1145,7 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
               onClearViewMode={() => setViewMode("all")}
             />
 
-            {showContinueStrip && continueItem ? (
-              <ContinueStrip item={continueItem} onSelect={setSelectedItemId} />
-            ) : null}
+            {showContinueStrip && continueItem ? <ContinueStrip item={continueItem} /> : null}
 
             {query.trim() && scopedItems.length === 0 ? (
               <SearchResultsEmptyState modeId="favourites" query={query} onClearScopes={command?.onClearScopes} />
@@ -1119,7 +1167,9 @@ export function FavouritesCommandLibraryPage({ query = "" }: { query?: string })
             <UniversalSearchAlsoMatches modeId="favourites" query={query} />
           </div>
         </div>
-        {selectedItem ? <ItemWorkspace item={selectedItem} onClose={() => setSelectedItemId(null)} /> : null}
+        {selectedItem ? (
+          <ItemWorkspace key={selectedItem.id} item={selectedItem} onClose={() => setSelectedItemId(null)} />
+        ) : null}
       </div>
     </main>
   );

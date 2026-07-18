@@ -5,8 +5,9 @@ import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
 import { formRecords, rankFormRecords } from "../src/lib/forms";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medications";
-import { serviceRecords } from "../src/lib/services";
 import { sortResultItems } from "../src/lib/result-sort";
+import { serviceRecords } from "../src/lib/services";
+import { openAppModeMenu } from "./playwright-app-mode";
 import { scrollPrimarySurface } from "./playwright-scroll";
 
 const readySetupChecks = [
@@ -258,10 +259,6 @@ async function commandSurfaceOpensAbovePill(page: Page) {
   expect(geometry?.dropdownBottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual((geometry?.pillTop ?? 0) + 2);
 }
 
-function launcherLaunchLink(page: Page, title: string) {
-  return page.getByRole("link", { name: `Launch ${title}` }).first();
-}
-
 async function gotoLauncher(page: Page, path = "/?mode=tools") {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
@@ -353,18 +350,6 @@ async function expectVerticalSeparation(page: Page, upperSelector: string, lower
   expect((metrics?.lowerTop ?? 0) - (metrics?.upperBottom ?? 0)).toBeGreaterThanOrEqual(minimumGap);
 }
 
-async function openAppModeMenu(page: Page, currentMode: string) {
-  const trigger = page.getByRole("button", { name: `Mode ${currentMode}` });
-  const menu = page.getByRole("menu", { name: "Choose app mode" });
-
-  await expect(trigger).toBeVisible();
-  await waitForReactEventHandler(trigger);
-  await trigger.click();
-  await expect(menu).toBeVisible({ timeout: 20_000 });
-
-  return menu;
-}
-
 test.describe("Clinical KB tools launcher", () => {
   test.describe.configure({ timeout: 60_000 });
 
@@ -379,6 +364,8 @@ test.describe("Clinical KB tools launcher", () => {
       await expect(page.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Quick tool shortcuts" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "All tools" })).toBeVisible();
+      await expect(page.locator("#launcher-results-panel")).toHaveAttribute("role", "group");
+      await expect(page.locator("#launcher-results-panel")).toHaveAttribute("aria-label", "All tools");
       if (viewport.name === "mobile") {
         await page.getByTestId("application-row-medication-prescribing").click();
         const selectedSheet = page.getByRole("dialog", { name: "Medication Prescribing" });
@@ -391,7 +378,7 @@ test.describe("Clinical KB tools launcher", () => {
         await page.getByRole("button", { name: "Close Medication Prescribing" }).click();
         await expect(selectedSheet).toBeHidden();
       } else {
-        await expect(launcherLaunchLink(page, "Clinical KB Search")).toHaveAttribute("href", "/?mode=answer");
+        await expect(page.getByRole("button", { name: "View details for Clinical KB Search" })).toBeVisible();
       }
       await expect(page.getByLabel("Mode Tools")).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
@@ -421,14 +408,21 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page);
 
-    const medicationLink = launcherLaunchLink(page, "Medication Prescribing");
-    await expect(medicationLink).toHaveAttribute("href", "/?mode=prescribing");
-    await expect(medicationLink).not.toHaveAttribute("target", "_blank");
-    await expect(launcherLaunchLink(page, "Documents")).toHaveAttribute("href", "/?mode=documents");
-    await expect(launcherLaunchLink(page, "Services")).toHaveAttribute("href", "/services");
-    await expect(launcherLaunchLink(page, "Forms")).toHaveAttribute("href", "/forms");
-    await expect(launcherLaunchLink(page, "Saved workflows")).toHaveAttribute("href", "/favourites");
-    await expect(launcherLaunchLink(page, "Clinical KB Search")).toHaveAttribute("href", "/?mode=answer");
+    for (const [title, href] of [
+      ["Medication Prescribing", "/?mode=prescribing"],
+      ["Documents", "/?mode=documents"],
+      ["Services", "/services"],
+      ["Forms", "/forms"],
+      ["Saved workflows", "/favourites"],
+      ["Clinical KB Search", "/?mode=answer"],
+    ] as const) {
+      const detailsButton = page.getByRole("button", { name: `View details for ${title}` });
+      await expect(detailsButton).toHaveAttribute("aria-haspopup", "dialog");
+      await detailsButton.click();
+      const dialog = page.getByRole("dialog", { name: title });
+      await expect(dialog.locator(`a[href="${href}"]`).first()).toBeVisible();
+      await page.getByRole("button", { name: `Close ${title}` }).click();
+    }
     // External companion-app launchers were removed; no localhost links should remain.
     await expect(page.locator('a[href^="http://localhost"], a[href^="http://127.0.0.1"]')).toHaveCount(0);
   });
@@ -457,14 +451,17 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(toolsHub.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
     await expect(toolsHub.getByTestId("global-search-input")).toBeVisible();
     await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
-    await expect(toolsHub.getByRole("link", { name: "Launch Medication Prescribing" })).toBeVisible();
+    const medicationDetails = toolsHub.getByRole("button", { name: "View details for Medication Prescribing" });
+    await expect(medicationDetails).toHaveAttribute("aria-haspopup", "dialog");
     await expect(toolsHub.getByTestId("application-card-documents")).toBeHidden();
     await expect(toolsHub.getByTestId("tool-mode-result-medications")).toHaveCount(0);
 
-    await expect(toolsHub.getByRole("link", { name: "Launch Medication Prescribing" })).toHaveAttribute(
-      "href",
-      "/?mode=prescribing",
-    );
+    await medicationDetails.click();
+    const medicationDialog = page.getByRole("dialog", { name: "Medication Prescribing" });
+    await expect(medicationDialog).toBeVisible();
+    const medicationLaunch = medicationDialog.locator('a[href="/?mode=prescribing"]').first();
+    await expect(medicationLaunch).toBeVisible();
+    await expect(medicationLaunch).toHaveAttribute("href", "/?mode=prescribing");
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1292,6 +1289,8 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
     const tabs = page.getByTestId("differential-result-type-tabs");
     await expect(tabs).toBeVisible();
+    await expect(tabs).toHaveAttribute("role", "group");
+    await expect(tabs).toHaveAttribute("aria-label", "Result type");
     await expect(tabs.getByRole("button", { name: /All \(\d+\)/ })).toBeVisible();
     await expect(tabs.getByRole("button", { name: /Presentations \(\d+\)/ })).toBeVisible();
     await expect(tabs.getByRole("button", { name: /Diagnoses \(\d+\)/ })).toBeVisible();
@@ -1388,6 +1387,8 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
     const tabs = page.getByTestId("differential-result-type-tabs");
     await expect(tabs).toBeVisible();
+    await expect(tabs).toHaveAttribute("role", "group");
+    await expect(tabs).toHaveAttribute("aria-label", "Result type");
     await expect(tabs.getByRole("button", { name: "All (8)" })).toBeVisible();
     await expect(tabs.getByRole("button", { name: "Presentations (1)" })).toBeVisible();
     await expect(tabs.getByRole("button", { name: "Diagnoses (7)" })).toBeVisible();
@@ -1572,6 +1573,8 @@ test.describe("Clinical KB tools launcher", () => {
       page.getByLabel("Differential review sidebar").getByText("Source pending review").first(),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Copy after review" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Edit columns" })).toBeDisabled();
+    await expect(page.getByText("Long press to reorder. Tap to remove.")).toHaveCount(0);
     await expect(page.getByTestId("global-search-input")).toHaveCount(0);
 
     const tableScrolls = await page.getByTestId("differential-comparison-scroll").evaluate((element) => {
@@ -1587,6 +1590,9 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(
       page.getByRole("heading", { name: `Selected differentials (1 of ${workflow.totalCount})` }).first(),
     ).toBeVisible();
+    await expect(
+      page.locator("span:visible", { hasText: `+${workflow.totalCount - 1} not selected` }).first(),
+    ).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials/presentations");
@@ -1596,6 +1602,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByRole("link", { name: "Compare", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
     const mobileComparison = page.getByLabel("Mobile differential comparison");
+    await expect(mobileComparison.getByRole("button", { name: "Column filters unavailable" })).toBeDisabled();
     await expect(mobileComparison.getByText("Delirium", { exact: true }).first()).toBeVisible();
     await expect(mobileComparison.getByText("Substance intoxication", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: "Open language and region settings" })).toBeVisible();
@@ -1606,16 +1613,16 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("tools mode opens tools directly on mobile", async ({ page }) => {
+  test("tools mode opens tool details before navigation on mobile", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/?mode=tools");
 
     const toolsHub = page.getByTestId("tools-hub");
     await expect(toolsHub.getByText("Selected tool")).toHaveCount(0);
-    await expect(toolsHub.getByTestId("application-row-medication-prescribing")).toHaveAttribute(
-      "href",
-      "/?mode=prescribing",
-    );
+    const detailsButton = toolsHub.getByRole("button", { name: "View details for Medication Prescribing" });
+    await expect(detailsButton).toHaveAttribute("aria-haspopup", "dialog");
+    await detailsButton.click();
+    await expect(page.getByRole("dialog", { name: "Medication Prescribing" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 });

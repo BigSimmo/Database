@@ -336,16 +336,15 @@ function FilterTabs({
 }) {
   return (
     <>
-      <div className="hidden flex-wrap items-center gap-2 sm:flex" role="tablist" aria-label="Tool category">
+      <div className="hidden flex-wrap items-center gap-2 sm:flex" role="group" aria-label="Filter by tool category">
         {desktopFilters.map((filter) => {
           const active = filter.id === activeFilter || (filter.id === "all" && activeFilter === "more");
           return (
             <button
               key={filter.id}
               type="button"
-              role="tab"
               id={`launcher-filter-desktop-${filter.id}`}
-              aria-selected={active}
+              aria-pressed={active}
               aria-controls="launcher-results-panel"
               onClick={() => onFilterChange(filter.id)}
               className={cn(
@@ -361,16 +360,19 @@ function FilterTabs({
           );
         })}
       </div>
-      <div className="flex min-w-0 gap-1 overflow-x-auto pb-1 sm:hidden" role="tablist" aria-label="Tool category">
+      <div
+        className="flex min-w-0 gap-1 overflow-x-auto pb-1 sm:hidden"
+        role="group"
+        aria-label="Filter by tool category"
+      >
         {mobileFilters.map((filter) => {
           const active = filter.id === activeFilter || (filter.id === "all" && activeFilter === "saved");
           return (
             <button
               key={filter.id}
               type="button"
-              role="tab"
               id={`launcher-filter-mobile-${filter.id}`}
-              aria-selected={active}
+              aria-pressed={active}
               aria-controls="launcher-results-panel"
               onClick={() => onFilterChange(filter.id)}
               className={cn(
@@ -400,16 +402,13 @@ function ToolCard({
   selected: boolean;
   onSelect: (id: string) => void;
 }) {
-  const externalProps = app.external ? { target: "_blank", rel: "noopener noreferrer" } : {};
   return (
-    <a
-      href={app.href}
-      aria-label={`Launch ${app.title}`}
+    <button
+      type="button"
+      aria-haspopup="dialog"
+      aria-label={`View details for ${app.title}`}
       data-testid={`application-card-${app.id}`}
-      onClick={(event) => {
-        event.preventDefault();
-        onSelect(app.id);
-      }}
+      onClick={() => onSelect(app.id)}
       className={cn(
         "group grid min-h-[9.25rem] grid-cols-[auto_minmax(0,1fr)_auto] gap-4 rounded-lg border bg-[color:var(--surface-lux)] p-4 text-left shadow-[var(--shadow-card)] transition hover:-translate-y-0.5 hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)] motion-reduce:hover:translate-y-0",
         selected
@@ -419,7 +418,6 @@ function ToolCard({
           : "border-[color:var(--border)]",
         focusRing,
       )}
-      {...externalProps}
     >
       <ToolIcon app={app} size="lg" />
       <span className="min-w-0">
@@ -435,10 +433,10 @@ function ToolCard({
         </span>
       </span>
       <span className="self-end rounded-lg bg-[color:var(--clinical-accent)] px-3 py-2 text-xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
-        {app.actionLabel}
+        Details
         <ChevronRight className="ml-1 inline h-3.5 w-3.5" aria-hidden />
       </span>
-    </a>
+    </button>
   );
 }
 
@@ -452,14 +450,12 @@ function MobileToolRow({
   onSelect: (id: string) => void;
 }) {
   return (
-    <a
-      href={app.href}
-      aria-label={`Launch ${app.title}`}
+    <button
+      type="button"
+      aria-haspopup="dialog"
+      aria-label={`View details for ${app.title}`}
       data-testid={`application-row-${app.id}`}
-      onClick={(event) => {
-        event.preventDefault();
-        onSelect(app.id);
-      }}
+      onClick={() => onSelect(app.id)}
       className={cn(
         "grid min-h-[5.25rem] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border bg-[color:var(--surface-lux)] px-3 py-3 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent-border)]",
         selected
@@ -478,10 +474,10 @@ function MobileToolRow({
         </span>
       </span>
       <span className="inline-flex min-h-9 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3 text-2xs font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
-        {app.actionLabel}
+        Details
         <ChevronRight className="ml-1 h-3 w-3" aria-hidden />
       </span>
-    </a>
+    </button>
   );
 }
 
@@ -709,8 +705,8 @@ export function ApplicationsLauncherWorkspace({
     ? selectedId
     : (filteredApps[0]?.id ?? selectedId);
   const selectedApp = appById(effectiveSelectedId);
-  // Label the panel by the selected tab's visible label (mobile-only tabs like
-  // "More" included) so assistive tech hears a region name matching the tab.
+  // Label the results by the selected filter's visible label (mobile-only filters
+  // like "More" included) so assistive tech hears which result set is active.
   const activeFilterLabel =
     desktopFilters.find((filter) => filter.id === activeFilter)?.label ??
     mobileFilters.find((filter) => filter.id === activeFilter)?.label;
@@ -800,12 +796,7 @@ export function ApplicationsLauncherWorkspace({
           </div>
         </div>
 
-        <div
-          id="launcher-results-panel"
-          role="tabpanel"
-          aria-label={resultsPanelLabel}
-          className="grid grid-cols-1 gap-4"
-        >
+        <div id="launcher-results-panel" role="group" aria-label={resultsPanelLabel} className="grid grid-cols-1 gap-4">
           {filteredApps.length === 0 ? (
             <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-4 py-10 text-center shadow-[var(--shadow-inset)]">
               <p className="text-sm font-extrabold text-[color:var(--text-heading)]">{copy.emptyTitle}</p>

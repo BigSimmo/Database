@@ -6,6 +6,7 @@ import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/co
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 
 import { useTcBindings } from "../bindings";
+import { LoadingState } from "../ui";
 
 const SUGGESTIONS = [
   "Anxiety in outpatient care",
@@ -18,12 +19,22 @@ const SUGGESTIONS = [
 export function HomeScreen() {
   const b = useTcBindings();
 
+  // Avoid presenting an empty or fabricated catalogue while required data loads.
+  if (b.loading && b.therapies.length === 0) {
+    return <LoadingState label="Loading therapy library…" />;
+  }
+
+  const therapyCountCopy =
+    b.therapies.length === 0
+      ? "Search source-grounded therapy records by problem, symptom, skill or population — or jump into a clinical pathway."
+      : `Search ${b.therapies.length} source-grounded therapy ${b.therapies.length === 1 ? "record" : "records"} by problem, symptom, skill or population — or jump into a clinical pathway.`;
+
   return (
     <ModeHomeMain testId="therapy-compass-home" className="justify-start sm:justify-center">
       <ModeHomeTemplate
         testId="therapy-compass"
         title="What therapy are you looking for?"
-        subtitle={`Search ${b.therapies.length || "200+"} source-grounded therapy records by problem, symptom, skill or population — or jump into a clinical pathway.`}
+        subtitle={therapyCountCopy}
         icon={Search}
         actionsLabel="Therapy workflows"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}

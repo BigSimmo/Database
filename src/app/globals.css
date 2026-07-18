@@ -1159,7 +1159,6 @@ summary::-webkit-details-marker {
     width: 1.1rem;
   }
 }
-
 @media (prefers-reduced-motion: no-preference) {
   .mode-action-surface[data-placement="up"] {
     animation: mode-action-fold-up 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
