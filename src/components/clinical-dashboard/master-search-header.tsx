@@ -33,7 +33,7 @@ import {
 
 import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
-import { useDismissableLayer } from "@/components/use-dismissable-layer";
+import { restoreFocusUnlessMoved, useDismissableLayer } from "@/components/use-dismissable-layer";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { AnswerFollowUpSuggestions } from "@/components/clinical-dashboard/answer-follow-up-suggestions";
 import {
@@ -747,13 +747,15 @@ export function MasterSearchHeader({
     if (scopeOpen || !restoreActionMenuFocusRef.current) return;
     restoreActionMenuFocusRef.current = false;
     window.requestAnimationFrame(() => {
-      actionMenuTriggerRef.current?.focus({ preventScroll: true });
+      restoreFocusUnlessMoved(actionMenuTriggerRef.current);
     });
   }, [scopeOpen]);
 
   const closeScopeSheet = useCallback(() => {
     setScopeSheetOpen(false);
-    window.requestAnimationFrame(() => actionMenuTriggerRef.current?.focus());
+    window.requestAnimationFrame(() => {
+      restoreFocusUnlessMoved(actionMenuTriggerRef.current);
+    });
   }, []);
 
   useEffect(() => {
