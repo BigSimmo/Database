@@ -2460,3 +2460,31 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     text-decoration: underline;
   }
 }
+
+/* Patient factsheet print sheet.
+ * The clean A4 sheet is hidden on screen. When the user hits Download PDF / Print,
+ * the detail component toggles `factsheets-printing` on <html>; in print we then hide
+ * every rendered element and reveal ONLY the print sheet, so the shell chrome
+ * (sidebar, composer, action bar) never appears in the exported PDF. */
+.factsheet-print-sheet {
+  display: none;
+}
+
+@media print {
+  html.factsheets-printing body * {
+    visibility: hidden !important;
+  }
+
+  html.factsheets-printing .factsheet-print-sheet,
+  html.factsheets-printing .factsheet-print-sheet * {
+    visibility: visible !important;
+  }
+
+  html.factsheets-printing .factsheet-print-sheet {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
