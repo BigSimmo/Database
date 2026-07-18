@@ -3648,7 +3648,7 @@ export function ClinicalDashboard({
                 ) : error ? (
                   <EmptyState
                     icon={CircleAlert}
-                    title="Answer unavailable"
+                    title={activeModeResultKind === "answer" ? "Answer unavailable" : "Search unavailable"}
                     body={error}
                     live="assertive"
                     tone="danger"
@@ -3715,10 +3715,6 @@ export function ClinicalDashboard({
                       </button>
                     </div>
                   ) : null)}
-
-                {showUniversalAlsoMatches && activeModeResultKind !== "answer" ? (
-                  <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
-                ) : null}
 
                 {activeModeResultKind === "differentials" ? (
                   <DifferentialsHome
@@ -3880,7 +3876,7 @@ export function ClinicalDashboard({
                   />
                 ) : null}
 
-                {showUniversalAlsoMatches && activeModeResultKind === "answer" ? (
+                {showUniversalAlsoMatches ? (
                   <UniversalSearchAlsoMatches modeId={searchMode} query={universalAlsoMatchesQuery} />
                 ) : null}
               </section>
