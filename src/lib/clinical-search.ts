@@ -1274,9 +1274,9 @@ export function buildClinicalTextSearchQuery(query: string) {
   const agitationMedicationIntent = medicationDoseEvidenceQueryIntent(query);
   const wantsAgitationMedicationChart =
     hasAgitationArousalContext &&
-    ((agitationMedicationIntent.asksAmount ||
+    (agitationMedicationIntent.asksAmount ||
       agitationMedicationIntent.asksRoute ||
-      agitationMedicationIntent.asksFrequency) ||
+      agitationMedicationIntent.asksFrequency ||
       /\b(?:dose|dosing|route|oral|intramuscular|im|po|chart|table|options?|listed|management)\b/i.test(
         correctedQueryText,
       ));
@@ -1300,18 +1300,7 @@ export function buildClinicalTextSearchQuery(query: string) {
     const medicationChartTokens =
       requestedDoseRouteTerms.length > 0
         ? ["agitation", "arousal", ...requestedDoseRouteTerms]
-        : [
-            "agitation",
-            "arousal",
-            "pharmacological",
-            "management",
-            "medication",
-            "chart",
-            "dose",
-            "route",
-            "im",
-            "po",
-          ];
+        : ["agitation", "arousal", "pharmacological", "management", "medication", "chart", "dose", "route", "im", "po"];
     normalizedTokens.splice(0, normalizedTokens.length, ...medicationChartTokens);
   } else if (wantsAgitationArousal) {
     normalizedTokens.splice(0, normalizedTokens.length, "agitation", "arousal", "pharmacological", "management");
