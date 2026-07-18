@@ -224,8 +224,8 @@ test.describe("previously uncovered production routes", () => {
       },
       async (currentPage) => {
         const search = currentPage
-          .getByRole("navigation", { name: "Therapy sections" })
-          .getByRole("button", { name: "Search", exact: true });
+          .getByRole("region", { name: "Common therapy searches" })
+          .getByRole("button", { name: "Anxiety in outpatient care", exact: true });
         await expect(search).toBeEnabled();
         await search.click();
         await expect(currentPage.getByRole("heading", { name: "Therapy Search", level: 1 })).toBeVisible();
