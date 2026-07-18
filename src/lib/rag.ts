@@ -2465,7 +2465,7 @@ export async function searchChunksWithTelemetry(
     }),
   );
   const ragAliasesPromise = measureSearchPhase(searchTiming, "alias_load", () =>
-    fetchEnabledRagAliases(supabase, args.ownerId, args.accessScope),
+    fetchEnabledRagAliases(supabase, args.ownerId, args.accessScope, args.signal),
   );
   const [indexingVersionAtRetrievalStart, queryAnalysis, ragAliases] = await Promise.all([
     indexingVersionAtRetrievalStartPromise,

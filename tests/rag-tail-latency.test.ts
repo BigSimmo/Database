@@ -272,6 +272,10 @@ async function loadSearchWithCacheOutcome(
   let versionStarted = false;
   let aliasesStarted = false;
   let classificationStarted = false;
+  const fetchEnabledRagAliases = vi.fn(() => {
+    aliasesStarted = true;
+    return bootstrap?.aliases.promise ?? Promise.resolve([]);
+  });
 
   vi.doMock("@/lib/rag-cache", async () => {
     const actual = await vi.importActual<typeof import("../src/lib/rag-cache")>("@/lib/rag-cache");
@@ -292,10 +296,7 @@ async function loadSearchWithCacheOutcome(
       await vi.importActual<typeof import("../src/lib/rag-retrieval-variants")>("@/lib/rag-retrieval-variants");
     return {
       ...actual,
-      fetchEnabledRagAliases: vi.fn(() => {
-        aliasesStarted = true;
-        return bootstrap?.aliases.promise ?? Promise.resolve([]);
-      }),
+      fetchEnabledRagAliases,
     };
   });
   vi.doMock("@/lib/corpus-grounding", () => ({
@@ -327,6 +328,7 @@ async function loadSearchWithCacheOutcome(
     get started() {
       return { versionStarted, aliasesStarted, classificationStarted };
     },
+    fetchEnabledRagAliases,
   };
 }
 
@@ -340,8 +342,14 @@ describe("RAG search bootstrap and latency telemetry", () => {
       aliases: deferred<never[]>(),
     };
     const loaded = await loadSearchWithCacheOutcome("cold", bootstrap);
+    const controller = new AbortController();
 
-    const pending = loaded.searchChunksWithTelemetry({ query: "bipolar disorder", ownerId, lexicalOnly: true });
+    const pending = loaded.searchChunksWithTelemetry({
+      query: "bipolar disorder",
+      ownerId,
+      lexicalOnly: true,
+      signal: controller.signal,
+    });
     await Promise.resolve();
 
     expect(loaded.started).toEqual({
@@ -349,6 +357,12 @@ describe("RAG search bootstrap and latency telemetry", () => {
       aliasesStarted: true,
       classificationStarted: true,
     });
+    expect(loaded.fetchEnabledRagAliases).toHaveBeenCalledWith(
+      expect.anything(),
+      ownerId,
+      expect.objectContaining({ ownerId, includePublic: true }),
+      controller.signal,
+    );
 
     vi.setSystemTime(new Date("2026-07-14T00:00:00.100Z"));
     bootstrap.version.resolve(indexingVersion("request-start"));
