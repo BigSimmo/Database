@@ -125,7 +125,9 @@ describe("lexical variant early-exit (PT-02)", () => {
     expect(chunkTextCalls).toHaveLength(1);
     expect(telemetry.text_variant_early_exit).toBe(true);
     expect(telemetry.text_variant_rpc_calls?.match_document_chunks_text).toBe(1);
-    expect(from).toHaveBeenCalledWith("documents");
+    // Cache TTL is disabled for this fixture, so retrieval must not pay the
+    // indexing-version `documents` preflight before issuing lexical RPCs.
+    expect(from).not.toHaveBeenCalledWith("documents");
     expect(from).not.toHaveBeenCalledWith("document_pages");
   });
 

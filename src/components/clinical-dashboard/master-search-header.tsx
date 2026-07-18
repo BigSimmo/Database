@@ -50,6 +50,7 @@ import {
   chatComposerShellBase,
   chatSendButton,
   floatingControl,
+  glassOverlaySurface,
   shellChip,
   eyebrowText,
 } from "@/components/ui-primitives";
@@ -955,7 +956,7 @@ export function MasterSearchHeader({
               data-testid="document-scope-filter"
               aria-label="Filter document scope"
               placeholder="Filter documents by title or file"
-              className="h-11 w-full rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
+              className="h-tap w-full rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] pl-9 pr-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--clinical-accent)] focus:ring-4 focus:ring-[color:var(--clinical-accent)]/20"
             />
           </label>
           <div className="flex flex-wrap items-center gap-2">
@@ -998,7 +999,7 @@ export function MasterSearchHeader({
                     onClick={() => onToggleScope(document.id)}
                     title={cleanDisplayTitle(document.title)}
                     className={cn(
-                      "grid min-h-11 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-150",
+                      "grid min-h-tap w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition motion-safe:duration-150",
                       selected
                         ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                         : "border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] text-[color:var(--text)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)]",
@@ -1138,7 +1139,7 @@ export function MasterSearchHeader({
               </label>
             </div>
             <details className="group rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)]">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-semibold text-[color:var(--text-heading)]">
+              <summary className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-3 text-sm font-semibold text-[color:var(--text-heading)]">
                 <span>Advanced labels</span>
                 <span className="flex items-center gap-2 text-2xs font-bold text-[color:var(--text-muted)]">
                   {activeLabelFilterCount ? `${activeLabelFilterCount} active` : "Medication, site, risk"}
@@ -1377,7 +1378,7 @@ export function MasterSearchHeader({
                 <button
                   type="button"
                   onClick={onClearQuery}
-                  className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:h-12 sm:w-12"
+                  className="grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:h-12 sm:w-12"
                   aria-label="Clear search question"
                 >
                   <X aria-hidden="true" className="h-4 w-4" />
@@ -1450,7 +1451,7 @@ export function MasterSearchHeader({
             </span>
           }
           headerClassName="bg-[color:var(--surface-lux)] px-4 py-3 sm:px-5 sm:py-4"
-          closeButtonClassName="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          closeButtonClassName="grid h-tap w-tap shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           contentClassName={cn(
             "bg-[color:var(--surface-lux)]",
             scopeSheetFullscreen ? "max-h-dvh" : "max-h-[min(84dvh,42rem)]",
@@ -1561,7 +1562,7 @@ export function MasterSearchHeader({
               type="button"
               onClick={useMobileBackControl ? onMobileBack : onOpenMobileSidebar}
               className={cn(
-                "universal-header-icon-control h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                "universal-header-icon-control h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                 // From md the desktop icon rail owns navigation, so the drawer
                 // trigger is phone-only outside workflow headers.
                 isWorkflowHeader ? "grid" : "grid md:hidden",
@@ -1617,7 +1618,7 @@ export function MasterSearchHeader({
                 // the base won at every breakpoint but lg:.
                 "universal-header-mode-button inline-grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                 isWorkflowHeader
-                  ? "h-11 w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
+                  ? "h-tap w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
                   : "h-12 w-[min(13rem,calc(100vw-11.5rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
               )}
               aria-haspopup="menu"
@@ -1650,7 +1651,10 @@ export function MasterSearchHeader({
                 id="app-mode-menu"
                 role="menu"
                 aria-label="Choose app mode"
-                className="polished-scroll fixed left-[max(0.5rem,var(--safe-area-left))] right-[max(0.5rem,var(--safe-area-right))] top-[calc(4.25rem+env(safe-area-inset-top))] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] overflow-y-auto rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/25 backdrop-blur-md dark:ring-white/10 sm:absolute sm:left-0 sm:right-auto sm:top-[calc(100%+0.5rem)] sm:w-[min(21rem,calc(100vw-2rem))]"
+                className={cn(
+                  glassOverlaySurface,
+                  "polished-scroll fixed left-[max(0.5rem,var(--safe-area-left))] right-[max(0.5rem,var(--safe-area-right))] top-[calc(4.25rem+env(safe-area-inset-top))] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] sm:absolute sm:left-0 sm:right-auto sm:top-[calc(100%+0.5rem)] sm:w-[min(21rem,calc(100vw-2rem))]",
+                )}
               >
                 {visibleAppModeOptions.map((mode, index) => {
                   const Icon = appModeIcons[mode.id];
@@ -1708,7 +1712,7 @@ export function MasterSearchHeader({
               <>
                 <button
                   type="button"
-                  className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   aria-label="Open language and region settings"
                   title="Language and region"
                 >
@@ -1718,7 +1722,7 @@ export function MasterSearchHeader({
                 <button
                   type="button"
                   onClick={onNewChat}
-                  className="universal-header-icon-control grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
                   aria-label="Start a new comparison"
                   title="New comparison"
                 >
@@ -1730,7 +1734,7 @@ export function MasterSearchHeader({
               <button
                 type="button"
                 onClick={onNewChat}
-                className="universal-header-icon-control inline-flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]"
+                className="universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]"
                 aria-label="Start a new chat"
                 title="New chat"
               >

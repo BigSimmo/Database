@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { Search } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
-import { EmptyState } from "@/components/ui-primitives";
+import { AsyncButton, EmptyState } from "@/components/ui-primitives";
 
 describe("EmptyState", () => {
   it("keeps recovery actions inside an announced state surface", () => {
@@ -26,5 +26,31 @@ describe("EmptyState", () => {
     render(<EmptyState title="Answer unavailable" body="Please try again." live="assertive" />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("Answer unavailable");
+  });
+});
+
+describe("AsyncButton", () => {
+  it("announces pending work and blocks duplicate activation", () => {
+    render(
+      <AsyncButton busy busyLabel="Saving changes">
+        Save
+      </AsyncButton>,
+    );
+
+    const button = screen.getByRole("button", { name: "Saving changes" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("aria-busy", "true");
+  });
+
+  it("keeps its normal label and enabled state when idle", () => {
+    render(
+      <AsyncButton busy={false} busyLabel="Saving changes">
+        Save
+      </AsyncButton>,
+    );
+
+    const button = screen.getByRole("button", { name: "Save" });
+    expect(button).toBeEnabled();
+    expect(button).not.toHaveAttribute("aria-busy");
   });
 });

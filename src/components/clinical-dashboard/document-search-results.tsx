@@ -156,7 +156,7 @@ function DocumentTagFacetRail({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Tag facets</p>
         {activeKeys.length > 0 ? (
-          <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-11 px-2 text-2xs sm:min-h-8")}>
+          <button type="button" onClick={onClear} className={cn(floatingControl, "min-h-tap px-2 text-2xs sm:min-h-8")}>
             <X aria-hidden="true" className="h-3.5 w-3.5" />
             Clear
           </button>
@@ -396,7 +396,7 @@ function SearchResultsHeader({
           </div>
         </div>
       </div>
-      <ResultSortControl value={sortValue} onChange={onSortChange} className="min-h-11 shrink-0 lg:hidden" />
+      <ResultSortControl value={sortValue} onChange={onSortChange} className="min-h-tap shrink-0 lg:hidden" />
     </section>
   );
 }
@@ -545,7 +545,7 @@ function SelectedDocumentEvidencePanel({
       <div className="grid gap-2">
         <DocumentActionLink
           href={openHref}
-          className="min-h-11 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
+          className="min-h-tap rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)]"
           aria-label={`Open exact evidence for ${document.title}`}
         >
           Open exact evidence
@@ -554,7 +554,7 @@ function SelectedDocumentEvidencePanel({
           <DocumentActionButton
             onClick={() => onScopeDocument(document.document_id)}
             icon={Filter}
-            className="min-h-11 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-2 text-xs"
+            className="min-h-tap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-2 text-xs"
             aria-label={`Scope search to ${document.title}`}
           >
             Scope
@@ -562,7 +562,7 @@ function SelectedDocumentEvidencePanel({
           <DocumentActionButton
             onClick={() => onAnswerFromDocument(document.document_id)}
             icon={Sparkles}
-            className="min-h-11 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 text-xs text-[color:var(--clinical-accent)]"
+            className="min-h-tap rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2 text-xs text-[color:var(--clinical-accent)]"
             aria-label={`Answer from ${document.title}`}
           >
             Answer
@@ -667,7 +667,7 @@ function SearchRecordResults({
                   </p>
                   <a
                     href={recordRoute(service.slug)}
-                    className="mt-0.5 inline-flex min-h-11 items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] sm:min-h-7"
+                    className="mt-0.5 inline-flex min-h-tap items-center text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] sm:min-h-7"
                   >
                     <span className="line-clamp-2">{service.title}</span>
                   </a>
@@ -679,7 +679,7 @@ function SearchRecordResults({
                   href={recordRoute(service.slug)}
                   className={cn(
                     floatingControl,
-                    "inline-flex min-h-11 w-full justify-center rounded-lg px-3 text-sm text-[color:var(--clinical-accent)] sm:w-auto",
+                    "inline-flex min-h-tap w-full justify-center rounded-lg px-3 text-sm text-[color:var(--clinical-accent)] sm:w-auto",
                   )}
                   aria-label={`Open ${service.title}`}
                 >
@@ -1041,7 +1041,7 @@ function DocumentSearchResultsPanelImpl({
                             </p>
                             <a
                               href={openHref}
-                              className="mt-0.5 inline-flex min-h-11 items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
+                              className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-base font-semibold leading-6 text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
                             >
                               <span className="line-clamp-2">{documentDisplayTitle(document)}</span>
                             </a>
@@ -1091,7 +1091,7 @@ function DocumentSearchResultsPanelImpl({
                         onClick={() => setSelectedDocumentId(document.document_id)}
                         icon={Sparkles}
                         className={cn(
-                          "min-h-11 rounded-lg px-2.5 text-xs",
+                          "min-h-tap rounded-lg px-2.5 text-xs",
                           selected
                             ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                             : "text-[color:var(--text)]",
@@ -1102,7 +1102,7 @@ function DocumentSearchResultsPanelImpl({
                       </DocumentActionButton>
                       <DocumentActionLink
                         href={openHref}
-                        className="min-h-11 rounded-lg px-2.5 text-xs text-[color:var(--text)]"
+                        className="min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--text)]"
                         aria-label={`Open ${document.title}`}
                       >
                         {contextualOpenLabel(document)}
@@ -1110,7 +1110,7 @@ function DocumentSearchResultsPanelImpl({
                       <DocumentActionButton
                         onClick={() => onScopeDocument(document.document_id)}
                         icon={Filter}
-                        className="min-h-11 rounded-lg px-2.5 text-xs text-[color:var(--text)]"
+                        className="min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--text)]"
                         aria-label={`Scope search to ${document.title}`}
                       >
                         Scope
@@ -1118,7 +1118,7 @@ function DocumentSearchResultsPanelImpl({
                       <DocumentActionButton
                         onClick={() => onAnswerFromDocument(document.document_id)}
                         icon={Sparkles}
-                        className="ml-auto min-h-11 rounded-lg px-2.5 text-xs text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
+                        className="ml-auto min-h-tap rounded-lg px-2.5 text-xs text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)]"
                         aria-label={`Answer from ${document.title}`}
                       >
                         Answer

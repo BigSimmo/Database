@@ -103,9 +103,9 @@ async function teardownLocalPwa() {
 const cardClassName =
   "pointer-events-auto rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-4 text-[color:var(--text)] shadow-[var(--shadow-elevated)]";
 const primaryButtonClassName =
-  "inline-flex min-h-11 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3.5 py-2 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] transition-colors hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+  "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3.5 py-2 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] transition-colors hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const secondaryButtonClassName =
-  "inline-flex min-h-11 items-center justify-center rounded-lg border border-[color:var(--border-lux)] px-3.5 py-2 text-sm font-semibold text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+  "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--border-lux)] px-3.5 py-2 text-sm font-semibold text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 /**
  * Owns installability, service-worker updates, and cross-route connectivity UI.

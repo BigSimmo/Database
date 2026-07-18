@@ -260,7 +260,7 @@ export function DsmComparisonPage({ diagnoses }: { diagnoses: DsmDiagnosis[] }) 
             </div>
             <Link
               href={chooseDiagnosesHref(diagnoses)}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
+              className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)]"
             >
               <BookOpenCheck className="h-4 w-4" aria-hidden />
               Search diagnoses

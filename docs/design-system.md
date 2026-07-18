@@ -18,7 +18,10 @@ contract and the code — not reinvention. If a change genuinely needs a new dir
   `src/app/globals.css` (`:root` + `.dark`). No raw Tailwind palette classes (`red-50`,
   `slate-200`, `bg-white`) and no hex values in components. **If you typed a hex or a Tailwind
   colour name in a component, you broke dark mode** — those values have no `.dark` override.
-  The only sanctioned exception: third-party brand marks (Microsoft/Google OAuth tiles).
+  Sanctioned raw-colour exceptions are explicit and narrow: brand artwork, diagnostic-only
+  visualizations, generated OpenGraph artwork, emergency error fallbacks, the scoped
+  fixed-white Therapy patient sheet, and the scoped factsheet print sheet. `scripts/check-design-system-contract.mjs` owns the
+  path allowlist; adding a category requires documenting why semantic app tokens are wrong.
 - **Semantic vs categorical vs brand.** Three token families, never interchangeable:
   - Semantic triads (`--info/-soft/-border`, `--success-*`, `--warning-*`, `--danger-*`) mean
     something happened or matters clinically. Green is success-only; red is safety/danger-only.
@@ -167,12 +170,14 @@ image"}` — never a possibly-empty variable alone.
 1. `npm run verify:cheap` — lint, typecheck, unit tests, runtime + sitemap checks (offline-safe).
 2. `npm run ensure` then `npm run verify:ui` — Chromium Playwright (smoke, stress,
    accessibility, tools, overlap). Required for any UI/styling/routing change.
-3. `node scripts/check-type-scale.mjs` — the count must not exceed the recorded baseline.
-4. Manual dark-mode pass on every screen you touched (theme toggle in the sidebar).
-5. Reduced-motion + forced-colors spot check on touched surfaces
+3. `npm run check:design-system-contract` — production-only raw colours, literal shadows,
+   Therapy inline-parser/style debt, and tap-token drift must not exceed the recorded baseline.
+4. `node scripts/check-type-scale.mjs` — the count must not exceed the recorded baseline.
+5. Manual dark-mode pass on every screen you touched (theme toggle in the sidebar).
+6. Reduced-motion + forced-colors spot check on touched surfaces
    (`ui-accessibility.spec.ts` covers the automated slice; emulate in devtools for the rest).
-6. `npm run format:check`.
-7. Fill the PR template; the clinical-governance preflight applies only if you touched
+7. `npm run format:check`.
+8. Fill the PR template; the clinical-governance preflight applies only if you touched
    ingestion/answer/search/source-access surfaces — pure UI work states that explicitly.
 
 ## 10. File conventions

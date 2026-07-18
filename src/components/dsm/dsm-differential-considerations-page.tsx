@@ -267,7 +267,7 @@ export function DsmDifferentialConsiderationsPage({
                   {selected.matchedDiagnosis ? (
                     <Link
                       href={`/dsm/diagnoses/${selected.matchedDiagnosis.slug}`}
-                      className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)]"
+                      className="inline-flex min-h-tap flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-extrabold text-[color:var(--clinical-accent)]"
                     >
                       Open diagnosis record
                       <ArrowRight className="h-4 w-4" aria-hidden />
@@ -275,7 +275,7 @@ export function DsmDifferentialConsiderationsPage({
                   ) : null}
                   <Link
                     href={comparisonHref}
-                    className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-extrabold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]"
+                    className="inline-flex min-h-tap flex-1 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-extrabold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]"
                   >
                     <GitCompareArrows className="h-4 w-4" aria-hidden />
                     Add to comparison

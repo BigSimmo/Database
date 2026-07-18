@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { APP_THEME_COLORS, nextTheme, readThemePreference, resolveThemePreference } from "../src/lib/theme";
+import { describe, expect, it, vi } from "vitest";
+import {
+  APP_THEME_COLORS,
+  nextTheme,
+  readThemePreference,
+  resolveThemePreference,
+  THEME_BOOTSTRAP_SCRIPT,
+} from "../src/lib/theme";
 
 describe("theme helpers", () => {
   it("uses stored explicit theme before system preference", () => {
@@ -19,6 +25,28 @@ describe("theme helpers", () => {
 
   it("keeps installed-app browser chrome aligned with both application themes", () => {
     expect(APP_THEME_COLORS).toEqual({ light: "#ffffff", dark: "#060708" });
+  });
+
+  it("still applies the OS dark theme when localStorage is blocked", () => {
+    const toggle = vi.fn();
+    const setAttribute = vi.fn();
+    const run = new Function("localStorage", "window", "document", THEME_BOOTSTRAP_SCRIPT);
+
+    run(
+      {
+        getItem() {
+          throw new DOMException("Blocked", "SecurityError");
+        },
+      },
+      { matchMedia: () => ({ matches: true }) },
+      {
+        documentElement: { classList: { toggle } },
+        querySelectorAll: () => [{ setAttribute }],
+      },
+    );
+
+    expect(toggle).toHaveBeenCalledWith("dark", true);
+    expect(setAttribute).toHaveBeenCalledWith("content", APP_THEME_COLORS.dark);
   });
 
   it("reads the appearance preference from the stored value", () => {

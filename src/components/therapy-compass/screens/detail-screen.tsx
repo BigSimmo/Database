@@ -21,7 +21,6 @@ import {
   ShieldIcon,
   TargetIcon,
 } from "../icons";
-import { s } from "../style-utils";
 import { Eyebrow, LoadingState, StatusBadge, TagRow } from "../ui";
 
 export function DetailScreen() {
@@ -32,71 +31,35 @@ export function DetailScreen() {
   const steps = parseSteps(t.deliverySteps);
 
   return (
-    <section data-screen-label="Detail" style={s(`max-width:1240px;margin:0 auto;`)}>
-      <button
-        type="button"
-        className="tc-btn"
-        onClick={b.goSearch}
-        style={s(
-          `display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:6px 4px;border:none;background:transparent;color:var(--clinical-accent);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;`,
-        )}
-      >
+    <section data-screen-label="Detail" className="tc-screens-detail-screen-001">
+      <button type="button" className="tc-btn tc-screens-detail-screen-002" onClick={b.goSearch}>
         <ArrowLeftIcon size={18} />
         Back to results
       </button>
 
-      <div
-        className="tc-stack-sm"
-        style={s(`display:grid;grid-template-columns:minmax(0,1fr) 344px;gap:22px;align-items:start;`)}
-      >
-        <div style={s(`display:flex;flex-direction:column;gap:16px;min-width:0;`)}>
+      <div className="tc-stack-sm tc-screens-detail-screen-003">
+        <div className="tc-screens-detail-screen-004">
           {/* HERO */}
-          <div style={s(heroCard + "padding:24px 26px;")}>
-            <div style={s(`display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;`)}>
+          <div className={`${heroCard} tc-detail-hero`}>
+            <div className="tc-screens-detail-screen-005">
               <StatusBadge status={t.reviewStatus} />
               {t.complexity ? (
-                <span
-                  style={s(
-                    `font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;background:var(--surface-inset);color:var(--text-muted);border:1px solid var(--border);`,
-                  )}
-                >
-                  {complexityLabel(t.complexity)}
-                </span>
+                <span className="tc-screens-detail-screen-006">{complexityLabel(t.complexity)}</span>
               ) : null}
-              {t.modality ? (
-                <span
-                  style={s(
-                    `font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;background:var(--surface-inset);color:var(--text-muted);border:1px solid var(--border);`,
-                  )}
-                >
-                  {t.modality}
-                </span>
-              ) : null}
+              {t.modality ? <span className="tc-screens-detail-screen-007">{t.modality}</span> : null}
             </div>
-            <h1
-              style={s(
-                `margin:0 0 4px;font-size:26px;font-weight:680;color:var(--text-heading);letter-spacing:-0.02em;`,
-              )}
-            >
-              {t.name}
-            </h1>
+            <h1 className="tc-screens-detail-screen-008">{t.name}</h1>
             {t.aliases.length ? (
-              <div style={s(`font-size:13px;color:var(--text-soft);margin-bottom:12px;`)}>
-                Also known as {t.aliases.join(", ")}
-              </div>
+              <div className="tc-screens-detail-screen-009">Also known as {t.aliases.join(", ")}</div>
             ) : (
-              <div style={s(`font-size:13px;color:var(--text-soft);margin-bottom:12px;`)}>{t.category}</div>
+              <div className="tc-screens-detail-screen-010">{t.category}</div>
             )}
-            {t.clinicalSummary ? (
-              <p style={s(`margin:0 0 16px;font-size:15px;line-height:1.6;color:var(--text-muted);max-width:64ch;`)}>
-                {t.clinicalSummary}
-              </p>
-            ) : null}
+            {t.clinicalSummary ? <p className="tc-screens-detail-screen-011">{t.clinicalSummary}</p> : null}
             <TagRow tags={t.tags.length ? t.tags : [t.category]} max={8} />
           </div>
 
           {/* QUICK TILES */}
-          <div className="tc-mobile-stack" style={s(`display:grid;grid-template-columns:1fr 1fr;gap:14px;`)}>
+          <div className="tc-mobile-stack tc-screens-detail-screen-012">
             <Tile
               icon={ShieldIcon}
               eyebrow="USE WHEN"
@@ -127,7 +90,7 @@ export function DetailScreen() {
           </div>
 
           {/* BODY */}
-          <div style={s(card + "padding:6px 24px;")}>
+          <div className={`${card} tc-detail-body`}>
             {t.mechanism ? <BodyRow icon={CrosshairIcon} title="How it works" body={t.mechanism} /> : null}
             <BodyRow icon={PersonIcon} title="When to use" body={t.indications || t.bestUsedFor} />
             {steps.length ? (
@@ -135,12 +98,9 @@ export function DetailScreen() {
                 icon={FileTextIcon}
                 title="How to deliver it"
                 body={
-                  <ol style={s(`margin:6px 0 0;padding-left:20px;`)}>
+                  <ol className="tc-screens-detail-screen-013">
                     {steps.map((step, i) => (
-                      <li
-                        key={i}
-                        style={s(`font-size:13.5px;line-height:1.55;color:var(--text-muted);margin-bottom:6px;`)}
-                      >
+                      <li key={i} className="tc-screens-detail-screen-014">
                         {step}
                       </li>
                     ))}
@@ -154,25 +114,18 @@ export function DetailScreen() {
           </div>
 
           {/* ACTIONS */}
-          <div style={s(`display:flex;flex-wrap:wrap;gap:10px;`)}>
+          <div className="tc-screens-detail-screen-015">
             {t.patientSheetAvailable ? (
-              <button
-                type="button"
-                className="tc-btn"
-                onClick={() => b.openSheet(t.slug)}
-                style={s(
-                  `display:inline-flex;align-items:center;gap:9px;height:46px;padding:0 20px;border:none;border-radius:12px;background:var(--command);color:var(--command-contrast);font-size:14px;font-weight:600;box-shadow:var(--shadow-tight);cursor:pointer;font-family:inherit;`,
-                )}
-              >
+              <button type="button" className="tc-btn tc-screens-detail-screen-016" onClick={() => b.openSheet(t.slug)}>
                 <FileTextIcon size={17} />
                 Generate patient sheet
               </button>
             ) : null}
             <button
               type="button"
-              className="tc-btn"
+              className={`tc-btn ${outlineControl}${b.isInCompare(t.slug) ? " tc-is-selected" : ""}`}
               onClick={() => b.toggleCompare(t.slug)}
-              style={s(outlineControl + "height:46px;padding:0 20px;")}
+              aria-pressed={b.isInCompare(t.slug)}
             >
               <ScaleIcon size={17} />
               {b.isInCompare(t.slug) ? "In compare" : "Compare"}
@@ -180,20 +133,14 @@ export function DetailScreen() {
             {t.briefInterventionAvailable ? (
               <button
                 type="button"
-                className="tc-btn"
+                className={`tc-btn ${outlineControl} tc-detail-action`}
                 onClick={() => b.openBrief(t.slug)}
-                style={s(outlineControl + "height:46px;padding:0 20px;")}
               >
                 <ClockIcon size={17} />
                 Brief intervention
               </button>
             ) : null}
-            <button
-              type="button"
-              className="tc-btn"
-              onClick={b.goReview}
-              style={s(outlineControl + "height:46px;padding:0 20px;")}
-            >
+            <button type="button" className={`tc-btn ${outlineControl} tc-detail-action`} onClick={b.goReview}>
               <ChecklistIcon size={17} />
               Review checklist
             </button>
@@ -201,15 +148,10 @@ export function DetailScreen() {
         </div>
 
         {/* RIGHT RAIL */}
-        <div
-          className="tc-mobile-static"
-          style={s(`display:flex;flex-direction:column;gap:16px;position:sticky;top:84px;`)}
-        >
-          <div style={s(card + "padding:20px;")}>
-            <div style={s(`font-size:14px;font-weight:650;color:var(--text-heading);margin-bottom:14px;`)}>
-              At a glance
-            </div>
-            <div style={s(`display:flex;flex-direction:column;gap:15px;`)}>
+        <div className="tc-mobile-static tc-screens-detail-screen-017">
+          <div className={`${card} tc-detail-rail-card`}>
+            <div className="tc-screens-detail-screen-018">At a glance</div>
+            <div className="tc-screens-detail-screen-019">
               <GlanceRow icon={TargetIcon} title="Target symptoms" body={t.targetSymptoms || t.patientPopulation} />
               <GlanceRow
                 icon={ClockIcon}
@@ -225,59 +167,38 @@ export function DetailScreen() {
           </div>
 
           {b.relatedForSelected.length ? (
-            <div style={s(card + "padding:20px;")}>
-              <div style={s(`font-size:14px;font-weight:650;color:var(--text-heading);margin-bottom:8px;`)}>
-                Related therapies
-              </div>
-              <div style={s(`display:flex;flex-direction:column;`)}>
+            <div className={`${card} tc-detail-rail-card`}>
+              <div className="tc-screens-detail-screen-020">Related therapies</div>
+              <div className="tc-screens-detail-screen-021">
                 {b.relatedForSelected.map((r, i, arr) => (
                   <button
                     key={r.slug}
                     type="button"
-                    className="tc-btn tc-row"
+                    className={`tc-btn tc-row tc-related-therapy${i < arr.length - 1 ? " tc-has-divider" : ""}`}
                     onClick={() => b.open(r.slug)}
-                    style={s(
-                      `display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 0;border:none;${i < arr.length - 1 ? "border-bottom:1px solid var(--border);" : ""}background:transparent;text-align:left;cursor:pointer;font-family:inherit;`,
-                    )}
                   >
-                    <span style={s(`min-width:0;`)}>
-                      <span style={s(`display:block;font-size:13px;font-weight:600;color:var(--text-heading);`)}>
-                        {r.name}
-                      </span>
-                      <span
-                        style={s(
-                          `display:block;font-size:12px;color:var(--text-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`,
-                        )}
-                      >
-                        {r.bestUsedFor ?? r.category}
-                      </span>
+                    <span className="tc-screens-detail-screen-022">
+                      <span className="tc-screens-detail-screen-023">{r.name}</span>
+                      <span className="tc-screens-detail-screen-024">{r.bestUsedFor ?? r.category}</span>
                     </span>
-                    <ChevronRightIcon size={15} strokeWidth={1.8} style={s(`color:var(--text-soft);flex:none;`)} />
+                    <ChevronRightIcon size={15} strokeWidth={1.8} className="tc-screens-detail-screen-025" />
                   </button>
                 ))}
               </div>
             </div>
           ) : null}
 
-          <div
-            style={s(
-              `background:var(--surface-subtle);border:1px solid var(--border);border-radius:16px;padding:18px 20px;`,
-            )}
-          >
-            <div
-              style={s(
-                `display:flex;align-items:center;gap:8px;font-size:13px;font-weight:650;color:var(--text-heading);margin-bottom:10px;`,
-              )}
-            >
-              <DatabaseIcon size={16} style={s(`color:var(--warning-text);`)} />
+          <div className="tc-screens-detail-screen-026">
+            <div className="tc-screens-detail-screen-027">
+              <DatabaseIcon size={16} className="tc-screens-detail-screen-028" />
               Source provenance
             </div>
-            <div style={s(`font-size:12.5px;color:var(--text-muted);line-height:1.7;`)}>
+            <div className="tc-screens-detail-screen-029">
               {t.sources.length ? (
                 t.sources.slice(0, 3).map((src, i) => (
                   <div key={i}>
                     Source:{" "}
-                    <strong style={s(`color:var(--text-heading);`)}>
+                    <strong className="tc-screens-detail-screen-030">
                       {src.title ?? src.sourceType ?? "Uploaded source"}
                     </strong>
                   </div>
@@ -285,18 +206,14 @@ export function DetailScreen() {
               ) : (
                 <div>
                   Source:{" "}
-                  <strong style={s(`color:var(--text-heading);`)}>
+                  <strong className="tc-screens-detail-screen-031">
                     {t.sourceNotes ? "Referenced record" : "Single therapy record"}
                   </strong>
                 </div>
               )}
               <div>
                 Review:{" "}
-                <span
-                  style={s(
-                    `color:${t.reviewStatus === "reviewed" ? "var(--success-text)" : "var(--warning-text)"};font-weight:600;`,
-                  )}
-                >
+                <span className={t.reviewStatus === "reviewed" ? "tc-review-success" : "tc-review-warning"}>
                   {t.reviewStatus === "reviewed" ? "Reviewed" : "Not yet provided"}
                 </span>
               </div>
@@ -319,31 +236,13 @@ function Tile({
   tone: "accent" | "warning" | "info" | "muted";
   text: string;
 }) {
-  const bg = tone === "warning" ? "var(--warning-bg)" : tone === "info" ? "var(--info-bg)" : "var(--surface)";
-  const border =
-    tone === "accent"
-      ? "var(--clinical-accent-border)"
-      : tone === "warning"
-        ? "var(--warning-border)"
-        : tone === "info"
-          ? "var(--info-border)"
-          : "var(--border)";
-  const head =
-    tone === "accent"
-      ? "var(--clinical-accent)"
-      : tone === "warning"
-        ? "var(--warning-text)"
-        : tone === "info"
-          ? "var(--info-text)"
-          : "var(--text-soft)";
-  const body = tone === "warning" ? "var(--warning-text)" : tone === "info" ? "var(--info-text)" : "var(--text-muted)";
   return (
-    <div style={s(`background:${bg};border:1px solid ${border};border-radius:14px;padding:16px 17px;`)}>
-      <div style={s(`display:flex;align-items:center;gap:7px;margin-bottom:8px;color:${head};`)}>
+    <div className={`tc-detail-tile tc-detail-tile-${tone}`}>
+      <div className="tc-detail-tile-heading">
         <Icon size={15} strokeWidth={1.9} />
-        <Eyebrow color={head}>{eyebrow}</Eyebrow>
+        <Eyebrow tone={tone === "muted" ? "neutral" : tone}>{eyebrow}</Eyebrow>
       </div>
-      <p style={s(`margin:0;font-size:13px;line-height:1.5;color:${body};`)}>{text}</p>
+      <p>{text}</p>
     </div>
   );
 }
@@ -359,21 +258,13 @@ function BodyRow({
 }) {
   if (!body) return null;
   return (
-    <div style={s(`display:flex;gap:14px;padding:20px 0;border-bottom:1px solid var(--border);`)}>
-      <span
-        style={s(
-          `display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:var(--surface-inset);color:var(--text-muted);flex:none;`,
-        )}
-      >
+    <div className="tc-screens-detail-screen-032">
+      <span className="tc-screens-detail-screen-033">
         <Icon size={17} />
       </span>
-      <div style={s(`min-width:0;`)}>
-        <div style={s(`font-size:14.5px;font-weight:650;color:var(--text-heading);margin-bottom:5px;`)}>{title}</div>
-        {typeof body === "string" ? (
-          <p style={s(`margin:0;font-size:13.5px;line-height:1.6;color:var(--text-muted);`)}>{body}</p>
-        ) : (
-          body
-        )}
+      <div className="tc-screens-detail-screen-034">
+        <div className="tc-screens-detail-screen-035">{title}</div>
+        {typeof body === "string" ? <p className="tc-screens-detail-screen-036">{body}</p> : body}
       </div>
     </div>
   );
@@ -387,23 +278,13 @@ function SafetyRow({ therapy }: { therapy: Therapy }) {
   const text = lim && !contra.includes(lim) ? `${contra} ${lim}`.trim() : contra;
   if (!text) return null;
   return (
-    <div
-      style={s(
-        `display:flex;gap:14px;padding:20px 4px;background:var(--warning-bg);margin:0 -18px;border-radius:12px;`,
-      )}
-    >
-      <span
-        style={s(
-          `display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:var(--surface);color:var(--warning-text);flex:none;margin-left:14px;`,
-        )}
-      >
+    <div className="tc-screens-detail-screen-037">
+      <span className="tc-screens-detail-screen-038">
         <AlertIcon size={17} />
       </span>
-      <div style={s(`padding-right:14px;`)}>
-        <div style={s(`font-size:14.5px;font-weight:650;color:var(--warning-text);margin-bottom:5px;`)}>
-          Safety &amp; cautions
-        </div>
-        <p style={s(`margin:0;font-size:13.5px;line-height:1.6;color:var(--warning-text);`)}>{text}</p>
+      <div className="tc-screens-detail-screen-039">
+        <div className="tc-screens-detail-screen-040">Safety &amp; cautions</div>
+        <p className="tc-screens-detail-screen-041">{text}</p>
       </div>
     </div>
   );
@@ -420,17 +301,13 @@ function GlanceRow({
 }) {
   if (!body) return null;
   return (
-    <div style={s(`display:flex;gap:12px;`)}>
-      <span
-        style={s(
-          `display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:9px;background:var(--clinical-accent-soft);color:var(--clinical-accent);flex:none;`,
-        )}
-      >
+    <div className="tc-screens-detail-screen-042">
+      <span className="tc-screens-detail-screen-043">
         <Icon size={16} strokeWidth={1.8} />
       </span>
-      <div style={s(`min-width:0;`)}>
-        <div style={s(`font-size:12.5px;font-weight:650;color:var(--text-heading);margin-bottom:2px;`)}>{title}</div>
-        <p style={s(`margin:0;font-size:12.5px;line-height:1.5;color:var(--text-muted);`)}>{body}</p>
+      <div className="tc-screens-detail-screen-044">
+        <div className="tc-screens-detail-screen-045">{title}</div>
+        <p className="tc-screens-detail-screen-046">{body}</p>
       </div>
     </div>
   );

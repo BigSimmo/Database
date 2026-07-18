@@ -42,6 +42,19 @@ describe("ranking-config defaults (W6 — zero behavior change)", () => {
       reviewPenalty: -0.01,
     });
   });
+
+  it("uses the one constrained tuner improvement and keeps every other class neutral", () => {
+    for (const [queryClass, weights] of Object.entries(defaultRankingConfig.featureFusion)) {
+      expect(weights).toEqual({
+        hybridRelevance: 1,
+        lexicalCoverage: 1,
+        reciprocalRankFusion: 1,
+        titleSectionRelevance: 1,
+        metadataRelevance: 1,
+        clinicalEvidence: queryClass === "broad_summary" ? 0.9 : 1,
+      });
+    }
+  });
 });
 
 describe("resolveRankingConfig override merge", () => {
@@ -54,12 +67,19 @@ describe("resolveRankingConfig override merge", () => {
 
   it("deep-merges provided numeric fields and keeps defaults for the rest", () => {
     const cfg = resolveRankingConfig(
-      JSON.stringify({ secondStage: { doseAmountBoost: 0.22 }, documentDiversityPenalty: 0.03 }),
+      JSON.stringify({
+        secondStage: { doseAmountBoost: 0.22 },
+        featureFusion: { comparison: { lexicalCoverage: 1.1 } },
+        documentDiversityPenalty: 0.03,
+      }),
     );
     expect(cfg.secondStage.doseAmountBoost).toBe(0.22);
     // Untouched weights fall back to defaults.
     expect(cfg.secondStage.positionBase).toBe(0.09);
     expect(cfg.documentDiversityPenalty).toBe(0.03);
+    expect(cfg.featureFusion.comparison.lexicalCoverage).toBe(1.1);
+    expect(cfg.featureFusion.comparison.hybridRelevance).toBe(1);
+    expect(cfg.featureFusion.document_lookup.lexicalCoverage).toBe(1);
     // D4 activation path: the JSON override can set the penalty; negatives clamp to 0.
     expect(
       resolveRankingConfig(JSON.stringify({ secondStage: { unknownCurrentnessPenalty: 0.03 } })).secondStage
@@ -73,10 +93,16 @@ describe("resolveRankingConfig override merge", () => {
 
   it("ignores non-numeric values and clamps diversity penalties to non-negative", () => {
     const cfg = resolveRankingConfig(
-      JSON.stringify({ secondStage: { doseAmountBoost: "big" }, documentDiversityPenalty: -5 }),
+      JSON.stringify({
+        secondStage: { doseAmountBoost: "big" },
+        featureFusion: { document_lookup: { metadataRelevance: -2, clinicalEvidence: "high" } },
+        documentDiversityPenalty: -5,
+      }),
     );
     expect(cfg.secondStage.doseAmountBoost).toBe(0.18);
     expect(cfg.documentDiversityPenalty).toBe(0);
+    expect(cfg.featureFusion.document_lookup.metadataRelevance).toBe(0);
+    expect(cfg.featureFusion.document_lookup.clinicalEvidence).toBe(1);
   });
 
   it("accepts the linear freshness mode", () => {
