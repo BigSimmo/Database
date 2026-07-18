@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 
 import { ModeHomeVerificationFooter } from "@/components/mode-home-template";
@@ -81,6 +82,9 @@ function TherapyCompassMain({ children }: { children: ReactNode }) {
  * with the universal clinical verification footer.
  */
 export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isHome = pathname === "/therapy-compass";
+
   return (
     <TcProvider>
       <TherapyCompassStyles />
@@ -88,7 +92,7 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
         className="tc-root"
         style={s(`min-height:calc(100dvh - 4rem);background:var(--surface-chrome);color:var(--text);`)}
       >
-        <TherapyCompassNav />
+        {isHome ? null : <TherapyCompassNav />}
         <TherapyCompassMain>{children}</TherapyCompassMain>
       </div>
     </TcProvider>
