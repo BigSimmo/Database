@@ -32,7 +32,10 @@ describe("Supabase server client", () => {
     let cookieAdapter:
       | {
           getAll(): typeof cookieRows;
-          setAll(rows: Array<{ name: string; value: string; options: Record<string, unknown> }>): void;
+          setAll(
+            rows: Array<{ name: string; value: string; options: Record<string, unknown> }>,
+            headers: Record<string, string>,
+          ): void;
         }
       | undefined;
     const createdClient = { kind: "server-client" };
@@ -66,8 +69,50 @@ describe("Supabase server client", () => {
     expect(cookieAdapter?.getAll()).toEqual(cookieRows);
 
     const options = { httpOnly: true };
-    cookieAdapter?.setAll([{ name: "sb-refresh", value: "new-value", options }]);
+    cookieAdapter?.setAll([{ name: "sb-refresh", value: "new-value", options }], {
+      "Cache-Control": "private, no-store",
+    });
     expect(cookieStore.set).toHaveBeenCalledWith("sb-refresh", "new-value", options);
+  });
+
+  it("delegates cookie and response-header mutations to a route response owner", async () => {
+    const cookieStore = {
+      getAll: vi.fn(() => []),
+      set: vi.fn(),
+    };
+    let setAll:
+      | ((
+          rows: Array<{ name: string; value: string; options: Record<string, unknown> }>,
+          headers: Record<string, string>,
+        ) => void)
+      | undefined;
+    const setAllCookies = vi.fn();
+    vi.doMock("server-only", () => ({}));
+    vi.doMock("@supabase/ssr", () => ({
+      createServerClient: vi.fn(
+        (_url: string, _key: string, options: { cookies: { setAll: NonNullable<typeof setAll> } }) => {
+          setAll = options.cookies.setAll;
+          return { kind: "server-client" };
+        },
+      ),
+    }));
+    vi.doMock("next/headers", () => ({ cookies: vi.fn(async () => cookieStore) }));
+    vi.doMock("@/lib/env", () => ({
+      env: {
+        NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test",
+      },
+    }));
+    const { createSupabaseServerClient } = await import("../src/lib/supabase/server");
+
+    await createSupabaseServerClient({ setAllCookies });
+
+    const rows = [{ name: "sb-refresh", value: "new-value", options: { httpOnly: true } }];
+    const headers = { "Cache-Control": "private, no-store", Pragma: "no-cache" };
+    setAll?.(rows, headers);
+
+    expect(setAllCookies).toHaveBeenCalledWith(rows, headers);
+    expect(cookieStore.set).not.toHaveBeenCalled();
   });
 
   it("tolerates cookie writes from read-only Server Component contexts", async () => {
@@ -77,7 +122,12 @@ describe("Supabase server client", () => {
         throw new Error("Cookies can only be modified in a Server Action or Route Handler");
       }),
     };
-    let setAll: ((rows: Array<{ name: string; value: string; options: Record<string, unknown> }>) => void) | undefined;
+    let setAll:
+      | ((
+          rows: Array<{ name: string; value: string; options: Record<string, unknown> }>,
+          headers: Record<string, string>,
+        ) => void)
+      | undefined;
     vi.doMock("server-only", () => ({}));
     vi.doMock("@supabase/ssr", () => ({
       createServerClient: vi.fn(
@@ -98,7 +148,11 @@ describe("Supabase server client", () => {
 
     await createSupabaseServerClient();
 
-    expect(() => setAll?.([{ name: "sb-refresh", value: "new-value", options: {} }])).not.toThrow();
+    expect(() =>
+      setAll?.([{ name: "sb-refresh", value: "new-value", options: {} }], {
+        "Cache-Control": "private, no-store",
+      }),
+    ).not.toThrow();
     expect(cookieStore.set).toHaveBeenCalledOnce();
   });
 });
