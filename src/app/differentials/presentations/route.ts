@@ -3,7 +3,10 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getPresentationWorkflowSelectionForDiagnosisIds } from "@/lib/differentials";
 
 export function GET(request: NextRequest) {
-  const query = (request.nextUrl.searchParams.get("query") ?? request.nextUrl.searchParams.get("q"))?.trim();
+  const rawQuery = request.nextUrl.searchParams.get("query");
+  const legacyQuery = request.nextUrl.searchParams.get("q");
+  // Prefer `query`, but fall through on empty/whitespace so `q` remains usable.
+  const query = (rawQuery?.trim() || legacyQuery?.trim())?.trim();
   const selectedIds = (request.nextUrl.searchParams.get("ids") ?? "")
     .split(",")
     .map((id) => id.trim())
