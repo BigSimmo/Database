@@ -149,12 +149,12 @@ function DifferentialsMobileCompareBar({
   const hasSelection = selectedCount > 0;
 
   return createPortal(
-    <div aria-live="polite" className="flex w-full justify-center">
+    <div aria-live="polite" className="differentials-mobile-compare-fab">
       {hasSelection ? (
         <Link
           href={differentialSelectedCompareHref(query, selectedIds)}
           data-testid="differentials-compare-selected-mobile"
-          className="inline-flex min-h-12 max-w-full items-center gap-2.5 rounded-full border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] py-1 pl-4 pr-2.5 text-sm font-extrabold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-elevated)] transition active:bg-[color:var(--clinical-accent-hover)]"
+          className="differentials-mobile-compare-fab__button"
         >
           <GitCompareArrows className="h-5 w-5 shrink-0" aria-hidden />
           <span className="truncate">Compare selected</span>
@@ -168,7 +168,7 @@ function DifferentialsMobileCompareBar({
       ) : (
         <p
           data-testid="differentials-compare-selected-mobile"
-          className="inline-flex min-h-12 max-w-full items-center gap-2.5 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-elevated)]"
+          className="differentials-mobile-compare-fab__button differentials-mobile-compare-fab__button--empty"
         >
           <GitCompareArrows className="h-5 w-5 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
           <span className="truncate">Tick results to compare</span>
@@ -791,7 +791,7 @@ function SearchResultsView({
   // for comparison and drop stale ids whenever a new query changes the results
   // (render-time sync, matching the repo's set-state-in-render pattern).
   const resultSignature = results.map((result) => result.id).join("|");
-  const [lastResultSignature, setLastResultSignature] = useState(resultSignature);
+  const [lastResultSignature, setLastResultSignature] = useState("");
   if (lastResultSignature !== resultSignature) {
     setLastResultSignature(resultSignature);
     setKindFilter("all");
@@ -861,7 +861,11 @@ function SearchResultsView({
   return (
     <div
       data-testid="differentials-search-results"
-      className="mx-auto grid w-full max-w-[86rem] gap-4 overflow-x-hidden px-3 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:px-4 lg:px-0 lg:pb-0"
+      // overflow-x-clip (not hidden): hidden forces overflow-y to auto and turns
+      // this results canvas into a nested phone scrollport, stealing scroll from
+      // #main-content. The fixed compare FAB and shell hide-on-scroll both assume
+      // #main-content owns vertical scroll.
+      className="mx-auto grid w-full max-w-[86rem] min-w-0 gap-3 overflow-x-clip px-3 pb-[calc(10rem+env(safe-area-inset-bottom))] min-[390px]:gap-4 sm:px-4 lg:px-0 lg:pb-0"
     >
       {/* Query context lives here on every breakpoint — on phones this is the
           only place the submitted query is visible above the fold. */}
@@ -875,10 +879,10 @@ function SearchResultsView({
       />
       <p
         data-testid="differentials-catalogue-notice"
-        className="flex items-start gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/50 px-3 py-1.5 text-xs font-semibold leading-5 text-[color:var(--info)] sm:py-2 sm:text-sm"
+        className="flex min-w-0 items-start gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)]/50 px-3 py-1.5 text-xs font-semibold leading-5 text-[color:var(--info)] sm:py-2 sm:text-sm"
       >
         <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-        <span>
+        <span className="min-w-0 text-pretty">
           Ranked from your imported differentials catalogue. Source counts reflect real matches from your indexed
           library.
         </span>
@@ -1024,7 +1028,7 @@ function SearchResultsView({
               {!hasSourceEvidence && !sourcesChecked ? (
                 <section
                   aria-label="Source status"
-                  className="flex items-center justify-between gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 py-1.5 pl-3 pr-1.5 text-xs"
+                  className="grid gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/40 px-3 py-2 text-xs min-[390px]:flex min-[390px]:items-center min-[390px]:justify-between min-[390px]:gap-2 min-[390px]:py-1.5 min-[390px]:pr-1.5"
                 >
                   <p className="min-w-0 font-semibold leading-4 text-[color:var(--text-heading)]">
                     Sources not checked for this query yet.
@@ -1033,7 +1037,7 @@ function SearchResultsView({
                     type="button"
                     onClick={rerunSearch}
                     disabled={loading}
-                    className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60"
+                    className="inline-flex min-h-tap w-full shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-wait disabled:opacity-60 min-[390px]:w-auto"
                   >
                     <Search className="h-3.5 w-3.5" aria-hidden />
                     {loading ? "Searching…" : "Run source search"}
