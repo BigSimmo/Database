@@ -905,10 +905,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(
       page.getByTestId("form-search-result-transport-crisis-form").getByLabel("Open Transport order"),
     ).toHaveAttribute("href", "/forms/transport-crisis-form");
-    const refineButton = page.getByRole("button", { name: "Refine" });
-    await expect(refineButton).toBeVisible();
-    await refineButton.click();
-    await expect(page.getByTestId("form-search-refine-panel")).not.toContainText("Pathway linked");
+    await expect(page.getByRole("button", { name: "Refine" })).toHaveCount(0);
     await expect(page.getByText(/Evidence 278|Pathways 12|Tasks 8|Source verified|Aligned to MHA 2014/)).toHaveCount(0);
     await expect(page.getByText(/PSOLIS Transport|View full pathway/)).toHaveCount(0);
     await expect(page.getByTestId("service-search-results")).toHaveCount(0);
