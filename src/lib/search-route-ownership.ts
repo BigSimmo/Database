@@ -14,6 +14,7 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
   "specifiers",
   "formulation",
   "therapy-compass",
+  "factsheets",
 ]);
 
 export function shouldRenderDashboardSearch({

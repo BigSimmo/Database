@@ -249,6 +249,7 @@ function GlobalStandaloneSearchShellClient({
       (searchMode === "dsm" && pathname === "/dsm") ||
       (searchMode === "specifiers" && pathname === "/specifiers") ||
       (searchMode === "formulation" && pathname === "/formulation") ||
+      (searchMode === "factsheets" && pathname === "/factsheets") ||
       (searchMode === "tools" && pathname === "/tools"));
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
@@ -342,6 +343,7 @@ function GlobalStandaloneSearchShellClient({
     router.prefetch("/dsm");
     router.prefetch("/specifiers");
     router.prefetch("/formulation");
+    router.prefetch("/factsheets");
   }
 
   function openGuide() {
