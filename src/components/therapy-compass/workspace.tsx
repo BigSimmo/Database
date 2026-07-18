@@ -62,14 +62,26 @@ function TherapyCompassDataError() {
   );
 }
 
-function TherapyCompassMain({ children, showFooter }: { children: ReactNode; showFooter: boolean }) {
+function TherapyCompassMain({
+  children,
+  showFooter,
+  asMain,
+}: {
+  children: ReactNode;
+  showFooter: boolean;
+  /** Home renders ModeHomeMain; keep a non-main shell so landmarks are not nested. */
+  asMain: boolean;
+}) {
   const b = useTcBindings();
+  const Tag = asMain ? "main" : "div";
+  // Home padding comes from ModeHomeMain; non-home routes keep the workspace gutter.
+  const style = asMain ? s(`min-width:0;padding:32px 40px 40px;`) : s(`min-width:0;`);
   return (
-    <main className="tc-main" style={s(`min-width:0;padding:32px 40px 40px;`)}>
+    <Tag className="tc-main" style={style}>
       {b.error ? <TherapyCompassDataError /> : children}
       {/* Home uses ModeHomeTemplate's verification footer; skip the workspace copy there. */}
       {showFooter ? <TherapyCompassFooter /> : null}
-    </main>
+    </Tag>
   );
 }
 
@@ -94,7 +106,7 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
         style={s(`min-height:calc(100dvh - 4rem);background:var(--surface-chrome);color:var(--text);`)}
       >
         {isHome ? null : <TherapyCompassNav />}
-        <TherapyCompassMain showFooter={!isHome}>{children}</TherapyCompassMain>
+        <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>{children}</TherapyCompassMain>
       </div>
     </TcProvider>
   );

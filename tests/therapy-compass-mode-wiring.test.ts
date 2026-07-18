@@ -46,4 +46,20 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(bindingsSrc).toMatch(/resolveRoute\(pathname\)/);
     expect(bindingsSrc).toMatch(/searchParams\.get\("q"\)/);
   });
+
+  it("keeps a single main landmark on the therapy home route", () => {
+    const workspaceSrc = readFileSync(
+      new URL("../src/components/therapy-compass/workspace.tsx", import.meta.url),
+      "utf8",
+    );
+    const homeSrc = readFileSync(
+      new URL("../src/components/therapy-compass/screens/home-screen.tsx", import.meta.url),
+      "utf8",
+    );
+    // Home uses ModeHomeMain; workspace must not wrap home in a second <main>.
+    expect(homeSrc).toMatch(/ModeHomeMain/);
+    expect(workspaceSrc).toMatch(/asMain=\{!isHome\}/);
+    expect(workspaceSrc).toContain('const Tag = asMain ? "main" : "div"');
+  });
+
 });
