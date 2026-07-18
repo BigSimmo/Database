@@ -428,26 +428,6 @@ function throwIfAborted(signal?: AbortSignal) {
   }
 }
 
-function awaitWithCallerSignal<T>(pending: Promise<T>, signal?: AbortSignal): Promise<T> {
-  if (!signal) return pending;
-  if (signal.aborted) throw signal.reason ?? new DOMException("The operation was aborted.", "AbortError");
-
-  return new Promise<T>((resolve, reject) => {
-    const onAbort = () => reject(signal.reason ?? new DOMException("The operation was aborted.", "AbortError"));
-    signal.addEventListener("abort", onAbort, { once: true });
-    pending.then(
-      (value) => {
-        signal.removeEventListener("abort", onAbort);
-        resolve(value);
-      },
-      (error) => {
-        signal.removeEventListener("abort", onAbort);
-        reject(error);
-      },
-    );
-  });
-}
-
 export type AnswerProgressEvent = {
   stage:
     | "retrieved"
@@ -1315,7 +1295,6 @@ export async function analyzeQueryWithClassifierFallback(
     // owner_filter retrieval will use so grounding can never see documents retrieval cannot.
     corpusGrounding?: { supabase: ReturnType<typeof createAdminClient>; ownerFilter: string | null };
     ownerId?: string | null;
-    signal?: AbortSignal;
   },
 ) {
   if (
@@ -1387,16 +1366,10 @@ export async function analyzeQueryWithClassifierFallback(
   }
 
   try {
-    const verdict = await awaitWithCallerSignal(pending, opts?.signal);
+    const verdict = await pending;
     storeClassifierVerdictMemo(memoKey, verdict);
     return applyClassifierVerdict(analysis, verdict);
-  } catch (error) {
-    if (
-      error &&
-      (error instanceof DOMException || typeof error === "object") &&
-      (error as { name?: string }).name === "AbortError"
-    )
-      throw error;
+  } catch {
     // Transport/parse failures are deliberately NOT memoized: fall back to the deterministic
     // analysis for this request only, and let the next request retry the classifier.
     return analysis;
@@ -2430,7 +2403,6 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const queryAnalysis = await analyzeQueryWithClassifierFallback(retrievalQuery, analyzeClinicalQuery(retrievalQuery), {
     corpusGrounding: corpusGroundingScope,
     ownerId: args.ownerId,
-    signal: args.signal,
   });
   throwIfAborted(args.signal);
   if (modeQueryClass) queryAnalysis.queryClass = modeQueryClass;
