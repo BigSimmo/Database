@@ -464,6 +464,9 @@ export function buildRetrievalCandidates(
       score: baseScore(result),
       lexicalScore: 0,
       semanticScore: result.similarity,
+      // Selection intentionally consumes the clamped confidence signal. The incoming clinical
+      // rank already used rankScore; reusing the unbounded value here would compound boosts across
+      // passes and reintroduce the measured recall regression guarded below.
       rerankScore: result.score_explanation?.finalScore ?? result.hybrid_score,
       matchedSignals: [],
       sourceHref: documentCitationHref(citationFromResult(result)),

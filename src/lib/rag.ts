@@ -221,6 +221,7 @@ import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-re
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { buildRetrievalIntent, selectRetrievalEvidence } from "@/lib/retrieval-selection";
 import { rankingConfig } from "@/lib/ranking-config";
+import { semanticRerankIfAmbiguous } from "@/lib/semantic-rerank";
 import { z } from "zod";
 import {
   buildDocumentBreakdown,
@@ -563,19 +564,8 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
     return;
   }
 
-  const byScore = (left: SearchResult, right: SearchResult) => {
-    const leftHybrid = left.hybrid_score ?? left.similarity ?? 0;
-    const rightHybrid = right.hybrid_score ?? right.similarity ?? 0;
-    if (rightHybrid !== leftHybrid) return rightHybrid - leftHybrid;
-    const leftSimilarity = left.similarity ?? 0;
-    const rightSimilarity = right.similarity ?? 0;
-    if (rightSimilarity !== leftSimilarity) return rightSimilarity - leftSimilarity;
-    if (right.relevance?.score !== left.relevance?.score)
-      return (right.relevance?.score ?? 0) - (left.relevance?.score ?? 0);
-    return left.id.localeCompare(right.id);
-  };
-
-  results.sort(byScore);
+  // Preserve the rankScore ordering established by clinical/second-stage ranking. Coverage
+  // telemetry still uses the raw hybrid signal, but must never mutate the returned result order.
   const deduped: SearchResult[] = [];
   const seen = new Set<string>();
   for (const result of results) {
@@ -585,15 +575,16 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
   }
   results.length = 0;
   results.push(...deduped);
+  const coverageScores = results
+    .map((result) => Math.max(0, result.hybrid_score ?? result.similarity ?? 0))
+    .sort((left, right) => right - left);
 
   telemetry.weighted_top_score = Number(
     Math.max(0, ...results.map((result) => result.hybrid_score ?? result.similarity ?? 0)).toFixed(4),
   );
   telemetry.rrf_top_score = Number(Math.max(0, ...results.map((result) => result.rrf_score ?? 0)).toFixed(4));
-  telemetry.top_score = Number(results[0] ? Math.max(0, results[0].hybrid_score ?? results[0].similarity ?? 0) : 0);
-  telemetry.second_top_score = Number(
-    results[1] ? Math.max(0, results[1].hybrid_score ?? results[1].similarity ?? 0) : 0,
-  );
+  telemetry.top_score = Number((coverageScores[0] ?? 0).toFixed(4));
+  telemetry.second_top_score = Number((coverageScores[1] ?? 0).toFixed(4));
   telemetry.score_spread = Number(Math.max(0, telemetry.top_score - telemetry.second_top_score).toFixed(4));
   telemetry.score_distinct_documents = new Set(results.map((result) => result.document_id)).size;
   telemetry.retrieval_candidate_count = results.length;
@@ -635,7 +626,14 @@ function shouldUseSecondStageRerank(queryClass: RagQueryClass | undefined, resul
 
 /** Second stage score. */
 function secondStageScore(result: SearchResult, queryClass: RagQueryClass | undefined, index: number) {
-  let score = result.score_explanation?.finalScore ?? result.hybrid_score ?? result.similarity ?? 0;
+  const baseRankScore =
+    result.score_explanation?.rankScore ??
+    result.score_explanation?.preClampFinalScore ??
+    result.score_explanation?.finalScore ??
+    result.hybrid_score ??
+    result.similarity ??
+    0;
+  let adjustment = 0;
   const unitType = result.index_unit?.unit_type ?? "";
   const source = result.index_unit?.metadata?.source;
   const sourceQuality = Number(result.index_unit?.quality_score ?? 0.65);
@@ -648,35 +646,35 @@ function secondStageScore(result: SearchResult, queryClass: RagQueryClass | unde
     .join(" ")}`;
   const hasDoseAmount = /\b\d+(?:\.\d+)?\s?(?:mg|mcg|microgram|micrograms)\b/i.test(doseAmountText);
   const w = rankingConfig.secondStage;
-  score += Math.max(0, w.positionBase - index * w.positionStep);
+  adjustment += Math.max(0, w.positionBase - index * w.positionStep);
   if (result.memory_cards?.length && (queryClass === "broad_summary" || queryClass === "comparison"))
-    score += w.memorySummaryBoost;
+    adjustment += w.memorySummaryBoost;
   if (queryClass === "document_lookup" && (result.match_explanation?.titleHit || result.match_explanation?.labelHit))
-    score += w.documentLookupTitleBoost;
+    adjustment += w.documentLookupTitleBoost;
   if ((queryClass === "table_threshold" || queryClass === "medication_dose_risk") && result.table_facts?.length)
-    score += w.tableThresholdEvidenceBoost;
-  if (queryClass === "medication_dose_risk" && hasDoseAmount) score += w.doseAmountBoost;
-  if (tableVisualEvidenceUnitTypes.has(unitType)) score += w.tableVisualBoost;
-  else if (visualEvidenceUnitTypes.has(unitType)) score += w.visualBoost;
+    adjustment += w.tableThresholdEvidenceBoost;
+  if (queryClass === "medication_dose_risk" && hasDoseAmount) adjustment += w.doseAmountBoost;
+  if (tableVisualEvidenceUnitTypes.has(unitType)) adjustment += w.tableVisualBoost;
+  else if (visualEvidenceUnitTypes.has(unitType)) adjustment += w.visualBoost;
   if (source === "visual_intelligence")
-    score += Math.min(
+    adjustment += Math.min(
       w.visualIntelligenceMax,
       Math.max(0, sourceQuality - w.visualIntelligencePivot) * w.visualIntelligenceSlope,
     );
-  if (result.source_metadata?.document_status === "outdated") score -= w.outdatedPenalty;
+  if (result.source_metadata?.document_status === "outdated") adjustment -= w.outdatedPenalty;
   // D4: ships 0 (no-op) — activate via RAG_RANKING_CONFIG only behind a green golden eval.
-  if (result.source_metadata?.document_status === "unknown") score -= w.unknownCurrentnessPenalty;
-  if (result.source_metadata?.extraction_quality === "poor") score -= w.poorExtractionPenalty;
+  if (result.source_metadata?.document_status === "unknown") adjustment -= w.unknownCurrentnessPenalty;
+  if (result.source_metadata?.extraction_quality === "poor") adjustment -= w.poorExtractionPenalty;
   if (
     result.indexing_quality?.quality_score !== undefined &&
     result.indexing_quality.quality_score < w.lowIndexQualityThreshold
   )
-    score -= w.lowIndexQualityPenalty;
-  return score;
+    adjustment -= w.lowIndexQualityPenalty;
+  return { rankScore: baseRankScore + adjustment, adjustment };
 }
 
 /** Apply second stage rerank if needed. */
-function applySecondStageRerankIfNeeded(args: {
+export function applySecondStageRerankIfNeeded(args: {
   queryClass?: RagQueryClass;
   results: SearchResult[];
   telemetry: SearchTelemetry;
@@ -687,23 +685,41 @@ function applySecondStageRerankIfNeeded(args: {
   // CI-16 document diversity: subtract a demotion from each EXTRA chunk of a document that
   // has already appeared higher up, so a single doc's sibling chunks can't crowd out other
   // documents. Applied AFTER the additive-boost floor so it can actually lower the effective
-  // rank. Default penalty is 0 (disabled) — no reordering until deliberately tuned + eval-gated.
+  // rank. Keep this separate from the selection-rescue floor in retrieval-selection.ts.
   const seenPerDocument = new Map<string, number>();
   const reranked = args.results
     .map((result, index) => {
-      const boosted = secondStageScore(result, args.queryClass, index);
-      let score = Math.max(result.hybrid_score ?? 0, boosted);
+      const secondStage = secondStageScore(result, args.queryClass, index);
+      let rankScore = secondStage.rankScore;
+      let confidenceAdjustment = secondStage.adjustment;
       const priorOccurrences = seenPerDocument.get(result.document_id) ?? 0;
       seenPerDocument.set(result.document_id, priorOccurrences + 1);
       if (rankingConfig.documentDiversityPenalty > 0 && priorOccurrences > 0) {
-        score -= Math.min(
+        const diversityPenalty = Math.min(
           rankingConfig.documentDiversityPenaltyCap,
           rankingConfig.documentDiversityPenalty * priorOccurrences,
         );
+        rankScore -= diversityPenalty;
+        confidenceAdjustment -= diversityPenalty;
       }
+      const finalScore = Math.min(
+        1,
+        Math.max(
+          0,
+          (result.score_explanation?.finalScore ?? result.hybrid_score ?? result.similarity ?? 0) +
+            confidenceAdjustment,
+        ),
+      );
       return {
         ...result,
-        hybrid_score: Number(score.toFixed(4)),
+        score_explanation: result.score_explanation
+          ? {
+              ...result.score_explanation,
+              rankScore: Number(rankScore.toFixed(4)),
+              preClampFinalScore: Number(rankScore.toFixed(4)),
+              finalScore: Number(finalScore.toFixed(4)),
+            }
+          : result.score_explanation,
         match_explanation: {
           ...result.match_explanation,
           reasons: Array.from(new Set([...(result.match_explanation?.reasons ?? []), "second_stage_rerank"])),
@@ -712,7 +728,8 @@ function applySecondStageRerankIfNeeded(args: {
     })
     .sort(
       (left, right) =>
-        (right.hybrid_score ?? right.similarity ?? 0) - (left.hybrid_score ?? left.similarity ?? 0) ||
+        (right.score_explanation?.rankScore ?? right.hybrid_score ?? right.similarity ?? 0) -
+          (left.score_explanation?.rankScore ?? left.hybrid_score ?? left.similarity ?? 0) ||
         left.id.localeCompare(right.id),
     );
   args.telemetry.second_stage_rerank_used = true;
@@ -2442,6 +2459,25 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   const telemetry = createSearchTelemetry(retrievalQuery, queryClassification.queryClass);
   if (queryAnalysis.corpusGrounding) telemetry.corpus_grounding = queryAnalysis.corpusGrounding;
 
+  let semanticRerankAttempted = false;
+  const applySemanticRerankOnce = async (
+    results: SearchResult[],
+    options: { providerAvailable?: boolean; requestModeEligible?: boolean } = {},
+  ) => {
+    if (semanticRerankAttempted) return results;
+    semanticRerankAttempted = true;
+    const reranked = await semanticRerankIfAmbiguous({
+      query: retrievalQuery,
+      results,
+      telemetry,
+      signal: args.signal,
+      providerAvailable: options.providerAvailable,
+      requestModeEligible: options.requestModeEligible ?? !args.lexicalOnly,
+    });
+    telemetry.rerank_latency_ms += telemetry.semantic_rerank_latency_ms ?? 0;
+    return reranked;
+  };
+
   const ragAliases = await fetchEnabledRagAliases(supabase, args.ownerId, args.accessScope);
   const ragAliasExpansions = selectRagAliasExpansions(retrievalQuery, ragAliases);
   telemetry.rag_alias_count = ragAliases.length;
@@ -2561,6 +2597,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
       telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
       markEmbeddingSkippedByTextFastPath(telemetry, baseTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
+      textFastResults = await applySemanticRerankOnce(textFastResults);
       recordSearchScoreTelemetry(telemetry, textFastResults);
       await setCachedSearch(args, textFastResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
       return { results: textFastResults, telemetry };
@@ -2605,6 +2642,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     if (!args.forceEmbedding && boostedTextFastPath.returnFastPath) {
       markEmbeddingSkippedByTextFastPath(telemetry, boostedTextFastPath.reason);
       telemetry.retrieval_strategy = "text_fast_path";
+      textFastResults = await applySemanticRerankOnce(textFastResults);
       recordSearchScoreTelemetry(telemetry, textFastResults);
       await setCachedSearch(args, textFastResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
       return { results: textFastResults, telemetry };
@@ -2724,6 +2762,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
           documentLookupFastPath.reason ? `document_lookup_fast_path:${documentLookupFastPath.reason}` : null,
         );
         telemetry.retrieval_strategy = "document_lookup_fast_path";
+        documentLookupResults = await applySemanticRerankOnce(documentLookupResults);
         recordSearchScoreTelemetry(telemetry, documentLookupResults);
         await setCachedSearch(args, documentLookupResults, telemetry, queryVariants, {
           indexingVersionAtRetrievalStart,
@@ -2750,9 +2789,10 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     applyCoverageGateTelemetry(telemetry, coverageGate, !args.forceEmbedding && coverageGate.accepted);
     if (!args.forceEmbedding && coverageGate.accepted) {
       telemetry.retrieval_strategy = coverageGate.strategy;
-      recordSearchScoreTelemetry(telemetry, coverageGateResults);
-      await setCachedSearch(args, coverageGateResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
-      return { results: coverageGateResults, telemetry };
+      const semanticResults = await applySemanticRerankOnce(coverageGateResults);
+      recordSearchScoreTelemetry(telemetry, semanticResults);
+      await setCachedSearch(args, semanticResults, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
+      return { results: semanticResults, telemetry };
     }
     textFastResults = mergeSearchResults(coverageGateResults, textFastResults);
   }
@@ -2764,6 +2804,10 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.embedding_skipped = true;
     telemetry.embedding_skip_reason = sourceOnlyRetrieval ? SOURCE_ONLY_EMBEDDING_SKIP_REASON : "lexical_only";
     telemetry.retrieval_strategy = telemetry.retrieval_strategy ?? "text_fast_path";
+    textFastResults = await applySemanticRerankOnce(textFastResults, {
+      providerAvailable: !sourceOnlyRetrieval,
+      requestModeEligible: !args.lexicalOnly,
+    });
     recordSearchScoreTelemetry(telemetry, textFastResults);
     return { results: textFastResults, telemetry };
   }
@@ -2781,6 +2825,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     telemetry.embedding_skip_reason = sourceOnlyReason(error);
     telemetry.vector_skipped_reason = classifyProviderFailure(error);
     telemetry.retrieval_strategy = telemetry.retrieval_strategy ?? "text_fast_path";
+    textFastResults = await applySemanticRerankOnce(textFastResults, { providerAvailable: false });
     recordSearchScoreTelemetry(telemetry, textFastResults);
     return { results: textFastResults, telemetry };
   }
@@ -2941,6 +2986,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
     });
     telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
     telemetry.retrieval_strategy = "hybrid";
+    results = await applySemanticRerankOnce(results);
     recordSearchScoreTelemetry(telemetry, results);
     await setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
     return { results, telemetry };
@@ -3027,6 +3073,7 @@ export async function searchChunksWithTelemetry(args: SearchChunksArgs) {
   });
   telemetry.rerank_latency_ms += Date.now() - rerankStartedAt;
   telemetry.retrieval_strategy = "vector_fallback";
+  results = await applySemanticRerankOnce(results);
   recordSearchScoreTelemetry(telemetry, results);
   await setCachedSearch(args, results, telemetry, queryVariants, { indexingVersionAtRetrievalStart });
   return { results, telemetry };

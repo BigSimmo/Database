@@ -910,16 +910,36 @@ describe("clinical rank score bounding and penalty caps (RET-H1, RET-H2)", () =>
   });
 });
 
-describe("pre-clamp final score emission", () => {
-  it("emits preClampFinalScore on every ranked result for downstream tie-breaking", () => {
+describe("rank score and confidence emission", () => {
+  it("emits an unbounded rankScore with preClampFinalScore as its compatibility alias", () => {
     const ranked = rankClinicalResults("clozapine monitoring requirements", [
       result({ id: "a", title: "Clozapine Prescribing and Monitoring", hybrid_score: 0.9 }),
       result({ id: "b", title: "General Notes", hybrid_score: 0.4 }),
     ]);
 
     for (const item of ranked) {
+      expect(typeof item.score_explanation?.rankScore).toBe("number");
+      expect(item.score_explanation?.preClampFinalScore).toBe(item.score_explanation?.rankScore);
       expect(typeof item.score_explanation?.preClampFinalScore).toBe("number");
       expect(Number.isFinite(item.score_explanation?.preClampFinalScore)).toBe(true);
+      expect(item.score_explanation?.finalScore).toBeGreaterThanOrEqual(0);
+      expect(item.score_explanation?.finalScore).toBeLessThanOrEqual(1);
     }
+  });
+
+  it("orders saturated candidates by rankScore while keeping confidence clamped", () => {
+    const ranked = rankClinicalResults("clozapine monitoring requirements", [
+      result({ id: "lower-rank", title: "Clozapine Notes", hybrid_score: 0.91 }),
+      result({
+        id: "higher-rank",
+        title: "Clozapine Prescribing and Monitoring",
+        content: "Clozapine monitoring safety protocol and blood monitoring requirements.",
+        hybrid_score: 0.9,
+      }),
+    ]);
+
+    expect(ranked[0].id).toBe("higher-rank");
+    expect(ranked[0].score_explanation?.rankScore).toBeGreaterThan(1);
+    expect(ranked[0].score_explanation?.finalScore).toBe(1);
   });
 });
