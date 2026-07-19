@@ -213,20 +213,19 @@ function directPdfDictionaryInteger(dictionary: string, key: "Width" | "Height")
  * The parser ceiling remains the fail-safe for compressed or indirect objects.
  */
 function assertDeclaredPdfImageDimensions(buffer: Buffer, limits: PdfExtractionBudget) {
-  const subtypeMarker = Buffer.from("/Subtype", "latin1");
   const dictionaryStartMarker = Buffer.from("<<", "latin1");
   const dictionaryEndMarker = Buffer.from(">>", "latin1");
   let offset = 0;
   const budget = new PdfExtractionBudgetTracker(limits);
 
   while (offset < buffer.length) {
-    const subtypeOffset = buffer.indexOf(subtypeMarker, offset);
-    if (subtypeOffset === -1) return;
-    offset = subtypeOffset + subtypeMarker.length;
-    const dictionaryStart = buffer.lastIndexOf(dictionaryStartMarker, subtypeOffset);
-    const dictionaryEnd = buffer.indexOf(dictionaryEndMarker, offset);
-    if (dictionaryStart === -1 || dictionaryEnd === -1 || dictionaryEnd - dictionaryStart > 64 * 1024) continue;
-    const dictionary = buffer.subarray(dictionaryStart, dictionaryEnd + dictionaryEndMarker.length).toString("latin1");
+    const dictionaryStart = buffer.indexOf(dictionaryStartMarker, offset);
+    if (dictionaryStart === -1) return;
+    const dictionaryEnd = buffer.indexOf(dictionaryEndMarker, dictionaryStart + dictionaryStartMarker.length);
+    if (dictionaryEnd === -1) return;
+    offset = dictionaryEnd + dictionaryEndMarker.length;
+    if (dictionaryEnd - dictionaryStart > 64 * 1024) continue;
+    const dictionary = buffer.subarray(dictionaryStart, offset).toString("latin1");
     if (!/\/Subtype\s*\/Image\b/.test(dictionary)) continue;
     const width = directPdfDictionaryInteger(dictionary, "Width");
     const height = directPdfDictionaryInteger(dictionary, "Height");
@@ -256,17 +255,21 @@ export async function extractPdf(
     // Fallback for developer machines without PyMuPDF/pytesseract. It still
     // indexes text PDFs, but scanned PDFs and image extraction need the Python
     // helper dependencies listed in worker/python/requirements.txt.
-    const parser = new PDFParse({
+    const textParser = new PDFParse({
+      data: buffer,
+      maxImageSize: limits.maxRenderPixels,
+    });
+    const imageParser = new PDFParse({
       data: buffer,
       maxImageSize: limits.maxRenderPixels,
       // pdf.js only raises its pre-decode maxImageSize rejection when parse
-      // errors are not ignored. This prevents an oversized embedded bitmap
-      // from being decoded before our post-decode dimension check can run.
+      // errors are not ignored. Scope this to image extraction so unrelated
+      // recoverable PDF errors do not block text fallback extraction.
       stopAtErrors: true,
     });
     try {
       assertDeclaredPdfImageDimensions(buffer, limits);
-      const parsed = await parser.getText();
+      const parsed = await textParser.getText();
       const budget = new PdfExtractionBudgetTracker(limits);
       const rawPages: ExtractedPage[] =
         parsed.pages.length > 0
@@ -282,7 +285,7 @@ export async function extractPdf(
       // Extract one page at a time so aggregate limits can stop subsequent decoding, and
       // request only binary data to avoid holding a duplicate base64 representation.
       for (const rawPage of rawPages) {
-        const imageResult = await parser.getImage({
+        const imageResult = await imageParser.getImage({
           partial: [rawPage.pageNumber],
           imageBuffer: true,
           imageDataUrl: false,
@@ -311,7 +314,8 @@ export async function extractPdf(
           }
         }
       }
-      await parser.destroy();
+      await textParser.destroy();
+      await imageParser.destroy();
 
       // IDX-H3: the JS fallback cannot OCR. A scanned / image-only page yields little or no
       // embedded text, so without flagging it the document would index as near-empty yet still
@@ -342,7 +346,8 @@ export async function extractPdf(
       budget.assertResult(JSON.stringify(result));
       return result;
     } catch (fallbackError) {
-      await parser.destroy().catch(() => undefined);
+      await textParser.destroy().catch(() => undefined);
+      await imageParser.destroy().catch(() => undefined);
       await rm(tempRoot, { recursive: true, force: true }).catch(() => undefined);
       if (fallbackError instanceof Error && fallbackError.message.includes("Image exceeded maximum allowed size")) {
         throw new PdfExtractionResourceError(
