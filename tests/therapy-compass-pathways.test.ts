@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
-import { therapyRecordExists } from "@/lib/therapies";
+
+import therapiesIndexJson from "../src/data/therapies-index.json";
 
 // Guards the clinical integrity of the Therapy Compass pathway data. The imported
 // mockup shipped pathways whose therapy steps were mismatched to the pathway's
@@ -19,6 +20,7 @@ const dataUrl = (name: string) => new URL(`../public/therapy-compass-data/${name
 const therapies = JSON.parse(readFileSync(dataUrl("therapies.json"), "utf8")) as Therapy[];
 const pathways = JSON.parse(readFileSync(dataUrl("pathways.json"), "utf8")) as Pathway[];
 const bySlug = new Map(therapies.map((t) => [t.slug, t]));
+const canonicalBySlug = new Map(therapiesIndexJson.map((therapy) => [therapy.slug, therapy]));
 const LEGACY_DUPLICATE_SLUGS = [
   "behavioural-activation",
   "emdr",
@@ -203,8 +205,10 @@ const DOMAIN_APPROPRIATE: Record<string, string[]> = {
 describe("Therapy Compass pathway clinical integrity", () => {
   it("keeps legacy duplicate therapy slugs out of the canonical catalogue", () => {
     for (const slug of LEGACY_DUPLICATE_SLUGS) {
-      expect(bySlug.has(slug), `legacy duplicate therapy ${slug} was restored to the public dataset`).toBe(false);
-      expect(therapyRecordExists(slug), `legacy duplicate therapy ${slug} was restored to the app index`).toBe(false);
+      expect(canonicalBySlug.has(slug), `legacy duplicate therapy ${slug} was restored in therapies-index.json`).toBe(
+        false,
+      );
+      expect(bySlug.has(slug), `legacy duplicate therapy ${slug} was restored in therapies.json`).toBe(false);
     }
   });
 

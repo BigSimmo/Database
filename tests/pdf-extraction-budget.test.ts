@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import PDFDocument from "pdfkit";
-import { afterEach, describe, expect, it } from "vitest";
+import { PDFParse } from "pdf-parse";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { extractPdf, runPythonPdfExtractor } from "@/lib/extractors/document";
 import {
   PDF_EXTRACTION_BUDGET,
@@ -48,6 +49,7 @@ async function createRecoverableMalformedTextPdf() {
 }
 
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -172,6 +174,8 @@ describe("PDF extraction budgets", () => {
   });
 
   it("rejects an oversized embedded image before the JavaScript fallback decodes it", async () => {
+    const getTextSpy = vi.spyOn(PDFParse.prototype, "getText");
+    const getImageSpy = vi.spyOn(PDFParse.prototype, "getImage");
     const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-pdf-image-budget-test-"));
     roots.push(root);
     const fakeExtractor = path.join(root, "missing-dependency.py");
@@ -187,6 +191,9 @@ describe("PDF extraction budgets", () => {
         scriptPathOverride: fakeExtractor,
       }),
     ).rejects.toMatchObject({ code: "PDF_EXTRACTION_BUDGET_EXCEEDED" });
+
+    expect(getTextSpy).not.toHaveBeenCalled();
+    expect(getImageSpy).not.toHaveBeenCalled();
   });
 
   it("keeps best-effort fallback extraction for recoverable non-image PDF damage", async () => {
