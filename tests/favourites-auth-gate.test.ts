@@ -26,6 +26,7 @@ describe("favourites auth gate", () => {
 
     expect(shell).toContain("showAccountLibrary={favouritesAccessible}");
     expect(shell).toContain("canAccessFavourites={favouritesAccessible}");
+    expect(shell).toContain("useFavouritesAccess");
     expect(shell).toContain('openAccountSetup("favourites")');
 
     expect(header).toContain("canAccessFavourites");

@@ -20,7 +20,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import {
@@ -1025,7 +1025,8 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     demoMode,
   });
   const authSettled = auth.status !== "loading";
-  const [accountSetupOpen, setAccountSetupOpen] = useState(false);
+  const [accountSetupDismissed, setAccountSetupDismissed] = useState(false);
+  const accountSetupOpen = authSettled && !favouritesAccessible && !accountSetupDismissed;
   const [navCollapsed, setNavCollapsed] = useFavouritesNavCollapsed();
   const savedRegistryFavourites = useSavedRegistryFavourites();
   const items = useMemo(
@@ -1038,11 +1039,6 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   const [viewMode, setViewMode] = useState<ViewMode>("all");
   const [sortMode, setSortMode] = useState<SortMode>("last-used");
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!authSettled || favouritesAccessible) return;
-    setAccountSetupOpen(true);
-  }, [authSettled, favouritesAccessible]);
 
   const effectiveSelectedSetId = selectedSetId && sets.some((set) => set.id === selectedSetId) ? selectedSetId : null;
   const selectedSet = effectiveSelectedSetId ? (sets.find((set) => set.id === effectiveSelectedSetId) ?? null) : null;
@@ -1112,7 +1108,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               <button
                 type="button"
                 data-testid="favourites-open-account-setup"
-                onClick={() => setAccountSetupOpen(true)}
+                onClick={() => setAccountSetupDismissed(false)}
                 className="mt-3 inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               >
                 Sign up to save favourites
@@ -1120,7 +1116,11 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
             ) : null}
           </div>
         </div>
-        <AccountSetupDialog open={accountSetupOpen} onClose={() => setAccountSetupOpen(false)} intent="favourites" />
+        <AccountSetupDialog
+          open={accountSetupOpen}
+          onClose={() => setAccountSetupDismissed(true)}
+          intent="favourites"
+        />
       </main>
     );
   }

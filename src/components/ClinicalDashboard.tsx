@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import {
   CircleAlert,
   BookOpen,
-  ChevronDown,
   Clock3,
   ExternalLink,
   FileImage,
@@ -42,7 +41,6 @@ import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import {
   appBackdrop,
-  answerSurface,
   cn,
   EmptyState,
   floatingControl,
@@ -54,11 +52,13 @@ import { useAuthSession } from "@/lib/supabase/client";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
+import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
+import { PriorAnswerTurnSurface } from "@/components/clinical-dashboard/prior-answer-turn-surface";
 import {
   deriveSidebarIdentity,
   ClinicalDesktopSidebar,
@@ -78,12 +78,7 @@ import {
 } from "@/components/clinical-dashboard/DocumentManagerPanel";
 import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
-import {
-  isPreformattedGroundedAnswer,
-  NaturalLanguageAnswer,
-  ScopeAndGovernanceNotice,
-  UserQuestionBubble,
-} from "@/components/clinical-dashboard/answer-content";
+import { isPreformattedGroundedAnswer, ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
 import { AnswerEmptyState, AnswerProgressStepper, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
 import {
   type AnswerProgressUpdate,
@@ -196,7 +191,6 @@ import {
   appModeCanUseSourceLibraryShortcut,
   appModeSearchConfig,
   appModeSourceLibrarySearchMode,
-  canAccessFavouritesMode,
   isAppModeId,
   isAppModeVisible,
   type AppModeId,
@@ -344,105 +338,6 @@ type AnswerTurn = {
 };
 
 const maxVisiblePriorTurns = 10;
-
-/**
- * Renders a collapsible, read-only view of a previous answer-thread turn with its question, answer, sources, and source-review notice.
- *
- * @param turn - The previous question and answer turn to display
- * @param copied - Whether the turn's answer has been copied
- * @param collapsed - Whether the answer content is collapsed
- * @param onToggleCollapsed - Called when the answer visibility is toggled
- * @param onCopy - Called with the answer text when copying is requested
- */
-function PriorAnswerTurnSurface({
-  turn,
-  copied,
-  collapsed,
-  onToggleCollapsed,
-  onCopy,
-}: {
-  turn: AnswerTurn;
-  copied: boolean;
-  collapsed: boolean;
-  onToggleCollapsed: () => void;
-  onCopy: (text: string) => void;
-}) {
-  const renderModel = useMemo(
-    () => buildAnswerRenderModel(turn.answer, { sources: turn.sources }),
-    [turn.answer, turn.sources],
-  );
-  const turnPreformatted = isPreformattedGroundedAnswer(turn.answer);
-  const safeText = useMemo(
-    () => sanitizeAnswerDisplayText(turn.answer.answer, { preformatted: turnPreformatted }),
-    [turn.answer.answer, turnPreformatted],
-  );
-  const sourceCount =
-    renderModel.primarySources.length ||
-    turn.sources.length ||
-    turn.answer.sources?.length ||
-    turn.answer.citations.length;
-  const previewText = safeText || turn.answer.answer;
-  const needsSourceReview =
-    turn.answer.answerQualityTier === "source_only" ||
-    turn.answer.grounded === false ||
-    renderModel.trust === "low" ||
-    renderModel.trust === "unsupported";
-
-  return (
-    <div
-      // Historical conversation turns grow unbounded and most are collapsed and
-      // scrolled off-screen; content-auto skips their layout/paint until near the
-      // viewport. Safe here — the surface has no overflowing popovers, and the
-      // expand toggle is only reachable once the turn is scrolled into view.
-      className="content-auto min-w-0 space-y-4 sm:space-y-5"
-      data-dashboard-stage="answer-thread-turn"
-      data-collapsed={collapsed ? "true" : "false"}
-    >
-      <div className={cn(answerSurface, "space-y-3 p-2.5 sm:p-3")}>
-        <UserQuestionBubble query={turn.query} />
-        <button
-          type="button"
-          onClick={onToggleCollapsed}
-          aria-expanded={!collapsed}
-          className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-1 text-xs font-semibold text-[color:var(--text-muted)] transition hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-        >
-          <ChevronDown className={cn("h-4 w-4 transition-transform", !collapsed && "rotate-180")} aria-hidden="true" />
-          {collapsed ? "Show previous answer" : "Hide previous answer"}
-        </button>
-        {collapsed ? (
-          <p className={cn("line-clamp-2 text-sm leading-6", textMuted)}>{previewText}</p>
-        ) : (
-          <>
-            <NaturalLanguageAnswer
-              text={turn.answer.answer}
-              preformatted={turnPreformatted}
-              sourceCount={sourceCount}
-              sourceOnly={turn.answer.answerQualityTier === "source_only"}
-              bestSource={renderModel.bestSource}
-              sources={renderModel.reviewSources}
-              sourceLinks={renderModel.primarySources}
-              copied={copied}
-              onCopy={() => onCopy(renderModel.copyText || previewText)}
-            />
-            {needsSourceReview ? (
-              <div
-                role="note"
-                data-testid="prior-answer-source-review"
-                className="mt-2 flex items-start gap-2 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-xs text-[color:var(--text-muted)]"
-              >
-                <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--warning)]" aria-hidden />
-                <span>
-                  <strong className="text-[color:var(--text-heading)]">Review source match.</strong> Verify cited
-                  passages before relying on this previous answer.
-                </span>
-              </div>
-            ) : null}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
 
 type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
 type IndexingMonitorFilter = "all" | "active" | "failed";
@@ -673,8 +568,6 @@ export function ClinicalDashboard({
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [accountSetupOpen, setAccountSetupOpen] = useState(false);
-  const [accountSetupIntent, setAccountSetupIntent] = useState<"default" | "favourites">("default");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
@@ -813,10 +706,8 @@ export function ClinicalDashboard({
     authUnavailableFallback: browserAuthUnavailableDemoFallback,
     localNoAuthMode,
   });
-  const favouritesAccessible = canAccessFavouritesMode({
-    authenticated: authStatus === "authenticated",
-    demoMode: clientDemoMode,
-  });
+  const { favouritesAccessible, accountSetupOpen, accountSetupIntent, openAccountSetup, closeAccountSetup } =
+    useFavouritesAccess(authStatus === "authenticated", clientDemoMode);
   const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
   const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
   useEffect(() => {
@@ -895,12 +786,12 @@ export function ClinicalDashboard({
     (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
       if (except !== "guide") setGuideOpen(false);
       if (except !== "settings") setSettingsOpen(false);
-      if (except !== "accountSetup") setAccountSetupOpen(false);
+      if (except !== "accountSetup") closeAccountSetup();
       if (except !== "mobileSidebar") setMobileSidebarOpen(false);
       if (except !== "documents") setDocumentsDrawerOpen(false);
       if (except !== "upload") setUploadDrawerOpen(false);
     },
-    [],
+    [closeAccountSetup],
   );
   const openGuide = useCallback(() => {
     closeDashboardTransientSurfaces("guide");
@@ -913,26 +804,15 @@ export function ClinicalDashboard({
   }, [closeDashboardTransientSurfaces]);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
-  const openAccountSetup = useCallback(
-    (intent: "default" | "favourites" = "default") => {
-      closeDashboardTransientSurfaces("accountSetup");
-      setAccountSetupIntent(intent);
-      setAccountSetupOpen(true);
-    },
-    [closeDashboardTransientSurfaces],
-  );
   const openAccountProfile = useCallback(() => {
     if (sidebarIdentity.signedIn) {
       closeDashboardTransientSurfaces("settings");
       setSettingsOpen(true);
       return;
     }
+    closeDashboardTransientSurfaces("accountSetup");
     openAccountSetup("default");
   }, [closeDashboardTransientSurfaces, openAccountSetup, sidebarIdentity.signedIn]);
-  const closeAccountSetup = useCallback(() => {
-    setAccountSetupOpen(false);
-    setAccountSetupIntent("default");
-  }, []);
   const prefetchApplications = useCallback(() => {
     router.prefetch("/?mode=tools");
     router.prefetch("/favourites");
@@ -2777,6 +2657,7 @@ export function ClinicalDashboard({
 
   function selectSearchMode(mode: AppModeId) {
     if (mode === "favourites" && !favouritesAccessible) {
+      closeDashboardTransientSurfaces("accountSetup");
       openAccountSetup("favourites");
       return;
     }
@@ -3515,7 +3396,10 @@ export function ClinicalDashboard({
           onQueryChange={setQuery}
           onSearchModeChange={selectSearchMode}
           canAccessFavourites={favouritesAccessible}
-          onRequestAccountSetup={() => openAccountSetup("favourites")}
+          onRequestAccountSetup={() => {
+            closeDashboardTransientSurfaces("accountSetup");
+            openAccountSetup("favourites");
+          }}
           onAsk={ask}
           onClearQuery={() => {
             setQuery("");
