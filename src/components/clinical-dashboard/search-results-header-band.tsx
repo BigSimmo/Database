@@ -175,15 +175,18 @@ export function SearchResultsEmptyState({
   onClearScopes,
   onTryExample,
   onCrossMode,
+  canAccessFavourites = false,
 }: {
   modeId: AppModeId;
   query: string;
   onClearScopes?: () => void;
   onTryExample?: (example: string) => void;
   onCrossMode?: (modeId: AppModeId) => void;
+  canAccessFavourites?: boolean;
 }) {
   const command = useSearchCommand();
   const config = searchCommandSurfaceConfig(modeId);
+  const crossModes = (config?.crossModes ?? []).filter((target) => canAccessFavourites || target !== "favourites");
   const activeScopes = command?.commandScopes ?? [];
 
   return (
@@ -222,7 +225,7 @@ export function SearchResultsEmptyState({
             Try: {config.examples[0]}
           </button>
         ) : null}
-        {config?.crossModes.slice(0, 2).map((target) =>
+        {crossModes.slice(0, 2).map((target) =>
           onCrossMode ? (
             <button
               key={target}

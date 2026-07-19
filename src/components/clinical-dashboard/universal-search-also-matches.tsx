@@ -4,11 +4,18 @@ import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 
+import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { useUniversalSearch } from "@/components/clinical-dashboard/use-universal-search";
 import { cn } from "@/components/ui-primitives";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
+import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
+import { useAuthSession } from "@/lib/supabase/client";
 import { universalSearchModeForDomain, universalSearchPreferredDomains } from "@/lib/universal-search-mode-context";
+
+function isFavouritesHref(href: string) {
+  return href === "/favourites" || href.startsWith("/favourites?");
+}
 
 export function UniversalSearchAlsoMatches({
   modeId,
@@ -19,6 +26,13 @@ export function UniversalSearchAlsoMatches({
   query: string;
   className?: string;
 }) {
+  const auth = useAuthSession();
+  const clientDemoMode = resolveClientDemoMode({
+    explicitDemoMode: process.env.NEXT_PUBLIC_DEMO_MODE === "true",
+    authUnavailableFallback: !auth.isConfigured,
+    localNoAuthMode: isLocalNoAuthMode(),
+  });
+  const { favouritesAccessible } = useFavouritesAccess(auth.status === "authenticated", clientDemoMode);
   const trimmedQuery = query.trim();
   const universal = useUniversalSearch({
     query: trimmedQuery,
@@ -60,8 +74,10 @@ export function UniversalSearchAlsoMatches({
     for (const group of orderedGroups) {
       const targetModeId = universalSearchModeForDomain(group.kind);
       if (targetModeId === modeId) continue;
+      if (targetModeId === "favourites" && !favouritesAccessible) continue;
       const modeGroup = byMode.get(targetModeId) ?? { modeId: targetModeId, items: [] };
       for (const item of group.items) {
+        if (!favouritesAccessible && isFavouritesHref(item.href)) continue;
         if (modeGroup.items.length >= 2) break;
         if (!modeGroup.items.some((existing) => existing.href === item.href)) modeGroup.items.push(item);
       }

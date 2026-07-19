@@ -18,7 +18,7 @@ import {
 } from "@/components/clinical-dashboard/favourites-prototype-data";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import { cn } from "@/components/ui-primitives";
-import { appModeDefinition, type AppModeId } from "@/lib/app-modes";
+import { appModeDefinition, filterCrossModesForSession, type AppModeId } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import {
   commandDropdownCanDisplay,
@@ -347,6 +347,7 @@ function CommandDropdown({
 
 export function UniversalSearchCommandSurface({
   demoMode,
+  canAccessFavourites = false,
   modeId,
   query,
   recentQueries,
@@ -367,6 +368,8 @@ export function UniversalSearchCommandSurface({
   children,
 }: {
   demoMode: boolean;
+  /** When false, omit Favourites cross-mode chips and local Favourites matches. */
+  canAccessFavourites?: boolean;
   modeId: AppModeId;
   query: string;
   recentQueries: string[];
@@ -389,6 +392,17 @@ export function UniversalSearchCommandSurface({
   void commandScopes;
   void onCommandScopesChange;
   const config = searchCommandSurfaceConfig(modeId);
+  const crossModes = useMemo(
+    () =>
+      config
+        ? filterCrossModesForSession(config.crossModes, {
+            // Hosts pass the precomputed session decision; do not OR demoMode again.
+            authenticated: canAccessFavourites,
+            demoMode: false,
+          })
+        : [],
+    [canAccessFavourites, config],
+  );
   const listboxId = useId();
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -536,7 +550,7 @@ export function UniversalSearchCommandSurface({
 
     const visibleFavouriteMatches =
       modeId === "favourites" ? favouriteMatches : favouriteMatches.filter((match) => match.standalone);
-    if (trimmedQuery && visibleFavouriteMatches.length) {
+    if (canAccessFavourites && trimmedQuery && visibleFavouriteMatches.length) {
       built.push({
         key: "local-favourites",
         heading: `${modeId === "favourites" ? "Current mode" : "Also in Favourites"} · ${visibleFavouriteMatches.length}`,
@@ -812,11 +826,11 @@ export function UniversalSearchCommandSurface({
       }
     }
 
-    if (trimmedQuery && config.crossModes.length) {
+    if (trimmedQuery && crossModes.length) {
       built.push({
         key: "cross-mode",
         layout: "chips",
-        items: config.crossModes.map((target) => {
+        items: crossModes.map((target) => {
           const targetMode = appModeDefinition(target);
           const TargetIcon = appModeIcons[target];
           // Live count from the universal typeahead response ("Forms (2)") — only shown when
@@ -867,7 +881,9 @@ export function UniversalSearchCommandSurface({
 
     return built;
   }, [
+    canAccessFavourites,
     config,
+    crossModes,
     favouriteMatches,
     listboxId,
     mode,
