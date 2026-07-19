@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { computeParity, parseCiEnvNames, parseEnvSchemaNames } from "../scripts/check-env-parity.mjs";
+import {
+  computeParity,
+  EXPECTED_GITHUB_SECRETS,
+  EXPECTED_RAILWAY_SECRETS,
+  parseCiEnvNames,
+  parseEnvSchemaNames,
+} from "../scripts/check-env-parity.mjs";
 import { hasCompletedCleanupReview, parseLedgerBranches } from "../scripts/sweep-branch-ledger.mjs";
 
 describe("check-env-parity name parsing", () => {
@@ -33,6 +39,21 @@ describe("check-env-parity name parsing", () => {
     });
     expect(parity.missingSecrets).toEqual(["SUPABASE_SERVICE_ROLE_KEY"]);
     expect(parity.unknownLive).toEqual(["LEFTOVER_OLD_KEY"]);
+  });
+
+  it("keeps CI-only E2E credentials out of Railway expectations", () => {
+    expect(EXPECTED_GITHUB_SECRETS).toEqual(
+      expect.arrayContaining(["E2E_USER_EMAIL", "E2E_USER_PASSWORD", "HEALTH_DEEP_PROBE_SECRET"]),
+    );
+    expect(EXPECTED_RAILWAY_SECRETS).toEqual(
+      expect.arrayContaining([
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "OPENAI_API_KEY",
+        "RAG_QUERY_HASH_SECRET",
+        "HEALTH_DEEP_PROBE_SECRET",
+      ]),
+    );
+    expect(EXPECTED_RAILWAY_SECRETS).not.toEqual(expect.arrayContaining(["E2E_USER_EMAIL", "E2E_USER_PASSWORD"]));
   });
 });
 

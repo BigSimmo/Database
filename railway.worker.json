@@ -25,8 +25,7 @@
     ]
   },
   "deploy": {
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10,
+    "restartPolicyType": "ALWAYS",
     "multiRegionConfig": {
       "asia-southeast1-eqsg3a": {
         "numReplicas": 1

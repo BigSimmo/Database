@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-18T14:23:15.039Z",
+  "generated_at": "2026-07-19T10:21:34.307Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "3a2bd3f0de8dd1d16857100556c9bee604b063eedcb9eb5e7ab959e4799d28f0",
-  "replay_seconds": 20,
+  "schema_sha256": "f4b18b6fc86646a43daba7b73ef0c61a52ede0ac43bfeef5d73a56779a238871",
+  "replay_seconds": 75,
   "snapshot": {
     "views": [
       {
@@ -15,7 +15,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "api_rate_limit_subjects",
         "columns": [
@@ -67,7 +67,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "api_rate_limits",
         "columns": [
@@ -119,7 +119,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "audit_logs",
         "columns": [
@@ -187,7 +187,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "clinical_registry_record_sources",
         "columns": [
@@ -247,7 +247,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "clinical_registry_records",
         "columns": [
@@ -507,7 +507,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "differential_records",
         "columns": [
@@ -655,7 +655,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "document_chunks",
         "columns": [
@@ -824,7 +824,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "document_embedding_fields",
         "columns": [
@@ -935,7 +935,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "document_images",
         "columns": [
@@ -1168,7 +1168,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "document_index_quality",
         "columns": [
@@ -1284,7 +1284,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "document_index_units",
         "columns": [
@@ -1480,7 +1480,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "document_labels",
         "columns": [
@@ -1577,7 +1577,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "document_memory_cards",
         "columns": [
@@ -1749,7 +1749,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "document_pages",
         "columns": [
@@ -1822,7 +1822,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "document_publication_approvals",
         "columns": [
@@ -1906,7 +1906,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "document_sections",
         "columns": [
@@ -2062,7 +2062,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "document_summaries",
         "columns": [
@@ -2170,7 +2170,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "document_table_facts",
         "columns": [
@@ -2315,7 +2315,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "document_title_words",
         "columns": [
@@ -2343,7 +2343,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "documents",
         "columns": [
@@ -2531,7 +2531,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "image_caption_cache",
         "columns": [
@@ -2615,7 +2615,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "import_batches",
         "columns": [
@@ -2747,7 +2747,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "indexing_v3_agent_jobs",
         "columns": [
@@ -2871,7 +2871,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "ingestion_job_stages",
         "columns": [
@@ -2987,7 +2987,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "ingestion_jobs",
         "columns": [
@@ -3127,7 +3127,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "medication_records",
         "columns": [
@@ -3291,7 +3291,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "rag_aliases",
         "columns": [
@@ -3383,7 +3383,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "rag_answer_feedback",
         "columns": [
@@ -3483,7 +3483,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "rag_queries",
         "columns": [
@@ -3559,7 +3559,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "rag_query_misses",
         "columns": [
@@ -3779,7 +3779,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "rag_response_cache",
         "columns": [
@@ -3879,7 +3879,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "rag_retrieval_logs",
         "columns": [
@@ -4123,7 +4123,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "rag_visual_eval_cases",
         "columns": [
@@ -4231,7 +4231,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "rag_visual_eval_runs",
         "columns": [
@@ -4315,7 +4315,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "source_review_events",
         "columns": [
@@ -4431,7 +4431,7 @@
       {
         "acl": [
           "postgres=arwdDxtm/postgres",
-          "service_role=arwdDxtm/postgres"
+          "service_role=arwd/postgres"
         ],
         "name": "storage_cleanup_jobs",
         "columns": [
@@ -4559,6 +4559,86 @@
             "name": "updated_at",
             "type": "timestamp with time zone",
             "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "user_favourites",
+        "columns": [
+          {
+            "name": "content_key",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "content_type",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "user_preferences",
+        "columns": [
+          {
+            "name": "preferences",
+            "type": "jsonb",
+            "default": "'{}'::jsonb",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "default": null,
             "identity": "",
             "not_null": true,
             "generated": ""
@@ -5805,6 +5885,18 @@
         "name": "storage_cleanup_jobs_status_created_idx",
         "table": "storage_cleanup_jobs",
         "def_hash": "2cbfd92ff37d036d37344943f57dd95b"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX user_favourites_pkey ON public.user_favourites USING btree (user_id, content_type, content_key)",
+        "name": "user_favourites_pkey",
+        "table": "user_favourites",
+        "def_hash": "d79eec4f3e285a2d5d777b809d518906"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX user_preferences_pkey ON public.user_preferences USING btree (user_id)",
+        "name": "user_preferences_pkey",
+        "table": "user_preferences",
+        "def_hash": "c5c62ae122cf68b698382a1a3f47c98d"
       }
     ],
     "policies": [
@@ -6265,6 +6357,90 @@
         "with_check": null
       },
       {
+        "cmd": "DELETE",
+        "name": "users delete own favourites",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_favourites",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "name": "users insert own favourites",
+        "qual": null,
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_favourites",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "(( SELECT auth.uid() AS uid) = user_id)"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "users read own favourites",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_favourites",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "DELETE",
+        "name": "users delete own preferences",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_preferences",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "name": "users insert own preferences",
+        "qual": null,
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_preferences",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "(( SELECT auth.uid() AS uid) = user_id)"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "users read own preferences",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_preferences",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "UPDATE",
+        "name": "users update own preferences",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_preferences",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "(( SELECT auth.uid() AS uid) = user_id)"
+      },
+      {
         "cmd": "SELECT",
         "name": "document storage owner read",
         "qual": "((bucket_id = 'clinical-documents'::text) AND ((storage.foldername(name))[1] = (( SELECT auth.uid() AS uid))::text))",
@@ -6567,7 +6743,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "a6f0e7c27da08e47e2c01dce4ab5d58d",
+        "def_hash": "f0835bb6f4314fb9704af9ff56950d58",
         "signature": "public.default_privileges_status(text,text)"
       },
       {
@@ -6742,7 +6918,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "4bf81d62c0953a8d11c80c37de6045e7",
+        "def_hash": "3d99483e01a5c93374408b9e585d3962",
         "signature": "public.match_document_chunks_text_v2(text,integer,uuid[],uuid,boolean)"
       },
       {
@@ -6806,7 +6982,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "38282636c4c22a4f01974a943aa20d42",
+        "def_hash": "b72c524f3be13ec1a950cc30e922ec78",
         "signature": "public.match_document_index_units_hybrid_v2(extensions.vector,text,integer,double precision,uuid[],uuid,boolean)"
       },
       {
@@ -6899,7 +7075,6 @@
       },
       {
         "acl": [
-          "=X/postgres",
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
@@ -7937,6 +8112,46 @@
         "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text])))",
         "name": "storage_cleanup_jobs_status_check",
         "table": "storage_cleanup_jobs"
+      },
+      {
+        "def": "CHECK (((content_key = btrim(content_key)) AND ((char_length(content_key) >= 1) AND (char_length(content_key) <= 180))))",
+        "name": "user_favourites_content_key_check",
+        "table": "user_favourites"
+      },
+      {
+        "def": "CHECK ((content_type = ANY (ARRAY['service'::text, 'form'::text, 'differential'::text])))",
+        "name": "user_favourites_content_type_check",
+        "table": "user_favourites"
+      },
+      {
+        "def": "PRIMARY KEY (user_id, content_type, content_key)",
+        "name": "user_favourites_pkey",
+        "table": "user_favourites"
+      },
+      {
+        "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "user_favourites_user_id_fkey",
+        "table": "user_favourites"
+      },
+      {
+        "def": "CHECK ((jsonb_typeof(preferences) = 'object'::text))",
+        "name": "user_preferences_object_check",
+        "table": "user_preferences"
+      },
+      {
+        "def": "PRIMARY KEY (user_id)",
+        "name": "user_preferences_pkey",
+        "table": "user_preferences"
+      },
+      {
+        "def": "CHECK ((pg_column_size(preferences) <= 16384))",
+        "name": "user_preferences_size_check",
+        "table": "user_preferences"
+      },
+      {
+        "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "user_preferences_user_id_fkey",
+        "table": "user_preferences"
       }
     ],
     "storage_buckets": [

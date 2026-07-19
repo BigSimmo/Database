@@ -47,7 +47,7 @@ import { FormCodeBadge, splitFormCode } from "@/components/forms/form-code-badge
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, type FormRecord } from "@/lib/form-ranker";
 import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/service-ranker";
-import { readSavedRegistrySlugs, savedFormsStorageKey, writeSavedRegistrySlugs } from "@/lib/saved-registry-storage";
+import { useAccountData } from "@/components/account-data-provider";
 
 const missingText = "Not listed";
 
@@ -477,9 +477,8 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value: string | 
 
 export function FormDetailPage({ form }: { form: FormRecord }) {
   const router = useRouter();
-  const [saved, setSaved] = useState(() =>
-    typeof window === "undefined" ? false : readSavedRegistrySlugs(savedFormsStorageKey).includes(form.slug),
-  );
+  const accountData = useAccountData();
+  const saved = accountData.isSaved("form", form.slug);
   const [notice, setNotice] = useState<string | null>(null);
   const code = formCode(form);
   const details = formCatalogDetails(form);
@@ -511,16 +510,13 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
     }
   }
 
-  function toggleSaved() {
+  async function toggleSaved() {
     try {
-      const current = readSavedRegistrySlugs(savedFormsStorageKey);
-      const next = current.includes(form.slug) ? current.filter((item) => item !== form.slug) : [form.slug, ...current];
-      if (!writeSavedRegistrySlugs(savedFormsStorageKey, next)) {
-        setNotice("Save failed");
+      const nowSaved = !saved;
+      if (!(await accountData.setFavourite("form", form.slug, nowSaved))) {
+        setNotice("Sign in or create an account to save forms");
         return;
       }
-      const nowSaved = next.includes(form.slug);
-      setSaved(nowSaved);
       setNotice(nowSaved ? "Form saved" : "Form removed from saved items");
     } catch {
       setNotice("Save failed");

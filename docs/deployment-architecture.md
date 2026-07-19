@@ -232,7 +232,9 @@ check and watch patterns rather than relying on dashboard defaults.
 Ship the existing worker as a container (`Dockerfile.worker`: Node 24 + a
 prebuilt esbuild bundle over production-only `node_modules` +
 Tesseract + a Python venv with `worker/python/requirements.txt`) and run **one
-always-on worker instance** co-located in Railway Singapore (`worker` service).
+always-on worker instance** co-located in Railway Singapore (`worker` service),
+using Railway's `ALWAYS` restart policy so repeated bootstrap failures cannot
+exhaust a finite retry allowance and leave the queue undrained.
 The `indexing-v3-agent` Edge Function **stays** in its current role as the
 cron-triggered completion/repair gate — the two are complementary, not
 alternatives. The worker service selects its Dockerfile via the
@@ -301,7 +303,7 @@ Operational rules that follow:
 - **Worker death costs at most one stale window of latency** for the in-flight
   job and zero data loss: all artifact writes are idempotent per
   generation/chunk-key, and completion is gated by the strict completion RPCs
-  plus the edge agent. Railway's restart-on-failure brings the worker back and
+  plus the edge agent. Railway's always-restart policy brings the worker back and
   it reclaims stale jobs automatically.
 - **Backlog improvement (not in this change):** a heartbeat that refreshes
   `locked_at` could ride the existing throttled progress updates

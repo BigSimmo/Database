@@ -36,12 +36,8 @@ import {
 } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
-import {
-  isLocalNoAuthMode,
-  publicUploadsEnabled,
-  resolveClientDemoMode,
-  resolveUploadReadOnlyMode,
-} from "@/lib/client-env";
+import { isLocalNoAuthMode, resolveClientDemoMode, resolveUploadReadOnlyMode } from "@/lib/client-env";
+import { isAdministratorUser } from "@/lib/authorization";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import {
@@ -511,6 +507,7 @@ export function ClinicalDashboard({
   // overlay); other modes keep the phone-only collapse, so the reporter only
   // widens past the phone media gate while in answer mode.
   const phoneScrollHide = useScrollHideReporter(false, searchMode === "answer");
+  const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
   const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
   reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
@@ -866,8 +863,8 @@ export function ClinicalDashboard({
       setAnswerThreadBootstrapped(true);
     });
   }, [answerThreadOwnerId, authStatus]);
-  // Local no-auth still has private upload APIs (`canUsePrivateApis`); do not lock the
-  // upload drawer just because `resolveClientDemoMode` treats no-auth as demo for favourites.
+  // Local no-auth can still exercise public-read APIs, but administration is always
+  // derived separately from the immutable account role claim.
   const uploadReadOnlyMode = resolveUploadReadOnlyMode({
     explicitDemoMode,
     authUnavailableFallback: browserAuthUnavailableDemoFallback,
@@ -879,7 +876,9 @@ export function ClinicalDashboard({
   const canUseNonProductionDemoFallback = localProjectReady && hasNonProductionSupabaseApiKeyFallback(setupChecks);
   const canUsePrivateApis =
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
-  const canUploadDocuments = canUsePrivateApis || (publicUploadsEnabled() && canUsePublicSearchApis);
+  const isAdministrator = isAdministratorUser(auth.session?.user);
+  const canUseAdministrativeApis = localProjectReady && isAdministrator;
+  const canUploadDocuments = canUseAdministrativeApis && canUsePublicSearchApis;
   const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
   const canRunSearch =
     explicitDemoMode ||
@@ -926,6 +925,17 @@ export function ClinicalDashboard({
   }, [router]);
   const openLibraryHealthTarget = useCallback(
     (target: LibraryHealthTarget) => {
+      if (!canUseAdministrativeApis) {
+        closeDashboardTransientSurfaces("documents");
+        setDocumentsDrawerMode("library");
+        setDocumentsDrawerOpen(true);
+        setActionNotice({
+          tone: "warning",
+          message: "Library health and indexing controls are administrator-only.",
+        });
+        return;
+      }
+
       const targetId =
         target === "documents"
           ? "dashboard-documents-drawer"
@@ -959,7 +969,7 @@ export function ClinicalDashboard({
         document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 0);
     },
-    [closeDashboardTransientSurfaces],
+    [canUseAdministrativeApis, closeDashboardTransientSurfaces],
   );
 
   useEffect(() => {
@@ -1561,7 +1571,8 @@ export function ClinicalDashboard({
   );
   const needsSetupRecheck = useMemo(() => setupNeedsSlowRecheck(setupChecks), [setupChecks]);
   const dashboardDataSurfaceVisible = documentScopeOpen || documentsDrawerOpen || uploadDrawerOpen;
-  const administrationSurfaceVisible = uploadDrawerOpen || (documentsDrawerOpen && documentsDrawerMode === "admin");
+  const administrationSurfaceVisible =
+    canUseAdministrativeApis && (uploadDrawerOpen || (documentsDrawerOpen && documentsDrawerMode === "admin"));
 
   useEffect(() => {
     dashboardDataLoadedRef.current = false;
@@ -2846,7 +2857,7 @@ export function ClinicalDashboard({
   }
 
   function openUploadDrawer() {
-    if (!canUsePrivateApis) {
+    if (!canUseAdministrativeApis) {
       openDocumentsDrawer("library");
       setActionNotice({
         tone: "warning",
@@ -3239,6 +3250,20 @@ export function ClinicalDashboard({
   const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
+  const visibleMobileComposerReserve =
+    searchMode === "answer"
+      ? answerFollowUpSuggestions.length > 0
+        ? "calc(7.5rem + var(--safe-area-bottom))"
+        : "calc(5.25rem + var(--safe-area-bottom))"
+      : differentialsCompareAddonActive
+        ? "calc(8.75rem + var(--safe-area-bottom))"
+        : compactMobileBottomSearch
+          ? "calc(5rem + var(--safe-area-bottom))"
+          : "calc(5.25rem + var(--safe-area-bottom))";
+  // Browser safe areas protect the visible interactive dock. Once it has
+  // scrolled away, reserving Safari's translucent toolbar inset would leave a
+  // large blank band instead of allowing ordinary content to paint beneath it.
+  const mobileComposerReserve = bottomComposerHidden ? "0.75rem" : visibleMobileComposerReserve;
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : CircleAlert}
@@ -3339,7 +3364,7 @@ export function ClinicalDashboard({
     setUploadMobileTab("jobs");
     void refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
   };
-  const documentsDrawerIsAdmin = documentsDrawerMode === "admin" && canUsePrivateApis;
+  const documentsDrawerIsAdmin = documentsDrawerMode === "admin" && canUseAdministrativeApis;
   const documentsDrawerTitle =
     documentsDrawerMode === "recent"
       ? "Recent documents"
@@ -3435,6 +3460,7 @@ export function ClinicalDashboard({
         {
           "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
           "--clinical-sidebar-width-md": "5.25rem",
+          "--mobile-composer-reserve": mobileComposerReserve,
         } as CSSProperties
       }
     >
@@ -3519,6 +3545,7 @@ export function ClinicalDashboard({
               ? { strategy: "overlay", allBreakpoints: true, scrollHidden: phoneScrollHide.hidden }
               : { strategy: "collapse", scrollHidden: phoneScrollHide.hidden }
           }
+          onBottomComposerHiddenChange={setBottomComposerHidden}
         />
 
         <main
@@ -3543,24 +3570,17 @@ export function ClinicalDashboard({
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
-                : // Phone answer view: the "Ask a follow-up" dock is fixed to the
-                  // bottom, so <main> reserves room for it. Keep that geometry stable
-                  // while the dock translates off-screen: changing the flex item's
-                  // margin alters its client height and clamps scrollTop near the
-                  // bottom, feeding a false upward movement into hide-on-scroll.
-                  answerFollowUpSuggestions.length > 0
-                  ? "mb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:mb-24"
-                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+                : // Keep the phone scrollport edge-to-edge and reserve the visible
+                  // dock inside its scrollable content. Padding can collapse when the
+                  // dock hides without exposing the app-shell background; the
+                  // bottom-clamp guard in use-hide-on-scroll prevents false reveals.
+                  "max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-24"
               : hasMobileBottomSearch
-                ? compactMobileBottomSearch
-                  ? differentialsCompareAddonActive
-                    ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
-                    : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
-                  : // Mode homes keep the composer in the hero (in-flow at every
-                    // width), so phones need no bottom-dock clearance on them.
-                    compactMobileModeHome || showDesktopHomeComposer
-                    ? "mb-0"
-                    : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
+                ? // Mode homes keep the composer in the hero (in-flow at every
+                  // width), so phones need no bottom-dock clearance on them.
+                  compactMobileModeHome || showDesktopHomeComposer
+                  ? "mb-0"
+                  : "max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-0"
                 : "mb-0",
           )}
         >
@@ -4022,7 +4042,7 @@ export function ClinicalDashboard({
                         onBulkMetadataUpdate={bulkUpdateMetadata}
                         bulkActionStatus={bulkActionStatus}
                         bulkActionBusy={bulkActionBusy}
-                        canManageDocuments={canUsePrivateApis}
+                        canManageDocuments={canUseAdministrativeApis}
                         onTagSearch={handleTagSearch}
                         onMutateLabel={mutateDocumentLabel}
                       />

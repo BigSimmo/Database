@@ -266,21 +266,21 @@ function GlobalStandaloneSearchShellClient({
     : isStandaloneModeHome
       ? "2rem"
       : searchMode === "answer"
-        ? "calc(9rem + env(safe-area-inset-bottom))"
+        ? "calc(9rem + var(--safe-area-bottom))"
         : differentialsCompareAddonActive
-          ? "calc(8.75rem + env(safe-area-inset-bottom))"
+          ? "calc(8.75rem + var(--safe-area-bottom))"
           : useCompactBottomSearch
-            ? "calc(5.5rem + env(safe-area-inset-bottom))"
-            : "calc(9rem + env(safe-area-inset-bottom))";
+            ? "calc(5.5rem + var(--safe-area-bottom))"
+            : "calc(9rem + var(--safe-area-bottom))";
   // Release the large bottom reserve only when the phone bottom composer is
   // actually hidden (MasterSearchHeader's bottomComposerHidden). Header-only
   // scroll-hide, pinned compare addons, open menus/sheets, and composer focus
   // keep the full reserve so content does not slide under a still-visible dock.
-  // When the dock does hide, keep only a small safe-area breathing room so
-  // content — not the background — fills the revealed edge-to-edge viewport.
-  const mobileComposerReserve = bottomComposerHidden
-    ? "max(0.75rem, env(safe-area-inset-bottom))"
-    : visibleMobileComposerReserve;
+  // Safari's bottom safe-area inset includes its translucent browser toolbar.
+  // Reusing that inset after the app composer hides recreates a toolbar-sized
+  // blank band, so the hidden state intentionally keeps only a small content
+  // pad. Interactive composer chrome still receives the full inset above.
+  const mobileComposerReserve = bottomComposerHidden ? "0.75rem" : visibleMobileComposerReserve;
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string

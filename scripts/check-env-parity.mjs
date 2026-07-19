@@ -26,13 +26,20 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Vars that MUST be supplied as deployment/CI secrets (never committed). Each is
 // asserted to exist in the canonical name set below, so this list cannot silently
 // drift from the schema.
-const EXPECTED_SECRETS = [
+export const EXPECTED_GITHUB_SECRETS = [
   "SUPABASE_SERVICE_ROLE_KEY",
   "OPENAI_API_KEY",
   "RAG_QUERY_HASH_SECRET",
   "HEALTH_DEEP_PROBE_SECRET",
   "E2E_USER_EMAIL",
   "E2E_USER_PASSWORD",
+];
+
+export const EXPECTED_RAILWAY_SECRETS = [
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "OPENAI_API_KEY",
+  "RAG_QUERY_HASH_SECRET",
+  "HEALTH_DEEP_PROBE_SECRET",
 ];
 
 /** Zod schema keys from env.ts: lines shaped like `  NAME: z.…`. */
@@ -81,7 +88,8 @@ function main() {
   const problems = [];
 
   // Self-consistency: every expected secret must be a name the app/CI actually knows.
-  const unknownExpected = EXPECTED_SECRETS.filter((name) => !canonical.has(name));
+  const expectedSecrets = new Set([...EXPECTED_GITHUB_SECRETS, ...EXPECTED_RAILWAY_SECRETS]);
+  const unknownExpected = [...expectedSecrets].filter((name) => !canonical.has(name));
   if (unknownExpected.length > 0) {
     problems.push(
       `Expected-secret names not found in env.ts/check-ci-env (typo or drift): ${unknownExpected.join(", ")}`,
@@ -89,11 +97,12 @@ function main() {
   }
 
   console.log(`Known env names: ${canonical.size} (env.ts schema + check-ci-env).`);
-  console.log(`Expected secrets: ${EXPECTED_SECRETS.join(", ")}`);
+  console.log(`Expected GitHub secrets: ${EXPECTED_GITHUB_SECRETS.join(", ")}`);
+  console.log(`Expected Railway secrets: ${EXPECTED_RAILWAY_SECRETS.join(", ")}`);
 
-  for (const [flag, enabled, label, getter] of [
-    ["--gh", useGh, "GitHub secrets", ghSecretNames],
-    ["--railway", useRailway, "Railway variables", railwayVarNames],
+  for (const [flag, enabled, label, getter, sourceExpectedSecrets] of [
+    ["--gh", useGh, "GitHub secrets", ghSecretNames, EXPECTED_GITHUB_SECRETS],
+    ["--railway", useRailway, "Railway variables", railwayVarNames, EXPECTED_RAILWAY_SECRETS],
   ]) {
     if (!enabled) {
       console.log(`(${label}: skipped — pass ${flag} to check; names only, no values)`);
@@ -109,7 +118,7 @@ function main() {
     const { missingSecrets, unknownLive } = computeParity({
       canonical: [...canonical],
       liveNames,
-      expectedSecrets: EXPECTED_SECRETS,
+      expectedSecrets: sourceExpectedSecrets,
     });
     console.log(`\n${label}: ${liveNames.length} names.`);
     if (missingSecrets.length > 0) problems.push(`${label}: missing expected secret(s): ${missingSecrets.join(", ")}`);

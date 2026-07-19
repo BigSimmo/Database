@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { env, isDemoMode, isLocalNoAuthMode } from "@/lib/env";
 import { allowDeepHealthProbe } from "@/lib/deep-probe-auth";
+import { PublicApiError } from "@/lib/http";
 import { localProjectRequestIdentityPayload, unsafeLocalProjectResponse } from "@/lib/local-project-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser } from "@/lib/supabase/auth";
@@ -446,12 +447,14 @@ export async function GET(request: Request) {
 
   if (!authorizedForDetail && request.headers.has("authorization")) {
     try {
-      await requireAuthenticatedUser(request, createAdminClient());
+      await requireAuthenticatedUser(request, createAdminClient(), { administrator: true });
       authorizedForDetail = true;
     } catch (error) {
-      if (!(error instanceof AuthenticationError)) throw error;
-      // Invalid or expired credentials receive the same coarse posture as an
-      // anonymous caller; setup status is not an authentication oracle.
+      const expectedAuthorizationFailure =
+        error instanceof AuthenticationError || (error instanceof PublicApiError && error.status === 403);
+      if (!expectedAuthorizationFailure) throw error;
+      // Invalid, expired, and non-administrator credentials receive the same
+      // coarse posture as an anonymous caller; setup status is not an auth or role oracle.
     }
   }
 

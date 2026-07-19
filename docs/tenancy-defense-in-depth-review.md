@@ -124,14 +124,14 @@ transcripts; this is the consolidated verdict.
 
 ### Mutations · signed URLs · upload (highest blast radius)
 
-| Route · method                       | Verdict            | Owner mechanism                                                                                                                                                                          |
-| ------------------------------------ | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/documents/[id]/signed-url` | ✅ verified-scoped | `withOwnerReadScope` on doc **before** `createSignedUrl`; `storage_path` from owner-verified row ([signed-url/route.ts:40-51](src/app/api/documents/[id]/signed-url/route.ts))           |
-| `GET /api/images/[id]/signed-url`    | ✅ verified-scoped | image has no `owner_id`; tenancy via parent-document `withOwnerReadScope` ([images/[id]/signed-url/route.ts:49-55](src/app/api/images/[id]/signed-url/route.ts))                         |
-| `POST /api/documents/[id]/reindex`   | ✅ verified-scoped | `requireAuthenticatedUser` + `.eq('owner_id',user.id)`; every state write re-scoped ([reindex/route.ts:110-255](src/app/api/documents/[id]/reindex/route.ts))                            |
-| `POST /api/documents/bulk`           | ✅ verified-scoped | pre-scoping select `.eq('owner_id',user.id).in('id',ids)`; body ids intersected with ownership ([bulk/route.ts:127-204](src/app/api/documents/bulk/route.ts))                            |
-| `POST /api/documents/bulk/reindex`   | ✅ verified-scoped | pre-scoping select `.eq('owner_id',user.id)`; per-doc writes re-scoped ([bulk/reindex/route.ts:101-247](src/app/api/documents/bulk/reindex/route.ts))                                    |
-| `POST /api/upload`                   | ✅ verified-scoped | `owner_id` = session id, or configured `PUBLIC_WORKSPACE_OWNER_ID` only if public uploads enabled, else 503 ([upload/route.ts:94-97](src/app/api/upload/route.ts)); operator note TEN-N3 |
+| Route · method                       | Verdict            | Owner mechanism                                                                                                                                                                                                               |
+| ------------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/documents/[id]/signed-url` | ✅ verified-scoped | `withOwnerReadScope` on doc **before** `createSignedUrl`; `storage_path` from owner-verified row ([signed-url/route.ts:40-51](src/app/api/documents/[id]/signed-url/route.ts))                                                |
+| `GET /api/images/[id]/signed-url`    | ✅ verified-scoped | image has no `owner_id`; tenancy via parent-document `withOwnerReadScope` ([images/[id]/signed-url/route.ts:49-55](src/app/api/images/[id]/signed-url/route.ts))                                                              |
+| `POST /api/documents/[id]/reindex`   | ✅ verified-scoped | `requireAuthenticatedUser` + `.eq('owner_id',user.id)`; every state write re-scoped ([reindex/route.ts:110-255](src/app/api/documents/[id]/reindex/route.ts))                                                                 |
+| `POST /api/documents/bulk`           | ✅ verified-scoped | pre-scoping select `.eq('owner_id',user.id).in('id',ids)`; body ids intersected with ownership ([bulk/route.ts:127-204](src/app/api/documents/bulk/route.ts))                                                                 |
+| `POST /api/documents/bulk/reindex`   | ✅ verified-scoped | pre-scoping select `.eq('owner_id',user.id)`; per-doc writes re-scoped ([bulk/reindex/route.ts:101-247](src/app/api/documents/bulk/reindex/route.ts))                                                                         |
+| `POST /api/upload`                   | ✅ admin-only      | Validated Supabase session plus immutable `app_metadata.site_role = administrator`; uploaded rows remain scoped to that administrator until publication review promotes them ([upload/route.ts](src/app/api/upload/route.ts)) |
 
 ### Search
 
@@ -336,11 +336,9 @@ new entry must be added here and to the list in the guard, or the regression tes
   only caller passes `user.id` ([summarize/route.ts:34](src/app/api/documents/[id]/summarize/route.ts)),
   so no live exploit — but make the parameter required (or fail closed) so a future caller can't
   reintroduce a gap.
-- **TEN-N3 (operator note, intended):** with `NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED=true`, all anonymous
-  uploads are pooled under the single configured `PUBLIC_WORKSPACE_OWNER_ID`
-  ([upload/route.ts:94](src/app/api/upload/route.ts)) — anonymous X's upload is visible to anonymous Y
-  and the workspace owner. This is the documented public-workspace model, not a private-row A→B leak,
-  but operators enabling public uploads should understand it.
+- **TEN-N3 (resolved):** the public-workspace upload path was removed. Anonymous and ordinary
+  authenticated users cannot upload; both the server route and Storage table privileges enforce the
+  administrator-only boundary.
 
 ---
 

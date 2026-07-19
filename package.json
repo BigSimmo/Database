@@ -98,6 +98,7 @@
     "backfill:source-metadata": "node scripts/run-tsx.mjs scripts/backfill-source-metadata.ts",
     "backfill:unknown-status": "node scripts/run-tsx.mjs scripts/derive-unknown-status.ts",
     "check:supabase-project": "node scripts/run-tsx.mjs scripts/check-supabase-project.ts",
+    "auth:set-administrator": "node scripts/run-tsx.mjs scripts/set-site-administrator.ts",
     "check:indexing": "node scripts/run-tsx.mjs scripts/check-indexing.ts",
     "check:m13-migration": "node scripts/run-tsx.mjs scripts/check-m13-migration.ts",
     "check:july8-live-batch": "node scripts/run-tsx.mjs scripts/check-july8-live-batch.ts",
@@ -165,6 +166,8 @@
     "workflow:rag-lab": "node scripts/productivity-workflow.mjs rag-lab",
     "workflow:operator-closeout": "node scripts/productivity-workflow.mjs operator-closeout",
     "workflow:lifecycle": "node scripts/productivity-workflow.mjs lifecycle",
+    "skills": "node scripts/list-database-skills.mjs",
+    "check:skills": "node scripts/list-database-skills.mjs --check",
     "check:drift": "node scripts/run-tsx.mjs scripts/check-drift.ts",
     "drift:manifest": "node scripts/run-tsx.mjs scripts/generate-drift-manifest.ts"
   },

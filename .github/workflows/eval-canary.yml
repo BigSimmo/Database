@@ -1,4 +1,4 @@
-# Nightly production eval canary. See docs/observability-slos.md §3.
+# Weekly production eval canary. See docs/observability-slos.md §3.
 #
 # Runs the golden retrieval eval (which PR CI can never run — it needs live
 # Supabase + OpenAI keys) plus a small answer-quality subset against the live
@@ -6,7 +6,7 @@
 # scheduled failures.
 #
 # The schedule only fires from the default branch. After merging, trigger one
-# workflow_dispatch run and confirm it is green before trusting the nightly
+# workflow_dispatch run and confirm it is green before trusting the weekly
 # cadence.
 name: Eval Canary
 
@@ -18,8 +18,8 @@ on:
         required: false
         default: "8"
   schedule:
-    # 18:00 UTC = 02:00 Australia/Perth — off-peak for clinicians.
-    - cron: "0 18 * * *"
+    # Sunday 18:00 UTC = Monday 02:00 Australia/Perth — off-peak for clinicians.
+    - cron: "0 18 * * 0"
 
 concurrency:
   group: eval-canary
@@ -60,11 +60,13 @@ jobs:
 
     steps:
       - name: Checkout
+        id: checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
       - name: Preflight required secrets
+        id: preflight
         run: |
           missing=""
           [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] && missing="$missing SUPABASE_SERVICE_ROLE_KEY"
@@ -75,6 +77,7 @@ jobs:
           fi
 
       - name: Setup Node.js
+        id: setup_node
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version-file: ".nvmrc"
@@ -82,15 +85,22 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install dependencies
+        id: install
         run: npm ci
 
       - name: Guard Supabase project identity
+        id: project_guard
         run: npm run check:supabase-project
 
       - name: Golden retrieval eval (live corpus)
-        run: npm run eval:retrieval:quality -- --fail-on-threshold
+        id: golden_retrieval
+        run: |
+          mkdir -p .local/eval-canary
+          set -o pipefail
+          npm run eval:retrieval:quality -- --fail-on-threshold 2>&1 | tee .local/eval-canary/golden-retrieval.log
 
       - name: Answer-quality subset (live generation)
+        id: answer_quality
         env:
           ANSWER_CASE_LIMIT: ${{ github.event.inputs.answer_case_limit || '8' }}
           # Canary-only latency allowance: cross-region runner -> Sydney Supabase
@@ -101,19 +111,47 @@ jobs:
             echo "answer_case_limit must be an integer from 1 to 100" >&2
             exit 2
           fi
-          npm run eval:quality -- --rag-only --limit "$ANSWER_CASE_LIMIT" --fail-on-threshold
+          mkdir -p .local/eval-canary
+          set -o pipefail
+          npm run eval:quality -- --rag-only --limit "$ANSWER_CASE_LIMIT" --fail-on-threshold 2>&1 | tee .local/eval-canary/answer-quality.log
 
       - name: Open or update canary failure issue
         if: failure() && github.event_name == 'schedule'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
+            const fs = require("node:fs");
+            const path = require("node:path");
+            const { pathToFileURL } = require("node:url");
+            const { analyzeFailureText } = await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/productivity-core.mjs`).href);
             const label = "eval-canary";
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const logPaths = [
+              ".local/eval-canary/golden-retrieval.log",
+              ".local/eval-canary/answer-quality.log",
+            ].map((item) => path.join(process.env.GITHUB_WORKSPACE, item));
+            const failureText = logPaths
+              .filter((item) => fs.existsSync(item))
+              .map((item) => fs.readFileSync(item, "utf8"))
+              .join("\n");
+            const diagnosis = analyzeFailureText(failureText);
+            const stepOutcomes = {
+              checkout: "${{ steps.checkout.outcome }}",
+              preflight: "${{ steps.preflight.outcome }}",
+              setup_node: "${{ steps.setup_node.outcome }}",
+              install: "${{ steps.install.outcome }}",
+              project_guard: "${{ steps.project_guard.outcome }}",
+              golden_retrieval: "${{ steps.golden_retrieval.outcome }}",
+              answer_quality: "${{ steps.answer_quality.outcome }}",
+            };
             const body = [
-              `Nightly eval canary failed on ${new Date().toISOString()}.`,
+              `Weekly eval canary failed on ${new Date().toISOString()}.`,
               "",
               `Run: ${runUrl}`,
+              "",
+              `Failure class: ${diagnosis.category} (${diagnosis.confidence})`,
+              `Reason: ${diagnosis.reason}`,
+              `Step outcomes: ${JSON.stringify(stepOutcomes)}`,
               "",
               "Triage order (docs/observability-slos.md §3): inspect the failed step first.",
               "Resolve provider quota/auth/config failures before rerunning; for completed evals,",
@@ -137,7 +175,7 @@ jobs:
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title: "Eval canary failure: nightly evaluation did not complete",
+                title: "Eval canary failure: weekly evaluation did not complete",
                 labels: [label],
                 body,
               });

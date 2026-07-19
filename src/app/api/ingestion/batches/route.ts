@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     }
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
     const { data, error, count } = await supabase
       .from("import_batches")
       .select("*", { count: "exact" })
