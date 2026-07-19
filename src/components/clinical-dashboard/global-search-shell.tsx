@@ -288,8 +288,8 @@ function GlobalStandaloneSearchShellClient({
             : "calc(9rem + var(--safe-area-bottom))";
   // Release the large bottom reserve only when the phone bottom composer is
   // actually hidden (MasterSearchHeader's bottomComposerHidden). Header-only
-  // scroll-hide, pinned compare addons, open menus/sheets, and composer focus
-  // keep the full reserve so content does not slide under a still-visible dock.
+  // scroll-hide, open menus/sheets, and composer focus keep the full reserve
+  // so content does not slide under a still-visible dock.
   // Safari's bottom safe-area inset includes its translucent browser toolbar.
   // Reusing that inset after the app composer hides recreates a toolbar-sized
   // blank band, so the hidden state intentionally keeps only a small content

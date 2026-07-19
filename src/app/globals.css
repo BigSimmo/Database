@@ -746,14 +746,16 @@ summary::-webkit-details-marker {
   --footer-scrim-height: max(7rem, calc(var(--safe-area-bottom) + 5.5rem));
 }
 
+/* In-flow above the search pill inside the phone dock so scroll-hide
+   translateY moves the Compare bar with the composer (no viewport-fixed jump). */
 .differentials-mobile-compare-fab {
   pointer-events: none;
-  position: fixed;
-  inset-inline: max(1rem, var(--safe-area-left)) max(1rem, var(--safe-area-right));
-  bottom: max(5.35rem, calc(var(--safe-area-bottom) + 5.05rem));
-  z-index: 50;
+  position: relative;
+  z-index: 10;
   display: flex;
+  width: 100%;
   justify-content: center;
+  margin-bottom: 0.5rem;
 }
 
 .differentials-mobile-compare-fab__button {
