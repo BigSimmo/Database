@@ -1922,6 +1922,10 @@ summary::-webkit-details-marker {
 /* Global PWA notices sit above the bottom composer and home indicator without
    changing page scroll ownership. The lifecycle component renders only when an
    offline, restored, installable, or waiting-update state needs attention. */
+/* PWA notices: bottom sheet-style on phones (thumb zone, above the fixed
+   composer), floating bottom-right card on medium screens, and top-right
+   toast under the header on desktop — beside the browser's own install
+   affordance and clear of the composer. */
 .pwa-notice-stack {
   position: fixed;
   z-index: 95;
@@ -1933,10 +1937,25 @@ summary::-webkit-details-marker {
   pointer-events: none;
 }
 
+.pwa-notice-card {
+  animation: pwa-notice-in 280ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+
+@keyframes pwa-notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.625rem) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @media (min-width: 640px) {
   .pwa-notice-stack {
     left: auto;
-    width: min(24rem, calc(100vw - 2rem - var(--safe-area-left) - var(--safe-area-right)));
+    width: min(25rem, calc(100vw - 2rem - var(--safe-area-left) - var(--safe-area-right)));
   }
 }
 
@@ -1944,6 +1963,35 @@ summary::-webkit-details-marker {
   .pwa-notice-stack {
     bottom: calc(max(0.75rem, var(--safe-area-bottom)) + 6rem);
   }
+}
+
+/* Last so it also wins over the standalone bottom offset at desktop width. */
+@media (min-width: 1280px) {
+  .pwa-notice-stack {
+    top: calc(4.25rem + max(0.5rem, var(--safe-area-top)));
+    bottom: auto;
+  }
+
+  @keyframes pwa-notice-in {
+    from {
+      opacity: 0;
+      transform: translateY(-0.625rem) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pwa-notice-card {
+    animation: none;
+  }
+}
+
+html[data-motion="reduced"] .pwa-notice-card {
+  animation: none;
 }
 
 /* Tabular figures for data, counts, page numbers, byte sizes */

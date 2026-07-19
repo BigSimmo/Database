@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowDownToLine, RefreshCw, Share, Wifi, WifiOff, X, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 const SERVICE_WORKER_URL = "/sw.js";
@@ -101,11 +102,34 @@ async function teardownLocalPwa() {
 }
 
 const cardClassName =
-  "pointer-events-auto rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-4 text-[color:var(--text)] shadow-[var(--shadow-elevated)]";
+  "pwa-notice-card pointer-events-auto relative rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-md dark:ring-white/10";
 const primaryButtonClassName =
-  "inline-flex min-h-11 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3.5 py-2 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] transition-colors hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+  "inline-flex min-h-11 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3.5 py-2 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition-colors hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const secondaryButtonClassName =
   "inline-flex min-h-11 items-center justify-center rounded-lg border border-[color:var(--border-lux)] px-3.5 py-2 text-sm font-semibold text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+const dismissIconButtonClassName =
+  "absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+// Leading icon tile: categorical identity per notice type, on the semantic
+// soft/border/ink triads so dark mode and forced-colors resolve via tokens.
+function NoticeIcon({ icon: Icon, tone }: { icon: LucideIcon; tone: "accent" | "info" | "warning" | "success" }) {
+  const toneClassName =
+    tone === "accent"
+      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+      : tone === "info"
+        ? "border-[color:var(--border)] bg-[color:var(--info-soft)] text-[color:var(--info)]"
+        : tone === "warning"
+          ? "border-[color:var(--border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]"
+          : "border-[color:var(--border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
+  return (
+    <span
+      className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border shadow-[var(--shadow-inset)] ${toneClassName}`}
+      aria-hidden="true"
+    >
+      <Icon className="h-5 w-5" />
+    </span>
+  );
+}
 
 /**
  * Owns installability, service-worker updates, and cross-route connectivity UI.
@@ -360,74 +384,125 @@ export function PwaLifecycle() {
     <div className="pwa-notice-stack">
       {!isOnline ? (
         <section className={cardClassName} role="region" aria-labelledby="pwa-offline-title" aria-live="polite">
-          <p id="pwa-offline-title" className="text-sm font-semibold">
-            You appear to be offline
-          </p>
-          <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-            Clinical search, answers, private documents, uploads, and account data require a connection.
-          </p>
-          <button type="button" className={`${secondaryButtonClassName} mt-3`} onClick={() => window.location.reload()}>
-            Try again
-          </button>
+          <div className="flex items-start gap-3">
+            <NoticeIcon icon={WifiOff} tone="warning" />
+            <div className="min-w-0">
+              <p id="pwa-offline-title" className="text-sm font-bold text-[color:var(--text-heading)]">
+                You appear to be offline
+              </p>
+              <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+                Clinical search, answers, private documents, uploads, and account data require a connection.
+              </p>
+              <button
+                type="button"
+                className={`${secondaryButtonClassName} mt-3`}
+                onClick={() => window.location.reload()}
+              >
+                Try again
+              </button>
+            </div>
+          </div>
         </section>
       ) : null}
 
       {connectionRestored ? (
         <section className={cardClassName} role="status">
-          <p className="text-sm font-semibold">Connection restored</p>
+          <div className="flex items-center gap-3">
+            <NoticeIcon icon={Wifi} tone="success" />
+            <p className="text-sm font-bold text-[color:var(--text-heading)]">Connection restored</p>
+          </div>
         </section>
       ) : null}
 
       {showUpdate ? (
         <section className={cardClassName} role="region" aria-labelledby="pwa-update-title" aria-live="polite">
-          <p id="pwa-update-title" className="text-sm font-semibold">
-            An update is ready
-          </p>
-          <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-            Refresh when convenient to use the latest Clinical KB version.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" className={primaryButtonClassName} onClick={applyUpdate}>
-              Refresh now
-            </button>
-            <button type="button" className={secondaryButtonClassName} onClick={dismissUpdate}>
-              Later
-            </button>
+          <button
+            type="button"
+            className={dismissIconButtonClassName}
+            aria-label="Dismiss update notice"
+            onClick={dismissUpdate}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <div className="flex items-start gap-3 pr-8">
+            <NoticeIcon icon={RefreshCw} tone="info" />
+            <div className="min-w-0">
+              <p id="pwa-update-title" className="text-sm font-bold text-[color:var(--text-heading)]">
+                An update is ready
+              </p>
+              <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+                Refresh when convenient to use the latest Clinical KB version.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" className={primaryButtonClassName} onClick={applyUpdate}>
+                  Refresh now
+                </button>
+                <button type="button" className={secondaryButtonClassName} onClick={dismissUpdate}>
+                  Later
+                </button>
+              </div>
+            </div>
           </div>
         </section>
       ) : null}
 
       {showIosInstallHint ? (
         <section className={cardClassName} role="region" aria-labelledby="pwa-ios-install-title" aria-live="polite">
-          <p id="pwa-ios-install-title" className="text-sm font-semibold">
-            Install Clinical KB
-          </p>
-          <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-            In Safari, tap Share, then Add to Home Screen. Private clinical features still require a connection.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" className={secondaryButtonClassName} onClick={dismissIosHint}>
-              Not now
-            </button>
+          <button
+            type="button"
+            className={dismissIconButtonClassName}
+            aria-label="Dismiss install hint"
+            onClick={dismissIosHint}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <div className="flex items-start gap-3 pr-8">
+            <NoticeIcon icon={Share} tone="accent" />
+            <div className="min-w-0">
+              <p id="pwa-ios-install-title" className="text-sm font-bold text-[color:var(--text-heading)]">
+                Install Clinical KB
+              </p>
+              <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+                In Safari, tap Share, then Add to Home Screen. Private clinical features still require a connection.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" className={secondaryButtonClassName} onClick={dismissIosHint}>
+                  Not now
+                </button>
+              </div>
+            </div>
           </div>
         </section>
       ) : null}
 
       {showInstall ? (
         <section className={cardClassName} role="region" aria-labelledby="pwa-install-title" aria-live="polite">
-          <p id="pwa-install-title" className="text-sm font-semibold">
-            Install Clinical KB
-          </p>
-          <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-            Open it from your device like an app. Private clinical features still require a connection.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" className={primaryButtonClassName} onClick={() => void requestInstall()}>
-              Install app
-            </button>
-            <button type="button" className={secondaryButtonClassName} onClick={dismissInstall}>
-              Not now
-            </button>
+          <button
+            type="button"
+            className={dismissIconButtonClassName}
+            aria-label="Dismiss install prompt"
+            onClick={dismissInstall}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <div className="flex items-start gap-3 pr-8">
+            <NoticeIcon icon={ArrowDownToLine} tone="accent" />
+            <div className="min-w-0">
+              <p id="pwa-install-title" className="text-sm font-bold text-[color:var(--text-heading)]">
+                Install Clinical KB
+              </p>
+              <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
+                Open it from your device like an app. Private clinical features still require a connection.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" className={primaryButtonClassName} onClick={() => void requestInstall()}>
+                  Install app
+                </button>
+                <button type="button" className={secondaryButtonClassName} onClick={dismissInstall}>
+                  Not now
+                </button>
+              </div>
+            </div>
           </div>
         </section>
       ) : null}
