@@ -216,6 +216,7 @@ function assertDeclaredPdfImageDimensions(buffer: Buffer, limits: PdfExtractionB
   const subtypeMarker = Buffer.from("/Subtype", "latin1");
   const dictionaryStartMarker = Buffer.from("<<", "latin1");
   const dictionaryEndMarker = Buffer.from(">>", "latin1");
+  const maxDictionaryBytes = 64 * 1024;
   let offset = 0;
   const budget = new PdfExtractionBudgetTracker(limits);
 
@@ -223,9 +224,14 @@ function assertDeclaredPdfImageDimensions(buffer: Buffer, limits: PdfExtractionB
     const subtypeOffset = buffer.indexOf(subtypeMarker, offset);
     if (subtypeOffset === -1) return;
     offset = subtypeOffset + subtypeMarker.length;
-    const dictionaryStart = buffer.lastIndexOf(dictionaryStartMarker, subtypeOffset);
-    const dictionaryEnd = buffer.indexOf(dictionaryEndMarker, offset);
-    if (dictionaryStart === -1 || dictionaryEnd === -1 || dictionaryEnd - dictionaryStart > 64 * 1024) continue;
+    const candidateStart = Math.max(0, subtypeOffset - maxDictionaryBytes);
+    const relativeDictionaryStart = buffer.subarray(candidateStart, subtypeOffset).lastIndexOf(dictionaryStartMarker);
+    if (relativeDictionaryStart === -1) continue;
+    const dictionaryStart = candidateStart + relativeDictionaryStart;
+    const candidateEnd = Math.min(buffer.length, dictionaryStart + maxDictionaryBytes + dictionaryEndMarker.length);
+    const relativeDictionaryEnd = buffer.subarray(offset, candidateEnd).indexOf(dictionaryEndMarker);
+    if (relativeDictionaryEnd === -1) continue;
+    const dictionaryEnd = offset + relativeDictionaryEnd;
     const dictionary = buffer.subarray(dictionaryStart, dictionaryEnd + dictionaryEndMarker.length).toString("latin1");
     if (!/\/Subtype\s*\/Image\b/.test(dictionary)) continue;
     const width = directPdfDictionaryInteger(dictionary, "Width");
@@ -259,10 +265,6 @@ export async function extractPdf(
     const parser = new PDFParse({
       data: buffer,
       maxImageSize: limits.maxRenderPixels,
-      // pdf.js only raises its pre-decode maxImageSize rejection when parse
-      // errors are not ignored. This prevents an oversized embedded bitmap
-      // from being decoded before our post-decode dimension check can run.
-      stopAtErrors: true,
     });
     try {
       assertDeclaredPdfImageDimensions(buffer, limits);

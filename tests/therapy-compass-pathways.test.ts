@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
+import { therapyRecordExists } from "@/lib/therapies";
 
 // Guards the clinical integrity of the Therapy Compass pathway data. The imported
 // mockup shipped pathways whose therapy steps were mismatched to the pathway's
@@ -202,7 +203,8 @@ const DOMAIN_APPROPRIATE: Record<string, string[]> = {
 describe("Therapy Compass pathway clinical integrity", () => {
   it("keeps legacy duplicate therapy slugs out of the canonical catalogue", () => {
     for (const slug of LEGACY_DUPLICATE_SLUGS) {
-      expect(bySlug.has(slug), `legacy duplicate therapy ${slug} was restored`).toBe(false);
+      expect(bySlug.has(slug), `legacy duplicate therapy ${slug} was restored to the public dataset`).toBe(false);
+      expect(therapyRecordExists(slug), `legacy duplicate therapy ${slug} was restored to the app index`).toBe(false);
     }
   });
 

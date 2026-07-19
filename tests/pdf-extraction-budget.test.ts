@@ -39,6 +39,14 @@ async function createImagePdf() {
   });
 }
 
+async function createRecoverableMalformedTextPdf() {
+  const pdf = await createTextPdf();
+  const source = pdf.toString("latin1");
+  const malformed = source.replace(/startxref\s+\d+\s+%%EOF/, "startxref\n0\n%%EOF");
+  if (malformed === source) throw new Error("Could not corrupt the PDF cross-reference pointer.");
+  return Buffer.from(malformed, "latin1");
+}
+
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
@@ -179,5 +187,24 @@ describe("PDF extraction budgets", () => {
         scriptPathOverride: fakeExtractor,
       }),
     ).rejects.toMatchObject({ code: "PDF_EXTRACTION_BUDGET_EXCEEDED" });
+  });
+
+  it("keeps best-effort fallback extraction for recoverable non-image PDF damage", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-pdf-recovery-test-"));
+    roots.push(root);
+    const fakeExtractor = path.join(root, "missing-dependency.py");
+    await writeFile(
+      fakeExtractor,
+      "import sys\nprint('PyMuPDF unavailable', file=sys.stderr)\nraise SystemExit(2)\n",
+      "utf8",
+    );
+
+    const extracted = await extractPdf(await createRecoverableMalformedTextPdf(), {
+      scriptPathOverride: fakeExtractor,
+    });
+    roots.push(...(extracted.temporaryPaths ?? []));
+    expect(extracted.pages.map((page) => page.text).join(" ")).toContain(
+      "This extracted text is deliberately longer than one byte.",
+    );
   });
 });
