@@ -148,7 +148,7 @@ export function SpecifierDiagnosisFilter({
     <label
       className={cn(
         // Content-sized control: wide enough for “All diagnoses” without becoming a full-width field.
-        "relative inline-flex min-h-9 w-auto max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
+        "relative inline-flex min-h-tap w-auto max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
       )}
     >
@@ -157,7 +157,7 @@ export function SpecifierDiagnosisFilter({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         aria-label="Filter by diagnosis"
-        className="w-[9.5rem] max-w-[calc(100vw-8rem)] cursor-pointer appearance-none bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none] sm:w-[10.5rem]"
+        className="w-40 max-w-[min(100%,12rem)] cursor-pointer appearance-none bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none] sm:w-44"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -166,7 +166,7 @@ export function SpecifierDiagnosisFilter({
         ))}
       </select>
       <ChevronsUpDown
-        className="pointer-events-none absolute right-2 h-3.5 w-3.5 text-[color:var(--text-soft)]"
+        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--text-soft)]"
         aria-hidden
       />
     </label>
@@ -174,11 +174,13 @@ export function SpecifierDiagnosisFilter({
 }
 
 export function SpecifierMatchCard({ record, isTopMatch }: { record: SpecifierRecord; isTopMatch: boolean }) {
+  const typicalLanguage = record.patientLanguage[0]?.trim();
+
   return (
     <article
       className={cn(
         specifierCard,
-        "group overflow-hidden transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
+        "group overflow-hidden transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)] motion-reduce:transition-none",
         isTopMatch && "border-l-[3px] border-l-[color:var(--clinical-accent)]",
       )}
     >
@@ -191,18 +193,18 @@ export function SpecifierMatchCard({ record, isTopMatch }: { record: SpecifierRe
           <div className="min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <span className="text-lg font-extrabold text-[color:var(--text-heading)] transition group-hover:text-[color:var(--clinical-accent)] sm:text-xl">
+                <span className="text-lg font-extrabold text-[color:var(--text-heading)] transition group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none sm:text-xl">
                   {record.name}
                 </span>
                 {isTopMatch ? (
                   <span className="inline-flex min-h-6 items-center gap-1 rounded-md bg-[color:var(--success-soft)] px-2 text-2xs font-extrabold text-[color:var(--success)]">
-                    <CheckCircle2 className="h-3 w-3" aria-hidden />
+                    <CheckCircle2 className="size-icon-xs" aria-hidden />
                     Top match
                   </span>
                 ) : null}
               </div>
               <ArrowRight
-                className="mt-1 h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                className="mt-1 size-icon-md shrink-0 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                 aria-hidden
               />
             </div>
@@ -230,12 +232,14 @@ export function SpecifierMatchCard({ record, isTopMatch }: { record: SpecifierRe
               {record.decisionQuestion}
             </p>
           </div>
-          <div className="border-t border-[color:var(--border)] px-3 py-2.5 sm:border-l sm:border-t-0 sm:px-5 sm:py-3">
-            <p className={eyebrowText}>Typical language</p>
-            <p className="mt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
-              &ldquo;{record.patientLanguage[0]}&rdquo;
-            </p>
-          </div>
+          {typicalLanguage ? (
+            <div className="border-t border-[color:var(--border)] px-3 py-2.5 sm:border-l sm:border-t-0 sm:px-5 sm:py-3">
+              <p className={eyebrowText}>Typical language</p>
+              <p className="mt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
+                &ldquo;{typicalLanguage}&rdquo;
+              </p>
+            </div>
+          ) : null}
         </div>
       </Link>
     </article>

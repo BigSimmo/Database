@@ -109,6 +109,14 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
   await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Source status", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Source", { exact: true })).toHaveCount(0);
+
+  const courseFilter = page.getByRole("button", { name: /^(Course|Course and onset)$/ });
+  await courseFilter.click();
+  await expect(courseFilter).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("link", { name: "Open With seasonal pattern" })).toBeVisible();
+
+  await page.getByRole("combobox", { name: "Filter by diagnosis" }).selectOption("depressive");
+  await expect(page.getByRole("link", { name: "Open With seasonal pattern" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.getByRole("link", { name: "Open With seasonal pattern" }).click();
