@@ -99,6 +99,7 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
     expect(documentViewerSource).toContain('"max-sm:pb-3"');
     expect(documentViewerSource).toContain('"max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"');
+    expect(globalStylesSource).toContain("--safe-area-bottom");
   });
 
   it("does not reintroduce the obsolete output-mode copy helper", () => {
