@@ -142,6 +142,7 @@ export function PwaLifecycle() {
   const isOnline = useSyncExternalStore(subscribeConnectivity, getConnectivitySnapshot, getServerConnectivitySnapshot);
   const [connectionRestored, setConnectionRestored] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [offlineNoticeDismissed, setOfflineNoticeDismissed] = useState(false);
   const [showIosHint, setShowIosHint] = useState(false);
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const [activatedUpdateReady, setActivatedUpdateReady] = useState(false);
@@ -162,6 +163,9 @@ export function PwaLifecycle() {
     const handleOnline = () => {
       if (restoredTimer) window.clearTimeout(restoredTimer);
       setConnectionRestored(true);
+      // Dismissal is per offline episode: the next connectivity drop should
+      // re-surface the notice.
+      setOfflineNoticeDismissed(false);
       restoredTimer = window.setTimeout(() => setConnectionRestored(false), 4_000);
     };
 
@@ -375,16 +379,25 @@ export function PwaLifecycle() {
     setActivatedUpdateReady(false);
   };
 
+  const showOffline = !isOnline && !offlineNoticeDismissed;
   const showUpdate = isOnline && (Boolean(waitingWorker) || activatedUpdateReady);
   const showInstall = isOnline && !showUpdate && Boolean(installPrompt);
   const showIosInstallHint = isOnline && !showUpdate && !showInstall && showIosHint;
-  if (isOnline && !connectionRestored && !showInstall && !showUpdate && !showIosInstallHint) return null;
+  if (!showOffline && !connectionRestored && !showInstall && !showUpdate && !showIosInstallHint) return null;
 
   return (
     <div className="pwa-notice-stack">
-      {!isOnline ? (
+      {showOffline ? (
         <section className={cardClassName} role="region" aria-labelledby="pwa-offline-title" aria-live="polite">
-          <div className="flex items-start gap-3">
+          <button
+            type="button"
+            className={dismissIconButtonClassName}
+            aria-label="Dismiss offline notice"
+            onClick={() => setOfflineNoticeDismissed(true)}
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <div className="flex items-start gap-3 pr-8">
             <NoticeIcon icon={WifiOff} tone="warning" />
             <div className="min-w-0">
               <p id="pwa-offline-title" className="text-sm font-bold text-[color:var(--text-heading)]">

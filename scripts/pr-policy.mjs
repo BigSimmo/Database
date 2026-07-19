@@ -52,7 +52,7 @@ function normalizeSectionHeading(value) {
 
 function section(body, heading) {
   const source = String(body ?? "");
-  const headings = [...source.matchAll(/^(#{2,6})[ \t]+(.+?)[ \t]*$/gim)];
+  const headings = [...source.matchAll(/^(#{1,6})[ \t]+(.+?)[ \t]*$/gim)];
   const targetHeading = normalizeSectionHeading(heading);
   const matchIndex = headings.findIndex((match) => normalizeSectionHeading(match[2]) === targetHeading);
   if (matchIndex < 0) return "";
@@ -227,6 +227,17 @@ function selfTest() {
       files: [".github/workflows/pr-policy.yml"],
     }).ok,
     true,
+  );
+  // ...but a level-1 heading is shallower than ## and DOES end the section, so
+  // evidence stranded after it must not count toward the preceding section.
+  assert.match(
+    evaluatePullRequestPolicy({
+      title: "fix: update search behavior",
+      body: completeBody.replace("- [x] `npm run verify:ui`\n", "# Appendix\n\n- [x] `npm run verify:ui`\n"),
+      headRef: "codex/search-fix",
+      files: ["src/components/search.tsx"],
+    }).errors.join(" "),
+    /verify:ui/,
   );
   assert.match(
     evaluatePullRequestPolicy({
