@@ -1221,7 +1221,7 @@ describe("Supabase Preview replay guards", () => {
     const migrationFiles = readdirSync(migrationDirectoryUrl)
       .filter((fileName) => /^\d+_.+\.sql$/.test(fileName))
       .sort();
-    expect(migrationFiles.at(-1)).toBe("20260719055623_enforce_public_title_word_scope.sql");
+    expect(migrationFiles.at(-1)).toBe("20260719064735_user_account_data_and_admin_uploads.sql");
     expect(documentTitleWordScopeMigration).toContain(
       "v_status := public.default_privileges_status('postgres', 'public')",
     );

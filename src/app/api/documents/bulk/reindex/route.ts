@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const parsed = await parseJsonBody(request, bulkReindexSchema, "Bulk reindex payload is invalid.");
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
     const rateLimit = await consumeApiRateLimit({ supabase, ownerId: user.id, bucket: "bulk_reindex" });
     if (rateLimit.limited) return rateLimitJsonResponse("Too many bulk reindex requests. Retry shortly.", rateLimit);
 

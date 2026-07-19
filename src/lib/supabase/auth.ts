@@ -1,12 +1,18 @@
 import { createServerClient, parseCookieHeader } from "@supabase/ssr";
 import { env } from "@/lib/env";
-import { jsonError } from "@/lib/http";
+import { PublicApiError, jsonError } from "@/lib/http";
+import { isAdministratorAppMetadata } from "@/lib/authorization";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
 export type AuthenticatedUser = {
   id: string;
+  appMetadata: Record<string, unknown>;
+};
+
+type AuthenticationRequirement = {
+  administrator?: boolean;
 };
 
 function readCookies(cookieHeader: string | null): Map<string, string> {
@@ -66,12 +72,12 @@ function extractSessionAccessToken(request: Request): string | null {
 async function getUserFromAccessToken(supabase: AdminClient, token: string): Promise<AuthenticatedUser | null> {
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user?.id) return null;
-  return { id: data.user.id };
+  return { id: data.user.id, appMetadata: data.user.app_metadata ?? {} };
 }
 
-export class AuthenticationError extends Error {
+export class AuthenticationError extends PublicApiError {
   constructor(message = "Authentication required.") {
-    super(message);
+    super(message, 401, { code: "authentication_required" });
     this.name = "AuthenticationError";
   }
 }
@@ -115,7 +121,7 @@ async function getUserFromRequestCookies(request: Request): Promise<Authenticate
   if (error || !data.user?.id) {
     return null;
   }
-  return { id: data.user.id };
+  return { id: data.user.id, appMetadata: data.user.app_metadata ?? {} };
 }
 
 async function resolveOptionalAuthenticatedUser(
@@ -137,10 +143,17 @@ async function resolveOptionalAuthenticatedUser(
   return getUserFromRequestCookies(request);
 }
 
-export async function requireAuthenticatedUser(request: Request, supabase: AdminClient): Promise<AuthenticatedUser> {
+export async function requireAuthenticatedUser(
+  request: Request,
+  supabase: AdminClient,
+  requirement: AuthenticationRequirement = {},
+): Promise<AuthenticatedUser> {
   const user = await resolveOptionalAuthenticatedUser(request, supabase);
-  if (user) return user;
-  throw new AuthenticationError();
+  if (!user) throw new AuthenticationError();
+  if (requirement.administrator && !isAdministratorAppMetadata(user.appMetadata)) {
+    throw new PublicApiError("Administrator access required.", 403, { code: "administrator_required" });
+  }
+  return user;
 }
 
 export async function getOptionalAuthenticatedUser(

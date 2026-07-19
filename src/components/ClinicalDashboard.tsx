@@ -36,12 +36,8 @@ import {
 } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
-import {
-  isLocalNoAuthMode,
-  publicUploadsEnabled,
-  resolveClientDemoMode,
-  resolveUploadReadOnlyMode,
-} from "@/lib/client-env";
+import { isLocalNoAuthMode, resolveClientDemoMode, resolveUploadReadOnlyMode } from "@/lib/client-env";
+import { isAdministratorUser } from "@/lib/authorization";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import {
@@ -866,8 +862,8 @@ export function ClinicalDashboard({
       setAnswerThreadBootstrapped(true);
     });
   }, [answerThreadOwnerId, authStatus]);
-  // Local no-auth still has private upload APIs (`canUsePrivateApis`); do not lock the
-  // upload drawer just because `resolveClientDemoMode` treats no-auth as demo for favourites.
+  // Local no-auth can still exercise public-read APIs, but administration is always
+  // derived separately from the immutable account role claim.
   const uploadReadOnlyMode = resolveUploadReadOnlyMode({
     explicitDemoMode,
     authUnavailableFallback: browserAuthUnavailableDemoFallback,
@@ -879,7 +875,9 @@ export function ClinicalDashboard({
   const canUseNonProductionDemoFallback = localProjectReady && hasNonProductionSupabaseApiKeyFallback(setupChecks);
   const canUsePrivateApis =
     localProjectReady && (localNoAuthMode || localDevCanAttemptPrivateApis || authStatus === "authenticated");
-  const canUploadDocuments = canUsePrivateApis || (publicUploadsEnabled() && canUsePublicSearchApis);
+  const isAdministrator = isAdministratorUser(auth.session?.user);
+  const canUseAdministrativeApis = localProjectReady && isAdministrator;
+  const canUploadDocuments = canUseAdministrativeApis && canUsePublicSearchApis;
   const canAttemptDeployedPublicSearch = isDeployedClinicalKb() && localProjectReady;
   const canRunSearch =
     explicitDemoMode ||
@@ -926,6 +924,17 @@ export function ClinicalDashboard({
   }, [router]);
   const openLibraryHealthTarget = useCallback(
     (target: LibraryHealthTarget) => {
+      if (!canUseAdministrativeApis) {
+        closeDashboardTransientSurfaces("documents");
+        setDocumentsDrawerMode("library");
+        setDocumentsDrawerOpen(true);
+        setActionNotice({
+          tone: "warning",
+          message: "Library health and indexing controls are administrator-only.",
+        });
+        return;
+      }
+
       const targetId =
         target === "documents"
           ? "dashboard-documents-drawer"
@@ -959,7 +968,7 @@ export function ClinicalDashboard({
         document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 0);
     },
-    [closeDashboardTransientSurfaces],
+    [canUseAdministrativeApis, closeDashboardTransientSurfaces],
   );
 
   useEffect(() => {
@@ -1561,7 +1570,8 @@ export function ClinicalDashboard({
   );
   const needsSetupRecheck = useMemo(() => setupNeedsSlowRecheck(setupChecks), [setupChecks]);
   const dashboardDataSurfaceVisible = documentScopeOpen || documentsDrawerOpen || uploadDrawerOpen;
-  const administrationSurfaceVisible = uploadDrawerOpen || (documentsDrawerOpen && documentsDrawerMode === "admin");
+  const administrationSurfaceVisible =
+    canUseAdministrativeApis && (uploadDrawerOpen || (documentsDrawerOpen && documentsDrawerMode === "admin"));
 
   useEffect(() => {
     dashboardDataLoadedRef.current = false;
@@ -2846,7 +2856,7 @@ export function ClinicalDashboard({
   }
 
   function openUploadDrawer() {
-    if (!canUsePrivateApis) {
+    if (!canUseAdministrativeApis) {
       openDocumentsDrawer("library");
       setActionNotice({
         tone: "warning",
@@ -3339,7 +3349,7 @@ export function ClinicalDashboard({
     setUploadMobileTab("jobs");
     void refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
   };
-  const documentsDrawerIsAdmin = documentsDrawerMode === "admin" && canUsePrivateApis;
+  const documentsDrawerIsAdmin = documentsDrawerMode === "admin" && canUseAdministrativeApis;
   const documentsDrawerTitle =
     documentsDrawerMode === "recent"
       ? "Recent documents"
@@ -4022,7 +4032,7 @@ export function ClinicalDashboard({
                         onBulkMetadataUpdate={bulkUpdateMetadata}
                         bulkActionStatus={bulkActionStatus}
                         bulkActionBusy={bulkActionBusy}
-                        canManageDocuments={canUsePrivateApis}
+                        canManageDocuments={canUseAdministrativeApis}
                         onTagSearch={handleTagSearch}
                         onMutateLabel={mutateDocumentLabel}
                       />

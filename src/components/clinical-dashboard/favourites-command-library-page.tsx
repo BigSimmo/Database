@@ -46,6 +46,7 @@ import { useSearchCommand } from "@/components/clinical-dashboard/search-command
 import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { useAuthSession } from "@/lib/supabase/client";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 type FavouriteType =
@@ -1016,6 +1017,7 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
 export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?: string; demoMode: boolean }) {
   const router = useRouter();
   const command = useSearchCommand();
+  const auth = useAuthSession();
   const [navCollapsed, setNavCollapsed] = useFavouritesNavCollapsed();
   const savedRegistryFavourites = useSavedRegistryFavourites();
   const items = useMemo(
@@ -1106,6 +1108,15 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 </div>
               </div>
             </header>
+
+            {!demoMode && auth.status !== "authenticated" && auth.status !== "loading" ? (
+              <p
+                role="status"
+                className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-3 text-sm font-semibold text-[color:var(--text)]"
+              >
+                Sign in or create an account from Account settings to save favourites and access them across devices.
+              </p>
+            ) : null}
 
             <div
               id={modeHomeDesktopComposerSlotId}
