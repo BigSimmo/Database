@@ -310,6 +310,10 @@ export function MasterSearchHeader({
   const [commandListboxId, setCommandListboxId] = useState<string>();
   const [commandActiveItemId, setCommandActiveItemId] = useState<string | null>(null);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  // Which menuitemradio should receive initial focus when the mode menu opens
+  // (keyboard ArrowOpen or the active mode on tap). Shared by the desktop
+  // popover and the phone bottom sheet.
+  const [modeMenuFocusIndex, setModeMenuFocusIndex] = useState(0);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
@@ -724,14 +728,36 @@ export function MasterSearchHeader({
 
   function focusModeOption(index: number) {
     const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
+    setModeMenuFocusIndex(nextIndex);
     modeOptionRefs.current[nextIndex]?.focus();
   }
 
-  function openModeMenuWithFocus(index: number) {
+  function closeModeSurfaces() {
     setActionMenuOpen(false);
     closeScope(false);
+    setScopeSheetOpen(false);
+  }
+
+  function openModeMenuWithFocus(index: number) {
+    closeModeSurfaces();
+    const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
+    setModeMenuFocusIndex(nextIndex);
     setModeMenuOpen(true);
-    window.requestAnimationFrame(() => focusModeOption(index));
+    // Phone sheet owns initial focus via data-sheet-autofocus; desktop still
+    // needs an rAF focus into the absolute menu after it mounts.
+    if (!usesPhoneSearchLayout) {
+      window.requestAnimationFrame(() => focusModeOption(nextIndex));
+    }
+  }
+
+  function toggleModeMenu() {
+    closeModeSurfaces();
+    if (modeMenuOpen) {
+      setModeMenuOpen(false);
+      return;
+    }
+    setModeMenuFocusIndex(selectedModeIndex);
+    setModeMenuOpen(true);
   }
 
   function handleModeTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
@@ -762,10 +788,61 @@ export function MasterSearchHeader({
       setModeMenuOpen(false);
       window.requestAnimationFrame(() => modeButtonRef.current?.focus());
     } else if (event.key === "Tab") {
-      // Let the browser advance focus normally, but do not leave an abandoned
-      // menu open after keyboard focus moves into the surrounding header.
-      setModeMenuOpen(false);
+      // Desktop: let focus leave the absolute menu and close it. Phone sheet
+      // traps Tab itself — closing here would fight the dialog focus cycle.
+      if (!usesPhoneSearchLayout) {
+        setModeMenuOpen(false);
+      }
     }
+  }
+
+  function renderModeMenuOptions() {
+    return visibleAppModeOptions.map((mode, index) => {
+      const Icon = appModeIcons[mode.id];
+      const active = mode.id === searchMode;
+      return (
+        <button
+          key={mode.id}
+          ref={(element) => {
+            modeOptionRefs.current[index] = element;
+          }}
+          type="button"
+          role="menuitemradio"
+          aria-checked={active}
+          tabIndex={active ? 0 : -1}
+          data-sheet-autofocus={usesPhoneSearchLayout && index === modeMenuFocusIndex ? "true" : undefined}
+          onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
+          onClick={() => {
+            selectAppMode(mode);
+            window.requestAnimationFrame(() => modeButtonRef.current?.focus());
+          }}
+          className={cn(
+            "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            active
+              ? "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)]"
+              : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+          )}
+        >
+          <span
+            className={cn(
+              "grid h-8 w-8 place-items-center rounded-lg border",
+              active
+                ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
+            )}
+          >
+            <Icon aria-hidden="true" className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold">{mode.label}</span>
+            <span className="block truncate text-2xs font-medium text-[color:var(--text-soft)]">
+              {mode.description}
+            </span>
+          </span>
+          {active ? <Check aria-hidden="true" className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
+        </button>
+      );
+    });
   }
 
   const restoreActionMenuFocusRef = useRef(false);
@@ -900,7 +977,9 @@ export function MasterSearchHeader({
   }
 
   useDismissableLayer({
-    enabled: modeMenuOpen,
+    // Phone Mode uses Sheet (backdrop / Escape / focus trap). Keep the
+    // dismissable-layer contract on the desktop absolute menu only.
+    enabled: modeMenuOpen && !usesPhoneSearchLayout,
     refs: [modeMenuRef],
     restoreFocusRef: modeButtonRef,
     onDismiss: dismissModeMenu,
@@ -1613,6 +1692,9 @@ export function MasterSearchHeader({
           <div
             ref={modeMenuRef}
             onBlur={(event) => {
+              // Phone Mode menu is portaled into Sheet; blur-leave on this wrapper
+              // would close the sheet as soon as focus moved into the dialog.
+              if (usesPhoneSearchLayout) return;
               const nextFocusedElement = event.relatedTarget;
               if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) return;
               setModeMenuOpen(false);
@@ -1622,11 +1704,7 @@ export function MasterSearchHeader({
             <button
               ref={modeButtonRef}
               type="button"
-              onClick={() => {
-                setActionMenuOpen(false);
-                closeScope(false);
-                setModeMenuOpen((open) => !open);
-              }}
+              onClick={toggleModeMenu}
               onKeyDown={handleModeTriggerKeyDown}
               className={cn(
                 // Size utilities live in the per-variant branch, never the shared
@@ -1664,66 +1742,42 @@ export function MasterSearchHeader({
               />
             </button>
 
-            {modeMenuOpen ? (
+            {!usesPhoneSearchLayout && modeMenuOpen ? (
               <div
                 id="app-mode-menu"
                 role="menu"
                 aria-label="Choose app mode"
                 className={cn(
                   glassOverlaySurface,
-                  "polished-scroll fixed left-[max(0.5rem,var(--safe-area-left))] right-[max(0.5rem,var(--safe-area-right))] top-[calc(4.25rem+env(safe-area-inset-top))] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] sm:absolute sm:left-0 sm:right-auto sm:top-[calc(100%+0.5rem)] sm:w-[min(21rem,calc(100vw-2rem))]",
+                  "polished-scroll absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] w-[min(21rem,calc(100vw-2rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)]",
                 )}
               >
-                {visibleAppModeOptions.map((mode, index) => {
-                  const Icon = appModeIcons[mode.id];
-                  const active = mode.id === searchMode;
-                  return (
-                    <button
-                      key={mode.id}
-                      ref={(element) => {
-                        modeOptionRefs.current[index] = element;
-                      }}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={active}
-                      tabIndex={active ? 0 : -1}
-                      onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
-                      onClick={() => {
-                        selectAppMode(mode);
-                        window.requestAnimationFrame(() => modeButtonRef.current?.focus());
-                      }}
-                      className={cn(
-                        "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                        active
-                          ? "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)]"
-                          : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "grid h-8 w-8 place-items-center rounded-lg border",
-                          active
-                            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                            : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
-                        )}
-                      >
-                        <Icon aria-hidden="true" className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">{mode.label}</span>
-                        <span className="block truncate text-2xs font-medium text-[color:var(--text-soft)]">
-                          {mode.description}
-                        </span>
-                      </span>
-                      {active ? (
-                        <Check aria-hidden="true" className="h-4 w-4 text-[color:var(--clinical-accent)]" />
-                      ) : null}
-                    </button>
-                  );
-                })}
+                {renderModeMenuOptions()}
               </div>
             ) : null}
           </div>
+
+          {usesPhoneSearchLayout ? (
+            <Sheet
+              open={modeMenuOpen}
+              onClose={dismissModeMenu}
+              title="Choose mode"
+              description="Switch the clinical workspace mode."
+              closeLabel="Close mode menu"
+              returnFocusRef={modeButtonRef}
+              portal
+              mobilePlacement="bottom"
+              mobileSize="content"
+              testId="app-mode-menu-sheet"
+              contentClassName="max-h-[min(88dvh,36rem)] sm:max-w-md"
+              bodyClassName="p-2"
+              headerClassName="bg-[color:var(--surface-lux)] px-4 py-3"
+            >
+              <div id="app-mode-menu" role="menu" aria-label="Choose app mode" className="grid gap-0.5">
+                {renderModeMenuOptions()}
+              </div>
+            </Sheet>
+          ) : null}
 
           <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
             {isWorkflowHeader ? (
