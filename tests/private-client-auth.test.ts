@@ -5,6 +5,7 @@ import {
   isDefinitiveAuthValidationError,
   isUsableBrowserSupabaseKey,
   resolveInitialAuthState,
+  shouldFailInitialAuthVerification,
 } from "../src/lib/supabase/client";
 
 function fakeSession(userId: string, accessToken = "access-token"): Session {
@@ -47,6 +48,12 @@ describe("browser auth helpers", () => {
     expect(isDefinitiveAuthValidationError({ code: "session_not_found", message: "Session not found" })).toBe(true);
     expect(isDefinitiveAuthValidationError({ status: 503, message: "Auth service unavailable" })).toBe(false);
     expect(isDefinitiveAuthValidationError(new TypeError("Failed to fetch"))).toBe(false);
+  });
+
+  it("does not fail initialization early for retryable auth fetch errors", () => {
+    expect(shouldFailInitialAuthVerification(new TypeError("Failed to fetch"))).toBe(false);
+    expect(shouldFailInitialAuthVerification({ status: 401, message: "JWT expired" })).toBe(false);
+    expect(shouldFailInitialAuthVerification({ status: 503, message: "Auth service unavailable" })).toBe(true);
   });
 });
 

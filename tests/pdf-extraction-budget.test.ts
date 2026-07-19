@@ -3,7 +3,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import PDFDocument from "pdfkit";
-import { afterEach, describe, expect, it } from "vitest";
+import { PDFParse } from "pdf-parse";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { extractPdf, runPythonPdfExtractor } from "@/lib/extractors/document";
 import {
   PDF_EXTRACTION_BUDGET,
@@ -26,7 +27,29 @@ async function createTextPdf() {
   });
 }
 
+async function createImagePdf() {
+  const image = await readFile(new URL("../public/demo-documents/risk-flow.png", import.meta.url));
+  return new Promise<Buffer>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    const document = new PDFDocument();
+    document.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    document.on("end", () => resolve(Buffer.concat(chunks)));
+    document.on("error", reject);
+    document.image(image, 20, 20);
+    document.end();
+  });
+}
+
+async function createRecoverableMalformedTextPdf() {
+  const pdf = await createTextPdf();
+  const source = pdf.toString("latin1");
+  const malformed = source.replace(/startxref\s+\d+\s+%%EOF/, "startxref\n0\n%%EOF");
+  if (malformed === source) throw new Error("Could not corrupt the PDF cross-reference pointer.");
+  return Buffer.from(malformed, "latin1");
+}
+
 afterEach(async () => {
+  vi.restoreAllMocks();
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -148,5 +171,47 @@ describe("PDF extraction budgets", () => {
         scriptPathOverride: fakeExtractor,
       }),
     ).rejects.toMatchObject({ code: "PDF_EXTRACTION_BUDGET_EXCEEDED" });
+  });
+
+  it("rejects an oversized embedded image before the JavaScript fallback decodes it", async () => {
+    const getTextSpy = vi.spyOn(PDFParse.prototype, "getText");
+    const getImageSpy = vi.spyOn(PDFParse.prototype, "getImage");
+    const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-pdf-image-budget-test-"));
+    roots.push(root);
+    const fakeExtractor = path.join(root, "missing-dependency.py");
+    await writeFile(
+      fakeExtractor,
+      "import sys\nprint('PyMuPDF unavailable', file=sys.stderr)\nraise SystemExit(2)\n",
+      "utf8",
+    );
+
+    await expect(
+      extractPdf(await createImagePdf(), {
+        limits: { ...PDF_EXTRACTION_BUDGET, maxRenderPixels: 1 },
+        scriptPathOverride: fakeExtractor,
+      }),
+    ).rejects.toMatchObject({ code: "PDF_EXTRACTION_BUDGET_EXCEEDED" });
+
+    expect(getTextSpy).not.toHaveBeenCalled();
+    expect(getImageSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps best-effort fallback extraction for recoverable non-image PDF damage", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-pdf-recovery-test-"));
+    roots.push(root);
+    const fakeExtractor = path.join(root, "missing-dependency.py");
+    await writeFile(
+      fakeExtractor,
+      "import sys\nprint('PyMuPDF unavailable', file=sys.stderr)\nraise SystemExit(2)\n",
+      "utf8",
+    );
+
+    const extracted = await extractPdf(await createRecoverableMalformedTextPdf(), {
+      scriptPathOverride: fakeExtractor,
+    });
+    roots.push(...(extracted.temporaryPaths ?? []));
+    expect(extracted.pages.map((page) => page.text).join(" ")).toContain(
+      "This extracted text is deliberately longer than one byte.",
+    );
   });
 });
