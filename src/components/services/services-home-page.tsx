@@ -118,7 +118,12 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
     ) : null;
 
   return (
-    <ModeHomeMain testId="services-home" contentAlign="startOnPhone">
+    <ModeHomeMain
+      testId="services-home"
+      // Seeded homes are content-rich and can clip when centered on phone;
+      // loading/empty notices stay short — keep those vertically centred.
+      contentAlign={hasRegistryRecords ? "startOnPhone" : "center"}
+    >
       <ModeHomeTemplate
         testId="services-home-template"
         title="Find a service"

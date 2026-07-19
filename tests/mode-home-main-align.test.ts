@@ -58,17 +58,26 @@ describe("ModeHomeMain alignment contract", () => {
   });
 
   it("migrates content-rich homes off fragile className justify overrides", () => {
-    const homeSources = [
+    const alwaysStartOnPhone = [
       resolve(SRC_ROOT, "components/therapy-compass/screens/home-screen.tsx"),
       resolve(SRC_ROOT, "components/formulation/formulation-home-page.tsx"),
       resolve(SRC_ROOT, "components/specifiers/specifiers-home-page.tsx"),
       resolve(SRC_ROOT, "components/dsm/dsm-home-page.tsx"),
-      resolve(SRC_ROOT, "components/forms/forms-home-page.tsx"),
-      resolve(SRC_ROOT, "components/services/services-home-page.tsx"),
     ].map((path) => readFileSync(path, "utf8"));
 
-    for (const source of homeSources) {
+    for (const source of alwaysStartOnPhone) {
       expect(source).toMatch(/contentAlign="startOnPhone"/);
+      expect(source).not.toMatch(/ModeHomeMain[^>]*className="[^"]*justify-/);
+    }
+
+    // Forms/services only top-align when the registry is seeded; short empty /
+    // loading notices stay centred so the phone canvas does not look sparse.
+    for (const path of [
+      resolve(SRC_ROOT, "components/forms/forms-home-page.tsx"),
+      resolve(SRC_ROOT, "components/services/services-home-page.tsx"),
+    ]) {
+      const source = readFileSync(path, "utf8");
+      expect(source).toMatch(/contentAlign=\{hasRegistryRecords \? "startOnPhone" : "center"\}/);
       expect(source).not.toMatch(/ModeHomeMain[^>]*className="[^"]*justify-/);
     }
   });
