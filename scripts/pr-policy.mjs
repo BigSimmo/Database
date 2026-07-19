@@ -52,12 +52,17 @@ function normalizeSectionHeading(value) {
 
 function section(body, heading) {
   const source = String(body ?? "");
-  const headings = [...source.matchAll(/^#{2,6}[ \t]+(.+?)[ \t]*$/gim)];
+  const headings = [...source.matchAll(/^(#{2,6})[ \t]+(.+?)[ \t]*$/gim)];
   const targetHeading = normalizeSectionHeading(heading);
-  const matchIndex = headings.findIndex((match) => normalizeSectionHeading(match[1]) === targetHeading);
+  const matchIndex = headings.findIndex((match) => normalizeSectionHeading(match[2]) === targetHeading);
   if (matchIndex < 0) return "";
   const start = (headings[matchIndex]?.index ?? 0) + (headings[matchIndex]?.[0].length ?? 0);
-  const end = headings[matchIndex + 1]?.index ?? source.length;
+  // Markdown outline semantics: the section runs until the next heading of the
+  // same or shallower level. Deeper headings (### under ##) are sub-structure
+  // and stay inside the section, so checklist evidence after them still counts.
+  const level = headings[matchIndex][1].length;
+  const next = headings.slice(matchIndex + 1).find((match) => match[1].length <= level);
+  const end = next?.index ?? source.length;
   return source.slice(start, end).trim();
 }
 
@@ -211,6 +216,17 @@ function selfTest() {
       files: ["src/components/search.tsx"],
     }).errors.join(" "),
     /verify:ui/,
+  );
+  // Outline semantics: a ### sub-heading inside a required section must not
+  // truncate it — checklist evidence after the sub-heading still counts.
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: "ci: enforce pull request evidence",
+      body: completeBody.replace("## Verification\n\n", "## Verification\n\n### Unit tests\n\n"),
+      headRef: "codex/pr-policy",
+      files: [".github/workflows/pr-policy.yml"],
+    }).ok,
+    true,
   );
   assert.match(
     evaluatePullRequestPolicy({
