@@ -507,6 +507,7 @@ export function ClinicalDashboard({
   // overlay); other modes keep the phone-only collapse, so the reporter only
   // widens past the phone media gate while in answer mode.
   const phoneScrollHide = useScrollHideReporter(false, searchMode === "answer");
+  const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
   const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
   reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
@@ -3249,6 +3250,20 @@ export function ClinicalDashboard({
   const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
+  const visibleMobileComposerReserve =
+    searchMode === "answer"
+      ? answerFollowUpSuggestions.length > 0
+        ? "calc(7.5rem + var(--safe-area-bottom))"
+        : "calc(5.25rem + var(--safe-area-bottom))"
+      : differentialsCompareAddonActive
+        ? "calc(8.75rem + var(--safe-area-bottom))"
+        : compactMobileBottomSearch
+          ? "calc(5rem + var(--safe-area-bottom))"
+          : "calc(5.25rem + var(--safe-area-bottom))";
+  // Browser safe areas protect the visible interactive dock. Once it has
+  // scrolled away, reserving Safari's translucent toolbar inset would leave a
+  // large blank band instead of allowing ordinary content to paint beneath it.
+  const mobileComposerReserve = bottomComposerHidden ? "0.75rem" : visibleMobileComposerReserve;
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : CircleAlert}
@@ -3445,6 +3460,7 @@ export function ClinicalDashboard({
         {
           "--clinical-sidebar-width": sidebarCollapsed ? "5.25rem" : "20rem",
           "--clinical-sidebar-width-md": "5.25rem",
+          "--mobile-composer-reserve": mobileComposerReserve,
         } as CSSProperties
       }
     >
@@ -3529,6 +3545,7 @@ export function ClinicalDashboard({
               ? { strategy: "overlay", allBreakpoints: true, scrollHidden: phoneScrollHide.hidden }
               : { strategy: "collapse", scrollHidden: phoneScrollHide.hidden }
           }
+          onBottomComposerHiddenChange={setBottomComposerHidden}
         />
 
         <main
@@ -3553,24 +3570,17 @@ export function ClinicalDashboard({
             searchMode === "answer"
               ? compactMobileModeHome
                 ? "mb-0"
-                : // Phone answer view: the "Ask a follow-up" dock is fixed to the
-                  // bottom, so <main> reserves room for it. Keep that geometry stable
-                  // while the dock translates off-screen: changing the flex item's
-                  // margin alters its client height and clamps scrollTop near the
-                  // bottom, feeding a false upward movement into hide-on-scroll.
-                  answerFollowUpSuggestions.length > 0
-                  ? "mb-[calc(7.5rem+env(safe-area-inset-bottom))] sm:mb-24"
-                  : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-24"
+                : // Keep the phone scrollport edge-to-edge and reserve the visible
+                  // dock inside its scrollable content. Padding can collapse when the
+                  // dock hides without exposing the app-shell background; the
+                  // bottom-clamp guard in use-hide-on-scroll prevents false reveals.
+                  "max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-24"
               : hasMobileBottomSearch
-                ? compactMobileBottomSearch
-                  ? differentialsCompareAddonActive
-                    ? "mb-[calc(8.75rem+env(safe-area-inset-bottom))] sm:mb-0"
-                    : "mb-[calc(5rem+env(safe-area-inset-bottom))] sm:mb-0"
-                  : // Mode homes keep the composer in the hero (in-flow at every
-                    // width), so phones need no bottom-dock clearance on them.
-                    compactMobileModeHome || showDesktopHomeComposer
-                    ? "mb-0"
-                    : "mb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:mb-0"
+                ? // Mode homes keep the composer in the hero (in-flow at every
+                  // width), so phones need no bottom-dock clearance on them.
+                  compactMobileModeHome || showDesktopHomeComposer
+                  ? "mb-0"
+                  : "max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-0"
                 : "mb-0",
           )}
         >
