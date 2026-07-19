@@ -87,8 +87,10 @@ describe("ClinicalDashboard merge-artifact guards", () => {
   });
 
   it("reserves phone space for the fixed mode-home composer", () => {
-    expect(globalSearchShellSource).toContain("const mobileComposerReserve = !shouldShowSearchComposer");
+    expect(globalSearchShellSource).toContain("const visibleMobileComposerReserve = !shouldShowSearchComposer");
+    expect(globalSearchShellSource).toContain("const mobileComposerReserve = bottomComposerHidden");
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = !reservesFloatingComposer");
+    expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = phoneScrollHide.hidden");
   });
 
   it("does not reintroduce the obsolete output-mode copy helper", () => {

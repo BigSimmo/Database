@@ -104,9 +104,9 @@ async function teardownLocalPwa() {
 const cardClassName =
   "pwa-notice-card pointer-events-auto relative rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 text-[color:var(--text)] shadow-[var(--shadow-lux)] ring-1 ring-white/35 backdrop-blur-md dark:ring-white/10";
 const primaryButtonClassName =
-  "inline-flex min-h-11 items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3.5 py-2 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition-colors hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+  "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-3.5 py-2 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition-colors hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const secondaryButtonClassName =
-  "inline-flex min-h-11 items-center justify-center rounded-lg border border-[color:var(--border-lux)] px-3.5 py-2 text-sm font-semibold text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+  "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--border-lux)] px-3.5 py-2 text-sm font-semibold text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const dismissIconButtonClassName =
   "absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 

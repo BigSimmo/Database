@@ -189,7 +189,7 @@ function VisualEvidenceStrip({
                     </span>
                   )}
                   {!hasStructuredTable ? <QueryCoverageChips relevance={item.relevance} limit={2} /> : null}
-                  <Link href={item.viewer_href} className={cn(floatingControl, "min-h-11 px-4 text-xs")}>
+                  <Link href={item.viewer_href} className={cn(floatingControl, "min-h-tap px-4 text-xs")}>
                     <ExternalLink aria-hidden="true" className="h-4 w-4" />
                     Open source
                   </Link>
@@ -224,7 +224,7 @@ export function InlineTableCard({ item }: { item: VisualEvidenceCard }) {
         <div className="flex shrink-0 items-center gap-1 sm:hidden" aria-label="Table actions">
           <Link
             href={item.viewer_href}
-            className={cn(chatMicroAction, "min-h-11 min-w-11 justify-center px-0")}
+            className={cn(chatMicroAction, "min-h-tap min-w-tap justify-center px-0")}
             aria-label="Open table source"
           >
             <ExternalLink aria-hidden="true" className="h-4 w-4" />
@@ -279,7 +279,7 @@ export function CanonicalAnswerTable({ table }: { table: CanonicalAnswerTableRec
           {table.source ? (
             <Link
               href={table.source.href}
-              className={cn(chatMicroAction, "min-h-11 min-w-11 shrink-0 justify-center px-0 sm:hidden")}
+              className={cn(chatMicroAction, "min-h-tap min-w-tap shrink-0 justify-center px-0 sm:hidden")}
               aria-label="Open table source"
             >
               <ExternalLink className="h-4 w-4" aria-hidden />
@@ -601,7 +601,7 @@ export function MobileEvidenceSheetContent({
                 onClick={() => setSelectedTab(tab)}
                 onKeyDown={(event) => handleTabKeyDown(event, tab)}
                 className={cn(
-                  "inline-flex min-h-11 items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition",
+                  "inline-flex min-h-tap items-center gap-1.5 rounded-md border px-3 text-xs font-semibold transition",
                   selected
                     ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                     : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",

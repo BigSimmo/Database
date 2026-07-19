@@ -263,14 +263,6 @@
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 64%), 0 12px 34px rgb(8 16 24 / 7%);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 58%);
   --shadow-card: var(--shadow-tight);
-  --space-1: 0.25rem;
-  --space-2: 0.5rem;
-  --space-3: 0.75rem;
-  --space-4: 1rem;
-  --space-6: 1.5rem;
-  --space-8: 2rem;
-  --space-12: 3rem;
-  --space-16: 4rem;
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
@@ -553,14 +545,9 @@ summary::-webkit-details-marker {
  * scripts/capture-chrome-parity.ts). Responsive padding overrides are nested
  * here so the whole class stays in one layer.
  *
- * The COMPOSER PILL surface below (answer-footer-search-pill, a <form>) is now
- * ALSO layered via a chatComposerShell base/delta split (see its comment). The
- * pill-interior controls (answer-footer-search-input/-send/-action) and the
- * composer POSITIONING chrome (*-composer-edge, *-search-edge/-dock/-backdrop,
- * -pill-open, document-mobile-search-*) stay INTENTIONALLY UNLAYERED — the
- * controls are <input>/<button> governed by unlayered global resets, the
- * positioning chrome conflicts with inline responsive utilities. See
- * docs/process-hardening.md ("CSS cascade layering").
+ * The COMPOSER PILL surface below is layered, while all composer-interior
+ * chrome is owned by the unlayered semantic classes below. Recipe exports only
+ * name those classes; they no longer duplicate size, state, or paint utilities.
  */
 @layer components {
   .edge-glass-header {
@@ -648,19 +635,9 @@ summary::-webkit-details-marker {
   bottom: max(0.45rem, calc(var(--safe-area-bottom) + 0.35rem));
 }
 
-/* Composer pill surface — LAYERED (2026-07-08). The pill is a <form>, so no
- * global element reset targets it, and its call sites now use
- * `chatComposerShellBase` (the size/colour/shadow "delta" this class owns is
- * dropped at the call site — see the base/delta note in
- * src/components/ui-primitives.tsx). Moving it into @layer components lets
- * Tailwind utilities on the pill win normally. The pill-INTERIOR controls
- * (answer-footer-search-input/-send/-action) stay UNLAYERED on purpose: they are
- * <input>/<button> elements governed by the intentionally-unlayered global resets
- * above (`font: inherit`, the ≤640px 16px font-size floor, the button transition
- * reset). Layering those controls drops them below those resets and regresses
- * computed style — and gains nothing, since utilities can't beat the unlayered
- * resets either. Pill layering proven byte-identical across 16 states with
- * scripts/capture-chrome-parity.ts. */
+/* Composer pill surface — LAYERED. The form carries the semantic
+ * chat-composer-shell-base class plus this contextual surface. Interior input
+ * and button chrome stays unlayered in the single-owner block below. */
 @layer components {
   .answer-footer-search-pill {
     min-height: 3.25rem;
@@ -1139,22 +1116,119 @@ summary::-webkit-details-marker {
   color: var(--clinical-accent);
 }
 
+/* Composer primitives are intentionally unlayered because inputs/buttons are
+   governed by the global element resets. Their exported TypeScript recipes are
+   class handles only, making this block the single owner of chrome and states. */
+.chat-composer-shell-base {
+  display: flex;
+  align-items: center;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 999px;
+}
+
+.chat-composer-shell-delta {
+  min-height: 3.5rem;
+  gap: 0.5rem;
+  border-color: var(--border-strong);
+  background: var(--surface);
+  padding-inline: 0.5rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.chat-composer-shell-delta:focus-within {
+  border-color: var(--clinical-accent);
+}
+
+.chat-composer-input {
+  min-width: 0;
+  min-height: var(--spacing-tap);
+  flex: 1 1 0%;
+  border: 0;
+  background: transparent;
+  padding-inline: 0.5rem;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 500;
+  outline: none;
+}
+
+.chat-composer-input::placeholder {
+  color: var(--text-soft);
+}
+
+.chat-composer-icon-button,
+.chat-send-button {
+  display: grid;
+  width: var(--spacing-tap);
+  height: var(--spacing-tap);
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.chat-composer-icon-button {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+.chat-composer-icon-button:hover:not(:disabled),
+.chat-composer-icon-button[aria-expanded="true"] {
+  background: var(--surface-subtle);
+  color: var(--text);
+}
+
+.chat-send-button {
+  border: 0;
+  background: var(--clinical-accent);
+  color: var(--clinical-accent-contrast);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--clinical-accent) 32%, transparent);
+}
+
+.chat-send-button:hover:not(:disabled) {
+  background: var(--clinical-accent-hover);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--clinical-accent) 38%, transparent);
+}
+
+.chat-send-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.chat-composer-icon-button:focus-visible,
+.chat-send-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.chat-composer-icon-button:disabled,
+.chat-send-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 /* Small-phone pin for the composer icon buttons: hold the 44px tap target and a
    1.1rem glyph below 431px (the ≥640px block grows them to 48px/3rem). Single
    source of truth — do not re-add a second max-width:430px block for these.
    The mode-action popover only renders ≥1024px, so this holds no .mode-action-*
    overrides. */
 @media (max-width: 430px) {
-  .answer-footer-search-action,
-  .answer-footer-search-send {
+  .chat-composer-icon-button,
+  .chat-send-button {
     height: 2.75rem !important;
     width: 2.75rem !important;
     min-height: 2.75rem;
     min-width: 2.75rem;
   }
 
-  .answer-footer-search-action svg,
-  .answer-footer-search-send svg {
+  .chat-composer-icon-button svg,
+  .chat-send-button svg {
     height: 1.1rem;
     width: 1.1rem;
   }
@@ -1167,29 +1241,6 @@ summary::-webkit-details-marker {
   .mode-action-surface[data-placement="down"] {
     animation: mode-action-fold-down 170ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
-}
-
-.answer-footer-search-action {
-  height: 2.75rem;
-  width: 2.75rem;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-muted);
-  box-shadow: none;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
-}
-
-/* The unlayered `background: transparent` above beats the layered hover/open
-   utilities on the chatComposerIconButton trigger, so the "+" had NO tactile
-   feedback on hover and stayed flat even while its menu was open. Restore both
-   as unlayered rules so the primary compose action responds like every other
-   icon control. `[aria-expanded="true"]` is the trigger's open state. */
-.answer-footer-search-action:hover,
-.answer-footer-search-action[aria-expanded="true"] {
-  background: var(--surface-subtle);
-  color: var(--text);
 }
 
 .answer-footer-search-input {
@@ -1230,25 +1281,8 @@ summary::-webkit-details-marker {
   );
 }
 
-.answer-footer-search-send {
-  height: 2.75rem;
-  width: 2.75rem;
-  background: var(--clinical-accent);
-  color: var(--clinical-accent-contrast);
-  box-shadow: 0 3px 10px color-mix(in srgb, var(--clinical-accent) 32%, transparent);
-  transition:
-    background-color 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
-}
-
-.answer-footer-search-send:hover {
-  background: var(--clinical-accent-hover);
-  box-shadow: 0 5px 14px color-mix(in srgb, var(--clinical-accent) 38%, transparent);
-}
-
 /* Idle/inactive send: a calm neutral chip, not a faded-teal button. The
-   chatComposerIconButton `disabled:opacity-50` utility over the accent fill +
+   shared disabled opacity over the accent fill +
    colour glow read as muddy/half-broken on the empty hero. Unlayered so it
    beats that layered utility; the button turns accent the moment a query makes
    it actionable. */
@@ -1257,12 +1291,6 @@ summary::-webkit-details-marker {
   background: var(--surface-subtle);
   color: var(--text-soft);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-strong) 42%, transparent);
-}
-
-.answer-footer-search-send:active {
-  /* Match the global button press metaphor (translateY) rather than a scale so
-     the composer send button feels consistent with every other control. */
-  transform: translateY(1px);
 }
 
 .answer-footer-search-chip {
@@ -2151,10 +2179,9 @@ html[data-motion="reduced"] .pwa-notice-card {
  * live in @layer components so Tailwind utilities can override them.
  * Audited 2026-07-02 / 2026-07-08: the header chrome (edge-glass-header,
  * universal-header-*) and the composer pill surface (answer-footer-search-pill)
- * ARE layered — their call sites drop the conflicting "delta" utilities. Still
- * UNLAYERED deliberately: the composer pill-interior controls
- * (answer-footer-search-input/-send/-action, governed by unlayered global
- * <input>/<button> resets) and the positioning chrome (*-composer-edge,
+ * ARE layered. The semantic chat-composer-* classes and contextual composer
+ * deltas stay UNLAYERED deliberately because <input>/<button> resets and the
+ * positioning chrome (*-composer-edge,
  * *-search-edge/-dock/-backdrop, document-mobile-search-*) — layering those
  * changes rendered pixels. When adding a utility to an element carrying one of
  * those unlayered classes, check the class body first; the class wins.

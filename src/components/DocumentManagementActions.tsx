@@ -1,8 +1,9 @@
 "use client";
 
-import { TriangleAlert, Check, Loader2, Pencil, Trash2 } from "lucide-react";
+import { TriangleAlert, Check, Pencil, Trash2 } from "lucide-react";
 import { FormEvent, useRef, useState } from "react";
 import {
+  AsyncButton,
   cn,
   fieldControlPlain,
   fieldLabel,
@@ -213,18 +214,16 @@ export function DocumentManagementActions({
               <button type="button" className={floatingControl} onClick={closeDialog} disabled={pending}>
                 Cancel
               </button>
-              <button
+              <AsyncButton
                 type="submit"
+                busy={pending}
+                busyLabel="Deleting…"
+                idleIcon={<Trash2 aria-hidden="true" className="h-4 w-4" />}
                 className={cn(primaryControl, "bg-[color:var(--danger)] hover:bg-[color:var(--danger)]")}
-                disabled={pending || deleteConfirmation !== document.title}
+                disabled={deleteConfirmation !== document.title}
               >
-                {pending ? (
-                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 aria-hidden="true" className="h-4 w-4" />
-                )}
                 Delete permanently
-              </button>
+              </AsyncButton>
             </div>
           </form>
         ) : (
@@ -245,14 +244,16 @@ export function DocumentManagementActions({
               <button type="button" className={floatingControl} onClick={closeDialog} disabled={pending}>
                 Cancel
               </button>
-              <button type="submit" className={primaryControl} disabled={pending || !title.trim()}>
-                {pending ? (
-                  <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Check aria-hidden="true" className="h-4 w-4" />
-                )}
+              <AsyncButton
+                type="submit"
+                busy={pending}
+                busyLabel="Saving…"
+                idleIcon={<Check aria-hidden="true" className="h-4 w-4" />}
+                className={primaryControl}
+                disabled={!title.trim()}
+              >
                 Save title
-              </button>
+              </AsyncButton>
             </div>
           </form>
         )}

@@ -42,7 +42,14 @@ import {
   useAppPreferences,
 } from "@/components/clinical-dashboard/use-app-preferences";
 import { clearRecentQueries, countRecentQueries } from "@/components/clinical-dashboard/recent-query-storage";
-import { cn, fieldControlWithIcon, fieldIcon, floatingControl, primaryControl } from "@/components/ui-primitives";
+import {
+  cn,
+  fieldControlWithIcon,
+  fieldIcon,
+  floatingControl,
+  primaryControl,
+  toggleThumbSurface,
+} from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
 import {
   readSavedRegistrySlugs,
@@ -955,7 +962,7 @@ function Switch({
       aria-label={ariaLabel}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+        "relative inline-flex h-6 w-tap shrink-0 items-center rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
         checked
           ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)]"
           : "border-[color:var(--border-strong)] bg-[color:var(--surface-inset)]",
@@ -963,7 +970,8 @@ function Switch({
     >
       <span
         className={cn(
-          "grid h-[18px] w-[18px] place-items-center rounded-full border border-[color:var(--border)] bg-white text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)] transition-transform",
+          toggleThumbSurface,
+          "grid h-[18px] w-[18px] place-items-center rounded-full border border-[color:var(--border)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-tight)] transition-transform",
           checked ? "translate-x-[22px]" : "translate-x-0.5",
         )}
       >

@@ -1,5 +1,5 @@
 import { Ban, Loader2, TriangleAlert, X, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 import {
   extractionQualityLabel,
   formatClinicalDate,
@@ -18,6 +18,9 @@ export const insetCard = "rounded-lg border border-[color:var(--border)] bg-[col
 export const appBackdrop = "app-edge-backdrop";
 export const glassPanel =
   "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)]";
+export const glassOverlaySurface =
+  "border border-[color:var(--border-lux)] ring-1 ring-[color:var(--surface-highlight)] backdrop-blur-xl";
+export const toggleThumbSurface = "bg-[color:var(--surface-raised)]";
 export const quietPanel =
   "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]";
 export const sourceCard = `${quietPanel} transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)]`;
@@ -37,7 +40,7 @@ export const toolbarButton =
 export const eyebrowText = "text-2xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]";
 export const fieldLabel = `mb-1.5 block ${eyebrowText}`;
 export const fieldControl =
-  "h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)]";
+  "h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] text-sm text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] aria-[invalid=true]:border-[color:var(--danger)] aria-[invalid=true]:bg-[color:var(--danger-soft)] aria-[invalid=true]:text-[color:var(--danger)] aria-[invalid=true]:focus:border-[color:var(--danger)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:shadow-none disabled:opacity-75 read-only:cursor-default read-only:bg-[color:var(--surface-subtle)] read-only:text-[color:var(--text-muted)] read-only:shadow-none";
 export const fieldControlWithIcon = `${fieldControl} pl-9 pr-3`;
 export const fieldControlPlain = `${fieldControl} px-3`;
 export const fieldIcon =
@@ -89,41 +92,15 @@ export const evidenceRow =
   "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 export const clinicalNotesRow =
   "flex min-h-12 w-full items-center justify-between gap-3 rounded-lg border border-[color:var(--clinical-chat-sand-border)] bg-[color:var(--clinical-chat-sand)] px-3 py-2 text-left shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-chat-sand-border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
-/*
- * Composer SHELL constant — base/delta split (2026-07-08).
- *
- * The composer pill surface class `answer-footer-search-pill` (a <form>, in
- * `src/app/globals.css`) now lives in `@layer components`, so plain Tailwind
- * utilities on the pill win. To keep the class in control of the properties it
- * owns, `chatComposerShell` is split:
- *   - `chatComposerShellBase`  — utilities the pill class does NOT set (display,
- *     align, radius, border-width). Safe to stack next to the layered class;
- *     used at the composer pill call sites.
- *   - `chatComposerShellDelta` — utilities that set a property the pill class
- *     ALSO sets (min-height, gap, border-colour, background, padding, shadow,
- *     focus-within border). These would beat the layered class, so they are
- *     dropped at pill call sites and only reappear via the combined const.
- * `chatComposerShell` = `base + delta` (byte-identical class set to before) for
- * any call site that uses the pill surface WITHOUT the layered class.
- *
- * The pill-INTERIOR control constants (`chatComposerInput`, `chatSendButton`,
- * `chatComposerIconButton`) are NOT split: their chrome classes stay unlayered
- * because they land on <input>/<button> elements governed by unlayered global
- * resets (`font: inherit`, the ≤640px 16px font-size floor, the button
- * transition reset — see globals.css). An unlayered chrome class still beats
- * those resets by specificity; a layered one would not. Verified byte-identical
- * across 16 states with scripts/capture-chrome-parity.ts.
- */
-export const chatComposerShellBase = "flex items-center rounded-full border";
-export const chatComposerShellDelta =
-  "min-h-14 gap-2 border-[color:var(--border-strong)] bg-[color:var(--surface)] px-2 shadow-[var(--shadow-soft)] focus-within:border-[color:var(--clinical-accent)]";
+/* Composer chrome has one owner: the unlayered classes in globals.css. These
+ * exports are semantic handles only, so recipes and cascade rules cannot fight
+ * over input/button dimensions, states, or paint. */
+export const chatComposerShellBase = "chat-composer-shell-base";
+export const chatComposerShellDelta = "chat-composer-shell-delta";
 export const chatComposerShell = `${chatComposerShellBase} ${chatComposerShellDelta}`;
-export const chatComposerInput =
-  "min-h-tap min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]";
-export const chatComposerIconButton =
-  "grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
-export const chatSendButton =
-  "grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50";
+export const chatComposerInput = "chat-composer-input";
+export const chatComposerIconButton = "chat-composer-icon-button";
+export const chatSendButton = "chat-send-button";
 export const tableCard =
   "overflow-hidden rounded-lg border border-[color:var(--border)]/80 bg-[color:var(--surface)] shadow-[var(--shadow-tight)]";
 export const tableCardHeader =
@@ -169,6 +146,23 @@ export const searchResultsSection =
   "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]";
 export const searchFocusRing =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+
+type AsyncButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"> & {
+  busy: boolean;
+  busyLabel: string;
+  children: ReactNode;
+  idleIcon?: ReactNode;
+};
+
+/** Shared busy-state contract for async actions: one label, spinner, disabled state, and announcement hook. */
+export function AsyncButton({ busy, busyLabel, children, disabled, idleIcon, ...props }: AsyncButtonProps) {
+  return (
+    <button {...props} disabled={busy || disabled} aria-busy={busy || undefined}>
+      {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : idleIcon}
+      <span>{busy ? busyLabel : children}</span>
+    </button>
+  );
+}
 
 export type NoticeTone = "success" | "warning" | "danger" | "info" | "neutral";
 

@@ -2,6 +2,7 @@ import { Suspense, type ReactNode } from "react";
 
 import { GlobalSearchShell } from "@/components/clinical-dashboard/global-search-shell";
 import { TherapyCompassWorkspace } from "@/components/therapy-compass";
+import "@/components/therapy-compass/therapy-compass.css";
 
 // Therapy Compass uses the same universal header, rail, and responsive search
 // composer as the other mode homes. The workspace is mounted at the layout level

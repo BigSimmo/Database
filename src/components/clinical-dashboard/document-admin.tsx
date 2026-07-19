@@ -1038,7 +1038,7 @@ export function DocumentDrawer({
                 <div className="min-w-0">
                   <Link
                     href={`/documents/${document.id}`}
-                    className="flex min-h-11 min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
+                    className="flex min-h-tap min-w-0 items-center gap-2 text-sm font-semibold text-[color:var(--text)] transition hover:text-[color:var(--primary)]"
                   >
                     <span className="truncate">{documentDisplayTitle(document)}</span>
                     <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]" />
@@ -1077,7 +1077,7 @@ export function DocumentDrawer({
                     type="button"
                     onClick={() => onToggleScope(document.id)}
                     className={cn(
-                      "inline-flex min-h-11 items-center rounded-lg border px-3 text-xs font-semibold transition",
+                      "inline-flex min-h-tap items-center rounded-lg border px-3 text-xs font-semibold transition",
                       selected
                         ? "border-[color:var(--primary)]/35 bg-[color:var(--primary-soft)] text-[color:var(--primary)]"
                         : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
