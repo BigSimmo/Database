@@ -79,4 +79,15 @@ describe("public content and account authorization model", () => {
       'const documentsDrawerIsAdmin = documentsDrawerMode === "admin" && canUseAdministrativeApis;',
     );
   });
+
+  it("checks favourite save results explicitly instead of relying on object truthiness", () => {
+    const serviceDetail = source("src/components/services/service-detail-page.tsx");
+    const formDetail = source("src/components/forms/form-detail-page.tsx");
+    const differentialDetail = source("src/components/differentials/differential-detail-page.tsx");
+
+    for (const detailSource of [serviceDetail, formDetail, differentialDetail]) {
+      expect(detailSource).toContain("result.success");
+      expect(detailSource).not.toMatch(/if\s*\(\s*!\s*\(\s*await accountData\.setFavourite/);
+    }
+  });
 });

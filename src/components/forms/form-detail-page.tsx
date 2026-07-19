@@ -513,11 +513,14 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
   async function toggleSaved() {
     try {
       const nowSaved = !saved;
-      if (!(await accountData.setFavourite("form", form.slug, nowSaved))) {
+      const result = await accountData.setFavourite("form", form.slug, nowSaved);
+      if (result.success) {
+        setNotice(nowSaved ? "Form saved" : "Form removed from saved items");
+      } else if (result.reason === "unauthenticated") {
         setNotice("Sign in or create an account to save forms");
-        return;
+      } else {
+        setNotice(result.message);
       }
-      setNotice(nowSaved ? "Form saved" : "Form removed from saved items");
     } catch {
       setNotice("Save failed");
     }
