@@ -3259,9 +3259,8 @@ export function ClinicalDashboard({
         : compactMobileBottomSearch
           ? "calc(5rem + var(--safe-area-bottom))"
           : "calc(5.25rem + var(--safe-area-bottom))";
-  // Browser safe areas protect the visible interactive dock. Once it has
-  // scrolled away, reserving Safari's translucent toolbar inset would leave a
-  // large blank band instead of allowing ordinary content to paint beneath it.
+  // Hidden dock: keep only a small pad; full safe-area inset leaves a Safari toolbar band.
+  // prettier-ignore
   const mobileComposerReserve = bottomComposerHidden ? "max(0.75rem, var(--safe-area-bottom))" : visibleMobileComposerReserve;
   const renderDegradedNotice = () => (
     <UtilityDrawer
@@ -3551,7 +3550,8 @@ export function ClinicalDashboard({
           id="main-content"
           ref={assignMainRef}
           tabIndex={-1}
-          onScroll={handleMainScroll} data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
+          onScroll={handleMainScroll}
+          data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
           className={cn(
             "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
             // Answer view: the glass header is absolute over this scroll container,

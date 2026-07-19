@@ -15,11 +15,7 @@ import {
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { ClinicalDashboard } from "@/components/ClinicalDashboard";
-import {
-  clearLegacyRecentQueries,
-  demoRecentQueryOwnerId,
-  loadRecentQueries,
-} from "@/lib/recent-query-storage";
+import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
