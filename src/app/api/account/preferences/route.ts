@@ -35,10 +35,17 @@ export async function GET(request: Request) {
       .eq("user_id", user.id)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return Response.json({
-      preferences: data ? normalizePreferences(data.preferences) : null,
-      updatedAt: data?.updated_at,
-    });
+    return Response.json(
+      {
+        preferences: data ? normalizePreferences(data.preferences) : null,
+        updatedAt: data?.updated_at,
+      },
+      {
+        headers: {
+          "Cache-Control": "private, no-store",
+        },
+      },
+    );
   } catch (error) {
     return jsonError(error);
   }
@@ -55,7 +62,14 @@ export async function PUT(request: Request) {
       updated_at: new Date().toISOString(),
     });
     if (error) throw new Error(error.message);
-    return Response.json({ preferences });
+    return Response.json(
+      { preferences },
+      {
+        headers: {
+          "Cache-Control": "private, no-store",
+        },
+      },
+    );
   } catch (error) {
     return jsonError(error);
   }
