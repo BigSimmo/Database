@@ -1798,7 +1798,7 @@ export function DocumentViewer({
   const canViewSourceDocuments = localProjectReady;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
   const canUseAdministrativeApis =
-    localProjectReady && (serverDemoMode || (authStatus === "authenticated" && isAdministratorUser(session?.user)));
+    localProjectReady && !serverDemoMode && authStatus === "authenticated" && isAdministratorUser(session?.user);
 
   useEffect(() => {
     if (authStatus !== "loading") {

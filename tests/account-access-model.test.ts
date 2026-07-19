@@ -58,6 +58,7 @@ describe("public content and account authorization model", () => {
     expect(tableFactsRoute).toContain("withOwnerReadScope(");
     expect(tableFactsRoute.match(/administrator: true/g)?.length).toBe(1);
     expect(documentViewer).toContain("isAdministratorUser(session?.user)");
+    expect(documentViewer).toContain("!serverDemoMode");
     expect(documentViewer).toContain("{canUseAdministrativeApis ? (");
     expect(documentViewer).toContain("canManage={canUseAdministrativeApis}");
     expect(documentViewer).toContain("canReview={canUseAdministrativeApis}");

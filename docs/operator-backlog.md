@@ -34,7 +34,7 @@ Findings inventory for handover: [audit-handover-2026-07-14.md](audit-handover-2
 | Redeploy worker (one always-on instance)                              | ✅ done    | —                              | Worker deployment recorded live 2026-07-14; re-verify with `npm run reindex:health` | [worker-deploy-runbook.md](worker-deploy-runbook.md)                                                        |
 | Seed registry / differentials / medications (prod)                    | ⏳ pending | prod deploy                    | Services/Forms surfaces non-empty                                                   | [launch-operator-runbook.md §6](launch-operator-runbook.md)                                                 |
 | Switch auth connection cap 10-absolute → percentage-based (dashboard) | ⏳ pending | before first vertical scale-up | dashboard — not SQL/MCP settable                                                    | [auth-connection-cap-runbook.md](auth-connection-cap-runbook.md) · [capacity-review.md](capacity-review.md) |
-| Wire SLO warn/page thresholds into a real alert channel               | ⏳ pending | host metrics exist             | nightly eval canary green from `main` (one `workflow_dispatch`)                     | [observability-slos.md](observability-slos.md)                                                              |
+| Wire SLO warn/page thresholds into a real alert channel               | ⏳ pending | host metrics exist             | weekly eval canary green from `main` (one `workflow_dispatch`)                      | [observability-slos.md](observability-slos.md)                                                              |
 
 ## Standing secret / config placement (per environment)
 
