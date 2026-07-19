@@ -65,7 +65,8 @@ async function gotoHome(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   // Suspense/hydration can briefly mount two shell copies, each with
   // header#search. Wait until exactly one visible header settles — a permanent
-  // double-mount still fails toHaveCount(1).
+  // double-mount still fails toHaveCount(1). Avoids Playwright strict-mode
+  // trips when a second transient header exists briefly.
   const searchHeader = page.locator("header#search");
   if ((await searchHeader.count()) !== 1) {
     await expect(searchHeader).toHaveCount(1, { timeout: 30_000 });
