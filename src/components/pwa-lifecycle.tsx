@@ -108,7 +108,7 @@ const primaryButtonClassName =
 const secondaryButtonClassName =
   "inline-flex min-h-tap items-center justify-center rounded-lg border border-[color:var(--border-lux)] px-3.5 py-2 text-sm font-semibold text-[color:var(--text)] transition-colors hover:bg-[color:var(--surface-subtle)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 const dismissIconButtonClassName =
-  "absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
+  "absolute right-1 top-1 inline-flex h-tap w-tap items-center justify-center rounded-full text-[color:var(--text-muted)] transition-colors hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
 
 // Leading icon tile: categorical identity per notice type, on the semantic
 // soft/border/ink triads so dark mode and forced-colors resolve via tokens.
@@ -397,7 +397,7 @@ export function PwaLifecycle() {
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
-          <div className="flex items-start gap-3 pr-8">
+          <div className="flex items-start gap-3 pr-12">
             <NoticeIcon icon={WifiOff} tone="warning" />
             <div className="min-w-0">
               <p id="pwa-offline-title" className="text-sm font-bold text-[color:var(--text-heading)]">
@@ -437,7 +437,7 @@ export function PwaLifecycle() {
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
-          <div className="flex items-start gap-3 pr-8">
+          <div className="flex items-start gap-3 pr-12">
             <NoticeIcon icon={RefreshCw} tone="info" />
             <div className="min-w-0">
               <p id="pwa-update-title" className="text-sm font-bold text-[color:var(--text-heading)]">
@@ -469,7 +469,7 @@ export function PwaLifecycle() {
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
-          <div className="flex items-start gap-3 pr-8">
+          <div className="flex items-start gap-3 pr-12">
             <NoticeIcon icon={Share} tone="accent" />
             <div className="min-w-0">
               <p id="pwa-ios-install-title" className="text-sm font-bold text-[color:var(--text-heading)]">
@@ -498,7 +498,7 @@ export function PwaLifecycle() {
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
-          <div className="flex items-start gap-3 pr-8">
+          <div className="flex items-start gap-3 pr-12">
             <NoticeIcon icon={ArrowDownToLine} tone="accent" />
             <div className="min-w-0">
               <p id="pwa-install-title" className="text-sm font-bold text-[color:var(--text-heading)]">
