@@ -6,7 +6,9 @@ import path from "node:path";
 import PDFDocument from "pdfkit";
 import { describe, expect, it } from "vitest";
 
-const pythonBin = process.env.PYTHON_BIN || (process.platform === "win32" ? "python" : "python3");
+import { resolvePythonBin } from "@/lib/python-bin";
+
+const pythonBin = resolvePythonBin();
 const hasPyMuPDF = spawnSync(pythonBin, ["-c", "import fitz"], { encoding: "utf8" }).status === 0;
 
 describe("Python PDF extraction prerequisite", () => {

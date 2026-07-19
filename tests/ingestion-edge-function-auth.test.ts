@@ -34,5 +34,6 @@ describe("ingestion-worker Edge Function authorization", () => {
     expect(source).toContain('reason === "lease_lost"');
     expect(source).toContain("lease_lost:");
     expect(source).toContain("sql.begin");
+    expect(source).toContain("complete_ingestion_job did not confirm success");
   });
 });

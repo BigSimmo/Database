@@ -256,7 +256,13 @@ async function processJob(job: ClaimedJob, workerId: string): Promise<"completed
   await markEnrichmentMetadata(job.document_id);
 
   const completion = await completeIngestionJob(job, workerId);
-  return isLeaseLost(completion) ? "lease_lost" : "completed";
+  if (isLeaseLost(completion)) return "lease_lost";
+  if (!completion || completion.ok === false) {
+    throw new Error(
+      `complete_ingestion_job did not confirm success: ${completion?.reason ?? "no result row"}`,
+    );
+  }
+  return "completed";
 }
 
 Deno.serve(async (req: Request) => {

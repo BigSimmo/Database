@@ -1,5 +1,7 @@
 import fs from "node:fs";
 
+import { yamlBlock } from "./yaml-contract.mjs";
+
 const workflowPath = ".github/workflows/pr-policy.yml";
 const ciWorkflowPath = ".github/workflows/ci.yml";
 const workflow = fs.readFileSync(workflowPath, "utf8");
@@ -8,87 +10,104 @@ const githubScriptPin = "3a2844b7e9c422d3c10d287c895573f7108da1b3";
 
 const failures = [];
 
-const forbiddenPatterns = [
-  {
-    pattern: /ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\}\}/,
-    message: "PR policy workflow must not checkout the untrusted PR head SHA.",
-  },
-  {
-    pattern: /ref:\s*\$\{\{\s*github\.base_ref\s*\}\}/,
-    message: "PR policy workflow must not checkout the moving base branch ref.",
-  },
-  {
-    pattern: /ref:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha\s*\}\}/,
-    message: "PR policy workflow must not checkout a potentially stale pull_request.base.sha.",
-  },
-  {
-    pattern: /persist-credentials:\s*true/,
-    message: "PR policy workflow must not persist checkout credentials.",
-  },
-  {
-    pattern: /pull-requests:\s*write/,
-    message: "PR policy workflow must remain read-only for pull requests.",
-  },
-  {
-    pattern: /contents:\s*write/,
-    message: "PR policy workflow must not grant contents write permission.",
-  },
-  {
-    pattern: /uses:\s*actions\/github-script@v\d+/,
-    message: "PR policy workflow must pin github-script to an immutable commit.",
-  },
-];
+function collectCheckoutRefs(block) {
+  return block
+    .split(/\r?\n/)
+    .map((line) => line.match(/^\s+ref:\s*(.+?)\s*(?:#.*)?$/)?.[1]?.trim())
+    .filter(Boolean);
+}
 
-for (const { pattern, message } of forbiddenPatterns) {
-  if (pattern.test(workflow)) {
-    failures.push(message);
+function assertCheckoutRefs(block, label, { allowed = [], forbidden = [] }) {
+  const refs = collectCheckoutRefs(block);
+  for (const ref of refs) {
+    if (forbidden.some((pattern) => pattern.test(ref))) {
+      failures.push(`${label} must not checkout untrusted ref ${ref}.`);
+    }
+    if (allowed.length > 0 && !allowed.includes(ref)) {
+      failures.push(`${label} checkout ref ${ref} is not in the allowed trusted set.`);
+    }
+  }
+  if (refs.length === 0) {
+    failures.push(`${label} is missing an actions/checkout ref declaration.`);
   }
 }
 
-const requiredChecks = [
-  "pull_request_target:",
-  "contents: read",
-  "pull-requests: read",
-  "ref: ${{ github.workflow_sha }}",
-  "persist-credentials: false",
-  `uses: actions/github-script@${githubScriptPin} # v9.0.0`,
-  "GITHUB_WORKSPACE}/scripts/pr-policy.mjs",
-  "github.event_name == 'pull_request_target'",
-];
-
-for (const requiredCheck of requiredChecks) {
-  if (!workflow.includes(requiredCheck)) {
-    failures.push(`PR policy workflow is missing required hardening check: ${requiredCheck}`);
+function assertPersistCredentialsFalse(block, label) {
+  if (!/persist-credentials:\s*false/.test(block)) {
+    failures.push(`${label} must set persist-credentials: false on checkout steps.`);
+  }
+  if (/persist-credentials:\s*true/.test(block)) {
+    failures.push(`${label} must not persist checkout credentials.`);
   }
 }
 
-const syncJob = ciWorkflow.match(/sync-pr-policy-body:[\s\S]*?(?=\n  [a-z0-9-]+:|$)/)?.[0] ?? "";
-if (!syncJob) {
-  failures.push("ci.yml is missing the sync-pr-policy-body job.");
+const policyJob = yamlBlock(workflow, "policy:", 2);
+if (!policyJob) {
+  failures.push("pr-policy.yml is missing the policy job.");
 } else {
-  const syncForbiddenPatterns = [
-    {
-      pattern: /trusted-policy\/scripts\/pr-policy\.mjs/,
-      message: "sync-pr-policy-body must import pr-policy.mjs from the trusted base checkout only.",
-    },
-    {
-      pattern: /existingCheckedItems/,
-      message: "sync-pr-policy-body must preserve existing governance attestations instead of auto-checking items.",
-    },
-    {
-      pattern: /ref:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha\s*\}\}[\s\S]*path:\s*trusted-policy/,
-      message: "sync-pr-policy-body must checkout trusted policy metadata from the PR base SHA.",
-    },
-  ];
+  const checkoutStep = yamlBlock(policyJob, "- name: Checkout trusted policy", 6);
+  if (!checkoutStep) {
+    failures.push("pr-policy.yml policy job is missing the trusted checkout step.");
+  } else {
+    assertCheckoutRefs(checkoutStep, "PR policy trusted checkout", {
+      allowed: ["${{ github.workflow_sha }}"],
+      forbidden: [/github\.event\.pull_request\.head/, /github\.base_ref/, /github\.event\.pull_request\.base\.sha/],
+    });
+    assertPersistCredentialsFalse(checkoutStep, "PR policy trusted checkout");
+  }
 
-  for (const { pattern, message } of syncForbiddenPatterns) {
-    if (!pattern.test(syncJob)) {
-      failures.push(message);
+  const validateStep = yamlBlock(policyJob, "- name: Validate pull request evidence", 6);
+  if (!validateStep) {
+    failures.push("pr-policy.yml policy job is missing the validation step.");
+  } else {
+    if (!validateStep.includes("GITHUB_WORKSPACE}/scripts/pr-policy.mjs")) {
+      failures.push("PR policy validation must import scripts/pr-policy.mjs from the trusted checkout.");
+    }
+    if (!validateStep.includes(`uses: actions/github-script@${githubScriptPin} # v9.0.0`)) {
+      failures.push("PR policy validation must use the pinned github-script action.");
     }
   }
 
-  if (/map\(\(item\) => `\s*-\s*\[x\]/i.test(syncJob)) {
-    failures.push("sync-pr-policy-body must not synthesize completed Clinical Governance Preflight items.");
+  if (
+    !/^permissions:\s*$/m.test(workflow) ||
+    !workflow.includes("contents: read") ||
+    !workflow.includes("pull-requests: read")
+  ) {
+    failures.push("pr-policy.yml must declare read-only workflow permissions.");
+  }
+  if (/pull-requests:\s*write/.test(policyJob) || /contents:\s*write/.test(policyJob)) {
+    failures.push("pr-policy.yml policy job must not request write permissions.");
+  }
+}
+
+const syncJob = yamlBlock(ciWorkflow, "sync-pr-policy-body:", 2);
+if (!syncJob) {
+  failures.push("ci.yml is missing the sync-pr-policy-body job.");
+} else {
+  const trustedCheckout = yamlBlock(syncJob, "- name: Checkout trusted policy metadata", 6);
+  if (!trustedCheckout) {
+    failures.push("sync-pr-policy-body is missing the trusted policy metadata checkout step.");
+  } else {
+    assertCheckoutRefs(trustedCheckout, "sync-pr-policy-body trusted policy checkout", {
+      allowed: ["${{ github.event.pull_request.base.sha }}"],
+      forbidden: [/github\.event\.pull_request\.head/],
+    });
+    assertPersistCredentialsFalse(trustedCheckout, "sync-pr-policy-body trusted policy checkout");
+  }
+
+  const applyStep = yamlBlock(syncJob, "- name: Apply PR_POLICY_BODY.md to pull request description", 6);
+  if (!applyStep) {
+    failures.push("sync-pr-policy-body is missing the PR body sync step.");
+  } else {
+    if (!applyStep.includes("trusted-policy/scripts/pr-policy.mjs")) {
+      failures.push("sync-pr-policy-body must import pr-policy.mjs from the trusted base checkout only.");
+    }
+    if (!applyStep.includes("existingCheckedItems")) {
+      failures.push("sync-pr-policy-body must preserve existing governance attestations.");
+    }
+    if (/map\(\(item\) => `\s*-\s*\[x\]/i.test(applyStep)) {
+      failures.push("sync-pr-policy-body must not synthesize completed Clinical Governance Preflight items.");
+    }
   }
 }
 

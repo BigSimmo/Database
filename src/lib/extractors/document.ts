@@ -17,11 +17,7 @@ import {
   PdfExtractionResourceError,
   type PdfExtractionBudget,
 } from "@/lib/extractors/pdf-extraction-budget";
-
-function resolvePythonBin() {
-  if (process.env.PYTHON_BIN) return process.env.PYTHON_BIN;
-  return process.platform === "win32" ? "python" : "python3";
-}
+import { resolvePythonBin } from "@/lib/python-bin";
 
 const extractedPageSchema = z.object({
   pageNumber: z.number().int().positive(),

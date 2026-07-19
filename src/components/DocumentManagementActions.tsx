@@ -58,6 +58,17 @@ export function DocumentManagementActions({
   const [pending, setPending] = useState(false);
   const canManage = !disabled && authStatus === "authenticated" && isAdministratorUser(session?.user);
 
+  function assertCanManage(): boolean {
+    const allowed = !disabled && authStatus === "authenticated" && isAdministratorUser(session?.user);
+    if (!allowed) {
+      setMode(null);
+      resetDialogState();
+      setError("Administrator access is required for this action.");
+      return false;
+    }
+    return true;
+  }
+
   function resetDialogState() {
     setTitle(document.title);
     setDeleteConfirmation("");
@@ -87,6 +98,7 @@ export function DocumentManagementActions({
 
   async function submitRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!assertCanManage()) return;
     const nextTitle = title.trim();
     if (!nextTitle) {
       setError("Enter a document title.");
@@ -121,6 +133,7 @@ export function DocumentManagementActions({
 
   async function submitDelete(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!assertCanManage()) return;
     if (deleteConfirmation !== document.title) {
       setError("Type the current document title to confirm permanent deletion.");
       return;

@@ -52,6 +52,7 @@ describe("public content and account authorization model", () => {
     const documentManagementActions = source("src/components/DocumentManagementActions.tsx");
     expect(documentManagementActions).toContain("isAdministratorUser(session?.user)");
     expect(documentManagementActions).toContain('authStatus === "authenticated"');
+    expect(documentManagementActions).toContain("assertCanManage()");
   });
 
   it("keeps public document reads separate from administrator mutations", () => {
