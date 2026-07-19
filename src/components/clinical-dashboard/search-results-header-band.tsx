@@ -149,9 +149,7 @@ export function ResultSortControl({
         className,
       )}
     >
-      <span className={cn("text-[color:var(--text-soft)]", compact && "sr-only sm:not-sr-only sm:inline")}>
-        Sort
-      </span>
+      <span className={cn("text-[color:var(--text-soft)]", compact && "sr-only sm:not-sr-only sm:inline")}>Sort</span>
       {/* appearance-none strips the native control chrome so "Relevance" renders at the
           same size/weight as the rest of the band and the caret sits in a fixed slot. */}
       <select

@@ -400,9 +400,7 @@ function SearchResultsHeader({
           </div>
         </div>
       </div>
-      {showSort ? (
-        <ResultSortControl value={sortValue} onChange={onSortChange} className="min-h-tap shrink-0" />
-      ) : null}
+      {showSort ? <ResultSortControl value={sortValue} onChange={onSortChange} className="min-h-tap shrink-0" /> : null}
     </section>
   );
 }
@@ -812,7 +810,7 @@ function DocumentSearchResultsPanelImpl({
   setupWarning,
   facets: _facets,
   searchScope = null,
-  sourceGovernanceWarnings = [],
+  sourceGovernanceWarnings = EMPTY_SOURCE_GOVERNANCE_WARNINGS,
   onScopeDocument,
   onAnswerFromDocument,
   onOpenRecentDocuments,
