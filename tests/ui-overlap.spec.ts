@@ -120,6 +120,44 @@ test.describe("Header element overlap coverage", () => {
   }
 
   for (const viewport of [
+    { name: "narrow-phone", width: 360, height: 780 },
+    { name: "phone", width: 390, height: 820 },
+  ] as const) {
+    test(`header menu and new-chat insets stay symmetric on ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await mockDemoDashboard(page);
+      await gotoHome(page);
+
+      const menu = page.getByRole("button", { name: "Open Clinical Guide menu" });
+      const newChat = page.getByRole("button", { name: "Start a new chat" });
+      await expect(menu).toBeVisible();
+      await expect(newChat).toBeVisible();
+
+      const geometry = await page.evaluate(() => {
+        const menuButton = document.querySelector<HTMLElement>('[aria-label="Open Clinical Guide menu"]');
+        const newChatButton = document.querySelector<HTMLElement>('[aria-label="Start a new chat"]');
+        if (!menuButton || !newChatButton) return null;
+        const menuRect = menuButton.getBoundingClientRect();
+        const newChatRect = newChatButton.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        return {
+          leftInset: menuRect.left,
+          rightInset: viewportWidth - newChatRect.right,
+        };
+      });
+
+      expect(geometry, "menu and new-chat controls must both render").not.toBeNull();
+      // 1rem header pad (~16px) with 2px subpixel tolerance.
+      expect(geometry!.leftInset, "left menu inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
+      expect(geometry!.rightInset, "right new-chat inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
+      expect(
+        Math.abs(geometry!.leftInset - geometry!.rightInset),
+        `left/right insets should match (left=${geometry!.leftInset}, right=${geometry!.rightInset})`,
+      ).toBeLessThanOrEqual(2);
+    });
+  }
+
+  for (const viewport of [
     { name: "mobile", width: 390, height: 820 },
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {

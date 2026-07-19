@@ -552,8 +552,10 @@ summary::-webkit-details-marker {
 @layer components {
   .edge-glass-header {
     isolation: isolate;
-    padding-left: max(0.75rem, var(--safe-area-left));
-    padding-right: max(0.75rem, var(--safe-area-right));
+    /* 1rem matches mode-home px-4 so phone header icons align with content
+       edges; keep safe-area max() so notched devices never under-inset. */
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
     /* Translucent glass bar: the header's backdrop-blur utilities frost the
        content scrolling beneath it (they were inert over the old opaque
        var(--surface)). The .edge-glass-header-backdrop scrim supersedes the
@@ -592,15 +594,8 @@ summary::-webkit-details-marker {
     box-shadow: none;
   }
 
-  /* Responsive header padding (moved in from the shared @media blocks below so
-   the whole .edge-glass-header class is layered together). */
-  @media (min-width: 640px) {
-    .edge-glass-header {
-      padding-left: max(1rem, var(--safe-area-left));
-      padding-right: max(1rem, var(--safe-area-right));
-    }
-  }
-
+  /* Desktop header padding (moved in from the shared @media blocks below so
+   the whole .edge-glass-header class is layered together). Base/sm share 1rem. */
   @media (min-width: 1024px) {
     .edge-glass-header {
       padding-left: max(1.5rem, var(--safe-area-left));
