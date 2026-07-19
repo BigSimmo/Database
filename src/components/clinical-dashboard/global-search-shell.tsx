@@ -736,10 +736,10 @@ function GlobalStandaloneSearchShellClient({
             // auto, which turns #main-content into the sticky scrollport while the
             // window does the actual scrolling — silently disabling every
             // position:sticky descendant (e.g. the document viewer rail).
-            "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
-            // Phone clearance uses a flex spacer sibling below (not padding):
-            // padding-bottom on a column flex scrollport is omitted from
-            // scrollHeight, so long pages parked content under the dock.
+            // Phone: keep a block formatting scrollport (not a column flex). A
+            // flex-1 child overflowed past a sibling spacer without extending
+            // scrollHeight, which parked long pages under the visible dock.
+            "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:min-h-0 max-sm:flex-1 max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
             // sm+: static desktop clearance; use var(--safe-area-bottom) so tests
             // can simulate insets without depending on env() in Chromium.
             !reservesFloatingComposer
@@ -751,19 +751,19 @@ function GlobalStandaloneSearchShellClient({
                   : "sm:pb-[calc(9rem+var(--safe-area-bottom))]",
           )}
         >
-          <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col">
+          {/*
+            Phone dock clearance lives on this inner pad (not #main-content):
+            padding on the scrollport itself is omitted from scrollHeight in some
+            flex/overflow combinations. The inner block box includes padding in
+            its height, so end-of-page content clears the visible dock.
+          */}
+          <div data-testid="mobile-composer-reserve-pad" className="max-sm:pb-[var(--mobile-composer-reserve)]">
             <ClientHydrationBoundary
               fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
             >
               <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
             </ClientHydrationBoundary>
           </div>
-          <div
-            aria-hidden="true"
-            data-testid="mobile-composer-reserve-spacer"
-            className="pointer-events-none max-sm:block max-sm:shrink-0 sm:hidden"
-            style={{ height: "var(--mobile-composer-reserve)" }}
-          />
         </div>
       </div>
 

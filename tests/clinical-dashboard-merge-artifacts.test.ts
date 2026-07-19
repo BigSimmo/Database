@@ -133,11 +133,10 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = phoneScrollHide.hidden");
     expect(globalSearchShellSource).toContain("sm:pb-[calc(9rem+var(--safe-area-bottom))]");
     expect(globalSearchShellSource).not.toContain("sm:pb-[calc(9rem+env(safe-area-inset-bottom))]");
-    // Phone shell clearance is a flex spacer (padding is omitted from scrollHeight
-    // on a column flex scrollport).
-    expect(globalSearchShellSource).toContain('data-testid="mobile-composer-reserve-spacer"');
-    expect(globalSearchShellSource).toContain('height: "var(--mobile-composer-reserve)"');
-    expect(globalSearchShellSource).not.toContain("max-sm:pb-[var(--mobile-composer-reserve)]");
+    // Phone shell clearance is an inner pad so padding contributes to scrollHeight.
+    expect(globalSearchShellSource).toContain('data-testid="mobile-composer-reserve-pad"');
+    expect(globalSearchShellSource).toContain("max-sm:pb-[var(--mobile-composer-reserve)]");
+    expect(globalSearchShellSource).not.toContain('data-testid="mobile-composer-reserve-spacer"');
 
     expect(clinicalDashboardSource).toContain("resolveDashboardVisibleMobileComposerReserve");
     expect(clinicalDashboardSource).toContain("resolveMobileComposerReserve(");
@@ -154,7 +153,7 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(documentViewerSource).toContain("max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]");
     expect(globalStylesSource).toContain("@media (max-width: 639px) and (prefers-reduced-motion: reduce)");
     expect(globalStylesSource).toContain('#main-content[data-bottom-composer-hidden="true"]');
-    expect(globalStylesSource).toContain('[data-testid="mobile-composer-reserve-spacer"]');
+    expect(globalStylesSource).toContain('[data-testid="mobile-composer-reserve-pad"]');
     expect(globalStylesSource).toContain("--phone-dock-differentials-compare-clearance: 12.5rem");
     expect(globalStylesSource).toContain("var(--phone-dock-differentials-compare-clearance)");
     // Child pages must not stack a second dock-sized safe-area pad under the

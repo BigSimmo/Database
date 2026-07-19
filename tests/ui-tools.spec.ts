@@ -1562,12 +1562,12 @@ test.describe("Clinical KB tools launcher", () => {
       const last = document.querySelector('[data-testid="differential-mobile-result-card"]:last-of-type');
       const dock = document.querySelector("form.answer-footer-search-dock");
       const style = main ? window.getComputedStyle(main) : null;
-      const spacer = main?.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-spacer"]');
+      const pad = main?.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
       return {
         lastBottom: last?.getBoundingClientRect().bottom ?? null,
         dockTop: dock?.getBoundingClientRect().top ?? null,
-        reservePx: spacer
-          ? spacer.getBoundingClientRect().height
+        reservePx: pad
+          ? Number.parseFloat(window.getComputedStyle(pad).paddingBottom)
           : style
             ? Number.parseFloat(style.paddingBottom)
             : null,
@@ -1861,13 +1861,15 @@ test.describe("Clinical KB service detail page", () => {
       const servicePage = document.querySelector<HTMLElement>('[data-testid="service-detail-page"]');
       if (!scrollElement || !dockElement) return null;
       const scrollStyle = window.getComputedStyle(scrollElement);
-      const spacer = scrollElement.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-spacer"]');
+      const pad = scrollElement.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
       return {
         footerBottom: element.getBoundingClientRect().bottom,
         scrollBottom: scrollElement.getBoundingClientRect().bottom,
         dockTop: dockElement.getBoundingClientRect().top,
         dockHeight: dockElement.getBoundingClientRect().height,
-        reservePx: spacer ? spacer.getBoundingClientRect().height : Number.parseFloat(scrollStyle.paddingBottom),
+        reservePx: pad
+          ? Number.parseFloat(window.getComputedStyle(pad).paddingBottom)
+          : Number.parseFloat(scrollStyle.paddingBottom),
         reserve: scrollStyle.getPropertyValue("--mobile-composer-reserve").trim(),
         scrollTop: scrollElement.scrollTop,
         scrollHeight: scrollElement.scrollHeight,
