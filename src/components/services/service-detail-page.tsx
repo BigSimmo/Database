@@ -51,7 +51,7 @@ import {
   type ServiceStatusChip,
   type ServiceSummaryCard,
 } from "@/lib/service-ranker";
-import { readSavedRegistrySlugs, savedServicesStorageKey, writeSavedRegistrySlugs } from "@/lib/saved-registry-storage";
+import { useAccountData } from "@/components/account-data-provider";
 
 const missingText = "Not listed";
 
@@ -421,9 +421,8 @@ function TagList({ items, emptyLabel }: { items: string[]; emptyLabel: string })
 
 export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   const router = useRouter();
-  const [saved, setSaved] = useState(() =>
-    typeof window === "undefined" ? false : readSavedRegistrySlugs(savedServicesStorageKey).includes(service.slug),
-  );
+  const accountData = useAccountData();
+  const saved = accountData.isSaved("service", service.slug);
   const [notice, setNotice] = useState<string | null>(null);
   const primaryContact = hasText(service.primaryContact?.value)
     ? service.primaryContact
@@ -484,19 +483,17 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     }
   }
 
-  function toggleSaved() {
+  async function toggleSaved() {
     try {
-      const current = readSavedRegistrySlugs(savedServicesStorageKey);
-      const next = current.includes(service.slug)
-        ? current.filter((item) => item !== service.slug)
-        : [service.slug, ...current];
-      if (!writeSavedRegistrySlugs(savedServicesStorageKey, next)) {
-        setNotice("Save failed");
-        return;
+      const nowSaved = !saved;
+      const result = await accountData.setFavourite("service", service.slug, nowSaved);
+      if (result.success) {
+        setNotice(nowSaved ? "Service saved" : "Service removed from saved items");
+      } else if (result.reason === "unauthenticated") {
+        setNotice("Sign in or create an account to save services");
+      } else {
+        setNotice(result.message);
       }
-      const nowSaved = next.includes(service.slug);
-      setSaved(nowSaved);
-      setNotice(nowSaved ? "Service saved" : "Service removed from saved items");
     } catch {
       setNotice("Save failed");
     }

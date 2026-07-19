@@ -40,7 +40,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const { id: rawId } = await params;
     const { id } = parseRouteParams({ id: rawId }, reindexRouteParamsSchema, "Invalid document id.");
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
     const mode = await readMode(request);
     const rateLimit = await consumeApiRateLimit({ supabase, ownerId: user.id, bucket: "document_reindex" });
     if (rateLimit.limited)

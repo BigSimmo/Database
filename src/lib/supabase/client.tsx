@@ -356,7 +356,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setStatus("expired");
     setNotice(null);
-    setError("Your session expired. Sign in again to use private documents.");
+    setError("Your session expired. Sign in again to use account features.");
   }, [invalidateAuthRequests]);
 
   const accessToken = session?.access_token ?? null;

@@ -54,7 +54,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: "Source reviews are unavailable in demo mode." }, { status: 400 });
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
     const body = await parseJsonBody(request, bodySchema, "Invalid source review.");
     const rateLimit = await consumeApiRateLimit({ supabase, ownerId: user.id, bucket: "source_review" });
     if (rateLimit.limited) return rateLimitJsonResponse("Too many source review requests. Retry shortly.", rateLimit);
