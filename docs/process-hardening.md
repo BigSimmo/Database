@@ -361,8 +361,8 @@ the durable index for the tooling; `docs/operator-backlog.md` tracks the human-o
   must use an outcome-focused title, complete Summary and Verification evidence, and provide risk/rollback
   evidence for clinical or operationally sensitive paths. UI changes require `verify:ui` evidence (or an
   explicit reason it could not run), while clinical-risk changes must fully disposition the governance
-  checklist. The `pull_request_target` job checks out the exact base SHA, has read-only permissions, and
-  never executes PR-head code. Drafts remain non-blocking until marked ready; merge-queue runs emit the
+  checklist. The `pull_request_target` job checks out the trusted `github.workflow_sha` revision, has
+  read-only permissions, and never executes PR-head code. Drafts remain non-blocking until marked ready; merge-queue runs emit the
   same stable `PR policy` check name.
 - **Default-branch failure attribution** (`scripts/ci-triage.mjs`): triage now compares a failed PR only
   with the latest completed run of the same workflow on `main`. It no longer samples the latest arbitrary
