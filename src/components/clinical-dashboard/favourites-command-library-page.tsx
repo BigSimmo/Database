@@ -1074,7 +1074,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     return (
       <main
         data-testid="favourites-hub"
-        className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:pb-32 md:pb-0"
+        className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:pb-32 md:pb-0"
       >
         <span data-testid="favourites-command-library" className="sr-only">
           Favourites command library
@@ -1128,7 +1128,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   return (
     <main
       data-testid="favourites-hub"
-      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:pb-32 md:pb-0"
+      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:pb-32 md:pb-0"
     >
       <span data-testid="favourites-command-library" className="sr-only">
         Favourites command library

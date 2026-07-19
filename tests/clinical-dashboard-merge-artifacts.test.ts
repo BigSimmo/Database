@@ -31,6 +31,23 @@ const globalSearchShellSource = readFileSync(
 const clinicalDashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
 const documentViewerSource = readFileSync(resolve(process.cwd(), "src/components/DocumentViewer.tsx"), "utf8");
 const globalStylesSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
+const uiPrimitivesSource = readFileSync(resolve(process.cwd(), "src/components/ui-primitives.tsx"), "utf8");
+const differentialsHomeSource = readFileSync(
+  resolve(process.cwd(), "src/components/clinical-dashboard/differentials-home.tsx"),
+  "utf8",
+);
+const applicationsLauncherSource = readFileSync(
+  resolve(process.cwd(), "src/components/applications-launcher-page.tsx"),
+  "utf8",
+);
+const serviceDetailSource = readFileSync(resolve(process.cwd(), "src/components/services/service-detail-page.tsx"), "utf8");
+const formDetailSource = readFileSync(resolve(process.cwd(), "src/components/forms/form-detail-page.tsx"), "utf8");
+const specifierUiSource = readFileSync(resolve(process.cwd(), "src/components/specifiers/specifier-ui.tsx"), "utf8");
+const formulationUiSource = readFileSync(resolve(process.cwd(), "src/components/formulation/formulation-ui.tsx"), "utf8");
+const favouritesLibrarySource = readFileSync(
+  resolve(process.cwd(), "src/components/clinical-dashboard/favourites-command-library-page.tsx"),
+  "utf8",
+);
 
 type FoundDeclaration = { source: string };
 
@@ -109,6 +126,16 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(documentViewerSource).toContain('"max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"');
     expect(documentViewerSource).toContain("max-sm:duration-[240ms]");
     expect(documentViewerSource).toContain("max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]");
+    // Child pages must not stack a second dock-sized safe-area pad under the
+    // shared host reserve — that pad cannot collapse when the dock hides.
+    expect(uiPrimitivesSource).not.toContain("pb-[calc(12rem+env(safe-area-inset-bottom))]");
+    expect(differentialsHomeSource).not.toContain("pb-[calc(12.5rem+env(safe-area-inset-bottom))]");
+    expect(applicationsLauncherSource).not.toContain("pb-[calc(12rem+env(safe-area-inset-bottom))]");
+    expect(serviceDetailSource).not.toContain("pb-[calc(5.5rem+env(safe-area-inset-bottom))]");
+    expect(formDetailSource).not.toContain("pb-[calc(2rem+env(safe-area-inset-bottom))]");
+    expect(specifierUiSource).not.toContain("pb-[calc(7rem+env(safe-area-inset-bottom))]");
+    expect(formulationUiSource).not.toContain("pb-[calc(7rem+env(safe-area-inset-bottom))]");
+    expect(favouritesLibrarySource).not.toContain("pb-[calc(6rem+env(safe-area-inset-bottom))]");
   });
 
   it("does not reintroduce the obsolete output-mode copy helper", () => {

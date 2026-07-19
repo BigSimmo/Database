@@ -11,7 +11,7 @@ export function FormulationPageShell({ children, className }: { children: ReactN
   return (
     <main
       className={cn(
-        "min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 py-4 pb-[calc(7rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-7",
+        "min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 py-4 pb-4 text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-7",
         className,
       )}
     >
