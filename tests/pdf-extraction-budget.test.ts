@@ -26,6 +26,19 @@ async function createTextPdf() {
   });
 }
 
+async function createImagePdf() {
+  const image = await readFile(new URL("../public/demo-documents/risk-flow.png", import.meta.url));
+  return new Promise<Buffer>((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    const document = new PDFDocument();
+    document.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    document.on("end", () => resolve(Buffer.concat(chunks)));
+    document.on("error", reject);
+    document.image(image, 20, 20);
+    document.end();
+  });
+}
+
 afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
@@ -145,6 +158,24 @@ describe("PDF extraction budgets", () => {
     await expect(
       extractPdf(await createTextPdf(), {
         limits: { ...PDF_EXTRACTION_BUDGET, maxTextBytes: 1 },
+        scriptPathOverride: fakeExtractor,
+      }),
+    ).rejects.toMatchObject({ code: "PDF_EXTRACTION_BUDGET_EXCEEDED" });
+  });
+
+  it("rejects an oversized embedded image before the JavaScript fallback decodes it", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-pdf-image-budget-test-"));
+    roots.push(root);
+    const fakeExtractor = path.join(root, "missing-dependency.py");
+    await writeFile(
+      fakeExtractor,
+      "import sys\nprint('PyMuPDF unavailable', file=sys.stderr)\nraise SystemExit(2)\n",
+      "utf8",
+    );
+
+    await expect(
+      extractPdf(await createImagePdf(), {
+        limits: { ...PDF_EXTRACTION_BUDGET, maxRenderPixels: 1 },
         scriptPathOverride: fakeExtractor,
       }),
     ).rejects.toMatchObject({ code: "PDF_EXTRACTION_BUDGET_EXCEEDED" });

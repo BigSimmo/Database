@@ -5143,6 +5143,7 @@ ${qualityRetryInstruction}`
 
 /** Summarize the committed document context; the route applies the shared client-response governance contract. */
 export async function summarizeDocument(documentId: string, ownerId?: string, options?: { signal?: AbortSignal }) {
+  throwIfAborted(options?.signal);
   const supabase = createAdminClient();
   let documentQuery = supabase.from("documents").select("id,title,file_name,metadata").eq("id", documentId);
 
@@ -5151,13 +5152,15 @@ export async function summarizeDocument(documentId: string, ownerId?: string, op
   } else {
     documentQuery = documentQuery.is("owner_id", null);
   }
+  if (options?.signal) documentQuery = documentQuery.abortSignal(options.signal);
 
   const { data: document, error: documentError } = await documentQuery.maybeSingle();
 
+  throwIfAborted(options?.signal);
   if (documentError) throw new Error(documentError.message);
   if (!document) throw new Error("Document not found.");
 
-  const { data: chunks, error } = await supabase
+  let chunksQuery = supabase
     .from("document_chunks")
     .select(
       "id,document_id,page_number,chunk_index,section_heading,content,retrieval_synopsis,image_ids,index_generation_id",
@@ -5165,7 +5168,10 @@ export async function summarizeDocument(documentId: string, ownerId?: string, op
     .eq("document_id", documentId)
     .order("chunk_index", { ascending: true })
     .limit(40);
+  if (options?.signal) chunksQuery = chunksQuery.abortSignal(options.signal);
+  const { data: chunks, error } = await chunksQuery;
 
+  throwIfAborted(options?.signal);
   if (error) throw new Error(error.message);
   const committedGeneration = committedIndexGeneration((document as { metadata?: unknown }).metadata);
   const committedChunks = (chunks ?? []).filter(

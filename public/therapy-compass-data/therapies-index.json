@@ -291,30 +291,6 @@
     ]
   },
   {
-    "slug": "behavioural-activation",
-    "name": "Behavioural Activation (BA)",
-    "category": "Behavioural Therapies",
-    "modality": "individual",
-    "clinicalSummary": "Behavioural Activation is a structured approach to depression that targets the behavioural withdrawal and inactivity that perpetuates low mood. It helps clients re-engage with rewarding and meaningful activities.",
-    "bestUsedFor": "Depression, low mood, anhedonia, withdrawal, chronic fatigue",
-    "indications": "Mild to moderate depression, clients who have withdrawn from activities, avoidance maintaining low mood",
-    "contraindicationsOrCautions": "Needs careful pacing in chronic fatigue or medical conditions. Not appropriate as sole treatment for severe depression.",
-    "targetSymptoms": null,
-    "patientPopulation": null,
-    "setting": null,
-    "reviewStatus": "reviewed",
-    "patientSheetAvailable": false,
-    "briefInterventionAvailable": true,
-    "tags": [
-      "depression",
-      "behavioural",
-      "mood",
-      "activation",
-      "brief-intervention"
-    ],
-    "aliases": []
-  },
-  {
     "slug": "behavioural-couples-therapy-bct",
     "name": "Behavioural Couples Therapy (BCT)",
     "category": "Family & Couple Therapies",
@@ -1920,29 +1896,6 @@
     ]
   },
   {
-    "slug": "emdr",
-    "name": "Eye Movement Desensitisation and Reprocessing (EMDR)",
-    "category": "Trauma Therapies",
-    "modality": "individual",
-    "clinicalSummary": "EMDR is an integrative psychotherapy that facilitates the processing of traumatic memories through bilateral stimulation (typically eye movements). It follows a structured 8-phase protocol to reduce the distress associated with traumatic memories.",
-    "bestUsedFor": "PTSD, trauma, grief, phobias, anxiety disorders",
-    "indications": "PTSD, single-incident trauma, complex trauma, phobias, panic disorder",
-    "contraindicationsOrCautions": "Active psychosis, active substance use, severe dissociation without stabilisation, significant medical conditions affecting bilateral stimulation. Requires EMDR-trained therapist.",
-    "targetSymptoms": null,
-    "patientPopulation": null,
-    "setting": null,
-    "reviewStatus": "reviewed",
-    "patientSheetAvailable": false,
-    "briefInterventionAvailable": false,
-    "tags": [
-      "PTSD",
-      "trauma",
-      "bilateral-stimulation",
-      "evidence-based"
-    ],
-    "aliases": []
-  },
-  {
     "slug": "family-intervention-for-psychosis",
     "name": "Family Intervention for Psychosis",
     "category": "Psychosis & Rehabilitation Therapies",
@@ -2931,30 +2884,6 @@
     ]
   },
   {
-    "slug": "interpersonal-therapy",
-    "name": "Interpersonal Therapy (IPT)",
-    "category": "Relational Therapies",
-    "modality": "individual",
-    "clinicalSummary": "IPT is a structured, time-limited therapy that focuses on the link between interpersonal difficulties and psychological symptoms, particularly depression. It targets grief, interpersonal disputes, role transitions, and interpersonal deficits.",
-    "bestUsedFor": "Depression, bipolar disorder, eating disorders, perinatal mental health",
-    "indications": "Major depression (particularly with interpersonal precipitants), grief, adjustment to life transitions, interpersonal conflict",
-    "contraindicationsOrCautions": "Less suitable for personality pathology as primary focus, or where interpersonal context is not clearly relevant.",
-    "targetSymptoms": null,
-    "patientPopulation": null,
-    "setting": null,
-    "reviewStatus": "reviewed",
-    "patientSheetAvailable": false,
-    "briefInterventionAvailable": false,
-    "tags": [
-      "depression",
-      "interpersonal",
-      "grief",
-      "relationship",
-      "evidence-based"
-    ],
-    "aliases": []
-  },
-  {
     "slug": "life-review-therapy-reminiscence-therapy",
     "name": "Life-review therapy / reminiscence therapy",
     "category": "Humanistic & Meaning-Based Therapies",
@@ -3177,30 +3106,6 @@
     "aliases": [
       "MBCT"
     ]
-  },
-  {
-    "slug": "mindfulness-based-cognitive-therapy",
-    "name": "Mindfulness-Based Cognitive Therapy (MBCT)",
-    "category": "Third Wave Therapies",
-    "modality": "group",
-    "clinicalSummary": "MBCT combines mindfulness meditation practices with cognitive therapy elements to prevent depressive relapse. It teaches clients to recognise and disengage from ruminative thought patterns.",
-    "bestUsedFor": "Recurrent depression (3+ episodes), residual depressive symptoms, relapse prevention, anxiety",
-    "indications": "History of recurrent major depression, particularly during partial or full remission. Evidence particularly strong for those with 3+ prior episodes.",
-    "contraindicationsOrCautions": "Active severe depression may require individual CBT first. Not recommended during acute depressive episode as primary treatment.",
-    "targetSymptoms": null,
-    "patientPopulation": null,
-    "setting": null,
-    "reviewStatus": "reviewed",
-    "patientSheetAvailable": false,
-    "briefInterventionAvailable": false,
-    "tags": [
-      "depression",
-      "mindfulness",
-      "relapse-prevention",
-      "group",
-      "cognitive"
-    ],
-    "aliases": []
   },
   {
     "slug": "mindfulness-based-relapse-prevention-mbrp",
@@ -3959,30 +3864,6 @@
     "aliases": []
   },
   {
-    "slug": "problem-solving-therapy",
-    "name": "Problem Solving Therapy (PST)",
-    "category": "Cognitive Therapies",
-    "modality": "individual",
-    "clinicalSummary": "Problem Solving Therapy is a brief, structured approach that teaches systematic problem-solving skills to reduce psychological distress. It targets the connection between unresolved problems and emotional difficulties.",
-    "bestUsedFor": "Depression, anxiety, stress, adjustment difficulties, medically ill patients",
-    "indications": "Depression particularly with identifiable life stressors, adjustment disorder, mild-moderate anxiety, when practical problem-solving skills are needed",
-    "contraindicationsOrCautions": "May not be sufficient for severe or complex presentations. Problems need to be at least partially within the person's control.",
-    "targetSymptoms": null,
-    "patientPopulation": null,
-    "setting": null,
-    "reviewStatus": "reviewed",
-    "patientSheetAvailable": false,
-    "briefInterventionAvailable": true,
-    "tags": [
-      "depression",
-      "anxiety",
-      "problem-solving",
-      "brief-intervention",
-      "skills"
-    ],
-    "aliases": []
-  },
-  {
     "slug": "problem-solving-therapy-pst",
     "name": "Problem-Solving Therapy (PST)",
     "category": "Foundational & Engagement Therapies",
@@ -4067,30 +3948,6 @@
     "aliases": [
       "PE"
     ]
-  },
-  {
-    "slug": "prolonged-exposure-therapy",
-    "name": "Prolonged Exposure Therapy (PE)",
-    "category": "Trauma Therapies",
-    "modality": "individual",
-    "clinicalSummary": "Prolonged Exposure is a cognitive-behavioural treatment for PTSD that involves systematic confrontation with trauma-related memories and situations. It reduces PTSD symptoms through habituation and cognitive processing.",
-    "bestUsedFor": "PTSD, trauma, sexual assault, combat trauma, accident-related trauma",
-    "indications": "DSM-5 PTSD diagnosis, trauma-related avoidance, intrusive symptoms",
-    "contraindicationsOrCautions": "Active suicidality, active self-harm, severe dissociation, ongoing trauma, active psychosis. Requires careful risk assessment and safety planning.",
-    "targetSymptoms": null,
-    "patientPopulation": null,
-    "setting": null,
-    "reviewStatus": "reviewed",
-    "patientSheetAvailable": false,
-    "briefInterventionAvailable": false,
-    "tags": [
-      "PTSD",
-      "trauma",
-      "exposure",
-      "anxiety",
-      "evidence-based"
-    ],
-    "aliases": []
   },
   {
     "slug": "psychoanalysis",

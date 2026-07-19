@@ -200,6 +200,40 @@ function extractJsonFromStdout(stdout: string) {
   return stdout.slice(start, end + 1);
 }
 
+function directPdfDictionaryInteger(dictionary: string, key: "Width" | "Height") {
+  const match = dictionary.match(new RegExp(`/${key}\\s+(\\d+)(?:\\s+(\\d+)\\s+R)?\\b`));
+  if (!match || match[2] !== undefined) return null;
+  return Number(match[1]);
+}
+
+/**
+ * pdf.js 5 can silently remove an image that exceeds maxImageSize instead of
+ * surfacing its worker error. Check ordinary direct image dictionaries too so
+ * the ingestion contract still receives a classified resource-budget failure.
+ * The parser ceiling remains the fail-safe for compressed or indirect objects.
+ */
+function assertDeclaredPdfImageDimensions(buffer: Buffer, limits: PdfExtractionBudget) {
+  const subtypeMarker = Buffer.from("/Subtype", "latin1");
+  const dictionaryStartMarker = Buffer.from("<<", "latin1");
+  const dictionaryEndMarker = Buffer.from(">>", "latin1");
+  let offset = 0;
+  const budget = new PdfExtractionBudgetTracker(limits);
+
+  while (offset < buffer.length) {
+    const subtypeOffset = buffer.indexOf(subtypeMarker, offset);
+    if (subtypeOffset === -1) return;
+    offset = subtypeOffset + subtypeMarker.length;
+    const dictionaryStart = buffer.lastIndexOf(dictionaryStartMarker, subtypeOffset);
+    const dictionaryEnd = buffer.indexOf(dictionaryEndMarker, offset);
+    if (dictionaryStart === -1 || dictionaryEnd === -1 || dictionaryEnd - dictionaryStart > 64 * 1024) continue;
+    const dictionary = buffer.subarray(dictionaryStart, dictionaryEnd + dictionaryEndMarker.length).toString("latin1");
+    if (!/\/Subtype\s*\/Image\b/.test(dictionary)) continue;
+    const width = directPdfDictionaryInteger(dictionary, "Width");
+    const height = directPdfDictionaryInteger(dictionary, "Height");
+    if (width !== null && height !== null) budget.assertRenderDimensions(width, height);
+  }
+}
+
 export async function extractPdf(
   buffer: Buffer,
   options: { limits?: PdfExtractionBudget; scriptPathOverride?: string } = {},
@@ -222,8 +256,16 @@ export async function extractPdf(
     // Fallback for developer machines without PyMuPDF/pytesseract. It still
     // indexes text PDFs, but scanned PDFs and image extraction need the Python
     // helper dependencies listed in worker/python/requirements.txt.
-    const parser = new PDFParse({ data: buffer });
+    const parser = new PDFParse({
+      data: buffer,
+      maxImageSize: limits.maxRenderPixels,
+      // pdf.js only raises its pre-decode maxImageSize rejection when parse
+      // errors are not ignored. This prevents an oversized embedded bitmap
+      // from being decoded before our post-decode dimension check can run.
+      stopAtErrors: true,
+    });
     try {
+      assertDeclaredPdfImageDimensions(buffer, limits);
       const parsed = await parser.getText();
       const budget = new PdfExtractionBudgetTracker(limits);
       const rawPages: ExtractedPage[] =
@@ -302,6 +344,12 @@ export async function extractPdf(
     } catch (fallbackError) {
       await parser.destroy().catch(() => undefined);
       await rm(tempRoot, { recursive: true, force: true }).catch(() => undefined);
+      if (fallbackError instanceof Error && fallbackError.message.includes("Image exceeded maximum allowed size")) {
+        throw new PdfExtractionResourceError(
+          "PDF_EXTRACTION_BUDGET_EXCEEDED",
+          `embedded image exceeds ${limits.maxRenderPixels} pixels`,
+        );
+      }
       throw fallbackError;
     }
   }
