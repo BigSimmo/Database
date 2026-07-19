@@ -105,6 +105,19 @@ export function resolveInitialAuthState(args: {
   return { status: "signed_out", session: null };
 }
 
+/** Only explicit token/session rejection is evidence that local user data should be cleared. */
+export function isDefinitiveAuthValidationError(error: unknown) {
+  const candidate = error as { status?: unknown; code?: unknown; message?: unknown } | null;
+  const status = typeof candidate?.status === "number" ? candidate.status : null;
+  if (status === 400 || status === 401 || status === 403) return true;
+  const code = typeof candidate?.code === "string" ? candidate.code.toLowerCase() : "";
+  if (/^(?:bad_jwt|session_not_found|refresh_token_not_found|refresh_token_already_used)$/.test(code)) return true;
+  const message = typeof candidate?.message === "string" ? candidate.message.toLowerCase() : "";
+  return /(?:invalid|expired|missing) (?:jwt|token)|session (?:not found|expired)|refresh token (?:not found|invalid)/.test(
+    message,
+  );
+}
+
 function authCallbackRedirect() {
   if (typeof window === "undefined") return undefined;
   return `${window.location.origin}${AUTH_CALLBACK_PATH}`;
@@ -156,6 +169,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // as authenticated (or send a bad bearer token) on load.
         const [userResult, sessionResult] = await Promise.all([client.auth.getUser(), client.auth.getSession()]);
         if (!active) return;
+        if (userResult.error && !isDefinitiveAuthValidationError(userResult.error)) {
+          setSession(null);
+          setStatus("error");
+          setNotice(null);
+          setError("Session could not be verified. Check your connection and retry.");
+          return;
+        }
         const verifiedUserId = userResult.error ? null : (userResult.data.user?.id ?? null);
         const resolved = resolveInitialAuthState({ verifiedUserId, session: sessionResult.data.session });
         setSession(resolved.session);

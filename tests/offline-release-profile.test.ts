@@ -25,6 +25,14 @@ describe("offline release profile wiring", () => {
       expect(source).toContain('OPENAI_ORG_ID: ""');
       expect(source).toContain('OPENAI_PROJECT_ID: ""');
     }
+    expect(releaseRunner).toContain('NEXT_PUBLIC_SUPABASE_URL: "https://offline.invalid"');
+    expect(releaseRunner).toContain('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "offline-placeholder"');
+    expect(releaseRunner).toContain('SUPABASE_SERVICE_ROLE_KEY: "offline-placeholder"');
+    expect(releaseRunner).toContain('SUPABASE_DB_URL: "postgresql://offline:offline@offline.invalid:5432/offline"');
+    expect(releaseRunner).not.toContain('"check:production-readiness"');
+    expect(releaseRunner).not.toContain('"governance:release"');
+    expect(releaseRunner).not.toContain('"eval:quality:release:offline"');
+    expect(releaseRunner).toContain('"eval:rag:offline"');
     expect(stagingWorkflow).not.toMatch(/OPENAI_(?:API_KEY|ORG_ID|PROJECT_ID)/);
   });
 });

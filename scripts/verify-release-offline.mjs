@@ -11,9 +11,10 @@ const steps = [
   "test",
   "build",
   "test:e2e",
-  "check:production-readiness",
-  "governance:release",
-  "eval:quality:release:offline",
+  "check:function-grants",
+  "check:owner-scope",
+  "check:rag:fixtures",
+  "eval:rag:offline",
 ];
 const offlineEnv = {
   ...process.env,
@@ -23,6 +24,12 @@ const offlineEnv = {
   OPENAI_API_KEY: "",
   OPENAI_ORG_ID: "",
   OPENAI_PROJECT_ID: "",
+  NEXT_PUBLIC_SUPABASE_URL: "https://offline.invalid",
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "offline-placeholder",
+  SUPABASE_SERVICE_ROLE_KEY: "offline-placeholder",
+  SUPABASE_DB_URL: "postgresql://offline:offline@offline.invalid:5432/offline",
+  CROSS_TENANT_SUPABASE_URL: "https://offline.invalid",
+  CROSS_TENANT_SUPABASE_SERVICE_ROLE_KEY: "offline-placeholder",
 };
 
 for (const step of steps) {

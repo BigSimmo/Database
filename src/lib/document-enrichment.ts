@@ -730,6 +730,11 @@ type RelatedDocumentMetadataRow = {
   summary: string | null;
 };
 
+function withOptionalAbortSignal<T>(query: T, signal?: AbortSignal): T {
+  const abortable = query as T & { abortSignal?: (value: AbortSignal) => T };
+  return signal && typeof abortable.abortSignal === "function" ? abortable.abortSignal(signal) : query;
+}
+
 export async function fetchRelatedDocumentMetadata(args: {
   supabase: SupabaseClient;
   ownerId?: string;
@@ -742,7 +747,7 @@ export async function fetchRelatedDocumentMetadata(args: {
     document_ids: args.documentIds,
     ...retrievalRpcScopeArgs(accessScope),
   });
-  const versionedResult = await (args.signal ? versionedQuery.abortSignal(args.signal) : versionedQuery);
+  const versionedResult = await withOptionalAbortSignal(versionedQuery, args.signal);
   let rpcData = versionedResult?.data;
   let rpcError = versionedResult?.error;
   if (!versionedResult || isMissingRetrievalRpcError(versionedResult.error)) {
@@ -751,7 +756,7 @@ export async function fetchRelatedDocumentMetadata(args: {
       document_ids: args.documentIds,
       owner_filter: ownerFilter,
     });
-    const ownerResult = await (args.signal ? ownerQuery.abortSignal(args.signal) : ownerQuery);
+    const ownerResult = await withOptionalAbortSignal(ownerQuery, args.signal);
     const publicResult =
       accessScope.ownerId && accessScope.includePublic
         ? await (() => {
@@ -759,7 +764,7 @@ export async function fetchRelatedDocumentMetadata(args: {
               document_ids: args.documentIds,
               owner_filter: PUBLIC_OWNER_FILTER_SENTINEL,
             });
-            return args.signal ? query.abortSignal(args.signal) : query;
+            return withOptionalAbortSignal(query, args.signal);
           })()
         : { data: [], error: null };
     rpcError = ownerResult.error ?? publicResult.error;
