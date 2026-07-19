@@ -1637,7 +1637,7 @@ export function MasterSearchHeader({
                 "universal-header-mode-button inline-grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                 isWorkflowHeader
                   ? "h-tap w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
-                  : "h-12 w-[min(13rem,calc(100vw-12rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
+                  : "h-12 w-[min(13rem,calc(100vw-11.5rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
               )}
               aria-haspopup="menu"
               aria-expanded={modeMenuOpen}
