@@ -214,6 +214,14 @@ function isInformationPage(pathname: string): boolean {
   return false;
 }
 
+function isToolDetailWithFooterSearch(pathname: string): boolean {
+  return (
+    (pathname.startsWith("/services/") && pathname !== "/services") ||
+    (pathname.startsWith("/forms/") && pathname !== "/forms") ||
+    (pathname.startsWith("/medications/") && pathname !== "/medications")
+  );
+}
+
 function GlobalStandaloneSearchShellClient({
   children,
   initialMode = "answer",
@@ -327,7 +335,10 @@ function GlobalStandaloneSearchShellClient({
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
   const isInfoPage = isInformationPage(pathname);
-  const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow && !isInfoPage;
+  const shouldShowSearchComposer =
+    searchComposerVisible &&
+    !isDifferentialPresentationWorkflow &&
+    (!isInfoPage || isToolDetailWithFooterSearch(pathname));
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
   // Standalone mode homes portal the composer into the hero (in-flow at every
   // width), so phones need no bottom-dock clearance there.

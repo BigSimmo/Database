@@ -3260,7 +3260,7 @@ export function ClinicalDashboard({
           ? "calc(5rem + var(--safe-area-bottom))"
           : "calc(5.25rem + var(--safe-area-bottom))";
   const mobileComposerReserve = bottomComposerHidden
-    ? "max(0.75rem, var(--safe-area-bottom))"
+    ? "max(0.75rem, env(safe-area-inset-bottom))"
     : visibleMobileComposerReserve;
   const renderDegradedNotice = () => (
     <UtilityDrawer
