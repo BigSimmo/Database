@@ -9,6 +9,7 @@ import {
   hasDoseEvidenceSupport,
   hasNumericOrTableEvidence,
   hasStructuredThresholdEvidence,
+  medicationMonitoringQuerySubjectTokens,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
 } from "../src/lib/clinical-search";
@@ -34,6 +35,12 @@ function result(overrides: Partial<SearchResult>): SearchResult {
 }
 
 describe("clinical search query normalization", () => {
+  it("keeps only the medication subject for monitoring questions", () => {
+    expect(medicationMonitoringQuerySubjectTokens("What monitoring is required for lithium therapy?")).toEqual([
+      "lithium",
+    ]);
+  });
+
   it("classifies common RAG query shapes for routing and observability", () => {
     expect(classifyRagQuery("Find the NOCC document").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What should a patient safety plan include?").queryClass).toBe("document_lookup");

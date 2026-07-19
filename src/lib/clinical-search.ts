@@ -1178,9 +1178,27 @@ const genericMedicationDoseQueryTokens = new Set([
   "sl",
 ]);
 
-/** Require dose evidence to carry the medication question's clinical subject. */
+/** Require medication evidence to carry the medication question's clinical subject. */
 export function medicationDoseQuerySubjectTokens(query: string) {
   return normalizedClinicalSearchTokens(query).filter((token) => !genericMedicationDoseQueryTokens.has(token));
+}
+
+const genericMedicationMonitoringQueryTokens = new Set([
+  "baseline",
+  "blood",
+  "level",
+  "monitor",
+  "monitoring",
+  "require",
+  "required",
+  "requirement",
+  "therapy",
+  "treatment",
+]);
+
+/** Medication subject tokens without generic monitoring-request language. */
+export function medicationMonitoringQuerySubjectTokens(query: string) {
+  return medicationDoseQuerySubjectTokens(query).filter((token) => !genericMedicationMonitoringQueryTokens.has(token));
 }
 
 const medicationDoseAmountQueryPattern =

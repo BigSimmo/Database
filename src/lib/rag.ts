@@ -731,8 +731,9 @@ export function applySecondStageRerankIfNeeded(args: {
       const secondStage = secondStageScore(result, args.queryClass, index);
       let rankScore = secondStage.rankScore;
       let confidenceAdjustment = secondStage.adjustment;
+      const releasedHybridScore = result.hybrid_score ?? result.similarity ?? 0;
       let releaseRankScore = Math.max(
-        result.hybrid_score ?? result.similarity ?? 0,
+        releasedHybridScore,
         (result.score_explanation?.finalScore ?? result.hybrid_score ?? result.similarity ?? 0) +
           secondStage.adjustment,
       );
@@ -746,6 +747,15 @@ export function applySecondStageRerankIfNeeded(args: {
         rankScore -= diversityPenalty;
         confidenceAdjustment -= diversityPenalty;
         releaseRankScore -= diversityPenalty;
+      }
+      const selectionReasons = result.match_explanation?.reasons ?? [];
+      const clinicalSubjectRequired = selectionReasons.includes("retrieval_required_signal:clinical_subject");
+      const clinicalSubjectMatched = selectionReasons.includes("retrieval_signal:clinical_subject");
+      if (clinicalSubjectRequired && !clinicalSubjectMatched) {
+        // A wrong-medication chunk can carry attractive numeric dose/monitoring signals. Keep it
+        // available at its released hybrid strength, but do not let second-stage evidence boosts
+        // promote it above chunks that contain the medication subject requested by the query.
+        releaseRankScore = Math.min(releaseRankScore, releasedHybridScore);
       }
       const finalScore = Math.min(
         1,

@@ -114,6 +114,41 @@ describe("second-stage rank score", () => {
     expect(stabilizeReleasedSearchOrder(ranked, true).map((item) => item.id)).toEqual(["runner-up", "high-rank"]);
   });
 
+  it("caps wrong-subject monitoring evidence at its released hybrid score", () => {
+    const wrongSubject = explanation(1.4);
+    wrongSubject.finalScore = 1;
+    const rightSubject = explanation(0.79);
+    const ranked = applySecondStageRerankIfNeeded({
+      queryClass: "medication_dose_risk",
+      results: [
+        result({
+          id: "cardiac-dose",
+          document_id: "cardiac-doc",
+          content: "Cardiac monitoring includes a 5 mg treatment note.",
+          hybrid_score: 0.8,
+          score_explanation: wrongSubject,
+          match_explanation: { reasons: ["retrieval_required_signal:clinical_subject"] },
+        }),
+        result({
+          id: "lithium-monitoring",
+          document_id: "lithium-doc",
+          content: "Lithium monitoring requires serum levels.",
+          hybrid_score: 0.79,
+          score_explanation: rightSubject,
+          match_explanation: {
+            reasons: ["retrieval_required_signal:clinical_subject", "retrieval_signal:clinical_subject"],
+          },
+        }),
+      ],
+      telemetry: {} as SearchTelemetry,
+      topK: 2,
+    });
+
+    const stabilized = stabilizeReleasedSearchOrder(ranked, true);
+    expect(stabilized.map((item) => item.id)).toEqual(["lithium-monitoring", "cardiac-dose"]);
+    expect(stabilized[1].score_explanation?.releaseRankScore).toBe(0.8);
+  });
+
   it("sorts by the computed second-stage score even when score explanations are absent", () => {
     const doseEvidenceWithoutExplanation = result({
       id: "dose-evidence-without-explanation",
