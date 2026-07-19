@@ -225,7 +225,7 @@ Deno.serve(async (req: Request) => {
 
     const url = new URL(req.url);
     const limitRaw = url.searchParams.get("limit") ?? "10";
-    const limit = Number.isFinite(Number(limitRaw)) ? Math.max(1, Math.min(50, Number(limitRaw))) : 10;
+    const limit = Number.isFinite(Number(limitRaw)) ? Math.max(1, Math.min(50, Math.trunc(Number(limitRaw)))) : 10;
     const workerId = `edge-ingestion-worker-${crypto.randomUUID()}`;
 
     const claimed = await sql<ClaimedJob[]>`

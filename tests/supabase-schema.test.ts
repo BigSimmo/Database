@@ -609,11 +609,15 @@ describe("Supabase schema Data API grants", () => {
   it("does not introduce new duplicate migration stems", () => {
     const duplicateStemAllowlist = new Map<string, number>([
       ["api_rate_limits", 2],
+      ["assert_postgres_default_privileges", 2],
       ["audit_logs", 2],
       ["audit_logs_service_role_policy", 2],
+      ["enforce_public_title_word_scope", 2],
       ["indexing_reliability_recovery", 2],
       ["ingestion_jobs_one_open_per_document", 2],
       ["rag_queries_retention", 2],
+      ["reassert_postgres_default_privileges", 2],
+      ["repair_postgres_default_privileges", 2],
     ]);
     const stemCounts = new Map<string, number>();
 

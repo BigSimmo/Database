@@ -91,9 +91,9 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalSearchShellSource).toContain("const visibleMobileComposerReserve = !shouldShowSearchComposer");
     expect(globalSearchShellSource).toContain("const mobileComposerReserve = bottomComposerHidden");
     expect(globalSearchShellSource).toMatch(
-      /bottomComposerHidden\s*\?\s*"max\(0\.75rem, var\(--safe-area-bottom\)\)"/,
+      /bottomComposerHidden\s*\?\s*"max\(0\.75rem, env\(safe-area-inset-bottom\)\)"/,
     );
-    expect(globalSearchShellSource).not.toContain("max(0.75rem, env(safe-area-inset-bottom))");
+    expect(globalSearchShellSource).not.toContain('bottomComposerHidden ? "max(0.75rem, var(--safe-area-bottom))"');
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = !reservesFloatingComposer");
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = phoneScrollHide.hidden");
     expect(clinicalDashboardSource).toMatch(

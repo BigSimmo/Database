@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAuthenticatedUser } from "@/lib/supabase/auth";
+import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
@@ -33,6 +33,7 @@ export async function GET(request: Request) {
       })),
     });
   } catch (error) {
+    if (error instanceof AuthenticationError) return unauthorizedResponse();
     return jsonError(error);
   }
 }
@@ -63,6 +64,7 @@ export async function PUT(request: Request) {
 
     return Response.json({ saved: input.saved });
   } catch (error) {
+    if (error instanceof AuthenticationError) return unauthorizedResponse();
     return jsonError(error);
   }
 }
@@ -75,6 +77,7 @@ export async function DELETE(request: Request) {
     if (error) throw new Error(error.message);
     return Response.json({ cleared: true });
   } catch (error) {
+    if (error instanceof AuthenticationError) return unauthorizedResponse();
     return jsonError(error);
   }
 }

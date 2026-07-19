@@ -676,12 +676,7 @@ async function openScopeControl(page: Page) {
   }
 
   // If the composer is scrolled out of view on mobile, scroll the container to the top to reveal it
-  await page.evaluate(() => {
-    const mainContent = document.getElementById("main-content");
-    if (mainContent) {
-      mainContent.scrollTop = 0;
-    }
-  });
+  await scrollPrimarySurface(page, 0);
 
   await composer.click();
   const scopeOption = page.getByRole("option", { name: /Scope sources/i });

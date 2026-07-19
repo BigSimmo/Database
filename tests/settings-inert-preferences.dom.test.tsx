@@ -23,6 +23,15 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
+vi.mock("@/components/account-data-provider", () => ({
+  useAccountData: () => ({
+    favourites: {},
+    clearFavourites: vi.fn(async () => true),
+    isSaved: () => false,
+    setFavourite: vi.fn(async () => true),
+  }),
+}));
+
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 
 const NOT_YET_ACTIVE_TEXT = "Saved for later — not active yet";

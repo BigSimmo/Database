@@ -2662,6 +2662,7 @@ export function DocumentViewer({
                 </summary>
                 <DocumentManagementActions
                   document={readyDocument}
+                  disabled={!canUseAdministrativeApis}
                   className="mt-3 justify-start gap-2"
                   onRenamed={handleDocumentRenamed}
                   onDeleted={handleDocumentDeleted}

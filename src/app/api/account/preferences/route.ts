@@ -3,7 +3,7 @@ import { z } from "zod";
 import { normalizePreferences } from "@/lib/account-preferences";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAuthenticatedUser } from "@/lib/supabase/auth";
+import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
@@ -40,6 +40,7 @@ export async function GET(request: Request) {
       updatedAt: data?.updated_at,
     });
   } catch (error) {
+    if (error instanceof AuthenticationError) return unauthorizedResponse();
     return jsonError(error);
   }
 }
@@ -57,6 +58,7 @@ export async function PUT(request: Request) {
     if (error) throw new Error(error.message);
     return Response.json({ preferences });
   } catch (error) {
+    if (error instanceof AuthenticationError) return unauthorizedResponse();
     return jsonError(error);
   }
 }
