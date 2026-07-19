@@ -549,6 +549,42 @@ function recordRetrievalLayer(
   }
 }
 
+/**
+ * Keep distinct results in the current ranked order while upgrading duplicate chunks to the
+ * strongest released-hybrid copy.
+ *
+ * App-layer rank scores remain available to answer evidence ranking and telemetry, but the
+ * live corpus gate has not validated replacing the final distinct-result order with them.
+ */
+export function stabilizeReleasedSearchOrder(results: SearchResult[]) {
+  const compareReleasedSearchStrength = (left: SearchResult, right: SearchResult) => {
+    const leftHybrid = left.hybrid_score ?? left.similarity ?? 0;
+    const rightHybrid = right.hybrid_score ?? right.similarity ?? 0;
+    if (rightHybrid !== leftHybrid) return rightHybrid - leftHybrid;
+    const leftSimilarity = left.similarity ?? 0;
+    const rightSimilarity = right.similarity ?? 0;
+    if (rightSimilarity !== leftSimilarity) return rightSimilarity - leftSimilarity;
+    if (right.relevance?.score !== left.relevance?.score)
+      return (right.relevance?.score ?? 0) - (left.relevance?.score ?? 0);
+    return left.id.localeCompare(right.id);
+  };
+  const strongestById = new Map<string, SearchResult>();
+  for (const result of results) {
+    const current = strongestById.get(result.id);
+    if (!current || compareReleasedSearchStrength(result, current) < 0) strongestById.set(result.id, result);
+  }
+  const deduped: SearchResult[] = [];
+  const seen = new Set<string>();
+  for (const result of results) {
+    if (seen.has(result.id)) continue;
+    seen.add(result.id);
+    deduped.push(strongestById.get(result.id) ?? result);
+  }
+  results.length = 0;
+  results.push(...deduped);
+  return results;
+}
+
 /** Record search score telemetry. */
 function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
   if (!results.length) {
@@ -565,17 +601,7 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
     return;
   }
 
-  // Preserve the rankScore ordering established by clinical/second-stage ranking. Coverage
-  // telemetry still uses the raw hybrid signal, but must never mutate the returned result order.
-  const deduped: SearchResult[] = [];
-  const seen = new Set<string>();
-  for (const result of results) {
-    if (seen.has(result.id)) continue;
-    seen.add(result.id);
-    deduped.push(result);
-  }
-  results.length = 0;
-  results.push(...deduped);
+  stabilizeReleasedSearchOrder(results);
   const coverageScores = results
     .map((result) => Math.max(0, result.hybrid_score ?? result.similarity ?? 0))
     .sort((left, right) => right - left);
