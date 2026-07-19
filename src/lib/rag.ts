@@ -574,8 +574,7 @@ export function stabilizeReleasedSearchOrder(
   preserveIncomingOrder = false,
 ) {
   const useSecondStageReleaseOrder = preferSecondStageScore && resultsHaveReleaseRankScore(results);
-  const preserveCurrentOrder =
-    preserveIncomingOrder || (preferSecondStageScore && !useSecondStageReleaseOrder);
+  const preserveCurrentOrder = preserveIncomingOrder || (preferSecondStageScore && !useSecondStageReleaseOrder);
   const compareReleasedHybridStrength = (left: SearchResult, right: SearchResult) => {
     const leftHybrid = left.hybrid_score ?? left.similarity ?? 0;
     const rightHybrid = right.hybrid_score ?? right.similarity ?? 0;
@@ -643,8 +642,7 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
 
   const useSecondStageReleaseOrder = resultsHaveReleaseRankScore(results);
   telemetry.second_stage_rerank_used = useSecondStageReleaseOrder;
-  const preserveSemanticRerankOrder =
-    telemetry.semantic_rerank_outcome === "reordered" && !useSecondStageReleaseOrder;
+  const preserveSemanticRerankOrder = telemetry.semantic_rerank_outcome === "reordered" && !useSecondStageReleaseOrder;
   stabilizeReleasedSearchOrder(results, useSecondStageReleaseOrder, preserveSemanticRerankOrder);
   const coverageScores = results
     .map((result) => Math.max(0, result.hybrid_score ?? result.similarity ?? 0))
