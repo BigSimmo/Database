@@ -1,11 +1,10 @@
--- Reassert the fail-closed default-ACL postcondition after the later
--- performance migrations so this safety check remains the final migration.
--- Catalog-level, fail-closed verification for future objects created by
--- supabase_admin. A missing pg_default_acl row must be interpreted through
--- acldefault(), including PostgreSQL's built-in PUBLIC EXECUTE on functions.
+-- Catalog-level, fail-closed verification for future objects created by the
+-- hosted migration role. A missing pg_default_acl row must be interpreted
+-- through acldefault(), including PostgreSQL's built-in PUBLIC EXECUTE on
+-- functions.
 
 create or replace function public.default_privileges_status(
-  p_role_name text default 'supabase_admin',
+  p_role_name text default 'postgres',
   p_schema_name text default 'public'
 )
 returns jsonb
@@ -66,7 +65,7 @@ begin
                 order by object_type, grantee, privilege_type),
       '{}'::text[]
     ),
-    coalesce(bool_or(grantee not in (p_role_name, 'postgres', 'service_role')), false),
+    coalesce(bool_or(grantee not in (p_role_name, 'service_role')), false),
     coalesce(bool_or(is_grantable), false)
   into v_entries, v_has_unexpected_grantee, v_has_grantable
   from exploded;
@@ -120,66 +119,43 @@ begin
   );
 end;
 $$;
-
 revoke all on function public.default_privileges_status(text, text)
   from public, anon, authenticated;
 grant execute on function public.default_privileges_status(text, text)
   to service_role;
 
+-- Global revokes remove built-in/default grants that per-schema ACLs cannot
+-- subtract. Explicit application grants remain scoped to schema public.
+alter default privileges for role postgres
+  revoke all privileges on tables from public, anon, authenticated, service_role;
+alter default privileges for role postgres in schema public
+  revoke all privileges on tables from public, anon, authenticated, service_role;
+alter default privileges for role postgres
+  revoke all privileges on sequences from public, anon, authenticated, service_role;
+alter default privileges for role postgres in schema public
+  revoke all privileges on sequences from public, anon, authenticated, service_role;
+alter default privileges for role postgres
+  revoke execute on functions from public, anon, authenticated, service_role;
+alter default privileges for role postgres in schema public
+  revoke execute on functions from public, anon, authenticated, service_role;
+alter default privileges for role postgres in schema public
+  grant select, insert, update, delete on tables to service_role;
+alter default privileges for role postgres in schema public
+  grant usage, select on sequences to service_role;
+alter default privileges for role postgres in schema public
+  grant execute on functions to service_role;
+
 do $$
 declare
   v_status jsonb;
 begin
-  if not exists (select 1 from pg_catalog.pg_roles where rolname = 'supabase_admin') then
-    raise notice 'role supabase_admin does not exist; default-privilege assertion is not applicable';
-    return;
-  end if;
-
-  begin
-    -- Local/Superuser-capable environments can assume the target role even
-    -- when the migration role cannot use ALTER DEFAULT PRIVILEGES FOR ROLE
-    -- directly. Hosted environments that cannot assume it fall through to the
-    -- catalog assertion and block with operator instructions.
-    execute 'set local role supabase_admin';
-    -- Revokes must be global: per-schema ACLs cannot subtract privileges from
-    -- built-in or previously granted global defaults.
-    alter default privileges for role supabase_admin
-      revoke all privileges on tables from public, anon, authenticated, service_role;
-    alter default privileges for role supabase_admin in schema public
-      revoke all privileges on tables from public, anon, authenticated, service_role;
-    alter default privileges for role supabase_admin
-      revoke all privileges on sequences from public, anon, authenticated, service_role;
-    alter default privileges for role supabase_admin in schema public
-      revoke all privileges on sequences from public, anon, authenticated, service_role;
-    alter default privileges for role supabase_admin
-      revoke execute on functions from public, anon, authenticated, service_role;
-    alter default privileges for role supabase_admin in schema public
-      revoke execute on functions from public, anon, authenticated, service_role;
-    alter default privileges for role supabase_admin in schema public
-      grant select, insert, update, delete on tables to service_role;
-    alter default privileges for role supabase_admin in schema public
-      grant usage, select on sequences to service_role;
-    alter default privileges for role supabase_admin in schema public
-      grant execute on functions to service_role;
-    execute 'reset role';
-  exception when insufficient_privilege then
-    begin execute 'reset role'; exception when others then null; end;
-    raise notice 'current role % cannot remediate supabase_admin default privileges; asserting the catalog postcondition', current_user;
-  end;
-
-  v_status := public.default_privileges_status('supabase_admin', 'public');
+  v_status := public.default_privileges_status('postgres', 'public');
   if not coalesce((v_status->>'safe')::boolean, false) then
     raise exception using
       errcode = '42501',
-      message = 'Unsafe supabase_admin default privileges; migration blocked.',
+      message = 'Unsafe postgres default privileges in schema public; migration blocked.',
       detail = v_status::text,
-      hint = E'Run these six statements as supabase_admin, then retry the migration:\n'
-        'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC, anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL PRIVILEGES ON TABLES FROM PUBLIC, anon, authenticated, service_role; END $remediate$;\n'
-        'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC, anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE ALL PRIVILEGES ON SEQUENCES FROM PUBLIC, anon, authenticated, service_role; END $remediate$;\n'
-        'DO $remediate$ BEGIN ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon, authenticated, service_role; END $remediate$;\n'
-        'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO service_role;\n'
-        'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO service_role;\n'
-        'ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO service_role;';
+      hint = 'Reapply the postgres default-privilege repair and retry the migration.';
   end if;
 end;
 $$;
