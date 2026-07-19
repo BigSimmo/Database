@@ -10,6 +10,18 @@ import {
   validateSkillCatalog,
 } from "../scripts/list-database-skills.mjs";
 
+type SkillDefinition = {
+  directory: string;
+  name: string;
+  description: string;
+};
+
+type CatalogSkill = {
+  name: string;
+  category: string;
+  description?: string;
+};
+
 describe("Database skill catalog", () => {
   it("contains every canonical skill exactly once and validates every alias", () => {
     const catalog = loadSkillCatalog();
@@ -17,7 +29,7 @@ describe("Database skill catalog", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.canonical).toHaveLength(32);
-    expect(new Set(result.canonical.map((skill) => skill.name))).toHaveProperty("size", 32);
+    expect(new Set(result.canonical.map((skill: CatalogSkill) => skill.name))).toHaveProperty("size", 32);
     expect(result.aliases).toHaveLength(8);
     for (const category of catalog.categories) {
       expect(category.skills.every((skill: unknown) => typeof skill === "string")).toBe(true);
@@ -25,7 +37,7 @@ describe("Database skill catalog", () => {
   });
 
   it("discovers each declared skill from its folder metadata", () => {
-    const discovered = discoverSkillDefinitions();
+    const discovered = discoverSkillDefinitions() as SkillDefinition[];
 
     expect(discovered).toHaveLength(40);
     for (const skill of discovered) {
