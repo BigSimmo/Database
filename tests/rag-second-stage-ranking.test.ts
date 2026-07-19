@@ -229,7 +229,7 @@ describe("second-stage rank score", () => {
     expect(stabilized.map((item) => item.score_explanation?.finalRank)).toEqual([1, 2]);
   });
 
-  it("ignores sticky second-stage preference when the final result set has no releaseRankScore", () => {
+  it("preserves sticky second-stage order while retaining raw-hybrid fallback when release scores are absent", () => {
     const clinicallyOrdered = [
       result({
         id: "lithium-monitoring",
@@ -255,6 +255,10 @@ describe("second-stage rank score", () => {
     expect(stabilized.map((item) => item.id)).toEqual(["lithium-monitoring", "cardiac-dose"]);
     expect(stabilized[0].content).toBe("Stronger released-hybrid copy of the lithium evidence.");
     expect(stabilized.map((item) => item.score_explanation?.finalRank)).toEqual([1, 2]);
+
+    const hybridFallback = stabilizeReleasedSearchOrder([...clinicallyOrdered], false);
+    expect(hybridFallback.map((item) => item.id)).toEqual(["cardiac-dose", "lithium-monitoring"]);
+    expect(hybridFallback[1].content).toBe("Stronger released-hybrid copy of the lithium evidence.");
   });
 
   it("only applies bounded release ordering when the current result set carries releaseRankScore", () => {
@@ -274,7 +278,7 @@ describe("second-stage rank score", () => {
       "hybrid-leading",
     ]);
     expect(stabilizeReleasedSearchOrder([withReleaseScore, withoutReleaseScore], false).map((item) => item.id)).toEqual(
-      ["release-ranked", "hybrid-leading"],
+      ["hybrid-leading", "release-ranked"],
     );
   });
 
