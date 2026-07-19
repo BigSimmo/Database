@@ -277,9 +277,11 @@ async function main() {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     SUPABASE_PROJECT_REF: process.env.SUPABASE_PROJECT_REF,
     SUPABASE_PROJECT_NAME: process.env.SUPABASE_PROJECT_NAME,
+    SUPABASE_STAGING_PROJECT_REF: process.env.SUPABASE_STAGING_PROJECT_REF,
+    SUPABASE_STAGING_PROJECT_NAME: process.env.SUPABASE_STAGING_PROJECT_NAME,
   });
   if (supabaseCheck.status === "ready") {
-    result.passes.push("Supabase project config points to Clinical KB Database.");
+    result.passes.push(`Supabase project config points to ${supabaseCheck.expected.name}.`);
   } else if (supabaseCheck.status === "warning") {
     if (supabaseCheck.warnings.length) {
       result.warnings.push(...supabaseCheck.warnings);

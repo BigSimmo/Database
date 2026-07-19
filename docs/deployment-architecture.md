@@ -232,7 +232,9 @@ check and watch patterns rather than relying on dashboard defaults.
 Ship the existing worker as a container (`Dockerfile.worker`: Node 24 + a
 prebuilt esbuild bundle over production-only `node_modules` +
 Tesseract + a Python venv with `worker/python/requirements.txt`) and run **one
-always-on worker instance** co-located in Railway Singapore (`worker` service).
+always-on worker instance** co-located in Railway Singapore (`worker` service),
+using Railway's `ALWAYS` restart policy so repeated bootstrap failures cannot
+exhaust a finite retry allowance and leave the queue undrained.
 The `indexing-v3-agent` Edge Function **stays** in its current role as the
 cron-triggered completion/repair gate — the two are complementary, not
 alternatives. The worker service selects its Dockerfile via the
@@ -301,7 +303,7 @@ Operational rules that follow:
 - **Worker death costs at most one stale window of latency** for the in-flight
   job and zero data loss: all artifact writes are idempotent per
   generation/chunk-key, and completion is gated by the strict completion RPCs
-  plus the edge agent. Railway's restart-on-failure brings the worker back and
+  plus the edge agent. Railway's always-restart policy brings the worker back and
   it reclaims stale jobs automatically.
 - **Backlog improvement (not in this change):** a heartbeat that refreshes
   `locked_at` could ride the existing throttled progress updates
@@ -342,7 +344,8 @@ Rules:
 ## 5. Staging environment
 
 - **A second, dedicated Supabase project** (same org, ap-southeast-2) — not a
-  branch of production. Rationale: staging must absorb soak tests, destructive
+  branch of production. `Clinical KB Staging` was provisioned and migrated on
+  2026-07-19. Rationale: staging must absorb soak tests, destructive
   ingestion experiments, and migration rehearsal without any shared compute,
   pooling, or the production auth 10-connection cap; per-environment keys fall
   out naturally.
@@ -351,11 +354,12 @@ Rules:
   synthetic/public corpus. `public/demo-documents/` plus generated samples
   (`npm run samples`) are sufficient for load-shape realism; do not copy
   clinical production documents into staging.
-- One staging `app` container + one staging `worker` container from the _same_
-  images, different env. On Railway this is naturally a **second environment in
-  the `clinical-kb` project** (e.g. a `staging` environment) or a separate
-  project, with `RAG_PROVIDER_MODE=auto` and the staging OpenAI key. See
-  `docs/staging-setup.md` for the turnkey runbook.
+- One staging `app` container and **no staging worker**. The active Railway
+  `Database` project has a `staging` environment pinned to Singapore with
+  `RAG_PROVIDER_MODE=offline`, isolated Supabase credentials, and no OpenAI key.
+  This keeps release proofs deterministic and prevents staging ingestion from
+  draining or mutating production data. See `docs/staging-setup.md` for the
+  turnkey runbook.
 - `src/lib/supabase/project.ts` is staging-aware only when both
   `SUPABASE_STAGING_PROJECT_REF` and `SUPABASE_STAGING_PROJECT_NAME` are set.
   The declared staging ref must differ from production and every stale project;
