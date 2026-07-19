@@ -92,6 +92,8 @@ import {
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
+import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
+import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
@@ -107,7 +109,6 @@ import {
   setupNeedsSlowRecheck,
   setupRecheckPollMs,
   shorterPollDelay,
-  sessionFavouritesAccessible,
 } from "@/components/clinical-dashboard/clinical-dashboard-helpers";
 import { answerRecovery, errorCopy } from "@/lib/ui-copy";
 import {
@@ -672,8 +673,6 @@ export function ClinicalDashboard({
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [accountSetupOpen, setAccountSetupOpen] = useState(false);
-  const [accountSetupIntent, setAccountSetupIntent] = useState<"default" | "favourites">("default");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
@@ -812,7 +811,13 @@ export function ClinicalDashboard({
     authUnavailableFallback: browserAuthUnavailableDemoFallback,
     localNoAuthMode,
   });
-  const favouritesAccessible = sessionFavouritesAccessible(auth.status, clientDemoMode);
+  const {
+    favouritesAccessible,
+    accountSetupOpen,
+    accountSetupIntent,
+    openAccountSetup: openAccountSetupWithIntent,
+    closeAccountSetup,
+  } = useFavouritesAccess(auth.status === "authenticated", clientDemoMode);
   const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
   const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
   useEffect(() => {
@@ -891,49 +896,31 @@ export function ClinicalDashboard({
     (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
       if (except !== "guide") setGuideOpen(false);
       if (except !== "settings") setSettingsOpen(false);
-      if (except !== "accountSetup") setAccountSetupOpen(false);
+      if (except !== "accountSetup") closeAccountSetup();
       if (except !== "mobileSidebar") setMobileSidebarOpen(false);
       if (except !== "documents") setDocumentsDrawerOpen(false);
       if (except !== "upload") setUploadDrawerOpen(false);
     },
-    [],
+    [closeAccountSetup],
   );
-  const openGuide = useCallback(() => {
-    closeDashboardTransientSurfaces("guide");
-    setGuideOpen(true);
-  }, [closeDashboardTransientSurfaces]);
-  const closeGuide = useCallback(() => setGuideOpen(false), []);
-  const openSettings = useCallback(() => {
-    closeDashboardTransientSurfaces("settings");
-    setSettingsOpen(true);
-  }, [closeDashboardTransientSurfaces]);
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
-  const openAccountSetup = useCallback(
-    (intent: "default" | "favourites" = "default") => {
-      closeDashboardTransientSurfaces("accountSetup");
-      setAccountSetupIntent(intent);
-      setAccountSetupOpen(true);
-    },
-    [closeDashboardTransientSurfaces],
-  );
-  const openAccountProfile = useCallback(() => {
-    if (sidebarIdentity.signedIn) {
-      closeDashboardTransientSurfaces("settings");
-      setSettingsOpen(true);
-      return;
-    }
-    openAccountSetup("default");
-  }, [closeDashboardTransientSurfaces, openAccountSetup, sidebarIdentity.signedIn]);
-  const closeAccountSetup = useCallback(() => {
-    setAccountSetupOpen(false);
-    setAccountSetupIntent("default");
-  }, []);
-  const prefetchApplications = useCallback(() => {
-    router.prefetch("/?mode=tools");
-    router.prefetch("/favourites");
-    router.prefetch("/differentials");
-  }, [router]);
+  const shellActions = useDashboardShellActions({
+    closeTransientSurfaces: closeDashboardTransientSurfaces,
+    openAccountSetupWithIntent,
+    signedIn: sidebarIdentity.signedIn,
+    setGuideOpen,
+    setSettingsOpen,
+    prefetch: (href) => router.prefetch(href),
+  });
+  const {
+    openAccountSetup,
+    openGuide,
+    closeGuide,
+    openSettings,
+    closeSettings,
+    openAccountProfile,
+    prefetchApplications,
+  } = shellActions;
   const openLibraryHealthTarget = useCallback(
     (target: LibraryHealthTarget) => {
       if (!canUseAdministrativeApis) {

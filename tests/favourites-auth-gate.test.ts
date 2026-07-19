@@ -32,6 +32,8 @@ describe("favourites auth gate", () => {
 
     expect(dashboard).toContain("canAccessFavourites={favouritesAccessible}");
     expect(dashboard).toContain("showAccountLibrary={favouritesAccessible}");
+    expect(dashboard).toContain("useFavouritesAccess");
+    expect(dashboard).toContain("useDashboardShellActions");
     expect(dashboard).toContain('openAccountSetup("favourites")');
     expect(dashboard).toContain("intent={accountSetupIntent}");
     expect(dashboard).toContain('mode === "favourites" && !favouritesAccessible');
@@ -40,7 +42,7 @@ describe("favourites auth gate", () => {
     expect(header).toContain("canAccessFavourites = false");
     expect(header).toContain("visibleAppModeDefinitionsForSession");
     expect(header).toContain("onRequestAccountSetup");
-    expect(header).toContain("demoMode,");
+    expect(header).toMatch(/visibleAppModeDefinitionsForSession\(\{[\s\S]*demoMode/);
 
     expect(library).toContain("canAccessFavouritesMode");
     expect(library).toContain('intent="favourites"');
