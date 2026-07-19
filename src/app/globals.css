@@ -267,6 +267,10 @@
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
+  /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
+  --phone-dock-hidden-pad: 0.75rem;
+  --phone-dock-differentials-compare-clearance: 12.5rem;
+  --phone-dock-differentials-compare-compact-clearance: 12.25rem;
   /* Radius tokens are the single source of truth in @theme above (they also
      generate the rounded-* utilities); do not redefine them here or var() and
      the utilities drift apart. */
@@ -1802,14 +1806,21 @@ summary::-webkit-details-marker {
     height: max(5rem, calc(var(--safe-area-bottom) + 4.4rem));
   }
 
-  /* Differentials search results: compare action sits above the search pill in the dock. */
+  /* Differentials search results: compare action sits above the search pill in the dock.
+     Heights track --phone-dock-differentials-compare-* (same as content reserve). */
   .answer-footer-search-dock[data-footer-addon="differentials-compare"] .answer-footer-search-backdrop {
-    height: max(8.75rem, calc(var(--safe-area-bottom) + 7.5rem));
+    height: max(
+      var(--phone-dock-differentials-compare-clearance),
+      calc(var(--safe-area-bottom) + 11.25rem)
+    );
   }
 
   .answer-footer-search-dock.document-mobile-search-compact[data-footer-addon="differentials-compare"]
     .answer-footer-search-backdrop {
-    height: max(8.5rem, calc(var(--safe-area-bottom) + 7.25rem));
+    height: max(
+      var(--phone-dock-differentials-compare-compact-clearance),
+      calc(var(--safe-area-bottom) + 11rem)
+    );
   }
 
   .document-mobile-search-pill {

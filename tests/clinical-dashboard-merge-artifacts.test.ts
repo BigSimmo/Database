@@ -48,6 +48,10 @@ const favouritesLibrarySource = readFileSync(
   resolve(process.cwd(), "src/components/clinical-dashboard/favourites-command-library-page.tsx"),
   "utf8",
 );
+const mobileComposerReserveSource = readFileSync(
+  resolve(process.cwd(), "src/components/clinical-dashboard/mobile-composer-reserve.ts"),
+  "utf8",
+);
 
 type FoundDeclaration = { source: string };
 
@@ -105,8 +109,19 @@ describe("ClinicalDashboard merge-artifact guards", () => {
   });
 
   it("releases the Safari toolbar reserve only after phone composers hide", () => {
+    expect(mobileComposerReserveSource).toContain('export const mobileComposerHiddenReserve = "0.75rem"');
+    expect(mobileComposerReserveSource).toContain(
+      'export const mobileComposerDifferentialsCompareReserve = "calc(12.5rem + var(--safe-area-bottom))"',
+    );
+    expect(mobileComposerReserveSource).toContain("export function resolveMobileComposerReserve");
+    expect(mobileComposerReserveSource).toContain("export function isDocumentViewerOwnedRoute");
+    expect(mobileComposerReserveSource).not.toContain("env(safe-area-inset-bottom)");
+
     expect(globalSearchShellSource).toContain("const visibleMobileComposerReserve = !shouldShowSearchComposer");
-    expect(globalSearchShellSource).toContain('const mobileComposerReserve = bottomComposerHidden ? "0.75rem"');
+    expect(globalSearchShellSource).toContain(
+      "const mobileComposerReserve = resolveMobileComposerReserve(bottomComposerHidden, visibleMobileComposerReserve)",
+    );
+    expect(globalSearchShellSource).toContain('from "@/components/clinical-dashboard/mobile-composer-reserve"');
     expect(globalSearchShellSource).not.toContain(
       'bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"',
     );
@@ -114,15 +129,20 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalSearchShellSource).not.toContain('"max(2rem, var(--safe-area-bottom))"');
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = !reservesFloatingComposer");
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = phoneScrollHide.hidden");
-    expect(globalSearchShellSource).toContain("function isDocumentViewerOwnedRoute");
-    expect(globalSearchShellSource).toContain('isDocumentViewerOwnedRoute(pathname)\n      ? "0.75rem"\n      : "2rem"');
-    expect(globalSearchShellSource).toContain('"calc(12.5rem + var(--safe-area-bottom))"');
-    expect(clinicalDashboardSource).toContain('"calc(12.5rem + var(--safe-area-bottom))"');
-    expect(clinicalDashboardSource).toContain('const mobileComposerReserve = bottomComposerHidden ? "0.75rem"');
+    expect(globalSearchShellSource).toContain("mobileComposerVisibleReserve.differentialsCompare");
+    expect(globalSearchShellSource).toContain("sm:pb-[calc(9rem+var(--safe-area-bottom))]");
+    expect(globalSearchShellSource).not.toContain("sm:pb-[calc(9rem+env(safe-area-inset-bottom))]");
+
+    expect(clinicalDashboardSource).toContain(
+      "const mobileComposerReserve = resolveMobileComposerReserve(bottomComposerHidden, visibleMobileComposerReserve)",
+    );
+    expect(clinicalDashboardSource).toContain('from "@/components/clinical-dashboard/mobile-composer-reserve"');
+    expect(clinicalDashboardSource).toContain("mobileComposerVisibleReserve.differentialsCompare");
     expect(clinicalDashboardSource).not.toContain(
       'bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"',
     );
     expect(clinicalDashboardSource).toContain('"max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-24"');
+
     expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
     expect(documentViewerSource).toContain('"max-sm:pb-3"');
     expect(documentViewerSource).toContain('"max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"');
@@ -134,6 +154,8 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(documentViewerSource).toContain("max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]");
     expect(globalStylesSource).toContain("@media (max-width: 639px) and (prefers-reduced-motion: reduce)");
     expect(globalStylesSource).toContain('#main-content[data-bottom-composer-hidden="true"]');
+    expect(globalStylesSource).toContain("--phone-dock-differentials-compare-clearance: 12.5rem");
+    expect(globalStylesSource).toContain("var(--phone-dock-differentials-compare-clearance)");
     // Child pages must not stack a second dock-sized safe-area pad under the
     // shared host reserve — that pad cannot collapse when the dock hides.
     expect(uiPrimitivesSource).not.toContain("pb-[calc(12rem+env(safe-area-inset-bottom))]");

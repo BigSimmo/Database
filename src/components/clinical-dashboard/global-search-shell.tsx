@@ -28,6 +28,13 @@ import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
 import { landingModeForPreference, readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import {
+  isDocumentViewerOwnedRoute,
+  mobileComposerDocumentViewerShellReserve,
+  mobileComposerIdleReserve,
+  mobileComposerVisibleReserve,
+  resolveMobileComposerReserve,
+} from "@/components/clinical-dashboard/mobile-composer-reserve";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
@@ -222,13 +229,6 @@ function isToolDetailWithFooterSearch(pathname: string): boolean {
   );
 }
 
-/** Document viewer surfaces own their floating bottom composer; the shell must not stack a second pad. */
-function isDocumentViewerOwnedRoute(pathname: string): boolean {
-  if (pathname.startsWith("/documents/source")) return true;
-  if (!pathname.startsWith("/documents/")) return false;
-  return pathname !== "/documents/search";
-}
-
 function GlobalStandaloneSearchShellClient({
   children,
   initialMode = "answer",
@@ -353,19 +353,17 @@ function GlobalStandaloneSearchShellClient({
   // and lets DocumentViewer manage visible-dock clearance.
   const visibleMobileComposerReserve = !shouldShowSearchComposer
     ? isDocumentViewerOwnedRoute(pathname)
-      ? "0.75rem"
-      : "2rem"
+      ? mobileComposerDocumentViewerShellReserve
+      : mobileComposerIdleReserve
     : isStandaloneModeHome
-      ? "2rem"
+      ? mobileComposerIdleReserve
       : searchMode === "answer"
-        ? "calc(9rem + var(--safe-area-bottom))"
+        ? mobileComposerVisibleReserve.shellAnswer
         : differentialsCompareAddonActive
-          ? // Compare selected bar + compact search pill; must clear both while
-            // the dock is visible. Hidden state still collapses to 0.75rem below.
-            "calc(12.5rem + var(--safe-area-bottom))"
+          ? mobileComposerVisibleReserve.differentialsCompare
           : useCompactBottomSearch
-            ? "calc(5.5rem + var(--safe-area-bottom))"
-            : "calc(9rem + var(--safe-area-bottom))";
+            ? mobileComposerVisibleReserve.shellCompactSubmitted
+            : mobileComposerVisibleReserve.shellDefaultDock;
   // Release the large bottom reserve only when the phone bottom composer is
   // actually hidden (MasterSearchHeader's bottomComposerHidden). Header-only
   // scroll-hide, pinned compare addons, open menus/sheets, and composer focus
@@ -374,7 +372,7 @@ function GlobalStandaloneSearchShellClient({
   // Reusing that inset after the app composer hides recreates a toolbar-sized
   // blank band, so the hidden state intentionally keeps only a small content
   // pad. Interactive composer chrome still receives the full inset above.
-  const mobileComposerReserve = bottomComposerHidden ? "0.75rem" : visibleMobileComposerReserve;
+  const mobileComposerReserve = resolveMobileComposerReserve(bottomComposerHidden, visibleMobileComposerReserve);
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -744,13 +742,16 @@ function GlobalStandaloneSearchShellClient({
             // window does the actual scrolling — silently disabling every
             // position:sticky descendant (e.g. the document viewer rail).
             "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
+            // Phone (max-sm): collapse-aware --mobile-composer-reserve.
+            // sm+: static desktop clearance; use var(--safe-area-bottom) so tests
+            // can simulate insets without depending on env() in Chromium.
             !reservesFloatingComposer
               ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
               : searchMode === "answer"
-                ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]"
+                ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+var(--safe-area-bottom))]"
                 : useCompactBottomSearch
                   ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
-                  : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]",
+                  : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+var(--safe-area-bottom))]",
           )}
         >
           <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col">

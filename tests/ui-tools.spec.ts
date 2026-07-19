@@ -1114,6 +1114,37 @@ test.describe("Clinical KB tools launcher", () => {
       .toBeGreaterThan(112);
   });
 
+  test("tablet and desktop forms results keep non-phone bottom clearance", async ({ page }) => {
+    // Phone dock reserve (max-sm) must not leak into sm+/lg layouts.
+    for (const viewport of [
+      { width: 768, height: 1024, label: "tablet" },
+      { width: 1280, height: 900, label: "desktop" },
+    ] as const) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await gotoLauncher(page, "/forms?q=transport&run=1");
+      await expect(page.getByTestId("form-search-results")).toBeVisible();
+      const main = page.locator("#main-content");
+      await page.evaluate(() => {
+        document.documentElement.style.setProperty("--safe-area-bottom", "112px");
+      });
+      const geometry = await main.evaluate((node) => {
+        const style = window.getComputedStyle(node);
+        return {
+          paddingBottom: Number.parseFloat(style.paddingBottom),
+          marginBottom: Number.parseFloat(style.marginBottom),
+        };
+      });
+      // sm+ uses static desktop padding (pb-8 = 32px) or larger desktop dock
+      // clearance — never the phone hide-collapse path alone.
+      expect(geometry.paddingBottom, viewport.label).toBeGreaterThanOrEqual(32);
+      // Phone-only hide transform should not be active on these widths.
+      const dock = page.locator("form.answer-footer-search-dock");
+      if ((await dock.count()) > 0 && (await dock.first().isVisible())) {
+        await expect(dock.first()).not.toHaveAttribute("data-scroll-hidden", "true");
+      }
+    }
+  });
+
   test("mode toggle keeps forms separate from services", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/?mode=answer");

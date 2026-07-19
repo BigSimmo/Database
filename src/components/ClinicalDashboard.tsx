@@ -91,6 +91,10 @@ import {
 } from "@/components/clinical-dashboard/answer-progress";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import {
+  mobileComposerVisibleReserve,
+  resolveMobileComposerReserve,
+} from "@/components/clinical-dashboard/mobile-composer-reserve";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
@@ -3252,19 +3256,17 @@ export function ClinicalDashboard({
   const visibleMobileComposerReserve =
     searchMode === "answer"
       ? answerFollowUpSuggestions.length > 0
-        ? "calc(7.5rem + var(--safe-area-bottom))"
-        : "calc(5.25rem + var(--safe-area-bottom))"
+        ? mobileComposerVisibleReserve.dashboardAnswerWithFollowUps
+        : mobileComposerVisibleReserve.dashboardAnswer
       : differentialsCompareAddonActive
-        ? // Compare selected bar + compact search pill; must clear both while
-          // the dock is visible. Hidden state still collapses to 0.75rem below.
-          "calc(12.5rem + var(--safe-area-bottom))"
+        ? mobileComposerVisibleReserve.differentialsCompare
         : compactMobileBottomSearch
-          ? "calc(5rem + var(--safe-area-bottom))"
-          : "calc(5.25rem + var(--safe-area-bottom))";
+          ? mobileComposerVisibleReserve.dashboardCompactSubmitted
+          : mobileComposerVisibleReserve.dashboardDefaultDock;
   // Safari's bottom safe-area inset includes its translucent browser toolbar.
   // Reusing that inset after the app composer hides recreates a toolbar-sized
   // blank band, so the hidden state intentionally keeps only a small content pad.
-  const mobileComposerReserve = bottomComposerHidden ? "0.75rem" : visibleMobileComposerReserve;
+  const mobileComposerReserve = resolveMobileComposerReserve(bottomComposerHidden, visibleMobileComposerReserve);
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : CircleAlert}
