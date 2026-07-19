@@ -645,19 +645,14 @@ describe("saturated-score tie-breaking", () => {
       metadataBoost: 0.2,
       clinicalSignalBoost: 0.3,
       penalty: 0,
+      rankScore: preClampFinalScore,
       finalScore: 1,
       preClampFinalScore,
       strategy: "weighted_hybrid",
     };
   }
 
-  it("orders fully-tied saturated candidates by stable chunk id, ignoring pre-clamp boost magnitude", () => {
-    // Regression guard for the PR #325 golden-eval regression: tie-breaking selection by the
-    // pre-clamp boost sum re-ordered saturated top-5 sets by boost-stacking magnitude and buried
-    // golden documents (alcohol-ciwa-threshold and clozapine-cbc-abbreviation-threshold
-    // docRecall@5 1.0 -> 0.0, measured live 2026-07-07). The pre-clamp deep tiebreak belongs in
-    // rankClinicalResults (below the engineered rankingTieBreakScore); at the selection layer,
-    // fully-tied candidates must keep the stable chunk-id order that rankClinicalResults produced.
+  it("keeps the eval-validated stable order for saturated selection scores", () => {
     const higherPreClamp = source({
       id: "chunk-b",
       hybrid_score: 1,
@@ -680,5 +675,7 @@ describe("saturated-score tie-breaking", () => {
     });
 
     expect(selection.results.map((item) => item.id)).toEqual(["chunk-a", "chunk-b"]);
+    // The prior recall fix remains: selection never lowers the raw hybrid score.
+    expect(selection.results.map((item) => item.hybrid_score)).toEqual([1, 1]);
   });
 });

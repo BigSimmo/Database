@@ -139,7 +139,7 @@ function OptionShell({ active, children, hint }: { active: boolean; children: Re
   return (
     <div
       className={cn(
-        "grid min-h-11 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2.5 py-1.5 transition",
+        "grid min-h-tap grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2.5 py-1.5 transition",
         active ? "bg-[color:var(--clinical-accent-soft)]" : "hover:bg-[color:var(--surface-subtle)]",
       )}
     >

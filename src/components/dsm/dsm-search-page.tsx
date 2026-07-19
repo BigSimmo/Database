@@ -423,7 +423,7 @@ export function DsmSearchPage({
                 {canCompare ? (
                   <Link
                     href={compareHref(selected)}
-                    className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]"
+                    className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--command-hover)]"
                   >
                     Compare selected
                     <ChevronRight className="h-4 w-4" aria-hidden />

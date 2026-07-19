@@ -1,12 +1,20 @@
 "use client";
 
 import { type FormEvent, useRef, useState } from "react";
-import { Clock3, FileText, Loader2, LockKeyhole, Mail, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
+import { Clock3, FileText, LockKeyhole, Mail, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { ProviderBrandIcon, type SsoProvider } from "@/components/clinical-dashboard/provider-brand-icons";
 import { Sheet } from "@/components/ui/sheet";
-import { cn, fieldControlWithIcon, fieldIcon, fieldLabel, textMuted, toolbarButton } from "@/components/ui-primitives";
+import {
+  AsyncButton,
+  cn,
+  fieldControlWithIcon,
+  fieldIcon,
+  fieldLabel,
+  textMuted,
+  toolbarButton,
+} from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 
 const accountBenefits = [
@@ -125,19 +133,22 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                   autoCorrect="off"
                   spellCheck={false}
                   required
-                  className={cn(fieldControlWithIcon, "h-10.5 focus:ring-2 focus:ring-[color:var(--focus)]/20 sm:h-11")}
+                  className={cn(
+                    fieldControlWithIcon,
+                    "h-10.5 focus:ring-2 focus:ring-[color:var(--focus)]/20 sm:h-tap",
+                  )}
                 />
               </div>
             </label>
 
-            <button
+            <AsyncButton
               type="submit"
-              disabled={busy}
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-5 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:shadow-none"
+              busy={busy}
+              busyLabel="Sending link…"
+              className="inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-5 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)] hover:shadow-[var(--shadow-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-65 disabled:hover:shadow-none"
             >
-              {busy ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
               Continue
-            </button>
+            </AsyncButton>
 
             <div className="grid gap-3">
               <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
@@ -249,7 +260,7 @@ function ProviderButton({ provider, onClick }: { provider: SsoProvider; onClick:
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-11 min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] min-[375px]:gap-2 min-[375px]:px-2 sm:text-sm"
+      className="flex min-h-tap min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] min-[375px]:gap-2 min-[375px]:px-2 sm:text-sm"
     >
       <ProviderBrandIcon provider={provider} className="h-5 w-5" />
       <span className="min-w-0 text-2xs leading-none min-[375px]:text-xs sm:text-sm">{provider}</span>

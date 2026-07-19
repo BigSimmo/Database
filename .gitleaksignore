@@ -19,3 +19,6 @@ d2b7b89852a2090d56ce6aed1dd39417aedf332d:.gitleaksignore:generic-api-key:13
 # False positive: two synthetic chunk identifiers in a citation-array assertion
 # were parsed as a generic API key in the original remediation commit.
 b30bcb030edce84e2a0704a8714ee3ef1dcf642d:tests/rag-offline-answer.test.ts:generic-api-key:205
+# False positive: a synthetic hard-negative ranking candidate identifier was
+# interpreted as a generic API key. The fixture contains no credential material.
+d650ecb89bcdfece0af77ad9ea0d62d8eaa42233:scripts/build-ranking-snapshot.ts:generic-api-key:107

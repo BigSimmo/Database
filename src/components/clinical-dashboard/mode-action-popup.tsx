@@ -46,7 +46,7 @@ import {
 
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { Sheet } from "@/components/ui/sheet";
-import { cn, chatComposerIconButton, toolbarButton } from "@/components/ui-primitives";
+import { cn, chatComposerIconButton, glassOverlaySurface, toolbarButton } from "@/components/ui-primitives";
 
 export type ModeActionSetId =
   | "answer"
@@ -875,7 +875,8 @@ export function ModeActionPopup({
       >
         <div
           className={cn(
-            "mode-action-panel overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)] ring-1 ring-white/45 dark:ring-white/10",
+            glassOverlaySurface,
+            "mode-action-panel overflow-hidden bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)]",
             integrated ? "rounded-[1.35rem] shadow-[var(--shadow-elevated)]" : "rounded-[1rem]",
           )}
         >

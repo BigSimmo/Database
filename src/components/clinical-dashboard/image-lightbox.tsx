@@ -120,7 +120,7 @@ export function ImageLightbox({
             <button
               type="button"
               onClick={retry}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
+              className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
             >
               <RefreshCw aria-hidden="true" className="h-4 w-4" />
               Retry
@@ -155,7 +155,7 @@ export function ImageLightbox({
                 setTranslate({ x: 0, y: 0 });
               }}
               disabled={!url}
-              className="inline-flex min-h-11 min-w-14 items-center justify-center rounded-md px-2 text-xs font-semibold tabular-nums text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] disabled:opacity-45"
+              className="inline-flex min-h-tap min-w-14 items-center justify-center rounded-md px-2 text-xs font-semibold tabular-nums text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] disabled:opacity-45"
               aria-label="Reset zoom"
             >
               {Math.round(scale * 100)}%

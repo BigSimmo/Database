@@ -670,7 +670,7 @@ export function ServicesNavigatorPage() {
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button
-                  className="inline-flex min-h-10 w-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-11 sm:w-auto sm:px-4"
+                  className="inline-flex min-h-10 w-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-tap sm:w-auto sm:px-4"
                   type="button"
                   aria-label="Open service filters"
                   disabled

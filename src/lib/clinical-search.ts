@@ -1708,7 +1708,23 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     activeCommunityGenericPenalty +
     riskFlowchartGenericPenalty;
   const penalty = Math.max(rawPenalty, -0.35);
-  const finalScore = clamp(clamp(base) + titleBoost + metadataSignals + clinicalSignalBoost + rrfBoost + penalty);
+  const titleSectionRelevance = titleBoost + sectionBoost + sectionDepth;
+  const lexicalCoverage = evidenceBoost + directAnswerBoost + comparisonCoverageBoost;
+  const metadataRelevance = metadataBoost;
+  const clinicalEvidence =
+    clinicalSignalBoost - sectionBoost - sectionDepth - evidenceBoost - directAnswerBoost - comparisonCoverageBoost;
+  const fixedMetadataAdjustment = metadataSignals - metadataBoost;
+  const weights = rankingConfig.featureFusion[queryClass];
+  const rankScore =
+    clamp(base) * weights.hybridRelevance +
+    lexicalCoverage * weights.lexicalCoverage +
+    rrfBoost * weights.reciprocalRankFusion +
+    titleSectionRelevance * weights.titleSectionRelevance +
+    metadataRelevance * weights.metadataRelevance +
+    clinicalEvidence * weights.clinicalEvidence +
+    fixedMetadataAdjustment +
+    penalty;
+  const finalScore = clamp(rankScore);
 
   return {
     vectorScore: roundScore(clamp(result.similarity)),
@@ -1726,7 +1742,17 @@ export function clinicalRankExplanation(query: string, result: SearchResult): Se
     clinicalSignalBoost: roundScore(clinicalSignalBoost),
     penalty: roundScore(penalty),
     rawPenalty: roundScore(rawPenalty),
+    rankScore: roundScore(rankScore),
     finalScore: roundScore(finalScore),
+    fusionSignals: {
+      hybridRelevance: roundScore(clamp(base)),
+      lexicalCoverage: roundScore(lexicalCoverage),
+      reciprocalRankFusion: roundScore(rrfBoost),
+      titleSectionRelevance: roundScore(titleSectionRelevance),
+      metadataRelevance: roundScore(metadataRelevance),
+      clinicalEvidence: roundScore(clinicalEvidence),
+      fixedAdjustment: roundScore(fixedMetadataAdjustment + penalty),
+    },
     strategy: shouldBlendRrf ? "weighted_hybrid_rrf_blend" : "weighted_hybrid",
   };
 }
@@ -1885,30 +1911,29 @@ export function rankClinicalResults(query: string, results: SearchResult[]) {
       const explanation = clinicalRankExplanation(query, result);
       const hasImageEvidence = (result.images ?? []).some((image) => isClinicalImageEvidence(image));
       const imageEvidencePenalty = wantsImageEvidence && !hasImageEvidence ? -0.04 : 0;
-      const score = explanation.finalScore + imageEvidencePenalty;
-      // finalScore is clamped to [0,1], so heavily-boosted results saturate at 1.0 and tie on `score`.
-      // The pre-clamp magnitude (the inner boost sum before the outer clamp) still carries the boost
-      // engineering that the clamp discards, so we use it as a deep tiebreak below the engineered
-      // rankingTieBreakScore — it can only discriminate results that are otherwise tied, never reorder
-      // above tieBreakScore.
-      const preClampFinalScore =
-        explanation.weightedHybridScore +
-        explanation.titleBoost +
-        explanation.metadataBoost +
-        explanation.clinicalSignalBoost +
-        explanation.rrfBoost +
-        explanation.penalty +
-        imageEvidencePenalty;
+      const tieBreakScore = rankingTieBreakScore(query, result, explanation);
+      // Fold the existing engineered relevance tiebreak into the unbounded ordering signal. The
+      // confidence contract remains the pre-existing clamped evidence score; a ranking-only
+      // discriminator must not overstate confidence.
+      const rankScore = explanation.rankScore + imageEvidencePenalty + tieBreakScore;
+      const finalScore = clamp(explanation.rankScore + imageEvidencePenalty);
       return {
         result,
         explanation: {
           ...explanation,
           penalty: roundScore(explanation.penalty + imageEvidencePenalty),
-          finalScore: roundScore(score),
+          rankScore: roundScore(rankScore),
+          finalScore: roundScore(finalScore),
+          preClampFinalScore: roundScore(rankScore),
+          fusionSignals: explanation.fusionSignals
+            ? {
+                ...explanation.fusionSignals,
+                fixedAdjustment: roundScore(explanation.fusionSignals.fixedAdjustment + imageEvidencePenalty),
+              }
+            : undefined,
         },
-        score,
-        tieBreakScore: rankingTieBreakScore(query, result, explanation),
-        preClampFinalScore,
+        rankScore,
+        tieBreakScore,
       };
     })
     // Final `id` comparison is a stable, deterministic tiebreak so fully-tied results no longer order
@@ -1916,9 +1941,7 @@ export function rankClinicalResults(query: string, results: SearchResult[]) {
     // meaningful signal has tied, so it never wastes the boost/relevance engineering above it.
     .sort(
       (a, b) =>
-        b.score - a.score ||
-        b.tieBreakScore - a.tieBreakScore ||
-        b.preClampFinalScore - a.preClampFinalScore ||
+        b.rankScore - a.rankScore ||
         b.result.similarity - a.result.similarity ||
         a.result.id.localeCompare(b.result.id),
     )
@@ -1927,7 +1950,7 @@ export function rankClinicalResults(query: string, results: SearchResult[]) {
       score_explanation: {
         ...entry.explanation,
         finalRank: index + 1,
-        preClampFinalScore: roundScore(entry.preClampFinalScore),
+        preClampFinalScore: roundScore(entry.rankScore),
       },
     }));
 

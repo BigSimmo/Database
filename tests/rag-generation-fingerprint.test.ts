@@ -24,6 +24,8 @@ const baseline: AnswerGenerationFingerprintInput = {
   classifierPromptVersion: "clinical-rag-query-classifier-v1",
   retrievalVersion: "deep-memory-v1",
   indexingPromptVersion: "clinical-indexing-prompts-v1",
+  semanticRerankEnabled: false,
+  semanticRerankModel: "gpt-5.6-luna",
 };
 
 describe("RAG answer generation fingerprints", () => {
@@ -42,6 +44,8 @@ describe("RAG answer generation fingerprints", () => {
     ["classifier prompt version", { classifierPromptVersion: "clinical-rag-query-classifier-v2" }],
     ["retrieval version", { retrievalVersion: "deep-memory-v2" }],
     ["indexing prompt version", { indexingPromptVersion: "clinical-indexing-prompts-v2" }],
+    ["semantic rerank enabled", { semanticRerankEnabled: true }],
+    ["semantic rerank model", { semanticRerankModel: "gpt-5.6-terra" }],
   ])("changes when %s changes", (_label, override) => {
     expect(buildAnswerGenerationFingerprint({ ...baseline, ...override })).not.toBe(
       buildAnswerGenerationFingerprint(baseline),

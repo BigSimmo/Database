@@ -1,9 +1,8 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { s } from "./style-utils";
 import { useTherapyData } from "./data/use-therapy-data";
 import {
   EMPTY_SEARCH,
@@ -79,14 +78,14 @@ export type TcBindings = {
   isSheets: boolean;
   isOther: boolean;
   otherLabel: string;
-  navHome: CSSProperties;
-  navSearch: CSSProperties;
-  navRecommend: CSSProperties;
-  navCompare: CSSProperties;
-  navPathways: CSSProperties;
-  navBrief: CSSProperties;
-  navSheets: CSSProperties;
-  navReview: CSSProperties;
+  navHome: string;
+  navSearch: string;
+  navRecommend: string;
+  navCompare: string;
+  navPathways: string;
+  navBrief: string;
+  navSheets: string;
+  navReview: string;
 
   // ---- active therapy (detail / brief / sheet) ------------------------
   selectedSlug: string | null;
@@ -131,32 +130,32 @@ export type TcBindings = {
 
   // ---- comparison tabs + density -------------------------------------
   cmpTab: string;
-  tabPriorities: CSSProperties;
-  tabDifferences: CSSProperties;
-  tabAll: CSSProperties;
+  tabPriorities: string;
+  tabDifferences: string;
+  tabAll: string;
   setTabPriorities: () => void;
   setTabDifferences: () => void;
   setTabAll: () => void;
   density: string;
-  segComfortable: CSSProperties;
-  segDense: CSSProperties;
+  segComfortable: string;
+  segDense: string;
   setComfortable: () => void;
   setDense: () => void;
 
   // ---- brief-intervention tabs ---------------------------------------
   briefTab: string;
-  brief5: CSSProperties;
-  brief15: CSSProperties;
-  briefGround: CSSProperties;
+  brief5: string;
+  brief15: string;
+  briefGround: string;
   set5: () => void;
   set15: () => void;
   setGround: () => void;
 
   // ---- patient-sheet tone --------------------------------------------
   sheetTone: string;
-  tonePlain: CSSProperties;
-  toneWarm: CSSProperties;
-  toneClinical: CSSProperties;
+  tonePlain: string;
+  toneWarm: string;
+  toneClinical: string;
   setTonePlain: () => void;
   setToneWarm: () => void;
   setToneClinical: () => void;
@@ -167,11 +166,11 @@ export type TcBindings = {
   secPractice: boolean;
   secCoping: boolean;
   secContacts: boolean;
-  chipAbout: CSSProperties;
-  chipSteps: CSSProperties;
-  chipPractice: CSSProperties;
-  chipCoping: CSSProperties;
-  chipContacts: CSSProperties;
+  chipAbout: string;
+  chipSteps: string;
+  chipPractice: string;
+  chipCoping: string;
+  chipContacts: string;
   toggleAbout: () => void;
   toggleSteps: () => void;
   togglePractice: () => void;
@@ -179,50 +178,24 @@ export type TcBindings = {
   toggleContacts: () => void;
   sheetClinician: boolean;
   toggleClinician: () => void;
-  clinicianTrack: CSSProperties;
-  clinicianKnob: CSSProperties;
+  clinicianTrack: string;
+  clinicianKnob: string;
   printSheet: () => void;
 };
 
 const TcContext = createContext<TcBindings | null>(null);
 
-function navStyle(active: boolean): CSSProperties {
-  const base =
-    "display:inline-flex;align-items:center;gap:8px;flex:none;min-height:44px;box-sizing:border-box;padding:8px 13px;border:1px solid transparent;border-radius:10px;background:transparent;font-family:inherit;font-size:13.5px;white-space:nowrap;cursor:pointer;text-decoration:none;transition:background .12s ease,color .12s ease,border-color .12s ease;";
-  return s(
-    active
-      ? base +
-          "background:var(--clinical-accent-soft);color:var(--clinical-accent-hover);border:1px solid var(--clinical-accent-border);font-weight:650;"
-      : base + "color:var(--text-muted);font-weight:500;",
-  );
+function navStyle(active: boolean): string {
+  return `tc-nav-control${active ? " tc-is-active" : ""}`;
 }
-function tabStyle(active: boolean): CSSProperties {
-  const base =
-    "display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:10px 4px;border:none;background:transparent;font-size:14px;cursor:pointer;font-family:inherit;transition:color .12s ease;";
-  return s(
-    active
-      ? base + "color:var(--clinical-accent-hover);font-weight:650;border-bottom:2px solid var(--clinical-accent);"
-      : base + "color:var(--text-muted);font-weight:500;border-bottom:2px solid transparent;",
-  );
+function tabStyle(active: boolean): string {
+  return `tc-tab-control${active ? " tc-is-active" : ""}`;
 }
-function segStyle(active: boolean): CSSProperties {
-  const base =
-    "display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:all .12s ease;";
-  return s(
-    active
-      ? base + "background:var(--surface);color:var(--clinical-accent-hover);box-shadow:var(--shadow-tight);"
-      : base + "background:transparent;color:var(--text-muted);",
-  );
+function segStyle(active: boolean): string {
+  return `tc-segment-control${active ? " tc-is-active" : ""}`;
 }
-function chipStyle(on: boolean): CSSProperties {
-  const base =
-    "display:inline-flex;align-items:center;justify-content:center;min-height:44px;box-sizing:border-box;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .12s ease;";
-  return s(
-    on
-      ? base +
-          "border:1px solid var(--clinical-accent-border);background:var(--clinical-accent-soft);color:var(--clinical-accent-hover);"
-      : base + "border:1px solid var(--border);background:var(--surface);color:var(--text-muted);",
-  );
+function chipStyle(active: boolean): string {
+  return `tc-chip-control${active ? " tc-is-active" : ""}`;
 }
 
 export function TcProvider({ children }: { children: ReactNode }) {
@@ -468,16 +441,8 @@ export function TcProvider({ children }: { children: ReactNode }) {
       toggleContacts: () => toggleSection("contacts"),
       sheetClinician,
       toggleClinician: () => setSheetClinician((prev) => !prev),
-      clinicianTrack: s(
-        "position:relative;width:42px;height:24px;border:0;padding:0;border-radius:12px;flex:none;cursor:pointer;transition:background .15s ease;background:" +
-          (sheetClinician ? "var(--clinical-accent)" : "var(--border-strong)") +
-          ";",
-      ),
-      clinicianKnob: s(
-        "position:absolute;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s ease;box-shadow:0 1px 2px rgba(0,0,0,.2);left:" +
-          (sheetClinician ? "21px" : "3px") +
-          ";",
-      ),
+      clinicianTrack: `tc-clinician-track${sheetClinician ? " tc-is-active" : ""}`,
+      clinicianKnob: `tc-clinician-knob${sheetClinician ? " tc-is-active" : ""}`,
       printSheet: () => {
         if (typeof window !== "undefined") window.print();
       },

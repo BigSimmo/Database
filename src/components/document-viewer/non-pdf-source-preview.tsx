@@ -67,7 +67,7 @@ export const NonPdfSourcePreview = memo(function NonPdfSourcePreview({
             : "Open the file in a new tab or download it to view the original."}
         </p>
         <div className="mt-3 flex flex-wrap justify-center gap-2">
-          <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "min-h-11")}>
+          <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "min-h-tap")}>
             <ExternalLink aria-hidden="true" className="h-4 w-4" />
             Open
           </a>
@@ -77,7 +77,7 @@ export const NonPdfSourcePreview = memo(function NonPdfSourcePreview({
               target="_blank"
               rel="noreferrer"
               download
-              className={cn(secondaryButton, "min-h-11")}
+              className={cn(secondaryButton, "min-h-tap")}
             >
               <Download aria-hidden="true" className="h-4 w-4" />
               Download
@@ -114,7 +114,7 @@ function InlineImagePreview({
           <p className="font-semibold text-[color:var(--text)]">Image preview could not load</p>
           <p className="mt-1">The preview link may have expired. Open the image in a new tab or download it.</p>
           <div className="mt-3 flex flex-wrap justify-center gap-2">
-            <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "min-h-11")}>
+            <a href={signedUrl} target="_blank" rel="noreferrer" className={cn(secondaryButton, "min-h-tap")}>
               <ExternalLink aria-hidden="true" className="h-4 w-4" />
               Open
             </a>
@@ -124,7 +124,7 @@ function InlineImagePreview({
                 target="_blank"
                 rel="noreferrer"
                 download
-                className={cn(secondaryButton, "min-h-11")}
+                className={cn(secondaryButton, "min-h-tap")}
               >
                 <Download aria-hidden="true" className="h-4 w-4" />
                 Download

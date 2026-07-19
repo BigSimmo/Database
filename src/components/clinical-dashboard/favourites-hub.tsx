@@ -5,7 +5,14 @@ import { ArrowUpDown, ChevronDown, Filter, Folder, Heart, Plus, Search, ShieldCh
 import { useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { cn, floatingControl, iconTilePremium, panelSubtle, primaryControl } from "@/components/ui-primitives";
+import {
+  cn,
+  floatingControl,
+  glassOverlaySurface,
+  iconTilePremium,
+  panelSubtle,
+  primaryControl,
+} from "@/components/ui-primitives";
 import { useSavedRegistryFavourites } from "@/components/clinical-dashboard/use-saved-registry-favourites";
 import {
   favouriteItems,
@@ -198,7 +205,7 @@ export function FavouritesHub({
               type="button"
               onClick={() => setTabMenuOpen((open) => !open)}
               onKeyDown={handleFavouriteTabTriggerKeyDown}
-              className="grid min-h-11 w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 text-left shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent)]/30 hover:bg-[color:var(--surface-raised)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-56"
+              className="grid min-h-tap w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2.5 text-left shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent)]/30 hover:bg-[color:var(--surface-raised)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-56"
               aria-haspopup="listbox"
               aria-expanded={tabMenuOpen}
               aria-controls={tabMenuOpen ? "favourites-type-listbox" : undefined}
@@ -229,7 +236,10 @@ export function FavouritesHub({
                 id="favourites-type-listbox"
                 role="listbox"
                 aria-label="Favourite type"
-                className="absolute left-0 top-[calc(100%+0.5rem)] z-40 grid w-[min(18rem,calc(100vw-1.5rem))] gap-2 overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-1.5 shadow-[var(--shadow-lux)] ring-1 ring-white/30 backdrop-blur-md dark:ring-white/10"
+                className={cn(
+                  glassOverlaySurface,
+                  "absolute left-0 top-[calc(100%+0.5rem)] z-40 grid w-[min(18rem,calc(100vw-1.5rem))] gap-2 overflow-hidden rounded-xl bg-[color:var(--surface-lux)] p-1.5 shadow-[var(--shadow-lux)]",
+                )}
               >
                 {favouriteTabs.map((tab, index) => {
                   const Icon = tab.icon;
@@ -311,7 +321,7 @@ export function FavouritesHub({
             aria-describedby="favourites-sort-unavailable"
             className={cn(
               floatingControl,
-              "min-h-11 cursor-not-allowed px-3 text-xs opacity-60 hover:border-[color:var(--border-lux)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-inset)] sm:min-h-9 sm:px-2.5",
+              "min-h-tap cursor-not-allowed px-3 text-xs opacity-60 hover:border-[color:var(--border-lux)] hover:bg-[color:var(--surface-raised)] hover:shadow-[var(--shadow-inset)] sm:min-h-9 sm:px-2.5",
             )}
           >
             <ArrowUpDown aria-hidden="true" className="h-4 w-4" />
@@ -326,7 +336,7 @@ export function FavouritesHub({
             aria-describedby="favourites-add-unavailable"
             className={cn(
               primaryControl,
-              "min-h-11 cursor-not-allowed justify-center px-3 text-xs opacity-60 hover:bg-[color:var(--command)] hover:shadow-[var(--shadow-tight)] active:translate-y-0 sm:min-h-9 sm:px-2.5",
+              "min-h-tap cursor-not-allowed justify-center px-3 text-xs opacity-60 hover:bg-[color:var(--command)] hover:shadow-[var(--shadow-tight)] active:translate-y-0 sm:min-h-9 sm:px-2.5",
             )}
           >
             <Plus aria-hidden="true" className="h-4 w-4" />
@@ -504,7 +514,7 @@ function FavouriteItemRow({ item, onBrowseSets }: { item: FavouriteItem; onBrows
       </div>
       <Link
         href={item.href}
-        className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] sm:hidden"
+        className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] sm:hidden"
         aria-label={`Open ${item.title}`}
       >
         <ChevronDown aria-hidden="true" className="-rotate-90 h-4 w-4" />

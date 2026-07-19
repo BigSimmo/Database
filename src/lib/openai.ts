@@ -14,7 +14,7 @@ import { fenceSourceEvidence, sourceTextForModelEvidence } from "@/lib/source-te
 import type { ImageEvidenceCategory, OpenAITokenUsage } from "@/lib/types";
 
 type OpenAIOperation =
-  "embedding" | "answer" | "summary" | "vision_caption" | "vision_classification" | "text_generation";
+  "embedding" | "answer" | "summary" | "vision_caption" | "vision_classification" | "rerank" | "text_generation";
 
 export type OpenAIReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh";
 type OpenAITextVerbosity = "low" | "medium" | "high";

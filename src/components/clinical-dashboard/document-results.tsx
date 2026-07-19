@@ -60,7 +60,7 @@ function RelatedDocumentCard({
           </p>
           <Link
             href={relatedDocumentHref(document)}
-            className="mt-0.5 inline-flex min-h-11 items-center rounded-md text-sm font-semibold leading-6 text-[color:var(--text)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
+            className="mt-0.5 inline-flex min-h-tap items-center rounded-md text-sm font-semibold leading-6 text-[color:var(--text)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-7"
           >
             <span className="line-clamp-2">{title}</span>
           </Link>
@@ -69,7 +69,7 @@ function RelatedDocumentCard({
           type="button"
           onClick={() => onScopeDocument(document.document_id)}
           aria-label={`Scope search to ${title}`}
-          className={cn(floatingControl, "w-11 shrink-0 px-0 text-xs sm:w-auto sm:px-2.5")}
+          className={cn(floatingControl, "w-tap shrink-0 px-0 text-xs sm:w-auto sm:px-2.5")}
         >
           <Filter aria-hidden="true" className="h-4 w-4" />
           <span className="hidden sm:inline">Scope</span>
