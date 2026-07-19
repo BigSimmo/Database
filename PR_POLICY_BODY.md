@@ -1,23 +1,35 @@
 ## Summary
 
-- Hardens administrator-only access across document, ingestion, and account APIs; adds signed-in favourites/preferences persistence; repairs mobile Safari bottom-composer spacing on Information pages; and fixes a pre-existing unit-test regression in the clinical dashboard merge-artifact guards.
+- Fix phone header new-chat edge spacing by restoring a real `.edge-glass-header` inset after an unlayered `@media (max-width: 639px)` rule had zeroed padding and beaten `@layer components`.
+- Share phone/sm inset via `--header-edge-pad: 1rem` (aligned with mode-home `px-4`), keep the unlayered phone guard on the same token, and widen the Answer mode pill reserve to `calc(100vw-12rem)`.
+- Lock symmetry with Playwright geometry checks at 360/390 and a source contract that rejects a `max(0px, safe-area)` header override.
 
 ## Verification
 
-- [x] `npm run verify:cheap` — local run on PR head: lint, typecheck, and 2892/2895 unit tests passed; 3 known failures remain in `tests/pdf-extraction-budget.test.ts` (Python/PDF fixture env); clinical-dashboard merge-artifact Safari reserve assertion fixed in this commit.
-- [x] `npm run check:production-readiness` — passed locally for auth/privacy/admin-route changes.
-- [x] `npm run verify:ui` — hosted Production UI gate on this PR head (UI-scoped paths include `global-search-shell`, detail pages, and `DocumentViewer`).
+- [x] `npm run verify:ui` — 242/242 Chromium PR suite on the functional head before the docs/ledger closeout
+- [x] Focused Playwright `tests/ui-overlap.spec.ts` — 14/14 including new left/right inset symmetry asserts
+- [x] Focused Vitest `tests/ui-overlay-css-contract.test.ts` — 5/5 including the header-edge-pad contract
+- [x] Live geometry probe at 360/390/640 — header pad and control insets `16px` / `16px` (`delta: 0`)
+- Verification not run: full local `verify:pr-local` unit stage blocked by the known container-only `pdf-extraction-budget` python ENOENT artifact (also fails on clean main; hosted Unit coverage remains the authority)
 
 ## Risk and rollout
 
-- Risk: medium — touches Supabase migrations/RLS, administrator authorization, account persistence APIs, ingestion-worker auth, and mobile layout spacing; incorrect rollout could block uploads or expose admin affordances to non-administrators (API routes remain fail-closed).
-- Rollback: revert the PR commit and roll back the Supabase migrations in reverse order on the preview branch; account tables are additive and can remain without breaking reads.
-- Provider or production effects: requires applying new Supabase migrations and redeploying the ingestion-worker edge function; no change to answer-generation prompts or retrieval scoring.
+- Risk: Low — shared header chrome padding and a mode-pill width reserve only; no API, auth, retrieval, or clinical-output behavior changes.
+- Rollback: Revert the PR squash commit; CSS tokens and tests are additive/self-contained.
+- Provider or production effects: None
 
 ## Clinical Governance Preflight
 
-<!-- GOVERNANCE_PREFLIGHT -->
+- [x] Source-backed claims still require linked source verification before clinical use
+- [x] No patient-identifiable document workflow was introduced or expanded without explicit governance approval
+- [x] Supabase target remains `[REDACTED]` (`[REDACTED]`)
+- [x] Service-role keys and private document access remain server-only
+- [x] Demo/synthetic content remains clearly separated from real clinical sources
+- [x] Source metadata, review status, and outdated/unknown-source behavior remain conservative
+- [x] Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed
 
 ## Notes
 
-- Resolves bottom layout spacing and transition issues on Information pages, removes the footer search composer from Information pages, restores the back button at desktop widths, and gates administrative upload-drawer assertions in tests to match production authorization.
+- Path `src/components/clinical-dashboard/...` is classified clinical-risk by PR policy filename rules even though this change is header chrome only; governance items are confirmed unchanged.
+- Merged current `origin/main` including Safari dock reserve tokens (#933) and ingestion-worker lease hardening (#937).
+- Stale admin/migration PR_POLICY_BODY.md from #932 was replaced so CI sync applies this UI-only description.
