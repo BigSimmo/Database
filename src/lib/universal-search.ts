@@ -359,7 +359,10 @@ async function searchDsmDomain(args: ResolvedSearchArgs): Promise<UniversalSearc
 }
 
 async function searchToolsDomain(args: ResolvedSearchArgs): Promise<UniversalSearchItem[]> {
-  return rankToolRecords(args.baseQuery, args.limitPerDomain, args.expansions).map((match) => ({
+  return rankToolRecords(args.baseQuery, args.limitPerDomain, args.expansions, {
+    authenticated: Boolean(args.ownerId),
+    demoMode: args.demo,
+  }).map((match) => ({
     id: match.tool.id,
     kind: "tools",
     title: match.tool.title,
