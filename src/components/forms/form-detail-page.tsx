@@ -526,7 +526,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
   return (
     <main
       data-testid="form-detail-page"
-      className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:px-5 sm:pb-10 sm:pt-6 lg:px-8"
+      className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:px-5 sm:pb-10 sm:pt-6 lg:px-8"
     >
       <div className={pageContainer}>
         {notice ? (

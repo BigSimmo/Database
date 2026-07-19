@@ -668,6 +668,14 @@ async function openScopeControl(page: Page) {
 
   const composer = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
 
+  // If the composer is scrolled out of view on mobile, scroll the container to the top to reveal it
+  await page.evaluate(() => {
+    const mainContent = document.getElementById("main-content");
+    if (mainContent) {
+      mainContent.scrollTop = 0;
+    }
+  });
+
   await composer.click();
   const scopeOption = page.getByRole("option", { name: /Scope sources/i });
   if (await scopeOption.isVisible({ timeout: 2_000 }).catch(() => false)) {

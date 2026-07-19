@@ -144,6 +144,65 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
   );
 }
 
+function isInformationPage(pathname: string): boolean {
+  // Services detail: /services/[slug]
+  if (pathname.startsWith("/services/") && pathname !== "/services") return true;
+
+  // Forms detail: /forms/[slug]
+  if (pathname.startsWith("/forms/") && pathname !== "/forms") return true;
+
+  // Medications detail: /medications/[slug]
+  if (pathname.startsWith("/medications/") && pathname !== "/medications") return true;
+
+  // Psychiatric specifier detail: /specifiers/[slug]
+  if (
+    pathname.startsWith("/specifiers/") &&
+    pathname !== "/specifiers" &&
+    pathname !== "/specifiers/builder" &&
+    pathname !== "/specifiers/compare" &&
+    pathname !== "/specifiers/map"
+  )
+    return true;
+
+  // Clinical formulation detail: /formulation/[slug]
+  if (
+    pathname.startsWith("/formulation/") &&
+    pathname !== "/formulation" &&
+    pathname !== "/formulation/builder" &&
+    pathname !== "/formulation/compare" &&
+    pathname !== "/formulation/map"
+  )
+    return true;
+
+  // Factsheets detail: /factsheets/[slug]
+  if (pathname.startsWith("/factsheets/") && pathname !== "/factsheets" && pathname !== "/factsheets/search")
+    return true;
+
+  // Therapy compass detail: /therapy-compass/[slug]/brief or /therapy-compass/[slug]/sheet
+  if (
+    pathname.startsWith("/therapy-compass/") &&
+    pathname !== "/therapy-compass" &&
+    pathname !== "/therapy-compass/compare" &&
+    pathname !== "/therapy-compass/pathways" &&
+    pathname !== "/therapy-compass/recommend" &&
+    pathname !== "/therapy-compass/review" &&
+    pathname !== "/therapy-compass/search"
+  )
+    return true;
+
+  // Differential diagnosis detail: /differentials/diagnoses/[slug] or /differentials/presentations/[slug]
+  if (pathname.startsWith("/differentials/diagnoses/") || pathname.startsWith("/differentials/presentations/"))
+    return true;
+
+  // DSM-5 Diagnosis detail: /dsm/diagnoses/[slug] or /dsm/diagnoses/[slug]/differentials or /dsm/compare
+  if (pathname.startsWith("/dsm/diagnoses/")) return true;
+
+  // Document detail: /documents/[id] (excluding /documents/search)
+  if (pathname.startsWith("/documents/") && pathname !== "/documents/search") return true;
+
+  return false;
+}
+
 function GlobalStandaloneSearchShellClient({
   children,
   initialMode = "answer",
@@ -257,12 +316,13 @@ function GlobalStandaloneSearchShellClient({
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
-  const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
+  const isInfoPage = isInformationPage(pathname);
+  const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow && !isInfoPage;
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
   // Standalone mode homes portal the composer into the hero (in-flow at every
   // width), so phones need no bottom-dock clearance there.
   const visibleMobileComposerReserve = !shouldShowSearchComposer
-    ? "2rem"
+    ? "max(2rem, var(--safe-area-bottom))"
     : isStandaloneModeHome
       ? "2rem"
       : searchMode === "answer"
@@ -280,7 +340,9 @@ function GlobalStandaloneSearchShellClient({
   // Reusing that inset after the app composer hides recreates a toolbar-sized
   // blank band, so the hidden state intentionally keeps only a small content
   // pad. Interactive composer chrome still receives the full inset above.
-  const mobileComposerReserve = bottomComposerHidden ? "0.75rem" : visibleMobileComposerReserve;
+  const mobileComposerReserve = bottomComposerHidden
+    ? "max(0.75rem, var(--safe-area-bottom))"
+    : visibleMobileComposerReserve;
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -558,11 +620,41 @@ function GlobalStandaloneSearchShellClient({
             onNewChat={startNewAnswerChat}
             onOpenMobileSidebar={() => setMobileMenuOpen(true)}
             mobileLeadingAction={
-              pathname === "/differentials" && searchMode === "differentials" && requestedQuery ? "back" : "menu"
+              isInfoPage
+                ? "back"
+                : pathname === "/differentials" && searchMode === "differentials" && requestedQuery
+                  ? "back"
+                  : "menu"
             }
             onMobileBack={() => {
-              setQuery("");
-              navigateToMode(searchMode, { focus: true });
+              if (isInfoPage) {
+                if (pathname.startsWith("/services/")) {
+                  router.push("/services");
+                } else if (pathname.startsWith("/forms/")) {
+                  router.push("/forms");
+                } else if (pathname.startsWith("/medications/")) {
+                  router.push("/?mode=prescribing");
+                } else if (pathname.startsWith("/differentials/")) {
+                  router.push("/differentials");
+                } else if (pathname.startsWith("/dsm/")) {
+                  router.push("/dsm");
+                } else if (pathname.startsWith("/specifiers/")) {
+                  router.push("/specifiers");
+                } else if (pathname.startsWith("/formulation/")) {
+                  router.push("/formulation");
+                } else if (pathname.startsWith("/therapy-compass/")) {
+                  router.push("/therapy-compass");
+                } else if (pathname.startsWith("/factsheets/")) {
+                  router.push("/factsheets");
+                } else if (pathname.startsWith("/documents/")) {
+                  router.push("/documents/search");
+                } else {
+                  router.back();
+                }
+              } else {
+                setQuery("");
+                navigateToMode(searchMode, { focus: true });
+              }
             }}
             queryModeOptions={mockupQueryModeOptions}
             queryInputRef={inputRef}
@@ -596,6 +688,7 @@ function GlobalStandaloneSearchShellClient({
           ref={mainRefCallback}
           tabIndex={-1}
           onScroll={handleMainScroll}
+          data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
           className={cn(
             // sm+ uses overflow-x-clip (not hidden): hidden forces overflow-y to
             // auto, which turns #main-content into the sticky scrollport while the
