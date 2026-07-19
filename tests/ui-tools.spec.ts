@@ -1451,7 +1451,8 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("mobile differential compare action stays tappable while results scroll", async ({ page }) => {
+  test("mobile differential compare dock hides on scroll down and stays tappable when revealed", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
     await mockAnswerDashboardApi(page);
     await mockDifferentialCatalogApi(page);
     await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
@@ -1491,45 +1492,88 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.locator("#differentials-mobile-compare-addon-slot")).toHaveCount(1);
     await expect(compareAction).toBeVisible();
     await expect(compareAction).toContainText("Compare selected");
-
-    await mainContent.evaluate((element) => element.scrollTo({ top: 700, behavior: "instant" }));
-    await expect.poll(() => mainContent.evaluate((element) => element.scrollTop)).toBeGreaterThan(100);
-    await page.waitForTimeout(300);
-
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-    const mainPaddingBottom = await mainContent.evaluate((element) =>
-      Number.parseFloat(window.getComputedStyle(element).paddingBottom),
-    );
-    const dockHeight = await dock.evaluate((element) => element.getBoundingClientRect().height);
-    expect(mainPaddingBottom).toBeGreaterThanOrEqual(dockHeight);
 
-    await mainContent.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
-    const lastResultBottom = await page
-      .getByTestId("differential-status-badge")
-      .last()
-      .evaluate(
-        (element) =>
-          element.closest("article")?.getBoundingClientRect().bottom ?? element.getBoundingClientRect().bottom,
-      );
-    const dockTop = await dock.evaluate((element) => element.getBoundingClientRect().top);
-    expect(lastResultBottom).toBeLessThanOrEqual(dockTop);
-
-    const compareGeometry = await compareAction.evaluate((element) => {
+    // Compare lives in the dock addon slot above the search pill.
+    const revealedGeometry = await compareAction.evaluate((element) => {
       const rect = element.getBoundingClientRect();
+      const dockRect = element.closest("form")?.getBoundingClientRect();
       const centreX = rect.left + rect.width / 2;
       const centreY = rect.top + rect.height / 2;
       const hit = document.elementFromPoint(centreX, centreY);
       return {
         top: rect.top,
         bottom: rect.bottom,
+        dockTop: dockRect?.top ?? null,
+        dockBottom: dockRect?.bottom ?? null,
         viewportHeight: window.innerHeight,
         receivesPointer: hit === element || element.contains(hit),
       };
     });
-    expect(compareGeometry.top).toBeGreaterThanOrEqual(0);
-    expect(compareGeometry.bottom).toBeLessThanOrEqual(compareGeometry.viewportHeight);
-    expect(compareGeometry.receivesPointer).toBe(true);
-    expect(compareGeometry.bottom).toBeLessThan(dockTop);
+    expect(revealedGeometry.dockTop).not.toBeNull();
+    expect(revealedGeometry.top).toBeGreaterThanOrEqual(revealedGeometry.dockTop!);
+    expect(revealedGeometry.bottom).toBeLessThanOrEqual(revealedGeometry.dockBottom!);
+    expect(revealedGeometry.receivesPointer).toBe(true);
+
+    const mainPaddingBottom = await mainContent.evaluate((element) =>
+      Number.parseFloat(window.getComputedStyle(element).paddingBottom),
+    );
+    const dockHeight = await dock.evaluate((element) => element.getBoundingClientRect().height);
+    expect(mainPaddingBottom).toBeGreaterThanOrEqual(dockHeight);
+
+    // Ensure enough scroll room for hide thresholds even with a short result list.
+    await page.evaluate(() => {
+      const container = document.getElementById("main-content");
+      if (!container) return;
+      const spacer = document.createElement("div");
+      spacer.id = "test-scroll-spacer";
+      spacer.style.height = "2000px";
+      spacer.style.minHeight = "2000px";
+      spacer.style.display = "block";
+      container.appendChild(spacer);
+    });
+
+    await expect(async () => {
+      await input.blur();
+      await expect(input).not.toBeFocused({ timeout: 1_000 });
+      await scrollPrimarySurface(page, 0);
+      for (const offset of [40, 80, 120, 160, 200]) {
+        await scrollPrimarySurface(page, offset);
+      }
+      await expect(dock).toHaveAttribute("data-scroll-hidden", "true", { timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
+
+    await expect
+      .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform !== "none"))
+      .toBe(true);
+    await expect
+      .poll(async () => mainContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)))
+      .toBeLessThanOrEqual(13);
+
+    // Wait for the hide transition to finish so the in-dock Compare bar is fully
+    // off-screen (translateY(100%) parks the dock top on the viewport bottom edge).
+    await expect
+      .poll(async () =>
+        compareAction.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            top: rect.top,
+            viewportHeight: window.innerHeight,
+            offscreen: rect.top >= window.innerHeight - 1,
+          };
+        }),
+      )
+      .toMatchObject({ offscreen: true });
+
+    await scrollPrimarySurface(page, 60);
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect(compareAction).toBeVisible();
+    const restoredPointer = await compareAction.evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return hit === element || element.contains(hit);
+    });
+    expect(restoredPointer).toBe(true);
     await expectNoPageHorizontalOverflow(page);
 
     // The result cards and compare bar remain in their non-desktop layout up

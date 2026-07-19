@@ -325,9 +325,9 @@ export function MasterSearchHeader({
     searchComposerVisible &&
     !desktopHomeComposerSlotId &&
     (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
-  const bottomComposerScrollHiddenActive = Boolean(
-    hideOnScroll && phoneBottomSearchDockActive && !mobileBottomSearchAddonSlotId,
-  );
+  // Compare addon chrome lives inside the phone dock; hide/reveal with it so
+  // the search pill and Compare selected bar reclaim space together.
+  const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
   const bottomComposerHidden =
     bottomComposerScrollHiddenActive &&
     scrollHidden &&
@@ -1200,11 +1200,9 @@ export function MasterSearchHeader({
     const ModeIdentityIcon = appModeIcons[searchMode];
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
-    // A differential comparison is a persistent batch action: hiding its host
-    // dock on downward scroll makes the CTA slide under mobile browser chrome
-    // and disables pointer events just when users finish reviewing the list.
-    // Keep that dock pinned while the header can still collapse independently.
-    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock && !mobileBottomSearchAddonSlotId);
+    // Differentials compare addon is dock chrome (search pill + Compare bar).
+    // Hide/reveal the whole dock together; do not pin for the addon slot.
+    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
     // Phone submitted non-answer result docks reserve pill-only scroll
     // clearance (ClinicalDashboard / global-search-shell <main> padding via
     // mobileComposerReserve), so an extra notice line would push the fixed

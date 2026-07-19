@@ -746,14 +746,16 @@ summary::-webkit-details-marker {
   --footer-scrim-height: max(7rem, calc(var(--safe-area-bottom) + 5.5rem));
 }
 
+/* In-flow above the search pill inside the phone dock so scroll-hide
+   translateY moves the Compare bar with the composer (no viewport-fixed jump). */
 .differentials-mobile-compare-fab {
   pointer-events: none;
-  position: fixed;
-  inset-inline: max(1rem, var(--safe-area-left)) max(1rem, var(--safe-area-right));
-  bottom: max(5.35rem, calc(var(--safe-area-bottom) + 5.05rem));
-  z-index: 50;
+  position: relative;
+  z-index: 10;
   display: flex;
+  width: 100%;
   justify-content: center;
+  margin-bottom: 0.5rem;
 }
 
 .differentials-mobile-compare-fab__button {
@@ -1844,6 +1846,12 @@ summary::-webkit-details-marker {
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-scroll-hidden="true"] {
     transform: translateY(calc(100% + env(safe-area-inset-bottom)));
     pointer-events: none;
+  }
+
+  /* Compare addon adds in-flow chrome above the pill; clear a little extra so
+     the Compare bar does not leave a 1px/subpixel peep on the viewport edge. */
+  .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-footer-addon="differentials-compare"][data-scroll-hidden="true"] {
+    transform: translateY(calc(100% + 0.75rem + env(safe-area-inset-bottom)));
   }
 
   /* Document viewer bottom composer mirrors the dock's hide-on-scroll. Unlike
