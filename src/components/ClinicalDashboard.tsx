@@ -107,6 +107,7 @@ import {
   setupNeedsSlowRecheck,
   setupRecheckPollMs,
   shorterPollDelay,
+  sessionFavouritesAccessible,
 } from "@/components/clinical-dashboard/clinical-dashboard-helpers";
 import { answerRecovery, errorCopy } from "@/lib/ui-copy";
 import {
@@ -115,7 +116,6 @@ import {
   type DocumentPagination,
   type LabelReviewMutationBody,
 } from "@/components/clinical-dashboard/dashboard-contracts";
-
 const DifferentialsHome = dynamic(
   () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
   { ssr: false },
@@ -3259,9 +3259,9 @@ export function ClinicalDashboard({
         : compactMobileBottomSearch
           ? "calc(5rem + var(--safe-area-bottom))"
           : "calc(5.25rem + var(--safe-area-bottom))";
-  // Hidden dock: keep only a small pad; full safe-area inset leaves a Safari toolbar band.
-  // prettier-ignore
-  const mobileComposerReserve = bottomComposerHidden ? "max(0.75rem, var(--safe-area-bottom))" : visibleMobileComposerReserve;
+  const mobileComposerReserve = bottomComposerHidden
+    ? "max(0.75rem, var(--safe-area-bottom))"
+    : visibleMobileComposerReserve;
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : CircleAlert}
@@ -3476,6 +3476,7 @@ export function ClinicalDashboard({
         theme={theme}
         onToggleTheme={toggleTheme}
         onPrefetchApplications={prefetchApplications}
+        showAccountLibrary={sessionFavouritesAccessible(auth.status, clientDemoMode)}
       />
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
@@ -3550,6 +3551,7 @@ export function ClinicalDashboard({
           id="main-content"
           ref={assignMainRef}
           tabIndex={-1}
+          // prettier-ignore
           onScroll={handleMainScroll}
           data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
           className={cn(
@@ -3985,7 +3987,9 @@ export function ClinicalDashboard({
               )}
               {(documentsDrawerOpen || uploadDrawerOpen) && (
                 <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
-                  <DrawerGroupLabel title={drawerGroupTitle} />
+                  <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
+                    {drawerGroupTitle}
+                  </p>
                   {documentsDrawerOpen ? (
                     <UtilityDrawer
                       id="dashboard-documents-drawer"
@@ -4259,14 +4263,9 @@ export function ClinicalDashboard({
           theme={theme}
           onToggleTheme={toggleTheme}
           onPrefetchApplications={prefetchApplications}
+          showAccountLibrary={sessionFavouritesAccessible(auth.status, clientDemoMode)}
         />
       </div>
     </div>
-  );
-}
-
-function DrawerGroupLabel({ title }: { title: string }) {
-  return (
-    <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
   );
 }
