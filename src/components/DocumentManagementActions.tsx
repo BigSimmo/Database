@@ -14,6 +14,7 @@ import {
   toolbarButton,
 } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
+import { isAdministratorUser } from "@/lib/authorization";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalDocument } from "@/lib/types";
 
@@ -44,6 +45,7 @@ export function DocumentManagementActions({
   const inputRef = useRef<HTMLInputElement>(null);
   const {
     status: authStatus,
+    session,
     authorizationHeader,
     registerAuthRequest,
     isAuthEpochCurrent,
@@ -54,7 +56,7 @@ export function DocumentManagementActions({
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const canManage = !disabled && authStatus === "authenticated";
+  const canManage = !disabled && authStatus === "authenticated" && isAdministratorUser(session?.user);
 
   function resetDialogState() {
     setTitle(document.title);

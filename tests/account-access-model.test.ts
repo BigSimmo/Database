@@ -48,6 +48,12 @@ describe("public content and account authorization model", () => {
     expect(migration).toContain("revoke insert, update, delete on table storage.objects from anon, authenticated");
   });
 
+  it("keeps document management actions administrator-gated in the client", () => {
+    const documentManagementActions = source("src/components/DocumentManagementActions.tsx");
+    expect(documentManagementActions).toContain("isAdministratorUser(session?.user)");
+    expect(documentManagementActions).toContain('authStatus === "authenticated"');
+  });
+
   it("keeps public document reads separate from administrator mutations", () => {
     const documentRoute = source("src/app/api/documents/[id]/route.ts");
     const tableFactsRoute = source("src/app/api/documents/[id]/table-facts/route.ts");
