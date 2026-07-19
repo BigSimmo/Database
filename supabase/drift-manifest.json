@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-19T06:37:36.934Z",
+  "generated_at": "2026-07-19T09:58:22.040Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "f7c2f22f13422e0d884e796c29a1aa7644b6350b073f95a7fcae0801dcce8a2f",
-  "replay_seconds": 28,
+  "schema_sha256": "73d993e84e97b036363501a78788c27444c894feb5c4901b7cbd3ccead8e38a5",
+  "replay_seconds": 73,
   "snapshot": {
     "views": [
       {
@@ -4567,6 +4567,86 @@
         "reloptions": null,
         "rls_forced": false,
         "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "user_favourites",
+        "columns": [
+          {
+            "name": "content_key",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "content_type",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "created_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+      },
+      {
+        "acl": [
+          "postgres=arwdDxtm/postgres",
+          "service_role=arwd/postgres"
+        ],
+        "name": "user_preferences",
+        "columns": [
+          {
+            "name": "preferences",
+            "type": "jsonb",
+            "default": "'{}'::jsonb",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "updated_at",
+            "type": "timestamp with time zone",
+            "default": "now()",
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "user_id",
+            "type": "uuid",
+            "default": null,
+            "identity": "",
+            "not_null": true,
+            "generated": ""
+          }
+        ],
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
       }
     ],
     "indexes": [
@@ -5805,6 +5885,18 @@
         "name": "storage_cleanup_jobs_status_created_idx",
         "table": "storage_cleanup_jobs",
         "def_hash": "2cbfd92ff37d036d37344943f57dd95b"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX user_favourites_pkey ON public.user_favourites USING btree (user_id, content_type, content_key)",
+        "name": "user_favourites_pkey",
+        "table": "user_favourites",
+        "def_hash": "d79eec4f3e285a2d5d777b809d518906"
+      },
+      {
+        "def": "CREATE UNIQUE INDEX user_preferences_pkey ON public.user_preferences USING btree (user_id)",
+        "name": "user_preferences_pkey",
+        "table": "user_preferences",
+        "def_hash": "c5c62ae122cf68b698382a1a3f47c98d"
       }
     ],
     "policies": [
@@ -6263,6 +6355,90 @@
         "schema": "public",
         "permissive": "PERMISSIVE",
         "with_check": null
+      },
+      {
+        "cmd": "DELETE",
+        "name": "users delete own favourites",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_favourites",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "name": "users insert own favourites",
+        "qual": null,
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_favourites",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "(( SELECT auth.uid() AS uid) = user_id)"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "users read own favourites",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_favourites",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "DELETE",
+        "name": "users delete own preferences",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_preferences",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "INSERT",
+        "name": "users insert own preferences",
+        "qual": null,
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_preferences",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "(( SELECT auth.uid() AS uid) = user_id)"
+      },
+      {
+        "cmd": "SELECT",
+        "name": "users read own preferences",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_preferences",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": null
+      },
+      {
+        "cmd": "UPDATE",
+        "name": "users update own preferences",
+        "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+        "roles": [
+          "authenticated"
+        ],
+        "table": "user_preferences",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "(( SELECT auth.uid() AS uid) = user_id)"
       },
       {
         "cmd": "SELECT",
@@ -7936,6 +8112,46 @@
         "def": "CHECK ((status = ANY (ARRAY['pending'::text, 'completed'::text, 'failed'::text])))",
         "name": "storage_cleanup_jobs_status_check",
         "table": "storage_cleanup_jobs"
+      },
+      {
+        "def": "CHECK (((content_key = btrim(content_key)) AND ((char_length(content_key) >= 1) AND (char_length(content_key) <= 180))))",
+        "name": "user_favourites_content_key_check",
+        "table": "user_favourites"
+      },
+      {
+        "def": "CHECK ((content_type = ANY (ARRAY['service'::text, 'form'::text, 'differential'::text])))",
+        "name": "user_favourites_content_type_check",
+        "table": "user_favourites"
+      },
+      {
+        "def": "PRIMARY KEY (user_id, content_type, content_key)",
+        "name": "user_favourites_pkey",
+        "table": "user_favourites"
+      },
+      {
+        "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "user_favourites_user_id_fkey",
+        "table": "user_favourites"
+      },
+      {
+        "def": "CHECK ((jsonb_typeof(preferences) = 'object'::text))",
+        "name": "user_preferences_object_check",
+        "table": "user_preferences"
+      },
+      {
+        "def": "PRIMARY KEY (user_id)",
+        "name": "user_preferences_pkey",
+        "table": "user_preferences"
+      },
+      {
+        "def": "CHECK ((pg_column_size(preferences) <= 16384))",
+        "name": "user_preferences_size_check",
+        "table": "user_preferences"
+      },
+      {
+        "def": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "name": "user_preferences_user_id_fkey",
+        "table": "user_preferences"
       }
     ],
     "storage_buckets": [
