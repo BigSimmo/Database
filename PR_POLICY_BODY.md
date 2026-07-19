@@ -2,7 +2,7 @@
 
 - Fixes differentials mobile search results being vertically clipped: tall results reused `ModeHomeMain`’s `justify-center` flex shell (from the edge-to-edge mobile layout), so Best Answer and the top of the list sat above the phone scrollport.
 - Introduces an exclusive `contentAlign` API (`center` | `start` | `startOnPhone`) on `ModeHomeMain`, strips stray `justify-*` className tokens (including responsive prefixes), and top-aligns differentials results while keeping empty homes centred.
-- Migrates content-rich mode homes (therapy, formulation, specifiers, DSM, forms, services) to `startOnPhone` so they cannot reintroduce the same clip via fragile `className` overrides.
+- Migrates content-rich mode homes (therapy, formulation, specifiers, DSM) to `startOnPhone`, and top-aligns forms/services only when their registries are seeded so short empty/loading notices stay centred.
 - Hardens compact Best Answer / chip typography so size overrides do not rely on `cn()` Tailwind conflict resolution, and stabilizes the home header wait in overlap Playwright coverage.
 
 ## Verification
