@@ -7,10 +7,12 @@ import {
   appModeQueryMode,
   appModeSearchConfig,
   appModeSourceLibrarySearchMode,
+  canAccessFavouritesMode,
   isAppModeId,
   isAppModeVisible,
   isSearchableAppMode,
   visibleAppModeDefinitions,
+  visibleAppModeDefinitionsForSession,
 } from "@/lib/app-modes";
 import { universalSearchModeForDomain, universalSearchPreferredDomains } from "@/lib/universal-search-mode-context";
 
@@ -326,5 +328,22 @@ describe("app mode search contract", () => {
     expect(isAppModeVisible("therapy-compass", "production")).toBe(true);
     expect(visibleAppModeDefinitions("development").map((mode) => mode.id)).toContain("therapy-compass");
     expect(visibleAppModeDefinitions("production").map((mode) => mode.id)).toContain("therapy-compass");
+  });
+
+  it("gates Favourites mode to authenticated or demo sessions", () => {
+    expect(canAccessFavouritesMode({ authenticated: false, demoMode: false })).toBe(false);
+    expect(canAccessFavouritesMode({ authenticated: true, demoMode: false })).toBe(true);
+    expect(canAccessFavouritesMode({ authenticated: false, demoMode: true })).toBe(true);
+    expect(canAccessFavouritesMode({ authenticated: true, demoMode: true })).toBe(true);
+
+    expect(
+      visibleAppModeDefinitionsForSession({ authenticated: false, demoMode: false }).map((mode) => mode.id),
+    ).not.toContain("favourites");
+    expect(
+      visibleAppModeDefinitionsForSession({ authenticated: true, demoMode: false }).map((mode) => mode.id),
+    ).toContain("favourites");
+    expect(
+      visibleAppModeDefinitionsForSession({ authenticated: false, demoMode: true }).map((mode) => mode.id),
+    ).toContain("favourites");
   });
 });

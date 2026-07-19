@@ -35,6 +35,7 @@ import { ClientHydrationBoundary } from "@/components/client-hydration-boundary"
 import { cn } from "@/components/ui-primitives";
 import {
   appModeHomeHref,
+  canAccessFavouritesMode,
   isAppModeId,
   isAppModeVisible,
   visibleAppModeDefinitions,
@@ -220,6 +221,7 @@ function GlobalStandaloneSearchShellClient({
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountSetupOpen, setAccountSetupOpen] = useState(false);
+  const [accountSetupIntent, setAccountSetupIntent] = useState<"default" | "favourites">("default");
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [commandScopes, setCommandScopes] = useState<string[]>([]);
   const removeCommandScope = useCallback(
@@ -345,6 +347,10 @@ function GlobalStandaloneSearchShellClient({
     authUnavailableFallback: !auth.isConfigured,
     localNoAuthMode: isLocalNoAuthMode(),
   });
+  const favouritesAccessible = canAccessFavouritesMode({
+    authenticated: auth.status === "authenticated",
+    demoMode: clientDemoMode,
+  });
   const recentQueriesOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
 
   useEffect(() => {
@@ -386,6 +392,14 @@ function GlobalStandaloneSearchShellClient({
     setSettingsOpen(true);
   }
 
+  function openAccountSetup(intent: "default" | "favourites" = "default") {
+    setGuideOpen(false);
+    setSettingsOpen(false);
+    setMobileMenuOpen(false);
+    setAccountSetupIntent(intent);
+    setAccountSetupOpen(true);
+  }
+
   function openAccountProfile() {
     setGuideOpen(false);
     setMobileMenuOpen(false);
@@ -394,8 +408,7 @@ function GlobalStandaloneSearchShellClient({
       setSettingsOpen(true);
       return;
     }
-    setSettingsOpen(false);
-    setAccountSetupOpen(true);
+    openAccountSetup("default");
   }
 
   function navigateToMode(mode: AppModeId, options: SearchNavigationOptions = {}) {
@@ -417,6 +430,10 @@ function GlobalStandaloneSearchShellClient({
   }
 
   function changeMode(mode: AppModeId) {
+    if (mode === "favourites" && !favouritesAccessible) {
+      openAccountSetup("favourites");
+      return;
+    }
     setQuery("");
     setCommandScopes([]);
     setSearchMode(mode);
@@ -527,6 +544,7 @@ function GlobalStandaloneSearchShellClient({
               recentQueries={recentQueries}
               identity={sidebarIdentity}
               activeMode={searchMode}
+              showAccountLibrary={favouritesAccessible}
               onCollapsedChange={setSidebarCollapsed}
               onNewChat={startNewAnswerChat}
               onPickRecent={pickRecentQuery}
@@ -556,6 +574,8 @@ function GlobalStandaloneSearchShellClient({
             realDataReady
             onQueryChange={setQuery}
             onSearchModeChange={changeMode}
+            canAccessFavourites={favouritesAccessible}
+            onRequestAccountSetup={() => openAccountSetup("favourites")}
             onAsk={submitSearch}
             onClearQuery={() => {
               setQuery("");
@@ -643,7 +663,14 @@ function GlobalStandaloneSearchShellClient({
         onSignOut={auth.signOut}
         onOpenGuide={openGuide}
       />
-      <AccountSetupDialog open={accountSetupOpen} onClose={() => setAccountSetupOpen(false)} />
+      <AccountSetupDialog
+        open={accountSetupOpen}
+        onClose={() => {
+          setAccountSetupOpen(false);
+          setAccountSetupIntent("default");
+        }}
+        intent={accountSetupIntent}
+      />
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
         // The workflow header keeps its menu trigger past md, so the drawer
@@ -652,6 +679,7 @@ function GlobalStandaloneSearchShellClient({
         recentQueries={recentQueries}
         identity={sidebarIdentity}
         activeMode={searchMode}
+        showAccountLibrary={favouritesAccessible}
         onOpenChange={setMobileMenuOpen}
         onNewChat={startNewAnswerChat}
         onPickRecent={pickRecentQuery}
