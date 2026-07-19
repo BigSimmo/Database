@@ -65,16 +65,23 @@ export function computeParity({ canonical, liveNames, expectedSecrets }) {
   };
 }
 
+/** Extract Railway variable names from the CLI's JSON object without exposing values. */
+export function parseRailwayVariableNames(raw) {
+  const parsed = JSON.parse(raw);
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+    throw new Error("Railway variable JSON must be an object");
+  }
+  return Object.keys(parsed);
+}
+
 function ghSecretNames() {
   const raw = execFileSync("gh", ["secret", "list", "--json", "name"], { encoding: "utf8" });
   return JSON.parse(raw).map((s) => s.name);
 }
 
 function railwayVarNames() {
-  // `railway variables` prints a table; --json/-k vary by CLI version, so parse
-  // UPPER_SNAKE tokens defensively. Names only.
-  const raw = execFileSync("railway", ["variables"], { encoding: "utf8" });
-  return [...new Set([...raw.matchAll(/\b([A-Z][A-Z0-9_]{2,})\b/g)].map((m) => m[1]))];
+  const raw = execFileSync("railway", ["variable", "list", "--json"], { encoding: "utf8" });
+  return parseRailwayVariableNames(raw);
 }
 
 function main() {

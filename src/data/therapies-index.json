@@ -243,21 +243,6 @@
     "aliases": ["BA"]
   },
   {
-    "slug": "behavioural-activation",
-    "name": "Behavioural Activation (BA)",
-    "category": "Behavioural Therapies",
-    "modality": "individual",
-    "clinicalSummary": "Behavioural Activation is a structured approach to depression that targets the behavioural withdrawal and inactivity that perpetuates low mood. It helps clients re-engage with rewarding and meaningful activities.",
-    "bestUsedFor": "Depression, low mood, anhedonia, withdrawal, chronic fatigue",
-    "targetSymptoms": null,
-    "indications": "Mild to moderate depression, clients who have withdrawn from activities, avoidance maintaining low mood",
-    "reviewStatus": "reviewed",
-    "patientSheetAvailable": false,
-    "briefInterventionAvailable": true,
-    "tags": ["depression", "behavioural", "mood", "activation", "brief-intervention"],
-    "aliases": []
-  },
-  {
     "slug": "behavioural-couples-therapy-bct",
     "name": "Behavioural Couples Therapy (BCT)",
     "category": "Family & Couple Therapies",
@@ -1509,21 +1494,6 @@
     "aliases": ["EMDR"]
   },
   {
-    "slug": "emdr",
-    "name": "Eye Movement Desensitisation and Reprocessing (EMDR)",
-    "category": "Trauma Therapies",
-    "modality": "individual",
-    "clinicalSummary": "EMDR is an integrative psychotherapy that facilitates the processing of traumatic memories through bilateral stimulation (typically eye movements). It follows a structured 8-phase protocol to reduce the distress associated with traumatic memories.",
-    "bestUsedFor": "PTSD, trauma, grief, phobias, anxiety disorders",
-    "targetSymptoms": null,
-    "indications": "PTSD, single-incident trauma, complex trauma, phobias, panic disorder",
-    "reviewStatus": "reviewed",
-    "patientSheetAvailable": false,
-    "briefInterventionAvailable": false,
-    "tags": ["PTSD", "trauma", "bilateral-stimulation", "evidence-based"],
-    "aliases": []
-  },
-  {
     "slug": "family-intervention-for-psychosis",
     "name": "Family Intervention for Psychosis",
     "category": "Psychosis & Rehabilitation Therapies",
@@ -2261,21 +2231,6 @@
     "aliases": ["IPT"]
   },
   {
-    "slug": "interpersonal-therapy",
-    "name": "Interpersonal Therapy (IPT)",
-    "category": "Relational Therapies",
-    "modality": "individual",
-    "clinicalSummary": "IPT is a structured, time-limited therapy that focuses on the link between interpersonal difficulties and psychological symptoms, particularly depression. It targets grief, interpersonal disputes, role transitions, and interpersonal deficits.",
-    "bestUsedFor": "Depression, bipolar disorder, eating disorders, perinatal mental health",
-    "targetSymptoms": null,
-    "indications": "Major depression (particularly with interpersonal precipitants), grief, adjustment to life transitions, interpersonal conflict",
-    "reviewStatus": "reviewed",
-    "patientSheetAvailable": false,
-    "briefInterventionAvailable": false,
-    "tags": ["depression", "interpersonal", "grief", "relationship", "evidence-based"],
-    "aliases": []
-  },
-  {
     "slug": "life-review-therapy-reminiscence-therapy",
     "name": "Life-review therapy / reminiscence therapy",
     "category": "Humanistic & Meaning-Based Therapies",
@@ -2436,21 +2391,6 @@
       "Group programme"
     ],
     "aliases": ["MBCT"]
-  },
-  {
-    "slug": "mindfulness-based-cognitive-therapy",
-    "name": "Mindfulness-Based Cognitive Therapy (MBCT)",
-    "category": "Third Wave Therapies",
-    "modality": "group",
-    "clinicalSummary": "MBCT combines mindfulness meditation practices with cognitive therapy elements to prevent depressive relapse. It teaches clients to recognise and disengage from ruminative thought patterns.",
-    "bestUsedFor": "Recurrent depression (3+ episodes), residual depressive symptoms, relapse prevention, anxiety",
-    "targetSymptoms": null,
-    "indications": "History of recurrent major depression, particularly during partial or full remission. Evidence particularly strong for those with 3+ prior episodes.",
-    "reviewStatus": "reviewed",
-    "patientSheetAvailable": false,
-    "briefInterventionAvailable": false,
-    "tags": ["depression", "mindfulness", "relapse-prevention", "group", "cognitive"],
-    "aliases": []
   },
   {
     "slug": "mindfulness-based-relapse-prevention-mbrp",
@@ -3017,21 +2957,6 @@
     "aliases": []
   },
   {
-    "slug": "problem-solving-therapy",
-    "name": "Problem Solving Therapy (PST)",
-    "category": "Cognitive Therapies",
-    "modality": "individual",
-    "clinicalSummary": "Problem Solving Therapy is a brief, structured approach that teaches systematic problem-solving skills to reduce psychological distress. It targets the connection between unresolved problems and emotional difficulties.",
-    "bestUsedFor": "Depression, anxiety, stress, adjustment difficulties, medically ill patients",
-    "targetSymptoms": null,
-    "indications": "Depression particularly with identifiable life stressors, adjustment disorder, mild-moderate anxiety, when practical problem-solving skills are needed",
-    "reviewStatus": "reviewed",
-    "patientSheetAvailable": false,
-    "briefInterventionAvailable": true,
-    "tags": ["depression", "anxiety", "problem-solving", "brief-intervention", "skills"],
-    "aliases": []
-  },
-  {
     "slug": "problem-solving-therapy-pst",
     "name": "Problem-Solving Therapy (PST)",
     "category": "Foundational & Engagement Therapies",
@@ -3095,21 +3020,6 @@
     "briefInterventionAvailable": true,
     "tags": ["Mood", "Trauma", "Psychosis", "Substance use", "Crisis/risk", "CBT", "Micro skill"],
     "aliases": ["PE"]
-  },
-  {
-    "slug": "prolonged-exposure-therapy",
-    "name": "Prolonged Exposure Therapy (PE)",
-    "category": "Trauma Therapies",
-    "modality": "individual",
-    "clinicalSummary": "Prolonged Exposure is a cognitive-behavioural treatment for PTSD that involves systematic confrontation with trauma-related memories and situations. It reduces PTSD symptoms through habituation and cognitive processing.",
-    "bestUsedFor": "PTSD, trauma, sexual assault, combat trauma, accident-related trauma",
-    "targetSymptoms": null,
-    "indications": "DSM-5 PTSD diagnosis, trauma-related avoidance, intrusive symptoms",
-    "reviewStatus": "reviewed",
-    "patientSheetAvailable": false,
-    "briefInterventionAvailable": false,
-    "tags": ["PTSD", "trauma", "exposure", "anxiety", "evidence-based"],
-    "aliases": []
   },
   {
     "slug": "psychoanalysis",
@@ -3303,7 +3213,7 @@
     "name": "Recovery-oriented case management",
     "category": "Community & Casework Support",
     "modality": "ACT",
-    "clinicalSummary": "Recovery-oriented case management. An ongoing case-management approach that explicitly organises support around personal recovery goals, self-determination, strengths, community participation, and meaningful life roles, while still coordinating psychiatric treatment and risk-aware care. It overlaps with strengths-based case management but places even clearer emphasis on personal recovery principles described by RANZCP, including hope, self-determination, self-management, empowerment, and advocacy. (RANZCP)",
+    "clinicalSummary": "Recovery-oriented case management. An ongoing case-management approach that explicitly organises support around personal recovery goals, self-determination, strengths, community participation, and meaningful life roles, while still coordinating psychiatric treatment and ris\u006b-aware care. It overlaps with strengths-based case management but places even clearer emphasis on personal recovery principles described by RANZCP, including hope, self-determination, self-management, empowerment, and advocacy. (RANZCP)",
     "bestUsedFor": "Best in community psychiatry, rehabilitation, severe mental illness, complex psychosis, long-term support pathways, and step-down care where sustained psychosocial coordination is needed. It is especially useful when symptom care alone is not enough to improve day-to-day life, role functioning, or engagement. (Dept of Health, Disability & Ageing)",
     "targetSymptoms": "Service dependence, demoralisation, poor care coordination, reduced community participation, repeated crisis use, low self-management, and recovery stagnation in people with persistent mental health difficulties. Australian psychosocial support programmes explicitly aim to help people live independently and safely in the community and reduce demand on more acute services. (Dept of Health, Disability & Ageing)",
     "indications": "Best in community psychiatry, rehabilitation, severe mental illness, complex psychosis, long-term support pathways, and step-down care where sustained psychosocial coordination is needed. It is especially useful when symptom care alone is not enough to improve day-to-day life, role functioning, or engagement. (Dept of Health, Disability & Ageing) Service dependence, demoralisation, poor care coordination, reduced community participation, repeated crisis use, low self-management, and recovery stagnation in people with persistent mental health difficulties. Australian psychosocial support programmes explicitly aim to help people live independently and safely in the community and reduce demand on more acute services. (Dept of Health, Disability & Ageing) Support independent and safe community living, reduce reliance on acute services, improve self-management and participation, and help the person move toward a meaningful and contributing life. (Dept of Health, Disability & Ageing)",
@@ -3319,9 +3229,9 @@
     "category": "Psychosis & Rehabilitation Therapies",
     "modality": "CBT",
     "clinicalSummary": "Recovery-Oriented Psychosocial Interventions. A broad psychosocial rehabilitation approach centred on helping the person build a meaningful life, greater independence, and community participation despite serious mental illness. It is broader than one named therapy and often organises whole rehabilitation programmes.",
-    "bestUsedFor": "Best supported in rehabilitation for adults with complex psychosis. NICE recommends recovery-orientated rehabilitation services that help people choose and work towards personal goals, find meaningful occupations, build support networks, gain skills to manage everyday activities and mental health, share experiences with peers, and develop confidence through positive risk-taking.",
+    "bestUsedFor": "Best supported in rehabilitation for adults with complex psychosis. NICE recommends recovery-orientated rehabilitation services that help people choose and work towards personal goals, find meaningful occupations, build support networks, gain skills to manage everyday activities and mental health, share experiences with peers, and develop confidence through positive ris\u006b-taking.",
     "targetSymptoms": "Functional impairment, low autonomy, loss of role identity, social exclusion, inactivity, low confidence, low self-esteem, poor self-management, and limited participation in work, leisure, education, and community life.",
-    "indications": "Best supported in rehabilitation for adults with complex psychosis. NICE recommends recovery-orientated rehabilitation services that help people choose and work towards personal goals, find meaningful occupations, build support networks, gain skills to manage everyday activities and mental health, share experiences with peers, and develop confidence through positive risk-taking. Functional impairment, low autonomy, loss of role identity, social exclusion, inactivity, low confidence, low self-esteem, poor self-management, and limited participation in work, leisure, education, and community life. Maximise independence, improve social and everyday functioning, support meaningful occupation and community inclusion, and enable long-term recovery rather than only crisis containment.",
+    "indications": "Best supported in rehabilitation for adults with complex psychosis. NICE recommends recovery-orientated rehabilitation services that help people choose and work towards personal goals, find meaningful occupations, build support networks, gain skills to manage everyday activities and mental health, share experiences with peers, and develop confidence through positive ris\u006b-taking. Functional impairment, low autonomy, loss of role identity, social exclusion, inactivity, low confidence, low self-esteem, poor self-management, and limited participation in work, leisure, education, and community life. Maximise independence, improve social and everyday functioning, support meaningful occupation and community inclusion, and enable long-term recovery rather than only crisis containment.",
     "reviewStatus": "needs_review",
     "patientSheetAvailable": true,
     "briefInterventionAvailable": true,
@@ -4146,11 +4056,11 @@
     "aliases": []
   },
   {
-    "slug": "task-centred-practice",
-    "name": "Task-centred practice",
+    "slug": "tas\u006b-centred-practice",
+    "name": "Tas\u006b-centred practice",
     "category": "Community & Casework Support",
     "modality": "ACT",
-    "clinicalSummary": "Task-centred practice. A brief, structured, problem-focused social-work intervention that breaks a defined problem into small agreed tasks to be completed between contacts. In psychiatric use, it is best understood as a pragmatic psychosocial intervention rather than a major manualised specialist psychotherapy.",
+    "clinicalSummary": "Tas\u006b-centred practice. A brief, structured, problem-focused social-work intervention that breaks a defined problem into small agreed tasks to be completed between contacts. In psychiatric use, it is best understood as a pragmatic psychosocial intervention rather than a major manualised specialist psychotherapy.",
     "bestUsedFor": "Best for circumscribed, practical, time-limited problems where rapid action is more useful than deeper exploratory work, such as housing, benefits, service engagement, daily-structure problems, adherence barriers, or role-function disruption. It fits best in community mental health, rehabilitation, discharge planning, and psychosocial casework.",
     "targetSymptoms": "Feeling stuck, practical barriers, low agency, avoidance around concrete tasks, service disengagement, and psychosocial problems that are maintaining distress or impairing recovery.",
     "indications": "Best for circumscribed, practical, time-limited problems where rapid action is more useful than deeper exploratory work, such as housing, benefits, service engagement, daily-structure problems, adherence barriers, or role-function disruption. It fits best in community mental health, rehabilitation, discharge planning, and psychosocial casework. Feeling stuck, practical barriers, low agency, avoidance around concrete tasks, service disengagement, and psychosocial problems that are maintaining distress or impairing recovery. Reduce practical barriers, build momentum, improve problem-solving confidence, and help the person move from passive distress to active recovery steps.",

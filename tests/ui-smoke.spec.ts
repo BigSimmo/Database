@@ -1,7 +1,6 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { scrollPrimarySurface } from "./playwright-scroll";
-import { recentQueryStorageKey } from "../src/components/clinical-dashboard/dashboard-contracts";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
@@ -10,6 +9,7 @@ import { deriveGovernanceFromSections } from "../src/lib/medication-records";
 import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords, type MedicationRecord } from "../src/lib/medications";
 import { serviceRecords } from "../src/lib/services";
+import { recentQueryStorageKey } from "../src/lib/recent-query-storage";
 
 const dashboardViewports = [
   { name: "small-mobile", width: 320, height: 720 },
@@ -667,6 +667,13 @@ async function openScopeControl(page: Page) {
     .catch(() => undefined);
 
   const composer = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
+  const bottomDock = page.locator("form.answer-footer-search-dock");
+  if (await bottomDock.isVisible().catch(() => false)) {
+    // Prior sheet/scroll interactions can leave the phone dock translated off-screen.
+    // Restore it before opening scope so the click lands in the viewport.
+    await scrollPrimarySurface(page, 0);
+    await expect(bottomDock).not.toHaveAttribute("data-scroll-hidden", "true");
+  }
 
   // If the composer is scrolled out of view on mobile, scroll the container to the top to reveal it
   await page.evaluate(() => {
@@ -1091,6 +1098,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { name: "Services", href: "/services" },
       // The rail speaks the catalogue-maturity badge as part of the Forms name.
       { name: "Forms (Early access)", href: "/forms" },
+      // Demo mode still exposes Favourites via the account-library rail entry.
       { name: "Favourites", href: "/favourites" },
       { name: "Differentials", href: "/differentials" },
       { name: "Medication", href: "/?mode=prescribing" },

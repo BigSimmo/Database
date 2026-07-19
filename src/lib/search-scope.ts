@@ -184,6 +184,7 @@ export async function resolveSearchScope(args: {
   documentIds?: string[];
   filters?: SearchScopeFilters;
   maxResolvedDocuments?: number;
+  signal?: AbortSignal;
 }): Promise<ResolvedSearchScope> {
   const filters = searchScopeFiltersSchema.parse(args.filters ?? {});
   const explicitIds = unique(args.documentIds ?? []);
@@ -276,6 +277,7 @@ export async function resolveSearchScope(args: {
       documentQuery = documentQuery.or(orParts.join(","));
     }
 
+    if (args.signal) documentQuery = documentQuery.abortSignal(args.signal);
     const { data, error: documentError } = await documentQuery;
     if (documentError) throw new Error(documentError.message);
     documentRows.push(...((data ?? []) as ScopeDocumentRow[]));

@@ -10,6 +10,10 @@ const source = readFileSync(new URL("../scripts/check-indexing.ts", import.meta.
 const smartBackfillSource = readFileSync(new URL("../scripts/backfill-smart-index.ts", import.meta.url), "utf8");
 
 describe("indexing health scan", () => {
+  it("does not require an OpenAI key for the staging offline profile", () => {
+    expect(source).toContain('if (env.RAG_PROVIDER_MODE !== "offline") requireOpenAIEnv();');
+  });
+
   it("uses bounded document batches large enough for the production corpus", () => {
     const batchSize = Number(source.match(/const documentIdBatchSize = (\d+);/)?.[1]);
     expect(batchSize).toBeGreaterThanOrEqual(50);

@@ -75,11 +75,13 @@ describe("document-admin rate limiting", () => {
   it("returns 429 + Retry-After when the admin bucket is exhausted, before any table access", async () => {
     const client = rateLimitedClient();
     mockRuntime(client);
-    const { GET } = await import("../src/app/api/documents/[id]/table-facts/route");
+    const { PATCH } = await import("../src/app/api/documents/[id]/table-facts/route");
 
-    const response = await GET(
+    const response = await PATCH(
       new Request(`http://localhost/api/documents/${documentId}/table-facts`, {
-        headers: { authorization: "Bearer valid-token" },
+        method: "PATCH",
+        headers: { authorization: "Bearer valid-token", "content-type": "application/json" },
+        body: JSON.stringify({ factId: documentId, reviewClass: "clinical_useful" }),
       }),
       { params: Promise.resolve({ id: documentId }) },
     );

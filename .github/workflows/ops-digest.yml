@@ -2,18 +2,16 @@
 # hit-rate, answer spend, degraded/truncation rates) into a one-screen summary
 # and keeps it in a rolling GitHub issue, commenting only when something is off.
 #
-# SHIPPED DISABLED: only workflow_dispatch is active. To enable the daily cadence:
-#   1. Add repo variable  PROD_HEALTH_URL          (e.g. https://<app-host>)
-#   2. Add repo secret     HEALTH_DEEP_PROBE_SECRET (same value as the deployment)
-#   3. Uncomment the `schedule:` block below.
-# Run one workflow_dispatch first and confirm the digest issue looks right.
+# The repo variable and matching deployment/GitHub secret are provisioned.
+# Keep workflow_dispatch for operator verification and the daily schedule for
+# the normal morning digest.
 name: Ops Digest
 
 on:
   workflow_dispatch: {}
-  # schedule:
-  #   # 20:00 UTC = 06:00 Australia/Sydney — a morning digest.
-  #   - cron: "0 20 * * *"
+  schedule:
+    # 20:00 UTC = 06:00 Australia/Sydney — a morning digest.
+    - cron: "0 20 * * *"
 
 concurrency:
   group: ops-digest

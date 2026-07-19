@@ -145,7 +145,7 @@ async function installOfflineApiFixtures(page: Page, problems: string[]) {
 async function installTherapyFixtures(page: Page) {
   await page.route("**/therapy-compass-data/*.json", async (route) => {
     const filename = new URL(route.request().url()).pathname.split("/").at(-1) ?? "";
-    if (!new Set(["therapies.json", "pathways.json", "reference.json"]).has(filename)) {
+    if (!new Set(["therapies.json", "therapies-index.json", "pathways.json", "reference.json"]).has(filename)) {
       await route.abort("blockedbyclient");
       return;
     }

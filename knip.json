@@ -9,8 +9,7 @@
   ],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs,cjs}", "worker/**/*.ts", "eslint-rules/**/*.mjs"],
   "ignore": ["src/lib/supabase/database.types.ts", "**/*mockup*", "supabase/functions/**"],
-  "ignoreDependencies": ["tailwindcss", "server-only"],
-  "ignoreBinaries": ["railway", "taskkill"],
+  "ignoreDependencies": ["tailwindcss"],
   "vitest": { "config": ["vitest.config.mts"] },
-  "playwright": { "config": ["playwright.config.ts", "playwright.visual.config.ts"] }
+  "playwright": false
 }

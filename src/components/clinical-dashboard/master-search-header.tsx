@@ -62,7 +62,7 @@ import {
   appModeDefinitions,
   appModeSearchConfig,
   isSearchableAppMode,
-  visibleAppModeDefinitions,
+  visibleAppModeDefinitionsForSession,
   type AppModeId,
 } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -78,7 +78,6 @@ const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
 const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
-const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
 
 function splitFilterText(value: string) {
   return value
@@ -186,6 +185,8 @@ export function MasterSearchHeader({
   onMobileBack,
   hideOnScroll,
   onBottomComposerHiddenChange,
+  canAccessFavourites = true,
+  onRequestAccountSetup,
 }: {
   demoMode: boolean;
   documents: ClinicalDocument[];
@@ -262,8 +263,19 @@ export function MasterSearchHeader({
   };
   /** Notify hosts when the phone bottom composer is actually hidden (not merely scrolled). */
   onBottomComposerHiddenChange?: (hidden: boolean) => void;
+  /**
+   * Favourites are account-scoped. When false, omit Favourites from the mode menu
+   * and route favourites actions to account setup instead of switching mode.
+   * Defaults to true for backward-compatible call sites (tests/story fixtures).
+   */
+  canAccessFavourites?: boolean;
+  /** Invoked when the user tries to open Favourites without access. */
+  onRequestAccountSetup?: () => void;
 }) {
-  const visibleAppModeOptions = defaultVisibleAppModeOptions;
+  const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
+    authenticated: canAccessFavourites,
+    demoMode: false,
+  });
   const trimmedQuery = query.trim();
   const selectedSearch = appModeSearchConfig(searchMode);
   const selectedAppMode = appModeDefinition(searchMode);
@@ -325,9 +337,9 @@ export function MasterSearchHeader({
     searchComposerVisible &&
     !desktopHomeComposerSlotId &&
     (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
-  const bottomComposerScrollHiddenActive = Boolean(
-    hideOnScroll && phoneBottomSearchDockActive && !mobileBottomSearchAddonSlotId,
-  );
+  // Compare addon chrome lives inside the phone dock; hide/reveal with it so
+  // the search pill and Compare selected bar reclaim space together.
+  const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
   const bottomComposerHidden =
     bottomComposerScrollHiddenActive &&
     scrollHidden &&
@@ -583,11 +595,19 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "favourites-browse") {
+      if (!canAccessFavourites) {
+        onRequestAccountSetup?.();
+        return;
+      }
       onSearchModeChange("favourites");
       onQueryChange("");
       return;
     }
     if (actionId === "favourites-sets") {
+      if (!canAccessFavourites) {
+        onRequestAccountSetup?.();
+        return;
+      }
       onSearchModeChange("favourites");
       onQueryChange("set");
       return;
@@ -1200,11 +1220,9 @@ export function MasterSearchHeader({
     const ModeIdentityIcon = appModeIcons[searchMode];
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
-    // A differential comparison is a persistent batch action: hiding its host
-    // dock on downward scroll makes the CTA slide under mobile browser chrome
-    // and disables pointer events just when users finish reviewing the list.
-    // Keep that dock pinned while the header can still collapse independently.
-    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock && !mobileBottomSearchAddonSlotId);
+    // Differentials compare addon is dock chrome (search pill + Compare bar).
+    // Hide/reveal the whole dock together; do not pin for the addon slot.
+    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
     // Phone submitted non-answer result docks reserve pill-only scroll
     // clearance (ClinicalDashboard / global-search-shell <main> padding via
     // mobileComposerReserve), so an extra notice line would push the fixed

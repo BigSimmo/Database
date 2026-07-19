@@ -26,6 +26,7 @@ import {
   comparableAnswerText,
   sanitizeAnswerDisplayText,
 } from "@/components/clinical-dashboard/display-text";
+import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { useMobilePreviewSheet } from "@/components/clinical-dashboard/use-mobile-preview-sheet";
 import { SourcePreviewPopover } from "@/components/clinical-dashboard/source-preview-popover";
 import { SignedImage } from "@/components/clinical-dashboard/signed-image";
@@ -258,12 +259,16 @@ export function primaryAnswerDisplayText(value: string, options: AnswerDisplayTe
 // One compact "Sources" pill in every state: the amber Source-only pill and the
 // "Review source match" banner already carry the verify-first caveat, so the
 // capsule label no longer restates grounding strength.
-function sourceCapsuleDisplay({ sourceCount }: { sourceCount: number }): {
+// With the compact-citations preference on, the pill drops its text label to
+// icon + count; the "No direct source found" warning always stays worded —
+// compact mode must never hide a missing-source signal.
+export function sourceCapsuleDisplay({ sourceCount, compact = false }: { sourceCount: number; compact?: boolean }): {
   label: string;
+  showLabelText: boolean;
   showCountBadge: boolean;
 } {
-  if (sourceCount <= 0) return { label: "No direct source found", showCountBadge: false };
-  return { label: "Sources", showCountBadge: true };
+  if (sourceCount <= 0) return { label: "No direct source found", showLabelText: true, showCountBadge: false };
+  return { label: "Sources", showLabelText: !compact, showCountBadge: true };
 }
 
 export function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSourceMetadata> | null | undefined) {
@@ -574,6 +579,7 @@ export function NaturalLanguageAnswer({
   const [sourcePreviewOpen, setSourcePreviewOpen] = useState(false);
   const [sourceOnlyNoticeOpen, setSourceOnlyNoticeOpen] = useState(false);
   const [copiedSourceQuote, setCopiedSourceQuote] = useState(false);
+  const { preferences } = useAppPreferences();
   const sourceCapsuleRef = useRef<HTMLButtonElement>(null);
   const copySourceQuoteTimerRef = useRef<number | null>(null);
   const usePreviewSheet = useMobilePreviewSheet();
@@ -584,7 +590,7 @@ export function NaturalLanguageAnswer({
   }, []);
   const cleaned = primaryAnswerDisplayText(text, { preformatted, preserveBold: true });
   if (!cleaned) return null;
-  const capsuleDisplay = sourceCapsuleDisplay({ sourceCount });
+  const capsuleDisplay = sourceCapsuleDisplay({ sourceCount, compact: preferences.compactCitations });
   const previewSources = capsulePreviewSources(bestSource, sources, sourceLinks);
   const quoteText = sourceLinks.find((source) => source.snippet)?.snippet || bestSource?.quote || bestSource?.snippet;
   const canOpenSourcePreview = previewSources.length > 0;
@@ -612,7 +618,7 @@ export function NaturalLanguageAnswer({
     >
       <span className={sourceCapsule}>
         <Layers className="h-3 w-3 shrink-0" aria-hidden />
-        <span className="min-w-0 truncate">{capsuleDisplay.label}</span>
+        {capsuleDisplay.showLabelText ? <span className="min-w-0 truncate">{capsuleDisplay.label}</span> : null}
         {capsuleDisplay.showCountBadge ? <span className={sourceCapsuleCountBadge}>{sourceCount}</span> : null}
         {canOpenSourcePreview ? (
           <ChevronDown

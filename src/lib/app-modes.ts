@@ -474,3 +474,20 @@ export function isSearchableAppMode(modeId: string): modeId is SearchableAppMode
     kind === "tools"
   );
 }
+
+/**
+ * Favourites are account-scoped. Show the mode in nav (mode menu + sidebar library)
+ * only when the user is authenticated, or when local/demo mode is active so CI and
+ * prototype flows keep working without a real session.
+ */
+export function canAccessFavouritesMode(options: { authenticated: boolean; demoMode: boolean }): boolean {
+  return options.demoMode || options.authenticated;
+}
+
+export function visibleAppModeDefinitionsForSession(
+  options: { authenticated: boolean; demoMode: boolean },
+  environment = process.env.NODE_ENV,
+) {
+  const favouritesAllowed = canAccessFavouritesMode(options);
+  return visibleAppModeDefinitions(environment).filter((mode) => mode.id !== "favourites" || favouritesAllowed);
+}

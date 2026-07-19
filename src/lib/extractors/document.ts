@@ -7,7 +7,6 @@ import ExcelJS from "exceljs";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import JSZip from "jszip";
-import { safeBufferFrom } from "@/lib/safe-buffer";
 import { z } from "zod";
 import type { ExtractedDocument, ExtractedPage } from "@/lib/types";
 import {
@@ -201,6 +200,46 @@ function extractJsonFromStdout(stdout: string) {
   return stdout.slice(start, end + 1);
 }
 
+function directPdfDictionaryInteger(dictionary: string, key: "Width" | "Height") {
+  const match = dictionary.match(new RegExp(`/${key}\\s+(\\d+)(?:\\s+(\\d+)\\s+R)?\\b`));
+  if (!match || match[2] !== undefined) return null;
+  return Number(match[1]);
+}
+
+/**
+ * pdf.js 5 can silently remove an image that exceeds maxImageSize instead of
+ * surfacing its worker error. Check ordinary direct image dictionaries too so
+ * the ingestion contract still receives a classified resource-budget failure.
+ * The parser ceiling remains the fail-safe for compressed or indirect objects.
+ */
+function assertDeclaredPdfImageDimensions(buffer: Buffer, limits: PdfExtractionBudget) {
+  const subtypeMarker = Buffer.from("/Subtype", "latin1");
+  const dictionaryStartMarker = Buffer.from("<<", "latin1");
+  const dictionaryEndMarker = Buffer.from(">>", "latin1");
+  const maxDictionaryBytes = 64 * 1024;
+  let offset = 0;
+  const budget = new PdfExtractionBudgetTracker(limits);
+
+  while (offset < buffer.length) {
+    const subtypeOffset = buffer.indexOf(subtypeMarker, offset);
+    if (subtypeOffset === -1) return;
+    offset = subtypeOffset + subtypeMarker.length;
+    const candidateStart = Math.max(0, subtypeOffset - maxDictionaryBytes);
+    const relativeDictionaryStart = buffer.subarray(candidateStart, subtypeOffset).lastIndexOf(dictionaryStartMarker);
+    if (relativeDictionaryStart === -1) continue;
+    const dictionaryStart = candidateStart + relativeDictionaryStart;
+    const candidateEnd = Math.min(buffer.length, dictionaryStart + maxDictionaryBytes + dictionaryEndMarker.length);
+    const relativeDictionaryEnd = buffer.subarray(offset, candidateEnd).indexOf(dictionaryEndMarker);
+    if (relativeDictionaryEnd === -1) continue;
+    const dictionaryEnd = offset + relativeDictionaryEnd;
+    const dictionary = buffer.subarray(dictionaryStart, dictionaryEnd + dictionaryEndMarker.length).toString("latin1");
+    if (!/\/Subtype\s*\/Image\b/.test(dictionary)) continue;
+    const width = directPdfDictionaryInteger(dictionary, "Width");
+    const height = directPdfDictionaryInteger(dictionary, "Height");
+    if (width !== null && height !== null) budget.assertRenderDimensions(width, height);
+  }
+}
+
 export async function extractPdf(
   buffer: Buffer,
   options: { limits?: PdfExtractionBudget; scriptPathOverride?: string } = {},
@@ -223,9 +262,21 @@ export async function extractPdf(
     // Fallback for developer machines without PyMuPDF/pytesseract. It still
     // indexes text PDFs, but scanned PDFs and image extraction need the Python
     // helper dependencies listed in worker/python/requirements.txt.
-    const parser = new PDFParse({ data: buffer });
+    const textParser = new PDFParse({
+      data: buffer,
+      maxImageSize: limits.maxRenderPixels,
+    });
+    const imageParser = new PDFParse({
+      data: buffer,
+      maxImageSize: limits.maxRenderPixels,
+      // pdf.js only raises its pre-decode maxImageSize rejection when parse
+      // errors are not ignored. Scope this to image extraction so unrelated
+      // recoverable PDF errors do not block text fallback extraction.
+      stopAtErrors: true,
+    });
     try {
-      const parsed = await parser.getText();
+      assertDeclaredPdfImageDimensions(buffer, limits);
+      const parsed = await textParser.getText();
       const budget = new PdfExtractionBudgetTracker(limits);
       const rawPages: ExtractedPage[] =
         parsed.pages.length > 0
@@ -237,35 +288,41 @@ export async function extractPdf(
           : [{ pageNumber: 1, text: parsed.text || "", ocrUsed: false }];
       for (const page of rawPages) budget.addPage(page.text);
 
-      const imageResult = await parser.getImage({
-        imageBuffer: true,
-        imageDataUrl: true,
-        imageThreshold: 20,
-      });
       const images: ExtractedDocument["images"] = [];
-      for (const page of imageResult.pages) {
-        for (const [index, image] of page.images.entries()) {
-          const dataUrlMatch = image.dataUrl?.match(/^data:(.*?);base64,(.*)$/);
-          const mimeType = dataUrlMatch?.[1] ?? "image/png";
-          const extension = mimeType.includes("jpeg") ? "jpg" : "png";
-          const outputPath = path.join(imageDir, `fallback-page-${page.pageNumber}-image-${index + 1}.${extension}`);
-          const bytes = dataUrlMatch ? safeBufferFrom(dataUrlMatch[2], "base64") : Buffer.from(image.data);
-          if (!bytes) continue;
-          budget.addArtifact(bytes.byteLength);
-          await writeFile(outputPath, bytes);
-          images.push({
-            pageNumber: page.pageNumber,
-            path: outputPath,
-            mimeType,
-            bbox: null,
-            width: null,
-            height: null,
-            sourceKind: "fallback",
-            metadata: { source_kind: "fallback" },
-          });
+      // Extract one page at a time so aggregate limits can stop subsequent decoding, and
+      // request only binary data to avoid holding a duplicate base64 representation.
+      for (const rawPage of rawPages) {
+        const imageResult = await imageParser.getImage({
+          partial: [rawPage.pageNumber],
+          imageBuffer: true,
+          imageDataUrl: false,
+          imageThreshold: 20,
+        });
+        for (const page of imageResult.pages) {
+          for (const [index, image] of page.images.entries()) {
+            budget.assertRenderDimensions(image.width, image.height);
+            budget.assertArtifact(image.data.byteLength);
+            const mimeType = "image/png";
+            const extension = mimeType.includes("jpeg") ? "jpg" : "png";
+            const outputPath = path.join(imageDir, `fallback-page-${page.pageNumber}-image-${index + 1}.${extension}`);
+            const bytes = Buffer.from(image.data);
+            budget.addArtifact(bytes.byteLength);
+            await writeFile(outputPath, bytes);
+            images.push({
+              pageNumber: page.pageNumber,
+              path: outputPath,
+              mimeType,
+              bbox: null,
+              width: image.width,
+              height: image.height,
+              sourceKind: "fallback",
+              metadata: { source_kind: "fallback" },
+            });
+          }
         }
       }
-      await parser.destroy();
+      await textParser.destroy();
+      await imageParser.destroy();
 
       // IDX-H3: the JS fallback cannot OCR. A scanned / image-only page yields little or no
       // embedded text, so without flagging it the document would index as near-empty yet still
@@ -296,8 +353,15 @@ export async function extractPdf(
       budget.assertResult(JSON.stringify(result));
       return result;
     } catch (fallbackError) {
-      await parser.destroy().catch(() => undefined);
+      await textParser.destroy().catch(() => undefined);
+      await imageParser.destroy().catch(() => undefined);
       await rm(tempRoot, { recursive: true, force: true }).catch(() => undefined);
+      if (fallbackError instanceof Error && fallbackError.message.includes("Image exceeded maximum allowed size")) {
+        throw new PdfExtractionResourceError(
+          "PDF_EXTRACTION_BUDGET_EXCEEDED",
+          `embedded image exceeds ${limits.maxRenderPixels} pixels`,
+        );
+      }
       throw fallbackError;
     }
   }

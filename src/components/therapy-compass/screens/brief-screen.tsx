@@ -67,9 +67,15 @@ export function BriefScreen() {
           </p>
         </div>
         <div className="tc-mobile-wrap tc-screens-brief-screen-005">
-          <button type="button" className={`tc-btn ${commandControl}`} onClick={() => b.openSheet(t.slug)}>
+          <button
+            type="button"
+            className={`tc-btn ${commandControl}`}
+            onClick={() => b.openSheet(t.slug)}
+            disabled={!t.patientSheetAvailable}
+            title={t.patientSheetAvailable ? undefined : "This intervention has no patient handout"}
+          >
             <FileTextIcon size={16} />
-            Create handout
+            {t.patientSheetAvailable ? "Create handout" : "Handout unavailable"}
           </button>
         </div>
       </div>
@@ -237,9 +243,15 @@ export function BriefScreen() {
               {copied === "intervention" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
               {copied === "intervention" ? "Copied" : "Copy intervention"}
             </button>
-            <button type="button" className={`tc-btn ${commandControl} ml-auto`} onClick={() => b.openSheet(t.slug)}>
+            <button
+              type="button"
+              className={`tc-btn ${commandControl} ml-auto`}
+              onClick={() => b.openSheet(t.slug)}
+              disabled={!t.patientSheetAvailable}
+              title={t.patientSheetAvailable ? undefined : "This intervention has no patient sheet"}
+            >
               <FileTextIcon size={16} />
-              Open patient sheet
+              {t.patientSheetAvailable ? "Open patient sheet" : "Patient sheet unavailable"}
             </button>
           </div>
         </div>

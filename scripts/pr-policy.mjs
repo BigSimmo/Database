@@ -52,18 +52,26 @@ function normalizeSectionHeading(value) {
 
 function section(body, heading) {
   const source = String(body ?? "");
-  const headings = [...source.matchAll(/^#{2,6}[ \t]+(.+?)[ \t]*$/gim)];
+  const headings = [...source.matchAll(/^(#{1,6})[ \t]+(.+?)[ \t]*$/gim)];
   const targetHeading = normalizeSectionHeading(heading);
-  const matchIndex = headings.findIndex((match) => normalizeSectionHeading(match[1]) === targetHeading);
+  const matchIndex = headings.findIndex((match) => normalizeSectionHeading(match[2]) === targetHeading);
   if (matchIndex < 0) return "";
   const start = (headings[matchIndex]?.index ?? 0) + (headings[matchIndex]?.[0].length ?? 0);
-  const end = headings[matchIndex + 1]?.index ?? source.length;
+  // Markdown outline semantics: the section runs until the next heading of the
+  // same or shallower level. Deeper headings (### under ##) are sub-structure
+  // and stay inside the section, so checklist evidence after them still counts.
+  const level = headings[matchIndex][1].length;
+  const next = headings.slice(matchIndex + 1).find((match) => match[1].length <= level);
+  const end = next?.index ?? source.length;
   return source.slice(start, end).trim();
 }
 
 function meaningfulText(value) {
   const normalized = String(value ?? "")
     .replace(/<!--[^]*?-->/g, "")
+    // Sub-headings kept inside a section by the outline-aware boundary are
+    // structure, not content — a section holding only headings is still empty.
+    .replace(/^\s*#{1,6}[ \t]+\S.*$/gm, "")
     .replace(/^\s*[-*]\s*/gm, "")
     .trim();
   return Boolean(normalized && !/^(?:-|n\/?a|none|todo|tbd)$/i.test(normalized));
@@ -129,6 +137,10 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
   const errors = [];
   const classification = classifyPullRequestFiles(files);
   const summary = section(body, "Summary");
+  // The summary must be its own prose: content nested under a sub-heading
+  // (e.g. a mis-levelled `### Verification`) belongs to that sub-topic and
+  // cannot stand in for the required outcome summary.
+  const summaryDirect = summary.replace(/^[ \t]*#{1,6}[ \t]+\S[^]*$/m, "");
   const verification = section(body, "Verification");
   const riskAndRollout = section(body, "Risk and rollout");
   const governance = section(body, "Clinical Governance Preflight");
@@ -136,7 +148,8 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
   if (String(title ?? "").trim().length < 12)
     errors.push("Use a specific, outcome-focused PR title (at least 12 characters).");
   if (branchLikeTitle(title, headRef)) errors.push("Replace the branch-style PR title with an outcome-focused title.");
-  if (!meaningfulText(summary)) errors.push("Complete the `## Summary` section with the outcome and affected area.");
+  if (!meaningfulText(summaryDirect))
+    errors.push("Complete the `## Summary` section with the outcome and affected area.");
   if (!meaningfulText(verification)) {
     errors.push("Complete the `## Verification` section with exact results or a reason checks were not run.");
   } else if (!/-\s*\[[xX]\]/.test(verification) && !explicitNotRun(verification)) {
@@ -207,6 +220,39 @@ function selfTest() {
     evaluatePullRequestPolicy({
       title: "fix: update search behavior",
       body: completeBody.replace("- [x] `npm run verify:ui`\n", ""),
+      headRef: "codex/search-fix",
+      files: ["src/components/search.tsx"],
+    }).errors.join(" "),
+    /verify:ui/,
+  );
+  // Outline semantics: a ### sub-heading inside a required section must not
+  // truncate it — checklist evidence after the sub-heading still counts.
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: "ci: enforce pull request evidence",
+      body: completeBody.replace("## Verification\n\n", "## Verification\n\n### Unit tests\n\n"),
+      headRef: "codex/pr-policy",
+      files: [".github/workflows/pr-policy.yml"],
+    }).ok,
+    true,
+  );
+  // A section whose only content is a nested sub-heading is still empty: the
+  // outline-aware boundary must not let heading lines satisfy meaningfulText.
+  assert.match(
+    evaluatePullRequestPolicy({
+      title: "fix: something meaningful here",
+      body: "## Summary\n\n### Verification\n\n- [x] `npm run verify:pr-local`\n",
+      headRef: "codex/x",
+      files: ["docs/a.md"],
+    }).errors.join(" "),
+    /## Summary/,
+  );
+  // ...but a level-1 heading is shallower than ## and DOES end the section, so
+  // evidence stranded after it must not count toward the preceding section.
+  assert.match(
+    evaluatePullRequestPolicy({
+      title: "fix: update search behavior",
+      body: completeBody.replace("- [x] `npm run verify:ui`\n", "# Appendix\n\n- [x] `npm run verify:ui`\n"),
       headRef: "codex/search-fix",
       files: ["src/components/search.tsx"],
     }).errors.join(" "),

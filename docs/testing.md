@@ -15,7 +15,7 @@ Ordinary Vitest and Playwright runs remove OpenAI, Supabase, database, and E2E c
 | `npm run test:focused -- --files <paths>` | Local iteration using Vitest related-file selection. It fails closed for deleted files, test infrastructure, configuration, or an empty/unsafe mapping. |
 | `npm run test`                            | Complete offline unit suite.                                                                                                                            |
 | `npm run test:live`                       | Explicit provider suite; requires `ALLOW_PROVIDER_TESTS=true`.                                                                                          |
-| `npm run test:e2e:pr`                     | Required production Chromium journeys, excluding mockups and quarantined tests.                                                                         |
+| `npm run test:e2e:pr`                     | Required production Chromium journeys and visual-artifact smoke, excluding mockups and quarantined tests.                                               |
 | `npm run test:e2e:advisory`               | Quarantined and mockup journeys in one advisory invocation.                                                                                             |
 | `npm run verify:cheap`                    | Broad offline local gate: runtime/config checks, lint, typecheck, and the full unit suite.                                                              |
 | `npm run verify:pr-local`                 | PR-like local gate. Formatting is checked on the changed set, the full unit suite runs once, and RAG scope adds fixture/manifest validation.            |
@@ -35,4 +35,4 @@ Blocking tests run with zero retries. CI publishes list, JUnit, and JSON reports
 
 ## CI topology
 
-PR CI keeps static checks separate from one required full unit run with coverage. UI scope uses one required production Chromium invocation for non-quarantined critical and regression journeys, plus one advisory invocation for quarantined and mockup journeys. Build, migration, security, and release behavior remain independently scoped and unchanged.
+PR CI keeps static checks separate from one required full unit run with coverage. UI scope uses one required production Chromium invocation for non-quarantined critical, regression, and dashboard/document visual-artifact journeys, plus one advisory invocation for quarantined and mockup journeys. Build, migration, security, and release behavior remain independently scoped and unchanged.
