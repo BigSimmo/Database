@@ -46,7 +46,7 @@ those vars are unset.
 ## B. Staging app host (compute tier)
 
 Host: **Railway**, same as production (see `docs/deployment-architecture.md` §2).
-Stand staging up as a **second environment** in the `clinical-kb` Railway project,
+Stand staging up as a **second environment** in the active `Database` Railway project,
 with one `app` service pinned to **Southeast Asia
 (`asia-southeast1-eqsg3a`, Singapore)** — the closest region to the staging
 Supabase project in Sydney. Do not create a worker for this release profile.
