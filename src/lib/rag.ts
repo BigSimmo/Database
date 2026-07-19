@@ -583,12 +583,14 @@ export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSeco
     return left.id.localeCompare(right.id);
   };
   const compareReleasedSearchOrder = (left: SearchResult, right: SearchResult) => {
-    const leftReleaseScore = isBoundedReleaseRankScore(left.score_explanation?.releaseRankScore)
-      ? left.score_explanation.releaseRankScore
-      : (left.hybrid_score ?? left.similarity ?? 0);
-    const rightReleaseScore = isBoundedReleaseRankScore(right.score_explanation?.releaseRankScore)
-      ? right.score_explanation.releaseRankScore
-      : (right.hybrid_score ?? right.similarity ?? 0);
+    const leftReleaseScore =
+      useSecondStageReleaseOrder && isBoundedReleaseRankScore(left.score_explanation?.releaseRankScore)
+        ? left.score_explanation.releaseRankScore
+        : (left.hybrid_score ?? left.similarity ?? 0);
+    const rightReleaseScore =
+      useSecondStageReleaseOrder && isBoundedReleaseRankScore(right.score_explanation?.releaseRankScore)
+        ? right.score_explanation.releaseRankScore
+        : (right.hybrid_score ?? right.similarity ?? 0);
     if (rightReleaseScore !== leftReleaseScore) return rightReleaseScore - leftReleaseScore;
     const leftSimilarity = left.similarity ?? 0;
     const rightSimilarity = right.similarity ?? 0;
