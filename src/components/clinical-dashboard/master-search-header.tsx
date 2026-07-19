@@ -273,13 +273,18 @@ export function MasterSearchHeader({
   /** Invoked when the user tries to open Favourites without access. */
   onRequestAccountSetup?: () => void;
 }) {
+  // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
+  // Do not OR demoMode again here — that would reopen Favourites when props diverge.
   const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
     authenticated: canAccessFavourites,
-    demoMode,
+    demoMode: false,
   });
   const trimmedQuery = query.trim();
   const selectedSearch = appModeSearchConfig(searchMode);
-  const selectedAppMode = appModeDefinition(searchMode);
+  // Guests on /favourites keep the route gate, but the mode trigger must not claim
+  // Favourites is a selectable guest mode when it is omitted from the menu.
+  const modeTriggerId = searchMode === "favourites" && !canAccessFavourites ? "answer" : searchMode;
+  const selectedAppMode = appModeDefinition(modeTriggerId);
   const selectedSearchable = isSearchableAppMode(searchMode);
   const isAnswerFooterComposer = searchMode === "answer";
   const isWorkflowHeader = headerVariant === "workflow";

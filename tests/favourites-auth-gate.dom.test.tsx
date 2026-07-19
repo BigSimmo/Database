@@ -3,10 +3,13 @@
 import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import userEvent from "@testing-library/user-event";
+
 import { ClinicalSidebarContent, deriveSidebarIdentity } from "@/components/clinical-dashboard/ClinicalSidebar";
 import { FavouritesCommandLibraryPage } from "@/components/clinical-dashboard/favourites-command-library-page";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { ApplicationsLauncherWorkspace } from "@/components/applications-launcher-page";
+import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { filterCrossModesForSession, visibleAppModeDefinitionsForSession } from "@/lib/app-modes";
 import { toolCatalogRecordsForSession } from "@/lib/tools-catalog";
 
@@ -52,6 +55,30 @@ function sidebarProps(showAccountLibrary: boolean) {
     onOpenAccount: () => undefined,
     theme: "light" as const,
     onToggleTheme: () => undefined,
+  };
+}
+
+function headerProps(canAccessFavourites: boolean) {
+  return {
+    demoMode: false,
+    documents: [],
+    query: "",
+    searchMode: "answer" as const,
+    loading: false,
+    selectedDocumentIds: [] as string[],
+    queryMode: "auto" as const,
+    scopeFilters: {},
+    realDataReady: true,
+    canAccessFavourites,
+    onQueryChange: () => undefined,
+    onSearchModeChange: vi.fn(),
+    onAsk: () => undefined,
+    onClearQuery: () => undefined,
+    onClearScope: () => undefined,
+    onQueryModeChange: () => undefined,
+    onScopeFiltersChange: () => undefined,
+    onToggleScope: () => undefined,
+    queryModeOptions: [{ value: "auto" as const, label: "Auto" }],
   };
 }
 
@@ -135,5 +162,30 @@ describe("favourites auth gate DOM", () => {
     expect(filterCrossModesForSession(["favourites", "forms"], { authenticated: false, demoMode: false })).toEqual([
       "forms",
     ]);
+  });
+
+  it("omits Favourites from the mode menu for guests", async () => {
+    const user = userEvent.setup();
+    render(<MasterSearchHeader {...headerProps(false)} />);
+
+    await user.click(screen.getByRole("button", { name: /Mode Answer/i }));
+    const guestMenu = await screen.findByRole("menu", { name: "Choose app mode" });
+    expect(within(guestMenu).queryByRole("menuitemradio", { name: /Favourites/i })).toBeNull();
+    expect(within(guestMenu).getByRole("menuitemradio", { name: /Answer/i })).toBeTruthy();
+  });
+
+  it("keeps Favourites in the mode menu when access is granted", async () => {
+    const user = userEvent.setup();
+    render(<MasterSearchHeader {...headerProps(true)} />);
+
+    await user.click(screen.getByRole("button", { name: /Mode Answer/i }));
+    const signedInMenu = await screen.findByRole("menu", { name: "Choose app mode" });
+    expect(within(signedInMenu).getByRole("menuitemradio", { name: /Favourites/i })).toBeTruthy();
+  });
+
+  it("does not label the mode trigger as Favourites for gated guest deep links", () => {
+    render(<MasterSearchHeader {...headerProps(false)} searchMode="favourites" />);
+    expect(screen.getByRole("button", { name: /Mode Answer/i })).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Mode Favourites/i })).toBeNull();
   });
 });

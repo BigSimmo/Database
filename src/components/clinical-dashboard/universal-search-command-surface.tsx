@@ -396,11 +396,12 @@ export function UniversalSearchCommandSurface({
     () =>
       config
         ? filterCrossModesForSession(config.crossModes, {
+            // Hosts pass the precomputed session decision; do not OR demoMode again.
             authenticated: canAccessFavourites,
-            demoMode,
+            demoMode: false,
           })
         : [],
-    [canAccessFavourites, config, demoMode],
+    [canAccessFavourites, config],
   );
   const listboxId = useId();
   const router = useRouter();

@@ -269,9 +269,13 @@ export function rankToolRecords(
   limit?: number,
   // Low-weight synonym/acronym/alias terms (see rankMedicationRecords) for the expanded lane.
   expansions: string[] = [],
-  session?: { authenticated: boolean; demoMode: boolean },
+  /**
+   * Session access for Favourites / Saved workflows. Defaults fail closed so callers
+   * that omit session never leak account-scoped Tools entries to guests.
+   */
+  session: { authenticated: boolean; demoMode: boolean } = { authenticated: false, demoMode: false },
 ): ToolSearchMatch[] {
-  const records = session ? toolCatalogRecordsForSession(session) : toolCatalogRecords;
+  const records = toolCatalogRecordsForSession(session);
   return rankCatalogRecords(records, query, {
     fields: [
       {

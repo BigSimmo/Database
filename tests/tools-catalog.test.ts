@@ -34,9 +34,16 @@ describe("tools catalog", () => {
   it("hides Saved workflows from guest sessions in ranking and catalog helpers", () => {
     const guestCatalog = toolCatalogRecordsForSession({ authenticated: false, demoMode: false });
     expect(guestCatalog.some((tool) => tool.id === "favourites")).toBe(false);
+    // Omitting session must fail closed (same as explicit guest).
+    expect(rankToolRecords("saved workflows", 10, []).map((m) => m.tool.id)).not.toContain("favourites");
     expect(
       rankToolRecords("saved workflows", 10, [], { authenticated: false, demoMode: false }).map((m) => m.tool.id),
     ).not.toContain("favourites");
+    expect(
+      rankToolRecords("saved workflows", 10, [], { authenticated: true, demoMode: false }).some(
+        (match) => match.tool.id === "favourites",
+      ),
+    ).toBe(true);
     expect(
       toolCatalogRecordsForSession({ authenticated: true, demoMode: false }).some((tool) => tool.id === "favourites"),
     ).toBe(true);

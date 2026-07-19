@@ -56,10 +56,13 @@ describe("favourites auth gate", () => {
     expect(header).toContain("onRequestAccountSetup");
     expect(header).toContain("canAccessFavourites={canAccessFavourites}");
     expect(header).toContain('targetMode === "favourites" && !canAccessFavourites');
+    expect(header).toContain("demoMode: false");
+    expect(header).toContain('searchMode === "favourites" && !canAccessFavourites');
 
     expect(commandSurface).toContain("filterCrossModesForSession");
     expect(commandSurface).toContain("canAccessFavourites");
     expect(commandSurface).toContain("canAccessFavourites && trimmedQuery && visibleFavouriteMatches.length");
+    expect(commandSurface).toContain("demoMode: false");
 
     expect(toolsCatalog).toContain("export function toolCatalogRecordsForSession");
     expect(launcher).toContain("toolCatalogRecordsForSession");
