@@ -78,6 +78,7 @@ import {
 import { formatClinicalDate } from "@/lib/source-metadata";
 import { partitionViewerImages } from "@/lib/image-filtering";
 import { isLocalNoAuthMode } from "@/lib/client-env";
+import { isAdministratorUser } from "@/lib/authorization";
 import { useAuthSession } from "@/lib/supabase/client";
 import { SafeBoldText } from "@/components/SafeBoldText";
 import { DocumentManagementActions } from "@/components/DocumentManagementActions";
@@ -1781,6 +1782,7 @@ export function DocumentViewer({
   );
   const {
     status: authStatus,
+    session,
     isConfigured,
     authorizationHeader,
     registerAuthRequest,
@@ -1795,6 +1797,8 @@ export function DocumentViewer({
   const clientDemoMode = localNoAuthMode || serverDemoMode;
   const canViewSourceDocuments = localProjectReady;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
+  const canUseAdministrativeApis =
+    localProjectReady && (serverDemoMode || (authStatus === "authenticated" && isAdministratorUser(session?.user)));
 
   useEffect(() => {
     if (authStatus !== "loading") {
@@ -2651,18 +2655,19 @@ export function DocumentViewer({
                 Add to scope
               </button>
             </div>
-            <details className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
-              <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
-                Admin controls
-              </summary>
-              <DocumentManagementActions
-                document={readyDocument}
-                disabled={!canUsePrivateApis}
-                className="mt-3 justify-start gap-2"
-                onRenamed={handleDocumentRenamed}
-                onDeleted={handleDocumentDeleted}
-              />
-            </details>
+            {canUseAdministrativeApis ? (
+              <details className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
+                <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
+                  Admin controls
+                </summary>
+                <DocumentManagementActions
+                  document={readyDocument}
+                  className="mt-3 justify-start gap-2"
+                  onRenamed={handleDocumentRenamed}
+                  onDeleted={handleDocumentDeleted}
+                />
+              </details>
+            ) : null}
           </div>
         </Sheet>
       ) : null}
@@ -2980,14 +2985,14 @@ export function DocumentViewer({
                     />
                   </div>
                 ) : null}
-                {canUsePrivateApis ? (
+                {canUseAdministrativeApis ? (
                   <details className={cn(sourceCard, "mt-4 p-3")}>
                     <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
                       Document tools
                     </summary>
                     <DocumentManualTagEditor
                       document={document}
-                      canManage={canUsePrivateApis}
+                      canManage={canUseAdministrativeApis}
                       clientDemoMode={clientDemoMode}
                       authorizationHeader={authorizationHeader}
                       onLabelsUpdated={handleDocumentLabelsUpdated}
@@ -3016,7 +3021,7 @@ export function DocumentViewer({
               }
             />
             <div className={cn(clinicalDivider, "space-y-3 p-4 pt-3")}>
-              {canUsePrivateApis && tableFacts.length ? (
+              {canUseAdministrativeApis && tableFacts.length ? (
                 <details className={cn(sourceCard, "p-3")}>
                   <summary className="cursor-pointer text-sm font-semibold text-[color:var(--text)]">
                     Table tools
@@ -3024,7 +3029,7 @@ export function DocumentViewer({
                   <div className="mt-3">
                     <TableReviewPanel
                       tableFacts={tableFacts}
-                      canReview={canUsePrivateApis}
+                      canReview={canUseAdministrativeApis}
                       busyFactId={reviewingTableFactId}
                       onReview={reviewTableFact}
                     />

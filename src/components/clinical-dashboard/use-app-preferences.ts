@@ -1,6 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { useAuthSession } from "@/lib/supabase/client";
+
+const emptyAuthorizationHeader: Record<string, string> = {};
+const ignoreExpiredSession = () => undefined;
+
+function useAuthSessionIfAvailable() {
+  try {
+    return useAuthSession();
+  } catch (error) {
+    if (error instanceof Error && error.message === "useAuthSession must be used within AuthProvider.") return null;
+    throw error;
+  }
+}
 
 /**
  * App-wide, non-clinical preferences persisted per browser. This mirrors the
@@ -226,21 +239,78 @@ export function readAppPreferences(): AppPreferences {
 }
 
 export function useAppPreferences() {
+  const auth = useAuthSessionIfAvailable();
+  const authStatus = auth?.status ?? "signed_out";
+  const authorizationHeader = auth?.authorizationHeader ?? emptyAuthorizationHeader;
+  const authEpoch = auth?.authEpoch ?? 0;
+  const markSessionExpired = auth?.markSessionExpired ?? ignoreExpiredSession;
   const preferences = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated") return;
+    const controller = new AbortController();
+    fetch("/api/account/preferences", {
+      cache: "no-store",
+      headers: authorizationHeader,
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          if (response.status === 401) markSessionExpired();
+          return;
+        }
+        const payload = await response.json().catch(() => ({}));
+        if (payload.preferences) {
+          persist(normalizePreferences(payload.preferences));
+          return;
+        }
+        const bootstrapResponse = await fetch("/api/account/preferences", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", ...authorizationHeader },
+          body: JSON.stringify(getSnapshot()),
+          signal: controller.signal,
+        });
+        if (bootstrapResponse.status === 401) markSessionExpired();
+      })
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [authEpoch, authStatus, authorizationHeader, markSessionExpired]);
 
   useEffect(() => {
     applyPreferenceSideEffects(preferences);
   }, [preferences]);
 
-  const setPreference = useCallback(<Key extends keyof AppPreferences>(key: Key, value: AppPreferences[Key]) => {
-    const current = getSnapshot();
-    if (current[key] === value) return;
-    persist({ ...current, [key]: value });
-  }, []);
+  const persistAccountPreferences = useCallback(
+    (next: AppPreferences) => {
+      if (authStatus !== "authenticated") return;
+      fetch("/api/account/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...authorizationHeader },
+        body: JSON.stringify(next),
+      })
+        .then((response) => {
+          if (response.status === 401) markSessionExpired();
+        })
+        .catch(() => undefined);
+    },
+    [authStatus, authorizationHeader, markSessionExpired],
+  );
+
+  const setPreference = useCallback(
+    <Key extends keyof AppPreferences>(key: Key, value: AppPreferences[Key]) => {
+      const current = getSnapshot();
+      if (current[key] === value) return;
+      const next = { ...current, [key]: value };
+      persist(next);
+      persistAccountPreferences(next);
+    },
+    [persistAccountPreferences],
+  );
 
   const resetPreferences = useCallback(() => {
     persist(DEFAULT_PREFERENCES);
-  }, []);
+    persistAccountPreferences(DEFAULT_PREFERENCES);
+  }, [persistAccountPreferences]);
 
   return { preferences, setPreference, resetPreferences };
 }

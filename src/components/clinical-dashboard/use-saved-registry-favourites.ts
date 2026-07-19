@@ -2,17 +2,11 @@
 
 import { BrainCircuit, ClipboardList } from "lucide-react";
 import { appModeIcons } from "@/lib/app-mode-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
+import { useAccountData } from "@/components/account-data-provider";
 import type { FavouriteItem } from "@/components/clinical-dashboard/favourites-prototype-data";
 import type { ServiceRecord } from "@/lib/services";
-import {
-  readSavedRegistrySlugs,
-  savedDifferentialsStorageKey,
-  savedFormsStorageKey,
-  savedServicesStorageKey,
-  subscribeSavedRegistrySlugs,
-} from "@/lib/saved-registry-storage";
 import { useRegistryRecords } from "@/lib/use-registry-records";
 
 function recordToFavourite(record: ServiceRecord, type: "services" | "forms"): FavouriteItem {
@@ -31,19 +25,10 @@ function recordToFavourite(record: ServiceRecord, type: "services" | "forms"): F
 }
 
 export function useSavedRegistryFavourites(): FavouriteItem[] {
-  const [savedServices, setSavedServices] = useState<string[]>([]);
-  const [savedForms, setSavedForms] = useState<string[]>([]);
-  const [savedDifferentials, setSavedDifferentials] = useState<string[]>([]);
-
-  useEffect(() => {
-    const refresh = () => {
-      setSavedServices(readSavedRegistrySlugs(savedServicesStorageKey));
-      setSavedForms(readSavedRegistrySlugs(savedFormsStorageKey));
-      setSavedDifferentials(readSavedRegistrySlugs(savedDifferentialsStorageKey));
-    };
-    refresh();
-    return subscribeSavedRegistrySlugs(refresh);
-  }, []);
+  const { favourites } = useAccountData();
+  const savedServices = favourites.service;
+  const savedForms = favourites.form;
+  const savedDifferentials = favourites.differential;
 
   const services = useRegistryRecords("service", { enabled: savedServices.length > 0 });
   const forms = useRegistryRecords("form", { enabled: savedForms.length > 0 });
