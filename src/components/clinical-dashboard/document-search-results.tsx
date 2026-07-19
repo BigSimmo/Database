@@ -428,7 +428,7 @@ function DocumentResultsControls({
     <section
       aria-label="Sort and filter documents"
       data-testid="document-results-controls"
-      className="flex flex-wrap items-center gap-2"
+      className="flex flex-nowrap items-center gap-2"
     >
       {showTypeFilters ? (
         <div
