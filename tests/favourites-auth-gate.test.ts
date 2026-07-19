@@ -32,11 +32,14 @@ describe("favourites auth gate", () => {
 
     expect(dashboard).toContain("canAccessFavourites={favouritesAccessible}");
     expect(dashboard).toContain("showAccountLibrary={favouritesAccessible}");
-    expect(dashboard).toContain("useFavouritesAccess");
     expect(dashboard).toContain("useDashboardShellActions");
     expect(dashboard).toContain('openAccountSetup("favourites")');
     expect(dashboard).toContain("intent={accountSetupIntent}");
     expect(dashboard).toContain('mode === "favourites" && !favouritesAccessible');
+
+    const shellActions = source("src/components/clinical-dashboard/use-dashboard-shell-actions.ts");
+    expect(shellActions).toContain("useFavouritesAccess");
+    expect(shellActions).toContain("favouritesAccessible");
 
     expect(header).toContain("canAccessFavourites");
     expect(header).toContain("canAccessFavourites = false");

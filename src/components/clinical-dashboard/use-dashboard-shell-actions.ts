@@ -2,24 +2,63 @@
 
 import { useCallback } from "react";
 
-import type { AccountSetupIntent } from "@/components/clinical-dashboard/use-favourites-access";
+import { useFavouritesAccess, type AccountSetupIntent } from "@/components/clinical-dashboard/use-favourites-access";
 
 type TransientSurface = "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload";
 
 /**
- * Shared open/close helpers for dashboard chrome (guide, settings, account setup).
- * Keeps ClinicalDashboard from growing when Favourites account-setup intent is wired in.
+ * Dashboard chrome helpers: Favourites session access, account-setup intent, and
+ * guide/settings openers. Keeps ClinicalDashboard under the maintainability budget.
  */
 export function useDashboardShellActions(options: {
-  closeTransientSurfaces: (except?: TransientSurface) => void;
-  openAccountSetupWithIntent: (intent?: AccountSetupIntent) => void;
+  authenticated: boolean;
+  demoMode: boolean;
   signedIn: boolean;
   setGuideOpen: (open: boolean) => void;
   setSettingsOpen: (open: boolean) => void;
+  setMobileSidebarOpen: (open: boolean) => void;
+  setDocumentsDrawerOpen: (open: boolean) => void;
+  setUploadDrawerOpen: (open: boolean) => void;
   prefetch: (href: string) => void;
 }) {
-  const { closeTransientSurfaces, openAccountSetupWithIntent, signedIn, setGuideOpen, setSettingsOpen, prefetch } =
-    options;
+  const {
+    authenticated,
+    demoMode,
+    signedIn,
+    setGuideOpen,
+    setSettingsOpen,
+    setMobileSidebarOpen,
+    setDocumentsDrawerOpen,
+    setUploadDrawerOpen,
+    prefetch,
+  } = options;
+
+  const {
+    favouritesAccessible,
+    accountSetupOpen,
+    accountSetupIntent,
+    openAccountSetup: openAccountSetupWithIntent,
+    closeAccountSetup,
+  } = useFavouritesAccess(authenticated, demoMode);
+
+  const closeTransientSurfaces = useCallback(
+    (except?: TransientSurface) => {
+      if (except !== "guide") setGuideOpen(false);
+      if (except !== "settings") setSettingsOpen(false);
+      if (except !== "accountSetup") closeAccountSetup();
+      if (except !== "mobileSidebar") setMobileSidebarOpen(false);
+      if (except !== "documents") setDocumentsDrawerOpen(false);
+      if (except !== "upload") setUploadDrawerOpen(false);
+    },
+    [
+      closeAccountSetup,
+      setDocumentsDrawerOpen,
+      setGuideOpen,
+      setMobileSidebarOpen,
+      setSettingsOpen,
+      setUploadDrawerOpen,
+    ],
+  );
 
   const openAccountSetup = useCallback(
     (intent: AccountSetupIntent = "default") => {
@@ -59,6 +98,11 @@ export function useDashboardShellActions(options: {
   }, [prefetch]);
 
   return {
+    favouritesAccessible,
+    accountSetupOpen,
+    accountSetupIntent,
+    closeAccountSetup,
+    closeTransientSurfaces,
     openAccountSetup,
     openGuide,
     closeGuide,

@@ -93,7 +93,6 @@ import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
-import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
@@ -811,13 +810,31 @@ export function ClinicalDashboard({
     authUnavailableFallback: browserAuthUnavailableDemoFallback,
     localNoAuthMode,
   });
+  const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const {
     favouritesAccessible,
     accountSetupOpen,
     accountSetupIntent,
-    openAccountSetup: openAccountSetupWithIntent,
     closeAccountSetup,
-  } = useFavouritesAccess(auth.status === "authenticated", clientDemoMode);
+    closeTransientSurfaces: closeDashboardTransientSurfaces,
+    openAccountSetup,
+    openGuide,
+    closeGuide,
+    openSettings,
+    closeSettings,
+    openAccountProfile,
+    prefetchApplications,
+  } = useDashboardShellActions({
+    authenticated: auth.status === "authenticated",
+    demoMode: clientDemoMode,
+    signedIn: sidebarIdentity.signedIn,
+    setGuideOpen,
+    setSettingsOpen,
+    setMobileSidebarOpen,
+    setDocumentsDrawerOpen,
+    setUploadDrawerOpen,
+    prefetch: (href) => router.prefetch(href),
+  });
   const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
   const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
   useEffect(() => {
@@ -892,35 +909,6 @@ export function ClinicalDashboard({
     canUseDegradedLocalSearchApis ||
     canUseNonProductionDemoFallback ||
     canAttemptDeployedPublicSearch;
-  const closeDashboardTransientSurfaces = useCallback(
-    (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
-      if (except !== "guide") setGuideOpen(false);
-      if (except !== "settings") setSettingsOpen(false);
-      if (except !== "accountSetup") closeAccountSetup();
-      if (except !== "mobileSidebar") setMobileSidebarOpen(false);
-      if (except !== "documents") setDocumentsDrawerOpen(false);
-      if (except !== "upload") setUploadDrawerOpen(false);
-    },
-    [closeAccountSetup],
-  );
-  const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
-  const shellActions = useDashboardShellActions({
-    closeTransientSurfaces: closeDashboardTransientSurfaces,
-    openAccountSetupWithIntent,
-    signedIn: sidebarIdentity.signedIn,
-    setGuideOpen,
-    setSettingsOpen,
-    prefetch: (href) => router.prefetch(href),
-  });
-  const {
-    openAccountSetup,
-    openGuide,
-    closeGuide,
-    openSettings,
-    closeSettings,
-    openAccountProfile,
-    prefetchApplications,
-  } = shellActions;
   const openLibraryHealthTarget = useCallback(
     (target: LibraryHealthTarget) => {
       if (!canUseAdministrativeApis) {
