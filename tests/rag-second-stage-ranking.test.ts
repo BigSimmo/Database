@@ -282,6 +282,26 @@ describe("second-stage rank score", () => {
     );
   });
 
+  it("preserves semantic rerank order when release scores are absent", () => {
+    const semanticallyOrdered = [
+      result({
+        id: "semantic-first",
+        hybrid_score: 0.7,
+        score_explanation: explanation(0.7),
+      }),
+      result({
+        id: "semantic-second",
+        hybrid_score: 0.9,
+        score_explanation: explanation(0.9),
+      }),
+    ];
+
+    expect(stabilizeReleasedSearchOrder([...semanticallyOrdered], false, true).map((item) => item.id)).toEqual([
+      "semantic-first",
+      "semantic-second",
+    ]);
+  });
+
   it("preserves clinical order when releaseRankScore values are not finite", () => {
     const clinicallyOrdered = [
       result({

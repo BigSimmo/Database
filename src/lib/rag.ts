@@ -568,9 +568,14 @@ function resultsHaveReleaseRankScore(results: SearchResult[]) {
  * final set has no valid release scores, distinct results keep the clinical selection's existing
  * order. Otherwise they use the live-proven raw-hybrid or bounded second-stage order.
  */
-export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSecondStageScore = false) {
+export function stabilizeReleasedSearchOrder(
+  results: SearchResult[],
+  preferSecondStageScore = false,
+  preserveIncomingOrder = false,
+) {
   const useSecondStageReleaseOrder = preferSecondStageScore && resultsHaveReleaseRankScore(results);
-  const preserveCurrentOrder = preferSecondStageScore && !useSecondStageReleaseOrder;
+  const preserveCurrentOrder =
+    preserveIncomingOrder || (preferSecondStageScore && !useSecondStageReleaseOrder);
   const compareReleasedHybridStrength = (left: SearchResult, right: SearchResult) => {
     const leftHybrid = left.hybrid_score ?? left.similarity ?? 0;
     const rightHybrid = right.hybrid_score ?? right.similarity ?? 0;
@@ -605,7 +610,11 @@ export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSeco
     if (!current || compareReleasedHybridStrength(result, current) < 0) strongestById.set(result.id, result);
   }
   const distinctResults = [...strongestById.values()];
-  const releasedResults = preserveCurrentOrder ? distinctResults : distinctResults.sort(compareReleasedSearchOrder);
+  const releasedResults = preserveCurrentOrder
+    ? distinctResults
+    : useSecondStageReleaseOrder
+      ? distinctResults.sort(compareReleasedSearchOrder)
+      : distinctResults.sort(compareReleasedHybridStrength);
   const deduped = releasedResults.map((result, index) =>
     result.score_explanation
       ? { ...result, score_explanation: { ...result.score_explanation, finalRank: index + 1 } }
@@ -634,7 +643,9 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
 
   const useSecondStageReleaseOrder = resultsHaveReleaseRankScore(results);
   telemetry.second_stage_rerank_used = useSecondStageReleaseOrder;
-  stabilizeReleasedSearchOrder(results, useSecondStageReleaseOrder);
+  const preserveSemanticRerankOrder =
+    telemetry.semantic_rerank_outcome === "reordered" && !useSecondStageReleaseOrder;
+  stabilizeReleasedSearchOrder(results, useSecondStageReleaseOrder, preserveSemanticRerankOrder);
   const coverageScores = results
     .map((result) => Math.max(0, result.hybrid_score ?? result.similarity ?? 0))
     .sort((left, right) => right - left);
