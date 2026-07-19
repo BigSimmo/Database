@@ -503,7 +503,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   return (
     <main
       data-testid="service-detail-page"
-      className="min-h-[calc(100dvh-4rem)] max-sm:shrink-0 bg-[color:var(--background)] px-3 py-4 max-sm:pb-[calc(var(--mobile-composer-reserve)+2rem)] text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
+      className="min-h-[calc(100dvh-4rem)] max-sm:min-h-0 max-sm:shrink-0 bg-[color:var(--background)] px-3 py-4 max-sm:pb-[var(--mobile-composer-reserve)] text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
     >
       <div className={pageContainer}>
         {notice ? (
