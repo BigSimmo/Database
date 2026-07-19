@@ -1524,13 +1524,44 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(compareAction).toContainText("Compare selected");
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
+    // Keep the composer focused while measuring end-of-list clearance so
+    // hide-on-scroll cannot collapse --mobile-composer-reserve mid-check.
+    await input.focus();
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect
+      .poll(async () =>
+        mainContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
+      )
+      .toBeGreaterThan(180);
     await mainContent.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
-    const lastResultBottom = await page
-      .getByTestId("differential-mobile-result-card")
-      .last()
-      .evaluate((element) => element.getBoundingClientRect().bottom);
-    const dockTop = await dock.evaluate((element) => element.getBoundingClientRect().top);
-    expect(lastResultBottom).toBeLessThanOrEqual(dockTop);
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect
+      .poll(async () =>
+        mainContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
+      )
+      .toBeGreaterThan(180);
+    const clearance = await page.evaluate(() => {
+      const main = document.getElementById("main-content");
+      const last = document.querySelector('[data-testid="differential-mobile-result-card"]:last-of-type');
+      const dock = document.querySelector("form.answer-footer-search-dock");
+      const style = main ? window.getComputedStyle(main) : null;
+      return {
+        lastBottom: last?.getBoundingClientRect().bottom ?? null,
+        dockTop: dock?.getBoundingClientRect().top ?? null,
+        paddingBottom: style ? Number.parseFloat(style.paddingBottom) : null,
+        reserve:
+          main?.parentElement
+            ? window.getComputedStyle(main.parentElement).getPropertyValue("--mobile-composer-reserve").trim()
+            : null,
+        selfReserve: style?.getPropertyValue("--mobile-composer-reserve").trim() ?? null,
+        scrollHidden: dock?.getAttribute("data-scroll-hidden"),
+        url: window.location.href,
+      };
+    });
+    expect(clearance, JSON.stringify(clearance)).toMatchObject({
+      scrollHidden: null,
+    });
+    expect(clearance.lastBottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(clearance.dockTop ?? 0);
 
     // Compare lives in the dock addon slot above the search pill.
     const revealedGeometry = await compareAction.evaluate((element) => {
@@ -1553,7 +1584,7 @@ test.describe("Clinical KB tools launcher", () => {
     expect(revealedGeometry.bottom).toBeLessThanOrEqual(revealedGeometry.dockBottom!);
     expect(revealedGeometry.receivesPointer).toBe(true);
     // Last card must clear the floating compare CTA, not only the composer dock.
-    expect(lastResultBottom).toBeLessThanOrEqual(revealedGeometry.top);
+    expect(clearance.lastBottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(revealedGeometry.top);
 
     const mainPaddingBottom = await mainContent.evaluate((element) =>
       Number.parseFloat(window.getComputedStyle(element).paddingBottom),
@@ -1572,6 +1603,18 @@ test.describe("Clinical KB tools launcher", () => {
       spacer.style.display = "block";
       container.appendChild(spacer);
     });
+
+    // Apply the Safari toolbar simulation after the visible-dock clearance
+    // checks above. A collapsed reserve that still includes the toolbar inset
+    // must fail the ≤13px assertion below.
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-bottom", "112px");
+    });
+    await expect
+      .poll(async () =>
+        mainContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
+      )
+      .toBeGreaterThan(200);
 
     await expect(async () => {
       await input.blur();

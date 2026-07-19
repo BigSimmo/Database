@@ -116,6 +116,8 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = phoneScrollHide.hidden");
     expect(globalSearchShellSource).toContain("function isDocumentViewerOwnedRoute");
     expect(globalSearchShellSource).toContain('isDocumentViewerOwnedRoute(pathname)\n      ? "0.75rem"\n      : "2rem"');
+    expect(globalSearchShellSource).toContain('"calc(12.5rem + var(--safe-area-bottom))"');
+    expect(clinicalDashboardSource).toContain('"calc(12.5rem + var(--safe-area-bottom))"');
     expect(clinicalDashboardSource).toContain('const mobileComposerReserve = bottomComposerHidden ? "0.75rem"');
     expect(clinicalDashboardSource).not.toContain(
       'bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"',
@@ -124,8 +126,14 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
     expect(documentViewerSource).toContain('"max-sm:pb-3"');
     expect(documentViewerSource).toContain('"max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"');
+    // Hidden document content must not reintroduce Safari toolbar inset padding.
+    expect(documentViewerSource).not.toMatch(
+      /composerScrollHidden\s*\?\s*["']max-sm:pb-\[calc\([^"']*safe-area/,
+    );
     expect(documentViewerSource).toContain("max-sm:duration-[240ms]");
     expect(documentViewerSource).toContain("max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]");
+    expect(globalStylesSource).toContain("@media (max-width: 639px) and (prefers-reduced-motion: reduce)");
+    expect(globalStylesSource).toContain('#main-content[data-bottom-composer-hidden="true"]');
     // Child pages must not stack a second dock-sized safe-area pad under the
     // shared host reserve — that pad cannot collapse when the dock hides.
     expect(uiPrimitivesSource).not.toContain("pb-[calc(12rem+env(safe-area-inset-bottom))]");

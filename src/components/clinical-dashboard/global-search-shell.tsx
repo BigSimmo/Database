@@ -360,7 +360,9 @@ function GlobalStandaloneSearchShellClient({
       : searchMode === "answer"
         ? "calc(9rem + var(--safe-area-bottom))"
         : differentialsCompareAddonActive
-          ? "calc(8.75rem + var(--safe-area-bottom))"
+          ? // Compare selected bar + compact search pill; must clear both while
+            // the dock is visible. Hidden state still collapses to 0.75rem below.
+            "calc(12.5rem + var(--safe-area-bottom))"
           : useCompactBottomSearch
             ? "calc(5.5rem + var(--safe-area-bottom))"
             : "calc(9rem + var(--safe-area-bottom))";

@@ -3255,7 +3255,9 @@ export function ClinicalDashboard({
         ? "calc(7.5rem + var(--safe-area-bottom))"
         : "calc(5.25rem + var(--safe-area-bottom))"
       : differentialsCompareAddonActive
-        ? "calc(8.75rem + var(--safe-area-bottom))"
+        ? // Compare selected bar + compact search pill; must clear both while
+          // the dock is visible. Hidden state still collapses to 0.75rem below.
+          "calc(12.5rem + var(--safe-area-bottom))"
         : compactMobileBottomSearch
           ? "calc(5rem + var(--safe-area-bottom))"
           : "calc(5.25rem + var(--safe-area-bottom))";
