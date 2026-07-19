@@ -517,10 +517,12 @@ export function SettingsDialog({
                 icon={Globe2}
                 label="Jurisdiction"
                 description="Prioritises guidance relevant to your region."
+                notYetActive
                 htmlFor="settings-jurisdiction"
               >
                 <SettingsSelect
                   id="settings-jurisdiction"
+                  describedBy={notYetActiveId("settings-jurisdiction")}
                   value={preferences.jurisdiction}
                   onChange={(value) => setPreference("jurisdiction", value)}
                   options={JURISDICTION_OPTIONS}
@@ -530,10 +532,12 @@ export function SettingsDialog({
                 icon={CircleUserRound}
                 label="Default population"
                 description="Frames answers for your usual patient group."
+                notYetActive
                 htmlFor="settings-population"
               >
                 <SettingsSelect
                   id="settings-population"
+                  describedBy={notYetActiveId("settings-population")}
                   value={preferences.population}
                   onChange={(value) => setPreference("population", value)}
                   options={POPULATION_OPTIONS}
@@ -545,11 +549,13 @@ export function SettingsDialog({
                 description={
                   ANSWER_STYLE_OPTIONS.find((option) => option.value === preferences.answerStyle)?.description
                 }
+                notYetActive
                 labelId="settings-answer-style-label"
                 stacked
               >
                 <SegmentedControl
                   ariaLabelledBy="settings-answer-style-label"
+                  ariaDescribedBy={notYetActiveId("settings-answer-style-label")}
                   value={preferences.answerStyle}
                   onChange={(value) => setPreference("answerStyle", value)}
                   options={ANSWER_STYLE_OPTIONS}
@@ -593,11 +599,13 @@ export function SettingsDialog({
                 icon={PanelTop}
                 label="Default landing view"
                 description="The mode shown when you open the app."
+                notYetActive
                 labelId="settings-landing-label"
                 stacked
               >
                 <SegmentedControl
                   ariaLabelledBy="settings-landing-label"
+                  ariaDescribedBy={notYetActiveId("settings-landing-label")}
                   value={preferences.landing}
                   onChange={(value) => setPreference("landing", value)}
                   options={LANDING_OPTIONS}
@@ -618,6 +626,7 @@ export function SettingsDialog({
             <SettingsGroup>
               <SettingsToggleField
                 icon={PanelTop}
+                notYetActive
                 label="Recent searches on home"
                 description="Surface your latest questions when you land."
                 checked={preferences.showRecentOnHome}
@@ -625,6 +634,7 @@ export function SettingsDialog({
               />
               <SettingsToggleField
                 icon={Sparkles}
+                notYetActive
                 label="Saved protocols on home"
                 description="Keep pinned protocols within easy reach."
                 checked={preferences.showProtocolsOnHome}
@@ -632,6 +642,7 @@ export function SettingsDialog({
               />
               <SettingsToggleField
                 icon={BookOpen}
+                notYetActive
                 label="Compact citations"
                 description="Show tighter inline source references."
                 checked={preferences.compactCitations}
@@ -645,6 +656,7 @@ export function SettingsDialog({
             <SettingsGroup>
               <SettingsToggleField
                 icon={Stethoscope}
+                notYetActive
                 label="Guideline updates"
                 description="When source guidance you rely on changes."
                 checked={preferences.notifyGuidelineUpdates}
@@ -652,6 +664,7 @@ export function SettingsDialog({
               />
               <SettingsToggleField
                 icon={Sparkles}
+                notYetActive
                 label="Product news"
                 description="Occasional updates about new features."
                 checked={preferences.notifyProductNews}
@@ -659,6 +672,7 @@ export function SettingsDialog({
               />
               <SettingsToggleField
                 icon={Bell}
+                notYetActive
                 label="Saved item changes"
                 description="Alerts about items you have saved."
                 checked={preferences.notifySavedChanges}
@@ -780,6 +794,29 @@ function IconBadge({ icon: Icon }: { icon: LucideIcon }) {
   );
 }
 
+/**
+ * Honesty marker for preference controls that persist a choice but are not yet
+ * consumed anywhere in the app (audit 2026-07-19 P2: inert settings presented as
+ * live). Remove the marker from a control only when something actually reads its
+ * preference and changes behavior. The badge carries an id so the control it
+ * describes can reference it via `aria-describedby` — the marker must be
+ * announced to assistive tech, not just rendered visually.
+ */
+function notYetActiveId(anchor: string) {
+  return `${anchor}-not-yet-active`;
+}
+
+function NotYetActiveBadge({ id }: { id?: string }) {
+  return (
+    <span
+      id={id}
+      className="mt-1 inline-flex w-fit items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-2 py-0.5 text-xs font-semibold leading-4 text-[color:var(--text-muted)]"
+    >
+      Saved for later — not active yet
+    </span>
+  );
+}
+
 function SettingsField({
   icon,
   label,
@@ -788,6 +825,7 @@ function SettingsField({
   htmlFor,
   labelId,
   stacked = false,
+  notYetActive = false,
   children,
 }: {
   icon: LucideIcon;
@@ -797,6 +835,7 @@ function SettingsField({
   htmlFor?: string;
   labelId?: string;
   stacked?: boolean;
+  notYetActive?: boolean;
   children?: ReactNode;
 }) {
   const LabelTag = htmlFor ? "label" : "span";
@@ -821,6 +860,9 @@ function SettingsField({
           {description ? (
             <p className="mt-0.5 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{description}</p>
           ) : null}
+          {notYetActive ? (
+            <NotYetActiveBadge id={notYetActiveId(htmlFor ?? labelId ?? settingsRowTestId(label))} />
+          ) : null}
         </div>
       </div>
       {children ? (
@@ -839,16 +881,19 @@ function SegmentedControl<T extends string>({
   onChange,
   options,
   ariaLabelledBy,
+  ariaDescribedBy,
 }: {
   value: T;
   onChange: (value: T) => void;
   options: ReadonlyArray<{ value: T; label: string; icon?: LucideIcon }>;
   ariaLabelledBy?: string;
+  ariaDescribedBy?: string;
 }) {
   return (
     <div
       role="radiogroup"
       aria-labelledby={ariaLabelledBy}
+      aria-describedby={ariaDescribedBy}
       // Segments size to their content and wrap onto a second row on narrow
       // screens rather than truncating long labels ("Comprehensive"); each row's
       // items grow to fill the width so the control still reads as a unit.
@@ -885,17 +930,20 @@ function SettingsSelect<T extends string>({
   value,
   onChange,
   options,
+  describedBy,
 }: {
   id: string;
   value: T;
   onChange: (value: T) => void;
   options: ReadonlyArray<{ value: T; label: string }>;
+  describedBy?: string;
 }) {
   return (
     <div className="relative min-[420px]:w-56">
       <select
         id={id}
         value={value}
+        aria-describedby={describedBy}
         onChange={(event) => onChange(event.target.value as T)}
         className="w-full appearance-none rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] py-2 pl-3 pr-9 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
       >
@@ -919,12 +967,14 @@ function SettingsToggleField({
   description,
   checked,
   onChange,
+  notYetActive = false,
 }: {
   icon: LucideIcon;
   label: string;
   description?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  notYetActive?: boolean;
 }) {
   return (
     <div
@@ -938,9 +988,15 @@ function SettingsToggleField({
           {description ? (
             <p className="mt-0.5 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{description}</p>
           ) : null}
+          {notYetActive ? <NotYetActiveBadge id={notYetActiveId(settingsRowTestId(label))} /> : null}
         </div>
       </div>
-      <Switch checked={checked} onChange={onChange} ariaLabel={label} />
+      <Switch
+        checked={checked}
+        onChange={onChange}
+        ariaLabel={label}
+        describedBy={notYetActive ? notYetActiveId(settingsRowTestId(label)) : undefined}
+      />
     </div>
   );
 }
@@ -949,10 +1005,12 @@ function Switch({
   checked,
   onChange,
   ariaLabel,
+  describedBy,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   ariaLabel: string;
+  describedBy?: string;
 }) {
   return (
     <button
@@ -960,6 +1018,7 @@ function Switch({
       role="switch"
       aria-checked={checked}
       aria-label={ariaLabel}
+      aria-describedby={describedBy}
       onClick={() => onChange(!checked)}
       className={cn(
         "relative inline-flex h-6 w-tap shrink-0 items-center rounded-full border transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
