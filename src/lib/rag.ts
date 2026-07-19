@@ -550,14 +550,14 @@ function recordRetrievalLayer(
 }
 
 /**
- * Keep distinct results in the current ranked order while upgrading duplicate chunks to the
- * strongest released-hybrid copy.
+ * Keep the released result order on the live-eval-proven hybrid and bounded second-stage signals.
  *
  * App-layer rank scores remain available to answer evidence ranking and telemetry, but the
- * live corpus gate has not validated replacing the final distinct-result order with them.
+ * live corpus gate has not validated using them as the final retrieval order. Resolve duplicate
+ * chunks to their strongest released-hybrid copy before sorting the distinct results.
  */
-export function stabilizeReleasedSearchOrder(results: SearchResult[]) {
-  const compareReleasedSearchStrength = (left: SearchResult, right: SearchResult) => {
+export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSecondStageScore = false) {
+  const compareReleasedHybridStrength = (left: SearchResult, right: SearchResult) => {
     const leftHybrid = left.hybrid_score ?? left.similarity ?? 0;
     const rightHybrid = right.hybrid_score ?? right.similarity ?? 0;
     if (rightHybrid !== leftHybrid) return rightHybrid - leftHybrid;
@@ -568,18 +568,30 @@ export function stabilizeReleasedSearchOrder(results: SearchResult[]) {
       return (right.relevance?.score ?? 0) - (left.relevance?.score ?? 0);
     return left.id.localeCompare(right.id);
   };
+  const compareReleasedSearchOrder = (left: SearchResult, right: SearchResult) => {
+    if (!preferSecondStageScore) return compareReleasedHybridStrength(left, right);
+    const leftReleaseScore = left.score_explanation?.releaseRankScore ?? left.hybrid_score ?? left.similarity ?? 0;
+    const rightReleaseScore = right.score_explanation?.releaseRankScore ?? right.hybrid_score ?? right.similarity ?? 0;
+    if (rightReleaseScore !== leftReleaseScore) return rightReleaseScore - leftReleaseScore;
+    const leftSimilarity = left.similarity ?? 0;
+    const rightSimilarity = right.similarity ?? 0;
+    if (rightSimilarity !== leftSimilarity) return rightSimilarity - leftSimilarity;
+    if (right.relevance?.score !== left.relevance?.score)
+      return (right.relevance?.score ?? 0) - (left.relevance?.score ?? 0);
+    return left.id.localeCompare(right.id);
+  };
   const strongestById = new Map<string, SearchResult>();
   for (const result of results) {
     const current = strongestById.get(result.id);
-    if (!current || compareReleasedSearchStrength(result, current) < 0) strongestById.set(result.id, result);
+    if (!current || compareReleasedHybridStrength(result, current) < 0) strongestById.set(result.id, result);
   }
-  const deduped: SearchResult[] = [];
-  const seen = new Set<string>();
-  for (const result of results) {
-    if (seen.has(result.id)) continue;
-    seen.add(result.id);
-    deduped.push(strongestById.get(result.id) ?? result);
-  }
+  const deduped = [...strongestById.values()]
+    .sort(compareReleasedSearchOrder)
+    .map((result, index) =>
+      result.score_explanation
+        ? { ...result, score_explanation: { ...result.score_explanation, finalRank: index + 1 } }
+        : result,
+    );
   results.length = 0;
   results.push(...deduped);
   return results;
@@ -601,7 +613,7 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
     return;
   }
 
-  stabilizeReleasedSearchOrder(results);
+  stabilizeReleasedSearchOrder(results, telemetry.second_stage_rerank_used === true);
   const coverageScores = results
     .map((result) => Math.max(0, result.hybrid_score ?? result.similarity ?? 0))
     .sort((left, right) => right - left);
@@ -719,6 +731,11 @@ export function applySecondStageRerankIfNeeded(args: {
       const secondStage = secondStageScore(result, args.queryClass, index);
       let rankScore = secondStage.rankScore;
       let confidenceAdjustment = secondStage.adjustment;
+      let releaseRankScore = Math.max(
+        result.hybrid_score ?? result.similarity ?? 0,
+        (result.score_explanation?.finalScore ?? result.hybrid_score ?? result.similarity ?? 0) +
+          secondStage.adjustment,
+      );
       const priorOccurrences = seenPerDocument.get(result.document_id) ?? 0;
       seenPerDocument.set(result.document_id, priorOccurrences + 1);
       if (rankingConfig.documentDiversityPenalty > 0 && priorOccurrences > 0) {
@@ -728,6 +745,7 @@ export function applySecondStageRerankIfNeeded(args: {
         );
         rankScore -= diversityPenalty;
         confidenceAdjustment -= diversityPenalty;
+        releaseRankScore -= diversityPenalty;
       }
       const finalScore = Math.min(
         1,
@@ -745,6 +763,7 @@ export function applySecondStageRerankIfNeeded(args: {
             ? {
                 ...result.score_explanation,
                 rankScore: Number(rankScore.toFixed(4)),
+                releaseRankScore: Number(releaseRankScore.toFixed(4)),
                 preClampFinalScore: Number(rankScore.toFixed(4)),
                 finalScore: Number(finalScore.toFixed(4)),
               }

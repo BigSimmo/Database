@@ -421,6 +421,8 @@ export type SearchScoreExplanation = {
    * this retains the magnitude of boosts and signed penalties after confidence saturates.
    */
   rankScore: number;
+  /** Live-eval-gated retrieval score used for the final released search order. */
+  releaseRankScore?: number;
   /** Existing public confidence signal, clamped to the inclusive 0-1 range. */
   finalScore: number;
   finalRank?: number;
