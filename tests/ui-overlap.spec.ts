@@ -62,8 +62,19 @@ async function mockDemoDashboard(page: Page) {
 }
 
 async function gotoHome(page: Page) {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.locator("header#search").waitFor({ state: "visible", timeout: 30_000 });
+  // Pin mode=answer so GlobalSearchShell does not immediately router.replace()
+  // for a stored landing preference. That replace can briefly leave two mounted
+  // shells (and two header#search nodes), which trips Playwright strict mode.
+  await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+  const searchHeader = page.locator("header#search");
+  // Same settle pattern as expectSingleMedicationPage in ui-smoke: Suspense /
+  // client remount can transiently yield two banners. Wait for exactly one so
+  // a permanent double-render still fails toHaveCount(1).
+  if ((await searchHeader.count()) !== 1) {
+    await expect(searchHeader).toHaveCount(1, { timeout: 30_000 });
+  }
+  await expect(searchHeader).toHaveCount(1, { timeout: 30_000 });
+  await expect(searchHeader).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Open answer options" }).waitFor({ state: "visible", timeout: 30_000 });
 }
 
