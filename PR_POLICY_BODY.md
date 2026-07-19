@@ -31,6 +31,7 @@ Touched extractors/document.ts (fail-closed Python binary resolution / process-t
 - [x] Demo/synthetic content remains clearly separated from real clinical sources
 - [x] Source metadata, review status, and outdated/unknown-source behavior remain conservative
 - [x] Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed
+
 ## Notes
 
 - Phone gate reuses `phoneSearchLayoutMediaQuery` (`max-width: 639px`).
