@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Session } from "@supabase/supabase-js";
 import {
   authorizationHeadersForAccessToken,
+  isDefinitiveAuthValidationError,
   isUsableBrowserSupabaseKey,
   resolveInitialAuthState,
 } from "../src/lib/supabase/client";
@@ -40,6 +41,13 @@ describe("browser auth helpers", () => {
     expect(isUsableBrowserSupabaseKey("sb_publishable_1234567890abcdef")).toBe(true);
     expect(isUsableBrowserSupabaseKey("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.signature")).toBe(true);
   });
+
+  it("distinguishes definitive token rejection from transient auth outages", () => {
+    expect(isDefinitiveAuthValidationError({ status: 401, code: "bad_jwt", message: "JWT expired" })).toBe(true);
+    expect(isDefinitiveAuthValidationError({ code: "session_not_found", message: "Session not found" })).toBe(true);
+    expect(isDefinitiveAuthValidationError({ status: 503, message: "Auth service unavailable" })).toBe(false);
+    expect(isDefinitiveAuthValidationError(new TypeError("Failed to fetch"))).toBe(false);
+  });
 });
 
 describe("resolveInitialAuthState — getUser-verified initial auth (audit D3)", () => {
@@ -52,7 +60,7 @@ describe("resolveInitialAuthState — getUser-verified initial auth (audit D3)",
   });
 
   it("treats a stored session with no server-verified user as signed out (stale/tampered token)", () => {
-    // getUser() failed or returned no user, but a session still sits in local storage —
+    // getUser() definitively rejected the token or returned no user, but a session still sits in local storage —
     // the exact case getSession() alone would have trusted as authenticated.
     expect(resolveInitialAuthState({ verifiedUserId: null, session: fakeSession("user-1") })).toEqual({
       status: "signed_out",

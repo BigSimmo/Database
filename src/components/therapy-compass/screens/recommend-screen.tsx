@@ -142,8 +142,10 @@ export function RecommendScreen() {
                     type="button"
                     className="tc-btn tc-screens-recommend-screen-022"
                     onClick={() => b.openSheet(top.slug)}
+                    disabled={!top.patientSheetAvailable}
+                    title={top.patientSheetAvailable ? undefined : "This record has no patient sheet"}
                   >
-                    Sheet
+                    {top.patientSheetAvailable ? "Sheet" : "Sheet unavailable"}
                   </button>
                 </div>
               </MatchCell>
@@ -179,8 +181,10 @@ export function RecommendScreen() {
                     type="button"
                     className="tc-btn tc-screens-recommend-screen-033"
                     onClick={() => b.openSheet(t.slug)}
+                    disabled={!t.patientSheetAvailable}
+                    title={t.patientSheetAvailable ? undefined : "This record has no patient sheet"}
                   >
-                    Sheet
+                    {t.patientSheetAvailable ? "Sheet" : "Sheet unavailable"}
                   </button>
                 </div>
               </div>

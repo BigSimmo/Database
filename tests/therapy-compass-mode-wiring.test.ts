@@ -21,9 +21,16 @@ describe("Therapy Compass production-mode wiring", () => {
   });
 
   it("ships the dataset at the non-mockups public path the loader points to", () => {
-    for (const file of ["therapies.json", "pathways.json", "reference.json"]) {
+    for (const file of ["therapies.json", "therapies-index.json", "pathways.json", "reference.json"]) {
       expect(existsSync(new URL(file, dataDir))).toBe(true);
     }
+  });
+
+  it("ships a materially smaller catalogue index for browse and search routes", () => {
+    const fullSize = readFileSync(new URL("therapies.json", dataDir)).byteLength;
+    const indexSize = readFileSync(new URL("therapies-index.json", dataDir)).byteLength;
+    expect(indexSize).toBeLessThan(fullSize * 0.4);
+    expect(loaderSrc).toContain('options.catalogue === "full" ? "therapies.json" : "therapies-index.json"');
   });
 
   it("keeps therapy-compass route-owned when the shared composer has a submitted query", () => {

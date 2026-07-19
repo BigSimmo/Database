@@ -9,7 +9,7 @@ import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/r
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError } from "@/lib/supabase/auth";
 import { parseRouteParams } from "@/lib/validation/params";
-import { optionalQueryString, queryInteger } from "@/lib/validation/query";
+import { optionalQueryString, optionalUuidQuery, queryInteger } from "@/lib/validation/query";
 import type { ApiRateLimitResult } from "@/lib/api-rate-limit";
 import type { ClinicalDocument } from "@/lib/types";
 import type {
@@ -49,6 +49,11 @@ export const documentDetailQuerySchema = z.object({
   chunkLimit: queryInteger({ fallback: defaultChunkWindow, min: 1, max: maxChunkWindow }),
   chunkOffset: queryInteger({ fallback: 0, min: 0, max: 1_000_000 }),
   assetScope: z.enum(["document", "window"]).default("document"),
+});
+
+/** API requests only accept persisted chunk UUIDs; the page schema remains broad for demo anchors. */
+export const documentDetailApiQuerySchema = documentDetailQuerySchema.extend({
+  chunk: optionalUuidQuery(),
 });
 
 export type DocumentDetailQuery = {

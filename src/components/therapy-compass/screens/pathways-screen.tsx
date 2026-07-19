@@ -15,7 +15,10 @@ export function PathwaysScreen() {
 
   if (b.loading || !pathway) return <LoadingState label="Loading pathways…" />;
 
-  const firstLinkedSlug = pathway.steps.find((st) => st.therapySlug)?.therapySlug ?? null;
+  const firstLinkedSlug =
+    pathway.steps
+      .map((step) => (step.therapySlug ? bySlug.get(step.therapySlug) : undefined))
+      .find((therapy) => therapy?.patientSheetAvailable)?.slug ?? null;
   const copyPathway = () => {
     if (typeof navigator === "undefined" || !navigator.clipboard) return;
     const lines = pathway.steps.map((st, i) => {
@@ -170,7 +173,7 @@ export function PathwaysScreen() {
             disabled={!firstLinkedSlug}
           >
             <FileTextIcon size={15} />
-            Patient sheet
+            {firstLinkedSlug ? "Patient sheet" : "Patient sheet unavailable"}
           </button>
         </div>
       </div>

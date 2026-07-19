@@ -173,6 +173,9 @@ function answerEvidenceScore(tokens: string[], phrases: string[], result: Search
     contentCoverage * 0.34 + titleCoverage * 0.12 + sectionCoverage * 0.1 + metadataCoverage * 0.08;
   const weakOverlapPenalty = combinedCoverage < 0.2 ? -0.18 : combinedCoverage < 0.34 ? -0.07 : 0;
   const adjacentOnlyPenalty = contentCoverage < 0.16 && adjacentCoverage > contentCoverage ? -0.08 : 0;
+  // The semantic reranker only runs for a narrow deterministic ambiguity band. Preserve its
+  // bounded relevance signal here so the answer-specific ranking cannot silently undo it.
+  const semanticRerankContribution = (result.score_explanation?.semanticRerankScore ?? 0) * 0.1;
 
   // Dynamic boilerplate suppression: heavier penalty for common disclaimers
   // that don't match the specific clinical query.
@@ -219,6 +222,7 @@ function answerEvidenceScore(tokens: string[], phrases: string[], result: Search
       phraseCoverage * 0.12 +
       classSignalScore(queryClass, result, texts.combined) +
       sourceQualityScore(result) +
+      semanticRerankContribution +
       weakOverlapPenalty +
       adjacentOnlyPenalty +
       boilerplatePenalty +

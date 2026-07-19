@@ -11,7 +11,7 @@ import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } f
 import { writeAuditLog } from "@/lib/audit";
 import {
   DocumentDetailRateLimitError,
-  documentDetailQuerySchema,
+  documentDetailApiQuerySchema,
   loadAuthorizedDocumentDetail,
 } from "@/lib/document-detail";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -114,7 +114,7 @@ async function updateStorageCleanupJob(args: {
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: rawId } = await params;
-    const detailQuery = parseRequestQuery(request, documentDetailQuerySchema, "Invalid document detail query.");
+    const detailQuery = parseRequestQuery(request, documentDetailApiQuerySchema, "Invalid document detail query.");
     const payload = await loadAuthorizedDocumentDetail({ request, rawId, query: detailQuery });
     return NextResponse.json(payload);
   } catch (error) {
