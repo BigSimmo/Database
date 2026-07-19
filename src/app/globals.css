@@ -1339,8 +1339,8 @@ summary::-webkit-details-marker {
   }
 
   .medication-results-inset {
-    padding-left: max(1rem, var(--safe-area-left));
-    padding-right: max(1rem, var(--safe-area-right));
+    padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
+    padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
   }
 
   .medication-also-matches,
@@ -1354,16 +1354,16 @@ summary::-webkit-details-marker {
   .medication-also-matches,
   .medication-patient-strip > summary,
   .medication-patient-strip > div {
-    padding-left: max(1rem, var(--safe-area-left));
-    padding-right: max(1rem, var(--safe-area-right));
+    padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
+    padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
   }
 
   .medication-filter-strip {
     overscroll-behavior-inline: contain;
-    scroll-padding-left: max(1rem, var(--safe-area-left));
-    scroll-padding-right: max(1rem, var(--safe-area-right));
-    padding-left: max(1rem, var(--safe-area-left));
-    padding-right: max(1rem, var(--safe-area-right));
+    scroll-padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
+    scroll-padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
+    padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
+    padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
   }
 
   .medication-mobile-results {
@@ -1378,8 +1378,8 @@ summary::-webkit-details-marker {
     border-left: 0;
     border-radius: 0;
     padding-block: 0.75rem;
-    padding-left: max(1rem, var(--safe-area-left));
-    padding-right: max(1rem, var(--safe-area-right));
+    padding-left: max(1.75rem, calc(var(--safe-area-left) + 1rem));
+    padding-right: max(1.75rem, calc(var(--safe-area-right) + 1rem));
     box-shadow: none;
   }
 
