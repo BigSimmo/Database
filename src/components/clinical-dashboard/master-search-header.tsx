@@ -185,7 +185,7 @@ export function MasterSearchHeader({
   onMobileBack,
   hideOnScroll,
   onBottomComposerHiddenChange,
-  canAccessFavourites = true,
+  canAccessFavourites = false,
   onRequestAccountSetup,
 }: {
   demoMode: boolean;
@@ -266,7 +266,8 @@ export function MasterSearchHeader({
   /**
    * Favourites are account-scoped. When false, omit Favourites from the mode menu
    * and route favourites actions to account setup instead of switching mode.
-   * Defaults to true for backward-compatible call sites (tests/story fixtures).
+   * Defaults to false (fail closed) so guests never see Favourites unless the host
+   * explicitly grants access from the current session / demo mode.
    */
   canAccessFavourites?: boolean;
   /** Invoked when the user tries to open Favourites without access. */
@@ -274,7 +275,7 @@ export function MasterSearchHeader({
 }) {
   const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
     authenticated: canAccessFavourites,
-    demoMode: false,
+    demoMode,
   });
   const trimmedQuery = query.trim();
   const selectedSearch = appModeSearchConfig(searchMode);

@@ -673,6 +673,7 @@ export function ClinicalDashboard({
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [accountSetupOpen, setAccountSetupOpen] = useState(false);
+  const [accountSetupIntent, setAccountSetupIntent] = useState<"default" | "favourites">("default");
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
@@ -811,6 +812,7 @@ export function ClinicalDashboard({
     authUnavailableFallback: browserAuthUnavailableDemoFallback,
     localNoAuthMode,
   });
+  const favouritesAccessible = sessionFavouritesAccessible(auth.status, clientDemoMode);
   const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
   const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
   useEffect(() => {
@@ -907,16 +909,26 @@ export function ClinicalDashboard({
   }, [closeDashboardTransientSurfaces]);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
+  const openAccountSetup = useCallback(
+    (intent: "default" | "favourites" = "default") => {
+      closeDashboardTransientSurfaces("accountSetup");
+      setAccountSetupIntent(intent);
+      setAccountSetupOpen(true);
+    },
+    [closeDashboardTransientSurfaces],
+  );
   const openAccountProfile = useCallback(() => {
     if (sidebarIdentity.signedIn) {
       closeDashboardTransientSurfaces("settings");
       setSettingsOpen(true);
       return;
     }
-    closeDashboardTransientSurfaces("accountSetup");
-    setAccountSetupOpen(true);
-  }, [closeDashboardTransientSurfaces, sidebarIdentity.signedIn]);
-  const closeAccountSetup = useCallback(() => setAccountSetupOpen(false), []);
+    openAccountSetup("default");
+  }, [closeDashboardTransientSurfaces, openAccountSetup, sidebarIdentity.signedIn]);
+  const closeAccountSetup = useCallback(() => {
+    setAccountSetupOpen(false);
+    setAccountSetupIntent("default");
+  }, []);
   const prefetchApplications = useCallback(() => {
     router.prefetch("/?mode=tools");
     router.prefetch("/favourites");
@@ -2760,6 +2772,10 @@ export function ClinicalDashboard({
   }
 
   function selectSearchMode(mode: AppModeId) {
+    if (mode === "favourites" && !favouritesAccessible) {
+      openAccountSetup("favourites");
+      return;
+    }
     modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setQuery("");
@@ -3476,7 +3492,7 @@ export function ClinicalDashboard({
         theme={theme}
         onToggleTheme={toggleTheme}
         onPrefetchApplications={prefetchApplications}
-        showAccountLibrary={sessionFavouritesAccessible(auth.status, clientDemoMode)}
+        showAccountLibrary={favouritesAccessible}
       />
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
@@ -3493,6 +3509,8 @@ export function ClinicalDashboard({
           realDataReady={canRunSearch}
           onQueryChange={setQuery}
           onSearchModeChange={selectSearchMode}
+          canAccessFavourites={favouritesAccessible}
+          onRequestAccountSetup={() => openAccountSetup("favourites")}
           onAsk={ask}
           onClearQuery={() => {
             setQuery("");
@@ -4248,7 +4266,7 @@ export function ClinicalDashboard({
           onSignOut={auth.signOut}
           onOpenGuide={openGuide}
         />
-        <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} />
+        <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
         <ClinicalMobileSidebar
           open={mobileSidebarOpen}
           recentQueries={recentQueries}
@@ -4263,7 +4281,7 @@ export function ClinicalDashboard({
           theme={theme}
           onToggleTheme={toggleTheme}
           onPrefetchApplications={prefetchApplications}
-          showAccountLibrary={sessionFavouritesAccessible(auth.status, clientDemoMode)}
+          showAccountLibrary={favouritesAccessible}
         />
       </div>
     </div>

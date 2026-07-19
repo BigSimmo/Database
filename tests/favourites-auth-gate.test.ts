@@ -11,6 +11,7 @@ describe("favourites auth gate", () => {
     const sidebar = source("src/components/clinical-dashboard/ClinicalSidebar.tsx");
     const modes = source("src/lib/app-modes.ts");
     const shell = source("src/components/clinical-dashboard/global-search-shell.tsx");
+    const dashboard = source("src/components/ClinicalDashboard.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
     const library = source("src/components/clinical-dashboard/favourites-command-library-page.tsx");
     const accountSetup = source("src/components/clinical-dashboard/account-setup-dialog.tsx");
@@ -29,9 +30,17 @@ describe("favourites auth gate", () => {
     expect(shell).toContain("useFavouritesAccess");
     expect(shell).toContain('openAccountSetup("favourites")');
 
+    expect(dashboard).toContain("canAccessFavourites={favouritesAccessible}");
+    expect(dashboard).toContain("showAccountLibrary={favouritesAccessible}");
+    expect(dashboard).toContain('openAccountSetup("favourites")');
+    expect(dashboard).toContain("intent={accountSetupIntent}");
+    expect(dashboard).toContain('mode === "favourites" && !favouritesAccessible');
+
     expect(header).toContain("canAccessFavourites");
+    expect(header).toContain("canAccessFavourites = false");
     expect(header).toContain("visibleAppModeDefinitionsForSession");
     expect(header).toContain("onRequestAccountSetup");
+    expect(header).toContain("demoMode,");
 
     expect(library).toContain("canAccessFavouritesMode");
     expect(library).toContain('intent="favourites"');
