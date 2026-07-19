@@ -1346,7 +1346,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     // Full list must be present (not clipped out of the DOM by the old max-height panel).
     const modeOptions = appModeMenu.getByRole("menuitemradio");
-    await expect(modeOptions).toHaveCount(await modeOptions.count());
     expect(await modeOptions.count()).toBeGreaterThanOrEqual(10);
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
