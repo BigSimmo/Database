@@ -1,9 +1,20 @@
 import Link from "next/link";
 import type { ComponentType, CSSProperties, ReactNode } from "react";
-import { ArrowLeft, CheckCircle2, ChevronRight, Info, Minus, ShieldAlert, Tags } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  ChevronRight,
+  ChevronsUpDown,
+  Info,
+  Minus,
+  ShieldAlert,
+  Tags,
+} from "lucide-react";
 
 import { cn, eyebrowText, pageContainer } from "@/components/ui-primitives";
-import type { SpecifierRecord } from "@/lib/specifiers";
+import type { SpecifierFamily, SpecifierRecord } from "@/lib/specifiers";
+import { specifierFamilies } from "@/lib/specifiers";
 import type { SpecifierSourceStatus } from "@/lib/specifiers-search-index";
 
 export const specifierCard =
@@ -49,10 +60,10 @@ export function SpecifierBreadcrumbs({ current }: { current?: string }) {
 
 export function SpecifierSubnav({ active }: { active: "search" | "builder" | "compare" | "map" }) {
   const items = [
-    { id: "search" as const, label: "Find", href: "/specifiers" },
-    { id: "builder" as const, label: "Build wording", href: "/specifiers/builder" },
-    { id: "compare" as const, label: "Compare", href: "/specifiers/compare" },
-    { id: "map" as const, label: "Map", href: "/specifiers/map" },
+    { id: "search" as const, label: "Find", shortLabel: "Find", href: "/specifiers" },
+    { id: "builder" as const, label: "Build wording", shortLabel: "Build", href: "/specifiers/builder" },
+    { id: "compare" as const, label: "Compare", shortLabel: "Compare", href: "/specifiers/compare" },
+    { id: "map" as const, label: "Map", shortLabel: "Map", href: "/specifiers/map" },
   ];
 
   return (
@@ -72,10 +83,156 @@ export function SpecifierSubnav({ active }: { active: "search" | "builder" | "co
               : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
           )}
         >
-          {item.label}
+          <span className="sm:hidden">{item.shortLabel}</span>
+          <span className="hidden sm:inline">{item.label}</span>
         </Link>
       ))}
     </nav>
+  );
+}
+
+const familyChipBase =
+  "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-3 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm";
+const familyChipActive =
+  "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]";
+const familyChipIdle =
+  "border-[color:var(--border)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)]";
+
+export function SpecifierFamilyFilterChips({
+  value,
+  onChange,
+}: {
+  value: "all" | SpecifierFamily;
+  onChange: (value: "all" | SpecifierFamily) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="Filter by specifier family"
+      className="polished-scroll flex min-w-0 flex-1 gap-1.5 overflow-x-auto"
+    >
+      {specifierFamilies.map((option) => {
+        const active = value === option.id;
+        return (
+          <button
+            key={option.id}
+            type="button"
+            onClick={() => onChange(option.id)}
+            aria-pressed={active}
+            className={cn(familyChipBase, active ? familyChipActive : familyChipIdle)}
+          >
+            <span className="sm:hidden">{option.shortLabel}</span>
+            <span className="hidden sm:inline">{option.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export function SpecifierDiagnosisFilter({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <label
+      className={cn(
+        "relative inline-flex min-h-9 w-auto max-w-[11rem] shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
+        "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
+      )}
+    >
+      <span className="text-[color:var(--text-soft)]">Diagnosis</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label="Filter by diagnosis"
+        className="min-w-0 flex-1 cursor-pointer appearance-none truncate bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none]"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <ChevronsUpDown
+        className="pointer-events-none absolute right-2 h-3.5 w-3.5 text-[color:var(--text-soft)]"
+        aria-hidden
+      />
+    </label>
+  );
+}
+
+export function SpecifierMatchCard({ record, isTopMatch }: { record: SpecifierRecord; isTopMatch: boolean }) {
+  return (
+    <article
+      className={cn(
+        specifierCard,
+        "group overflow-hidden transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
+        isTopMatch && "border-l-[3px] border-l-[color:var(--clinical-accent)]",
+      )}
+    >
+      <Link
+        href={`/specifiers/${record.slug}`}
+        aria-label={`Open ${record.name}`}
+        className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]"
+      >
+        <div className="grid gap-3 p-3.5 sm:grid-cols-[minmax(0,1fr)_minmax(13rem,0.5fr)] sm:items-start sm:gap-4 sm:p-5">
+          <div className="min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <span className="text-lg font-extrabold text-[color:var(--text-heading)] transition group-hover:text-[color:var(--clinical-accent)] sm:text-xl">
+                  {record.name}
+                </span>
+                {isTopMatch ? (
+                  <span className="inline-flex min-h-6 items-center gap-1 rounded-md bg-[color:var(--success-soft)] px-2 text-2xs font-extrabold text-[color:var(--success)]">
+                    <CheckCircle2 className="h-3 w-3" aria-hidden />
+                    Top match
+                  </span>
+                ) : null}
+              </div>
+              <ArrowRight
+                className="mt-1 h-4 w-4 shrink-0 text-[color:var(--text-soft)] transition group-hover:translate-x-0.5 group-hover:text-[color:var(--clinical-accent)] motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                aria-hidden
+              />
+            </div>
+            <p className="mt-1.5 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+              {record.summary}
+            </p>
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              <SpecifierFamilyBadge record={record} />
+              <DiagnosisChips values={record.appliesTo.slice(0, 2)} />
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2.5 sm:mt-0.5">
+            <p className={eyebrowText}>Deciding signal</p>
+            <p className="mt-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
+              {record.clinicalSignal}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)]/55 sm:grid-cols-2">
+          <div className="px-3 py-2.5 sm:px-5 sm:py-3">
+            <p className={eyebrowText}>Ask this</p>
+            <p className="mt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
+              {record.decisionQuestion}
+            </p>
+          </div>
+          <div className="border-t border-[color:var(--border)] px-3 py-2.5 sm:border-l sm:border-t-0 sm:px-5 sm:py-3">
+            <p className={eyebrowText}>Typical language</p>
+            <p className="mt-1 text-xs font-medium leading-5 text-[color:var(--text-muted)] sm:text-sm">
+              &ldquo;{record.patientLanguage[0]}&rdquo;
+            </p>
+          </div>
+        </div>
+      </Link>
+    </article>
   );
 }
 
