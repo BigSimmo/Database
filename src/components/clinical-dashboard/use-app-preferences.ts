@@ -205,6 +205,26 @@ export function applyPreferenceSideEffects(preferences: AppPreferences) {
   }
 }
 
+/**
+ * Maps the saved default-landing preference onto the dashboard mode a bare "/"
+ * load should open in. "ask" is the built-in default (no override needed), so
+ * it — and any unset/invalid value — returns null.
+ */
+export function landingModeForPreference(landing: LandingPreference): "documents" | "tools" | null {
+  if (landing === "search") return "documents";
+  if (landing === "browse") return "tools";
+  return null;
+}
+
+/**
+ * One-shot, non-hook read of the stored preferences for callers that apply a
+ * preference outside React state (e.g. the landing-mode redirect on mount).
+ * Live consumers should use `useAppPreferences` so they re-render on change.
+ */
+export function readAppPreferences(): AppPreferences {
+  return getSnapshot();
+}
+
 export function useAppPreferences() {
   const preferences = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
