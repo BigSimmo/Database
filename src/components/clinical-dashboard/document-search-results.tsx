@@ -428,13 +428,13 @@ function DocumentResultsControls({
     <section
       aria-label="Sort and filter documents"
       data-testid="document-results-controls"
-      className="flex flex-nowrap items-center gap-2"
+      className="flex flex-nowrap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
     >
       {showTypeFilters ? (
         <div
           role="group"
           aria-label="Filter by result type"
-          className="polished-scroll flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
+          className="polished-scroll flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
         >
           {resultTabs.map((tab) => {
             const active = tab.key === activeResultType;
@@ -446,6 +446,7 @@ function DocumentResultsControls({
                 onClick={() => onResultTypeChange(tab.key)}
                 className={cn(
                   "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-md px-2.5 text-2xs font-bold transition motion-reduce:transition-none",
+                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                   active
                     ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
                     : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
@@ -458,17 +459,23 @@ function DocumentResultsControls({
           })}
         </div>
       ) : (
-        <div className="min-w-0 flex-1" />
+        <div className="min-w-0 flex-1" aria-hidden="true" />
       )}
-      <div className="ml-auto flex shrink-0 items-center gap-1.5">
-        <ResultSortControl value={sortValue} onChange={onSortChange} className="min-h-tap" />
+      <div className="flex shrink-0 items-center gap-1">
+        <ResultSortControl
+          value={sortValue}
+          onChange={onSortChange}
+          compact
+          className="min-h-tap border-[color:var(--border)] bg-[color:var(--surface)]"
+        />
         <button
           type="button"
           onClick={onOpenLibrary}
           aria-label="Open document library"
+          title="Open document library"
           className={cn(floatingControl, "min-h-tap min-w-tap gap-1.5 rounded-lg px-2.5 text-xs sm:px-3")}
         >
-          <FolderOpen aria-hidden="true" className="h-4 w-4 shrink-0" />
+          <FolderOpen aria-hidden="true" className="size-icon-md shrink-0" />
           <span className="hidden sm:inline">Library</span>
         </button>
       </div>
@@ -939,10 +946,6 @@ function DocumentSearchResultsPanelImpl({
         />
       ) : null}
 
-      {!showRecordMatches && (trimmedQuery && !shouldShowHome) ? (
-        <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-      ) : null}
-
       {unavailableMessage ? (
         <div
           role="alert"
@@ -950,6 +953,10 @@ function DocumentSearchResultsPanelImpl({
         >
           {unavailableMessage}
         </div>
+      ) : null}
+
+      {!showRecordMatches && trimmedQuery && !shouldShowHome ? (
+        <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
       ) : null}
 
       {showRecordMatches ? (
