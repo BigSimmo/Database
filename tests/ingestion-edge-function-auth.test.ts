@@ -1,0 +1,52 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+import { hasServiceRoleAuthorization } from "../supabase/functions/ingestion-worker/auth";
+
+const root = process.cwd();
+const source = readFileSync(join(root, "supabase/functions/ingestion-worker/index.ts"), "utf8");
+const config = readFileSync(join(root, "supabase/config.toml"), "utf8");
+
+function tokenForRole(role: string): string {
+  const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ role })}.signature`;
+}
+
+describe("ingestion-worker Edge Function authorization", () => {
+  it("accepts only a gateway-verified service-role JWT", () => {
+    expect(hasServiceRoleAuthorization(`Bearer ${tokenForRole("service_role")}`)).toBe(true);
+    expect(hasServiceRoleAuthorization(`Bearer ${tokenForRole("authenticated")}`)).toBe(false);
+    expect(hasServiceRoleAuthorization(`Bearer ${tokenForRole("anon")}`)).toBe(false);
+    expect(hasServiceRoleAuthorization("Bearer malformed")).toBe(false);
+    expect(hasServiceRoleAuthorization(null)).toBe(false);
+  });
+
+  it("keeps gateway verification enabled and rejects state-changing GET requests", () => {
+    expect(config).toContain("[functions.ingestion-worker]\nverify_jwt = true");
+    expect(source).toContain('if (req.method !== "POST")');
+    expect(source).toContain('hasServiceRoleAuthorization(req.headers.get("authorization"))');
+    expect(source.indexOf("hasServiceRoleAuthorization")).toBeLessThan(source.indexOf("public.claim_ingestion_jobs"));
+  });
+
+  it("fences completion and failure mutations to the worker that owns the lease", () => {
+    expect(source).toContain("async function processJob(job: ClaimedJob, workerId: string): Promise<boolean>");
+    expect(source).toMatch(/complete_ingestion_job\([\s\S]*?\$\{workerId\}[\s\S]*?\) as result/);
+    expect(source).toMatch(/fail_or_retry_ingestion_job\([\s\S]*?\$\{workerId\}[\s\S]*?\) as result/);
+    expect(source).toContain("rows[0]?.result?.ok === true");
+    expect(source).toContain("lease_lost: leaseLost");
+  });
+
+  it("prepares replacement embeddings before swapping them atomically", () => {
+    const prepareIndex = source.indexOf("const prepared = await Promise.all");
+    const transactionIndex = source.indexOf("await sql.begin(async (transaction)");
+    const deleteIndex = source.indexOf("delete from public.document_embedding_fields");
+
+    expect(prepareIndex).toBeGreaterThan(0);
+    expect(transactionIndex).toBeGreaterThan(prepareIndex);
+    expect(deleteIndex).toBeGreaterThan(transactionIndex);
+    expect(source).toContain("for (const entry of prepared)");
+    expect(source).toContain("await transaction`");
+  });
+});

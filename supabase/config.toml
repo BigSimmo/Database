@@ -1,2 +1,5 @@
 [functions.indexing-v3-agent]
 verify_jwt = false
+
+[functions.ingestion-worker]
+verify_jwt = true
