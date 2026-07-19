@@ -194,6 +194,36 @@ describe("retrieval source selection", () => {
     expect(selected.summary.matchedSignals).toContain("route");
   });
 
+  it("anchors medication-monitoring selection to the requested clinical subject", () => {
+    const selection = selectRetrievalEvidence({
+      query: "What monitoring is required for lithium therapy?",
+      queryClass: "medication_dose_risk",
+      topK: 2,
+      maxResultsPerDocument: 2,
+      results: [
+        source({
+          id: "generic-cardiac-monitoring",
+          document_id: "cardiac-doc",
+          title: "Cardiac Monitoring",
+          content: "Admission monitoring requirements include continuous cardiac observations.",
+          hybrid_score: 0.95,
+        }),
+        source({
+          id: "lithium-monitoring",
+          document_id: "lithium-doc",
+          title: "Lithium Therapy",
+          content: "Lithium monitoring requires serum levels and renal and thyroid function tests.",
+          hybrid_score: 0.55,
+        }),
+      ],
+    });
+
+    expect(selection.intent.requiredTermSignals).toContain("clinical_subject");
+    expect(selection.results[0].id).toBe("lithium-monitoring");
+    expect(selection.results[1].match_explanation?.reasons).toContain("retrieval_required_signal:clinical_subject");
+    expect(selection.results[1].match_explanation?.reasons).not.toContain("retrieval_signal:clinical_subject");
+  });
+
   it("promotes flowchart next-step evidence for red-zone pathway questions", () => {
     const selection = selectRetrievalEvidence({
       query: "In the clinical flowchart, what is the next step after red-zone risk?",
