@@ -564,12 +564,17 @@ function resultsHaveReleaseRankScore(results: SearchResult[]) {
  *
  * App-layer rank scores remain available to answer evidence ranking and telemetry, but the
  * live corpus gate has not validated using them as the final retrieval order. Resolve duplicate
- * chunks to their strongest released-hybrid copy. Distinct results keep the clinical selection's
- * existing order unless `preferSecondStageScore` is enabled and the current set carries bounded
- * second-stage release scores.
+ * chunks to their strongest released-hybrid copy. When second-stage ordering was requested but the
+ * final set has no valid release scores, distinct results keep the clinical selection's existing
+ * order. Otherwise they use the live-proven raw-hybrid or bounded second-stage order.
  */
-export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSecondStageScore = false) {
+export function stabilizeReleasedSearchOrder(
+  results: SearchResult[],
+  preferSecondStageScore = false,
+  preserveIncomingOrder = false,
+) {
   const useSecondStageReleaseOrder = preferSecondStageScore && resultsHaveReleaseRankScore(results);
+  const preserveCurrentOrder = preserveIncomingOrder || (preferSecondStageScore && !useSecondStageReleaseOrder);
   const compareReleasedHybridStrength = (left: SearchResult, right: SearchResult) => {
     const leftHybrid = left.hybrid_score ?? left.similarity ?? 0;
     const rightHybrid = right.hybrid_score ?? right.similarity ?? 0;
@@ -582,12 +587,14 @@ export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSeco
     return left.id.localeCompare(right.id);
   };
   const compareReleasedSearchOrder = (left: SearchResult, right: SearchResult) => {
-    const leftReleaseScore = isBoundedReleaseRankScore(left.score_explanation?.releaseRankScore)
-      ? left.score_explanation.releaseRankScore
-      : (left.hybrid_score ?? left.similarity ?? 0);
-    const rightReleaseScore = isBoundedReleaseRankScore(right.score_explanation?.releaseRankScore)
-      ? right.score_explanation.releaseRankScore
-      : (right.hybrid_score ?? right.similarity ?? 0);
+    const leftReleaseScore =
+      useSecondStageReleaseOrder && isBoundedReleaseRankScore(left.score_explanation?.releaseRankScore)
+        ? left.score_explanation.releaseRankScore
+        : (left.hybrid_score ?? left.similarity ?? 0);
+    const rightReleaseScore =
+      useSecondStageReleaseOrder && isBoundedReleaseRankScore(right.score_explanation?.releaseRankScore)
+        ? right.score_explanation.releaseRankScore
+        : (right.hybrid_score ?? right.similarity ?? 0);
     if (rightReleaseScore !== leftReleaseScore) return rightReleaseScore - leftReleaseScore;
     const leftSimilarity = left.similarity ?? 0;
     const rightSimilarity = right.similarity ?? 0;
@@ -602,9 +609,11 @@ export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSeco
     if (!current || compareReleasedHybridStrength(result, current) < 0) strongestById.set(result.id, result);
   }
   const distinctResults = [...strongestById.values()];
-  const releasedResults = useSecondStageReleaseOrder
-    ? distinctResults.sort(compareReleasedSearchOrder)
-    : distinctResults;
+  const releasedResults = preserveCurrentOrder
+    ? distinctResults
+    : useSecondStageReleaseOrder
+      ? distinctResults.sort(compareReleasedSearchOrder)
+      : distinctResults.sort(compareReleasedHybridStrength);
   const deduped = releasedResults.map((result, index) =>
     result.score_explanation
       ? { ...result, score_explanation: { ...result.score_explanation, finalRank: index + 1 } }
@@ -633,7 +642,8 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
 
   const useSecondStageReleaseOrder = resultsHaveReleaseRankScore(results);
   telemetry.second_stage_rerank_used = useSecondStageReleaseOrder;
-  stabilizeReleasedSearchOrder(results, useSecondStageReleaseOrder);
+  const preserveSemanticRerankOrder = telemetry.semantic_rerank_outcome === "reordered" && !useSecondStageReleaseOrder;
+  stabilizeReleasedSearchOrder(results, useSecondStageReleaseOrder, preserveSemanticRerankOrder);
   const coverageScores = results
     .map((result) => Math.max(0, result.hybrid_score ?? result.similarity ?? 0))
     .sort((left, right) => right - left);
