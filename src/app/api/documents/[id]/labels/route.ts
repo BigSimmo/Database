@@ -110,7 +110,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const normalized = parseManualLabel(parsed);
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
 
     const rateLimit = await consumeApiRateLimit({
       supabase,
@@ -178,7 +178,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const parsed = await parseJsonBody(request, labelPatchSchema, "Enter a manual tag or label review action.");
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
 
     const rateLimit = await consumeApiRateLimit({
       supabase,
@@ -287,7 +287,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     const parsed = await parseJsonBody(request, manualLabelDeleteSchema, "Choose a manual tag to remove.");
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
 
     const rateLimit = await consumeApiRateLimit({
       supabase,

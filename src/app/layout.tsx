@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import { AuthProvider } from "@/lib/supabase/client";
+import { AccountDataProvider } from "@/components/account-data-provider";
 import { PwaLifecycle } from "@/components/pwa-lifecycle";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { resolveMetadataBase } from "@/lib/metadata-base";
@@ -101,7 +102,9 @@ export default async function RootLayout({
         </a>
         <WebVitalsReporter />
         <PwaLifecycle />
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <AccountDataProvider>{children}</AccountDataProvider>
+        </AuthProvider>
       </body>
     </html>
   );

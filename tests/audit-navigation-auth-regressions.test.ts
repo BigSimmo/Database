@@ -143,7 +143,7 @@ describe("audit navigation and auth regressions", () => {
       "function openUploadDrawer()",
       "function openEvidenceDrawer()",
     );
-    expect(uploadMutationContract).toContain("if (!canUsePrivateApis) {");
+    expect(uploadMutationContract).toContain("if (!canUseAdministrativeApis) {");
   });
 
   it("keeps the private upload workspace tabs and panels programmatically associated", () => {

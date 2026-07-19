@@ -129,7 +129,7 @@ export async function POST(request: Request) {
     const parsed = await parseJsonBody(request, bulkMetadataSchema, "Bulk edit payload is invalid.");
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
 
     const rateLimit = await consumeApiRateLimit({
       supabase,

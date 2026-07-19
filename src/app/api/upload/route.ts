@@ -2,15 +2,14 @@ import { randomUUID } from "node:crypto";
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { env, publicUploadsEnabled, publicWorkspaceOwnerId } from "@/lib/env";
+import { env } from "@/lib/env";
 import { assertAllowedFile, assertFileContentSignature, jsonError, PublicApiError } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
 import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
-import { publicAccessContext } from "@/lib/public-api-access";
+import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
 import { optionalFormText, parseFormDataFields } from "@/lib/validation/form-data";
 import { acquireUploadAdmission, parseUploadContentLength } from "@/lib/upload-admission";
@@ -95,21 +94,12 @@ export async function POST(request: Request) {
   try {
     supabase = createAdminClient();
     const adminSupabase = supabase;
-    const access = await publicAccessContext(request, adminSupabase);
-    // Anonymous ("public") uploads are pooled under the non-null PUBLIC_WORKSPACE_OWNER_ID as a
-    // moderation quarantine: pooled documents are intentionally NOT anonymously viewable and NOT in
-    // RAG retrieval (both gated on owner_id IS NULL) until an operator reviews and promotes them via
-    // scripts/promote-public-documents.ts (or the promote migration). This is the documented
-    // public-workspace model — see TEN-N3 in docs/tenancy-defense-in-depth-review.md and
-    // withOwnerReadScope in src/lib/public-api-access.ts. Do not make pooled uploads public here.
-    const uploadOwnerId = access.ownerId ?? (publicUploadsEnabled() ? publicWorkspaceOwnerId() : null);
-    if (!uploadOwnerId) {
-      return NextResponse.json({ error: "Public uploads are not configured for this workspace." }, { status: 503 });
-    }
+    const administrator = await requireAuthenticatedUser(request, adminSupabase, { administrator: true });
+    const uploadOwnerId = administrator.id;
 
     const rateLimit = await consumeSubjectApiRateLimit({
       supabase: adminSupabase,
-      subject: access.rateLimitSubject,
+      subject: { kind: "owner", ownerId: administrator.id },
       bucket: "document_upload",
       allowInMemoryFallbackOnUnavailable: false,
     });
