@@ -9,6 +9,12 @@ import { describe, expect, it } from "vitest";
 const pythonBin = process.env.PYTHON_BIN || "python";
 const hasPyMuPDF = spawnSync(pythonBin, ["-c", "import fitz"], { encoding: "utf8" }).status === 0;
 
+describe("Python PDF extraction prerequisite", () => {
+  it.runIf(Boolean(process.env.CI))("is installed in CI so extraction coverage cannot silently skip", () => {
+    expect(hasPyMuPDF).toBe(true);
+  });
+});
+
 async function writeSyntheticTablePdf(filePath: string) {
   await new Promise<void>((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margin: 40 });

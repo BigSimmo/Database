@@ -15,7 +15,7 @@ import {
   TriangleAlert,
   Zap,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import {
   categoryTheme,
@@ -27,6 +27,12 @@ import {
 } from "@/components/factsheets/factsheets-data";
 import { factsheetGlyph } from "@/components/factsheets/factsheets-icons";
 import { cn, toneDanger, toneWarning } from "@/components/ui-primitives";
+import {
+  readSavedRegistrySlugs,
+  savedFactsheetsStorageKey,
+  subscribeSavedRegistrySlugs,
+  writeSavedRegistrySlugs,
+} from "@/lib/saved-registry-storage";
 
 function accentBorder(accent: string) {
   return `color-mix(in srgb, ${accent} 35%, var(--surface))`;
@@ -40,12 +46,33 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
   const theme = categoryTheme(factsheet.category);
   const [readingLevel, setReadingLevel] = useState<"easy" | "standard">("easy");
   const [saved, setSaved] = useState(false);
+  const [saveNotice, setSaveNotice] = useState("");
   const [copied, setCopied] = useState(false);
 
   const related = relatedFactsheets(factsheet.slug);
   const moreInTopic = sameTopicFactsheets(factsheet.slug);
   const toc = tocFor(factsheet);
-  const blocks = printBlocks(factsheet);
+  const blocks = printBlocks(factsheet, readingLevel);
+
+  useEffect(() => {
+    const refresh = () => setSaved(readSavedRegistrySlugs(savedFactsheetsStorageKey).includes(factsheet.slug));
+    refresh();
+    return subscribeSavedRegistrySlugs(refresh);
+  }, [factsheet.slug]);
+
+  function toggleSaved() {
+    const current = readSavedRegistrySlugs(savedFactsheetsStorageKey);
+    const next = current.includes(factsheet.slug)
+      ? current.filter((slug) => slug !== factsheet.slug)
+      : [factsheet.slug, ...current];
+    if (!writeSavedRegistrySlugs(savedFactsheetsStorageKey, next)) {
+      setSaveNotice("Save failed. Check browser storage permissions and try again.");
+      return;
+    }
+    const nowSaved = next.includes(factsheet.slug);
+    setSaved(nowSaved);
+    setSaveNotice(nowSaved ? "Factsheet saved." : "Factsheet removed from saved items.");
+  }
 
   function downloadPdf() {
     if (typeof document === "undefined") return;
@@ -109,7 +136,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
               ) : null}
               <button
                 type="button"
-                onClick={() => setSaved((value) => !value)}
+                onClick={toggleSaved}
                 aria-pressed={saved}
                 className={cn(
                   "inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
@@ -121,6 +148,9 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
                 <Bookmark className="h-4 w-4" aria-hidden="true" fill={saved ? "currentColor" : "none"} />
                 {saved ? "Saved" : "Save"}
               </button>
+              <span aria-live="polite" className="sr-only">
+                {saveNotice}
+              </span>
               <button
                 type="button"
                 onClick={downloadPdf}
