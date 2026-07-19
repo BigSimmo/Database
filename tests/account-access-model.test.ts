@@ -61,6 +61,9 @@ describe("public content and account authorization model", () => {
     expect(documentViewer).toContain("{canUseAdministrativeApis ? (");
     expect(documentViewer).toContain("canManage={canUseAdministrativeApis}");
     expect(documentViewer).toContain("canReview={canUseAdministrativeApis}");
+    expect(documentViewer).toContain(
+      "const canSummarizeDocument = viewerState === \"ready\" && !loadingSummary && canUseAdministrativeApis",
+    );
   });
 
   it("does not turn an ordinary signed-in setup-status request into a server error", () => {
