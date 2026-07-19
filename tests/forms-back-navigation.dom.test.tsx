@@ -13,6 +13,13 @@ vi.mock("next/navigation", () => ({
   useRouter: () => router,
 }));
 
+vi.mock("@/components/account-data-provider", () => ({
+  useAccountData: () => ({
+    isSaved: () => false,
+    setFavourite: vi.fn(async () => true),
+  }),
+}));
+
 beforeEach(() => {
   router.back.mockReset();
   router.push.mockReset();

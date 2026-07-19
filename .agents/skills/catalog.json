@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "name": "Everyday",
+      "skills": ["skills", "plan", "run", "test", "fix", "review", "task", "handover", "health", "audit", "export"]
+    },
+    {
+      "name": "Clinical and app",
+      "skills": ["clinical", "ui", "rag", "sources", "ingest", "reindex", "documents"]
+    },
+    {
+      "name": "Database, API, and security",
+      "skills": ["migrate", "drift", "access", "security", "privacy", "api", "data"]
+    },
+    {
+      "name": "Operations and release",
+      "skills": ["release", "deploy", "operations", "incident", "recovery", "performance", "dependencies"]
+    }
+  ],
+  "aliases": {
+    "workflows": "skills",
+    "database-flightplan": "plan",
+    "verify-triage-fix": "fix",
+    "clinical-change-proof": "clinical",
+    "live-design-sweep": "ui",
+    "rag-change-lab": "rag",
+    "operator-closeout": "operations",
+    "session-lifecycle": "task"
+  }
+}

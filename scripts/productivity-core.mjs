@@ -276,13 +276,29 @@ export function buildWorkflowPlan(workflow, files = [], options = {}) {
 export function analyzeFailureText(text = "", knownFlakes = []) {
   const value = String(text);
   const lower = value.toLowerCase();
+  const goldenCaseCount = Number.parseInt(lower.match(/(?:^|\n)\s*cases=(\d+)/)?.[1] ?? "", 10);
+  const goldenFailureCount = Number.parseInt(lower.match(/(?:^|\n)\s*failed_cases=(\d+)/)?.[1] ?? "", 10);
+  const retrievalLayers = lower.match(/(?:^|\n)\s*retrieval_layer_counts=(\{[^\n]*\})/)?.[1];
   const knownFlake = knownFlakes.find((entry) => entry.pattern && lower.includes(String(entry.pattern).toLowerCase()));
   if (knownFlake) return { category: "known-flake", confidence: "high", reason: knownFlake.id || knownFlake.pattern };
   if (/module_not_found|cannot find module|enoent|not recognized as an internal|command not found/.test(lower)) {
     return { category: "environment", confidence: "high", reason: "Missing executable, module, or path." };
   }
   if (
-    /missing.*(?:api[_ -]?key|secret|credential)|(?:api[_ -]?key|secret|credential)\s+(?:is\s+)?missing|unauthorized|forbidden|quota|rate limit|supabase project/.test(
+    Number.isInteger(goldenCaseCount) &&
+    goldenCaseCount > 0 &&
+    goldenFailureCount === goldenCaseCount &&
+    retrievalLayers === "{}"
+  ) {
+    return {
+      category: "provider-or-configuration",
+      confidence: "high",
+      reason:
+        "Every golden case failed without any retrieval layer; verify eval owner, corpus scope, and live retrieval health.",
+    };
+  }
+  if (
+    /missing.*(?:api[_ -]?key|secret|credential)|(?:api[_ -]?key|secret|credential)\s+(?:is\s+)?missing|unauthorized|forbidden|unregistered api key|insufficient[_ -]?quota|quota|billing|\b429\b|rate[_ -]?limit|too many requests|supabase project/.test(
       lower,
     )
   ) {
@@ -290,6 +306,13 @@ export function analyzeFailureText(text = "", knownFlakes = []) {
       category: "provider-or-configuration",
       confidence: "high",
       reason: "Credentials, authorization, quota, or live-provider configuration.",
+    };
+  }
+  if (Number.isInteger(goldenFailureCount) && goldenFailureCount > 0) {
+    return {
+      category: "probable-regression",
+      confidence: "high",
+      reason: `A completed golden evaluation reported ${goldenFailureCount} failed case(s).`,
     };
   }
   if (/timed? out|timeout|etimedout|browser has been closed|worker.*exited/.test(lower)) {
