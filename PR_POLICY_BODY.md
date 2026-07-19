@@ -20,7 +20,7 @@
 
 - [x] Source-backed claims still require linked source verification before clinical use
 - [x] No patient-identifiable document workflow was introduced or expanded without explicit governance approval
-- [x] Supabase target remains `[REDACTED]` (`[REDACTED]`)
+- [x] Supabase target remains `Clinical KB Database` (`sjrfecxgysukkwxsowpy`)
 - [x] Service-role keys and private document access remain server-only
 - [x] Demo/synthetic content remains clearly separated from real clinical sources
 - [x] Source metadata, review status, and outdated/unknown-source behavior remain conservative
