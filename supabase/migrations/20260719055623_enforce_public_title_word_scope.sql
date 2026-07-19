@@ -152,11 +152,7 @@ begin
       errcode = '42501',
       message = 'Unsafe postgres default privileges in schema public; title-word privacy migration blocked.',
       detail = v_status::text,
-<<<<<<<< HEAD:supabase/migrations/20260719053533_enforce_public_title_word_scope.sql
-      hint = 'Reapply migration 20260719053532_repair_postgres_default_privileges, then retry.';
-========
       hint = 'Reapply migration 20260719055609_repair_postgres_default_privileges, then retry.';
->>>>>>>> origin/main:supabase/migrations/20260719055623_enforce_public_title_word_scope.sql
   end if;
 end;
 $$;

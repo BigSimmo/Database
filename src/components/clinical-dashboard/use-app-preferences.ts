@@ -1,7 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
-import { DEFAULT_PREFERENCES, normalizePreferences, type AppPreferences } from "@/lib/account-preferences";
+import {
+  DEFAULT_PREFERENCES,
+  normalizePreferences,
+  type AppPreferences,
+  type LandingPreference,
+} from "@/lib/account-preferences";
 import { useAuthSession } from "@/lib/supabase/client";
 
 export {
