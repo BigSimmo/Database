@@ -25,6 +25,15 @@ type ClaimedJob = {
   };
 };
 
+type IngestionRpcResult = {
+  ok?: boolean;
+  reason?: string;
+};
+
+function isLeaseLost(result: IngestionRpcResult | null | undefined): boolean {
+  return result?.ok === false && result.reason === "lease_lost";
+}
+
 const SUPABASE_DB_URL = Deno.env.get("SUPABASE_DB_URL");
 if (!SUPABASE_DB_URL) throw new Error("SUPABASE_DB_URL is required");
 
@@ -151,38 +160,45 @@ async function upsertEmbeddingFields(job: ClaimedJob, summaryText: string): Prom
     { fieldType: "document_summary", content: summary.length > 0 ? summary : "Summary unavailable" },
   ];
 
-  await sql`
-    delete from public.document_embedding_fields
-    where document_id = ${docId}::uuid
-      and field_type = any(${entries.map((e) => e.fieldType)}::text[])
-  `;
+  const prepared = await Promise.all(
+    entries.map(async (entry) => ({
+      ...entry,
+      embedding: await generateEmbedding(entry.content),
+      contentHash: await sha256Hex(entry.content),
+    })),
+  );
 
-  for (const entry of entries) {
-    const embedding = await generateEmbedding(entry.content);
-    const contentHash = await sha256Hex(entry.content);
-
-    await sql`
-      insert into public.document_embedding_fields (
-        owner_id,
-        document_id,
-        source_chunk_id,
-        field_type,
-        content,
-        embedding,
-        metadata,
-        content_hash
-      ) values (
-        ${ownerId}::uuid,
-        ${docId}::uuid,
-        null,
-        ${entry.fieldType},
-        ${entry.content},
-        ${JSON.stringify(embedding)}::vector,
-        ${JSON.stringify({ generated_by: "ingestion-worker", mode: "backfill" })}::jsonb,
-        ${contentHash}
-      )
+  await sql.begin(async (tx) => {
+    await tx`
+      delete from public.document_embedding_fields
+      where document_id = ${docId}::uuid
+        and field_type = any(${entries.map((entry) => entry.fieldType)}::text[])
     `;
-  }
+
+    for (const entry of prepared) {
+      await tx`
+        insert into public.document_embedding_fields (
+          owner_id,
+          document_id,
+          source_chunk_id,
+          field_type,
+          content,
+          embedding,
+          metadata,
+          content_hash
+        ) values (
+          ${ownerId}::uuid,
+          ${docId}::uuid,
+          null,
+          ${entry.fieldType},
+          ${entry.content},
+          ${JSON.stringify(entry.embedding)}::vector,
+          ${JSON.stringify({ generated_by: "ingestion-worker", mode: "backfill" })}::jsonb,
+          ${entry.contentHash}
+        )
+      `;
+    }
+  });
 }
 
 async function markEnrichmentMetadata(documentId: string): Promise<void> {
@@ -199,19 +215,52 @@ async function markEnrichmentMetadata(documentId: string): Promise<void> {
   `;
 }
 
-async function processJob(job: ClaimedJob): Promise<void> {
-  const summary = await upsertDocumentSummary(job);
-  await upsertEmbeddingFields(job, summary);
-  await markEnrichmentMetadata(job.document_id);
-
-  await sql`
+async function completeIngestionJob(job: ClaimedJob, workerId: string): Promise<IngestionRpcResult | null> {
+  const [row] = await sql<Array<{ complete_ingestion_job: IngestionRpcResult }>>`
     select public.complete_ingestion_job(
       ${job.id}::uuid,
       ${job.document_id}::uuid,
       ${job.batch_id}::uuid,
-      ${"indexed + enrichment backfill"}
+      ${"indexed + enrichment backfill"},
+      ${workerId}
     )
   `;
+  return row?.complete_ingestion_job ?? null;
+}
+
+async function failOrRetryIngestionJob(
+  job: ClaimedJob,
+  workerId: string,
+  shouldRetry: boolean,
+  message: string,
+): Promise<IngestionRpcResult | null> {
+  const [row] = await sql<Array<{ fail_or_retry_ingestion_job: IngestionRpcResult }>>`
+    select public.fail_or_retry_ingestion_job(
+      ${job.id}::uuid,
+      ${job.document_id}::uuid,
+      ${job.batch_id}::uuid,
+      ${shouldRetry},
+      ${"indexed"},
+      ${"enrichment backfill failed"},
+      ${message},
+      ${new Date(Date.now() + 60_000).toISOString()}::timestamptz,
+      ${workerId}
+    )
+  `;
+  return row?.fail_or_retry_ingestion_job ?? null;
+}
+
+async function processJob(job: ClaimedJob, workerId: string): Promise<"completed" | "lease_lost"> {
+  const summary = await upsertDocumentSummary(job);
+  await upsertEmbeddingFields(job, summary);
+  await markEnrichmentMetadata(job.document_id);
+
+  const completion = await completeIngestionJob(job, workerId);
+  if (isLeaseLost(completion)) return "lease_lost";
+  if (!completion || completion.ok === false) {
+    throw new Error(`complete_ingestion_job did not confirm success: ${completion?.reason ?? "no result row"}`);
+  }
+  return "completed";
 }
 
 Deno.serve(async (req: Request) => {
@@ -239,31 +288,29 @@ Deno.serve(async (req: Request) => {
 
     let processed = 0;
     let failed = 0;
+    let leaseLost = 0;
     const failures: Array<{ job_id: string; document_id: string; error: string }> = [];
 
     for (const job of claimed) {
       try {
-        await processJob(job);
+        const outcome = await processJob(job, workerId);
+        if (outcome === "lease_lost") {
+          leaseLost += 1;
+          continue;
+        }
         processed += 1;
       } catch (error) {
-        failed += 1;
         const message = error instanceof Error ? error.message : JSON.stringify(error);
-        failures.push({ job_id: job.id, document_id: job.document_id, error: message });
-
         const shouldRetry = job.attempt_count < job.max_attempts;
+        const failure = await failOrRetryIngestionJob(job, workerId, shouldRetry, message);
 
-        await sql`
-          select public.fail_or_retry_ingestion_job(
-            ${job.id}::uuid,
-            ${job.document_id}::uuid,
-            ${job.batch_id}::uuid,
-            ${shouldRetry},
-            ${"indexed"},
-            ${"enrichment backfill failed"},
-            ${message},
-            ${new Date(Date.now() + 60_000).toISOString()}::timestamptz
-          )
-        `;
+        if (isLeaseLost(failure)) {
+          leaseLost += 1;
+          continue;
+        }
+
+        failed += 1;
+        failures.push({ job_id: job.id, document_id: job.document_id, error: message });
       }
     }
 
@@ -272,6 +319,7 @@ Deno.serve(async (req: Request) => {
       claimed: claimed.length,
       processed,
       failed,
+      lease_lost: leaseLost,
       failures,
     });
   } catch (error) {

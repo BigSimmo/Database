@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { resolvePythonBin } from "@/lib/python-bin";
 import { assertExpectedSupabaseProjectConfig, checkSupabaseProjectConfig } from "@/lib/supabase/project";
 
 const envSchema = z.object({
@@ -207,7 +208,7 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
-  PYTHON_BIN: z.string().default("python"),
+  PYTHON_BIN: z.string().default(resolvePythonBin()),
   NEXT_PUBLIC_DEMO_MODE: z.enum(["true", "false"]).optional().default("false"),
 });
 
