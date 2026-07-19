@@ -22,6 +22,7 @@ import {
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
+import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, floatingControl, sourceCard } from "@/components/ui-primitives";
 import { answerEmptyState, answerLoading, copyButton } from "@/lib/ui-copy";
@@ -72,7 +73,13 @@ export function AnswerEmptyState({
 }) {
   // Returning users get their prior questions back as one-tap chips so they can
   // re-run without retyping. Capped for a calm surface; storage already dedupes.
-  const recents = onSelectRecent ? recentQueries.filter((entry) => entry.trim().length > 0).slice(0, 5) : [];
+  // Gated on the "Recent searches on home" preference so the settings toggle
+  // actually controls this surface (2026-07-19 audit wiring).
+  const { preferences } = useAppPreferences();
+  const recents =
+    onSelectRecent && preferences.showRecentOnHome
+      ? recentQueries.filter((entry) => entry.trim().length > 0).slice(0, 5)
+      : [];
 
   return (
     <ModeHomeTemplate

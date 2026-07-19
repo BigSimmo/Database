@@ -599,13 +599,11 @@ export function SettingsDialog({
                 icon={PanelTop}
                 label="Default landing view"
                 description="The mode shown when you open the app."
-                notYetActive
                 labelId="settings-landing-label"
                 stacked
               >
                 <SegmentedControl
                   ariaLabelledBy="settings-landing-label"
-                  ariaDescribedBy={notYetActiveId("settings-landing-label")}
                   value={preferences.landing}
                   onChange={(value) => setPreference("landing", value)}
                   options={LANDING_OPTIONS}
@@ -626,7 +624,6 @@ export function SettingsDialog({
             <SettingsGroup>
               <SettingsToggleField
                 icon={PanelTop}
-                notYetActive
                 label="Recent searches on home"
                 description="Surface your latest questions when you land."
                 checked={preferences.showRecentOnHome}
@@ -642,7 +639,6 @@ export function SettingsDialog({
               />
               <SettingsToggleField
                 icon={BookOpen}
-                notYetActive
                 label="Compact citations"
                 description="Show tighter inline source references."
                 checked={preferences.compactCitations}
