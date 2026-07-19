@@ -976,13 +976,15 @@ export function DifferentialDetailPage({
     try {
       const nowSaved = !saved;
       const updated = await accountData.setFavourite("differential", record.slug, nowSaved);
-      setSaveNotice(
-        updated
-          ? nowSaved
-            ? "Diagnosis saved."
-            : "Diagnosis removed from saved items."
-          : "Sign in or create an account to save diagnoses.",
-      );
+      if (!updated) {
+        setSaveNotice(
+          accountData.isAuthenticated
+            ? "Save failed. Try again."
+            : "Sign in or create an account to save diagnoses.",
+        );
+        return;
+      }
+      setSaveNotice(nowSaved ? "Diagnosis saved." : "Diagnosis removed from saved items.");
     } catch {
       setSaveNotice("Save failed.");
     }

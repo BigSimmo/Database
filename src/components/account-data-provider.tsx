@@ -36,6 +36,7 @@ type AccountDataContextValue = {
   favourites: FavouritesByType;
   ready: boolean;
   error: string | null;
+  isAuthenticated: boolean;
   isSaved: (contentType: FavouriteContentType, contentKey: string) => boolean;
   setFavourite: (contentType: FavouriteContentType, contentKey: string, saved: boolean) => Promise<boolean>;
   clearFavourites: () => Promise<boolean>;
@@ -181,11 +182,12 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       favourites,
       ready,
       error,
+      isAuthenticated: auth.status === "authenticated",
       isSaved: (contentType, contentKey) => favourites[contentType].includes(contentKey),
       setFavourite,
       clearFavourites,
     }),
-    [clearFavourites, error, favourites, ready, setFavourite],
+    [auth.status, clearFavourites, error, favourites, ready, setFavourite],
   );
 
   return <AccountDataContext.Provider value={value}>{children}</AccountDataContext.Provider>;

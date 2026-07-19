@@ -93,12 +93,27 @@ jobs:
             const { pathToFileURL } = require("node:url");
             const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/trusted-policy/scripts/pr-policy.mjs`).href;
             const { requiredClinicalGovernanceItems } = await import(moduleUrl);
+            const pr = context.payload.pull_request;
+            const existingBody = pr.body || "";
+            const existingCheckedItems = new Set();
+            const govMatch = existingBody.match(/##\s*Clinical Governance Preflight\s*([\s\S]*?)(?=\n##|$)/i);
+            if (govMatch) {
+              const govSection = govMatch[1];
+              for (const item of requiredClinicalGovernanceItems) {
+                const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                if (new RegExp(`^\\s*-\\s*\\[[xX]\\]\\s*${escaped}\\s*$`, "m").test(govSection)) {
+                  existingCheckedItems.add(item);
+                }
+              }
+            }
             const governance = requiredClinicalGovernanceItems
-              .map((item) => `- [x] ${item}`)
+              .map((item) => {
+                const checked = existingCheckedItems.has(item) ? "x" : " ";
+                return `- [${checked}] ${item}`;
+              })
               .join("\n");
             const template = fs.readFileSync("PR_POLICY_BODY.md", "utf8").trim();
             const body = template.replace("<!-- GOVERNANCE_PREFLIGHT -->", governance);
-            const pr = context.payload.pull_request;
             if ((pr.body || "").trim() === body) {
               core.info("PR description already matches PR_POLICY_BODY.md");
               return;

@@ -545,7 +545,11 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
     try {
       const nowSaved = !saved;
       if (!(await accountData.setFavourite("form", form.slug, nowSaved))) {
-        setNotice("Sign in or create an account to save forms");
+        setNotice(
+          accountData.isAuthenticated
+            ? "Save failed. Try again."
+            : "Sign in or create an account to save forms",
+        );
         return;
       }
       setNotice(nowSaved ? "Form saved" : "Form removed from saved items");

@@ -487,7 +487,11 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     try {
       const nowSaved = !saved;
       if (!(await accountData.setFavourite("service", service.slug, nowSaved))) {
-        setNotice("Sign in or create an account to save services");
+        setNotice(
+          accountData.isAuthenticated
+            ? "Save failed. Try again."
+            : "Sign in or create an account to save services",
+        );
         return;
       }
       setNotice(nowSaved ? "Service saved" : "Service removed from saved items");
@@ -503,7 +507,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   return (
     <main
       data-testid="service-detail-page"
-      className="min-h-[calc(100dvh-4rem)] max-sm:min-h-0 max-sm:shrink-0 bg-[color:var(--background)] px-3 py-4 max-sm:pb-[var(--mobile-composer-reserve)] text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
+      className="min-h-[calc(100dvh-4rem)] max-sm:shrink-0 bg-[color:var(--background)] px-3 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
     >
       <div className={pageContainer}>
         {notice ? (
