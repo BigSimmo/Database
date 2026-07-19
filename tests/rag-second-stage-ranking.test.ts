@@ -277,4 +277,24 @@ describe("second-stage rank score", () => {
       ["release-ranked", "hybrid-leading"],
     );
   });
+
+  it("preserves clinical order when releaseRankScore values are not finite", () => {
+    const clinicallyOrdered = [
+      result({
+        id: "first",
+        hybrid_score: 0.7,
+        score_explanation: { ...explanation(0.7), releaseRankScore: Number.NaN },
+      }),
+      result({
+        id: "second",
+        hybrid_score: 0.9,
+        score_explanation: { ...explanation(0.9), releaseRankScore: Number.POSITIVE_INFINITY },
+      }),
+    ];
+
+    expect(stabilizeReleasedSearchOrder([...clinicallyOrdered], true).map((item) => item.id)).toEqual([
+      "first",
+      "second",
+    ]);
+  });
 });

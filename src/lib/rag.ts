@@ -549,9 +549,14 @@ function recordRetrievalLayer(
   }
 }
 
+/** Whether a release-rank score is safe to use for bounded release ordering. */
+function isBoundedReleaseRankScore(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 /** Whether the current result set carries bounded second-stage release scores. */
 function resultsHaveReleaseRankScore(results: SearchResult[]) {
-  return results.some((result) => result.score_explanation?.releaseRankScore !== undefined);
+  return results.some((result) => isBoundedReleaseRankScore(result.score_explanation?.releaseRankScore));
 }
 
 /**
@@ -560,7 +565,8 @@ function resultsHaveReleaseRankScore(results: SearchResult[]) {
  * App-layer rank scores remain available to answer evidence ranking and telemetry, but the
  * live corpus gate has not validated using them as the final retrieval order. Resolve duplicate
  * chunks to their strongest released-hybrid copy. Distinct results keep the clinical selection's
- * existing order unless the current set carries bounded second-stage release scores.
+ * existing order unless `preferSecondStageScore` is enabled and the current set carries bounded
+ * second-stage release scores.
  */
 export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSecondStageScore = false) {
   const useSecondStageReleaseOrder = preferSecondStageScore && resultsHaveReleaseRankScore(results);
@@ -576,8 +582,12 @@ export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSeco
     return left.id.localeCompare(right.id);
   };
   const compareReleasedSearchOrder = (left: SearchResult, right: SearchResult) => {
-    const leftReleaseScore = left.score_explanation?.releaseRankScore ?? left.hybrid_score ?? left.similarity ?? 0;
-    const rightReleaseScore = right.score_explanation?.releaseRankScore ?? right.hybrid_score ?? right.similarity ?? 0;
+    const leftReleaseScore = isBoundedReleaseRankScore(left.score_explanation?.releaseRankScore)
+      ? left.score_explanation.releaseRankScore
+      : (left.hybrid_score ?? left.similarity ?? 0);
+    const rightReleaseScore = isBoundedReleaseRankScore(right.score_explanation?.releaseRankScore)
+      ? right.score_explanation.releaseRankScore
+      : (right.hybrid_score ?? right.similarity ?? 0);
     if (rightReleaseScore !== leftReleaseScore) return rightReleaseScore - leftReleaseScore;
     const leftSimilarity = left.similarity ?? 0;
     const rightSimilarity = right.similarity ?? 0;
