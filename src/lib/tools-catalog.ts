@@ -1,3 +1,4 @@
+import { canAccessFavouritesMode } from "@/lib/app-modes";
 import { normalizeSearchText, rankCatalogRecords } from "@/lib/catalog-search";
 
 // Canonical Tools dataset. Previously duplicated between the live launcher
@@ -237,6 +238,12 @@ export function toolCatalogRecordById(id: string) {
   return toolCatalogRecords.find((tool) => tool.id === id) ?? toolCatalogRecords[0];
 }
 
+/** Hide account-scoped Favourites / Saved workflows from guest Tools surfaces. */
+export function toolCatalogRecordsForSession(options: { authenticated: boolean; demoMode: boolean }) {
+  if (canAccessFavouritesMode(options)) return toolCatalogRecords;
+  return toolCatalogRecords.filter((tool) => tool.id !== "favourites" && !tool.href.startsWith("/favourites"));
+}
+
 export function toolSearchText(tool: ToolCatalogRecord) {
   return normalizeSearchText(
     [
@@ -262,8 +269,10 @@ export function rankToolRecords(
   limit?: number,
   // Low-weight synonym/acronym/alias terms (see rankMedicationRecords) for the expanded lane.
   expansions: string[] = [],
+  session?: { authenticated: boolean; demoMode: boolean },
 ): ToolSearchMatch[] {
-  return rankCatalogRecords(toolCatalogRecords, query, {
+  const records = session ? toolCatalogRecordsForSession(session) : toolCatalogRecords;
+  return rankCatalogRecords(records, query, {
     fields: [
       {
         id: "title",

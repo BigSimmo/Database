@@ -22,15 +22,18 @@ import {
   Waves,
   type LucideIcon,
 } from "lucide-react";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
+import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { cn, toneInfo, toneSuccess, toneWarning } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
+import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { useAuthSession } from "@/lib/supabase/client";
 import {
-  toolCatalogRecords,
+  toolCatalogRecordsForSession,
   type ToolCatalogArea,
   type ToolCatalogRecord,
   type ToolCatalogStatus,
@@ -92,14 +95,19 @@ const launcherIconById: Record<string, LucideIcon> = {
   favourites: Star,
 };
 
-const launcherApps: LauncherApp[] = toolCatalogRecords.map((record) => ({
-  ...record,
-  icon: launcherIconById[record.id] ?? Sparkles,
-}));
+function launcherAppsForSession(canAccessFavourites: boolean): LauncherApp[] {
+  return toolCatalogRecordsForSession({
+    authenticated: canAccessFavourites,
+    demoMode: false,
+  }).map((record) => ({
+    ...record,
+    icon: launcherIconById[record.id] ?? Sparkles,
+  }));
+}
 
 const toolsLauncherCopy = {
   heading: "Tools",
-  description: "Assessment, prescribing, documents, and saved work.",
+  description: "Assessment, prescribing, documents, and clinical workflows.",
   allSectionLabel: "All tools",
   countNoun: "tools",
   emptyTitle: "No tools match",
@@ -109,7 +117,7 @@ const toolsLauncherCopy = {
   openSelectedAriaLabel: "Open selected tool",
 };
 
-const quickActions = [
+const quickActionsBase = [
   { label: "Ask", desktopLabel: "Ask evidence", icon: Search, id: "clinical-kb-search" },
   { label: "Compare", desktopLabel: "Compare", icon: Brain, id: "differentials" },
   { label: "Prescribe", desktopLabel: "Prescribe", icon: Pill, id: "medication-prescribing" },
@@ -120,7 +128,7 @@ const quickActions = [
   { label: "More", desktopLabel: "More", icon: Sparkles, id: "favourites" },
 ] as const;
 
-const desktopFilters: Array<{ id: LauncherFilter; label: string }> = [
+const desktopFiltersBase: Array<{ id: LauncherFilter; label: string }> = [
   { id: "all", label: "All tools" },
   { id: "assessment", label: "Assess" },
   { id: "reference", label: "Evidence" },
@@ -137,17 +145,18 @@ const mobileFilters: Array<{ id: LauncherFilter; label: string; hasMenu?: boolea
   { id: "more", label: "More", hasMenu: true },
 ];
 
-export const applicationsLauncherItemCount = launcherApps.length;
+/** Full catalog length (includes Favourites). Prefer session-filtered lists in UI. */
+export const applicationsLauncherItemCount = launcherAppsForSession(true).length;
 
-function appById(id: string) {
-  return launcherApps.find((app) => app.id === id) ?? launcherApps[0];
+function appById(id: string, apps: LauncherApp[]) {
+  return apps.find((app) => app.id === id) ?? apps[0];
 }
 
-function initialToolId(query: string | undefined) {
+function initialToolId(query: string | undefined, apps: LauncherApp[]) {
   const normalized = query?.trim().toLowerCase();
   if (!normalized) return "risk-safety";
   return (
-    launcherApps.find((app) =>
+    apps.find((app) =>
       [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, app.area, ...app.keywords]
         .filter(Boolean)
         .join(" ")
@@ -155,6 +164,14 @@ function initialToolId(query: string | undefined) {
         .includes(normalized),
     )?.id ?? "risk-safety"
   );
+}
+
+function quickActionsForSession(canAccessFavourites: boolean) {
+  return canAccessFavourites ? quickActionsBase : quickActionsBase.filter((action) => action.id !== "favourites");
+}
+
+function desktopFiltersForSession(canAccessFavourites: boolean) {
+  return canAccessFavourites ? desktopFiltersBase : desktopFiltersBase.filter((filter) => filter.id !== "saved");
 }
 
 function appIconTone(app: LauncherApp) {
@@ -266,14 +283,25 @@ function ToolChips({ app, includeStatus = false }: { app: LauncherApp; includeSt
   );
 }
 
-function QuickActions({ onSelect, mobile }: { onSelect: (id: string) => void; mobile?: boolean }) {
+function QuickActions({
+  onSelect,
+  mobile,
+  apps,
+  canAccessFavourites,
+}: {
+  onSelect: (id: string) => void;
+  mobile?: boolean;
+  apps: LauncherApp[];
+  canAccessFavourites: boolean;
+}) {
+  const quickActions = quickActionsForSession(canAccessFavourites);
   return (
     <section
       aria-label="Quick tool shortcuts"
       className={cn(mobile ? "grid grid-cols-4 gap-2" : "grid w-full grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6")}
     >
       {quickActions.slice(0, mobile ? 8 : 6).map((action) => {
-        const app = appById(action.id);
+        const app = appById(action.id, apps);
         const Icon = action.icon;
         return (
           <button
@@ -330,10 +358,13 @@ function QuickActions({ onSelect, mobile }: { onSelect: (id: string) => void; mo
 function FilterTabs({
   activeFilter,
   onFilterChange,
+  canAccessFavourites,
 }: {
   activeFilter: LauncherFilter;
   onFilterChange: (filter: LauncherFilter) => void;
+  canAccessFavourites: boolean;
 }) {
+  const desktopFilters = desktopFiltersForSession(canAccessFavourites);
   return (
     <>
       <div className="hidden flex-wrap items-center gap-2 sm:flex" role="group" aria-label="Filter by tool category">
@@ -663,26 +694,43 @@ type ApplicationsLauncherWorkspaceProps = {
   query?: string;
   desktopComposerSlotId?: string;
   className?: string;
+  /** Optional override; defaults to the current auth/demo Favourites session gate. */
+  canAccessFavourites?: boolean;
 };
 
 export function ApplicationsLauncherWorkspace({
   query: controlledQuery,
   desktopComposerSlotId,
   className,
+  canAccessFavourites: canAccessFavouritesProp,
 }: ApplicationsLauncherWorkspaceProps) {
+  const auth = useAuthSession();
+  const clientDemoMode = resolveClientDemoMode({
+    explicitDemoMode: process.env.NEXT_PUBLIC_DEMO_MODE === "true",
+    authUnavailableFallback: !auth.isConfigured,
+    localNoAuthMode: isLocalNoAuthMode(),
+  });
+  const { favouritesAccessible } = useFavouritesAccess(auth.status === "authenticated", clientDemoMode);
+  const canAccessFavourites = canAccessFavouritesProp ?? favouritesAccessible;
   const searchCommand = useSearchCommand();
   const [localQuery, setLocalQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<LauncherFilter>("all");
   const [detailOpen, setDetailOpen] = useState(false);
   const copy = toolsLauncherCopy;
+  const launcherApps = useMemo(() => launcherAppsForSession(canAccessFavourites), [canAccessFavourites]);
+  const desktopFilters = useMemo(() => desktopFiltersForSession(canAccessFavourites), [canAccessFavourites]);
   const query = controlledQuery ?? searchCommand?.query ?? localQuery;
   const normalizedQuery = query.trim().toLowerCase();
-  const queryDerivedId = useMemo(() => initialToolId(query), [query]);
+  const queryDerivedId = useMemo(() => initialToolId(query, launcherApps), [launcherApps, query]);
   const [selection, setSelection] = useState(() => ({
     queryKey: (controlledQuery ?? "").trim().toLowerCase(),
-    id: initialToolId(controlledQuery),
+    id: initialToolId(controlledQuery, launcherAppsForSession(canAccessFavourites)),
   }));
   const selectedId = detailOpen || selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
+
+  useEffect(() => {
+    if (activeFilter === "saved" && !canAccessFavourites) setActiveFilter("all");
+  }, [activeFilter, canAccessFavourites]);
 
   const filteredApps = useMemo(() => {
     return launcherApps.filter((app) => {
@@ -699,12 +747,12 @@ export function ApplicationsLauncherWorkspace({
           .includes(normalizedQuery);
       return matchesFilter && matchesQuery;
     });
-  }, [activeFilter, normalizedQuery]);
+  }, [activeFilter, launcherApps, normalizedQuery]);
 
   const effectiveSelectedId = filteredApps.some((app) => app.id === selectedId)
     ? selectedId
     : (filteredApps[0]?.id ?? selectedId);
-  const selectedApp = appById(effectiveSelectedId);
+  const selectedApp = appById(effectiveSelectedId, launcherApps);
   // Label the results by the selected filter's visible label (mobile-only filters
   // like "More" included) so assistive tech hears which result set is active.
   const activeFilterLabel =
@@ -769,10 +817,10 @@ export function ApplicationsLauncherWorkspace({
 
         <div className="w-full max-w-6xl" data-testid="tools-shortcuts">
           <div className="hidden sm:block">
-            <QuickActions onSelect={openTool} />
+            <QuickActions onSelect={openTool} apps={launcherApps} canAccessFavourites={canAccessFavourites} />
           </div>
           <div className="sm:hidden">
-            <QuickActions onSelect={openTool} mobile />
+            <QuickActions onSelect={openTool} apps={launcherApps} canAccessFavourites={canAccessFavourites} mobile />
           </div>
         </div>
       </section>
@@ -787,7 +835,11 @@ export function ApplicationsLauncherWorkspace({
             <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{copy.allSectionLabel}</h2>
           </div>
           <div className="flex items-center gap-3">
-            <FilterTabs activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+            <FilterTabs
+              activeFilter={activeFilter}
+              onFilterChange={setActiveFilter}
+              canAccessFavourites={canAccessFavourites}
+            />
             <div className="hidden min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] lg:inline-flex">
               Sort by
               <span className="text-[color:var(--text-heading)]">A to Z</span>

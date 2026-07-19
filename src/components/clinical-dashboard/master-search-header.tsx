@@ -1298,6 +1298,7 @@ export function MasterSearchHeader({
         ) : null}
         <UniversalSearchCommandSurface
           demoMode={demoMode}
+          canAccessFavourites={canAccessFavourites}
           modeId={searchMode}
           query={query}
           recentQueries={recentQueries}
@@ -1316,6 +1317,10 @@ export function MasterSearchHeader({
             onAsk();
           }}
           onCrossMode={(targetMode, crossQuery) => {
+            if (targetMode === "favourites" && !canAccessFavourites) {
+              onRequestAccountSetup?.();
+              return;
+            }
             if (onCrossModeSearch) {
               onCrossModeSearch(targetMode, crossQuery);
               return;

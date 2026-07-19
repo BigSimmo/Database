@@ -92,6 +92,7 @@ import {
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
+import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
@@ -2466,6 +2467,10 @@ export function ClinicalDashboard({
   }
 
   function crossModeSearch(mode: AppModeId, crossQuery: string) {
+    if (mode === "favourites" && !favouritesAccessible) {
+      openAccountSetup("favourites");
+      return;
+    }
     modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setCommandScopes([]);
@@ -3841,7 +3846,7 @@ export function ClinicalDashboard({
                   />
                 ) : activeModeResultKind === "tools" ? (
                   <ToolsHub query={query} desktopComposerSlotId={desktopHomeComposerSlotId} />
-                ) : activeModeResultKind === "favourites" ? (
+                ) : activeModeResultKind === "favourites" && favouritesAccessible ? (
                   <FavouritesHub
                     query={query}
                     demoMode={clientDemoMode}
@@ -3852,6 +3857,8 @@ export function ClinicalDashboard({
                     }}
                     desktopComposerSlotId={desktopHomeComposerSlotId}
                   />
+                ) : activeModeResultKind === "favourites" ? (
+                  <FavouritesGuestGate onOpenAccountSetup={() => openAccountSetup("favourites")} />
                 ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
                   searchMode === "prescribing" ? (
                     <MedicationPrescribingWorkspace

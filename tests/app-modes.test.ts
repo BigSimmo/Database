@@ -8,6 +8,7 @@ import {
   appModeSearchConfig,
   appModeSourceLibrarySearchMode,
   canAccessFavouritesMode,
+  filterCrossModesForSession,
   isAppModeId,
   isAppModeVisible,
   isSearchableAppMode,
@@ -345,5 +346,18 @@ describe("app mode search contract", () => {
     expect(
       visibleAppModeDefinitionsForSession({ authenticated: false, demoMode: true }).map((mode) => mode.id),
     ).toContain("favourites");
+
+    expect(
+      filterCrossModesForSession(["documents", "favourites", "forms"], {
+        authenticated: false,
+        demoMode: false,
+      }),
+    ).toEqual(["documents", "forms"]);
+    expect(
+      filterCrossModesForSession(["documents", "favourites", "forms"], {
+        authenticated: true,
+        demoMode: false,
+      }),
+    ).toEqual(["documents", "favourites", "forms"]);
   });
 });

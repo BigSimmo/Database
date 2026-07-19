@@ -93,9 +93,9 @@ export function useDashboardShellActions(options: {
 
   const prefetchApplications = useCallback(() => {
     prefetch("/?mode=tools");
-    prefetch("/favourites");
+    if (favouritesAccessible) prefetch("/favourites");
     prefetch("/differentials");
-  }, [prefetch]);
+  }, [favouritesAccessible, prefetch]);
 
   return {
     favouritesAccessible,

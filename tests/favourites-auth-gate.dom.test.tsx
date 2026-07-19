@@ -6,7 +6,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ClinicalSidebarContent, deriveSidebarIdentity } from "@/components/clinical-dashboard/ClinicalSidebar";
 import { FavouritesCommandLibraryPage } from "@/components/clinical-dashboard/favourites-command-library-page";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { visibleAppModeDefinitionsForSession } from "@/lib/app-modes";
+import { ApplicationsLauncherWorkspace } from "@/components/applications-launcher-page";
+import { filterCrossModesForSession, visibleAppModeDefinitionsForSession } from "@/lib/app-modes";
+import { toolCatalogRecordsForSession } from "@/lib/tools-catalog";
 
 const authSession = vi.hoisted(() => ({
   status: "signed_out" as string,
@@ -110,5 +112,28 @@ describe("favourites auth gate DOM", () => {
     expect(screen.getByRole("heading", { name: "Sign up to save favourites" })).toBeVisible();
     expect(screen.getByText(/Create an account to save clinical favourites/i)).toBeVisible();
     expect(screen.getByText("Saved favourites")).toBeVisible();
+  });
+
+  it("blacks out Tools Saved workflows and Favourites shortcuts for guests", () => {
+    authSession.status = "signed_out";
+    render(<ApplicationsLauncherWorkspace canAccessFavourites={false} />);
+
+    expect(screen.queryByRole("button", { name: "Saved" })).toBeNull();
+    expect(screen.queryByTestId("tool-shortcut-favourites")).toBeNull();
+    expect(screen.queryByText("Saved workflows")).toBeNull();
+    expect(screen.getByTestId("tools-hub")).toBeVisible();
+  });
+
+  it("keeps Tools Saved workflows available when Favourites access is granted", () => {
+    render(<ApplicationsLauncherWorkspace canAccessFavourites={true} />);
+
+    expect(screen.getByRole("button", { name: "Saved" })).toBeVisible();
+    expect(screen.getByTestId("tool-shortcut-favourites")).toBeVisible();
+    expect(
+      toolCatalogRecordsForSession({ authenticated: true, demoMode: false }).some((t) => t.id === "favourites"),
+    ).toBe(true);
+    expect(filterCrossModesForSession(["favourites", "forms"], { authenticated: false, demoMode: false })).toEqual([
+      "forms",
+    ]);
   });
 });

@@ -435,7 +435,7 @@ function GlobalStandaloneSearchShellClient({
 
   function prefetchApplications() {
     router.prefetch("/?mode=tools");
-    router.prefetch("/favourites");
+    if (favouritesAccessible) router.prefetch("/favourites");
     router.prefetch("/differentials");
     router.prefetch("/dsm");
     router.prefetch("/specifiers");
@@ -517,6 +517,13 @@ function GlobalStandaloneSearchShellClient({
   }
 
   function crossModeSearch(mode: AppModeId, crossQuery: string) {
+    if (mode === "favourites" && !favouritesAccessible) {
+      setGuideOpen(false);
+      setSettingsOpen(false);
+      setMobileMenuOpen(false);
+      openAccountSetup("favourites");
+      return;
+    }
     setQuery(crossQuery);
     setCommandScopes([]);
     setSearchMode(mode);
