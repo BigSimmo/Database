@@ -52,7 +52,6 @@ import {
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
@@ -3875,9 +3874,8 @@ export function ClinicalDashboard({
                     />
                   ) : (
                     <>
-                      <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-                      {searchMode === "documents" && modeSearchSubmitted && (
-                        <CrossModeLinksSection queries={[query]} onModeSearch={crossModeSearch} />
+                      {searchMode === "documents" ? null : (
+                        <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
                       )}
                       <DocumentSearchResultsPanel
                         matches={documentMatches}
@@ -3894,6 +3892,8 @@ export function ClinicalDashboard({
                         apiUnavailable={apiUnavailable}
                         setupWarning={setupWarning}
                         facets={searchFacets}
+                        searchScope={searchMode === "documents" ? searchScope : null}
+                        sourceGovernanceWarnings={searchMode === "documents" ? sourceGovernanceWarnings : undefined}
                         onScopeDocument={handleScopeDocument}
                         onAnswerFromDocument={handleAnswerFromDocument}
                         onOpenRecentDocuments={handleOpenRecentDocuments}
