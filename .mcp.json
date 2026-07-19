@@ -2,7 +2,7 @@
   "mcpServers": {
     "railway": {
       "command": "npx",
-      "args": ["-y", "@railway/cli", "mcp"]
+      "args": ["-y", "@railway/cli@5.27.0", "mcp"]
     }
   }
 }
