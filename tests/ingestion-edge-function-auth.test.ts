@@ -29,4 +29,12 @@ describe("ingestion-worker Edge Function authorization", () => {
     expect(source).toContain('hasServiceRoleAuthorization(req.headers.get("authorization"))');
     expect(source.indexOf("hasServiceRoleAuthorization")).toBeLessThan(source.indexOf("public.claim_ingestion_jobs"));
   });
+
+  it("fences completion and failure mutations to the worker that owns the lease", () => {
+    expect(source).toContain("async function processJob(job: ClaimedJob, workerId: string): Promise<boolean>");
+    expect(source).toMatch(/complete_ingestion_job\([\s\S]*?\$\{workerId\}[\s\S]*?\) as result/);
+    expect(source).toMatch(/fail_or_retry_ingestion_job\([\s\S]*?\$\{workerId\}[\s\S]*?\) as result/);
+    expect(source).toContain("rows[0]?.result?.ok === true");
+    expect(source).toContain("lease_lost: leaseLost");
+  });
 });
