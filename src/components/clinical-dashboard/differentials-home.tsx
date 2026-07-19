@@ -328,11 +328,11 @@ function Chip({ children, className }: { children: string; className?: string })
   return (
     <span
       className={cn(
-        "inline-flex min-h-6 max-w-full items-center rounded-md bg-[color:var(--surface-subtle)] px-2 text-2xs font-bold leading-none text-[color:var(--text-muted)]",
+        "inline-flex min-h-6 min-w-0 max-w-full items-center rounded-md bg-[color:var(--surface-subtle)] px-2 text-2xs font-bold leading-none text-[color:var(--text-muted)]",
         className,
       )}
     >
-      <span className="truncate">{children}</span>
+      <span className="min-w-0 truncate">{children}</span>
     </span>
   );
 }
@@ -461,7 +461,7 @@ function MobileResultCard({
   return (
     <article
       data-testid="differential-mobile-result-card"
-      className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
+      className="grid gap-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
     >
       <div className="grid grid-cols-[2rem_minmax(0,1fr)_2.75rem] items-start gap-2.5">
         <span
@@ -489,17 +489,17 @@ function MobileResultCard({
         </div>
         {onToggle ? <SelectionToggle selected={selected} onClick={onToggle} label={result.title} /> : <span />}
       </div>
-      <div className="flex max-w-full flex-wrap gap-1.5">
+      <div className="flex min-w-0 max-w-full flex-wrap gap-1.5">
         {result.tags.slice(0, 2).map((tag) => (
           <Chip
             key={`${result.id}-${tag}`}
-            className="max-w-[calc(100%-0.5rem)] px-2.5 py-1 text-xs font-semibold leading-snug"
+            className="max-w-full px-2.5 py-1 text-xs font-semibold leading-snug"
           >
             {tag}
           </Chip>
         ))}
         {result.tags.length > 2 ? (
-          <Chip className="px-2.5 py-1 text-xs font-semibold leading-snug">{`+${result.tags.length - 2}`}</Chip>
+          <Chip className="shrink-0 px-2.5 py-1 text-xs font-semibold leading-snug">{`+${result.tags.length - 2}`}</Chip>
         ) : null}
       </div>
     </article>
@@ -877,7 +877,7 @@ function SearchResultsView({
       // this results canvas into a nested phone scrollport, stealing scroll from
       // #main-content. The fixed compare FAB and shell hide-on-scroll both assume
       // #main-content owns vertical scroll.
-      className="mx-auto grid w-full max-w-[86rem] min-w-0 gap-3 overflow-x-clip px-3.5 pb-[calc(12.5rem+env(safe-area-inset-bottom))] min-[390px]:gap-4 sm:px-4 lg:px-0 lg:pb-0"
+      className="mx-auto grid w-full max-w-[86rem] min-w-0 gap-3 overflow-x-clip px-4 pb-[calc(12.5rem+env(safe-area-inset-bottom))] min-[390px]:gap-4 sm:px-4 lg:px-0 lg:pb-0"
     >
       {/* Query context lives here on every breakpoint — on phones this is the
           only place the submitted query is visible above the fold. */}

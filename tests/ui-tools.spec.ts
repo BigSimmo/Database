@@ -1468,6 +1468,16 @@ test.describe("Clinical KB tools launcher", () => {
     expect(titleBadgeLayout).not.toBeNull();
     expect(titleBadgeLayout!.badgeTop).toBeGreaterThanOrEqual(titleBadgeLayout!.titleBottom - 1);
 
+    const cardOverflow = await mobileCards.evaluateAll((cards) =>
+      cards.map((card) => ({
+        overflowX: card.scrollWidth > card.clientWidth + 1,
+        width: card.clientWidth,
+      })),
+    );
+    for (const card of cardOverflow) {
+      expect(card.overflowX).toBe(false);
+    }
+
     await expectNoPageHorizontalOverflow(page);
   });
 
