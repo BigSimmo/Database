@@ -33,8 +33,7 @@ function readDemoFavourites(): FavouritesByType {
 }
 
 export type FavouriteActionResult =
-  | { success: true }
-  | { success: false; reason: "unauthenticated" | "request-error"; message: string };
+  { success: true } | { success: false; reason: "unauthenticated" | "request-error"; message: string };
 
 type AccountDataContextValue = {
   favourites: FavouritesByType;
@@ -149,8 +148,7 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       }
 
       const key = contentKey.trim();
-      if (!key)
-        return { success: false, reason: "request-error" as const, message: "Invalid content key provided." };
+      if (!key) return { success: false, reason: "request-error" as const, message: "Invalid content key provided." };
       const previous = favourites;
       setFavourites((current) => ({
         ...current,
