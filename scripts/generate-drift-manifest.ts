@@ -95,8 +95,8 @@ async function main() {
         sql,
       );
 
-    console.log("Applying role bootstrap (supabase_admin)…");
-    psql("supabase_admin", rolesSql);
+    console.log("Applying role bootstrap (postgres)…");
+    psql("postgres", rolesSql);
     console.log("Applying storage scaffold (supabase_admin)…");
     psql("supabase_admin", scaffoldSql);
     console.log("Replaying supabase/schema.sql from scratch (postgres)…");

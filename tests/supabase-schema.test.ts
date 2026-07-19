@@ -116,10 +116,6 @@ const pinOwnerMatchesV2SearchPathMigration = readFileSync(
   new URL("../supabase/migrations/20260713101000_pin_retrieval_owner_matches_v2_search_path.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
-const supabaseAdminDefaultPrivilegesMigration = readFileSync(
-  new URL("../supabase/migrations/20260713102000_revoke_supabase_admin_default_privileges.sql", import.meta.url),
-  "utf8",
-).replace(/\s+/g, " ");
 const publicationApprovalMigration = readFileSync(
   new URL("../supabase/migrations/20260717131000_guard_document_publication_approval.sql", import.meta.url),
   "utf8",
@@ -129,7 +125,15 @@ const deleteDocumentIfIdleMigration = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclAssertionMigration = readFileSync(
-  new URL("../supabase/migrations/20260717173000_reassert_supabase_admin_default_privileges.sql", import.meta.url),
+  new URL("../supabase/migrations/20260719055541_assert_postgres_default_privileges.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const defaultAclReassertionMigration = readFileSync(
+  new URL("../supabase/migrations/20260719055555_reassert_postgres_default_privileges.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const defaultAclRepairMigration = readFileSync(
+  new URL("../supabase/migrations/20260719055609_repair_postgres_default_privileges.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclRoleBootstrap = readFileSync(new URL("../supabase/roles.sql", import.meta.url), "utf8").replace(
@@ -216,7 +220,7 @@ const hardenRagScalabilityPatchMigration = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const documentTitleWordScopeMigration = readFileSync(
-  new URL("../supabase/migrations/20260718223000_enforce_public_title_word_scope.sql", import.meta.url),
+  new URL("../supabase/migrations/20260719055623_enforce_public_title_word_scope.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const publicTitleCorrectorMigration = readFileSync(
@@ -1131,39 +1135,28 @@ describe("Supabase Preview replay guards", () => {
     );
   });
 
-  it("locks down supabase_admin future-object default privileges", () => {
-    // 2026-07-13 audit finding 7: the 20260528007000 hardening covered role
-    // postgres only; default privileges are keyed to the creating role.
-    for (const sql of [schema, supabaseAdminDefaultPrivilegesMigration]) {
+  it("locks down postgres future-object default privileges", () => {
+    for (const sql of [
+      schema,
+      defaultAclAssertionMigration,
+      defaultAclReassertionMigration,
+      defaultAclRepairMigration,
+    ]) {
       expect(sql).toContain(
-        "alter default privileges for role supabase_admin in schema public revoke all privileges on tables from anon, authenticated;",
+        "alter default privileges for role postgres in schema public revoke all privileges on tables from public, anon, authenticated, service_role;",
       );
       expect(sql).toContain(
-        "alter default privileges for role supabase_admin in schema public revoke usage, select on sequences from anon, authenticated;",
+        "alter default privileges for role postgres in schema public revoke all privileges on sequences from public, anon, authenticated, service_role;",
       );
       expect(sql).toContain(
-        "alter default privileges for role supabase_admin in schema public revoke execute on functions from public, anon, authenticated;",
+        "alter default privileges for role postgres in schema public revoke execute on functions from public, anon, authenticated, service_role;",
       );
       expect(sql).toContain(
-        "alter default privileges for role supabase_admin in schema public grant execute on functions to service_role;",
+        "alter default privileges for role postgres in schema public grant execute on functions to service_role;",
       );
-      // Guarded: only a superuser or member of supabase_admin may alter its
-      // defaults. The guard must DEGRADE to a warning, never re-raise — a
-      // re-raise would abort the whole migration chain on hosted Supabase.
-      expect(sql).toContain("when insufficient_privilege then");
-      expect(sql).not.toContain("raise;");
+      expect(sql).not.toContain("set local role");
+      expect(sql).toContain("public.default_privileges_status('postgres', 'public')");
     }
-    // The migration also proves the lockdown with future-object probes.
-    expect(supabaseAdminDefaultPrivilegesMigration).toContain("_defacl_probe_table");
-    expect(supabaseAdminDefaultPrivilegesMigration).toContain(
-      "has_table_privilege('anon', 'public._defacl_probe_table', 'select')",
-    );
-    expect(supabaseAdminDefaultPrivilegesMigration).toContain(
-      "has_function_privilege('anon', 'public._defacl_probe_fn()', 'execute')",
-    );
-    expect(supabaseAdminDefaultPrivilegesMigration).toContain(
-      "has_sequence_privilege('anon', probe_seq, 'usage, select')",
-    );
   });
 
   it("requires append-only operator evidence for owned-to-public transitions", () => {
@@ -1211,51 +1204,52 @@ describe("Supabase Preview replay guards", () => {
     }
   });
 
-  it("fails closed on effective supabase_admin default ACLs", () => {
-    for (const sql of [schema, defaultAclAssertionMigration]) {
+  it("fails closed on effective postgres default ACLs", () => {
+    for (const sql of [schema, defaultAclAssertionMigration, defaultAclRepairMigration]) {
       expect(sql).toContain("create or replace function public.default_privileges_status(");
       expect(sql).toContain("pg_catalog.acldefault(ot.object_code, v_role_oid)");
       expect(sql).toContain("pg_catalog.aclexplode(ea.acl)");
-      expect(sql).toContain("bool_or(grantee not in (p_role_name, 'postgres', 'service_role'))");
+      expect(sql).toContain("bool_or(grantee not in (p_role_name, 'service_role'))");
+      expect(sql).toContain("bool_or(is_grantable)");
       expect(sql).toContain("entry like 'table:PUBLIC:%'");
       expect(sql).toContain("entry like 'sequence:PUBLIC:%'");
       expect(sql).toContain("entry = 'function:PUBLIC:execute'");
-      expect(sql).toContain("message = 'Unsafe supabase_admin default privileges; migration blocked.'");
-      expect(sql).toContain("Run these six statements as supabase_admin, then retry the migration:");
+      expect(sql).toContain("public.default_privileges_status('postgres', 'public')");
+      expect(sql).toContain("Unsafe postgres default privileges in schema public");
     }
 
     const migrationFiles = readdirSync(migrationDirectoryUrl)
       .filter((fileName) => /^\d+_.+\.sql$/.test(fileName))
       .sort();
-    expect(migrationFiles.at(-1)).toBe("20260718223000_enforce_public_title_word_scope.sql");
+    expect(migrationFiles.at(-1)).toBe("20260719055623_enforce_public_title_word_scope.sql");
     expect(documentTitleWordScopeMigration).toContain(
-      "v_status := public.default_privileges_status('supabase_admin', 'public')",
+      "v_status := public.default_privileges_status('postgres', 'public')",
     );
     expect(documentTitleWordScopeMigration).toContain(
-      "message = 'Unsafe supabase_admin default privileges; title-word privacy migration blocked.'",
+      "message = 'Unsafe postgres default privileges in schema public; title-word privacy migration blocked.'",
     );
   });
 
   it("bootstraps safe default ACLs before fresh local and preview migration replay", () => {
     expect(defaultAclRoleBootstrap).toContain(
-      "alter default privileges for role supabase_admin revoke all privileges on tables from public, anon, authenticated, service_role;",
+      "alter default privileges for role postgres revoke all privileges on tables from public, anon, authenticated, service_role;",
     );
     expect(defaultAclRoleBootstrap).toContain(
-      "alter default privileges for role supabase_admin revoke all privileges on sequences from public, anon, authenticated, service_role;",
+      "alter default privileges for role postgres revoke all privileges on sequences from public, anon, authenticated, service_role;",
     );
     expect(defaultAclRoleBootstrap).toContain(
-      "alter default privileges for role supabase_admin revoke execute on functions from public, anon, authenticated, service_role;",
+      "alter default privileges for role postgres revoke execute on functions from public, anon, authenticated, service_role;",
     );
     expect(defaultAclRoleBootstrap).toContain(
-      "alter default privileges for role supabase_admin in schema public grant select, insert, update, delete on tables to service_role;",
+      "alter default privileges for role postgres in schema public grant select, insert, update, delete on tables to service_role;",
     );
     expect(defaultAclRoleBootstrap).toContain(
-      "alter default privileges for role supabase_admin in schema public grant usage, select on sequences to service_role;",
+      "alter default privileges for role postgres in schema public grant usage, select on sequences to service_role;",
     );
     expect(defaultAclRoleBootstrap).toContain(
-      "alter default privileges for role supabase_admin in schema public grant execute on functions to service_role;",
+      "alter default privileges for role postgres in schema public grant execute on functions to service_role;",
     );
-    expect(defaultAclRoleBootstrap).toContain("bool_or(grantee not in ('supabase_admin', 'postgres', 'service_role'))");
+    expect(defaultAclRoleBootstrap).toContain("bool_or(grantee not in ('postgres', 'service_role'))");
   });
 
   it("scrubs legacy plaintext query text with salted irreversible placeholders", () => {

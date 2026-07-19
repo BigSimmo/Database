@@ -329,7 +329,10 @@ jobs:
       - name: Load cached Supabase Docker images
         run: |
           if [ -f /tmp/supabase-docker-cache/images.tar ]; then
-            docker load -i /tmp/supabase-docker-cache/images.tar
+            if ! docker load -i /tmp/supabase-docker-cache/images.tar; then
+              echo "::warning::Cached Supabase images exceeded runner disk capacity; discarding the restored tar so supabase start can pull only missing images."
+            fi
+            rm -f /tmp/supabase-docker-cache/images.tar
           fi
 
       - name: Start Supabase Local Emulator and bootstrap default ACLs
@@ -348,7 +351,7 @@ jobs:
           db_container="$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -n 1)"
           test -n "${db_container}"
           docker exec -i "${db_container}" \
-            psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 \
+            psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
             < supabase/roles.sql
 
       - name: Verify Migration Replay
