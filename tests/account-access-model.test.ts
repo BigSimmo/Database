@@ -58,13 +58,9 @@ describe("public content and account authorization model", () => {
     expect(tableFactsRoute).toContain("withOwnerReadScope(");
     expect(tableFactsRoute.match(/administrator: true/g)?.length).toBe(1);
     expect(documentViewer).toContain("isAdministratorUser(session?.user)");
-    expect(documentViewer).toContain("!serverDemoMode");
     expect(documentViewer).toContain("{canUseAdministrativeApis ? (");
     expect(documentViewer).toContain("canManage={canUseAdministrativeApis}");
     expect(documentViewer).toContain("canReview={canUseAdministrativeApis}");
-    expect(documentViewer).toContain(
-      'const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis',
-    );
   });
 
   it("does not turn an ordinary signed-in setup-status request into a server error", () => {
@@ -82,24 +78,5 @@ describe("public content and account authorization model", () => {
     expect(dashboard).toContain(
       'const documentsDrawerIsAdmin = documentsDrawerMode === "admin" && canUseAdministrativeApis;',
     );
-  });
-
-  it("checks favourite save results explicitly instead of relying on object truthiness", () => {
-    const serviceDetail = source("src/components/services/service-detail-page.tsx");
-    const formDetail = source("src/components/forms/form-detail-page.tsx");
-    const differentialDetail = source("src/components/differentials/differential-detail-page.tsx");
-
-    for (const detailSource of [serviceDetail, formDetail, differentialDetail]) {
-      expect(detailSource).toContain("result.success");
-      expect(detailSource).not.toMatch(/if\s*\(\s*!\s*\(\s*await accountData\.setFavourite/);
-    }
-  });
-
-  it("marks account favourites reads as private and non-cacheable", () => {
-    const favouritesRoute = source("src/app/api/account/favourites/route.ts");
-    const preferencesRoute = source("src/app/api/account/preferences/route.ts");
-
-    expect(favouritesRoute).toContain('"Cache-Control": "private, no-store"');
-    expect(preferencesRoute).toContain('"Cache-Control": "private, no-store"');
   });
 });

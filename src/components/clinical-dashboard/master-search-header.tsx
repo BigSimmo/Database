@@ -1583,9 +1583,9 @@ export function MasterSearchHeader({
                 "universal-header-icon-control h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                 // From md the desktop icon rail owns navigation, so the drawer
                 // trigger is phone-only outside workflow headers.
-                isWorkflowHeader ? "grid" : "grid md:hidden",
+                isWorkflowHeader || useMobileBackControl ? "grid" : "grid md:hidden",
               )}
-              aria-label={useMobileBackControl ? "Back to differentials home" : "Open Clinical Guide menu"}
+              aria-label={useMobileBackControl ? "Go back" : "Open Clinical Guide menu"}
             >
               {useMobileBackControl ? (
                 <ArrowLeft aria-hidden="true" className="h-5 w-5" />

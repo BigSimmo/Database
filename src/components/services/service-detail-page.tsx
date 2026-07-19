@@ -486,14 +486,13 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   async function toggleSaved() {
     try {
       const nowSaved = !saved;
-      const result = await accountData.setFavourite("service", service.slug, nowSaved);
-      if (result.success) {
-        setNotice(nowSaved ? "Service saved" : "Service removed from saved items");
-      } else if (result.reason === "unauthenticated") {
-        setNotice("Sign in or create an account to save services");
-      } else {
-        setNotice(result.message);
+      if (!(await accountData.setFavourite("service", service.slug, nowSaved))) {
+        setNotice(
+          accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save services",
+        );
+        return;
       }
+      setNotice(nowSaved ? "Service saved" : "Service removed from saved items");
     } catch {
       setNotice("Save failed");
     }

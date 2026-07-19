@@ -544,14 +544,13 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
   async function toggleSaved() {
     try {
       const nowSaved = !saved;
-      const result = await accountData.setFavourite("form", form.slug, nowSaved);
-      if (result.success) {
-        setNotice(nowSaved ? "Form saved" : "Form removed from saved items");
-      } else if (result.reason === "unauthenticated") {
-        setNotice("Sign in or create an account to save forms");
-      } else {
-        setNotice(result.message);
+      if (!(await accountData.setFavourite("form", form.slug, nowSaved))) {
+        setNotice(
+          accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save forms",
+        );
+        return;
       }
+      setNotice(nowSaved ? "Form saved" : "Form removed from saved items");
     } catch {
       setNotice("Save failed");
     }
@@ -560,7 +559,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
   return (
     <main
       data-testid="form-detail-page"
-      className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:px-5 sm:pb-10 sm:pt-6 lg:px-8"
+      className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:px-5 sm:pb-10 sm:pt-6 lg:px-8"
     >
       <div className={pageContainer}>
         {notice ? (

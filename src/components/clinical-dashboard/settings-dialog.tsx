@@ -232,14 +232,8 @@ export function SettingsDialog({
   }
 
   async function handleClearSaved() {
-    const result = await accountData.clearFavourites();
-    if (result.success) {
-      setPrivacyNotice("Saved items cleared.");
-    } else if (result.reason === "unauthenticated") {
-      setPrivacyNotice("Sign in to clear account favourites.");
-    } else {
-      setPrivacyNotice(result.message);
-    }
+    const cleared = await accountData.clearFavourites();
+    setPrivacyNotice(cleared ? "Saved items cleared." : "Sign in to clear account favourites.");
   }
 
   function handleResetPreferences() {

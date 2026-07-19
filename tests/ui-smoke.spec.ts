@@ -675,6 +675,9 @@ async function openScopeControl(page: Page) {
     await expect(bottomDock).not.toHaveAttribute("data-scroll-hidden", "true");
   }
 
+  // If the composer is scrolled out of view on mobile, scroll the container to the top to reveal it
+  await scrollPrimarySurface(page, 0);
+
   await composer.click();
   const scopeOption = page.getByRole("option", { name: /Scope sources/i });
   if (await scopeOption.isVisible({ timeout: 2_000 }).catch(() => false)) {

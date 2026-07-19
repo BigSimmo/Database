@@ -1798,7 +1798,7 @@ export function DocumentViewer({
   const canViewSourceDocuments = localProjectReady;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
   const canUseAdministrativeApis =
-    localProjectReady && !serverDemoMode && authStatus === "authenticated" && isAdministratorUser(session?.user);
+    localProjectReady && (serverDemoMode || (authStatus === "authenticated" && isAdministratorUser(session?.user)));
 
   useEffect(() => {
     if (authStatus !== "loading") {
@@ -2282,11 +2282,11 @@ export function DocumentViewer({
 
   async function summarize() {
     if (!canSummarizeDocument) {
-      setSummaryError(
-        !canUsePrivateApis
-          ? "Sign in before summarising private documents."
-          : "Load a source document before summarising.",
-      );
+      setSummaryError("Load a source document before summarising.");
+      return;
+    }
+    if (!canUsePrivateApis) {
+      setSummaryError("Sign in before summarising private documents.");
       return;
     }
     const summaryMode = sourceSearch.trim().length === 0;
@@ -2408,11 +2408,7 @@ export function DocumentViewer({
     : documentHomeHref;
   const usefulPageHref = (page: number) => documentPageHref(documentId, page);
   const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
-  const summarizeTitle = canSummarizeDocument
-    ? "Answer from this document"
-    : !canUsePrivateApis
-      ? "Sign in required to answer from this document"
-      : "Load a source document before answering";
+  const summarizeTitle = canSummarizeDocument ? "Answer from this document" : "Load a source document before answering";
   const pageByNumber = useMemo(() => new Map(pages.map((page) => [page.page_number, page])), [pages]);
   const chunkById = useMemo(() => new Map(chunks.map((chunk) => [chunk.id, chunk])), [chunks]);
   const selectedPage = pageByNumber.get(activePage) ?? pages[0];
@@ -2679,6 +2675,7 @@ export function DocumentViewer({
 
       <section
         data-testid="document-viewer-content"
+        data-scroll-hidden={composerScrollHidden ? "true" : undefined}
         className={cn(
           "mx-auto grid max-w-[1440px] gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
           // The visible fixed composer needs endpoint clearance. Once hidden,

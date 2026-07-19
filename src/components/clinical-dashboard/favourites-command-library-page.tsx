@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
-import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import {
   FavouritesMobileBrowseRail,
   FavouritesMobileQuickViews,
@@ -30,6 +29,7 @@ import {
   useFavouritesNavCollapsed,
   type FavouritesViewMode,
 } from "@/components/clinical-dashboard/favourites-library-nav";
+import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn } from "@/components/ui-primitives";
 import {
@@ -1172,6 +1172,15 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 </div>
               </div>
             </header>
+
+            {!demoMode && auth.status !== "authenticated" && auth.status !== "loading" ? (
+              <p
+                role="status"
+                className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-3 text-sm font-semibold text-[color:var(--text)]"
+              >
+                Sign in or create an account from Account settings to save favourites and access them across devices.
+              </p>
+            ) : null}
 
             <div
               id={modeHomeDesktopComposerSlotId}

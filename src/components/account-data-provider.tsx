@@ -32,32 +32,17 @@ function readDemoFavourites(): FavouritesByType {
   };
 }
 
-export type FavouriteActionResult =
-  { success: true } | { success: false; reason: "unauthenticated" | "request-error"; message: string };
-
 type AccountDataContextValue = {
   favourites: FavouritesByType;
   ready: boolean;
   error: string | null;
+  isAuthenticated: boolean;
   isSaved: (contentType: FavouriteContentType, contentKey: string) => boolean;
-  setFavourite: (
-    contentType: FavouriteContentType,
-    contentKey: string,
-    saved: boolean,
-  ) => Promise<FavouriteActionResult>;
-  clearFavourites: () => Promise<FavouriteActionResult>;
+  setFavourite: (contentType: FavouriteContentType, contentKey: string, saved: boolean) => Promise<boolean>;
+  clearFavourites: () => Promise<boolean>;
 };
 
-const unavailableAccountData: AccountDataContextValue = {
-  favourites: emptyFavourites,
-  ready: true,
-  error: null,
-  isSaved: () => false,
-  setFavourite: async () => ({ success: false, reason: "unauthenticated", message: "Account data unavailable." }),
-  clearFavourites: async () => ({ success: false, reason: "unauthenticated", message: "Account data unavailable." }),
-};
-
-const AccountDataContext = createContext<AccountDataContextValue>(unavailableAccountData);
+const AccountDataContext = createContext<AccountDataContextValue | null>(null);
 
 function normalizedFavourites(value: unknown): FavouritesByType {
   const rows = Array.isArray(value) ? value : [];
@@ -132,23 +117,19 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       if (auth.status !== "authenticated") {
         if (demoAccountData) {
           const current = favourites[contentType];
-          const success = writeSavedRegistrySlugs(
+          return writeSavedRegistrySlugs(
             storageKeyByType[contentType],
             saved
               ? [contentKey, ...current.filter((item) => item !== contentKey)]
               : current.filter((item) => item !== contentKey),
           );
-          return success
-            ? { success: true as const }
-            : { success: false, reason: "request-error" as const, message: "Failed to save to local storage." };
         }
-        const message = "Sign in or create an account to save favourites.";
-        setError(message);
-        return { success: false, reason: "unauthenticated" as const, message };
+        setError("Sign in or create an account to save favourites.");
+        return false;
       }
 
       const key = contentKey.trim();
-      if (!key) return { success: false, reason: "request-error" as const, message: "Invalid content key provided." };
+      if (!key) return false;
       const previous = favourites;
       setFavourites((current) => ({
         ...current,
@@ -165,27 +146,20 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       if (!response?.ok) {
         setFavourites(previous);
         const payload = await response?.json().catch(() => ({}));
-        const message = payload?.message ?? payload?.error ?? "Saved items could not be updated.";
-        setError(message);
+        setError(payload?.message ?? payload?.error ?? "Saved items could not be updated.");
         if (response?.status === 401) auth.markSessionExpired();
-        return { success: false, reason: "request-error" as const, message };
+        return false;
       }
       setError(null);
-      return { success: true as const };
+      return true;
     },
     [auth, favourites],
   );
 
   const clearFavourites = useCallback(async () => {
     if (auth.status !== "authenticated") {
-      if (!demoAccountData) {
-        const message = "Sign in or create an account to clear favourites.";
-        return { success: false, reason: "unauthenticated" as const, message };
-      }
-      const success = (Object.values(storageKeyByType) as string[]).every((key) => writeSavedRegistrySlugs(key, []));
-      return success
-        ? { success: true as const }
-        : { success: false, reason: "request-error" as const, message: "Failed to clear local storage." };
+      if (!demoAccountData) return false;
+      return (Object.values(storageKeyByType) as string[]).every((key) => writeSavedRegistrySlugs(key, []));
     }
     const previous = favourites;
     setFavourites(emptyFavourites);
@@ -195,14 +169,12 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
     }).catch(() => null);
     if (!response?.ok) {
       setFavourites(previous);
-      const payload = await response?.json().catch(() => ({}));
-      const message = payload?.message ?? payload?.error ?? "Saved items could not be cleared.";
-      setError(message);
+      setError("Saved items could not be cleared.");
       if (response?.status === 401) auth.markSessionExpired();
-      return { success: false, reason: "request-error" as const, message };
+      return false;
     }
     setError(null);
-    return { success: true as const };
+    return true;
   }, [auth, favourites]);
 
   const value = useMemo<AccountDataContextValue>(
@@ -210,16 +182,19 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       favourites,
       ready,
       error,
+      isAuthenticated: auth.status === "authenticated",
       isSaved: (contentType, contentKey) => favourites[contentType].includes(contentKey),
       setFavourite,
       clearFavourites,
     }),
-    [clearFavourites, error, favourites, ready, setFavourite],
+    [auth.status, clearFavourites, error, favourites, ready, setFavourite],
   );
 
   return <AccountDataContext.Provider value={value}>{children}</AccountDataContext.Provider>;
 }
 
 export function useAccountData() {
-  return useContext(AccountDataContext);
+  const context = useContext(AccountDataContext);
+  if (!context) throw new Error("useAccountData must be used within AccountDataProvider.");
+  return context;
 }
