@@ -683,13 +683,17 @@ export type PrintBlock =
   | { kind: "facts"; heading: string; items: Array<{ k: string; v: string }> }
   | { kind: "sources"; heading: string; items: FactsheetSource[] };
 
-export function printBlocks(sheet: Factsheet): PrintBlock[] {
+export function printBlocks(sheet: Factsheet, readingLevel: "easy" | "standard" = "standard"): PrintBlock[] {
   const sourcesBlock: PrintBlock = { kind: "sources", heading: "Sources", items: sheet.sources };
   switch (sheet.kind) {
     case "medRich":
       return [
         { kind: "facts", heading: "At a glance", items: sheet.keyFacts },
-        { kind: "prose", heading: "What is this medicine?", body: sheet.whatStandard },
+        {
+          kind: "prose",
+          heading: "What is this medicine?",
+          body: readingLevel === "easy" ? sheet.whatEasy : sheet.whatStandard,
+        },
         { kind: "list", heading: "How to take it", items: sheet.howto.map((step) => step.t) },
         { kind: "list", heading: "Common side effects", items: sheet.sideCommon },
         { kind: "list", heading: "Serious — tell your doctor", items: sheet.sideSerious },

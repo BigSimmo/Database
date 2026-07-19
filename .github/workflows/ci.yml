@@ -188,6 +188,9 @@ jobs:
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-cached
 
+      - name: Install deterministic Python PDF test prerequisite
+        run: python3 -m pip install --disable-pip-version-check "PyMuPDF==1.28.0"
+
       - name: Unit tests (with coverage gate)
         run: npm run test:coverage
 

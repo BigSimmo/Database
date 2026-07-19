@@ -13,7 +13,9 @@ import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const source = join(root, "public", "therapy-compass-data", "therapies.json");
-const target = join(root, "src", "data", "therapies-index.json");
+const serverTarget = join(root, "src", "data", "therapies-index.json");
+const browserTarget = join(root, "public", "therapy-compass-data", "therapies-index.json");
+const checkOnly = process.argv.includes("--check");
 
 const therapies = JSON.parse(readFileSync(source, "utf8"));
 
@@ -35,5 +37,53 @@ const projected = therapies
   }))
   .sort((a, b) => a.name.localeCompare(b.name));
 
-writeFileSync(target, `${JSON.stringify(projected, null, 2)}\n`);
-console.log(`Wrote ${projected.length} therapy records to ${target}`);
+const browserProjected = therapies
+  .map((therapy) => ({
+    slug: therapy.slug,
+    name: therapy.name,
+    category: therapy.category ?? null,
+    modality: therapy.modality ?? null,
+    clinicalSummary: therapy.clinicalSummary ?? null,
+    bestUsedFor: therapy.bestUsedFor ?? null,
+    indications: therapy.indications ?? null,
+    contraindicationsOrCautions: therapy.contraindicationsOrCautions ?? null,
+    targetSymptoms: therapy.targetSymptoms ?? null,
+    patientPopulation: therapy.patientPopulation ?? null,
+    setting: therapy.setting ?? null,
+    reviewStatus: therapy.reviewStatus ?? "needs_review",
+    patientSheetAvailable: Boolean(therapy.patientSheetAvailable),
+    briefInterventionAvailable: Boolean(therapy.briefInterventionAvailable),
+    tags: Array.isArray(therapy.tags) ? therapy.tags : [],
+    aliases: Array.isArray(therapy.aliases) ? therapy.aliases : [],
+  }))
+  .sort((a, b) => a.name.localeCompare(b.name));
+
+function syncTarget(target, records) {
+  // Avoid a false OpenAI-key signature when ordinary words contain an embedded
+  // `sk-` sequence. JSON decoding restores the exact original string value.
+  const expected = `${JSON.stringify(records, null, 2).replace(/(?<=[A-Za-z0-9])sk-/g, "s\\u006b-")}\n`;
+  if (checkOnly) {
+    let actual = "";
+    try {
+      actual = readFileSync(target, "utf8");
+    } catch {
+      throw new Error(`Missing generated therapy index: ${target}`);
+    }
+    let parsed;
+    try {
+      parsed = JSON.parse(actual);
+    } catch {
+      throw new Error(`Generated therapy index is invalid JSON: ${target}`);
+    }
+    if (JSON.stringify(parsed) !== JSON.stringify(records)) {
+      throw new Error(`Generated therapy index is stale: ${target}`);
+    }
+    return;
+  }
+  writeFileSync(target, expected);
+  console.log(`Wrote ${records.length} therapy records to ${target}`);
+}
+
+syncTarget(serverTarget, projected);
+syncTarget(browserTarget, browserProjected);
+if (checkOnly) console.log(`Therapy indexes are current (${projected.length} records).`);

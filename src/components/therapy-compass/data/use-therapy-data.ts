@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Pathway, ReferenceData, Therapy, TherapyDataset } from "./types";
 
@@ -9,13 +9,19 @@ import type { Pathway, ReferenceData, Therapy, TherapyDataset } from "./types";
 // in production, which would otherwise starve the tool of its dataset.
 const BASE = "/therapy-compass-data";
 
-// Module-level cache so the ~2.6 MB dataset is fetched at most once per session,
-// shared across every screen.
-let cache: Promise<TherapyDataset> | null = null;
+type TherapyDataOptions = {
+  catalogue?: "index" | "full";
+  includePathways?: boolean;
+  includeReference?: boolean;
+};
+
+// Cache each route-sized payload once per session. Catalogue routes use the compact
+// index; detail/compare/recommend/artifact routes opt into the full records.
+const cache = new Map<string, Promise<TherapyDataset>>();
 
 /** Test helper: drop the session-scoped dataset cache between cases. */
 export function clearTherapyDataCache() {
-  cache = null;
+  cache.clear();
 }
 
 async function fetchJson<T>(path: string): Promise<T> {
@@ -24,11 +30,13 @@ async function fetchJson<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-async function loadDataset(): Promise<TherapyDataset> {
+async function loadDataset(options: Required<TherapyDataOptions>): Promise<TherapyDataset> {
   const [therapies, pathways, reference] = await Promise.all([
-    fetchJson<Therapy[]>(`${BASE}/therapies.json`),
-    fetchJson<Pathway[]>(`${BASE}/pathways.json`),
-    fetchJson<ReferenceData>(`${BASE}/reference.json`),
+    fetchJson<Therapy[]>(`${BASE}/${options.catalogue === "full" ? "therapies.json" : "therapies-index.json"}`),
+    options.includePathways ? fetchJson<Pathway[]>(`${BASE}/pathways.json`) : Promise.resolve([]),
+    options.includeReference
+      ? fetchJson<ReferenceData>(`${BASE}/reference.json`)
+      : Promise.resolve({ categories: [], tags: [], measures: [] }),
   ]);
   return { therapies, pathways, reference };
 }
@@ -40,36 +48,55 @@ export type TherapyDataState = {
   retry: () => void;
 };
 
-export function useTherapyData(): TherapyDataState {
-  const [state, setState] = useState<Omit<TherapyDataState, "retry">>({ data: null, loading: true, error: null });
+export function useTherapyData(options: TherapyDataOptions = {}): TherapyDataState {
+  const resolved = useMemo<Required<TherapyDataOptions>>(
+    () => ({
+      catalogue: options.catalogue ?? "full",
+      includePathways: options.includePathways ?? true,
+      includeReference: options.includeReference ?? true,
+    }),
+    [options.catalogue, options.includePathways, options.includeReference],
+  );
+  const requestKey = `${resolved.catalogue}:${resolved.includePathways ? "pathways" : "none"}:${resolved.includeReference ? "reference" : "none"}`;
+  const [state, setState] = useState<
+    Omit<TherapyDataState, "retry"> & {
+      requestKey: string | null;
+    }
+  >({ requestKey: null, data: null, loading: true, error: null });
   const [attempt, setAttempt] = useState(0);
   const retry = useCallback(() => {
-    cache = null;
+    cache.delete(requestKey);
     // Keep the prior error message mounted so Retry focus is not lost while the
     // next attempt is in flight; success/failure handlers replace it below.
     setState((prev) => ({ ...prev, loading: true }));
     setAttempt((value) => value + 1);
-  }, []);
+  }, [requestKey]);
 
   useEffect(() => {
     let active = true;
-    cache ??= loadDataset();
-    const request = cache;
+    if (!cache.has(requestKey)) cache.set(requestKey, loadDataset(resolved));
+    const request = cache.get(requestKey)!;
     request
       .then((data) => {
-        if (active) setState({ data, loading: false, error: null });
+        if (active) setState({ requestKey, data, loading: false, error: null });
       })
       .catch((err: unknown) => {
         // Only clear the shared cache when this request is still the active one.
         // A newer retry may have already replaced `cache` with a fresh promise.
-        if (cache === request) cache = null;
+        if (cache.get(requestKey) === request) cache.delete(requestKey);
         if (active)
-          setState({ data: null, loading: false, error: err instanceof Error ? err.message : "Failed to load" });
+          setState({
+            requestKey,
+            data: null,
+            loading: false,
+            error: err instanceof Error ? err.message : "Failed to load",
+          });
       });
     return () => {
       active = false;
     };
-  }, [attempt]);
+  }, [attempt, requestKey, resolved]);
 
-  return { ...state, retry };
+  if (state.requestKey !== requestKey) return { data: null, loading: true, error: null, retry };
+  return { data: state.data, loading: state.loading, error: state.error, retry };
 }

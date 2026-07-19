@@ -1559,6 +1559,80 @@ describe("RAG structured-output fallback", () => {
     expect(rpc.mock.calls.filter(([name]) => name === "match_document_chunks_text_v2")).toHaveLength(1);
   });
 
+  it("lets a coalesced answer waiter cancel without waiting for or duplicating the originating request", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "300000");
+    vi.stubEnv("RAG_ANSWER_CACHE_SIZE", "100");
+
+    const sources = [source()];
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    let releaseGeneration!: () => void;
+    let markGenerationStarted!: () => void;
+    const generationStarted = new Promise<void>((resolve) => {
+      markGenerationStarted = resolve;
+    });
+    const generationGate = new Promise<void>((resolve) => {
+      releaseGeneration = resolve;
+    });
+    const generateStructuredTextResult = vi.fn(async () => {
+      markGenerationStarted();
+      await generationGate;
+      return {
+        text: JSON.stringify({
+          answer: "Use a stepwise agitation and arousal approach based on rating and route.",
+          grounded: true,
+          confidence: "high",
+          answerSections: [],
+          citations: [{ chunk_id: "agitation-chunk-1" }],
+          quoteCards: [],
+          conflictsOrGaps: [],
+        }),
+        model: "gpt-4.1-mini",
+        operation: "answer",
+        latencyMs: 12,
+        requestId: "req_origin",
+        usage: { input_tokens: 100, output_tokens: 120, total_tokens: 220 },
+      };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({ rpc, from: vi.fn(() => new EmptyQuery()) }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const first = answerQuestionWithScope({
+      query: "Summarize inpatient approach",
+      ownerId: "owner-waiter-cancel",
+      logQuery: false,
+    });
+    await generationStarted;
+
+    const controller = new AbortController();
+    const second = answerQuestionWithScope({
+      query: "Summarize inpatient approach",
+      ownerId: "owner-waiter-cancel",
+      logQuery: false,
+      signal: controller.signal,
+    });
+    const reason = new DOMException("waiter left", "AbortError");
+    controller.abort(reason);
+    await expect(second).rejects.toBe(reason);
+
+    releaseGeneration();
+    await expect(first).resolves.toMatchObject({ openAIRequestIds: ["req_origin"] });
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls.filter(([name]) => name === "match_document_chunks_text_v2")).toHaveLength(1);
+  });
+
   it("retries fast model output that cites evidence IDs outside retrieved chunks", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
@@ -2800,6 +2874,47 @@ describe("RAG structured-output fallback", () => {
     expect(answer.confidence).toBe("unsupported");
     expect(answer.answer).not.toMatch(/fluoxetine|citalopram|escitalopram/i);
     expect(answer.answerSections ?? []).toEqual([]);
+  });
+
+  it("does not convert caller cancellation during embedding into lexical fallback", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+
+    const controller = new AbortController();
+    const reason = new DOMException("caller left during embedding", "AbortError");
+    const rpc = vi.fn(async (name: string) => {
+      void name;
+      return { data: [], error: null };
+    });
+    const embedTextWithTelemetry = vi.fn(async (_query: string, options?: { signal?: AbortSignal }) => {
+      controller.abort(reason);
+      options?.signal?.throwIfAborted();
+      return { embedding: Array(1536).fill(0.01), cacheHit: false };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry,
+      generateStructuredTextResult: vi.fn(),
+    }));
+
+    const { searchChunksWithTelemetry } = await import("../src/lib/rag");
+
+    await expect(
+      searchChunksWithTelemetry({
+        query: "monitoring requirements",
+        topK: 4,
+        allowGlobalSearch: true,
+        signal: controller.signal,
+      }),
+    ).rejects.toBe(reason);
+    expect(embedTextWithTelemetry).toHaveBeenCalledOnce();
+    expect(rpc.mock.calls.some(([name]) => String(name).includes("_hybrid"))).toBe(false);
   });
 
   it("continues hybrid chunk retrieval when index-unit hybrid retrieval times out", async () => {

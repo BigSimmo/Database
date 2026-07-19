@@ -67,7 +67,13 @@ const searchSchema = z.object({
 
 type SearchRequestBody = z.infer<typeof searchSchema>;
 
-const scopedSearchInflight = new Map<string, Promise<unknown>>();
+type ScopedSearchInflight = {
+  promise: Promise<Record<string, unknown>>;
+  controller: AbortController;
+  waiters: number;
+  settled: boolean;
+};
+const scopedSearchInflight = new Map<string, ScopedSearchInflight>();
 
 function isSourceLibrarySearchMode(mode: SearchRequestBody["mode"]) {
   return mode === "documents" || mode === "differentials";
@@ -89,15 +95,62 @@ function scopedSearchKey(body: SearchRequestBody, ownerId?: string | null, publi
   });
 }
 
-async function coalesceScopedSearch<T extends Record<string, unknown>>(key: string, producer: () => Promise<T>) {
-  const existing = scopedSearchInflight.get(key) as Promise<T> | undefined;
-  if (existing) return { payload: await existing, coalesced: true };
+function callerAbortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
+}
 
-  const pending = producer().finally(() => {
-    scopedSearchInflight.delete(key);
+function awaitWithCallerSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(callerAbortReason(signal));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      cleanup();
+      reject(callerAbortReason(signal));
+    };
+    const cleanup = () => signal.removeEventListener("abort", onAbort);
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
   });
-  scopedSearchInflight.set(key, pending);
-  return { payload: await pending, coalesced: false };
+}
+
+async function coalesceScopedSearch<T extends Record<string, unknown>>(
+  key: string,
+  producer: (signal: AbortSignal) => Promise<T>,
+  signal: AbortSignal,
+) {
+  signal.throwIfAborted();
+  let entry = scopedSearchInflight.get(key);
+  const coalesced = Boolean(entry);
+  if (!entry) {
+    const controller = new AbortController();
+    const created: ScopedSearchInflight = {
+      promise: Promise.resolve({}),
+      controller,
+      waiters: 0,
+      settled: false,
+    };
+    created.promise = producer(controller.signal).finally(() => {
+      created.settled = true;
+      if (scopedSearchInflight.get(key) === created) scopedSearchInflight.delete(key);
+    });
+    scopedSearchInflight.set(key, created);
+    entry = created;
+  }
+  entry.waiters += 1;
+  try {
+    return { payload: (await awaitWithCallerSignal(entry.promise, signal)) as T, coalesced };
+  } finally {
+    entry.waiters -= 1;
+    if (entry.waiters === 0 && !entry.settled) entry.controller.abort();
+  }
 }
 
 function buildDocumentMatchesFromResults(results: SearchResult[], limit: number) {
@@ -190,7 +243,6 @@ function compactImage(image: ChunkImage) {
     image_type: image.image_type,
     clinicalUseClass: image.clinicalUseClass,
     caption: image.caption ? compactText(image.caption, 240) : "",
-    storage_path: image.storage_path,
     searchable: image.searchable,
     clinical_relevance_score: image.clinical_relevance_score,
     tableLabel: image.tableLabel,
@@ -686,7 +738,9 @@ async function buildScopedSearchPayload(
   body: SearchRequestBody,
   supabase: ReturnType<typeof createAdminClient>,
   ownerId?: string | null,
+  signal?: AbortSignal,
 ) {
+  signal?.throwIfAborted();
   const searchFocusQuery = queryForClinicalMode(body.query, body.queryMode);
   const effectiveQueryClass =
     queryClassForClinicalMode(body.queryMode) ?? classifyRagQuery(searchFocusQuery).queryClass;
@@ -696,7 +750,9 @@ async function buildScopedSearchPayload(
     accessScope,
     documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
     filters: body.filters,
+    signal,
   });
+  signal?.throwIfAborted();
   if (scope.documentIds?.length === 0) {
     const relevance = buildEvidenceRelevance(searchFocusQuery, []);
     const payload = {
@@ -741,6 +797,7 @@ async function buildScopedSearchPayload(
     accessScope,
     allowGlobalSearch: !ownerId,
     queryMode: body.queryMode,
+    signal,
   });
   const resultLimit = isSourceLibrarySearchMode(body.mode)
     ? Math.max(body.topK ?? 12, Math.min(20, body.documentLimit))
@@ -760,6 +817,7 @@ async function buildScopedSearchPayload(
         query: searchFocusQuery,
         results,
         limit: isSourceLibrarySearchMode(body.mode) ? body.documentLimit : undefined,
+        signal,
       })
     : [];
   // Audit L10: compute relevance/visual evidence ONCE and share with the
@@ -930,8 +988,10 @@ export async function POST(request: Request) {
     }
 
     const key = scopedSearchKey(searchBody, ownerId, publicOnly);
-    const { payload, coalesced } = await coalesceScopedSearch(key, () =>
-      buildScopedSearchPayload(searchBody, supabase!, ownerId),
+    const { payload, coalesced } = await coalesceScopedSearch(
+      key,
+      (signal) => buildScopedSearchPayload(searchBody, supabase!, ownerId, signal),
+      request.signal,
     );
     return NextResponse.json({
       ...payload,

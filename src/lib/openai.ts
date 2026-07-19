@@ -61,7 +61,13 @@ export type OpenAIParsedTextResult<T> = OpenAITextResult & { parsed: T };
 
 let openAIClient: OpenAI | null = null;
 const queryEmbeddingCache = new Map<string, number[]>();
-const queryEmbeddingInflight = new Map<string, Promise<number[]>>();
+type QueryEmbeddingInflight = {
+  promise: Promise<number[]>;
+  controller: AbortController;
+  waiters: number;
+  settled: boolean;
+};
+const queryEmbeddingInflight = new Map<string, QueryEmbeddingInflight>();
 
 export function createOpenAIClient() {
   try {
@@ -527,6 +533,9 @@ export function openAISafetyIdentifier(ownerId: string | null | undefined) {
 
 export function clearOpenAICaches() {
   queryEmbeddingCache.clear();
+  for (const entry of queryEmbeddingInflight.values()) {
+    if (!entry.settled) entry.controller.abort();
+  }
   queryEmbeddingInflight.clear();
   openAIClient = null;
 }
@@ -545,8 +554,9 @@ export function chunkIntoBatches<T>(items: T[], size: number): T[][] {
   return batches;
 }
 
-export async function embedTexts(texts: string[]) {
+export async function embedTexts(texts: string[], options?: { signal?: AbortSignal }) {
   if (texts.length === 0) return [];
+  options?.signal?.throwIfAborted();
 
   const uniqueTexts: string[] = [];
   const uniqueIndexByText = new Map<string, number>();
@@ -579,7 +589,7 @@ export async function embedTexts(texts: string[]) {
           // IDX-C2: request the exact dimension the schema's vector(N) columns expect.
           dimensions: env.EMBEDDING_DIMENSIONS,
         },
-        requestOptions({ operation: "embedding" }),
+        requestOptions({ operation: "embedding", signal: options?.signal }),
       );
 
       // IDX-C2: a short response means some inputs silently produced no embedding.
@@ -620,40 +630,87 @@ export async function embedTexts(texts: string[]) {
   }
 }
 
-export async function embedText(text: string) {
-  const { embedding } = await embedTextWithTelemetry(text);
+export async function embedText(text: string, options?: { signal?: AbortSignal }) {
+  const { embedding } = await embedTextWithTelemetry(text, options);
   return embedding;
 }
 
-export async function embedTextWithTelemetry(text: string) {
+function callerAbortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException("The operation was aborted.", "AbortError");
+}
+
+function awaitWithCallerSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(callerAbortReason(signal));
+
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      cleanup();
+      reject(callerAbortReason(signal));
+    };
+    const cleanup = () => signal.removeEventListener("abort", onAbort);
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        cleanup();
+        resolve(value);
+      },
+      (error) => {
+        cleanup();
+        reject(error);
+      },
+    );
+  });
+}
+
+async function awaitInflightEmbedding(entry: QueryEmbeddingInflight, signal?: AbortSignal) {
+  entry.waiters += 1;
+  try {
+    return await awaitWithCallerSignal(entry.promise, signal);
+  } finally {
+    entry.waiters -= 1;
+    if (entry.waiters === 0 && !entry.settled) entry.controller.abort();
+  }
+}
+
+export async function embedTextWithTelemetry(text: string, options?: { signal?: AbortSignal }) {
+  options?.signal?.throwIfAborted();
   const cached = getCachedQueryEmbedding(text);
   if (cached) {
     return { embedding: cached, cacheHit: true };
   }
 
   const key = queryEmbeddingCacheKey(text);
-  const inflight = queryEmbeddingInflight.get(key);
-  if (inflight) {
-    return { embedding: await inflight, cacheHit: true };
+  let inflight = queryEmbeddingInflight.get(key);
+  let cacheHit = true;
+  if (!inflight) {
+    cacheHit = false;
+    const controller = new AbortController();
+    const entry: QueryEmbeddingInflight = {
+      promise: Promise.resolve([]),
+      controller,
+      waiters: 0,
+      settled: false,
+    };
+    entry.promise = embedTexts([text], { signal: controller.signal })
+      .then((embeddings) => {
+        const embedding = embeddings[0];
+        if (!embedding) {
+          throw new PublicApiError("OpenAI returned no embedding for the query.", 502, {
+            code: "openai_empty_embedding",
+          });
+        }
+        setCachedQueryEmbeddingByKey(key, embedding);
+        return embedding;
+      })
+      .finally(() => {
+        entry.settled = true;
+        if (queryEmbeddingInflight.get(key) === entry) queryEmbeddingInflight.delete(key);
+      });
+    queryEmbeddingInflight.set(key, entry);
+    inflight = entry;
   }
-
-  const embeddingPromise = embedTexts([text])
-    .then((embeddings) => {
-      const embedding = embeddings[0];
-      if (!embedding) {
-        throw new PublicApiError("OpenAI returned no embedding for the query.", 502, {
-          code: "openai_empty_embedding",
-        });
-      }
-      setCachedQueryEmbeddingByKey(key, embedding);
-      return embedding;
-    })
-    .finally(() => {
-      queryEmbeddingInflight.delete(key);
-    });
-
-  queryEmbeddingInflight.set(key, embeddingPromise);
-  return { embedding: await embeddingPromise, cacheHit: false };
+  return { embedding: await awaitInflightEmbedding(inflight, options?.signal), cacheHit };
 }
 
 export async function generateTextResult(

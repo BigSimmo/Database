@@ -79,6 +79,44 @@ describe("OpenAI query embedding cache", () => {
     expect(embeddingCalls).toBe(1);
   });
 
+  it("lets one coalesced waiter cancel without cancelling the shared paid request", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small");
+    vi.stubEnv("OPENAI_QUERY_CACHE_SIZE", "200");
+    vi.stubEnv("EMBEDDING_DIMENSIONS", "3");
+
+    let resolveEmbedding!: (value: { data: Array<{ index: number; embedding: number[] }> }) => void;
+    let providerSignal: AbortSignal | undefined;
+    vi.doMock("openai", () => ({
+      default: class MockOpenAI {
+        embeddings = {
+          create: vi.fn((_body: unknown, options?: { signal?: AbortSignal }) => {
+            providerSignal = options?.signal;
+            return new Promise((resolve) => {
+              resolveEmbedding = resolve;
+            });
+          }),
+        };
+        responses = { create: vi.fn() };
+      },
+    }));
+
+    const { clearOpenAICaches, embedTextWithTelemetry } = await import("../src/lib/openai");
+    clearOpenAICaches();
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    const first = embedTextWithTelemetry("same query", { signal: firstController.signal });
+    const second = embedTextWithTelemetry("same query", { signal: secondController.signal });
+
+    const reason = new DOMException("first caller left", "AbortError");
+    firstController.abort(reason);
+    await expect(first).rejects.toBe(reason);
+    expect(providerSignal?.aborted).toBe(false);
+
+    resolveEmbedding({ data: [{ index: 0, embedding: [1, 2, 3] }] });
+    await expect(second).resolves.toEqual({ embedding: [1, 2, 3], cacheHit: true });
+  });
+
   it("captures response telemetry and sends wrapper request options", async () => {
     let capturedBody: Record<string, unknown> = {};
     let capturedOptions: Record<string, unknown> = {};

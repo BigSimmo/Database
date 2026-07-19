@@ -424,6 +424,8 @@ export type SearchScoreExplanation = {
   /** Existing public confidence signal, clamped to the inclusive 0-1 range. */
   finalScore: number;
   finalRank?: number;
+  /** Bounded model relevance from the ambiguity-only reranker; used as a small answer-evidence signal. */
+  semanticRerankScore?: number;
   /** Compatibility alias for rankScore retained for older telemetry and fixtures. */
   preClampFinalScore?: number;
   /** Numeric inputs to the deterministic query-class fusion. Fixed adjustments are not tunable. */
