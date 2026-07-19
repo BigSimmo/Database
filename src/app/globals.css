@@ -1848,6 +1848,12 @@ summary::-webkit-details-marker {
     pointer-events: none;
   }
 
+  /* Compare addon adds in-flow chrome above the pill; clear a little extra so
+     the Compare bar does not leave a 1px/subpixel peep on the viewport edge. */
+  .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-footer-addon="differentials-compare"][data-scroll-hidden="true"] {
+    transform: translateY(calc(100% + 0.75rem + env(safe-area-inset-bottom)));
+  }
+
   /* Document viewer bottom composer mirrors the dock's hide-on-scroll. Unlike
      the full-bleed dock it floats with a bottom gap (.floating-composer-edge,
      bottom: max(0.75rem, safe-area)), so the exit transform must also clear

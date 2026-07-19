@@ -1550,15 +1550,20 @@ test.describe("Clinical KB tools launcher", () => {
       .poll(async () => mainContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)))
       .toBeLessThanOrEqual(13);
 
-    const hiddenCompare = await compareAction.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        top: rect.top,
-        bottom: rect.bottom,
-        viewportHeight: window.innerHeight,
-      };
-    });
-    expect(hiddenCompare.top).toBeGreaterThanOrEqual(hiddenCompare.viewportHeight - 1);
+    // Wait for the hide transition to finish so the in-dock Compare bar is fully
+    // off-screen (translateY(100%) parks the dock top on the viewport bottom edge).
+    await expect
+      .poll(async () =>
+        compareAction.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            top: rect.top,
+            viewportHeight: window.innerHeight,
+            offscreen: rect.top >= window.innerHeight - 1,
+          };
+        }),
+      )
+      .toMatchObject({ offscreen: true });
 
     await scrollPrimarySurface(page, 60);
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
