@@ -2935,8 +2935,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const documentWorkspace = page.getByTestId("document-search-workspace");
     await expect(documentWorkspace.getByRole("heading", { name: /document/i }).first()).toBeVisible();
     await expect(documentWorkspace.getByTestId("document-results-controls")).toBeVisible();
-    await expect(documentWorkspace.getByLabel("Sort results")).toBeVisible();
-    await expect(documentWorkspace.getByRole("button", { name: "Open document library" })).toBeVisible();
+    const resultsControls = documentWorkspace.getByTestId("document-results-controls");
+    await expect(resultsControls.getByLabel("Sort results")).toBeVisible();
+    await expect(resultsControls.getByRole("button", { name: "Open document library" })).toBeVisible();
     await expect(documentWorkspace.getByText("Documents overview")).toHaveCount(0);
     await expect(documentWorkspace.getByRole("button", { name: /Browse library/i })).toHaveCount(0);
     await expect(page.getByTestId("cross-mode-links")).toHaveCount(0);
@@ -2946,6 +2947,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults).toBeVisible();
     await expect(documentResults).toContainText("Best match");
     await expect(documentResults).toContainText("1 table");
+
+    const typeFilters = resultsControls.getByLabel("Filter by result type");
+    if ((await typeFilters.count()) > 0) {
+      const tablesFilter = typeFilters.getByRole("button", { name: /Tables/i });
+      await expect(tablesFilter).toBeVisible();
+      await tablesFilter.click();
+      await expect(tablesFilter).toHaveAttribute("aria-pressed", "true");
+      await expect(documentResults).toBeVisible();
+      await typeFilters.getByRole("button", { name: /^All/i }).click();
+    }
+
+    await resultsControls.getByLabel("Sort results").selectOption("alpha");
+    await expect(page).toHaveURL(/[?&]sort=alpha/);
+    await resultsControls.getByLabel("Sort results").selectOption("relevance");
+
     const openDocumentLink = documentResults
       .getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })
       .last();
@@ -2959,7 +2975,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("complementary", { name: "Selected document evidence" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
 
-    await documentWorkspace.getByRole("button", { name: "Open document library" }).click();
+    await resultsControls.getByRole("button", { name: "Open document library" }).click();
     const resultsLibraryDialog = page.getByRole("dialog", { name: "Source library" });
     await expect(resultsLibraryDialog).toBeVisible();
     await page.keyboard.press("Escape");
