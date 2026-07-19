@@ -559,7 +559,8 @@ function resultsHaveReleaseRankScore(results: SearchResult[]) {
  *
  * App-layer rank scores remain available to answer evidence ranking and telemetry, but the
  * live corpus gate has not validated using them as the final retrieval order. Resolve duplicate
- * chunks to their strongest released-hybrid copy before sorting the distinct results.
+ * chunks to their strongest released-hybrid copy. Distinct results keep the clinical selection's
+ * existing order unless the current set carries bounded second-stage release scores.
  */
 export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSecondStageScore = false) {
   const useSecondStageReleaseOrder = preferSecondStageScore && resultsHaveReleaseRankScore(results);
@@ -575,7 +576,6 @@ export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSeco
     return left.id.localeCompare(right.id);
   };
   const compareReleasedSearchOrder = (left: SearchResult, right: SearchResult) => {
-    if (!useSecondStageReleaseOrder) return compareReleasedHybridStrength(left, right);
     const leftReleaseScore = left.score_explanation?.releaseRankScore ?? left.hybrid_score ?? left.similarity ?? 0;
     const rightReleaseScore = right.score_explanation?.releaseRankScore ?? right.hybrid_score ?? right.similarity ?? 0;
     if (rightReleaseScore !== leftReleaseScore) return rightReleaseScore - leftReleaseScore;
@@ -591,13 +591,15 @@ export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSeco
     const current = strongestById.get(result.id);
     if (!current || compareReleasedHybridStrength(result, current) < 0) strongestById.set(result.id, result);
   }
-  const deduped = [...strongestById.values()]
-    .sort(compareReleasedSearchOrder)
-    .map((result, index) =>
-      result.score_explanation
-        ? { ...result, score_explanation: { ...result.score_explanation, finalRank: index + 1 } }
-        : result,
-    );
+  const distinctResults = [...strongestById.values()];
+  const releasedResults = useSecondStageReleaseOrder
+    ? distinctResults.sort(compareReleasedSearchOrder)
+    : distinctResults;
+  const deduped = releasedResults.map((result, index) =>
+    result.score_explanation
+      ? { ...result, score_explanation: { ...result.score_explanation, finalRank: index + 1 } }
+      : result,
+  );
   results.length = 0;
   results.push(...deduped);
   return results;
