@@ -39,7 +39,6 @@ begin
   end if;
 end;
 $$;
-
 create or replace function public.enforce_document_title_word_scope()
 returns trigger
 language plpgsql
@@ -66,7 +65,6 @@ begin
   return new;
 end;
 $$;
-
 revoke execute on function public.enforce_document_title_word_scope()
   from public, anon, authenticated, service_role;
 
@@ -142,25 +140,19 @@ revoke execute on function public.correct_clinical_query_terms(text, real)
 grant execute on function public.correct_clinical_query_terms(text, real)
   to service_role;
 
--- 20260717173000 establishes this as the fail-closed default-ACL invariant.
--- This newer migration creates a function, so reassert that the invariant still
--- holds before the transaction can commit.
+-- The immediately preceding repair establishes this fail-closed default-ACL
+-- invariant. This migration creates a function, so reassert it before commit.
 do $$
 declare
   v_status jsonb;
 begin
-  if not exists (select 1 from pg_catalog.pg_roles where rolname = 'supabase_admin') then
-    raise notice 'role supabase_admin does not exist; default-privilege assertion is not applicable';
-    return;
-  end if;
-
-  v_status := public.default_privileges_status('supabase_admin', 'public');
+  v_status := public.default_privileges_status('postgres', 'public');
   if not coalesce((v_status->>'safe')::boolean, false) then
     raise exception using
       errcode = '42501',
-      message = 'Unsafe supabase_admin default privileges; title-word privacy migration blocked.',
+      message = 'Unsafe postgres default privileges in schema public; title-word privacy migration blocked.',
       detail = v_status::text,
-      hint = 'Reapply the default-privilege remediation in migration 20260717173000, then retry.';
+      hint = 'Reapply migration 20260719055609_repair_postgres_default_privileges, then retry.';
   end if;
 end;
 $$;
