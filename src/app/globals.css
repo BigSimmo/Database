@@ -1762,9 +1762,12 @@ summary::-webkit-details-marker {
 }
 
 @media (max-width: 639px) {
+  /* Unlayered on purpose: this used to set max(0px, safe-area) and beat the
+     @layer components inset, pinning new-chat to the phone bezel. Keep the
+     phone value here so unlayered media cannot reintroduce a 0px override. */
   .edge-glass-header {
-    padding-left: max(0px, var(--safe-area-left));
-    padding-right: max(0px, var(--safe-area-right));
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
   }
 
   .dashboard-composer-edge.answer-footer-search-edge:not(.answer-footer-search-dock) {
