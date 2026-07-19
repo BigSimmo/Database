@@ -29,6 +29,7 @@ const globalSearchShellSource = readFileSync(
   "utf8",
 );
 const clinicalDashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+const documentViewerSource = readFileSync(resolve(process.cwd(), "src/components/DocumentViewer.tsx"), "utf8");
 const globalStylesSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
 
 type FoundDeclaration = { source: string };
@@ -86,11 +87,19 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalStylesSource).not.toMatch(/^\s*-webkit-backdrop-filter\s*:/m);
   });
 
-  it("reserves phone space for the fixed mode-home composer", () => {
+  it("releases the Safari toolbar reserve only after phone composers hide", () => {
     expect(globalSearchShellSource).toContain("const visibleMobileComposerReserve = !shouldShowSearchComposer");
     expect(globalSearchShellSource).toContain("const mobileComposerReserve = bottomComposerHidden");
+    expect(globalSearchShellSource).toContain('bottomComposerHidden ? "0.75rem"');
+    expect(globalSearchShellSource).not.toContain("max(0.75rem, env(safe-area-inset-bottom))");
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = !reservesFloatingComposer");
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = phoneScrollHide.hidden");
+    expect(clinicalDashboardSource).toContain('bottomComposerHidden ? "0.75rem"');
+    expect(clinicalDashboardSource).toContain('"max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-24"');
+    expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
+    expect(documentViewerSource).toContain('"max-sm:pb-3"');
+    expect(documentViewerSource).toContain('"max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"');
+    expect(globalStylesSource).toMatch(/--safe-area-bottom\s*:/);
   });
 
   it("does not reintroduce the obsolete output-mode copy helper", () => {

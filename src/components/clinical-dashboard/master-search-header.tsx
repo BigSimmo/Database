@@ -1206,7 +1206,7 @@ export function MasterSearchHeader({
     // Keep that dock pinned while the header can still collapse independently.
     const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock && !mobileBottomSearchAddonSlotId);
     // Phone submitted non-answer result docks reserve pill-only scroll
-    // clearance (ClinicalDashboard <main> margins / global-search-shell
+    // clearance (ClinicalDashboard / global-search-shell <main> padding via
     // mobileComposerReserve), so an extra notice line would push the fixed
     // dock over the last result. Those flows already showed the notice on
     // their entry composer; answer docks keep it (their reserves were sized
