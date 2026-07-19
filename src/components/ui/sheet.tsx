@@ -81,6 +81,10 @@ export function Sheet({
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
   const dragRef = useRef<{ startY: number; dragging: boolean }>({ startY: 0, dragging: false });
+  // Backdrop dismiss must require the gesture to *start* on the dimmed area.
+  // Otherwise a press that begins on the panel and ends on the backdrop would
+  // synthesize a click on the common ancestor and accidentally close the sheet.
+  const backdropPointerDownRef = useRef(false);
   const titleId = useId();
   const descId = useId();
 
@@ -213,8 +217,14 @@ export function Sheet({
       )}
       // Dismiss on click (not pointerdown) so the sheet stays mounted through
       // pointerup and the same gesture cannot click-through into content below.
+      // Only honor the click when the pointerdown also began on the backdrop.
+      onPointerDown={(event) => {
+        backdropPointerDownRef.current = event.target === event.currentTarget;
+      }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target !== event.currentTarget || !backdropPointerDownRef.current) return;
+        backdropPointerDownRef.current = false;
+        onClose();
       }}
     >
       <div
@@ -224,7 +234,10 @@ export function Sheet({
         aria-modal="true"
         aria-labelledby={resolvedLabelledBy}
         aria-describedby={description || descriptionContent ? descId : undefined}
-        onPointerDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => {
+          backdropPointerDownRef.current = false;
+          event.stopPropagation();
+        }}
         style={contentStyle}
         className={cn(
           "flex min-w-0 w-full flex-col overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] pb-safe",
