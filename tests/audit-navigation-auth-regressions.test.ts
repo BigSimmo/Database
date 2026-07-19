@@ -102,7 +102,7 @@ describe("audit navigation and auth regressions", () => {
     expect(masterSearchHeaderSource).toContain('testId="app-mode-menu-sheet"');
     expect(masterSearchHeaderSource).toContain("enabled: modeMenuOpen && !usesPhoneSearchLayout");
     expect(masterSearchHeaderSource).toContain("{!usesPhoneSearchLayout && modeMenuOpen ? (");
-    expect(masterSearchHeaderSource).toContain("aria-haspopup={usesPhoneSearchLayout ? \"dialog\" : \"menu\"}");
+    expect(masterSearchHeaderSource).toContain('aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}');
     expect(masterSearchHeaderSource).toContain('mobilePlacement="bottom"');
     expect(masterSearchHeaderSource).toContain("phoneLayoutGateRef");
   });

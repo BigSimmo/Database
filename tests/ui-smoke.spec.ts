@@ -1377,7 +1377,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(modeSheet).toBeVisible();
 
     // Click the dimmed backdrop (outside the dialog panel) to dismiss.
-    await page.locator(".fixed.inset-0.z-\\[100\\]").first().click({ position: { x: 8, y: 8 } });
+    await page
+      .locator(".fixed.inset-0.z-\\[100\\]")
+      .first()
+      .click({ position: { x: 8, y: 8 } });
     await expect(modeSheet).toHaveCount(0);
     await expect(appModeTrigger).toBeFocused();
     await expect(appModeTrigger).toHaveAttribute("aria-expanded", "false");

@@ -21,7 +21,9 @@ describe("overlay and global CSS contracts", () => {
   it("dismisses the Sheet backdrop only when the gesture starts on the dimmed area", () => {
     expect(sheetSource).toContain("backdropPointerDownRef");
     expect(sheetSource).toContain("backdropPointerDownRef.current = event.target === event.currentTarget");
-    expect(sheetSource).toContain("if (event.target !== event.currentTarget || !backdropPointerDownRef.current) return");
+    expect(sheetSource).toContain(
+      "if (event.target !== event.currentTarget || !backdropPointerDownRef.current) return",
+    );
   });
 
   it("defines the shared easing tokens only once", () => {
