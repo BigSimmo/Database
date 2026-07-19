@@ -546,9 +546,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
       const nowSaved = !saved;
       if (!(await accountData.setFavourite("form", form.slug, nowSaved))) {
         setNotice(
-          accountData.isAuthenticated
-            ? "Save failed. Try again."
-            : "Sign in or create an account to save forms",
+          accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save forms",
         );
         return;
       }

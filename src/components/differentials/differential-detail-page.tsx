@@ -978,9 +978,7 @@ export function DifferentialDetailPage({
       const updated = await accountData.setFavourite("differential", record.slug, nowSaved);
       if (!updated) {
         setSaveNotice(
-          accountData.isAuthenticated
-            ? "Save failed. Try again."
-            : "Sign in or create an account to save diagnoses.",
+          accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save diagnoses.",
         );
         return;
       }

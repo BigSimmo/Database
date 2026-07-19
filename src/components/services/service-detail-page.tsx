@@ -488,9 +488,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
       const nowSaved = !saved;
       if (!(await accountData.setFavourite("service", service.slug, nowSaved))) {
         setNotice(
-          accountData.isAuthenticated
-            ? "Save failed. Try again."
-            : "Sign in or create an account to save services",
+          accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save services",
         );
         return;
       }
