@@ -155,38 +155,45 @@ async function upsertEmbeddingFields(job: ClaimedJob, summaryText: string): Prom
     { fieldType: "document_summary", content: summary.length > 0 ? summary : "Summary unavailable" },
   ];
 
-  await sql`
-    delete from public.document_embedding_fields
-    where document_id = ${docId}::uuid
-      and field_type = any(${entries.map((e) => e.fieldType)}::text[])
-  `;
+  const prepared = await Promise.all(
+    entries.map(async (entry) => ({
+      ...entry,
+      embedding: await generateEmbedding(entry.content),
+      contentHash: await sha256Hex(entry.content),
+    })),
+  );
 
-  for (const entry of entries) {
-    const embedding = await generateEmbedding(entry.content);
-    const contentHash = await sha256Hex(entry.content);
-
-    await sql`
-      insert into public.document_embedding_fields (
-        owner_id,
-        document_id,
-        source_chunk_id,
-        field_type,
-        content,
-        embedding,
-        metadata,
-        content_hash
-      ) values (
-        ${ownerId}::uuid,
-        ${docId}::uuid,
-        null,
-        ${entry.fieldType},
-        ${entry.content},
-        ${JSON.stringify(embedding)}::vector,
-        ${JSON.stringify({ generated_by: "ingestion-worker", mode: "backfill" })}::jsonb,
-        ${contentHash}
-      )
+  await sql.begin(async (transaction) => {
+    await transaction`
+      delete from public.document_embedding_fields
+      where document_id = ${docId}::uuid
+        and field_type = any(${entries.map((entry) => entry.fieldType)}::text[])
     `;
-  }
+
+    for (const entry of prepared) {
+      await transaction`
+        insert into public.document_embedding_fields (
+          owner_id,
+          document_id,
+          source_chunk_id,
+          field_type,
+          content,
+          embedding,
+          metadata,
+          content_hash
+        ) values (
+          ${ownerId}::uuid,
+          ${docId}::uuid,
+          null,
+          ${entry.fieldType},
+          ${entry.content},
+          ${JSON.stringify(entry.embedding)}::vector,
+          ${JSON.stringify({ generated_by: "ingestion-worker", mode: "backfill" })}::jsonb,
+          ${entry.contentHash}
+        )
+      `;
+    }
+  });
 }
 
 async function markEnrichmentMetadata(documentId: string): Promise<void> {

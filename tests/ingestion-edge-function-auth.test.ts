@@ -37,4 +37,16 @@ describe("ingestion-worker Edge Function authorization", () => {
     expect(source).toContain("rows[0]?.result?.ok === true");
     expect(source).toContain("lease_lost: leaseLost");
   });
+
+  it("prepares replacement embeddings before swapping them atomically", () => {
+    const prepareIndex = source.indexOf("const prepared = await Promise.all");
+    const transactionIndex = source.indexOf("await sql.begin(async (transaction)");
+    const deleteIndex = source.indexOf("delete from public.document_embedding_fields");
+
+    expect(prepareIndex).toBeGreaterThan(0);
+    expect(transactionIndex).toBeGreaterThan(prepareIndex);
+    expect(deleteIndex).toBeGreaterThan(transactionIndex);
+    expect(source).toContain("for (const entry of prepared)");
+    expect(source).toContain("await transaction`");
+  });
 });
