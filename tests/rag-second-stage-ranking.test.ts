@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applySecondStageRerankIfNeeded } from "../src/lib/rag";
+import { applySecondStageRerankIfNeeded, stabilizeReleasedSearchOrder } from "../src/lib/rag";
 import type { SearchTelemetry } from "../src/lib/rag-contracts";
 import type { SearchResult, SearchScoreExplanation } from "../src/lib/types";
 
@@ -135,5 +135,48 @@ describe("second-stage rank score", () => {
 
     expect(ranked.map((item) => item.id)).toEqual(["dose-evidence-without-explanation", "supported"]);
     expect(ranked[1].score_explanation?.finalRank).toBe(2);
+  });
+
+  it("keeps unvalidated rank-score changes from replacing the live-eval-proven release order", () => {
+    const telemetry = {} as SearchTelemetry;
+    const strongerHybrid = result({
+      id: "stronger-hybrid",
+      document_id: "older-doc",
+      hybrid_score: 0.8,
+      score_explanation: explanation(0.4),
+      source_metadata: {
+        source_title: "Older guideline",
+        publisher: "Test publisher",
+        jurisdiction: "Australia/WA",
+        version: "1",
+        publication_date: null,
+        review_date: null,
+        uploaded_at: null,
+        indexed_at: null,
+        uploaded_by: null,
+        document_status: "outdated",
+        clinical_validation_status: "locally_reviewed",
+        extraction_quality: "good",
+      },
+    });
+    const higherRankScore = result({
+      id: "higher-rank-score",
+      document_id: "current-doc",
+      hybrid_score: 0.79,
+      score_explanation: explanation(0.5),
+    });
+
+    const secondStage = applySecondStageRerankIfNeeded({
+      queryClass: "medication_dose_risk",
+      results: [strongerHybrid, higherRankScore],
+      telemetry,
+      topK: 2,
+    });
+    expect(secondStage.map((item) => item.id)).toEqual(["higher-rank-score", "stronger-hybrid"]);
+
+    expect(stabilizeReleasedSearchOrder(secondStage).map((item) => item.id)).toEqual([
+      "stronger-hybrid",
+      "higher-rank-score",
+    ]);
   });
 });

@@ -549,6 +549,28 @@ function recordRetrievalLayer(
   }
 }
 
+/**
+ * Keep the released result order on the live-eval-proven hybrid signal.
+ *
+ * App-layer rank scores remain available to answer evidence ranking and telemetry, but the
+ * live corpus gate has not validated using them as the final retrieval order. Sort before
+ * deduplication so the strongest copy of a duplicated chunk remains the one returned.
+ */
+export function stabilizeReleasedSearchOrder(results: SearchResult[]) {
+  results.sort((left, right) => {
+    const leftHybrid = left.hybrid_score ?? left.similarity ?? 0;
+    const rightHybrid = right.hybrid_score ?? right.similarity ?? 0;
+    if (rightHybrid !== leftHybrid) return rightHybrid - leftHybrid;
+    const leftSimilarity = left.similarity ?? 0;
+    const rightSimilarity = right.similarity ?? 0;
+    if (rightSimilarity !== leftSimilarity) return rightSimilarity - leftSimilarity;
+    if (right.relevance?.score !== left.relevance?.score)
+      return (right.relevance?.score ?? 0) - (left.relevance?.score ?? 0);
+    return left.id.localeCompare(right.id);
+  });
+  return results;
+}
+
 /** Record search score telemetry. */
 function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchResult[]) {
   if (!results.length) {
@@ -565,8 +587,7 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
     return;
   }
 
-  // Preserve the rankScore ordering established by clinical/second-stage ranking. Coverage
-  // telemetry still uses the raw hybrid signal, but must never mutate the returned result order.
+  stabilizeReleasedSearchOrder(results);
   const deduped: SearchResult[] = [];
   const seen = new Set<string>();
   for (const result of results) {
