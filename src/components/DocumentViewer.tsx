@@ -1798,7 +1798,7 @@ export function DocumentViewer({
   const canViewSourceDocuments = localProjectReady;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
   const canUseAdministrativeApis =
-    localProjectReady && (serverDemoMode || (authStatus === "authenticated" && isAdministratorUser(session?.user)));
+    localProjectReady && !serverDemoMode && authStatus === "authenticated" && isAdministratorUser(session?.user);
 
   useEffect(() => {
     if (authStatus !== "loading") {
@@ -2283,14 +2283,10 @@ export function DocumentViewer({
   async function summarize() {
     if (!canSummarizeDocument) {
       setSummaryError(
-        !canUseAdministrativeApis
-          ? "Administrator access is required to summarise documents."
+        !canUsePrivateApis
+          ? "Sign in before summarising private documents."
           : "Load a source document before summarising.",
       );
-      return;
-    }
-    if (!canUsePrivateApis) {
-      setSummaryError("Sign in before summarising private documents.");
       return;
     }
     const summaryMode = sourceSearch.trim().length === 0;
@@ -2411,11 +2407,11 @@ export function DocumentViewer({
     ? `/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}&documentId=${encodeURIComponent(documentId)}`
     : documentHomeHref;
   const usefulPageHref = (page: number) => documentPageHref(documentId, page);
-  const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUseAdministrativeApis;
+  const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
   const summarizeTitle = canSummarizeDocument
     ? "Answer from this document"
-    : !canUseAdministrativeApis
-      ? "Administrator access is required to answer from this document"
+    : !canUsePrivateApis
+      ? "Sign in required to answer from this document"
       : "Load a source document before answering";
   const pageByNumber = useMemo(() => new Map(pages.map((page) => [page.page_number, page])), [pages]);
   const chunkById = useMemo(() => new Map(chunks.map((chunk) => [chunk.id, chunk])), [chunks]);

@@ -6,7 +6,7 @@ description: Plan safe risk-scoped Database work by inspecting the current chang
 # Plan
 
 1. Complete the task-start preflight and preserve unrelated work.
-2. Run `npm run workflow:flightplan -- --write-evidence`; add `--files pathA,pathB` for proposed paths.
+2. Run `npm run workflow:flightplan`; add `--files pathA,pathB` for proposed paths. Add `--write-evidence` only when the user explicitly requests evidence capture.
 3. Confirm the detected risk classes match behavior, not only filenames.
 4. Start with the narrowest local check and widen only when warranted.
 5. Never execute anything under `approvalRequired` without explicit confirmation.
