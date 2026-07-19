@@ -31,6 +31,33 @@ const globalSearchShellSource = readFileSync(
 const clinicalDashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
 const documentViewerSource = readFileSync(resolve(process.cwd(), "src/components/DocumentViewer.tsx"), "utf8");
 const globalStylesSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
+const uiPrimitivesSource = readFileSync(resolve(process.cwd(), "src/components/ui-primitives.tsx"), "utf8");
+const differentialsHomeSource = readFileSync(
+  resolve(process.cwd(), "src/components/clinical-dashboard/differentials-home.tsx"),
+  "utf8",
+);
+const applicationsLauncherSource = readFileSync(
+  resolve(process.cwd(), "src/components/applications-launcher-page.tsx"),
+  "utf8",
+);
+const serviceDetailSource = readFileSync(
+  resolve(process.cwd(), "src/components/services/service-detail-page.tsx"),
+  "utf8",
+);
+const formDetailSource = readFileSync(resolve(process.cwd(), "src/components/forms/form-detail-page.tsx"), "utf8");
+const specifierUiSource = readFileSync(resolve(process.cwd(), "src/components/specifiers/specifier-ui.tsx"), "utf8");
+const formulationUiSource = readFileSync(
+  resolve(process.cwd(), "src/components/formulation/formulation-ui.tsx"),
+  "utf8",
+);
+const favouritesLibrarySource = readFileSync(
+  resolve(process.cwd(), "src/components/clinical-dashboard/favourites-command-library-page.tsx"),
+  "utf8",
+);
+const mobileComposerReserveSource = readFileSync(
+  resolve(process.cwd(), "src/components/clinical-dashboard/mobile-composer-reserve.ts"),
+  "utf8",
+);
 
 type FoundDeclaration = { source: string };
 
@@ -88,21 +115,62 @@ describe("ClinicalDashboard merge-artifact guards", () => {
   });
 
   it("releases the Safari toolbar reserve only after phone composers hide", () => {
-    expect(globalSearchShellSource).toContain("const visibleMobileComposerReserve = !shouldShowSearchComposer");
-    expect(globalSearchShellSource).toContain("const mobileComposerReserve = bottomComposerHidden");
-    expect(globalSearchShellSource).toMatch(
-      /bottomComposerHidden\s*\?\s*"max\(0\.75rem, env\(safe-area-inset-bottom\)\)"/,
+    expect(mobileComposerReserveSource).toContain('export const mobileComposerHiddenReserve = "0.75rem"');
+    expect(mobileComposerReserveSource).toContain(
+      'export const mobileComposerDifferentialsCompareReserve = "calc(12.5rem + var(--safe-area-bottom))"',
     );
+    expect(mobileComposerReserveSource).toContain("export function resolveMobileComposerReserve");
+    expect(mobileComposerReserveSource).toContain("export function isDocumentViewerOwnedRoute");
+    expect(mobileComposerReserveSource).not.toContain("env(safe-area-inset-bottom)");
+
+    expect(globalSearchShellSource).toContain("resolveShellVisibleMobileComposerReserve");
+    expect(globalSearchShellSource).toContain("resolveMobileComposerReserve(");
+    expect(globalSearchShellSource).toContain('from "@/components/clinical-dashboard/mobile-composer-reserve"');
+    expect(globalSearchShellSource).not.toContain('bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"');
     expect(globalSearchShellSource).not.toContain('bottomComposerHidden ? "max(0.75rem, var(--safe-area-bottom))"');
+    expect(globalSearchShellSource).not.toContain('"max(2rem, var(--safe-area-bottom))"');
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = !reservesFloatingComposer");
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = phoneScrollHide.hidden");
-    expect(clinicalDashboardSource).toMatch(
-      /bottomComposerHidden\s*\?\s*"max\(0\.75rem, env\(safe-area-inset-bottom\)\)"/,
-    );
+    expect(globalSearchShellSource).toContain("sm:pb-[calc(9rem+var(--safe-area-bottom))]");
+    expect(globalSearchShellSource).not.toContain("sm:pb-[calc(9rem+env(safe-area-inset-bottom))]");
+    // Phone shell clearance is an inner pad so padding contributes to scrollHeight.
+    expect(globalSearchShellSource).toContain('data-testid="mobile-composer-reserve-pad"');
+    expect(globalSearchShellSource).toContain("max-sm:pb-[var(--mobile-composer-reserve)]");
+    expect(globalSearchShellSource).not.toContain('data-testid="mobile-composer-reserve-spacer"');
+
+    expect(clinicalDashboardSource).toContain("resolveDashboardVisibleMobileComposerReserve");
+    expect(clinicalDashboardSource).toContain("resolveMobileComposerReserve(");
+    expect(clinicalDashboardSource).toContain('from "@/components/clinical-dashboard/mobile-composer-reserve"');
+    expect(clinicalDashboardSource).not.toContain('bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"');
     expect(clinicalDashboardSource).toContain('"max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-24"');
+
     expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
     expect(documentViewerSource).toContain('"max-sm:pb-3"');
     expect(documentViewerSource).toContain('"max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"');
+    // Hidden document content must not reintroduce Safari toolbar inset padding.
+    expect(documentViewerSource).not.toMatch(/composerScrollHidden\s*\?\s*["']max-sm:pb-\[calc\([^"']*safe-area/);
+    expect(documentViewerSource).toContain("max-sm:duration-[240ms]");
+    expect(documentViewerSource).toContain("max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]");
+    expect(globalStylesSource).toContain("@media (max-width: 639px) and (prefers-reduced-motion: reduce)");
+    expect(globalStylesSource).toContain('#main-content[data-bottom-composer-hidden="true"]');
+    expect(globalStylesSource).toContain('[data-testid="mobile-composer-reserve-pad"]');
+    expect(globalStylesSource).toContain("--phone-dock-differentials-compare-clearance: 12.5rem");
+    expect(globalStylesSource).toContain("var(--phone-dock-differentials-compare-clearance)");
+    // Child pages must not stack a second dock-sized safe-area pad under the
+    // shared host reserve — that pad cannot collapse when the dock hides.
+    expect(uiPrimitivesSource).not.toContain("pb-[calc(12rem+env(safe-area-inset-bottom))]");
+    expect(differentialsHomeSource).not.toContain("pb-[calc(12.5rem+env(safe-area-inset-bottom))]");
+    expect(applicationsLauncherSource).not.toContain("pb-[calc(12rem+env(safe-area-inset-bottom))]");
+    expect(serviceDetailSource).not.toContain("pb-[calc(5.5rem+env(safe-area-inset-bottom))]");
+    expect(serviceDetailSource).toContain("max-sm:min-h-0");
+    expect(formDetailSource).not.toContain("pb-[calc(2rem+env(safe-area-inset-bottom))]");
+    expect(formDetailSource).toContain("max-sm:min-h-0");
+    expect(specifierUiSource).not.toContain("pb-[calc(7rem+env(safe-area-inset-bottom))]");
+    expect(specifierUiSource).toContain("max-sm:min-h-0");
+    expect(formulationUiSource).not.toContain("pb-[calc(7rem+env(safe-area-inset-bottom))]");
+    expect(formulationUiSource).toContain("max-sm:min-h-0");
+    expect(favouritesLibrarySource).not.toContain("pb-[calc(6rem+env(safe-area-inset-bottom))]");
+    expect(globalStylesSource).toContain("--phone-dock-hidden-pad: 0.75rem");
   });
 
   it("does not reintroduce the obsolete output-mode copy helper", () => {

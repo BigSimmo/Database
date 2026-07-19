@@ -49,7 +49,7 @@ export function FactsheetsSearchPage({
   return (
     <div
       data-testid="factsheets-search-page"
-      className="mx-auto w-full max-w-[64rem] px-4 py-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-8 lg:px-8"
+      className="mx-auto w-full max-w-[64rem] px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:px-8"
     >
       <p className="text-2xs font-bold uppercase tracking-[0.06em] text-[color:var(--clinical-accent)]">Find a sheet</p>
       <h1 className="mt-1.5 text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)]">

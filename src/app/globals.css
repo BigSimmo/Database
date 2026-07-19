@@ -271,6 +271,10 @@
      the layered .edge-glass-header base and the unlayered max-width:639px
      guard so the values cannot drift apart. lg overrides to 1.5rem. */
   --header-edge-pad: 1rem;
+  /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
+  --phone-dock-hidden-pad: 0.75rem;
+  --phone-dock-differentials-compare-clearance: 12.5rem;
+  --phone-dock-differentials-compare-compact-clearance: 12.25rem;
   /* Radius tokens are the single source of truth in @theme above (they also
      generate the rounded-* utilities); do not redefine them here or var() and
      the utilities drift apart. */
@@ -1808,14 +1812,15 @@ summary::-webkit-details-marker {
     height: max(5rem, calc(var(--safe-area-bottom) + 4.4rem));
   }
 
-  /* Differentials search results: compare action sits above the search pill in the dock. */
+  /* Differentials search results: compare action sits above the search pill in the dock.
+     Heights track --phone-dock-differentials-compare-* (same as content reserve). */
   .answer-footer-search-dock[data-footer-addon="differentials-compare"] .answer-footer-search-backdrop {
-    height: max(8.75rem, calc(var(--safe-area-bottom) + 7.5rem));
+    height: max(var(--phone-dock-differentials-compare-clearance), calc(var(--safe-area-bottom) + 11.25rem));
   }
 
   .answer-footer-search-dock.document-mobile-search-compact[data-footer-addon="differentials-compare"]
     .answer-footer-search-backdrop {
-    height: max(8.5rem, calc(var(--safe-area-bottom) + 7.25rem));
+    height: max(var(--phone-dock-differentials-compare-compact-clearance), calc(var(--safe-area-bottom) + 11rem));
   }
 
   .document-mobile-search-pill {
@@ -2587,7 +2592,9 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
-/* iOS Safari bottom padding transitions to match the composer's hide/show motion */
+/* iOS Safari bottom reserve transitions to match the composer's hide/show motion.
+   Shell routes animate the inner reserve pad; dashboard/answer animates
+   #main-content padding; DocumentViewer animates its own content pad. */
 @media (max-width: 639px) {
   #main-content {
     transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -2595,10 +2602,27 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   #main-content[data-bottom-composer-hidden="true"] {
     transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
   }
+  #main-content [data-testid="mobile-composer-reserve-pad"] {
+    transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  #main-content[data-bottom-composer-hidden="true"] [data-testid="mobile-composer-reserve-pad"] {
+    transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
   [data-testid="document-viewer-content"] {
     transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   [data-testid="document-viewer-content"][data-scroll-hidden="true"] {
     transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@media (max-width: 639px) and (prefers-reduced-motion: reduce) {
+  #main-content,
+  #main-content[data-bottom-composer-hidden="true"],
+  #main-content [data-testid="mobile-composer-reserve-pad"],
+  #main-content[data-bottom-composer-hidden="true"] [data-testid="mobile-composer-reserve-pad"],
+  [data-testid="document-viewer-content"],
+  [data-testid="document-viewer-content"][data-scroll-hidden="true"] {
+    transition: none;
   }
 }
