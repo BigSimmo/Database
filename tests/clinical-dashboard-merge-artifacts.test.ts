@@ -166,8 +166,11 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(formDetailSource).not.toContain("pb-[calc(2rem+env(safe-area-inset-bottom))]");
     expect(formDetailSource).toContain("max-sm:min-h-0");
     expect(specifierUiSource).not.toContain("pb-[calc(7rem+env(safe-area-inset-bottom))]");
+    expect(specifierUiSource).toContain("max-sm:min-h-0");
     expect(formulationUiSource).not.toContain("pb-[calc(7rem+env(safe-area-inset-bottom))]");
+    expect(formulationUiSource).toContain("max-sm:min-h-0");
     expect(favouritesLibrarySource).not.toContain("pb-[calc(6rem+env(safe-area-inset-bottom))]");
+    expect(globalStylesSource).toContain("--phone-dock-hidden-pad: 0.75rem");
   });
 
   it("does not reintroduce the obsolete output-mode copy helper", () => {

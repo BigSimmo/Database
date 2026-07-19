@@ -35,8 +35,9 @@ export function resolveMobileComposerReserve(bottomComposerHidden: boolean, visi
 
 /** Document detail / source flows own a floating composer outside MasterSearchHeader. */
 export function isDocumentViewerOwnedRoute(pathname: string): boolean {
-  if (pathname.startsWith("/documents/source")) return true;
   if (!pathname.startsWith("/documents/")) return false;
+  // /documents/search is the shell-owned index; every other /documents/* route
+  // (detail, source, evidence) owns its floating composer in DocumentViewer.
   return pathname !== "/documents/search";
 }
 
