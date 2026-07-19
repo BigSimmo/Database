@@ -72,13 +72,26 @@ export class PdfExtractionBudgetTracker {
   }
 
   addArtifact(byteLength: number) {
+    this.assertArtifact(byteLength);
     this.artifactCount += 1;
-    if (this.artifactCount > this.limits.maxArtifacts) {
-      budgetExceeded(`artifact count ${this.artifactCount} exceeds ${this.limits.maxArtifacts}`);
-    }
     this.artifactBytes += Math.max(0, byteLength);
-    if (this.artifactBytes > this.limits.maxArtifactBytes) {
+  }
+
+  assertArtifact(byteLength: number) {
+    const nextArtifactCount = this.artifactCount + 1;
+    if (nextArtifactCount > this.limits.maxArtifacts) {
+      budgetExceeded(`artifact count ${nextArtifactCount} exceeds ${this.limits.maxArtifacts}`);
+    }
+    const nextArtifactBytes = this.artifactBytes + Math.max(0, byteLength);
+    if (nextArtifactBytes > this.limits.maxArtifactBytes) {
       budgetExceeded(`temporary artifact bytes exceed ${this.limits.maxArtifactBytes}`);
+    }
+  }
+
+  assertRenderDimensions(width: number, height: number) {
+    const pixels = Math.max(0, width) * Math.max(0, height);
+    if (!Number.isSafeInteger(pixels) || pixels > this.limits.maxRenderPixels) {
+      budgetExceeded(`rendered image pixels ${pixels} exceed ${this.limits.maxRenderPixels}`);
     }
   }
 

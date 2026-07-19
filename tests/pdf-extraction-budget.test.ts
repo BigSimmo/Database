@@ -34,6 +34,7 @@ describe("PDF extraction budgets", () => {
   it("accepts exact aggregate boundaries and rejects the first byte or item beyond them", () => {
     const limits = {
       ...PDF_EXTRACTION_BUDGET,
+      maxRenderPixels: 1,
       maxPages: 1,
       maxArtifacts: 1,
       maxArtifactBytes: 2,
@@ -45,6 +46,8 @@ describe("PDF extraction budgets", () => {
     tracker.addArtifact(2);
     tracker.assertResult("é");
     expect(() => tracker.addArtifact(1)).toThrow(/PDF_EXTRACTION_BUDGET_EXCEEDED/);
+    expect(() => tracker.assertArtifact(3)).toThrow(/PDF_EXTRACTION_BUDGET_EXCEEDED/);
+    expect(() => tracker.assertRenderDimensions(2, 2)).toThrow(/PDF_EXTRACTION_BUDGET_EXCEEDED/);
 
     expect(() => new PdfExtractionBudgetTracker({ ...limits, maxPages: 0 }).addPage("")).toThrow(
       /PDF_EXTRACTION_BUDGET_EXCEEDED/,

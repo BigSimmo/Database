@@ -83,4 +83,15 @@ describe("factsheet library", () => {
       expect(tocFor(sheet)).toContain("Sources");
     }
   });
+
+  it("prints the selected reading level for medicine-rich factsheets", () => {
+    const sheet = factsheets.find((candidate) => candidate.kind === "medRich");
+    if (!sheet || sheet.kind !== "medRich") throw new Error("Expected a medicine-rich factsheet fixture");
+
+    const easyBlock = printBlocks(sheet, "easy").find((block) => block.heading === "What is this medicine?");
+    const standardBlock = printBlocks(sheet, "standard").find((block) => block.heading === "What is this medicine?");
+
+    expect(easyBlock).toMatchObject({ kind: "prose", body: sheet.whatEasy });
+    expect(standardBlock).toMatchObject({ kind: "prose", body: sheet.whatStandard });
+  });
 });

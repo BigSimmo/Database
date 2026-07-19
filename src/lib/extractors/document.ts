@@ -7,7 +7,6 @@ import ExcelJS from "exceljs";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import JSZip from "jszip";
-import { safeBufferFrom } from "@/lib/safe-buffer";
 import { z } from "zod";
 import type { ExtractedDocument, ExtractedPage } from "@/lib/types";
 import {
@@ -237,32 +236,37 @@ export async function extractPdf(
           : [{ pageNumber: 1, text: parsed.text || "", ocrUsed: false }];
       for (const page of rawPages) budget.addPage(page.text);
 
-      const imageResult = await parser.getImage({
-        imageBuffer: true,
-        imageDataUrl: true,
-        imageThreshold: 20,
-      });
       const images: ExtractedDocument["images"] = [];
-      for (const page of imageResult.pages) {
-        for (const [index, image] of page.images.entries()) {
-          const dataUrlMatch = image.dataUrl?.match(/^data:(.*?);base64,(.*)$/);
-          const mimeType = dataUrlMatch?.[1] ?? "image/png";
-          const extension = mimeType.includes("jpeg") ? "jpg" : "png";
-          const outputPath = path.join(imageDir, `fallback-page-${page.pageNumber}-image-${index + 1}.${extension}`);
-          const bytes = dataUrlMatch ? safeBufferFrom(dataUrlMatch[2], "base64") : Buffer.from(image.data);
-          if (!bytes) continue;
-          budget.addArtifact(bytes.byteLength);
-          await writeFile(outputPath, bytes);
-          images.push({
-            pageNumber: page.pageNumber,
-            path: outputPath,
-            mimeType,
-            bbox: null,
-            width: null,
-            height: null,
-            sourceKind: "fallback",
-            metadata: { source_kind: "fallback" },
-          });
+      // Extract one page at a time so aggregate limits can stop subsequent decoding, and
+      // request only binary data to avoid holding a duplicate base64 representation.
+      for (const rawPage of rawPages) {
+        const imageResult = await parser.getImage({
+          partial: [rawPage.pageNumber],
+          imageBuffer: true,
+          imageDataUrl: false,
+          imageThreshold: 20,
+        });
+        for (const page of imageResult.pages) {
+          for (const [index, image] of page.images.entries()) {
+            budget.assertRenderDimensions(image.width, image.height);
+            budget.assertArtifact(image.data.byteLength);
+            const mimeType = "image/png";
+            const extension = mimeType.includes("jpeg") ? "jpg" : "png";
+            const outputPath = path.join(imageDir, `fallback-page-${page.pageNumber}-image-${index + 1}.${extension}`);
+            const bytes = Buffer.from(image.data);
+            budget.addArtifact(bytes.byteLength);
+            await writeFile(outputPath, bytes);
+            images.push({
+              pageNumber: page.pageNumber,
+              path: outputPath,
+              mimeType,
+              bbox: null,
+              width: image.width,
+              height: image.height,
+              sourceKind: "fallback",
+              metadata: { source_kind: "fallback" },
+            });
+          }
         }
       }
       await parser.destroy();
