@@ -571,14 +571,25 @@ function BestAnswerCard({
         </div>
         {onToggle ? <SelectionToggle selected={Boolean(selected)} onClick={onToggle} label={best.title} /> : null}
       </div>
-      <p className={cn("text-sm font-medium leading-6 text-[color:var(--text-muted)]", compact ? "mt-2.5" : "mt-3")}>
+      <p
+        className={cn(
+          "min-w-0 text-sm font-medium leading-6 text-[color:var(--text-muted)]",
+          compact ? "mt-2.5 line-clamp-3" : "mt-3",
+        )}
+      >
         {best.subtitle}
       </p>
-      <div className={cn("flex flex-wrap gap-1.5", compact ? "mt-2.5" : "mt-3")}>
+      <div className={cn("flex min-w-0 max-w-full flex-wrap gap-1.5", compact ? "mt-2.5" : "mt-3")}>
         {visibleTags.map((tag) => (
-          <Chip key={tag}>{tag}</Chip>
+          <Chip key={tag} className={compact ? "max-w-full px-2.5 py-1 text-xs font-semibold leading-snug" : undefined}>
+            {tag}
+          </Chip>
         ))}
-        {hiddenTagCount > 0 ? <Chip>{`+${hiddenTagCount}`}</Chip> : null}
+        {hiddenTagCount > 0 ? (
+          <Chip className={compact ? "shrink-0 px-2.5 py-1 text-xs font-semibold leading-snug" : undefined}>
+            {`+${hiddenTagCount}`}
+          </Chip>
+        ) : null}
       </div>
     </section>
   );
