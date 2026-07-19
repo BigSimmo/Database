@@ -315,7 +315,11 @@ export function MasterSearchHeader({
   // popover and the phone bottom sheet.
   const [modeMenuFocusIndex, setModeMenuFocusIndex] = useState(0);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
-  const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
+  // Prefer the real phone gate on the first client paint so Mode does not briefly
+  // open the desktop absolute menu before the matchMedia effect syncs.
+  const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(phoneSearchLayoutMediaQuery).matches : false,
+  );
   const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
   // True once the hero portal is conclusively unavailable — the media query
   // does not match, or the slot never appeared after the retry budget. While a
@@ -784,6 +788,8 @@ export function MasterSearchHeader({
       event.preventDefault();
       focusModeOption(visibleAppModeOptions.length - 1);
     } else if (event.key === "Escape") {
+      // Phone Sheet owns Escape + return-focus; handling here races its cleanup.
+      if (usesPhoneSearchLayout) return;
       event.preventDefault();
       setModeMenuOpen(false);
       window.requestAnimationFrame(() => modeButtonRef.current?.focus());
@@ -866,12 +872,20 @@ export function MasterSearchHeader({
     });
   }, []);
 
+  const phoneLayoutGateRef = useRef<boolean | null>(null);
   useEffect(() => {
     const scopeMediaQuery = window.matchMedia(scopeSheetMediaQuery);
     const phoneMediaQuery = window.matchMedia(phoneSearchLayoutMediaQuery);
     const sync = () => {
       setUsesScopeSheet(scopeMediaQuery.matches);
-      setUsesPhoneSearchLayout(phoneMediaQuery.matches);
+      const nextPhoneLayout = phoneMediaQuery.matches;
+      // Crossing the phone gate while open would swap Sheet ↔ absolute menu
+      // under the user's finger/keyboard; close instead of mutating surface.
+      if (phoneLayoutGateRef.current !== null && phoneLayoutGateRef.current !== nextPhoneLayout) {
+        setModeMenuOpen(false);
+      }
+      phoneLayoutGateRef.current = nextPhoneLayout;
+      setUsesPhoneSearchLayout(nextPhoneLayout);
     };
     sync();
     scopeMediaQuery.addEventListener("change", sync);
@@ -1431,6 +1445,7 @@ export function MasterSearchHeader({
                 setUsesScopeSheet(currentUsesScopeSheet());
                 setModeMenuOpen(false);
                 setScopeOpen(false);
+                setScopeSheetOpen(false);
               }}
               onAction={runModeAction}
               onModeSelect={selectAppModeById}
@@ -1717,7 +1732,7 @@ export function MasterSearchHeader({
                   ? "h-tap w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
                   : "h-12 w-[min(13rem,calc(100vw-11.5rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
               )}
-              aria-haspopup="menu"
+              aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}
               aria-expanded={modeMenuOpen}
               aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
               aria-label={`Mode ${selectedAppMode.label}`}
@@ -1757,28 +1772,6 @@ export function MasterSearchHeader({
             ) : null}
           </div>
 
-          {usesPhoneSearchLayout ? (
-            <Sheet
-              open={modeMenuOpen}
-              onClose={dismissModeMenu}
-              title="Choose mode"
-              description="Switch the clinical workspace mode."
-              closeLabel="Close mode menu"
-              returnFocusRef={modeButtonRef}
-              portal
-              mobilePlacement="bottom"
-              mobileSize="content"
-              testId="app-mode-menu-sheet"
-              contentClassName="max-h-[min(88dvh,36rem)] sm:max-w-md"
-              bodyClassName="p-2"
-              headerClassName="bg-[color:var(--surface-lux)] px-4 py-3"
-            >
-              <div id="app-mode-menu" role="menu" aria-label="Choose app mode" className="grid gap-0.5">
-                {renderModeMenuOptions()}
-              </div>
-            </Sheet>
-          ) : null}
-
           <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
             {isWorkflowHeader ? (
               <>
@@ -1816,6 +1809,30 @@ export function MasterSearchHeader({
             ) : null}
           </div>
         </div>
+
+        {/* Portaled outside the 3-column header grid so a non-portal regression
+            cannot steal a grid track and shove trailing actions onto a new row. */}
+        {usesPhoneSearchLayout ? (
+          <Sheet
+            open={modeMenuOpen}
+            onClose={dismissModeMenu}
+            title="Choose mode"
+            description="Switch the clinical workspace mode."
+            closeLabel="Close mode menu"
+            returnFocusRef={modeButtonRef}
+            portal
+            mobilePlacement="bottom"
+            mobileSize="content"
+            testId="app-mode-menu-sheet"
+            contentClassName="max-h-[min(88dvh,36rem)] sm:max-w-md"
+            bodyClassName="p-2"
+            headerClassName="bg-[color:var(--surface-lux)] px-4 py-3"
+          >
+            <div id="app-mode-menu" role="menu" aria-label="Choose app mode" className="grid gap-0.5">
+              {renderModeMenuOptions()}
+            </div>
+          </Sheet>
+        ) : null}
       </header>
 
       {searchComposerVisible ? (

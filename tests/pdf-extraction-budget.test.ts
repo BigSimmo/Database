@@ -5,7 +5,7 @@ import path from "node:path";
 import PDFDocument from "pdfkit";
 import { PDFParse } from "pdf-parse";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { extractPdf, runPythonPdfExtractor } from "@/lib/extractors/document";
+import { extractPdf, resolvePythonBin, runPythonPdfExtractor } from "@/lib/extractors/document";
 import {
   PDF_EXTRACTION_BUDGET,
   PdfExtractionBudgetTracker,
@@ -54,6 +54,15 @@ afterEach(async () => {
 });
 
 describe("PDF extraction budgets", () => {
+  it("resolves a usable Python binary when PYTHON_BIN is unset", () => {
+    const bin = resolvePythonBin({ ...process.env, PYTHON_BIN: undefined });
+    expect(["python", "python3"]).toContain(bin);
+  });
+
+  it("honors an explicit PYTHON_BIN override", () => {
+    expect(resolvePythonBin({ ...process.env, PYTHON_BIN: "/custom/python" })).toBe("/custom/python");
+  });
+
   it("accepts exact aggregate boundaries and rejects the first byte or item beyond them", () => {
     const limits = {
       ...PDF_EXTRACTION_BUDGET,

@@ -147,7 +147,9 @@ export function Sheet({
 
       const focusable = Array.from(
         panelRef.current?.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+          // Exclude tabindex="-1" buttons so roving-tabindex menus (e.g. Mode
+          // options) do not dump every inactive item into the Tab cycle.
+          'a[href], button:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
         ) ?? [],
       ).filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true");
       if (focusable.length === 0) return;
@@ -209,7 +211,9 @@ export function Sheet({
               ? "items-start justify-center px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-6"
               : "items-end justify-center sm:items-center sm:p-6",
       )}
-      onPointerDown={(event) => {
+      // Dismiss on click (not pointerdown) so the sheet stays mounted through
+      // pointerup and the same gesture cannot click-through into content below.
+      onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >

@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -17,6 +17,30 @@ import {
   PdfExtractionResourceError,
   type PdfExtractionBudget,
 } from "@/lib/extractors/pdf-extraction-budget";
+
+let cachedPythonBin: string | undefined;
+
+/**
+ * Resolve the Python executable for PDF extraction.
+ * Honors PYTHON_BIN when set; otherwise probes `python` then `python3` so
+ * Linux hosts that only ship `python3` (common on CI/agent images) still work.
+ */
+export function resolvePythonBin(env: NodeJS.ProcessEnv = process.env): string {
+  const configured = env.PYTHON_BIN?.trim();
+  if (configured) return configured;
+  if (cachedPythonBin) return cachedPythonBin;
+
+  for (const candidate of ["python", "python3"] as const) {
+    const probe = spawnSync(candidate, ["-c", "pass"], { stdio: "ignore" });
+    if (!probe.error && probe.status === 0) {
+      cachedPythonBin = candidate;
+      return candidate;
+    }
+  }
+
+  cachedPythonBin = "python";
+  return cachedPythonBin;
+}
 
 const extractedPageSchema = z.object({
   pageNumber: z.number().int().positive(),
@@ -91,7 +115,7 @@ export async function runPythonPdfExtractor(
 
   return new Promise<ExtractedDocument>((resolve, reject) => {
     const child = spawn(
-      process.env.PYTHON_BIN || "python",
+      resolvePythonBin(),
       [scriptPath, filePath, outputDir, outputJsonPath, budgetPath],
       {
         cwd: process.cwd(),
