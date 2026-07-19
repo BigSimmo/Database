@@ -6,7 +6,6 @@ import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl } from "../controls";
 import type { Therapy } from "../data/types";
 import { AlertIcon, ChecklistIcon, ChevronRightIcon, CopyIcon, FileTextIcon, PathwayIcon, ScaleIcon } from "../icons";
-import { s } from "../style-utils";
 import { LoadingState } from "../ui";
 
 export function PathwaysScreen() {
@@ -16,7 +15,6 @@ export function PathwaysScreen() {
 
   if (b.loading || !pathway) return <LoadingState label="Loading pathways…" />;
 
-  const reviewTone = pathway.reviewStatus === "reviewed" ? "success" : "warning";
   const firstLinkedSlug = pathway.steps.find((st) => st.therapySlug)?.therapySlug ?? null;
   const copyPathway = () => {
     if (typeof navigator === "undefined" || !navigator.clipboard) return;
@@ -28,76 +26,49 @@ export function PathwaysScreen() {
   };
 
   return (
-    <section data-screen-label="Pathways" style={s(`max-width:1240px;margin:0 auto;`)}>
-      <div
-        style={s(
-          `display:flex;align-items:flex-start;justify-content:space-between;gap:20px;margin-bottom:22px;flex-wrap:wrap;`,
-        )}
-      >
+    <section data-screen-label="Pathways" className="tc-screens-pathways-screen-001">
+      <div className="tc-screens-pathways-screen-002">
         <div>
-          <h1
-            style={s(`margin:0 0 6px;font-size:27px;font-weight:680;color:var(--text-heading);letter-spacing:-0.02em;`)}
-          >
-            Clinical Pathways
-          </h1>
-          <p style={s(`margin:0;font-size:14.5px;color:var(--text-muted);`)}>
+          <h1 className="tc-screens-pathways-screen-003">Clinical Pathways</h1>
+          <p className="tc-screens-pathways-screen-004">
             Problem-based workflows generated from imported therapy records.
           </p>
         </div>
-        <div className="tc-mobile-wrap" style={s(`display:flex;gap:10px;`)}>
-          <button type="button" className="tc-btn" onClick={b.goReview} style={s(outlineControl + "height:44px;")}>
+        <div className="tc-mobile-wrap tc-screens-pathways-screen-005">
+          <button type="button" className={`tc-btn ${outlineControl}`} onClick={b.goReview}>
             <ChecklistIcon size={16} />
             Review queue
           </button>
         </div>
       </div>
 
-      <div
-        className="tc-stack-sm"
-        style={s(
-          `display:grid;grid-template-columns:320px minmax(0,1fr);gap:16px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-soft);overflow:hidden;`,
-        )}
-      >
+      <div className="tc-stack-sm tc-screens-pathways-screen-006">
         {/* pathway list */}
-        <div className="tc-pathway-list" style={s(`border-right:1px solid var(--border);padding:18px;`)}>
-          <div style={s(`font-size:15px;font-weight:650;color:var(--text-heading);margin-bottom:14px;`)}>Pathways</div>
-          <div style={s(`display:flex;flex-direction:column;gap:10px;`)}>
+        <div className="tc-pathway-list tc-screens-pathways-screen-007">
+          <div className="tc-screens-pathways-screen-008">Pathways</div>
+          <div className="tc-screens-pathways-screen-009">
             {b.pathways.map((p) => {
               const active = p.slug === pathway.slug;
               return (
                 <button
                   key={p.slug}
                   type="button"
-                  className="tc-btn tc-row"
+                  className={`tc-btn tc-row tc-pathway-option${active ? " tc-is-active" : ""}`}
                   onClick={() => b.selectPathway(p.slug)}
-                  style={s(
-                    `display:flex;gap:12px;padding:14px;border:1px solid ${active ? "var(--clinical-accent-border)" : "var(--border)"};${active ? "border-left:3px solid var(--clinical-accent);" : ""}border-radius:12px;background:${active ? "var(--clinical-accent-soft)" : "var(--surface)"};text-align:left;cursor:pointer;font-family:inherit;`,
-                  )}
+                  aria-pressed={active}
                 >
-                  <span
-                    style={s(
-                      `display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;background:${active ? "var(--surface)" : "var(--surface-inset)"};color:${active ? "var(--clinical-accent)" : "var(--text-muted)"};flex:none;`,
-                    )}
-                  >
+                  <span className="tc-pathway-option-icon">
                     <PathwayIcon size={20} strokeWidth={1.6} />
                   </span>
-                  <span style={s(`flex:1;min-width:0;`)}>
-                    <span style={s(`display:block;font-size:14px;font-weight:650;color:var(--text-heading);`)}>
-                      {p.name}
-                    </span>
-                    <span
-                      style={s(
-                        `display:block;font-size:12px;color:var(--text-muted);margin:2px 0 8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;`,
-                      )}
-                    >
+                  <span className="tc-screens-pathways-screen-010">
+                    <span className="tc-screens-pathways-screen-011">{p.name}</span>
+                    <span className="tc-screens-pathways-screen-012">
                       {p.clinicalProblem ?? p.summary ?? "Therapy workflow"}
                     </span>
-                    <span style={s(`display:flex;align-items:center;justify-content:space-between;gap:8px;`)}>
-                      <span style={s(`font-size:11.5px;color:var(--text-soft);`)}>{p.steps.length} linked steps</span>
+                    <span className="tc-screens-pathways-screen-013">
+                      <span className="tc-screens-pathways-screen-014">{p.steps.length} linked steps</span>
                       <span
-                        style={s(
-                          `font-size:11px;font-weight:600;color:${p.reviewStatus === "reviewed" ? "var(--success-text)" : "var(--warning-text)"};background:${p.reviewStatus === "reviewed" ? "var(--success-bg)" : "var(--warning-bg)"};border:1px solid ${p.reviewStatus === "reviewed" ? "var(--success-border)" : "var(--warning-border)"};padding:2px 8px;border-radius:6px;`,
-                        )}
+                        className={`tc-pathway-status tc-tone-${p.reviewStatus === "reviewed" ? "success" : "warning"}`}
                       >
                         {p.reviewStatus === "reviewed" ? "Reviewed" : p.incomplete ? "Incomplete" : "Needs review"}
                       </span>
@@ -107,102 +78,66 @@ export function PathwaysScreen() {
               );
             })}
           </div>
-          <p style={s(`margin:16px 0 0;font-size:11.5px;color:var(--text-soft);font-style:italic;`)}>
-            Pathways are generated from imported therapy records.
-          </p>
+          <p className="tc-screens-pathways-screen-015">Pathways are generated from imported therapy records.</p>
         </div>
 
         {/* pathway detail */}
-        <div style={s(`padding:22px 24px;min-width:0;`)}>
-          <div style={s(`display:flex;align-items:flex-start;gap:14px;margin-bottom:20px;`)}>
-            <span
-              style={s(
-                `display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;border-radius:12px;background:var(--clinical-accent-soft);color:var(--clinical-accent);flex:none;`,
-              )}
-            >
+        <div className="tc-screens-pathways-screen-016">
+          <div className="tc-screens-pathways-screen-017">
+            <span className="tc-screens-pathways-screen-018">
               <PathwayIcon size={24} strokeWidth={1.5} />
             </span>
-            <div style={s(`flex:1;min-width:0;`)}>
-              <div style={s(`display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;`)}>
-                <h2 style={s(`margin:0;font-size:20px;font-weight:680;color:var(--text-heading);`)}>{pathway.name}</h2>
+            <div className="tc-screens-pathways-screen-019">
+              <div className="tc-screens-pathways-screen-020">
+                <h2 className="tc-screens-pathways-screen-021">{pathway.name}</h2>
                 <span
-                  style={s(
-                    `display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--${reviewTone}-text);background:var(--${reviewTone}-bg);border:1px solid var(--${reviewTone}-border);padding:5px 11px;border-radius:9px;`,
-                  )}
+                  className={`tc-status-badge tc-tone-${pathway.reviewStatus === "reviewed" ? "success" : "warning"}`}
                 >
                   <AlertIcon size={14} strokeWidth={1.8} />
                   {pathway.reviewStatus === "reviewed" ? "Reviewed" : "Needs review"}
                 </span>
               </div>
-              <p style={s(`margin:6px 0 8px;font-size:13.5px;line-height:1.5;color:var(--text-muted);`)}>
+              <p className="tc-screens-pathways-screen-022">
                 {pathway.summary ??
                   "A source-linked workflow for reviewing therapy options, delivery constraints and cautions before choosing a next step."}
               </p>
-              <div style={s(`display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-soft);`)}>
+              <div className="tc-screens-pathways-screen-023">
                 <PathwayIcon size={14} strokeWidth={1.8} />
                 {pathway.steps.length} linked therapy steps
               </div>
             </div>
           </div>
 
-          <div style={s(`display:flex;flex-direction:column;gap:10px;`)}>
+          <div className="tc-screens-pathways-screen-024">
             {pathway.steps.map((step, i) => {
               const therapy: Therapy | undefined = step.therapySlug ? bySlug.get(step.therapySlug) : undefined;
               const last = i === pathway.steps.length - 1;
               return (
-                <div key={i} style={s(`display:flex;align-items:center;gap:16px;`)}>
-                  <span
-                    style={s(
-                      `display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px solid var(--clinical-accent);background:${last ? "var(--clinical-accent)" : "var(--surface)"};color:${last ? "var(--clinical-accent-contrast)" : "var(--clinical-accent)"};font-size:12px;font-weight:700;flex:none;`,
-                    )}
-                  >
-                    {i + 1}
-                  </span>
-                  <div
-                    className="tc-row"
-                    style={s(
-                      `flex:1;min-width:0;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface);`,
-                    )}
-                  >
-                    <span
-                      style={s(
-                        `display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:var(--surface-inset);color:var(--text-muted);flex:none;`,
-                      )}
-                    >
+                <div key={i} className="tc-screens-pathways-screen-025">
+                  <span className={`tc-pathway-step-index${last ? " tc-is-last" : ""}`}>{i + 1}</span>
+                  <div className="tc-row tc-screens-pathways-screen-026">
+                    <span className="tc-screens-pathways-screen-027">
                       <ScaleIcon size={17} strokeWidth={1.6} />
                     </span>
-                    <div style={s(`flex:1;min-width:0;`)}>
-                      <div style={s(`font-size:13.5px;font-weight:650;color:var(--text-heading);`)}>
+                    <div className="tc-screens-pathways-screen-028">
+                      <div className="tc-screens-pathways-screen-029">
                         {therapy?.name ?? step.label ?? "Therapy step"}
                       </div>
-                      <div
-                        style={s(
-                          `font-size:12.5px;color:var(--text-muted);margin-top:2px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;`,
-                        )}
-                      >
+                      <div className="tc-screens-pathways-screen-030">
                         {step.description ?? therapy?.bestUsedFor ?? "Review fit, contraindications and source status."}
                       </div>
                     </div>
-                    <span
-                      style={s(
-                        `font-size:10.5px;font-weight:700;letter-spacing:0.05em;color:var(--text-soft);white-space:nowrap;`,
-                      )}
-                    >
-                      {step.label ?? "STEP"}
-                    </span>
+                    <span className="tc-screens-pathways-screen-031">{step.label ?? "STEP"}</span>
                     {therapy ? (
                       <button
                         type="button"
-                        className="tc-btn"
+                        className="tc-btn tc-screens-pathways-screen-032"
                         onClick={() => b.open(therapy.slug)}
-                        style={s(
-                          `display:inline-flex;align-items:center;gap:5px;height:32px;padding:0 12px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;flex:none;`,
-                        )}
                       >
                         Open record
                       </button>
                     ) : (
-                      <ChevronRightIcon size={16} strokeWidth={1.8} style={s(`color:var(--text-soft);flex:none;`)} />
+                      <ChevronRightIcon size={16} strokeWidth={1.8} className="tc-screens-pathways-screen-033" />
                     )}
                   </div>
                 </div>
@@ -212,39 +147,27 @@ export function PathwaysScreen() {
         </div>
       </div>
 
-      <div
-        style={s(
-          `display:flex;align-items:center;gap:18px;margin-top:20px;padding:18px 22px;background:var(--warning-bg);border:1px solid var(--warning-border);border-radius:16px;flex-wrap:wrap;`,
-        )}
-      >
-        <AlertIcon size={22} strokeWidth={1.8} style={s(`color:var(--warning-text);flex:none;`)} />
-        <div style={s(`flex:1;min-width:200px;`)}>
-          <div style={s(`font-size:13.5px;font-weight:650;color:var(--warning-text);`)}>
+      <div className="tc-screens-pathways-screen-034">
+        <AlertIcon size={22} strokeWidth={1.8} className="tc-screens-pathways-screen-035" />
+        <div className="tc-screens-pathways-screen-036">
+          <div className="tc-screens-pathways-screen-037">
             Clinical caution — decision support generated from imported records.
           </div>
-          <div style={s(`font-size:12.5px;color:var(--warning-text);margin-top:2px;`)}>
+          <div className="tc-screens-pathways-screen-038">
             {pathway.cautions ??
               "Review source status, missing fields and patient-specific factors before clinical use."}
           </div>
         </div>
-        <div className="tc-mobile-wrap" style={s(`display:flex;gap:9px;`)}>
-          <button
-            type="button"
-            className="tc-btn"
-            onClick={copyPathway}
-            style={s(
-              `display:flex;align-items:center;gap:7px;height:40px;padding:0 14px;border:1px solid var(--warning-border);border-radius:10px;background:var(--surface);color:var(--text);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;`,
-            )}
-          >
+        <div className="tc-mobile-wrap tc-screens-pathways-screen-039">
+          <button type="button" className="tc-btn tc-screens-pathways-screen-040" onClick={copyPathway}>
             <CopyIcon size={15} />
             Copy pathway
           </button>
           <button
             type="button"
-            className="tc-btn"
+            className={`tc-btn ${commandControl}`}
             onClick={() => firstLinkedSlug && b.openSheet(firstLinkedSlug)}
             disabled={!firstLinkedSlug}
-            style={s(commandControl + `height:40px;${firstLinkedSlug ? "" : "opacity:0.5;cursor:not-allowed;"}`)}
           >
             <FileTextIcon size={15} />
             Patient sheet

@@ -161,6 +161,7 @@ function GlobalStandaloneSearchShellClient({
   const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
   const phoneScrollHide = useScrollHideReporter();
   const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
+  const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
   useEffect(() => {
     reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
   }, [phoneScrollHide.reportScroll]);
@@ -260,7 +261,7 @@ function GlobalStandaloneSearchShellClient({
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
   // Standalone mode homes portal the composer into the hero (in-flow at every
   // width), so phones need no bottom-dock clearance there.
-  const mobileComposerReserve = !shouldShowSearchComposer
+  const visibleMobileComposerReserve = !shouldShowSearchComposer
     ? "2rem"
     : isStandaloneModeHome
       ? "2rem"
@@ -271,6 +272,15 @@ function GlobalStandaloneSearchShellClient({
           : useCompactBottomSearch
             ? "calc(5.5rem + env(safe-area-inset-bottom))"
             : "calc(9rem + env(safe-area-inset-bottom))";
+  // Release the large bottom reserve only when the phone bottom composer is
+  // actually hidden (MasterSearchHeader's bottomComposerHidden). Header-only
+  // scroll-hide, pinned compare addons, open menus/sheets, and composer focus
+  // keep the full reserve so content does not slide under a still-visible dock.
+  // When the dock does hide, keep only a small safe-area breathing room so
+  // content — not the background — fills the revealed edge-to-edge viewport.
+  const mobileComposerReserve = bottomComposerHidden
+    ? "max(0.75rem, env(safe-area-inset-bottom))"
+    : visibleMobileComposerReserve;
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -576,6 +586,7 @@ function GlobalStandaloneSearchShellClient({
             // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the header/composer to hand space back to content.
             hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
+            onBottomComposerHiddenChange={setBottomComposerHidden}
             queryInputAutoFocus={searchParams.get("focus") === "1"}
           />
         </div>

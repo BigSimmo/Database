@@ -336,7 +336,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
               <button
                 type="button"
                 onClick={copyLink}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] transition hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg bg-[color:var(--command)] px-3 text-sm font-bold text-[color:var(--command-contrast)] transition hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               >
                 {copied ? (
                   <Check className="h-4 w-4" aria-hidden="true" />
@@ -348,7 +348,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
               <button
                 type="button"
                 onClick={downloadPdf}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-bold text-[color:var(--text)] transition hover:border-[color:var(--border-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
               >
                 <Printer className="h-4 w-4" aria-hidden="true" />
                 Print
@@ -459,7 +459,7 @@ function FactsheetBody({
             </div>
           </section>
           <div className="flex gap-3.5 rounded-2xl border border-[color:var(--danger-border)] bg-[color:var(--surface)] p-5">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)]">
+            <span className="grid h-tap w-tap shrink-0 place-items-center rounded-xl bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)]">
               <Zap className="h-5 w-5" aria-hidden="true" />
             </span>
             <div>
@@ -553,7 +553,7 @@ function FactsheetBody({
             style={{ backgroundColor: theme.soft, borderColor: accentBorder(theme.accent) }}
           >
             <span
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-[color:var(--clinical-accent-contrast)]"
+              className="grid h-tap w-tap shrink-0 place-items-center rounded-xl text-[color:var(--clinical-accent-contrast)]"
               style={{ backgroundColor: theme.accent }}
             >
               <HeartHandshake className="h-5 w-5" aria-hidden="true" />

@@ -168,7 +168,7 @@ function SectionItems({
               {slug ? (
                 <Link
                   href={`/differentials/diagnoses/${slug}`}
-                  className="inline-flex min-h-11 items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]"
+                  className="inline-flex min-h-tap items-center gap-1 rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)]"
                 >
                   {item}
                   <ChevronRight className="h-3.5 w-3.5" aria-hidden />
@@ -440,7 +440,7 @@ function SafetySnapshot({
               type="button"
               data-testid="differential-safety-cta"
               onClick={onReviewMustNotMiss}
-              className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
+              className="mt-3 inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
             >
               <TriangleAlert className={cn("h-4 w-4", theme.accentText)} aria-hidden />
               Review must-not-miss causes
@@ -641,7 +641,7 @@ function ComparePanel({
       <Link
         data-testid="differential-compare-open"
         href={compareHref}
-        className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-soft)] hover:bg-[color:var(--primary-strong)]"
+        className="mt-3 inline-flex min-h-tap w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-soft)] hover:bg-[color:var(--primary-strong)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Open comparison workspace
@@ -734,7 +734,7 @@ function TopActions({
       <button
         type="button"
         onClick={onCompare}
-        className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
+        className="inline-flex min-h-tap items-center gap-2 whitespace-nowrap rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]"
       >
         <GitCompareArrows className="h-4 w-4" aria-hidden />
         Compare
@@ -746,7 +746,7 @@ function TopActions({
         aria-pressed={saved}
         aria-label={saved ? "Remove saved diagnosis" : "Save diagnosis"}
         className={cn(
-          "grid h-11 w-11 place-items-center rounded-lg border shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]",
+          "grid h-tap w-tap place-items-center rounded-lg border shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface-subtle)]",
           saved
             ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
             : "border-[color:var(--border-lux)] bg-[color:var(--surface)] text-[color:var(--text-heading)]",
@@ -822,7 +822,7 @@ function HeaderChrome() {
           <Link
             href="/differentials"
             aria-label="Back to differentials"
-            className="grid h-11 w-11 place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
+            className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
           >
             <ChevronRight className="h-5 w-5 rotate-180" aria-hidden />
           </Link>
@@ -831,7 +831,7 @@ function HeaderChrome() {
           <Link
             href={appModeHomeHref("differentials", { focus: true })}
             aria-label="New differentials search"
-            className="grid h-11 w-11 place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
+            className="grid h-tap w-tap place-items-center rounded-lg text-[color:var(--text-heading)] hover:bg-[color:var(--surface-subtle)]"
           >
             <Plus className="h-5 w-5" aria-hidden />
           </Link>
@@ -908,7 +908,7 @@ function Tabs({
             tabIndex={isActive ? 0 : -1}
             onClick={() => onChange(tab.id)}
             className={cn(
-              "focus-ring-tab min-h-11 flex-1 whitespace-nowrap border-b-2 px-1 py-3 text-center text-xs sm:flex-none sm:px-4 sm:text-sm",
+              "focus-ring-tab min-h-tap flex-1 whitespace-nowrap border-b-2 px-1 py-3 text-center text-xs sm:flex-none sm:px-4 sm:text-sm",
               isActive
                 ? "border-[color:var(--clinical-accent)] text-[color:var(--clinical-accent)]"
                 : "border-transparent hover:text-[color:var(--text-heading)]",
@@ -1062,7 +1062,7 @@ export function DifferentialDetailPage({
                       type="button"
                       data-testid="differential-expand-all"
                       onClick={toggleAllSections}
-                      className="inline-flex min-h-11 items-center gap-1.5 text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--primary-strong)]"
+                      className="inline-flex min-h-tap items-center gap-1.5 text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--primary-strong)]"
                     >
                       {allOpen ? (
                         <ChevronsDownUp className="h-4 w-4" aria-hidden />

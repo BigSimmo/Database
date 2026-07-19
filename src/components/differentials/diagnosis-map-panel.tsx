@@ -526,7 +526,7 @@ export function DiagnosisMapPanel({
                 resetView();
                 setOpen(true);
               }}
-              className={cn(floatingControl, "min-h-11 w-full shrink-0 justify-center px-3 sm:w-auto")}
+              className={cn(floatingControl, "min-h-tap w-full shrink-0 justify-center px-3 sm:w-auto")}
               data-testid="open-diagnosis-map"
             >
               Open map
@@ -560,7 +560,7 @@ export function DiagnosisMapPanel({
                 <button
                   type="button"
                   onClick={resetView}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 border-r border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]"
+                  className="inline-flex min-h-tap items-center justify-center gap-2 border-r border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]"
                 >
                   <Maximize2 className="h-4 w-4" aria-hidden />
                   Fit all
@@ -568,7 +568,7 @@ export function DiagnosisMapPanel({
                 <button
                   type="button"
                   onClick={focusSelected}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 border-r border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]"
+                  className="inline-flex min-h-tap items-center justify-center gap-2 border-r border-[color:var(--border)] px-3 text-sm font-bold text-[color:var(--text)] hover:bg-[color:var(--surface-subtle)]"
                 >
                   <Crosshair className="h-4 w-4" aria-hidden />
                   Focus
@@ -584,7 +584,7 @@ export function DiagnosisMapPanel({
                   }}
                   aria-pressed={filtered}
                   className={cn(
-                    "inline-flex min-h-11 items-center justify-center gap-2 px-3 text-sm font-bold hover:bg-[color:var(--surface-subtle)]",
+                    "inline-flex min-h-tap items-center justify-center gap-2 px-3 text-sm font-bold hover:bg-[color:var(--surface-subtle)]",
                     filtered ? "text-[color:var(--danger)]" : "text-[color:var(--text)]",
                   )}
                 >
@@ -615,7 +615,7 @@ export function DiagnosisMapPanel({
                 <button
                   type="button"
                   onClick={() => updateScale(scale + 0.12)}
-                  className="grid h-11 w-11 place-items-center border-b border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)]"
+                  className="grid h-tap w-tap place-items-center border-b border-[color:var(--border)] hover:bg-[color:var(--surface-subtle)]"
                   aria-label="Zoom in"
                 >
                   <Plus className="h-4 w-4" aria-hidden />
@@ -623,7 +623,7 @@ export function DiagnosisMapPanel({
                 <button
                   type="button"
                   onClick={() => updateScale(scale - 0.12)}
-                  className="grid h-11 w-11 place-items-center hover:bg-[color:var(--surface-subtle)]"
+                  className="grid h-tap w-tap place-items-center hover:bg-[color:var(--surface-subtle)]"
                   aria-label="Zoom out"
                 >
                   <Minus className="h-4 w-4" aria-hidden />

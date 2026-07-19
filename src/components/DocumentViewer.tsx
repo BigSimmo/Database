@@ -54,6 +54,7 @@ import {
   fieldControl,
   fieldLabel,
   floatingControl,
+  glassOverlaySurface,
   InlineNotice,
   LoadingPanel,
   panel,
@@ -1262,7 +1263,7 @@ function DocumentManualTagEditor({
         <button
           type="submit"
           disabled={!canManage || busyAction !== null || !draftLabel.trim()}
-          className={cn(primaryButton, "min-h-11 px-3 text-xs")}
+          className={cn(primaryButton, "min-h-tap px-3 text-xs")}
         >
           {busyAction === "add" ? (
             <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -1446,7 +1447,7 @@ function DocumentPagePreview({
         event.preventDefault();
         onNavigate(pageNumber);
       }}
-      className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/40 hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)]"
+      className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/40 hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)]"
     >
       <FileText aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--clinical-accent)]" />
       <span className="nums">Jump to p.{pageNumber ?? "n/a"}</span>
@@ -2522,7 +2523,7 @@ export function DocumentViewer({
         <div className="mx-auto flex h-12 min-w-0 max-w-[1440px] items-center gap-2">
           <Link
             href={documentHomeHref}
-            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+            className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
             aria-label="Back to documents"
           >
             <ArrowLeft aria-hidden="true" className="h-5 w-5 shrink-0" />
@@ -2536,7 +2537,7 @@ export function DocumentViewer({
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <Link
               href={scopedDocumentHref}
-              className="hidden h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] min-[380px]:grid"
+              className="hidden h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] min-[380px]:grid"
               aria-label="Add this document to scope"
               title={headerSubtitle}
             >
@@ -2545,7 +2546,7 @@ export function DocumentViewer({
             <button
               type="button"
               onClick={() => setMobileActionsOpen(true)}
-              className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+              className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
               aria-label="Open document actions"
             >
               <Plus aria-hidden="true" className="h-5 w-5" />
@@ -2732,7 +2733,7 @@ export function DocumentViewer({
         {!readyDocument && viewerState !== "loading" ? (
           <div className="min-w-0 lg:col-span-2">
             <section className={cn(panel, "p-4")}>
-              <button type="button" disabled className={cn(secondaryButton, "min-h-11 text-xs")}>
+              <button type="button" disabled className={cn(secondaryButton, "min-h-tap text-xs")}>
                 <Sparkles aria-hidden="true" className="h-4 w-4" />
                 Answer from this
               </button>
@@ -2834,7 +2835,7 @@ export function DocumentViewer({
                           ? "Standard viewer with built-in fit and zoom controls."
                           : "Sharper zoom — uses your browser's PDF engine to keep heavy-zoom pages crisp."
                       }
-                      className={cn(secondaryButton, "min-h-11 w-full justify-center px-3 text-xs sm:w-auto")}
+                      className={cn(secondaryButton, "min-h-tap w-full justify-center px-3 text-xs sm:w-auto")}
                     >
                       {useNativePdfViewer ? "Standard view" : "Sharper zoom"}
                     </button>
@@ -3101,12 +3102,15 @@ export function DocumentViewer({
           onBlurCapture={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setComposerChromeFocused(false);
           }}
-          className="document-viewer-composer floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] ring-1 ring-white/35 dark:ring-white/10 backdrop-blur-xl max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none"
+          className={cn(
+            glassOverlaySurface,
+            "document-viewer-composer floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
+          )}
         >
           <button
             type="button"
             onClick={() => setMobileActionsOpen(true)}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+            className="grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
             aria-label="Open document actions"
           >
             <Plus aria-hidden="true" className="h-5 w-5" />
@@ -3117,13 +3121,13 @@ export function DocumentViewer({
               value={sourceSearch}
               onChange={(event) => setSourceSearch(event.target.value)}
               placeholder="Search or answer from this document..."
-              className="min-h-11 min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
+              className="min-h-tap min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
             />
           </label>
           <button
             type="submit"
             disabled={!canSummarizeDocument}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Answer from this document"
           >
             {loadingSummary ? (

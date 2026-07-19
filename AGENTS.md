@@ -321,7 +321,7 @@ After completing `upload`, summarize the current branch and worktree state, whet
 
 ## Repository productivity skills
 
-Use the repo-local skills under `.agents/skills/` when their descriptions match. They are thin orchestration layers over `scripts/productivity-workflow.mjs`; do not copy their procedures into this file.
+Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. They are thin orchestration layers over `scripts/productivity-workflow.mjs`; do not copy their procedures into this file.
 
 - `database-flightplan`: plan risk-scoped verification before non-trivial changes.
 - `verify-triage-fix`: diagnose and repair local verification failures with the smallest reproducer.

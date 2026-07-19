@@ -36,6 +36,7 @@ const envSchema = z.object({
   OPENAI_QUERY_CLASSIFIER_MODEL: z.string().optional(),
   OPENAI_SUMMARY_MODEL: z.string().optional(),
   OPENAI_INDEXING_MODEL: z.string().optional(),
+  OPENAI_RERANK_MODEL: z.string().default("gpt-5.6-luna"),
   // Reasoning models (gpt-5*) draw reasoning tokens from this SAME budget as the
   // visible answer, so a low cap makes medium/high-effort reasoning consume the whole
   // budget *thinking* and return `incomplete: max_output_tokens` BEFORE it writes the
@@ -118,6 +119,12 @@ const envSchema = z.object({
   // Lets tuning/eval experiments adjust the second-stage rerank weights, document-diversity
   // demotion, and freshness decay WITHOUT a code change. Omitted/malformed => current defaults.
   RAG_RANKING_CONFIG: z.string().optional(),
+  // Optional ambiguity-only semantic reranker. Default OFF: deterministic ranking remains
+  // authoritative until a provider-backed canary is explicitly approved.
+  RAG_SEMANTIC_RERANK_ENABLED: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   // P8b extension: when strict-AND text retrieval returns weak-but-nonzero matches (sparse
   // result set or negligible top text_rank), append OR-relaxed recall behind the strict
   // matches. Default OFF: with it on, the golden retrieval eval measured OR-noise displacing
@@ -233,6 +240,7 @@ export const env = {
   ),
   OPENAI_SUMMARY_MODEL: runtimeAnswerModel(parsedEnv.OPENAI_SUMMARY_MODEL ?? parsedEnv.OPENAI_ANSWER_MODEL),
   OPENAI_INDEXING_MODEL: runtimeAnswerModel(parsedEnv.OPENAI_INDEXING_MODEL ?? parsedEnv.OPENAI_STRONG_ANSWER_MODEL),
+  OPENAI_RERANK_MODEL: runtimeAnswerModel(parsedEnv.OPENAI_RERANK_MODEL),
 } satisfies typeof parsedEnv;
 
 export function requireServerEnv(): {

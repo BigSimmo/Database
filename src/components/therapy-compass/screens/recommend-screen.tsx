@@ -6,7 +6,6 @@ import { useTcBindings } from "../bindings";
 import { commandControl, outlineControl } from "../controls";
 import { RECOMMEND_CONSTRAINTS, summarise } from "../data/select";
 import { ArrowRightIcon, CheckIcon, CopyIcon, SearchIcon, ShieldIcon, SparkleIcon } from "../icons";
-import { s } from "../style-utils";
 import { LoadingState } from "../ui";
 import { useClipboard } from "../use-clipboard";
 
@@ -36,53 +35,33 @@ export function RecommendScreen() {
     );
 
   return (
-    <section data-screen-label="Recommend" style={s(`max-width:1180px;margin:0 auto;`)}>
-      <h1 style={s(`margin:0 0 6px;font-size:27px;font-weight:680;color:var(--text-heading);letter-spacing:-0.02em;`)}>
-        Recommend Tool
-      </h1>
-      <p style={s(`margin:0 0 22px;font-size:14.5px;color:var(--text-muted);`)}>
+    <section data-screen-label="Recommend" className="tc-screens-recommend-screen-001">
+      <h1 className="tc-screens-recommend-screen-002">Recommend Tool</h1>
+      <p className="tc-screens-recommend-screen-003">
         Refine a clinical question with setting, time and caution constraints.
       </p>
 
-      <div
-        style={s(
-          `background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-soft);padding:22px 24px;margin-bottom:22px;`,
-        )}
-      >
-        <label
-          htmlFor="tc-rec-q"
-          style={s(`display:block;font-size:12.5px;font-weight:650;color:var(--text-heading);margin-bottom:9px;`)}
-        >
+      <div className="tc-screens-recommend-screen-004">
+        <label htmlFor="tc-rec-q" className="tc-screens-recommend-screen-005">
           What do you need help choosing?
         </label>
         <textarea
           id="tc-rec-q"
           value={b.recQuery}
           onChange={(e) => b.setRecQuery(e.target.value)}
-          style={s(
-            `width:100%;min-height:74px;padding:13px 15px;border:1px solid var(--border-strong);border-radius:12px;background:var(--surface);color:var(--text);font-size:15px;font-family:inherit;line-height:1.5;outline:none;resize:vertical;`,
-          )}
+          className="tc-screens-recommend-screen-006"
         />
-        <div
-          style={s(`font-size:11px;font-weight:700;letter-spacing:0.06em;color:var(--text-soft);margin:20px 0 10px;`)}
-        >
-          QUICK CONSTRAINTS
-        </div>
-        <div style={s(`display:flex;flex-wrap:wrap;gap:9px;`)}>
+        <div className="tc-screens-recommend-screen-007">QUICK CONSTRAINTS</div>
+        <div className="tc-screens-recommend-screen-008">
           {RECOMMEND_CONSTRAINTS.map((c) => {
             const on = b.recConstraints.includes(c.key);
             return (
               <button
                 key={c.key}
                 type="button"
-                className="tc-btn"
+                className={`tc-btn tc-recommend-constraint${on ? " tc-is-active" : ""}`}
                 onClick={() => b.toggleConstraint(c.key)}
-                style={s(
-                  `display:flex;align-items:center;gap:7px;padding:8px 15px;border-radius:10px;font-size:13px;cursor:pointer;font-family:inherit;transition:all .12s ease;` +
-                    (on
-                      ? "border:1px solid var(--clinical-accent-border);background:var(--clinical-accent-soft);color:var(--clinical-accent-hover);font-weight:600;"
-                      : "border:1px solid var(--border);background:var(--surface);color:var(--text-muted);font-weight:500;"),
-                )}
+                aria-pressed={on}
               >
                 {c.label}
                 {on ? (
@@ -102,22 +81,17 @@ export function RecommendScreen() {
             );
           })}
         </div>
-        <div
-          style={s(
-            `display:flex;align-items:center;justify-content:space-between;margin-top:18px;gap:12px;flex-wrap:wrap;`,
-          )}
-        >
+        <div className="tc-screens-recommend-screen-009">
           <button
             type="button"
-            className="tc-btn"
+            className={`tc-btn ${outlineControl}`}
             onClick={copyShortlist}
             disabled={!ranked.length}
-            style={s(outlineControl + (ranked.length ? "" : "opacity:0.5;cursor:not-allowed;"))}
           >
             {copied === "shortlist" ? <CheckIcon size={16} /> : <CopyIcon size={16} />}
             {copied === "shortlist" ? "Copied" : "Copy shortlist"}
           </button>
-          <button type="button" className="tc-btn" onClick={b.goSearch} style={s(commandControl)}>
+          <button type="button" className={`tc-btn ${commandControl}`} onClick={b.goSearch}>
             <SearchIcon size={16} strokeWidth={1.9} />
             Refine in search
           </button>
@@ -129,50 +103,23 @@ export function RecommendScreen() {
       ) : (
         <>
           {/* top match */}
-          <div
-            style={s(
-              `background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--clinical-accent);border-radius:16px;box-shadow:var(--shadow-soft);padding:22px 24px;margin-bottom:26px;`,
-            )}
-          >
-            <div style={s(`display:flex;align-items:flex-start;gap:14px;margin-bottom:18px;`)}>
-              <span
-                style={s(
-                  `display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:11px;background:var(--clinical-accent);color:var(--clinical-accent-contrast);flex:none;`,
-                )}
-              >
+          <div className="tc-screens-recommend-screen-010">
+            <div className="tc-screens-recommend-screen-011">
+              <span className="tc-screens-recommend-screen-012">
                 <SparkleIcon size={20} strokeWidth={1.7} />
               </span>
-              <div style={s(`flex:1;min-width:0;`)}>
-                <div style={s(`display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:5px;`)}>
-                  <span style={s(`font-size:16px;font-weight:650;color:var(--text-heading);`)}>{top.name}</span>
-                  <span
-                    style={s(
-                      `font-size:11.5px;font-weight:600;color:var(--success-text);background:var(--success-bg);border:1px solid var(--success-border);padding:2px 9px;border-radius:7px;`,
-                    )}
-                  >
-                    Strong match
-                  </span>
-                  {top.modality ? (
-                    <span
-                      style={s(
-                        `font-size:11.5px;font-weight:600;color:var(--info-text);background:var(--info-bg);border:1px solid var(--info-border);padding:2px 9px;border-radius:7px;`,
-                      )}
-                    >
-                      {top.modality}
-                    </span>
-                  ) : null}
+              <div className="tc-screens-recommend-screen-013">
+                <div className="tc-screens-recommend-screen-014">
+                  <span className="tc-screens-recommend-screen-015">{top.name}</span>
+                  <span className="tc-screens-recommend-screen-016">Strong match</span>
+                  {top.modality ? <span className="tc-screens-recommend-screen-017">{top.modality}</span> : null}
                 </div>
-                <p style={s(`margin:0;font-size:13.5px;line-height:1.55;color:var(--text-muted);`)}>
+                <p className="tc-screens-recommend-screen-018">
                   {summarise(top.clinicalSummary, 2) || top.bestUsedFor}
                 </p>
               </div>
             </div>
-            <div
-              className="tc-mobile-stack"
-              style={s(
-                `display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;`,
-              )}
-            >
+            <div className="tc-mobile-stack tc-screens-recommend-screen-019">
               <MatchCell eyebrow="WHAT IT TREATS" text={top.bestUsedFor || top.indications || "—"} />
               <MatchCell
                 eyebrow="HOW IT HELPS"
@@ -183,24 +130,18 @@ export function RecommendScreen() {
                 tone="accent"
                 text={`Open the record for the full protocol, or generate a patient sheet.`}
               >
-                <div style={s(`display:flex;gap:8px;margin-top:10px;`)}>
+                <div className="tc-screens-recommend-screen-020">
                   <button
                     type="button"
-                    className="tc-btn"
+                    className="tc-btn tc-screens-recommend-screen-021"
                     onClick={() => b.open(top.slug)}
-                    style={s(
-                      `flex:1;height:38px;border:none;border-radius:9px;background:var(--clinical-accent);color:var(--clinical-accent-contrast);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;`,
-                    )}
                   >
                     Open record
                   </button>
                   <button
                     type="button"
-                    className="tc-btn"
+                    className="tc-btn tc-screens-recommend-screen-022"
                     onClick={() => b.openSheet(top.slug)}
-                    style={s(
-                      `flex:1;height:38px;border:1px solid var(--clinical-accent-border);border-radius:9px;background:var(--surface);color:var(--clinical-accent-hover);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;`,
-                    )}
                   >
                     Sheet
                   </button>
@@ -209,37 +150,16 @@ export function RecommendScreen() {
             </div>
           </div>
 
-          <div style={s(`font-size:15px;font-weight:650;color:var(--text-heading);margin-bottom:14px;`)}>
-            Ranked clinical matches
-          </div>
-          <div style={s(`display:flex;flex-direction:column;gap:12px;`)}>
+          <div className="tc-screens-recommend-screen-023">Ranked clinical matches</div>
+          <div className="tc-screens-recommend-screen-024">
             {rest.map(({ therapy: t }, i) => (
-              <div
-                key={t.slug}
-                className="tc-stack-sm"
-                style={s(
-                  `display:grid;grid-template-columns:auto minmax(220px,1.3fr) 1.1fr 1.1fr auto;gap:20px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-tight);padding:16px 20px;`,
-                )}
-              >
-                <span
-                  style={s(
-                    `display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--surface-inset);color:var(--text-muted);font-size:13px;font-weight:700;`,
-                  )}
-                >
-                  {i + 2}
-                </span>
-                <div style={s(`min-width:0;`)}>
-                  <div style={s(`font-size:14px;font-weight:650;color:var(--text-heading);margin-bottom:6px;`)}>
-                    {t.name}
-                  </div>
-                  <div style={s(`display:flex;gap:6px;flex-wrap:wrap;`)}>
+              <div key={t.slug} className="tc-stack-sm tc-screens-recommend-screen-025">
+                <span className="tc-screens-recommend-screen-026">{i + 2}</span>
+                <div className="tc-screens-recommend-screen-027">
+                  <div className="tc-screens-recommend-screen-028">{t.name}</div>
+                  <div className="tc-screens-recommend-screen-029">
                     {(t.tags.length ? t.tags : [t.category]).slice(0, 2).map((tag) => (
-                      <span
-                        key={tag}
-                        style={s(
-                          `font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px;background:var(--surface-inset);color:var(--text-muted);`,
-                        )}
-                      >
+                      <span key={tag} className="tc-screens-recommend-screen-030">
                         {tag}
                       </span>
                     ))}
@@ -247,24 +167,18 @@ export function RecommendScreen() {
                 </div>
                 <ColMini eyebrow="TREATS" text={summarise(top === t ? "" : t.bestUsedFor, 1) || t.bestUsedFor || "—"} />
                 <ColMini eyebrow="FIRST STEP" text={t.timeRequired || t.setting || "—"} />
-                <div style={s(`display:flex;gap:6px;`)}>
+                <div className="tc-screens-recommend-screen-031">
                   <button
                     type="button"
-                    className="tc-btn"
+                    className="tc-btn tc-screens-recommend-screen-032"
                     onClick={() => b.open(t.slug)}
-                    style={s(
-                      `height:34px;padding:0 12px;border:none;border-radius:8px;background:var(--clinical-accent);color:var(--clinical-accent-contrast);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;`,
-                    )}
                   >
                     Open
                   </button>
                   <button
                     type="button"
-                    className="tc-btn"
+                    className="tc-btn tc-screens-recommend-screen-033"
                     onClick={() => b.openSheet(t.slug)}
-                    style={s(
-                      `height:34px;padding:0 12px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);color:var(--text);font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;`,
-                    )}
                   >
                     Sheet
                   </button>
@@ -273,11 +187,7 @@ export function RecommendScreen() {
             ))}
           </div>
 
-          <div
-            style={s(
-              `display:flex;align-items:center;gap:8px;margin-top:18px;font-size:12.5px;color:var(--text-soft);`,
-            )}
-          >
+          <div className="tc-screens-recommend-screen-034">
             <ShieldIcon size={15} />
             Ranking is source-grounded and advisory. Confirm fit, cautions and review status before clinical use.
           </div>
@@ -298,20 +208,13 @@ function MatchCell({
   tone?: "accent";
   children?: ReactNode;
 }) {
-  const bg = tone === "accent" ? "var(--clinical-accent-soft)" : "var(--surface)";
-  const head = tone === "accent" ? "var(--clinical-accent-hover)" : "var(--clinical-accent)";
-  const body = tone === "accent" ? "var(--clinical-accent-hover)" : "var(--text-muted)";
   return (
-    <div style={s(`padding:16px 17px;background:${bg};`)}>
-      <div
-        style={s(
-          `display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:0.05em;color:${head};margin-bottom:9px;`,
-        )}
-      >
+    <div className={`tc-match-cell${tone === "accent" ? " tc-match-cell-accent" : ""}`}>
+      <div className="tc-match-cell-heading">
         <ArrowRightIcon size={13} strokeWidth={1.9} />
         {eyebrow}
       </div>
-      <p style={s(`margin:0;font-size:12.5px;line-height:1.5;color:${body};`)}>{text}</p>
+      <p>{text}</p>
       {children}
     </div>
   );
@@ -319,17 +222,9 @@ function MatchCell({
 
 function ColMini({ eyebrow, text }: { eyebrow: string; text: string }) {
   return (
-    <div style={s(`min-width:0;`)}>
-      <div style={s(`font-size:10px;font-weight:700;letter-spacing:0.04em;color:var(--text-soft);margin-bottom:4px;`)}>
-        {eyebrow}
-      </div>
-      <p
-        style={s(
-          `margin:0;font-size:12px;line-height:1.4;color:var(--text-muted);overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;`,
-        )}
-      >
-        {text}
-      </p>
+    <div className="tc-screens-recommend-screen-035">
+      <div className="tc-screens-recommend-screen-036">{eyebrow}</div>
+      <p className="tc-screens-recommend-screen-037">{text}</p>
     </div>
   );
 }
