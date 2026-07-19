@@ -258,9 +258,7 @@ async function processJob(job: ClaimedJob, workerId: string): Promise<"completed
   const completion = await completeIngestionJob(job, workerId);
   if (isLeaseLost(completion)) return "lease_lost";
   if (!completion || completion.ok === false) {
-    throw new Error(
-      `complete_ingestion_job did not confirm success: ${completion?.reason ?? "no result row"}`,
-    );
+    throw new Error(`complete_ingestion_job did not confirm success: ${completion?.reason ?? "no result row"}`);
   }
   return "completed";
 }
