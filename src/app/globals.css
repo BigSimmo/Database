@@ -2596,3 +2596,12 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
+
+@media (max-width: 639px) and (prefers-reduced-motion: reduce) {
+  #main-content,
+  #main-content[data-bottom-composer-hidden="true"],
+  [data-testid="document-viewer-content"],
+  [data-testid="document-viewer-content"][data-scroll-hidden="true"] {
+    transition: none;
+  }
+}

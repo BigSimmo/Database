@@ -89,20 +89,26 @@ describe("ClinicalDashboard merge-artifact guards", () => {
 
   it("releases the Safari toolbar reserve only after phone composers hide", () => {
     expect(globalSearchShellSource).toContain("const visibleMobileComposerReserve = !shouldShowSearchComposer");
-    expect(globalSearchShellSource).toContain("const mobileComposerReserve = bottomComposerHidden");
-    expect(globalSearchShellSource).toMatch(
-      /bottomComposerHidden\s*\?\s*"max\(0\.75rem, env\(safe-area-inset-bottom\)\)"/,
+    expect(globalSearchShellSource).toContain('const mobileComposerReserve = bottomComposerHidden ? "0.75rem"');
+    expect(globalSearchShellSource).not.toContain(
+      'bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"',
     );
     expect(globalSearchShellSource).not.toContain('bottomComposerHidden ? "max(0.75rem, var(--safe-area-bottom))"');
+    expect(globalSearchShellSource).not.toContain('"max(2rem, var(--safe-area-bottom))"');
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = !reservesFloatingComposer");
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = phoneScrollHide.hidden");
-    expect(clinicalDashboardSource).toMatch(
-      /bottomComposerHidden\s*\?\s*"max\(0\.75rem, env\(safe-area-inset-bottom\)\)"/,
+    expect(globalSearchShellSource).toContain("function isDocumentViewerOwnedRoute");
+    expect(globalSearchShellSource).toContain('isDocumentViewerOwnedRoute(pathname)\n      ? "0.75rem"\n      : "2rem"');
+    expect(clinicalDashboardSource).toContain('const mobileComposerReserve = bottomComposerHidden ? "0.75rem"');
+    expect(clinicalDashboardSource).not.toContain(
+      'bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"',
     );
     expect(clinicalDashboardSource).toContain('"max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-24"');
     expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
     expect(documentViewerSource).toContain('"max-sm:pb-3"');
     expect(documentViewerSource).toContain('"max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"');
+    expect(documentViewerSource).toContain("max-sm:duration-[240ms]");
+    expect(documentViewerSource).toContain("max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]");
   });
 
   it("does not reintroduce the obsolete output-mode copy helper", () => {

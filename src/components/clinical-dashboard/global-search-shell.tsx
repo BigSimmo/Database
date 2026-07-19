@@ -222,6 +222,13 @@ function isToolDetailWithFooterSearch(pathname: string): boolean {
   );
 }
 
+/** Document viewer surfaces own their floating bottom composer; the shell must not stack a second pad. */
+function isDocumentViewerOwnedRoute(pathname: string): boolean {
+  if (pathname.startsWith("/documents/source")) return true;
+  if (!pathname.startsWith("/documents/")) return false;
+  return pathname !== "/documents/search";
+}
+
 function GlobalStandaloneSearchShellClient({
   children,
   initialMode = "answer",
@@ -341,9 +348,13 @@ function GlobalStandaloneSearchShellClient({
     (!isInfoPage || isToolDetailWithFooterSearch(pathname));
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
   // Standalone mode homes portal the composer into the hero (in-flow at every
-  // width), so phones need no bottom-dock clearance there.
+  // width), so phones need no bottom-dock clearance there. Document viewer
+  // routes own their own floating composer, so the shell keeps only a small pad
+  // and lets DocumentViewer manage visible-dock clearance.
   const visibleMobileComposerReserve = !shouldShowSearchComposer
-    ? "max(2rem, var(--safe-area-bottom))"
+    ? isDocumentViewerOwnedRoute(pathname)
+      ? "0.75rem"
+      : "2rem"
     : isStandaloneModeHome
       ? "2rem"
       : searchMode === "answer"
@@ -361,9 +372,7 @@ function GlobalStandaloneSearchShellClient({
   // Reusing that inset after the app composer hides recreates a toolbar-sized
   // blank band, so the hidden state intentionally keeps only a small content
   // pad. Interactive composer chrome still receives the full inset above.
-  const mobileComposerReserve = bottomComposerHidden
-    ? "max(0.75rem, env(safe-area-inset-bottom))"
-    : visibleMobileComposerReserve;
+  const mobileComposerReserve = bottomComposerHidden ? "0.75rem" : visibleMobileComposerReserve;
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string

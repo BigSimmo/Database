@@ -3259,9 +3259,10 @@ export function ClinicalDashboard({
         : compactMobileBottomSearch
           ? "calc(5rem + var(--safe-area-bottom))"
           : "calc(5.25rem + var(--safe-area-bottom))";
-  const mobileComposerReserve = bottomComposerHidden
-    ? "max(0.75rem, env(safe-area-inset-bottom))"
-    : visibleMobileComposerReserve;
+  // Safari's bottom safe-area inset includes its translucent browser toolbar.
+  // Reusing that inset after the app composer hides recreates a toolbar-sized
+  // blank band, so the hidden state intentionally keeps only a small content pad.
+  const mobileComposerReserve = bottomComposerHidden ? "0.75rem" : visibleMobileComposerReserve;
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : CircleAlert}
