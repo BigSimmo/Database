@@ -39,6 +39,7 @@ describe("clinical search query normalization", () => {
     expect(medicationMonitoringQuerySubjectTokens("What monitoring is required for lithium therapy?")).toEqual([
       "lithium",
     ]);
+    expect(medicationMonitoringQuerySubjectTokens("What monitoring escalation is required?")).toEqual([]);
   });
 
   it("classifies common RAG query shapes for routing and observability", () => {

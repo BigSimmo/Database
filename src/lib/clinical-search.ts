@@ -1183,22 +1183,12 @@ export function medicationDoseQuerySubjectTokens(query: string) {
   return normalizedClinicalSearchTokens(query).filter((token) => !genericMedicationDoseQueryTokens.has(token));
 }
 
-const genericMedicationMonitoringQueryTokens = new Set([
-  "baseline",
-  "blood",
-  "level",
-  "monitor",
-  "monitoring",
-  "require",
-  "required",
-  "requirement",
-  "therapy",
-  "treatment",
-]);
-
-/** Medication subject tokens without generic monitoring-request language. */
+/** Canonical medication subjects named by a monitoring query. */
 export function medicationMonitoringQuerySubjectTokens(query: string) {
-  return medicationDoseQuerySubjectTokens(query).filter((token) => !genericMedicationMonitoringQueryTokens.has(token));
+  return unique(
+    medicationTerms(normalizeAnalysisText(query)).flatMap((term) => normalizedClinicalSearchTokens(term)),
+    12,
+  );
 }
 
 const medicationDoseAmountQueryPattern =
