@@ -107,7 +107,12 @@ export function FormsHomePage() {
     ) : null;
 
   return (
-    <ModeHomeMain testId="forms-home">
+    <ModeHomeMain
+      testId="forms-home"
+      // Seeded homes are content-rich and can clip when centered on phone;
+      // loading/empty notices stay short — keep those vertically centred.
+      contentAlign={hasRegistryRecords ? "startOnPhone" : "center"}
+    >
       <ModeHomeTemplate
         testId="forms-home-template"
         title="Forms"

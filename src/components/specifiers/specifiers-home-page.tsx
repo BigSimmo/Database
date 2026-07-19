@@ -101,7 +101,7 @@ function SpecifierPathwayStrip() {
 
 function SpecifiersHome() {
   return (
-    <ModeHomeMain testId="specifiers-home" className="justify-start sm:justify-center">
+    <ModeHomeMain testId="specifiers-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="specifiers"
         title="Refine the diagnosis with the right specifier"

@@ -1474,6 +1474,34 @@ test.describe("Clinical KB tools launcher", () => {
     expect(badgeMetrics.height).toBeGreaterThanOrEqual(22);
     expect(badgeMetrics.scrollHeight).toBeLessThanOrEqual(badgeMetrics.height + 1);
 
+    // Tall results must be top-aligned: Best Answer stays reachable at scrollTop 0.
+    const mainContent = page.locator("#main-content");
+    await expect.poll(() => mainContent.evaluate((element) => element.scrollTop)).toBe(0);
+    const bestAnswer = page.getByTestId("differential-best-answer");
+    await expect(bestAnswer).toBeVisible();
+    const foldLayout = await bestAnswer.evaluate((best) => {
+      const main = document.querySelector("#main-content");
+      const header = document.querySelector("header.universal-header");
+      if (!main) return null;
+      const bestRect = best.getBoundingClientRect();
+      const headerBottom = header?.getBoundingClientRect().bottom ?? main.getBoundingClientRect().top;
+      return {
+        scrollTop: main.scrollTop,
+        bestTop: bestRect.top,
+        bestBottom: bestRect.bottom,
+        headerBottom,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(foldLayout).not.toBeNull();
+    expect(foldLayout!.scrollTop).toBe(0);
+    // Best Answer must start in the visible fold under the chrome — not clipped
+    // above the scrollport (the ModeHomeMain justify-center regression). Bound
+    // to the header band rather than a tight viewport fraction so tall chrome /
+    // safe-area insets do not flake the upper-half check.
+    expect(foldLayout!.bestTop).toBeGreaterThanOrEqual(foldLayout!.headerBottom - 2);
+    expect(foldLayout!.bestTop).toBeLessThan(foldLayout!.headerBottom + 240);
+
     // Phone list hides the featured best answer, so ranks must start at 1.
     const mobileCards = page.getByTestId("differential-mobile-result-card");
     await expect(mobileCards.first()).toBeVisible();

@@ -30,7 +30,7 @@ export function HomeScreen() {
       : `Search ${b.therapies.length} source-grounded therapy ${b.therapies.length === 1 ? "record" : "records"} by problem, symptom, skill or population — or jump into a clinical pathway.`;
 
   return (
-    <ModeHomeMain testId="therapy-compass-home" className="justify-start sm:justify-center">
+    <ModeHomeMain testId="therapy-compass-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="therapy-compass"
         title="What therapy are you looking for?"
