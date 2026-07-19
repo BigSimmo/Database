@@ -260,11 +260,12 @@ describe("second-stage rank score", () => {
       score_explanation: explanation(0.84),
     });
 
-    expect(
-      stabilizeReleasedSearchOrder([withoutReleaseScore, withReleaseScore], true).map((item) => item.id),
-    ).toEqual(["release-ranked", "hybrid-leading"]);
-    expect(
-      stabilizeReleasedSearchOrder([withoutReleaseScore, withReleaseScore], false).map((item) => item.id),
-    ).toEqual(["hybrid-leading", "release-ranked"]);
+    expect(stabilizeReleasedSearchOrder([withoutReleaseScore, withReleaseScore], true).map((item) => item.id)).toEqual([
+      "release-ranked",
+      "hybrid-leading",
+    ]);
+    expect(stabilizeReleasedSearchOrder([withoutReleaseScore, withReleaseScore], false).map((item) => item.id)).toEqual(
+      ["hybrid-leading", "release-ranked"],
+    );
   });
 });
