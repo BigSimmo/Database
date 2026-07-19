@@ -182,10 +182,7 @@ describe("second-stage rank score", () => {
 
     const stabilized = stabilizeReleasedSearchOrder(secondStage);
 
-    expect(stabilized.map((item) => item.id)).toEqual([
-      "higher-rank-score",
-      "stronger-hybrid",
-    ]);
+    expect(stabilized.map((item) => item.id)).toEqual(["higher-rank-score", "stronger-hybrid"]);
     expect(stabilized[1].hybrid_score).toBe(0.8);
     expect(stabilized[1].content).toBe(strongerHybridDuplicate.content);
   });
