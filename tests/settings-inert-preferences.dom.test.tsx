@@ -73,4 +73,30 @@ describe("settings dialog inert-preference honesty markers", () => {
       expect(within(row).queryByText(NOT_YET_ACTIVE_TEXT)).not.toBeInTheDocument();
     }
   });
+
+  it("announces the inert status to assistive tech from every marked control", () => {
+    // The badge must be part of each control's accessible description, not just
+    // a visual sibling — a screen-reader user focusing the select, radiogroup,
+    // or switch has to hear that the setting is not active yet.
+    renderDialog();
+    for (const testId of INERT_ROWS) {
+      const row = screen.getByTestId(testId);
+      const control =
+        within(row).queryByRole("combobox") ?? within(row).queryByRole("radiogroup") ?? within(row).getByRole("switch");
+      const describedBy = control?.getAttribute("aria-describedby");
+      expect(describedBy, `${testId} control must reference its inert marker`).toBeTruthy();
+      const description = document.getElementById(describedBy as string);
+      expect(description).toHaveTextContent(NOT_YET_ACTIVE_TEXT);
+    }
+  });
+
+  it("does not attach the inert description to functional controls", () => {
+    renderDialog();
+    for (const testId of FUNCTIONAL_ROWS) {
+      const row = screen.getByTestId(testId);
+      const control =
+        within(row).queryByRole("combobox") ?? within(row).queryByRole("radiogroup") ?? within(row).getByRole("switch");
+      expect(control?.getAttribute("aria-describedby") ?? null).toBeNull();
+    }
+  });
 });
