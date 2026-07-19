@@ -667,6 +667,13 @@ async function openScopeControl(page: Page) {
     .catch(() => undefined);
 
   const composer = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
+  const bottomDock = page.locator("form.answer-footer-search-dock");
+  if (await bottomDock.isVisible().catch(() => false)) {
+    // Prior sheet/scroll interactions can leave the phone dock translated off-screen.
+    // Restore it before opening scope so the click lands in the viewport.
+    await scrollPrimarySurface(page, 0);
+    await expect(bottomDock).not.toHaveAttribute("data-scroll-hidden", "true");
+  }
 
   await composer.click();
   const scopeOption = page.getByRole("option", { name: /Scope sources/i });
