@@ -133,26 +133,21 @@ test.describe("Header element overlap coverage", () => {
       await expect(menu).toBeVisible();
       await expect(newChat).toBeVisible();
 
-      const geometry = await page.evaluate(() => {
-        const menuButton = document.querySelector<HTMLElement>('[aria-label="Open Clinical Guide menu"]');
-        const newChatButton = document.querySelector<HTMLElement>('[aria-label="Start a new chat"]');
-        if (!menuButton || !newChatButton) return null;
-        const menuRect = menuButton.getBoundingClientRect();
-        const newChatRect = newChatButton.getBoundingClientRect();
-        const viewportWidth = window.innerWidth;
-        return {
-          leftInset: menuRect.left,
-          rightInset: viewportWidth - newChatRect.right,
-        };
-      });
+      // Headless Chromium reports env(safe-area-inset-*) as 0, so this asserts
+      // the --header-edge-pad (1rem) chrome inset — not notch asymmetry.
+      const menuBox = await menu.boundingBox();
+      const newChatBox = await newChat.boundingBox();
+      expect(menuBox, "menu control must have geometry").not.toBeNull();
+      expect(newChatBox, "new-chat control must have geometry").not.toBeNull();
 
-      expect(geometry, "menu and new-chat controls must both render").not.toBeNull();
+      const leftInset = menuBox!.x;
+      const rightInset = viewport.width - (newChatBox!.x + newChatBox!.width);
       // 1rem header pad (~16px) with 2px subpixel tolerance.
-      expect(geometry!.leftInset, "left menu inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
-      expect(geometry!.rightInset, "right new-chat inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
+      expect(leftInset, "left menu inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
+      expect(rightInset, "right new-chat inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
       expect(
-        Math.abs(geometry!.leftInset - geometry!.rightInset),
-        `left/right insets should match (left=${geometry!.leftInset}, right=${geometry!.rightInset})`,
+        Math.abs(leftInset - rightInset),
+        `left/right insets should match (left=${leftInset}, right=${rightInset})`,
       ).toBeLessThanOrEqual(2);
     });
   }
