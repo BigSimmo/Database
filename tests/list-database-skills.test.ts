@@ -7,7 +7,12 @@ describe("list-database-skills", () => {
   it("extracts frontmatter-backed skill metadata from a directory listing", () => {
     const drift = findSkillDrift(
       [
-        { id: "database-flightplan", name: "database-flightplan", description: "Plan safe work.", missingSkillFile: false },
+        {
+          id: "database-flightplan",
+          name: "database-flightplan",
+          description: "Plan safe work.",
+          missingSkillFile: false,
+        },
         { id: "workflows", name: "workflows", description: "List workflow skills.", missingSkillFile: false },
       ],
       ["database-flightplan", "workflows"],
