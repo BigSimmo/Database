@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan"
+  short_description: "Plan risk-scoped offline Database verification"
+  default_prompt: "Use $plan to classify this Database change and choose the smallest safe offline verification ladder."

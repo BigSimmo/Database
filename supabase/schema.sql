@@ -7599,7 +7599,13 @@ stable
 set search_path = public, extensions, pg_temp
 as $$
   select *
-  from public.match_document_chunks_text_scoped($1, $2, $3, $4, $5);
+  from public.match_document_chunks_text_scoped(
+    $1,
+    least(greatest(coalesce($2, 12), 1), 96),
+    $3,
+    $4,
+    $5
+  );
 $$;
 
 create or replace function public.match_document_chunks_hybrid_v2(
@@ -7776,7 +7782,15 @@ stable
 set search_path = public, extensions, pg_temp
 as $$
   select *
-  from public.match_document_index_units_hybrid_scoped($1, $2, $3, $4, $5, $6, $7);
+  from public.match_document_index_units_hybrid_scoped(
+    $1,
+    $2,
+    least(greatest(coalesce($3, 24), 1), 96),
+    $4,
+    $5,
+    $6,
+    $7
+  );
 $$;
 
 create or replace function public.match_document_memory_cards_hybrid_v3(

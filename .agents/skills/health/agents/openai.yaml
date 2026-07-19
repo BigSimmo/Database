@@ -1,0 +1,4 @@
+interface:
+  display_name: "Health"
+  short_description: "Check local Database repository health quickly"
+  default_prompt: "Use $health to produce a fast offline health assessment for this Database repository."

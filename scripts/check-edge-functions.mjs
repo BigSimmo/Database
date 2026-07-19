@@ -1,6 +1,22 @@
 import { spawnSync } from "node:child_process";
+import { existsSync, readdirSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
 
-const args = ["check", "--node-modules-dir=false", "supabase/functions/indexing-v3-agent/index.ts"];
+const root = process.cwd();
+const functionsRoot = resolve(root, "supabase/functions");
+const entrypoints = readdirSync(functionsRoot, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => join(functionsRoot, entry.name, "index.ts"))
+  .filter((entrypoint) => existsSync(entrypoint))
+  .map((entrypoint) => relative(root, entrypoint).replaceAll("\\", "/"))
+  .sort();
+
+if (entrypoints.length === 0) {
+  console.error("[check:edge:functions] No supabase/functions/*/index.ts entrypoints were found.");
+  process.exit(1);
+}
+
+const args = ["check", "--node-modules-dir=false", "--no-lock", ...entrypoints];
 const deno = spawnSync("deno", ["--version"], { encoding: "utf8" });
 const denoVersionLine = deno.stdout?.split("\n")[0]?.trim() ?? "";
 const denoVersionMatch = denoVersionLine.match(/^deno\s+(\d+)\./);

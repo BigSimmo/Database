@@ -42,7 +42,7 @@ import {
   POPULATION_OPTIONS,
   useAppPreferences,
 } from "@/components/clinical-dashboard/use-app-preferences";
-import { clearRecentQueries, countRecentQueries } from "@/components/clinical-dashboard/recent-query-storage";
+import { clearRecentQueries, countRecentQueries } from "@/lib/recent-query-storage";
 import {
   cn,
   fieldControlWithIcon,

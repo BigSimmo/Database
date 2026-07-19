@@ -4,8 +4,8 @@ import { createBrowserClient } from "@supabase/ssr";
 import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
-import { clearRecentQueries } from "@/components/clinical-dashboard/recent-query-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
+import { clearRecentQueries } from "@/lib/recent-query-storage";
 import { checkSupabaseProjectConfig, formatSupabaseProjectCheck } from "@/lib/supabase/project";
 
 type AuthStatus = "unconfigured" | "loading" | "signed_out" | "authenticated" | "expired" | "error";

@@ -111,6 +111,35 @@ describe("productivity workflow planning", () => {
     expect(analyzeFailureText("TypeError: value is not iterable").category).toBe("probable-regression");
   });
 
+  it("distinguishes historical eval-canary provider failures from a completed golden regression", () => {
+    const july7OwnerMismatch = [
+      "Golden retrieval eval summary:",
+      "  cases=36",
+      "  retrieval_layer_counts={}",
+      "  failed_cases=36",
+    ].join("\n");
+    const july10ProviderThrottle = "Error: 429 Too Many Requests while creating an embedding";
+    const completedGoldenRegression = [
+      "Golden retrieval eval summary:",
+      "  cases=36",
+      '  retrieval_layer_counts={"lexical":72,"hybrid_vector":36}',
+      "  failed_cases=3",
+    ].join("\n");
+
+    expect(analyzeFailureText(july7OwnerMismatch)).toMatchObject({
+      category: "provider-or-configuration",
+      confidence: "high",
+    });
+    expect(analyzeFailureText(july10ProviderThrottle)).toMatchObject({
+      category: "provider-or-configuration",
+      confidence: "high",
+    });
+    expect(analyzeFailureText(completedGoldenRegression)).toMatchObject({
+      category: "probable-regression",
+      confidence: "high",
+    });
+  });
+
   it("extracts only actionable operator markers", () => {
     const items = extractOperatorItemsFromText(
       "# Heading\n| Live gate | ⏳ pending | run later |\n- Operator-only: rotate key\n- completed",

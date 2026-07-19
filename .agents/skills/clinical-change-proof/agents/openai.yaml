@@ -1,4 +1,6 @@
 interface:
-  display_name: "Clinical Change Proof"
-  short_description: "Build clinical governance evidence"
-  default_prompt: "Use $clinical-change-proof to assess this clinical change and produce the required local evidence, governance checks, and provider approval gates."
+  display_name: "Clinical Alias"
+  short_description: "Compatibility alias for Database clinical proof"
+  default_prompt: "Use $clinical-change-proof only as a compatibility alias for $clinical."
+policy:
+  allow_implicit_invocation: false

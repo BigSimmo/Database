@@ -1021,6 +1021,26 @@ test.describe("Clinical KB tools launcher", () => {
     const dock = page.locator("form.answer-footer-search-dock");
     await expect(dock).toBeVisible();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    const main = page.locator("#main-content");
+    // Safari reports its translucent bottom toolbar through the safe-area
+    // inset. Make that region deliberately large so this catches the exact
+    // toolbar-sized blank band seen on an iPhone, even in Chromium CI.
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-bottom", "112px");
+    });
+    await expect
+      .poll(async () => main.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)))
+      .toBeGreaterThan(112);
+    const visibleMainGeometry = await main.evaluate((node) => {
+      const style = window.getComputedStyle(node);
+      return {
+        bottom: Math.round(node.getBoundingClientRect().bottom),
+        marginBottom: Number.parseFloat(style.marginBottom),
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(visibleMainGeometry.marginBottom).toBe(0);
+    expect(Math.abs(visibleMainGeometry.bottom - visibleMainGeometry.viewportHeight)).toBeLessThanOrEqual(1);
     const transition = await dock.evaluate((node) => {
       const style = window.getComputedStyle(node);
       const durationMs = Math.max(
@@ -1070,12 +1090,28 @@ test.describe("Clinical KB tools launcher", () => {
     await expect
       .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform !== "none"))
       .toBe(true);
+    await expect
+      .poll(async () => main.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)))
+      .toBeLessThanOrEqual(13);
+    const hiddenMainGeometry = await main.evaluate((node) => {
+      const style = window.getComputedStyle(node);
+      return {
+        bottom: Math.round(node.getBoundingClientRect().bottom),
+        marginBottom: Number.parseFloat(style.marginBottom),
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(hiddenMainGeometry.marginBottom).toBe(0);
+    expect(Math.abs(hiddenMainGeometry.bottom - hiddenMainGeometry.viewportHeight)).toBeLessThanOrEqual(1);
 
     await scrollPrimarySurface(page, 60);
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect
       .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform === "none"))
       .toBe(true);
+    await expect
+      .poll(async () => main.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)))
+      .toBeGreaterThan(112);
   });
 
   test("mode toggle keeps forms separate from services", async ({ page }) => {
