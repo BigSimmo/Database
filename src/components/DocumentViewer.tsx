@@ -3124,7 +3124,10 @@ export function DocumentViewer({
           }}
           className={cn(
             glassOverlaySurface,
-            "document-viewer-composer floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
+            "document-viewer-composer floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-transform motion-reduce:transition-none",
+            composerScrollHidden
+              ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+              : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
           )}
         >
           <button
