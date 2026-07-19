@@ -15,9 +15,6 @@ export const mobileComposerHiddenReserve = "0.75rem";
 /** Routes with no floating bottom dock (info pages, in-flow mode-home composers). */
 export const mobileComposerIdleReserve = "2rem";
 
-/** Shell pad on DocumentViewer-owned routes; the viewer manages dock clearance. */
-export const mobileComposerDocumentViewerShellReserve = mobileComposerHiddenReserve;
-
 /** Differentials Compare selected bar + compact search pill. */
 export const mobileComposerDifferentialsCompareReserve = "calc(12.5rem + var(--safe-area-bottom))";
 
@@ -41,4 +38,43 @@ export function isDocumentViewerOwnedRoute(pathname: string): boolean {
   if (pathname.startsWith("/documents/source")) return true;
   if (!pathname.startsWith("/documents/")) return false;
   return pathname !== "/documents/search";
+}
+
+export function resolveDashboardVisibleMobileComposerReserve(input: {
+  searchMode: string;
+  hasAnswerFollowUps: boolean;
+  differentialsCompareAddonActive: boolean;
+  compactMobileBottomSearch: boolean;
+}): string {
+  if (input.searchMode === "answer") {
+    return input.hasAnswerFollowUps
+      ? mobileComposerVisibleReserve.dashboardAnswerWithFollowUps
+      : mobileComposerVisibleReserve.dashboardAnswer;
+  }
+  if (input.differentialsCompareAddonActive) {
+    return mobileComposerVisibleReserve.differentialsCompare;
+  }
+  return input.compactMobileBottomSearch
+    ? mobileComposerVisibleReserve.dashboardCompactSubmitted
+    : mobileComposerVisibleReserve.dashboardDefaultDock;
+}
+
+export function resolveShellVisibleMobileComposerReserve(input: {
+  shouldShowSearchComposer: boolean;
+  documentViewerOwnedRoute: boolean;
+  isStandaloneModeHome: boolean;
+  searchMode: string;
+  differentialsCompareAddonActive: boolean;
+  useCompactBottomSearch: boolean;
+}): string {
+  if (!input.shouldShowSearchComposer) {
+    // DocumentViewer owns its dock; shell keeps only the hidden-size pad.
+    return input.documentViewerOwnedRoute ? mobileComposerHiddenReserve : mobileComposerIdleReserve;
+  }
+  if (input.isStandaloneModeHome) return mobileComposerIdleReserve;
+  if (input.searchMode === "answer") return mobileComposerVisibleReserve.shellAnswer;
+  if (input.differentialsCompareAddonActive) return mobileComposerVisibleReserve.differentialsCompare;
+  return input.useCompactBottomSearch
+    ? mobileComposerVisibleReserve.shellCompactSubmitted
+    : mobileComposerVisibleReserve.shellDefaultDock;
 }

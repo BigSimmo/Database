@@ -92,7 +92,7 @@ import {
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import {
-  mobileComposerVisibleReserve,
+  resolveDashboardVisibleMobileComposerReserve,
   resolveMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
@@ -3253,20 +3253,16 @@ export function ClinicalDashboard({
   const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
-  const visibleMobileComposerReserve =
-    searchMode === "answer"
-      ? answerFollowUpSuggestions.length > 0
-        ? mobileComposerVisibleReserve.dashboardAnswerWithFollowUps
-        : mobileComposerVisibleReserve.dashboardAnswer
-      : differentialsCompareAddonActive
-        ? mobileComposerVisibleReserve.differentialsCompare
-        : compactMobileBottomSearch
-          ? mobileComposerVisibleReserve.dashboardCompactSubmitted
-          : mobileComposerVisibleReserve.dashboardDefaultDock;
-  // Safari's bottom safe-area inset includes its translucent browser toolbar.
-  // Reusing that inset after the app composer hides recreates a toolbar-sized
-  // blank band, so the hidden state intentionally keeps only a small content pad.
-  const mobileComposerReserve = resolveMobileComposerReserve(bottomComposerHidden, visibleMobileComposerReserve);
+  // Hidden dock pad must stay at 0.75rem — Safari toolbar safe-area recreates a blank band.
+  const mobileComposerReserve = resolveMobileComposerReserve(
+    bottomComposerHidden,
+    resolveDashboardVisibleMobileComposerReserve({
+      searchMode,
+      hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
+      differentialsCompareAddonActive,
+      compactMobileBottomSearch,
+    }),
+  );
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : CircleAlert}

@@ -3,11 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   isDocumentViewerOwnedRoute,
   mobileComposerDifferentialsCompareReserve,
-  mobileComposerDocumentViewerShellReserve,
   mobileComposerHiddenReserve,
   mobileComposerIdleReserve,
   mobileComposerVisibleReserve,
+  resolveDashboardVisibleMobileComposerReserve,
   resolveMobileComposerReserve,
+  resolveShellVisibleMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
 
 describe("mobile composer reserve contract", () => {
@@ -23,9 +24,18 @@ describe("mobile composer reserve contract", () => {
     expect(mobileComposerHiddenReserve).not.toContain("env(");
   });
 
-  it("keeps document-viewer shell pad at the hidden size", () => {
-    expect(mobileComposerDocumentViewerShellReserve).toBe(mobileComposerHiddenReserve);
+  it("keeps idle and document-viewer shell pads free of toolbar insets", () => {
     expect(mobileComposerIdleReserve).toBe("2rem");
+    expect(
+      resolveShellVisibleMobileComposerReserve({
+        shouldShowSearchComposer: false,
+        documentViewerOwnedRoute: true,
+        isStandaloneModeHome: false,
+        searchMode: "documents",
+        differentialsCompareAddonActive: false,
+        useCompactBottomSearch: false,
+      }),
+    ).toBe(mobileComposerHiddenReserve);
   });
 
   it("keeps differentials compare clearance shared across hosts", () => {
@@ -33,6 +43,14 @@ describe("mobile composer reserve contract", () => {
     expect(mobileComposerDifferentialsCompareReserve).toContain("12.5rem");
     expect(mobileComposerDifferentialsCompareReserve).toContain("var(--safe-area-bottom)");
     expect(mobileComposerDifferentialsCompareReserve).not.toContain("env(safe-area-inset-bottom)");
+    expect(
+      resolveDashboardVisibleMobileComposerReserve({
+        searchMode: "differentials",
+        hasAnswerFollowUps: false,
+        differentialsCompareAddonActive: true,
+        compactMobileBottomSearch: true,
+      }),
+    ).toBe(mobileComposerDifferentialsCompareReserve);
   });
 
   it("classifies document viewer owned routes", () => {

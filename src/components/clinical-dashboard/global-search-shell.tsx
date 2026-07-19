@@ -30,10 +30,8 @@ import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favouri
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import {
   isDocumentViewerOwnedRoute,
-  mobileComposerDocumentViewerShellReserve,
-  mobileComposerIdleReserve,
-  mobileComposerVisibleReserve,
   resolveMobileComposerReserve,
+  resolveShellVisibleMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
@@ -351,19 +349,6 @@ function GlobalStandaloneSearchShellClient({
   // width), so phones need no bottom-dock clearance there. Document viewer
   // routes own their own floating composer, so the shell keeps only a small pad
   // and lets DocumentViewer manage visible-dock clearance.
-  const visibleMobileComposerReserve = !shouldShowSearchComposer
-    ? isDocumentViewerOwnedRoute(pathname)
-      ? mobileComposerDocumentViewerShellReserve
-      : mobileComposerIdleReserve
-    : isStandaloneModeHome
-      ? mobileComposerIdleReserve
-      : searchMode === "answer"
-        ? mobileComposerVisibleReserve.shellAnswer
-        : differentialsCompareAddonActive
-          ? mobileComposerVisibleReserve.differentialsCompare
-          : useCompactBottomSearch
-            ? mobileComposerVisibleReserve.shellCompactSubmitted
-            : mobileComposerVisibleReserve.shellDefaultDock;
   // Release the large bottom reserve only when the phone bottom composer is
   // actually hidden (MasterSearchHeader's bottomComposerHidden). Header-only
   // scroll-hide, pinned compare addons, open menus/sheets, and composer focus
@@ -372,7 +357,17 @@ function GlobalStandaloneSearchShellClient({
   // Reusing that inset after the app composer hides recreates a toolbar-sized
   // blank band, so the hidden state intentionally keeps only a small content
   // pad. Interactive composer chrome still receives the full inset above.
-  const mobileComposerReserve = resolveMobileComposerReserve(bottomComposerHidden, visibleMobileComposerReserve);
+  const mobileComposerReserve = resolveMobileComposerReserve(
+    bottomComposerHidden,
+    resolveShellVisibleMobileComposerReserve({
+      shouldShowSearchComposer,
+      documentViewerOwnedRoute: isDocumentViewerOwnedRoute(pathname),
+      isStandaloneModeHome,
+      searchMode,
+      differentialsCompareAddonActive,
+      useCompactBottomSearch,
+    }),
+  );
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string

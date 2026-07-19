@@ -117,10 +117,8 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(mobileComposerReserveSource).toContain("export function isDocumentViewerOwnedRoute");
     expect(mobileComposerReserveSource).not.toContain("env(safe-area-inset-bottom)");
 
-    expect(globalSearchShellSource).toContain("const visibleMobileComposerReserve = !shouldShowSearchComposer");
-    expect(globalSearchShellSource).toContain(
-      "const mobileComposerReserve = resolveMobileComposerReserve(bottomComposerHidden, visibleMobileComposerReserve)",
-    );
+    expect(globalSearchShellSource).toContain("resolveShellVisibleMobileComposerReserve");
+    expect(globalSearchShellSource).toContain("resolveMobileComposerReserve(");
     expect(globalSearchShellSource).toContain('from "@/components/clinical-dashboard/mobile-composer-reserve"');
     expect(globalSearchShellSource).not.toContain(
       'bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"',
@@ -129,15 +127,12 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalSearchShellSource).not.toContain('"max(2rem, var(--safe-area-bottom))"');
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = !reservesFloatingComposer");
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = phoneScrollHide.hidden");
-    expect(globalSearchShellSource).toContain("mobileComposerVisibleReserve.differentialsCompare");
     expect(globalSearchShellSource).toContain("sm:pb-[calc(9rem+var(--safe-area-bottom))]");
     expect(globalSearchShellSource).not.toContain("sm:pb-[calc(9rem+env(safe-area-inset-bottom))]");
 
-    expect(clinicalDashboardSource).toContain(
-      "const mobileComposerReserve = resolveMobileComposerReserve(bottomComposerHidden, visibleMobileComposerReserve)",
-    );
+    expect(clinicalDashboardSource).toContain("resolveDashboardVisibleMobileComposerReserve");
+    expect(clinicalDashboardSource).toContain("resolveMobileComposerReserve(");
     expect(clinicalDashboardSource).toContain('from "@/components/clinical-dashboard/mobile-composer-reserve"');
-    expect(clinicalDashboardSource).toContain("mobileComposerVisibleReserve.differentialsCompare");
     expect(clinicalDashboardSource).not.toContain(
       'bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"',
     );
