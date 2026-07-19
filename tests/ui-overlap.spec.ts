@@ -63,7 +63,12 @@ async function mockDemoDashboard(page: Page) {
 
 async function gotoHome(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.locator("header#search").waitFor({ state: "visible", timeout: 30_000 });
+  // Wait until React settles on a single header. During client remount /
+  // hydration a second transient header#search can exist briefly and trip
+  // Playwright strict mode even though the stable tree has only one banner.
+  const header = page.locator("header#search");
+  await expect(header).toHaveCount(1, { timeout: 30_000 });
+  await header.waitFor({ state: "visible", timeout: 30_000 });
   await page.getByRole("button", { name: "Open answer options" }).waitFor({ state: "visible", timeout: 30_000 });
 }
 
