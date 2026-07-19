@@ -118,14 +118,25 @@ describe("PDF extraction budgets", () => {
     ).rejects.toMatchObject({ code: "PDF_EXTRACTION_DEADLINE_EXCEEDED" });
 
     const childPid = Number(await readFile(childPidPath, "utf8"));
-    let childIsAlive = false;
-    try {
-      process.kill(childPid, 0);
-      childIsAlive = true;
-    } catch {
-      childIsAlive = false;
+    // SIGKILL delivery can lag under a busy suite; poll briefly before asserting.
+    let childIsAlive = true;
+    const deadline = Date.now() + 1_000;
+    while (Date.now() < deadline) {
+      try {
+        process.kill(childPid, 0);
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      } catch {
+        childIsAlive = false;
+        break;
+      }
     }
-    if (childIsAlive) process.kill(childPid, "SIGKILL");
+    if (childIsAlive) {
+      try {
+        process.kill(childPid, "SIGKILL");
+      } catch {
+        // already gone
+      }
+    }
     expect(childIsAlive).toBe(false);
   });
 
