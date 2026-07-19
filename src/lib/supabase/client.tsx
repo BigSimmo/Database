@@ -128,6 +128,20 @@ export function isDefinitiveAuthValidationError(error: unknown) {
   );
 }
 
+/** Recognize both Supabase's wrapped retryable error and browser-native fetch failures. */
+export function isRetryableInitialAuthVerificationError(error: unknown) {
+  if (isAuthRetryableFetchError(error)) return true;
+  const candidate = error as { name?: unknown; message?: unknown } | null;
+  const isTypeError = error instanceof TypeError || candidate?.name === "TypeError";
+  const message = typeof candidate?.message === "string" ? candidate.message : "";
+  return isTypeError && /failed to fetch|fetch failed|network request failed|networkerror|load failed/i.test(message);
+}
+
+/** Transient fetch failures preserve a stored session; other indeterminate failures surface an error. */
+export function shouldFailInitialAuthVerification(error: unknown) {
+  return Boolean(error) && !isDefinitiveAuthValidationError(error) && !isRetryableInitialAuthVerificationError(error);
+}
+
 function authCallbackRedirect() {
   if (typeof window === "undefined") return undefined;
   return `${window.location.origin}${AUTH_CALLBACK_PATH}`;
@@ -179,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // as authenticated (or send a bad bearer token) on load.
         const [userResult, sessionResult] = await Promise.all([client.auth.getUser(), client.auth.getSession()]);
         if (!active) return;
-        if (userResult.error && !isDefinitiveAuthValidationError(userResult.error)) {
+        if (shouldFailInitialAuthVerification(userResult.error)) {
           setSession(null);
           setStatus("error");
           setNotice(null);
@@ -189,7 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const verifiedUserId = userResult.error ? null : (userResult.data.user?.id ?? null);
         // A retryable fetch error means the auth server was unreachable, not that
         // the token was rejected — don't drop a valid stored session for that.
-        const verificationUnavailable = isAuthRetryableFetchError(userResult.error);
+        const verificationUnavailable = isRetryableInitialAuthVerificationError(userResult.error);
         const resolved = resolveInitialAuthState({
           verifiedUserId,
           session: sessionResult.data.session,

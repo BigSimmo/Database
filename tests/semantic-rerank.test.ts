@@ -193,6 +193,30 @@ describe("ambiguity-only semantic reranking", () => {
     });
   });
 
+  it("preserves semantic relevance for candidates that arrived without a score explanation", async () => {
+    const first = result({ id: "a", rankScore: 1, similarity: 0.9, lexical: 0.9 });
+    const second = result({ id: "b", rankScore: 0.98, similarity: 0.88, lexical: 0.88 });
+    delete first.score_explanation;
+    delete second.score_explanation;
+    const { generate } = parsedGenerator([
+      { candidateId: "candidate_1", relevanceScore: 0.2 },
+      { candidateId: "candidate_2", relevanceScore: 0.95 },
+    ]);
+
+    const reranked = await semanticRerankIfAmbiguous({
+      query: "clinical question",
+      results: [first, second],
+      telemetry: telemetry(),
+      enabled: true,
+      providerAvailable: true,
+      generate,
+    });
+
+    expect(reranked.map((item) => item.id)).toEqual(["b", "a"]);
+    expect(reranked.map((item) => item.score_explanation?.semanticRerankScore)).toEqual([0.95, 0.2]);
+    expect(reranked.map((item) => item.score_explanation?.finalRank)).toEqual([1, 2]);
+  });
+
   it("calls once when vector, lexical, and fused rankings disagree", async () => {
     const results = [
       result({ id: "fused", rankScore: 1, similarity: 0.7, lexical: 0.2 }),
