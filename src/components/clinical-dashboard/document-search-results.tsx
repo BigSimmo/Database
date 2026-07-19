@@ -90,6 +90,8 @@ export type SearchFacets = {
 type SearchRecordMode = "services" | "forms";
 type SearchRecordMatch = ServiceSearchMatch | FormSearchMatch;
 
+const EMPTY_SOURCE_GOVERNANCE_WARNINGS: SourceGovernanceWarning[] = [];
+
 const searchRecordConfig: Record<
   SearchRecordMode,
   {
