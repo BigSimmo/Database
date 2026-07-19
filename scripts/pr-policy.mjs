@@ -103,7 +103,10 @@ function branchLikeTitle(title, headRef) {
 
 function checkedChecklistItem(value, item) {
   const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^\\s*-\\s*\\[[xX]\\]\\s*${escaped}\\s*$`, "m").test(value);
+  // Allow trailing secret-scan allowlist markers / HTML comments on the same
+  // line so governance checklists can be committed when they must include the
+  // live Supabase project identity string.
+  return new RegExp(`^\\s*-\\s*\\[[xX]\\]\\s*${escaped}\\s*(?:(?:#|<!--).*)?$`, "m").test(value);
 }
 
 function fieldValue(value, field) {
