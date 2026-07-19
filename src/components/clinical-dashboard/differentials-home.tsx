@@ -526,6 +526,7 @@ function BestAnswerCard({
 
   return (
     <section
+      data-testid={compact ? "differential-best-answer" : undefined}
       className={cn("rounded-lg border shadow-[var(--shadow-inset)]", compact ? "p-3.5" : "p-4")}
       style={{
         borderColor: `color-mix(in srgb, ${cardBorderColor}, transparent)`,

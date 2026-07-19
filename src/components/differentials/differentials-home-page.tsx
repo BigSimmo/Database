@@ -88,7 +88,9 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
   );
 
   return (
-    <ModeHomeMain>
+    // Results are taller than the phone viewport; keep them top-aligned so the
+    // Best Answer / query band are not clipped by flex centering.
+    <ModeHomeMain contentAlign={autoRunSearch ? "start" : "center"}>
       <DifferentialsHome
         query={query}
         loading={loading}

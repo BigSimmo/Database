@@ -98,21 +98,31 @@ export function ModeHomeHero({
  * Standalone-route wrapper that mirrors the dashboard's vertically centred
  * mode homes: full-height, centred content. The shell reserves composer
  * clearance via --mobile-composer-reserve on #main-content.
+ *
+ * Use `contentAlign="start"` for tall result views. Centering a child taller
+ * than the phone scrollport clips the top (Best Answer / header band become
+ * unreachable at scrollTop 0). `cn()` does not merge conflicting Tailwind
+ * utilities, so alignment is selected here instead of overridden via className.
  */
 export function ModeHomeMain({
   testId,
   children,
   className,
+  contentAlign = "center",
 }: {
   testId?: string;
   children: ReactNode;
   className?: string;
+  contentAlign?: "center" | "start";
 }) {
   return (
     <main
       data-testid={testId}
       className={cn(
-        "flex min-h-0 w-full flex-1 flex-col items-center justify-center bg-[color:var(--background)] px-0 pt-[clamp(1.25rem,4vh,2.25rem)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
+        "flex min-h-0 w-full flex-1 flex-col items-center bg-[color:var(--background)] px-0 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
+        contentAlign === "start"
+          ? "justify-start pt-3 sm:pt-4"
+          : "justify-center pt-[clamp(1.25rem,4vh,2.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)]",
         className,
       )}
     >
