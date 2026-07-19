@@ -28,7 +28,8 @@ import { DocumentTagCloud } from "@/components/DocumentTagCloud";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { ResultSortControl, SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import { ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
+import { ResultSortControl } from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -57,9 +58,10 @@ import {
   type SmartDocumentTagFacet,
   type SmartDocumentTagGroup,
 } from "@/lib/document-tags";
+import type { SourceGovernanceWarning } from "@/lib/source-governance";
 import type { ServiceSearchMatch } from "@/lib/services";
 import type { FormSearchMatch } from "@/lib/forms";
-import type { ClinicalDocument, DocumentMatch, SearchResult } from "@/lib/types";
+import type { ClinicalDocument, DocumentMatch, SearchResult, SearchScopeSummary } from "@/lib/types";
 import type { RegistryRequestStatus } from "@/lib/use-registry-records";
 import { sortResultItems, type ResultSortValue } from "@/lib/result-sort";
 import { documentRelevancePercent } from "./relevance-score";
@@ -370,14 +372,16 @@ function SearchResultsHeader({
   trimmedQuery,
   sortValue,
   onSortChange,
+  showSort = true,
 }: {
   resultLabel: string;
   trimmedQuery: string;
   sortValue: ResultSortValue;
   onSortChange: (value: ResultSortValue) => void;
+  showSort?: boolean;
 }) {
   return (
-    <section className="flex items-start justify-between gap-3">
+    <section className="flex items-start justify-between gap-3" aria-label="Document search results">
       <div className="min-w-0">
         <div className="flex items-center gap-3">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
@@ -396,60 +400,78 @@ function SearchResultsHeader({
           </div>
         </div>
       </div>
-      <ResultSortControl value={sortValue} onChange={onSortChange} className="min-h-tap shrink-0 lg:hidden" />
+      {showSort ? (
+        <ResultSortControl value={sortValue} onChange={onSortChange} className="min-h-tap shrink-0" />
+      ) : null}
     </section>
   );
 }
 
-function DocumentResultsOverview({
-  documentCount,
-  displayedCount,
-  matchCount,
-  activeFacetCount,
-  trimmedQuery,
+function DocumentResultsControls({
+  resultTabs,
+  activeResultType,
+  onResultTypeChange,
+  sortValue,
+  onSortChange,
   onOpenLibrary,
 }: {
-  documentCount: number;
-  displayedCount: number;
-  matchCount: number;
-  activeFacetCount: number;
-  trimmedQuery: string;
+  resultTabs: Array<{ key: ResultTypeFilter; label: string; count: number }>;
+  activeResultType: ResultTypeFilter;
+  onResultTypeChange: (value: ResultTypeFilter) => void;
+  sortValue: ResultSortValue;
+  onSortChange: (value: ResultSortValue) => void;
   onOpenLibrary: () => void;
 }) {
+  const showTypeFilters = resultTabs.length > 1;
+
   return (
     <section
-      aria-label="Documents overview"
-      className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+      aria-label="Sort and filter documents"
+      data-testid="document-results-controls"
+      className="flex flex-wrap items-center gap-2"
     >
-      <div className="min-w-0">
-        <p className="text-sm font-semibold text-[color:var(--text-heading)]">Documents overview</p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <DocumentBadge variant="best" icon={FileText} className="min-h-7 rounded-lg px-2.5 text-2xs">
-            {documentCount.toLocaleString()} indexed
-          </DocumentBadge>
-          <DocumentBadge variant="neutral" icon={Target} className="min-h-7 rounded-lg px-2.5 text-2xs">
-            {matchCount.toLocaleString()} match{matchCount === 1 ? "" : "es"}
-          </DocumentBadge>
-          {activeFacetCount > 0 ? (
-            <DocumentBadge variant="relevant" icon={Filter} className="min-h-7 rounded-lg px-2.5 text-2xs">
-              {displayedCount.toLocaleString()} after filters
-            </DocumentBadge>
-          ) : null}
-          {trimmedQuery ? (
-            <DocumentBadge variant="neutral" icon={BookOpen} className="min-h-7 max-w-full rounded-lg px-2.5 text-2xs">
-              <span className="truncate">{trimmedQuery}</span>
-            </DocumentBadge>
-          ) : null}
+      {showTypeFilters ? (
+        <div
+          role="group"
+          aria-label="Filter by result type"
+          className="polished-scroll flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
+        >
+          {resultTabs.map((tab) => {
+            const active = tab.key === activeResultType;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => onResultTypeChange(tab.key)}
+                className={cn(
+                  "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-md px-2.5 text-2xs font-bold transition motion-reduce:transition-none",
+                  active
+                    ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+                )}
+              >
+                {tab.label}
+                <span className="nums opacity-75">{tab.count}</span>
+              </button>
+            );
+          })}
         </div>
+      ) : (
+        <div className="min-w-0 flex-1" />
+      )}
+      <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        <ResultSortControl value={sortValue} onChange={onSortChange} className="min-h-tap" />
+        <button
+          type="button"
+          onClick={onOpenLibrary}
+          aria-label="Open document library"
+          className={cn(floatingControl, "min-h-tap min-w-tap gap-1.5 rounded-lg px-2.5 text-xs sm:px-3")}
+        >
+          <FolderOpen aria-hidden="true" className="h-4 w-4 shrink-0" />
+          <span className="hidden sm:inline">Library</span>
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={onOpenLibrary}
-        className={cn(floatingControl, "min-h-9 w-full rounded-lg px-3 text-xs sm:w-auto")}
-      >
-        <FolderOpen aria-hidden="true" className="h-4 w-4" />
-        Browse library
-      </button>
     </section>
   );
 }
@@ -782,6 +804,8 @@ function DocumentSearchResultsPanelImpl({
   apiUnavailable,
   setupWarning,
   facets: _facets,
+  searchScope = null,
+  sourceGovernanceWarnings = [],
   onScopeDocument,
   onAnswerFromDocument,
   onOpenRecentDocuments,
@@ -805,6 +829,8 @@ function DocumentSearchResultsPanelImpl({
   apiUnavailable: boolean;
   setupWarning: string | null;
   facets?: SearchFacets | null;
+  searchScope?: SearchScopeSummary | null;
+  sourceGovernanceWarnings?: SourceGovernanceWarning[];
   onScopeDocument: (documentId: string) => void;
   onAnswerFromDocument: (documentId: string) => void;
   onOpenRecentDocuments: () => void;
@@ -882,33 +908,39 @@ function DocumentSearchResultsPanelImpl({
     if (trimmedQuery) return "No matching documents";
     return `${documentCount} document${documentCount === 1 ? "" : "s"}`;
   })();
+  const showResultsControls = matches.length > 0 && !loading;
+  const showIdentityHeader =
+    recordMatchCount > 0 ||
+    matches.length > 0 ||
+    (trimmedQuery && !shouldShowHome) ||
+    loading ||
+    (unavailableMessage && !shouldShowHome);
+
   return (
     <div data-testid="document-search-workspace" className="w-full space-y-3">
-      {trimmedQuery && !shouldShowHome ? (
-        <>
-          <div className="hidden lg:block">
-            <SearchResultsHeaderBand
-              modeId="documents"
-              query={trimmedQuery}
-              matchCount={sortedMatches.length}
-              loading={loading}
-              sortValue={sortValue}
-              onSortChange={setSortValue}
-            />
-          </div>
-        </>
-      ) : null}
-      {recordMatchCount > 0 ||
-      matches.length > 0 ||
-      (trimmedQuery && !shouldShowHome) ||
-      loading ||
-      (unavailableMessage && !shouldShowHome) ? (
+      {showIdentityHeader ? (
         <SearchResultsHeader
           resultLabel={resultLabel}
           trimmedQuery={trimmedQuery}
           sortValue={sortValue}
           onSortChange={setSortValue}
+          showSort={!showResultsControls}
         />
+      ) : null}
+
+      {showResultsControls ? (
+        <DocumentResultsControls
+          resultTabs={resultTabs}
+          activeResultType={effectiveResultType}
+          onResultTypeChange={setActiveResultType}
+          sortValue={sortValue}
+          onSortChange={setSortValue}
+          onOpenLibrary={onOpenLibrary}
+        />
+      ) : null}
+
+      {!showRecordMatches && (trimmedQuery && !shouldShowHome) ? (
+        <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
       ) : null}
 
       {unavailableMessage ? (
@@ -953,38 +985,6 @@ function DocumentSearchResultsPanelImpl({
         )
       ) : (
         <>
-          <DocumentResultsOverview
-            documentCount={Math.max(documentCount, matches.length)}
-            displayedCount={sortedMatches.length}
-            matchCount={matches.length}
-            activeFacetCount={activeFacetKeys.length}
-            trimmedQuery={trimmedQuery}
-            onOpenLibrary={onOpenLibrary}
-          />
-          {resultTabs.length > 1 ? (
-            <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]">
-              {resultTabs.map((tab) => {
-                const active = tab.key === effectiveResultType;
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setActiveResultType(tab.key)}
-                    className={cn(
-                      "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-2xs font-bold transition",
-                      active
-                        ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                        : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                    )}
-                  >
-                    {tab.label}
-                    <span className="nums opacity-75">{tab.count}</span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
           {activeFacetKeys.length > 0 ? (
             <DocumentTagFacetRail
               groups={tagFacetGroups}
