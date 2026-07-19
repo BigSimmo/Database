@@ -137,9 +137,9 @@ describe("second-stage rank score", () => {
     expect(ranked[1].score_explanation?.finalRank).toBe(2);
   });
 
-  it("keeps unvalidated rank-score changes from replacing the live-eval-proven release order", () => {
+  it("keeps distinct rank order while upgrading duplicate chunks to the strongest released-hybrid copy", () => {
     const telemetry = {} as SearchTelemetry;
-    const strongerHybrid = result({
+    const strongerHybridDuplicate = result({
       id: "stronger-hybrid",
       document_id: "older-doc",
       hybrid_score: 0.8,
@@ -165,18 +165,28 @@ describe("second-stage rank score", () => {
       hybrid_score: 0.79,
       score_explanation: explanation(0.5),
     });
+    const weakerDuplicate = {
+      ...strongerHybridDuplicate,
+      hybrid_score: 0.78,
+      score_explanation: explanation(0.41),
+      content: "Weaker duplicate",
+    };
 
     const secondStage = applySecondStageRerankIfNeeded({
       queryClass: "medication_dose_risk",
-      results: [strongerHybrid, higherRankScore],
+      results: [higherRankScore, weakerDuplicate, strongerHybridDuplicate],
       telemetry,
-      topK: 2,
+      topK: 3,
     });
-    expect(secondStage.map((item) => item.id)).toEqual(["higher-rank-score", "stronger-hybrid"]);
+    expect(secondStage.map((item) => item.id)).toEqual(["higher-rank-score", "stronger-hybrid", "stronger-hybrid"]);
 
-    expect(stabilizeReleasedSearchOrder(secondStage).map((item) => item.id)).toEqual([
-      "stronger-hybrid",
+    const stabilized = stabilizeReleasedSearchOrder(secondStage);
+
+    expect(stabilized.map((item) => item.id)).toEqual([
       "higher-rank-score",
+      "stronger-hybrid",
     ]);
+    expect(stabilized[1].hybrid_score).toBe(0.8);
+    expect(stabilized[1].content).toBe(strongerHybridDuplicate.content);
   });
 });
