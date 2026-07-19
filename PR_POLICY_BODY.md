@@ -1,23 +1,32 @@
 ## Summary
 
-- Hardens administrator-only access across document, ingestion, and account APIs; adds signed-in favourites/preferences persistence; repairs mobile Safari bottom-composer spacing on Information pages; and fixes a pre-existing unit-test regression in the clinical dashboard merge-artifact guards.
+- Restructures documents search results chrome so the identity header ("N documents / Results for ...") leads, Sort and type filters share one compact toolbar with a chip-sized Library action, removes "Also in your library" from documents search, and places scope/governance notices below that chrome.
+- Services/forms keep the governance notice above the panel; document home still offers Browse library as a start action.
 
 ## Verification
 
-- [x] `npm run verify:cheap` — local run on PR head: lint, typecheck, and 2892/2895 unit tests passed; 3 known failures remain in `tests/pdf-extraction-budget.test.ts` (Python/PDF fixture env); clinical-dashboard merge-artifact Safari reserve assertion fixed in this commit.
-- [x] `npm run check:production-readiness` — passed locally for auth/privacy/admin-route changes.
-- [x] `npm run verify:ui` — hosted Production UI gate on this PR head (UI-scoped paths include `global-search-shell`, detail pages, and `DocumentViewer`).
+- [x] `npm run verify:pr-local` — runtime, format, lint, typecheck, build, and RAG fixtures passed on PR head. Full unit suite locally: 2948 passed / 2 failed in `tests/pdf-extraction-budget.test.ts` (Python/PDF env artifact; identical on clean main; hosted Unit coverage green).
+- [x] Focused Playwright: documents search `@critical`, deferred source/admin `@critical`, and forms result-sort URL persistence — all passed.
+- [x] `npm run check:design-system-contract`, `check:icon-scale --strict`, `check:maintainability-budgets` — passed.
+- UI verification not run: full `verify:ui` suite deferred; focused Chromium smoke for the redesigned documents controls passed locally and hosted Production UI remains the broader UI gate.
 
 ## Risk and rollout
 
-- Risk: medium — touches Supabase migrations/RLS, administrator authorization, account persistence APIs, ingestion-worker auth, and mobile layout spacing; incorrect rollout could block uploads or expose admin affordances to non-administrators (API routes remain fail-closed).
-- Rollback: revert the PR commit and roll back the Supabase migrations in reverse order on the preview branch; account tables are additive and can remain without breaking reads.
-- Provider or production effects: requires applying new Supabase migrations and redeploying the ingestion-worker edge function; no change to answer-generation prompts or retrieval scoring.
+- Risk: low–medium UI/UX — documents results chrome, sort/filter toolbar, and governance-notice placement only. No retrieval scoring, migrations, auth, or answer-generation changes.
+- Rollback: revert the PR commit; UI returns to the prior overview card + cross-mode strip layout.
+- Provider or production effects: None.
 
 ## Clinical Governance Preflight
 
-<!-- GOVERNANCE_PREFLIGHT -->
+- [x] Source-backed claims still require linked source verification before clinical use
+- [x] No patient-identifiable document workflow was introduced or expanded without explicit governance approval
+- [x] Supabase target remains `Clinical KB Database` (`sjrfecxgysukkwxsowpy`)
+- [x] Service-role keys and private document access remain server-only
+- [x] Demo/synthetic content remains clearly separated from real clinical sources
+- [x] Source metadata, review status, and outdated/unknown-source behavior remain conservative
+- [x] Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed
 
 ## Notes
 
-- Resolves bottom layout spacing and transition issues on Information pages, removes the footer search composer from Information pages, restores the back button at desktop widths, and gates administrative upload-drawer assertions in tests to match production authorization.
+- Final review fixed Prettier CI failure, unified toolbar a11y/density, and a memo-busting empty-array default for governance warnings.
+- Updates stale leftover `PR_POLICY_BODY.md` from #932 so CI syncs an accurate ready-for-review body for this PR.
