@@ -90,4 +90,12 @@ describe("public content and account authorization model", () => {
       expect(detailSource).not.toMatch(/if\s*\(\s*!\s*\(\s*await accountData\.setFavourite/);
     }
   });
+
+  it("marks account favourites reads as private and non-cacheable", () => {
+    const favouritesRoute = source("src/app/api/account/favourites/route.ts");
+    const preferencesRoute = source("src/app/api/account/preferences/route.ts");
+
+    expect(favouritesRoute).toContain('"Cache-Control": "private, no-store"');
+    expect(preferencesRoute).toContain('"Cache-Control": "private, no-store"');
+  });
 });
