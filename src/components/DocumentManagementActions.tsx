@@ -14,6 +14,7 @@ import {
   toolbarButton,
 } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
+import { isAdministratorUser } from "@/lib/authorization";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalDocument } from "@/lib/types";
 
@@ -44,6 +45,7 @@ export function DocumentManagementActions({
   const inputRef = useRef<HTMLInputElement>(null);
   const {
     status: authStatus,
+    session,
     authorizationHeader,
     registerAuthRequest,
     isAuthEpochCurrent,
@@ -54,7 +56,18 @@ export function DocumentManagementActions({
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const canManage = !disabled && authStatus === "authenticated";
+  const canManage = !disabled && authStatus === "authenticated" && isAdministratorUser(session?.user);
+
+  function assertCanManage(): boolean {
+    const allowed = !disabled && authStatus === "authenticated" && isAdministratorUser(session?.user);
+    if (!allowed) {
+      setMode(null);
+      resetDialogState();
+      setError("Administrator access is required for this action.");
+      return false;
+    }
+    return true;
+  }
 
   function resetDialogState() {
     setTitle(document.title);
@@ -85,6 +98,7 @@ export function DocumentManagementActions({
 
   async function submitRename(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!assertCanManage()) return;
     const nextTitle = title.trim();
     if (!nextTitle) {
       setError("Enter a document title.");
@@ -119,6 +133,7 @@ export function DocumentManagementActions({
 
   async function submitDelete(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!assertCanManage()) return;
     if (deleteConfirmation !== document.title) {
       setError("Type the current document title to confirm permanent deletion.");
       return;
