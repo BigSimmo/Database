@@ -1,7 +1,7 @@
 "use client";
 
 import { createBrowserClient } from "@supabase/ssr";
-import { type Session, type SupabaseClient } from "@supabase/supabase-js";
+import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { clearRecentQueries } from "@/components/clinical-dashboard/recent-query-storage";
@@ -90,6 +90,12 @@ export function authorizationHeadersForAccessToken(accessToken: string | null | 
  * local token resolves to signed-out instead of presenting as authenticated. Data
  * access is already safe — every API route re-validates the bearer token server-side
  * ([auth.ts](src/lib/supabase/auth.ts)) — so this is defense-in-depth for the client UI.
+ *
+ * `verificationUnavailable` covers the case where `getUser()` could not reach the
+ * auth server at all (offline load, flaky network). That is not evidence the token
+ * is bad, so the stored session keeps the signed-in UI instead of silently
+ * presenting as signed out; the server still rejects the token on every data call
+ * if it truly is invalid.
  */
 export type InitialAuthResolution =
   { status: "authenticated"; session: Session } | { status: "signed_out"; session: null };
@@ -97,9 +103,13 @@ export type InitialAuthResolution =
 export function resolveInitialAuthState(args: {
   verifiedUserId: string | null;
   session: Session | null;
+  verificationUnavailable?: boolean;
 }): InitialAuthResolution {
-  const { verifiedUserId, session } = args;
+  const { verifiedUserId, session, verificationUnavailable } = args;
   if (verifiedUserId && session && session.user.id === verifiedUserId) {
+    return { status: "authenticated", session };
+  }
+  if (verificationUnavailable && session) {
     return { status: "authenticated", session };
   }
   return { status: "signed_out", session: null };
@@ -157,7 +167,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const [userResult, sessionResult] = await Promise.all([client.auth.getUser(), client.auth.getSession()]);
         if (!active) return;
         const verifiedUserId = userResult.error ? null : (userResult.data.user?.id ?? null);
-        const resolved = resolveInitialAuthState({ verifiedUserId, session: sessionResult.data.session });
+        // A retryable fetch error means the auth server was unreachable, not that
+        // the token was rejected — don't drop a valid stored session for that.
+        const verificationUnavailable = isAuthRetryableFetchError(userResult.error);
+        const resolved = resolveInitialAuthState({
+          verifiedUserId,
+          session: sessionResult.data.session,
+          verificationUnavailable,
+        });
         setSession(resolved.session);
         setStatus(resolved.status);
         if (resolved.status === "authenticated") {
