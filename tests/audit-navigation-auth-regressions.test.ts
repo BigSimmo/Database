@@ -43,9 +43,17 @@ describe("audit navigation and auth regressions", () => {
       "/differentials/presentations/acute-confusion-encephalopathy?q=acute+confusion&ids=delirium",
     );
 
-    const medications = redirectMedications();
+    const medications = redirectMedications(new NextRequest("https://clinical-kb.test/medications"));
     expect(medications.status).toBe(307);
     expect(medications.headers.get("location")).toBe("/?mode=prescribing");
+
+    // Search context survives the legacy redirect with the same sanitized
+    // allowlist as the root legacy-mode redirect: trimmed q plus focus/run=1.
+    const medicationsWithQuery = redirectMedications(
+      new NextRequest("https://clinical-kb.test/medications?q=+lithium+&focus=1&run=0&mode=ignored&extra=drop"),
+    );
+    expect(medicationsWithQuery.status).toBe(307);
+    expect(medicationsWithQuery.headers.get("location")).toBe("/?mode=prescribing&q=lithium&focus=1");
 
     expect([headApplications, headPresentations, headMedications]).toEqual([
       redirectApplications,
@@ -135,7 +143,7 @@ describe("audit navigation and auth regressions", () => {
       "function openUploadDrawer()",
       "function openEvidenceDrawer()",
     );
-    expect(uploadMutationContract).toContain("if (!canUsePrivateApis) {");
+    expect(uploadMutationContract).toContain("if (!canUseAdministrativeApis) {");
   });
 
   it("keeps the private upload workspace tabs and panels programmatically associated", () => {

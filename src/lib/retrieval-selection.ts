@@ -3,6 +3,7 @@ import {
   medicationDoseEvidenceQueryIntent,
   medicationDoseQueryContext,
   medicationDoseQuerySubjectTokens,
+  medicationMonitoringQuerySubjectTokens,
 } from "@/lib/clinical-search";
 import type {
   RagQueryClass,
@@ -236,6 +237,18 @@ function signalMatchesText(signal: string, text: string) {
   }
 }
 
+function medicationClinicalSubjectMatches(query: string, result: SearchResult, normalizedEvidenceText: string) {
+  const doseIntent = medicationDoseEvidenceQueryIntent(query);
+  if (doseIntent.asksAmount || doseIntent.asksRoute || doseIntent.asksFrequency) {
+    return medicationDoseQueryContext(query, result).matched;
+  }
+  const subjectTokens = medicationMonitoringQuerySubjectTokens(query);
+  if (!subjectTokens.length) return true;
+  const evidenceTokens = new Set(normalizedEvidenceText.split(" "));
+  const hitCount = subjectTokens.filter((token) => evidenceTokens.has(token)).length;
+  return hitCount >= Math.min(2, subjectTokens.length);
+}
+
 function matchedSignalsForResult(args: {
   query: string;
   intent: RetrievalIntent;
@@ -267,7 +280,7 @@ function matchedSignalsForResult(args: {
   if (args.intent.needsDoseRouteFrequency && hasRoute(text)) signals.push("route");
   if (
     args.intent.requiredTermSignals.includes("clinical_subject") &&
-    medicationDoseQueryContext(args.query, args.result).matched
+    medicationClinicalSubjectMatches(args.query, args.result, text)
   ) {
     signals.push("clinical_subject");
   }
@@ -358,6 +371,11 @@ export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): 
   const asksDoseRoute =
     medicationEvidenceIntent.asksAmount || medicationEvidenceIntent.asksRoute || medicationEvidenceIntent.asksFrequency;
   const asksDoseAmount = medicationEvidenceIntent.asksAmount;
+  const asksMedicationMonitoring =
+    queryClass === "medication_dose_risk" && /\b(?:monitor\w*|baseline|blood|level)\b/.test(normalizedQuery);
+  const clinicalSubjectTokens = asksMedicationMonitoring
+    ? medicationMonitoringQuerySubjectTokens(query)
+    : medicationDoseQuerySubjectTokens(query);
   const asksTable = /\b(?:table|chart|matrix|threshold|cutoff|cut off|range|criteria|row)\b/.test(normalizedQuery);
   const asksSourceImage =
     /\b(?:source|show|open|view|display|see)\b.*\b(?:image|figure|visual|table|chart|matrix)\b/.test(normalizedQuery) ||
@@ -400,9 +418,13 @@ export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): 
   if (asksDoseRoute) {
     if (asksDoseAmount) requiredTermSignals.push("dose_amount");
     if (medicationEvidenceIntent.asksRoute) requiredTermSignals.push("route");
-    if (queryClass === "medication_dose_risk" && medicationDoseQuerySubjectTokens(query).length > 0) {
-      requiredTermSignals.push("clinical_subject");
-    }
+  }
+  if (
+    queryClass === "medication_dose_risk" &&
+    (asksDoseRoute || asksMedicationMonitoring) &&
+    clinicalSubjectTokens.length > 0
+  ) {
+    requiredTermSignals.push("clinical_subject");
   }
   if (asksFlowchart) {
     preferredDocumentSignals.push("flowchart", "pathway", "risk matrix");
@@ -490,9 +512,13 @@ function annotateResultWithSelection(
   result: SearchResult,
   candidate: RetrievalCandidate,
   originalScore: number,
+  intent: RetrievalIntent,
 ): SearchResult {
   const score = Number(Math.max(originalScore, candidate.score).toFixed(4));
   const selectionReasons = candidate.matchedSignals.map((signal) => `retrieval_signal:${signal}`);
+  if (intent.requiredTermSignals.includes("clinical_subject")) {
+    selectionReasons.push("retrieval_required_signal:clinical_subject");
+  }
   if (candidate.score > originalScore + 0.04) selectionReasons.push("retrieval_intent_rescue");
 
   return {
@@ -593,7 +619,7 @@ export function selectRetrievalEvidence(args: {
     .map((candidate) => {
       const result = byId.get(candidate.chunkId);
       if (!result) return null;
-      return annotateResultWithSelection(result, candidate, originalScoreById.get(candidate.chunkId) ?? 0);
+      return annotateResultWithSelection(result, candidate, originalScoreById.get(candidate.chunkId) ?? 0, intent);
     })
     .filter((result): result is SearchResult => Boolean(result));
   const rescueApplied = selectedCandidates.some(

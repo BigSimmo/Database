@@ -1645,10 +1645,23 @@ describe("private document API access", () => {
             chunk_index: 0,
             section_heading: "Management",
             content: "Agitation management table text.",
-            image_ids: [],
+            image_ids: ["private-search-image"],
             similarity: 0.9,
             hybrid_score: 0.92,
-            images: [],
+            images: [
+              {
+                id: "private-search-image",
+                page_number: 3,
+                storage_path: `${otherUserId}/images/private-search-image.png`,
+                source_kind: "table_crop",
+                sourceKind: "table_crop",
+                image_type: "clinical_table",
+                clinicalUseClass: "clinical_evidence",
+                searchable: true,
+                clinical_relevance_score: 0.9,
+                caption: "Agitation management table.",
+              },
+            ],
           },
         ],
         telemetry: {
@@ -1685,6 +1698,9 @@ describe("private document API access", () => {
       }),
     ]);
     expect(body.relatedDocuments).toHaveLength(1);
+    const resultRows = body.results as Array<{ images: Array<Record<string, unknown>> }>;
+    expect(resultRows[0].images[0]).not.toHaveProperty("storage_path");
+    expect(JSON.stringify(resultRows)).not.toContain(otherUserId);
   });
 
   it("accepts differentials as a standalone source-library search mode", async () => {
@@ -4053,6 +4069,46 @@ describe("private document API access", () => {
     expect(secondPayload.telemetry).toMatchObject({ coalesced: true });
   });
 
+  it("cancels shared search work only after every coalesced caller disconnects", async () => {
+    let providerSignal: AbortSignal | undefined;
+    const searchChunksWithTelemetry = vi.fn(async (args: { signal?: AbortSignal }) => {
+      providerSignal = args.signal;
+      return new Promise<never>((_resolve, reject) => {
+        args.signal?.addEventListener(
+          "abort",
+          () => reject(args.signal?.reason ?? new DOMException("aborted", "AbortError")),
+          { once: true },
+        );
+      });
+    });
+    const client = createSupabaseMock();
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const searchRoute = await import("../src/app/api/search/route");
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    const searchRequest = (signal: AbortSignal) =>
+      authenticatedRequest("/api/search", {
+        method: "POST",
+        signal,
+        body: JSON.stringify({ query: "cancel shared monitoring search", includeRelatedDocuments: false }),
+      });
+
+    const first = searchRoute.POST(searchRequest(firstController.signal));
+    const second = searchRoute.POST(searchRequest(secondController.signal));
+    for (let index = 0; index < 10 && !providerSignal; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(searchChunksWithTelemetry).toHaveBeenCalledTimes(1);
+
+    firstController.abort(new DOMException("first caller left", "AbortError"));
+    await first;
+    expect(providerSignal?.aborted).toBe(false);
+
+    secondController.abort(new DOMException("second caller left", "AbortError"));
+    await second;
+    expect(providerSignal?.aborted).toBe(true);
+  });
+
   it("streams only public progress details and exactly one completion before the final answer", async () => {
     const answerQuestionWithScope = vi.fn(async (args: { onProgress?: (event: unknown) => void | Promise<void> }) => {
       await args.onProgress?.({
@@ -4770,7 +4826,9 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(404);
     expect(await payload(response)).toMatchObject({ error: "Document not found." });
-    expect(summarizeDocument).toHaveBeenCalledWith(otherDocumentId, userId);
+    expect(summarizeDocument).toHaveBeenCalledWith(otherDocumentId, userId, {
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it("applies the shared danger-governance refusal to the legacy document summary endpoint", async () => {

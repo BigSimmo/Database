@@ -91,9 +91,15 @@ export function ResultCard({ therapy }: { therapy: Therapy }) {
           <ScaleIcon size={16} />
           {inCompare ? "In compare" : "Compare"}
         </button>
-        <button type="button" className={`tc-btn ${outlineControl}`} onClick={() => b.openSheet(therapy.slug)}>
+        <button
+          type="button"
+          className={`tc-btn ${outlineControl}`}
+          onClick={() => b.openSheet(therapy.slug)}
+          disabled={!therapy.patientSheetAvailable}
+          title={therapy.patientSheetAvailable ? undefined : "This record has no patient sheet"}
+        >
           <FileTextIcon size={16} />
-          Patient sheet
+          {therapy.patientSheetAvailable ? "Patient sheet" : "Sheet unavailable"}
         </button>
       </div>
     </article>

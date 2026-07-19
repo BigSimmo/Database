@@ -15,11 +15,7 @@ import {
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { ClinicalDashboard } from "@/components/ClinicalDashboard";
-import {
-  clearLegacyRecentQueries,
-  demoRecentQueryOwnerId,
-  loadRecentQueries,
-} from "@/components/clinical-dashboard/recent-query-storage";
+import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
@@ -29,6 +25,7 @@ import {
   deriveSidebarIdentity,
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
+import { landingModeForPreference, readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
@@ -102,7 +99,24 @@ export function GlobalSearchShell(props: GlobalSearchShellProps) {
 
 function GlobalSearchShellClient(props: GlobalSearchShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const landingPreferenceAppliedRef = useRef(false);
+  // Default-landing preference: on a bare "/" load (no explicit mode, query, or
+  // run flag) replace the URL with the saved landing mode exactly once; the
+  // dashboard's existing URL-sync effect then switches into it. Deep links and
+  // explicit mode choices always win over the preference.
+  useEffect(() => {
+    if (landingPreferenceAppliedRef.current) return;
+    landingPreferenceAppliedRef.current = true;
+    if (pathname !== "/") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("mode") || params.get("q")?.trim() || params.get("query")?.trim() || params.get("run") === "1") {
+      return;
+    }
+    const landingMode = landingModeForPreference(readAppPreferences().landing);
+    if (landingMode) router.replace(`/?mode=${landingMode}`, { scroll: false });
+  }, [pathname, router]);
   const initialMode = props.initialMode ?? "answer";
   const visibleShellModes = visibleAppModeDefinitions().filter(
     (mode) => !props.availableModeIds?.length || props.availableModeIds.includes(mode.id),

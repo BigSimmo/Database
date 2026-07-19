@@ -5,8 +5,10 @@ import { TherapyCompassWorkspace } from "@/components/therapy-compass";
 import { clearTherapyDataCache } from "@/components/therapy-compass/data/use-therapy-data";
 import { HomeScreen } from "@/components/therapy-compass/screens/home-screen";
 
+const navigation = vi.hoisted(() => ({ pathname: "/therapy-compass" }));
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/therapy-compass",
+  usePathname: () => navigation.pathname,
   useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
 }));
@@ -29,6 +31,7 @@ function response(body: unknown, ok = true, status = 200) {
 }
 
 afterEach(() => {
+  navigation.pathname = "/therapy-compass";
   clearTherapyDataCache();
   vi.unstubAllGlobals();
 });
@@ -41,12 +44,10 @@ describe("Therapy Compass required data recovery", () => {
     });
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path.endsWith("/therapies.json")) {
+      if (path.endsWith("/therapies-index.json")) {
         await therapiesGate;
         return response([therapy]);
       }
-      if (path.endsWith("/pathways.json")) return response([]);
-      if (path.endsWith("/reference.json")) return response({});
       throw new Error(`Unexpected fetch: ${path}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -74,11 +75,9 @@ describe("Therapy Compass required data recovery", () => {
     let failTherapies = true;
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path.endsWith("/therapies.json")) {
+      if (path.endsWith("/therapies-index.json")) {
         return failTherapies ? response(null, false, 503) : response([therapy]);
       }
-      if (path.endsWith("/pathways.json")) return response([]);
-      if (path.endsWith("/reference.json")) return response({});
       throw new Error(`Unexpected fetch: ${path}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -102,6 +101,25 @@ describe("Therapy Compass required data recovery", () => {
     expect(await screen.findByRole("heading", { name: "What therapy are you looking for?" })).toBeInTheDocument();
     expect(screen.getByText(/Search 1 source-grounded therapy record by/)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(6));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+  });
+
+  it("loads full therapy records only on a record-rich route", async () => {
+    navigation.pathname = "/therapy-compass/test-therapy";
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path.endsWith("/therapies.json")) return response([therapy]);
+      throw new Error(`Unexpected fetch: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <TherapyCompassWorkspace>
+        <div>Detail ready</div>
+      </TherapyCompassWorkspace>,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(String(fetchMock.mock.calls[0]?.[0])).toMatch(/\/therapies\.json$/);
   });
 });

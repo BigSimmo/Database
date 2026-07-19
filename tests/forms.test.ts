@@ -4,11 +4,27 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { formDetailsClipboardText } from "@/components/forms/form-detail-page";
 import { formCatalogDetails } from "@/lib/form-catalog";
 import { defaultFormSlug, formRecords, formStaticParams, getFormRecord, searchFormRecords } from "@/lib/forms";
 import { buildDefaultFormRows } from "@/lib/registry-fixtures";
 
 describe("psychiatry form records", () => {
+  it("copies the visible form details rather than only the primary contact", () => {
+    const form = formRecords.find((record) => record.primaryContact?.value && record.bestUse && record.source?.status);
+    if (!form?.primaryContact?.value || !form.bestUse || !form.source?.status) {
+      throw new Error("Expected a form fixture with copyable details");
+    }
+
+    const copied = formDetailsClipboardText(form);
+    expect(copied).toContain(form.title);
+    expect(copied).toContain(`Form code: ${formCatalogDetails(form)?.form}`);
+    expect(copied).toContain(`Legal boundary: ${form.bestUse}`);
+    expect(copied).toContain(form.primaryContact.value);
+    expect(copied).toContain(`Source status: ${form.source.status}`);
+    expect(copied.trim()).not.toBe(form.primaryContact.value.trim());
+  });
+
   it("covers every entry on the current WA MHA 2014 forms register", () => {
     expect(formRecords).toHaveLength(54);
     const details = formRecords.map(formCatalogDetails);

@@ -974,14 +974,14 @@ export function DifferentialDetailPage({
 
   async function toggleSaved() {
     const nowSaved = !saved;
-    const updated = await accountData.setFavourite("differential", record.slug, nowSaved);
-    setSaveNotice(
-      updated
-        ? nowSaved
-          ? "Diagnosis saved."
-          : "Diagnosis removed from saved items."
-        : "Sign in or create an account to save diagnoses.",
-    );
+    const result = await accountData.setFavourite("differential", record.slug, nowSaved);
+    if (result.success) {
+      setSaveNotice(nowSaved ? "Diagnosis saved." : "Diagnosis removed from saved items.");
+    } else if (result.reason === "unauthenticated") {
+      setSaveNotice("Sign in or create an account to save diagnoses.");
+    } else {
+      setSaveNotice(result.message);
+    }
   }
 
   const hasMustNotMiss = record.sections.some((section) => section.id === "must-not-miss");

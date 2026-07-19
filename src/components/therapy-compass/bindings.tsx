@@ -202,15 +202,19 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { data, loading, error, retry } = useTherapyData();
+  const { screen, slug: routeSlug } = resolveRoute(pathname);
+  const usesCatalogueIndex = screen === "home" || screen === "search" || screen === "pathways";
+  const { data, loading, error, retry } = useTherapyData({
+    catalogue: usesCatalogueIndex ? "index" : "full",
+    includePathways: screen === "pathways",
+    includeReference: false,
+  });
   const therapies = useMemo(() => data?.therapies ?? [], [data]);
   const pathways = useMemo(() => data?.pathways ?? [], [data]);
 
   // The active screen and therapy are derived from the URL: each workspace route
   // renders the matching screen, and this keeps nav highlighting + the selected
   // therapy in sync with the address bar (back/forward, deep links, new tabs).
-  const { screen, slug: routeSlug } = resolveRoute(pathname);
-
   // Non-navigational interaction state lives in the provider, which the layout
   // keeps mounted across the tool's routes so selections persist between screens.
   const qParam = (searchParams.get("q") ?? "").trim();
@@ -254,7 +258,13 @@ export function TcProvider({ children }: { children: ReactNode }) {
   // Default selections once data arrives so detail/brief/sheet/pathways are never empty.
   // A slug in the URL always wins; otherwise fall back to any imperatively-set slug,
   // then the first therapy so the no-arg brief/sheet nav buttons have a target.
-  const effectiveSelectedSlug = routeSlug ?? selectedSlug ?? therapies[0]?.slug ?? null;
+  const defaultTherapy =
+    screen === "brief"
+      ? therapies.find((therapy) => therapy.briefInterventionAvailable)
+      : screen === "sheets"
+        ? therapies.find((therapy) => therapy.patientSheetAvailable)
+        : therapies[0];
+  const effectiveSelectedSlug = routeSlug ?? selectedSlug ?? defaultTherapy?.slug ?? null;
   const selectedTherapy = effectiveSelectedSlug ? (bySlug.get(effectiveSelectedSlug) ?? null) : null;
   const effectivePathwaySlug = selectedPathwaySlug ?? pathways[0]?.slug ?? null;
   const selectedPathway = effectivePathwaySlug ? (pathways.find((p) => p.slug === effectivePathwaySlug) ?? null) : null;
@@ -279,15 +289,17 @@ export function TcProvider({ children }: { children: ReactNode }) {
     const patchSearch = (patch: Partial<SearchOptions>) => setSearch((prev) => ({ ...prev, ...patch }));
     const openSlug = (slug: string, sub?: "brief" | "sheet") =>
       router.push(sub ? `${BASE}/${slug}/${sub}` : `${BASE}/${slug}`);
-    // Some records ship no brief-intervention / patient-sheet version, and those
-    // subroutes 404. Route to the artifact only when the record actually has it;
-    // otherwise fall back to the therapy's (always-valid) detail page so an entry
-    // point never dead-ends on a 404.
+    // Unsupported artifact actions are a no-op. Call sites expose an honest disabled
+    // state instead of silently sending the user to a different detail destination.
     const hasBrief = (slug: string | null | undefined) =>
       !!slug && (bySlug.get(slug)?.briefInterventionAvailable ?? false);
     const hasSheet = (slug: string | null | undefined) => !!slug && (bySlug.get(slug)?.patientSheetAvailable ?? false);
-    const openBriefOr = (slug: string) => openSlug(slug, hasBrief(slug) ? "brief" : undefined);
-    const openSheetOr = (slug: string) => openSlug(slug, hasSheet(slug) ? "sheet" : undefined);
+    const openBriefOr = (slug: string) => {
+      if (hasBrief(slug)) openSlug(slug, "brief");
+    };
+    const openSheetOr = (slug: string) => {
+      if (hasSheet(slug)) openSlug(slug, "sheet");
+    };
 
     return {
       loading,
@@ -306,10 +318,18 @@ export function TcProvider({ children }: { children: ReactNode }) {
       goRecommend: () => go("recommend"),
       goCompare: () => go("compare"),
       goPathways: () => go("pathways"),
-      // Brief / sheet / detail are therapy sub-routes, so the no-arg nav buttons
-      // open them for the currently-selected therapy (defaulting to the first).
-      goBrief: () => (effectiveSelectedSlug ? openBriefOr(effectiveSelectedSlug) : go("home")),
-      goSheets: () => (effectiveSelectedSlug ? openSheetOr(effectiveSelectedSlug) : go("home")),
+      goBrief: () => {
+        const target = hasBrief(effectiveSelectedSlug)
+          ? effectiveSelectedSlug
+          : therapies.find((therapy) => therapy.briefInterventionAvailable)?.slug;
+        if (target) openBriefOr(target);
+      },
+      goSheets: () => {
+        const target = hasSheet(effectiveSelectedSlug)
+          ? effectiveSelectedSlug
+          : therapies.find((therapy) => therapy.patientSheetAvailable)?.slug;
+        if (target) openSheetOr(target);
+      },
       goDetail: () => (effectiveSelectedSlug ? openSlug(effectiveSelectedSlug) : go("home")),
       goReview: () => go("review"),
       isSearch: screen === "search",
@@ -339,8 +359,8 @@ export function TcProvider({ children }: { children: ReactNode }) {
       openSheet: (slug) => openSheetOr(slug),
       // On a routed brief/sheet/detail screen the URL slug wins over `selectedSlug`,
       // so a picker choice must navigate to the chosen therapy's matching subroute
-      // (falling back to detail when it lacks that artifact) instead of only setting
-      // state — otherwise the visible selection would stay pinned to the URL.
+      // instead of only setting state. Artifact pickers expose only supported records;
+      // the guarded helpers remain no-ops for any stale or programmatic invalid choice.
       select: (slug) =>
         screen === "brief"
           ? openBriefOr(slug)

@@ -125,11 +125,15 @@ const deleteDocumentIfIdleMigration = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclAssertionMigration = readFileSync(
-  new URL("../supabase/migrations/20260717161000_assert_postgres_default_privileges.sql", import.meta.url),
+  new URL("../supabase/migrations/20260719055541_assert_postgres_default_privileges.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const defaultAclReassertionMigration = readFileSync(
+  new URL("../supabase/migrations/20260719055555_reassert_postgres_default_privileges.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclRepairMigration = readFileSync(
-  new URL("../supabase/migrations/20260719053532_repair_postgres_default_privileges.sql", import.meta.url),
+  new URL("../supabase/migrations/20260719055609_repair_postgres_default_privileges.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const defaultAclRoleBootstrap = readFileSync(new URL("../supabase/roles.sql", import.meta.url), "utf8").replace(
@@ -216,7 +220,7 @@ const hardenRagScalabilityPatchMigration = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 const documentTitleWordScopeMigration = readFileSync(
-  new URL("../supabase/migrations/20260719053533_enforce_public_title_word_scope.sql", import.meta.url),
+  new URL("../supabase/migrations/20260719055623_enforce_public_title_word_scope.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 const publicTitleCorrectorMigration = readFileSync(
@@ -1132,7 +1136,12 @@ describe("Supabase Preview replay guards", () => {
   });
 
   it("locks down postgres future-object default privileges", () => {
-    for (const sql of [schema, defaultAclRepairMigration]) {
+    for (const sql of [
+      schema,
+      defaultAclAssertionMigration,
+      defaultAclReassertionMigration,
+      defaultAclRepairMigration,
+    ]) {
       expect(sql).toContain(
         "alter default privileges for role postgres in schema public revoke all privileges on tables from public, anon, authenticated, service_role;",
       );
@@ -1212,7 +1221,7 @@ describe("Supabase Preview replay guards", () => {
     const migrationFiles = readdirSync(migrationDirectoryUrl)
       .filter((fileName) => /^\d+_.+\.sql$/.test(fileName))
       .sort();
-    expect(migrationFiles.at(-1)).toBe("20260719053533_enforce_public_title_word_scope.sql");
+    expect(migrationFiles.at(-1)).toBe("20260719064735_user_account_data_and_admin_uploads.sql");
     expect(documentTitleWordScopeMigration).toContain(
       "v_status := public.default_privileges_status('postgres', 'public')",
     );

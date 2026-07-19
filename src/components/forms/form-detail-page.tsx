@@ -170,6 +170,37 @@ function detailRowsFor(form: FormRecord) {
   ].filter((row) => hasText(row.value));
 }
 
+export function formDetailsClipboardText(form: FormRecord) {
+  const lines = [form.title, `Form code: ${formCode(form)}`];
+
+  if (hasText(form.subtitle)) lines.push(displayText(form.subtitle));
+  const statuses = (form.statusChips ?? []).map((chip) => chip.label?.trim()).filter(hasText);
+  if (statuses.length) lines.push(`Status: ${statuses.join(", ")}`);
+
+  for (const card of summaryCardsFor(form)) {
+    const label = displayText(card.label, "Priority fact");
+    const values = [card.title, card.detail].filter(hasText).map((value) => value.trim());
+    if (values.length) lines.push(`${label}: ${values.join(" — ")}`);
+  }
+
+  if (hasText(form.bestUse)) lines.push(`Legal boundary: ${displayText(form.bestUse)}`);
+  for (const row of detailRowsFor(form)) lines.push(`${row.label}: ${displayText(row.value)}`);
+
+  const primaryContact = hasText(form.primaryContact?.value)
+    ? form.primaryContact
+    : form.contacts?.find((contact) => hasText(contact.value));
+  if (primaryContact) {
+    lines.push(`${displayText(primaryContact.label, "Contact")}: ${displayText(primaryContact.value)}`);
+  }
+
+  if (hasText(form.source?.label)) lines.push(`Source: ${displayText(form.source.label)}`);
+  if (hasText(form.source?.status)) lines.push(`Source status: ${displayText(form.source.status)}`);
+  if (hasText(form.source?.reviewed)) lines.push(`Source reviewed: ${displayText(form.source.reviewed)}`);
+  if (hasText(form.source?.url)) lines.push(`Source URL: ${displayText(form.source.url)}`);
+
+  return lines.join("\n");
+}
+
 function callHref(contact: ServiceContact | null) {
   if (!contact || contact.kind !== "phone" || !hasText(contact.value)) return null;
   return `tel:${contact.value.replace(/[^\d+]/g, "")}`;
@@ -513,11 +544,14 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
   async function toggleSaved() {
     try {
       const nowSaved = !saved;
-      if (!(await accountData.setFavourite("form", form.slug, nowSaved))) {
+      const result = await accountData.setFavourite("form", form.slug, nowSaved);
+      if (result.success) {
+        setNotice(nowSaved ? "Form saved" : "Form removed from saved items");
+      } else if (result.reason === "unauthenticated") {
         setNotice("Sign in or create an account to save forms");
-        return;
+      } else {
+        setNotice(result.message);
       }
-      setNotice(nowSaved ? "Form saved" : "Form removed from saved items");
     } catch {
       setNotice("Save failed");
     }
@@ -687,7 +721,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             <div className="hidden lg:block">
               <ActionPanel
                 sourceHref={form.source?.url ?? null}
-                onCopy={() => copyValue(primaryContact?.value ?? form.title, "Form detail copied")}
+                onCopy={() => copyValue(formDetailsClipboardText(form), "Form details copied")}
                 hrefForCall={hrefForCall}
               />
             </div>
@@ -745,7 +779,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               <SourceSnapshotCard form={form} />
               <ActionPanel
                 sourceHref={form.source?.url ?? null}
-                onCopy={() => copyValue(primaryContact?.value ?? form.title, "Form detail copied")}
+                onCopy={() => copyValue(formDetailsClipboardText(form), "Form details copied")}
                 hrefForCall={hrefForCall}
               />
             </div>

@@ -88,6 +88,15 @@ jobs:
       - name: PR policy self-test
         run: npm run check:pr-policy
 
+      - name: Codebase index coverage
+        run: npm run docs:check-index
+
+      - name: Dependency and duplicate-export hygiene
+        run: npm run check:knip
+
+      - name: Maintainability hotspot budgets
+        run: npm run check:maintainability-budgets
+
       - name: Format check
         run: npm run format:check
 
@@ -187,6 +196,9 @@ jobs:
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-cached
+
+      - name: Install deterministic Python PDF test prerequisite
+        run: python3 -m pip install --disable-pip-version-check "PyMuPDF==1.28.0"
 
       - name: Unit tests (with coverage gate)
         run: npm run test:coverage
@@ -329,7 +341,10 @@ jobs:
       - name: Load cached Supabase Docker images
         run: |
           if [ -f /tmp/supabase-docker-cache/images.tar ]; then
-            docker load -i /tmp/supabase-docker-cache/images.tar
+            if ! docker load -i /tmp/supabase-docker-cache/images.tar; then
+              echo "::warning::Cached Supabase images exceeded runner disk capacity; discarding the restored tar so supabase start can pull only missing images."
+            fi
+            rm -f /tmp/supabase-docker-cache/images.tar
           fi
 
       - name: Start Supabase Local Emulator and bootstrap default ACLs

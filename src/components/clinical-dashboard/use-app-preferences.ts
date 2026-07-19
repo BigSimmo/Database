@@ -22,6 +22,18 @@ export type {
   PopulationPreference,
 } from "@/lib/account-preferences";
 
+const emptyAuthorizationHeader: Record<string, string> = {};
+const ignoreExpiredSession = () => undefined;
+
+function useAuthSessionIfAvailable() {
+  try {
+    return useAuthSession();
+  } catch (error) {
+    if (error instanceof Error && error.message === "useAuthSession must be used within AuthProvider.") return null;
+    throw error;
+  }
+}
+
 /**
  * App-wide, non-clinical preferences persisted per browser. This mirrors the
  * external-store pattern in use-theme.ts / use-sidebar-collapsed.ts so a choice
@@ -106,8 +118,32 @@ export function applyPreferenceSideEffects(preferences: AppPreferences) {
   }
 }
 
+/**
+ * Maps the saved default-landing preference onto the dashboard mode a bare "/"
+ * load should open in. "ask" is the built-in default (no override needed), so
+ * it — and any unset/invalid value — returns null.
+ */
+export function landingModeForPreference(landing: LandingPreference): "documents" | "tools" | null {
+  if (landing === "search") return "documents";
+  if (landing === "browse") return "tools";
+  return null;
+}
+
+/**
+ * One-shot, non-hook read of the stored preferences for callers that apply a
+ * preference outside React state (e.g. the landing-mode redirect on mount).
+ * Live consumers should use `useAppPreferences` so they re-render on change.
+ */
+export function readAppPreferences(): AppPreferences {
+  return getSnapshot();
+}
+
 export function useAppPreferences() {
-  const { status: authStatus, authorizationHeader, authEpoch, markSessionExpired } = useAuthSession();
+  const auth = useAuthSessionIfAvailable();
+  const authStatus = auth?.status ?? "signed_out";
+  const authorizationHeader = auth?.authorizationHeader ?? emptyAuthorizationHeader;
+  const authEpoch = auth?.authEpoch ?? 0;
+  const markSessionExpired = auth?.markSessionExpired ?? ignoreExpiredSession;
   const preferences = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   useEffect(() => {
@@ -128,12 +164,13 @@ export function useAppPreferences() {
           persist(normalizePreferences(payload.preferences));
           return;
         }
-        await fetch("/api/account/preferences", {
+        const bootstrapResponse = await fetch("/api/account/preferences", {
           method: "PUT",
           headers: { "Content-Type": "application/json", ...authorizationHeader },
           body: JSON.stringify(getSnapshot()),
           signal: controller.signal,
         });
+        if (bootstrapResponse.status === 401) markSessionExpired();
       })
       .catch(() => undefined);
     return () => controller.abort();

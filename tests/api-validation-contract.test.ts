@@ -358,6 +358,20 @@ describe("API validation contracts", () => {
     expect(chunkCalls[0].filters).not.toContainEqual({ column: "id", value: "" });
   });
 
+  it("rejects malformed document-detail chunk ids before querying the database", async () => {
+    const client = createSupabaseMock();
+    mockRuntime(client);
+    const { GET } = await import("../src/app/api/documents/[id]/route");
+
+    const response = await GET(authenticatedRequest(`/api/documents/${documentId}?chunk=not-a-chunk-uuid`), {
+      params: Promise.resolve({ id: documentId }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await payload(response)).toMatchObject({ error: "Invalid document detail query." });
+    expect(client.from).not.toHaveBeenCalled();
+  });
+
   it("returns an empty direct document search response for empty query values before auth or Supabase access", async () => {
     const client = createSupabaseMock();
     const runtime = mockRuntime(client);

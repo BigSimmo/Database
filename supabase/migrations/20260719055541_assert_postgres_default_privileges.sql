@@ -119,7 +119,6 @@ begin
   );
 end;
 $$;
-
 revoke all on function public.default_privileges_status(text, text)
   from public, anon, authenticated;
 grant execute on function public.default_privileges_status(text, text)

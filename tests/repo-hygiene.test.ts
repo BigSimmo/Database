@@ -5,6 +5,7 @@ import {
   EXPECTED_RAILWAY_SECRETS,
   parseCiEnvNames,
   parseEnvSchemaNames,
+  parseRailwayVariableNames,
 } from "../scripts/check-env-parity.mjs";
 import { hasCompletedCleanupReview, parseLedgerBranches } from "../scripts/sweep-branch-ledger.mjs";
 
@@ -54,6 +55,14 @@ describe("check-env-parity name parsing", () => {
       ]),
     );
     expect(EXPECTED_RAILWAY_SECRETS).not.toEqual(expect.arrayContaining(["E2E_USER_EMAIL", "E2E_USER_PASSWORD"]));
+  });
+
+  it("extracts Railway JSON names without treating values as names", () => {
+    expect(
+      parseRailwayVariableNames(
+        JSON.stringify({ OPENAI_API_KEY: "secret-with-UPPERCASE-fragments", RAG_PROVIDER_MODE: "offline" }),
+      ),
+    ).toEqual(["OPENAI_API_KEY", "RAG_PROVIDER_MODE"]);
   });
 });
 

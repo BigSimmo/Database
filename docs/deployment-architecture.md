@@ -344,7 +344,8 @@ Rules:
 ## 5. Staging environment
 
 - **A second, dedicated Supabase project** (same org, ap-southeast-2) — not a
-  branch of production. Rationale: staging must absorb soak tests, destructive
+  branch of production. `Clinical KB Staging` was provisioned and migrated on
+  2026-07-19. Rationale: staging must absorb soak tests, destructive
   ingestion experiments, and migration rehearsal without any shared compute,
   pooling, or the production auth 10-connection cap; per-environment keys fall
   out naturally.
@@ -353,11 +354,12 @@ Rules:
   synthetic/public corpus. `public/demo-documents/` plus generated samples
   (`npm run samples`) are sufficient for load-shape realism; do not copy
   clinical production documents into staging.
-- One staging `app` container + one staging `worker` container from the _same_
-  images, different env. On Railway this is naturally a **second environment in
-  the `clinical-kb` project** (e.g. a `staging` environment) or a separate
-  project, with `RAG_PROVIDER_MODE=auto` and the staging OpenAI key. See
-  `docs/staging-setup.md` for the turnkey runbook.
+- One staging `app` container and **no staging worker**. The active Railway
+  `Database` project has a `staging` environment pinned to Singapore with
+  `RAG_PROVIDER_MODE=offline`, isolated Supabase credentials, and no OpenAI key.
+  This keeps release proofs deterministic and prevents staging ingestion from
+  draining or mutating production data. See `docs/staging-setup.md` for the
+  turnkey runbook.
 - `src/lib/supabase/project.ts` is staging-aware only when both
   `SUPABASE_STAGING_PROJECT_REF` and `SUPABASE_STAGING_PROJECT_NAME` are set.
   The declared staging ref must differ from production and every stale project;

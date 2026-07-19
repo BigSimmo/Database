@@ -25,13 +25,20 @@ export async function GET(request: Request) {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return Response.json({
-      favourites: (data ?? []).map((row) => ({
-        contentType: row.content_type,
-        contentKey: row.content_key,
-        createdAt: row.created_at,
-      })),
-    });
+    return Response.json(
+      {
+        favourites: (data ?? []).map((row) => ({
+          contentType: row.content_type,
+          contentKey: row.content_key,
+          createdAt: row.created_at,
+        })),
+      },
+      {
+        headers: {
+          "Cache-Control": "private, no-store",
+        },
+      },
+    );
   } catch (error) {
     return jsonError(error);
   }
