@@ -163,7 +163,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
           </div>
         </div>
 
-        <div className="mx-auto grid max-w-[64rem] gap-8 px-4 py-6 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_16.5rem] lg:items-start lg:px-8">
+        <div className="mx-auto grid max-w-[64rem] gap-8 px-4 py-6 pb-4 sm:px-6 sm:py-8 lg:grid-cols-[minmax(0,1fr)_16.5rem] lg:items-start lg:px-8">
           <article className="min-w-0">
             {/* hero band */}
             <div className="rounded-2xl border border-[color:var(--border)] p-6" style={{ background: theme.hero }}>

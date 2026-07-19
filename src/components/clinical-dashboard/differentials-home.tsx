@@ -896,7 +896,7 @@ function SearchResultsView({
       // this results canvas into a nested phone scrollport, stealing scroll from
       // #main-content. The fixed compare FAB and shell hide-on-scroll both assume
       // #main-content owns vertical scroll.
-      className="mx-auto grid w-full max-w-[86rem] min-w-0 gap-3 overflow-x-clip px-4 pb-[calc(12.5rem+env(safe-area-inset-bottom))] min-[390px]:gap-4 sm:px-4 lg:px-0 lg:pb-0"
+      className="mx-auto grid w-full max-w-[86rem] min-w-0 gap-3 overflow-x-clip px-4 pb-4 min-[390px]:gap-4 sm:px-4 lg:px-0 lg:pb-0"
     >
       {/* Query context lives here on every breakpoint — on phones this is the
           only place the submitted query is visible above the fold. */}
