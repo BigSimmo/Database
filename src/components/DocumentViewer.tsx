@@ -2282,11 +2282,7 @@ export function DocumentViewer({
 
   async function summarize() {
     if (!canSummarizeDocument) {
-      setSummaryError(
-        !canUseAdministrativeApis
-          ? "Administrator access is required to summarise documents."
-          : "Load a source document before summarising.",
-      );
+      setSummaryError("Load a source document before summarising.");
       return;
     }
     if (!canUsePrivateApis) {
@@ -2411,11 +2407,11 @@ export function DocumentViewer({
     ? `/?mode=documents&q=${encodeURIComponent(documentDisplayTitle(readyDocument))}&documentId=${encodeURIComponent(documentId)}`
     : documentHomeHref;
   const usefulPageHref = (page: number) => documentPageHref(documentId, page);
-  const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUseAdministrativeApis;
+  const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canViewSourceDocuments;
   const summarizeTitle = canSummarizeDocument
     ? "Answer from this document"
-    : !canUseAdministrativeApis
-      ? "Administrator access is required to answer from this document"
+    : loadingSummary
+      ? "Answer is generating"
       : "Load a source document before answering";
   const pageByNumber = useMemo(() => new Map(pages.map((page) => [page.page_number, page])), [pages]);
   const chunkById = useMemo(() => new Map(chunks.map((chunk) => [chunk.id, chunk])), [chunks]);

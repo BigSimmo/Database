@@ -63,7 +63,7 @@ describe("public content and account authorization model", () => {
     expect(documentViewer).toContain("canManage={canUseAdministrativeApis}");
     expect(documentViewer).toContain("canReview={canUseAdministrativeApis}");
     expect(documentViewer).toContain(
-      'const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUseAdministrativeApis',
+      'const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canViewSourceDocuments',
     );
   });
 
