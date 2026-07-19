@@ -32,6 +32,7 @@ describe("ingestion-worker Edge Function authorization", () => {
     expect(source).toContain("fail_or_retry_ingestion_job(");
     expect(source).toContain("${workerId}");
     expect(source).toContain('reason === "lease_lost"');
+    expect(source).toContain("lease_lost:");
     expect(source).toContain("sql.begin");
   });
 });

@@ -18,6 +18,11 @@ import {
   type PdfExtractionBudget,
 } from "@/lib/extractors/pdf-extraction-budget";
 
+function resolvePythonBin() {
+  if (process.env.PYTHON_BIN) return process.env.PYTHON_BIN;
+  return process.platform === "win32" ? "python" : "python3";
+}
+
 const extractedPageSchema = z.object({
   pageNumber: z.number().int().positive(),
   text: z.string(),
@@ -91,7 +96,7 @@ export async function runPythonPdfExtractor(
 
   return new Promise<ExtractedDocument>((resolve, reject) => {
     const child = spawn(
-      process.env.PYTHON_BIN || "python",
+      resolvePythonBin(),
       [scriptPath, filePath, outputDir, outputJsonPath, budgetPath],
       {
         cwd: process.cwd(),

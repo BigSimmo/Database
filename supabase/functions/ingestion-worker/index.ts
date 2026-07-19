@@ -215,12 +215,8 @@ async function markEnrichmentMetadata(documentId: string): Promise<void> {
   `;
 }
 
-async function processJob(job: ClaimedJob, workerId: string): Promise<"completed" | "lease_lost"> {
-  const summary = await upsertDocumentSummary(job);
-  await upsertEmbeddingFields(job, summary);
-  await markEnrichmentMetadata(job.document_id);
-
-  const [completionRow] = await sql<Array<{ complete_ingestion_job: IngestionRpcResult }>>`
+async function completeIngestionJob(job: ClaimedJob, workerId: string): Promise<IngestionRpcResult | null> {
+  const [row] = await sql<Array<{ complete_ingestion_job: IngestionRpcResult }>>`
     select public.complete_ingestion_job(
       ${job.id}::uuid,
       ${job.document_id}::uuid,
@@ -229,8 +225,38 @@ async function processJob(job: ClaimedJob, workerId: string): Promise<"completed
       ${workerId}
     )
   `;
+  return row?.complete_ingestion_job ?? null;
+}
 
-  return isLeaseLost(completionRow?.complete_ingestion_job) ? "lease_lost" : "completed";
+async function failOrRetryIngestionJob(
+  job: ClaimedJob,
+  workerId: string,
+  shouldRetry: boolean,
+  message: string,
+): Promise<IngestionRpcResult | null> {
+  const [row] = await sql<Array<{ fail_or_retry_ingestion_job: IngestionRpcResult }>>`
+    select public.fail_or_retry_ingestion_job(
+      ${job.id}::uuid,
+      ${job.document_id}::uuid,
+      ${job.batch_id}::uuid,
+      ${shouldRetry},
+      ${"indexed"},
+      ${"enrichment backfill failed"},
+      ${message},
+      ${new Date(Date.now() + 60_000).toISOString()}::timestamptz,
+      ${workerId}
+    )
+  `;
+  return row?.fail_or_retry_ingestion_job ?? null;
+}
+
+async function processJob(job: ClaimedJob, workerId: string): Promise<"completed" | "lease_lost"> {
+  const summary = await upsertDocumentSummary(job);
+  await upsertEmbeddingFields(job, summary);
+  await markEnrichmentMetadata(job.document_id);
+
+  const completion = await completeIngestionJob(job, workerId);
+  return isLeaseLost(completion) ? "lease_lost" : "completed";
 }
 
 Deno.serve(async (req: Request) => {
@@ -258,38 +284,29 @@ Deno.serve(async (req: Request) => {
 
     let processed = 0;
     let failed = 0;
+    let leaseLost = 0;
     const failures: Array<{ job_id: string; document_id: string; error: string }> = [];
 
     for (const job of claimed) {
       try {
         const outcome = await processJob(job, workerId);
-        if (outcome === "lease_lost") continue;
+        if (outcome === "lease_lost") {
+          leaseLost += 1;
+          continue;
+        }
         processed += 1;
       } catch (error) {
-        failed += 1;
         const message = error instanceof Error ? error.message : JSON.stringify(error);
-        failures.push({ job_id: job.id, document_id: job.document_id, error: message });
-
         const shouldRetry = job.attempt_count < job.max_attempts;
+        const failure = await failOrRetryIngestionJob(job, workerId, shouldRetry, message);
 
-        const [failureRow] = await sql<Array<{ fail_or_retry_ingestion_job: IngestionRpcResult }>>`
-          select public.fail_or_retry_ingestion_job(
-            ${job.id}::uuid,
-            ${job.document_id}::uuid,
-            ${job.batch_id}::uuid,
-            ${shouldRetry},
-            ${"indexed"},
-            ${"enrichment backfill failed"},
-            ${message},
-            ${new Date(Date.now() + 60_000).toISOString()}::timestamptz,
-            ${workerId}
-          )
-        `;
-
-        if (isLeaseLost(failureRow?.fail_or_retry_ingestion_job)) {
-          failed -= 1;
-          failures.pop();
+        if (isLeaseLost(failure)) {
+          leaseLost += 1;
+          continue;
         }
+
+        failed += 1;
+        failures.push({ job_id: job.id, document_id: job.document_id, error: message });
       }
     }
 
@@ -298,6 +315,7 @@ Deno.serve(async (req: Request) => {
       claimed: claimed.length,
       processed,
       failed,
+      lease_lost: leaseLost,
       failures,
     });
   } catch (error) {
