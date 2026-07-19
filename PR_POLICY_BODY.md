@@ -1,18 +1,22 @@
 ## Summary
 
-- Hardens administrator-only access across document, ingestion, and account APIs; adds signed-in favourites/preferences persistence; repairs mobile Safari bottom-composer spacing on Information pages; and fixes a pre-existing unit-test regression in the clinical dashboard merge-artifact guards.
+- Fixes differentials mobile search results being vertically clipped: tall results reused `ModeHomeMain`’s `justify-center` flex shell (from the edge-to-edge mobile layout), so Best Answer and the top of the list sat above the phone scrollport.
+- Introduces an exclusive `contentAlign` API (`center` | `start` | `startOnPhone`) on `ModeHomeMain`, strips stray `justify-*` className tokens (including responsive prefixes), and top-aligns differentials results while keeping empty homes centred.
+- Migrates content-rich mode homes (therapy, formulation, specifiers, DSM, forms, services) to `startOnPhone` so they cannot reintroduce the same clip via fragile `className` overrides.
+- Hardens compact Best Answer / chip typography so size overrides do not rely on `cn()` Tailwind conflict resolution, and stabilizes the home header wait in overlap Playwright coverage.
 
 ## Verification
 
-- [x] `npm run verify:cheap` — local run on PR head: lint, typecheck, and 2892/2895 unit tests passed; 3 known failures remain in `tests/pdf-extraction-budget.test.ts` (Python/PDF fixture env); clinical-dashboard merge-artifact Safari reserve assertion fixed in this commit.
-- [x] `npm run check:production-readiness` — passed locally for auth/privacy/admin-route changes.
-- [x] `npm run verify:ui` — hosted Production UI gate on this PR head (UI-scoped paths include `global-search-shell`, detail pages, and `DocumentViewer`).
+- [x] `npx vitest run tests/mode-home-main-align.test.ts` — ModeHomeMain alignment contract.
+- [x] Focused Chromium proof in `tests/ui-tools.spec.ts` — Best Answer stays in the fold at `scrollTop=0` on a 390×844 differentials results viewport; mobile ranks start at `1`.
+- [x] `tests/ui-overlap.spec.ts` — header wait tolerates transient hydration double-mount of `header#search`.
+- [ ] Hosted Production UI / PR required — re-run on this head after push.
 
 ## Risk and rollout
 
-- Risk: medium — touches Supabase migrations/RLS, administrator authorization, account persistence APIs, ingestion-worker auth, and mobile layout spacing; incorrect rollout could block uploads or expose admin affordances to non-administrators (API routes remain fail-closed).
-- Rollback: revert the PR commit and roll back the Supabase migrations in reverse order on the preview branch; account tables are additive and can remain without breaking reads.
-- Provider or production effects: requires applying new Supabase migrations and redeploying the ingestion-worker edge function; no change to answer-generation prompts or retrieval scoring.
+- Risk: low — layout/alignment and test-only changes; no retrieval, answer generation, auth, RLS, or migrations.
+- Rollback: revert the PR commit; mode homes return to always-centred `ModeHomeMain` behavior.
+- Provider or production effects: none.
 
 ## Clinical Governance Preflight
 
@@ -20,4 +24,5 @@
 
 ## Notes
 
-- Resolves bottom layout spacing and transition issues on Information pages, removes the footer search composer from Information pages, restores the back button at desktop widths, and gates administrative upload-drawer assertions in tests to match production authorization.
+- Root cause: commit `39d14a51` made `ModeHomeMain` a `flex-1 justify-center` shell. `cn()` concatenates classes and does not merge Tailwind, so call-site `justify-start` overrides were non-deterministic.
+- Prefer `contentAlign` over any `justify-*` in `className` on `ModeHomeMain`.

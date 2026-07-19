@@ -1471,9 +1471,11 @@ test.describe("Clinical KB tools launcher", () => {
     expect(foldLayout).not.toBeNull();
     expect(foldLayout!.scrollTop).toBe(0);
     // Best Answer must start in the visible fold under the chrome — not clipped
-    // above the scrollport (the ModeHomeMain justify-center regression).
+    // above the scrollport (the ModeHomeMain justify-center regression). Bound
+    // to the header band rather than a tight viewport fraction so tall chrome /
+    // safe-area insets do not flake the upper-half check.
     expect(foldLayout!.bestTop).toBeGreaterThanOrEqual(foldLayout!.headerBottom - 2);
-    expect(foldLayout!.bestTop).toBeLessThan(foldLayout!.viewportHeight * 0.55);
+    expect(foldLayout!.bestTop).toBeLessThan(foldLayout!.headerBottom + 240);
 
     // Phone list hides the featured best answer, so ranks must start at 1.
     const mobileCards = page.getByTestId("differential-mobile-result-card");

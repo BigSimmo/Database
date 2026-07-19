@@ -107,7 +107,7 @@ export function FormsHomePage() {
     ) : null;
 
   return (
-    <ModeHomeMain testId="forms-home">
+    <ModeHomeMain testId="forms-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="forms-home-template"
         title="Forms"

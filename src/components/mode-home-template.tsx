@@ -117,10 +117,11 @@ const MODE_HOME_MAIN_ALIGN_CLASS: Record<ModeHomeMainAlign, string> = {
   startOnPhone: "justify-start pt-3 sm:justify-center sm:pt-[clamp(1.75rem,5vh,3.25rem)]",
 };
 
+/** Strip bare and prefixed justify utilities (`sm:justify-center`, `max-sm:justify-start`, …). */
 function withoutJustifyUtilities(className?: string) {
   if (!className) return undefined;
   const cleaned = className
-    .replace(/\bjustify-(?:normal|start|end|center|between|around|evenly|stretch)\b/g, "")
+    .replace(/(?:^|\s)(?:[\w-]+:)*justify-(?:normal|start|end|center|between|around|evenly|stretch)(?=\s|$)/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   return cleaned || undefined;

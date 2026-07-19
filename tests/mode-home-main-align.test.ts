@@ -31,10 +31,25 @@ describe("ModeHomeMain alignment contract", () => {
     expect(modeHomeSource).toMatch(/center: "justify-center/);
     expect(modeHomeSource).toMatch(/start: "justify-start/);
     expect(modeHomeSource).toMatch(/startOnPhone: "justify-start/);
+    // Must strip responsive/prefixed justify utilities, not only bare ones.
+    expect(modeHomeSource).toContain("(?:[\\w-]+:)*justify-");
     // Alignment must win over consumer className — apply align map last.
     expect(modeHomeSource).toMatch(
       /withoutJustifyUtilities\(className\),\s*MODE_HOME_MAIN_ALIGN_CLASS\[contentAlign\]/,
     );
+  });
+
+  it("strips bare and prefixed justify utilities from className", () => {
+    // Mirror withoutJustifyUtilities — keep in sync with mode-home-template.tsx.
+    const strip = (className: string) =>
+      className
+        .replace(/(?:^|\s)(?:[\w-]+:)*justify-(?:normal|start|end|center|between|around|evenly|stretch)(?=\s|$)/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    expect(strip("px-4 justify-center sm:px-6")).toBe("px-4 sm:px-6");
+    expect(strip("sm:justify-center max-sm:justify-start gap-2")).toBe("gap-2");
+    expect(strip("lg:justify-between justify-end")).toBe("");
   });
 
   it("top-aligns differentials search results and keeps the empty home centred", () => {
@@ -47,6 +62,9 @@ describe("ModeHomeMain alignment contract", () => {
       resolve(SRC_ROOT, "components/therapy-compass/screens/home-screen.tsx"),
       resolve(SRC_ROOT, "components/formulation/formulation-home-page.tsx"),
       resolve(SRC_ROOT, "components/specifiers/specifiers-home-page.tsx"),
+      resolve(SRC_ROOT, "components/dsm/dsm-home-page.tsx"),
+      resolve(SRC_ROOT, "components/forms/forms-home-page.tsx"),
+      resolve(SRC_ROOT, "components/services/services-home-page.tsx"),
     ].map((path) => readFileSync(path, "utf8"));
 
     for (const source of homeSources) {

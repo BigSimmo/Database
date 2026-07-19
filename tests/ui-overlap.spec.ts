@@ -63,7 +63,14 @@ async function mockDemoDashboard(page: Page) {
 
 async function gotoHome(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.locator("header#search").waitFor({ state: "visible", timeout: 30_000 });
+  // Suspense/hydration can briefly mount two shell copies, each with
+  // header#search. Wait until exactly one visible header settles — a permanent
+  // double-mount still fails toHaveCount(1).
+  const searchHeader = page.locator("header#search");
+  if ((await searchHeader.count()) !== 1) {
+    await expect(searchHeader).toHaveCount(1, { timeout: 30_000 });
+  }
+  await expect(searchHeader).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Open answer options" }).waitFor({ state: "visible", timeout: 30_000 });
 }
 

@@ -118,7 +118,7 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
     ) : null;
 
   return (
-    <ModeHomeMain testId="services-home">
+    <ModeHomeMain testId="services-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="services-home-template"
         title="Find a service"
