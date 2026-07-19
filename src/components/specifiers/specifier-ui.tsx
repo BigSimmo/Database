@@ -114,7 +114,7 @@ export function SpecifierFamilyFilterChips({
     <div
       role="group"
       aria-label="Filter by specifier family"
-      className="polished-scroll flex min-w-0 flex-1 gap-1.5 overflow-x-auto"
+      className="polished-scroll flex w-full min-w-0 gap-1.5 overflow-x-auto sm:flex-1"
     >
       {specifierFamilies.map((option) => {
         const active = value === option.id;
@@ -147,16 +147,17 @@ export function SpecifierDiagnosisFilter({
   return (
     <label
       className={cn(
-        "relative inline-flex min-h-9 w-auto max-w-[11rem] shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
+        // Content-sized control: wide enough for “All diagnoses” without becoming a full-width field.
+        "relative inline-flex min-h-9 w-auto max-w-full shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
       )}
     >
-      <span className="text-[color:var(--text-soft)]">Diagnosis</span>
+      <span className="shrink-0 text-[color:var(--text-soft)]">Diagnosis</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
         aria-label="Filter by diagnosis"
-        className="min-w-0 flex-1 cursor-pointer appearance-none truncate bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none]"
+        className="w-[9.5rem] max-w-[calc(100vw-8rem)] cursor-pointer appearance-none bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none] sm:w-[10.5rem]"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>

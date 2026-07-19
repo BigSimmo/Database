@@ -269,7 +269,7 @@ function SpecifierResults({ query }: { query: string }) {
 
       <section
         aria-label="Filter specifier results"
-        className="flex flex-wrap items-center gap-2.5"
+        className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5"
       >
         <SpecifierFamilyFilterChips value={family} onChange={setFamily} />
         <SpecifierDiagnosisFilter value={diagnosis} onChange={setDiagnosis} options={diagnosisOptions} />
