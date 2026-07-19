@@ -69,6 +69,9 @@ function section(body, heading) {
 function meaningfulText(value) {
   const normalized = String(value ?? "")
     .replace(/<!--[^]*?-->/g, "")
+    // Sub-headings kept inside a section by the outline-aware boundary are
+    // structure, not content — a section holding only headings is still empty.
+    .replace(/^\s*#{1,6}[ \t]+\S.*$/gm, "")
     .replace(/^\s*[-*]\s*/gm, "")
     .trim();
   return Boolean(normalized && !/^(?:-|n\/?a|none|todo|tbd)$/i.test(normalized));
@@ -134,6 +137,10 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
   const errors = [];
   const classification = classifyPullRequestFiles(files);
   const summary = section(body, "Summary");
+  // The summary must be its own prose: content nested under a sub-heading
+  // (e.g. a mis-levelled `### Verification`) belongs to that sub-topic and
+  // cannot stand in for the required outcome summary.
+  const summaryDirect = summary.replace(/^[ \t]*#{1,6}[ \t]+\S[^]*$/m, "");
   const verification = section(body, "Verification");
   const riskAndRollout = section(body, "Risk and rollout");
   const governance = section(body, "Clinical Governance Preflight");
@@ -141,7 +148,8 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
   if (String(title ?? "").trim().length < 12)
     errors.push("Use a specific, outcome-focused PR title (at least 12 characters).");
   if (branchLikeTitle(title, headRef)) errors.push("Replace the branch-style PR title with an outcome-focused title.");
-  if (!meaningfulText(summary)) errors.push("Complete the `## Summary` section with the outcome and affected area.");
+  if (!meaningfulText(summaryDirect))
+    errors.push("Complete the `## Summary` section with the outcome and affected area.");
   if (!meaningfulText(verification)) {
     errors.push("Complete the `## Verification` section with exact results or a reason checks were not run.");
   } else if (!/-\s*\[[xX]\]/.test(verification) && !explicitNotRun(verification)) {
@@ -227,6 +235,17 @@ function selfTest() {
       files: [".github/workflows/pr-policy.yml"],
     }).ok,
     true,
+  );
+  // A section whose only content is a nested sub-heading is still empty: the
+  // outline-aware boundary must not let heading lines satisfy meaningfulText.
+  assert.match(
+    evaluatePullRequestPolicy({
+      title: "fix: something meaningful here",
+      body: "## Summary\n\n### Verification\n\n- [x] `npm run verify:pr-local`\n",
+      headRef: "codex/x",
+      files: ["docs/a.md"],
+    }).errors.join(" "),
+    /## Summary/,
   );
   // ...but a level-1 heading is shallower than ## and DOES end the section, so
   // evidence stranded after it must not count toward the preceding section.
