@@ -75,6 +75,7 @@ export function SpecifierSubnav({ active }: { active: "search" | "builder" | "co
         <Link
           key={item.id}
           href={item.href}
+          aria-label={item.label}
           aria-current={active === item.id ? "page" : undefined}
           className={cn(
             "inline-flex min-h-tap shrink-0 items-center justify-center rounded-md px-3 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm",
@@ -83,8 +84,12 @@ export function SpecifierSubnav({ active }: { active: "search" | "builder" | "co
               : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
           )}
         >
-          <span className="sm:hidden">{item.shortLabel}</span>
-          <span className="hidden sm:inline">{item.label}</span>
+          <span className="sm:hidden" aria-hidden>
+            {item.shortLabel}
+          </span>
+          <span className="hidden sm:inline" aria-hidden>
+            {item.label}
+          </span>
         </Link>
       ))}
     </nav>
