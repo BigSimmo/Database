@@ -1090,6 +1090,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { name: "Services", href: "/services" },
       // The rail speaks the catalogue-maturity badge as part of the Forms name.
       { name: "Forms (Early access)", href: "/forms" },
+      // Demo mode still exposes Favourites via the account-library rail entry.
       { name: "Favourites", href: "/favourites" },
       { name: "Differentials", href: "/differentials" },
       { name: "Medication", href: "/?mode=prescribing" },
