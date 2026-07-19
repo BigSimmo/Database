@@ -17,6 +17,7 @@ import {
   PdfExtractionResourceError,
   type PdfExtractionBudget,
 } from "@/lib/extractors/pdf-extraction-budget";
+import { resolvePythonBin } from "@/lib/python-bin";
 
 const extractedPageSchema = z.object({
   pageNumber: z.number().int().positive(),
@@ -90,16 +91,12 @@ export async function runPythonPdfExtractor(
   await writeFile(budgetPath, JSON.stringify(limits), "utf8");
 
   return new Promise<ExtractedDocument>((resolve, reject) => {
-    const child = spawn(
-      process.env.PYTHON_BIN || "python",
-      [scriptPath, filePath, outputDir, outputJsonPath, budgetPath],
-      {
-        cwd: process.cwd(),
-        stdio: ["ignore", "pipe", "pipe"],
-        detached: process.platform !== "win32",
-        windowsHide: true,
-      },
-    );
+    const child = spawn(resolvePythonBin(), [scriptPath, filePath, outputDir, outputJsonPath, budgetPath], {
+      cwd: process.cwd(),
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: process.platform !== "win32",
+      windowsHide: true,
+    });
 
     let stdout = "";
     let stderr = "";

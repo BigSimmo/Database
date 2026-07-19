@@ -28,5 +28,12 @@ describe("ingestion-worker Edge Function authorization", () => {
     expect(source).toContain('if (req.method !== "POST")');
     expect(source).toContain('hasServiceRoleAuthorization(req.headers.get("authorization"))');
     expect(source.indexOf("hasServiceRoleAuthorization")).toBeLessThan(source.indexOf("public.claim_ingestion_jobs"));
+    expect(source).toContain("complete_ingestion_job(");
+    expect(source).toContain("fail_or_retry_ingestion_job(");
+    expect(source).toContain("${workerId}");
+    expect(source).toContain('reason === "lease_lost"');
+    expect(source).toContain("lease_lost:");
+    expect(source).toContain("sql.begin");
+    expect(source).toContain("complete_ingestion_job did not confirm success");
   });
 });
