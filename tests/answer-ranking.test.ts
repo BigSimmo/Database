@@ -179,6 +179,26 @@ describe("answer evidence ranking", () => {
       ranking.scoresByChunkId.get("low-semantic") ?? 0,
     );
   });
+
+  it("uses the app-layer rank only as a final answer-evidence tie-breaker", () => {
+    const lowerRank = result({
+      id: "lower-rank",
+      content: "Lithium dosing guidance.",
+      hybrid_score: 0.7,
+      score_explanation: { rankScore: 0.8 } as NonNullable<SearchResult["score_explanation"]>,
+    });
+    const higherRank = result({
+      id: "higher-rank",
+      content: "Lithium dosing guidance.",
+      hybrid_score: 0.7,
+      score_explanation: { rankScore: 1.1 } as NonNullable<SearchResult["score_explanation"]>,
+    });
+
+    const ranking = rankAnswerEvidence("lithium dosing guidance", [lowerRank, higherRank]);
+
+    expect(ranking.rankedResults.map((item) => item.id)).toEqual(["higher-rank", "lower-rank"]);
+    expect(ranking.scoresByChunkId.get("higher-rank")).toBe(ranking.scoresByChunkId.get("lower-rank"));
+  });
 });
 
 describe("high-yield answer bolding", () => {

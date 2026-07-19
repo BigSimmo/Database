@@ -249,6 +249,7 @@ export function rankAnswerEvidence(
       (a, b) =>
         b.score - a.score ||
         (b.result.hybrid_score ?? b.result.similarity ?? 0) - (a.result.hybrid_score ?? a.result.similarity ?? 0) ||
+        (b.result.score_explanation?.rankScore ?? 0) - (a.result.score_explanation?.rankScore ?? 0) ||
         a.index - b.index,
     );
 
