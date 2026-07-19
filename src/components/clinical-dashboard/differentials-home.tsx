@@ -491,10 +491,7 @@ function MobileResultCard({
       </div>
       <div className="flex min-w-0 max-w-full flex-wrap gap-1.5">
         {result.tags.slice(0, 2).map((tag) => (
-          <Chip
-            key={`${result.id}-${tag}`}
-            className="max-w-full px-2.5 py-1 text-xs font-semibold leading-snug"
-          >
+          <Chip key={`${result.id}-${tag}`} className="max-w-full px-2.5 py-1 text-xs font-semibold leading-snug">
             {tag}
           </Chip>
         ))}
