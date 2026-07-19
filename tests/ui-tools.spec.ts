@@ -1448,6 +1448,36 @@ test.describe("Clinical KB tools launcher", () => {
     });
     expect(badgeMetrics.height).toBeGreaterThanOrEqual(22);
     expect(badgeMetrics.scrollHeight).toBeLessThanOrEqual(badgeMetrics.height + 1);
+
+    // Phone list hides the featured best answer, so ranks must start at 1.
+    const mobileCards = page.getByTestId("differential-mobile-result-card");
+    await expect(mobileCards.first()).toBeVisible();
+    await expect(mobileCards.first().getByTestId("differential-mobile-result-rank")).toHaveText("1");
+    const ranks = await mobileCards.getByTestId("differential-mobile-result-rank").allTextContents();
+    expect(ranks).toEqual(ranks.map((_, index) => String(index + 1)));
+
+    // Status badge sits on its own meta row below the title, never beside it.
+    const titleBadgeLayout = await mobileCards.first().evaluate((card) => {
+      const title = card.querySelector("a span.line-clamp-2") ?? card.querySelector("a");
+      const badge = card.querySelector('[data-testid="differential-status-badge"]');
+      if (!title || !badge) return null;
+      const titleRect = title.getBoundingClientRect();
+      const badgeRect = badge.getBoundingClientRect();
+      return { titleBottom: titleRect.bottom, badgeTop: badgeRect.top };
+    });
+    expect(titleBadgeLayout).not.toBeNull();
+    expect(titleBadgeLayout!.badgeTop).toBeGreaterThanOrEqual(titleBadgeLayout!.titleBottom - 1);
+
+    const cardOverflow = await mobileCards.evaluateAll((cards) =>
+      cards.map((card) => ({
+        overflowX: card.scrollWidth > card.clientWidth + 1,
+        width: card.clientWidth,
+      })),
+    );
+    for (const card of cardOverflow) {
+      expect(card.overflowX).toBe(false);
+    }
+
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1494,6 +1524,14 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(compareAction).toContainText("Compare selected");
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
+    await mainContent.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
+    const lastResultBottom = await page
+      .getByTestId("differential-mobile-result-card")
+      .last()
+      .evaluate((element) => element.getBoundingClientRect().bottom);
+    const dockTop = await dock.evaluate((element) => element.getBoundingClientRect().top);
+    expect(lastResultBottom).toBeLessThanOrEqual(dockTop);
+
     // Compare lives in the dock addon slot above the search pill.
     const revealedGeometry = await compareAction.evaluate((element) => {
       const rect = element.getBoundingClientRect();
@@ -1514,6 +1552,8 @@ test.describe("Clinical KB tools launcher", () => {
     expect(revealedGeometry.top).toBeGreaterThanOrEqual(revealedGeometry.dockTop!);
     expect(revealedGeometry.bottom).toBeLessThanOrEqual(revealedGeometry.dockBottom!);
     expect(revealedGeometry.receivesPointer).toBe(true);
+    // Last card must clear the floating compare CTA, not only the composer dock.
+    expect(lastResultBottom).toBeLessThanOrEqual(revealedGeometry.top);
 
     const mainPaddingBottom = await mainContent.evaluate((element) =>
       Number.parseFloat(window.getComputedStyle(element).paddingBottom),

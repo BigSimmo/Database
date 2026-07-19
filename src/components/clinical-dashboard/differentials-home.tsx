@@ -322,10 +322,15 @@ function MatchBadge({ label }: { label: string }) {
   );
 }
 
-function Chip({ children }: { children: string }) {
+function Chip({ children, className }: { children: string; className?: string }) {
   return (
-    <span className="inline-flex min-h-6 max-w-full items-center rounded-md bg-[color:var(--surface-subtle)] px-2 text-2xs font-bold leading-none text-[color:var(--text-muted)]">
-      <span className="truncate">{children}</span>
+    <span
+      className={cn(
+        "inline-flex min-h-6 min-w-0 max-w-full items-center rounded-md bg-[color:var(--surface-subtle)] px-2 text-2xs font-bold leading-none text-[color:var(--text-muted)]",
+        className,
+      )}
+    >
+      <span className="min-w-0 truncate">{children}</span>
     </span>
   );
 }
@@ -451,42 +456,46 @@ function MobileResultCard({
   selected: boolean;
   onToggle?: () => void;
 }) {
-  const Icon = result.icon;
-
   return (
-    <article className="grid gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]">
-      <div className="grid grid-cols-[2rem_2.75rem_minmax(0,1fr)_2.75rem] items-start gap-2">
-        <span className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-sm font-extrabold text-[color:var(--text-muted)]">
+    <article
+      data-testid="differential-mobile-result-card"
+      className="grid gap-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
+    >
+      <div className="grid grid-cols-[2rem_minmax(0,1fr)_2.75rem] items-start gap-2.5">
+        <span
+          data-testid="differential-mobile-result-rank"
+          className="grid h-8 w-8 place-items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-sm font-extrabold text-[color:var(--text-muted)]"
+        >
           {index + 1}
         </span>
-        <Link
-          href={result.href}
-          aria-label={`Open ${result.title}`}
-          className="grid size-tap place-items-center rounded-md text-[color:var(--text-muted)]"
-        >
-          <Icon className="h-6 w-6 stroke-[1.75]" aria-hidden />
-        </Link>
         <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <Link
-              href={result.href}
-              className="inline-flex min-h-tap min-w-0 items-center text-sm font-extrabold leading-5 text-[color:var(--text-heading)]"
-            >
-              <span className="line-clamp-2">{result.title}</span>
-            </Link>
+          <Link
+            href={result.href}
+            className="block min-w-0 text-sm font-extrabold leading-5 text-[color:var(--text-heading)]"
+          >
+            <span className="line-clamp-2">{result.title}</span>
+          </Link>
+          <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2">
             <StatusBadge status={result.status} />
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
             <MatchBadge label={result.matchLabel} />
           </div>
+          {result.subtitle ? (
+            <p className="mt-1.5 line-clamp-2 text-xs font-medium leading-4 text-[color:var(--text-muted)]">
+              {result.subtitle}
+            </p>
+          ) : null}
         </div>
         {onToggle ? <SelectionToggle selected={selected} onClick={onToggle} label={result.title} /> : <span />}
       </div>
-      <div className="flex max-w-full flex-wrap gap-1.5">
+      <div className="flex min-w-0 max-w-full flex-wrap gap-1.5">
         {result.tags.slice(0, 2).map((tag) => (
-          <Chip key={`${result.id}-${tag}`}>{tag}</Chip>
+          <Chip key={`${result.id}-${tag}`} className="max-w-full px-2.5 py-1 text-xs font-semibold leading-snug">
+            {tag}
+          </Chip>
         ))}
-        {result.tags.length > 2 ? <Chip>{`+${result.tags.length - 2}`}</Chip> : null}
+        {result.tags.length > 2 ? (
+          <Chip className="shrink-0 px-2.5 py-1 text-xs font-semibold leading-snug">{`+${result.tags.length - 2}`}</Chip>
+        ) : null}
       </div>
     </article>
   );
@@ -539,12 +548,12 @@ function BestAnswerCard({
           </span>
           <div className="min-w-0">
             <p className="text-2xs font-extrabold uppercase text-[color:var(--text-muted)]">Best answer</p>
-            <h2 className="mt-1 text-lg font-extrabold leading-6">
+            <h2 className={cn("mt-1 font-extrabold leading-6", compact ? "text-base" : "text-lg")}>
               <Link
                 href={best.href}
                 className="text-[color:var(--text-heading)] transition hover:text-[color:var(--clinical-accent)]"
               >
-                {best.title}
+                <span className={cn(compact && "line-clamp-2")}>{best.title}</span>
               </Link>
             </h2>
             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -863,7 +872,7 @@ function SearchResultsView({
       // this results canvas into a nested phone scrollport, stealing scroll from
       // #main-content. The fixed compare FAB and shell hide-on-scroll both assume
       // #main-content owns vertical scroll.
-      className="mx-auto grid w-full max-w-[86rem] min-w-0 gap-3 overflow-x-clip px-3 pb-[calc(10rem+env(safe-area-inset-bottom))] min-[390px]:gap-4 sm:px-4 lg:px-0 lg:pb-0"
+      className="mx-auto grid w-full max-w-[86rem] min-w-0 gap-3 overflow-x-clip px-4 pb-[calc(12.5rem+env(safe-area-inset-bottom))] min-[390px]:gap-4 sm:px-4 lg:px-0 lg:pb-0"
     >
       {/* Query context lives here on every breakpoint — on phones this is the
           only place the submitted query is visible above the fold. */}
@@ -1059,6 +1068,11 @@ function SearchResultsView({
                 // Best-match styling remains tied to relevance while the row
                 // number follows the user's chosen presentation order.
                 const isBest = result.kind === best.kind && result.id === best.id;
+                // Phone list hides the best-answer duplicate, so ranks must
+                // skip that row or the first visible card starts at 2/3.
+                const mobileIndex = visibleResults
+                  .slice(0, displayIndex)
+                  .filter((candidate) => !(candidate.kind === best.kind && candidate.id === best.id)).length;
                 return (
                   // The best answer is already featured above the phone list,
                   // so its ranked duplicate only renders from the desktop
@@ -1077,7 +1091,7 @@ function SearchResultsView({
                       <div className="lg:hidden">
                         <MobileResultCard
                           result={result}
-                          index={displayIndex}
+                          index={mobileIndex}
                           selected={selectedIds.has(result.id)}
                           onToggle={result.kind === "diagnosis" ? () => toggleSelected(result.id) : undefined}
                         />
