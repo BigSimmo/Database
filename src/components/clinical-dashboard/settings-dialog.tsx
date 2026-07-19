@@ -517,6 +517,7 @@ export function SettingsDialog({
                 icon={Globe2}
                 label="Jurisdiction"
                 description="Prioritises guidance relevant to your region."
+                notYetActive
                 htmlFor="settings-jurisdiction"
               >
                 <SettingsSelect
@@ -530,6 +531,7 @@ export function SettingsDialog({
                 icon={CircleUserRound}
                 label="Default population"
                 description="Frames answers for your usual patient group."
+                notYetActive
                 htmlFor="settings-population"
               >
                 <SettingsSelect
@@ -545,6 +547,7 @@ export function SettingsDialog({
                 description={
                   ANSWER_STYLE_OPTIONS.find((option) => option.value === preferences.answerStyle)?.description
                 }
+                notYetActive
                 labelId="settings-answer-style-label"
                 stacked
               >
@@ -593,6 +596,7 @@ export function SettingsDialog({
                 icon={PanelTop}
                 label="Default landing view"
                 description="The mode shown when you open the app."
+                notYetActive
                 labelId="settings-landing-label"
                 stacked
               >
@@ -618,6 +622,7 @@ export function SettingsDialog({
             <SettingsGroup>
               <SettingsToggleField
                 icon={PanelTop}
+                notYetActive
                 label="Recent searches on home"
                 description="Surface your latest questions when you land."
                 checked={preferences.showRecentOnHome}
@@ -625,6 +630,7 @@ export function SettingsDialog({
               />
               <SettingsToggleField
                 icon={Sparkles}
+                notYetActive
                 label="Saved protocols on home"
                 description="Keep pinned protocols within easy reach."
                 checked={preferences.showProtocolsOnHome}
@@ -632,6 +638,7 @@ export function SettingsDialog({
               />
               <SettingsToggleField
                 icon={BookOpen}
+                notYetActive
                 label="Compact citations"
                 description="Show tighter inline source references."
                 checked={preferences.compactCitations}
@@ -645,6 +652,7 @@ export function SettingsDialog({
             <SettingsGroup>
               <SettingsToggleField
                 icon={Stethoscope}
+                notYetActive
                 label="Guideline updates"
                 description="When source guidance you rely on changes."
                 checked={preferences.notifyGuidelineUpdates}
@@ -652,6 +660,7 @@ export function SettingsDialog({
               />
               <SettingsToggleField
                 icon={Sparkles}
+                notYetActive
                 label="Product news"
                 description="Occasional updates about new features."
                 checked={preferences.notifyProductNews}
@@ -659,6 +668,7 @@ export function SettingsDialog({
               />
               <SettingsToggleField
                 icon={Bell}
+                notYetActive
                 label="Saved item changes"
                 description="Alerts about items you have saved."
                 checked={preferences.notifySavedChanges}
@@ -780,6 +790,20 @@ function IconBadge({ icon: Icon }: { icon: LucideIcon }) {
   );
 }
 
+/**
+ * Honesty marker for preference controls that persist a choice but are not yet
+ * consumed anywhere in the app (audit 2026-07-19 P2: inert settings presented as
+ * live). Remove the marker from a control only when something actually reads its
+ * preference and changes behavior.
+ */
+function NotYetActiveBadge() {
+  return (
+    <span className="mt-1 inline-flex w-fit items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-2 py-0.5 text-xs font-semibold leading-4 text-[color:var(--text-muted)]">
+      Saved for later — not active yet
+    </span>
+  );
+}
+
 function SettingsField({
   icon,
   label,
@@ -788,6 +812,7 @@ function SettingsField({
   htmlFor,
   labelId,
   stacked = false,
+  notYetActive = false,
   children,
 }: {
   icon: LucideIcon;
@@ -797,6 +822,7 @@ function SettingsField({
   htmlFor?: string;
   labelId?: string;
   stacked?: boolean;
+  notYetActive?: boolean;
   children?: ReactNode;
 }) {
   const LabelTag = htmlFor ? "label" : "span";
@@ -821,6 +847,7 @@ function SettingsField({
           {description ? (
             <p className="mt-0.5 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{description}</p>
           ) : null}
+          {notYetActive ? <NotYetActiveBadge /> : null}
         </div>
       </div>
       {children ? (
@@ -919,12 +946,14 @@ function SettingsToggleField({
   description,
   checked,
   onChange,
+  notYetActive = false,
 }: {
   icon: LucideIcon;
   label: string;
   description?: string;
   checked: boolean;
   onChange: (checked: boolean) => void;
+  notYetActive?: boolean;
 }) {
   return (
     <div
@@ -938,6 +967,7 @@ function SettingsToggleField({
           {description ? (
             <p className="mt-0.5 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{description}</p>
           ) : null}
+          {notYetActive ? <NotYetActiveBadge /> : null}
         </div>
       </div>
       <Switch checked={checked} onChange={onChange} ariaLabel={label} />
