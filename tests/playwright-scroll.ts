@@ -1,4 +1,17 @@
-import type { Page } from "playwright/test";
+import type { Locator, Page } from "playwright/test";
+
+/**
+ * Phone dock clearance in CSS pixels for #main-content.
+ * GlobalSearchShell uses a flex spacer (padding is omitted from scrollHeight on
+ * column flex scrollports); ClinicalDashboard still uses padding-bottom.
+ */
+export async function readMobileComposerReservePx(main: Locator): Promise<number> {
+  return main.evaluate((node) => {
+    const spacer = node.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-spacer"]');
+    if (spacer) return spacer.getBoundingClientRect().height;
+    return Number.parseFloat(window.getComputedStyle(node).paddingBottom);
+  });
+}
 
 /** Scroll the app's primary phone surface (#main-content when present, else the document). */
 export async function scrollPrimarySurface(page: Page, top: number) {

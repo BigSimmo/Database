@@ -737,16 +737,18 @@ function GlobalStandaloneSearchShellClient({
             // window does the actual scrolling — silently disabling every
             // position:sticky descendant (e.g. the document viewer rail).
             "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
-            // Phone (max-sm): collapse-aware --mobile-composer-reserve.
+            // Phone clearance uses a flex spacer sibling below (not padding):
+            // padding-bottom on a column flex scrollport is omitted from
+            // scrollHeight, so long pages parked content under the dock.
             // sm+: static desktop clearance; use var(--safe-area-bottom) so tests
             // can simulate insets without depending on env() in Chromium.
             !reservesFloatingComposer
-              ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
+              ? "sm:pb-8"
               : searchMode === "answer"
-                ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+var(--safe-area-bottom))]"
+                ? "sm:pb-[calc(9rem+var(--safe-area-bottom))]"
                 : useCompactBottomSearch
-                  ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
-                  : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+var(--safe-area-bottom))]",
+                  ? "sm:pb-8"
+                  : "sm:pb-[calc(9rem+var(--safe-area-bottom))]",
           )}
         >
           <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col">
@@ -756,6 +758,12 @@ function GlobalStandaloneSearchShellClient({
               <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
             </ClientHydrationBoundary>
           </div>
+          <div
+            aria-hidden="true"
+            data-testid="mobile-composer-reserve-spacer"
+            className="pointer-events-none max-sm:block max-sm:shrink-0 sm:hidden"
+            style={{ height: "var(--mobile-composer-reserve)" }}
+          />
         </div>
       </div>
 

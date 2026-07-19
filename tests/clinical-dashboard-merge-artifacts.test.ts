@@ -40,10 +40,16 @@ const applicationsLauncherSource = readFileSync(
   resolve(process.cwd(), "src/components/applications-launcher-page.tsx"),
   "utf8",
 );
-const serviceDetailSource = readFileSync(resolve(process.cwd(), "src/components/services/service-detail-page.tsx"), "utf8");
+const serviceDetailSource = readFileSync(
+  resolve(process.cwd(), "src/components/services/service-detail-page.tsx"),
+  "utf8",
+);
 const formDetailSource = readFileSync(resolve(process.cwd(), "src/components/forms/form-detail-page.tsx"), "utf8");
 const specifierUiSource = readFileSync(resolve(process.cwd(), "src/components/specifiers/specifier-ui.tsx"), "utf8");
-const formulationUiSource = readFileSync(resolve(process.cwd(), "src/components/formulation/formulation-ui.tsx"), "utf8");
+const formulationUiSource = readFileSync(
+  resolve(process.cwd(), "src/components/formulation/formulation-ui.tsx"),
+  "utf8",
+);
 const favouritesLibrarySource = readFileSync(
   resolve(process.cwd(), "src/components/clinical-dashboard/favourites-command-library-page.tsx"),
   "utf8",
@@ -120,35 +126,35 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalSearchShellSource).toContain("resolveShellVisibleMobileComposerReserve");
     expect(globalSearchShellSource).toContain("resolveMobileComposerReserve(");
     expect(globalSearchShellSource).toContain('from "@/components/clinical-dashboard/mobile-composer-reserve"');
-    expect(globalSearchShellSource).not.toContain(
-      'bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"',
-    );
+    expect(globalSearchShellSource).not.toContain('bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"');
     expect(globalSearchShellSource).not.toContain('bottomComposerHidden ? "max(0.75rem, var(--safe-area-bottom))"');
     expect(globalSearchShellSource).not.toContain('"max(2rem, var(--safe-area-bottom))"');
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = !reservesFloatingComposer");
     expect(globalSearchShellSource).not.toContain("const mobileComposerReserve = phoneScrollHide.hidden");
     expect(globalSearchShellSource).toContain("sm:pb-[calc(9rem+var(--safe-area-bottom))]");
     expect(globalSearchShellSource).not.toContain("sm:pb-[calc(9rem+env(safe-area-inset-bottom))]");
+    // Phone shell clearance is a flex spacer (padding is omitted from scrollHeight
+    // on a column flex scrollport).
+    expect(globalSearchShellSource).toContain('data-testid="mobile-composer-reserve-spacer"');
+    expect(globalSearchShellSource).toContain('height: "var(--mobile-composer-reserve)"');
+    expect(globalSearchShellSource).not.toContain("max-sm:pb-[var(--mobile-composer-reserve)]");
 
     expect(clinicalDashboardSource).toContain("resolveDashboardVisibleMobileComposerReserve");
     expect(clinicalDashboardSource).toContain("resolveMobileComposerReserve(");
     expect(clinicalDashboardSource).toContain('from "@/components/clinical-dashboard/mobile-composer-reserve"');
-    expect(clinicalDashboardSource).not.toContain(
-      'bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"',
-    );
+    expect(clinicalDashboardSource).not.toContain('bottomComposerHidden ? "max(0.75rem, env(safe-area-inset-bottom))"');
     expect(clinicalDashboardSource).toContain('"max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-24"');
 
     expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
     expect(documentViewerSource).toContain('"max-sm:pb-3"');
     expect(documentViewerSource).toContain('"max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"');
     // Hidden document content must not reintroduce Safari toolbar inset padding.
-    expect(documentViewerSource).not.toMatch(
-      /composerScrollHidden\s*\?\s*["']max-sm:pb-\[calc\([^"']*safe-area/,
-    );
+    expect(documentViewerSource).not.toMatch(/composerScrollHidden\s*\?\s*["']max-sm:pb-\[calc\([^"']*safe-area/);
     expect(documentViewerSource).toContain("max-sm:duration-[240ms]");
     expect(documentViewerSource).toContain("max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]");
     expect(globalStylesSource).toContain("@media (max-width: 639px) and (prefers-reduced-motion: reduce)");
     expect(globalStylesSource).toContain('#main-content[data-bottom-composer-hidden="true"]');
+    expect(globalStylesSource).toContain('[data-testid="mobile-composer-reserve-spacer"]');
     expect(globalStylesSource).toContain("--phone-dock-differentials-compare-clearance: 12.5rem");
     expect(globalStylesSource).toContain("var(--phone-dock-differentials-compare-clearance)");
     // Child pages must not stack a second dock-sized safe-area pad under the
@@ -157,7 +163,9 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(differentialsHomeSource).not.toContain("pb-[calc(12.5rem+env(safe-area-inset-bottom))]");
     expect(applicationsLauncherSource).not.toContain("pb-[calc(12rem+env(safe-area-inset-bottom))]");
     expect(serviceDetailSource).not.toContain("pb-[calc(5.5rem+env(safe-area-inset-bottom))]");
+    expect(serviceDetailSource).toContain("max-sm:min-h-0");
     expect(formDetailSource).not.toContain("pb-[calc(2rem+env(safe-area-inset-bottom))]");
+    expect(formDetailSource).toContain("max-sm:min-h-0");
     expect(specifierUiSource).not.toContain("pb-[calc(7rem+env(safe-area-inset-bottom))]");
     expect(formulationUiSource).not.toContain("pb-[calc(7rem+env(safe-area-inset-bottom))]");
     expect(favouritesLibrarySource).not.toContain("pb-[calc(6rem+env(safe-area-inset-bottom))]");
