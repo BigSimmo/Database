@@ -779,7 +779,6 @@ export function ApplicationsLauncherWorkspace({
       aria-labelledby="tools-home-title"
       className={cn(
         "mx-auto w-full max-w-[90rem] overflow-x-hidden px-4 pb-8 text-[color:var(--text)] sm:px-6 lg:px-8",
-        "pb-[calc(12rem+env(safe-area-inset-bottom))] sm:pb-8",
         "pt-5 sm:pt-8 lg:pt-10",
         className,
       )}

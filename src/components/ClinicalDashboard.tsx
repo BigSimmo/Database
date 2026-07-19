@@ -91,6 +91,10 @@ import {
 } from "@/components/clinical-dashboard/answer-progress";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import {
+  resolveDashboardVisibleMobileComposerReserve,
+  resolveMobileComposerReserve,
+} from "@/components/clinical-dashboard/mobile-composer-reserve";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
@@ -3245,19 +3249,16 @@ export function ClinicalDashboard({
   const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
-  const visibleMobileComposerReserve =
-    searchMode === "answer"
-      ? answerFollowUpSuggestions.length > 0
-        ? "calc(7.5rem + var(--safe-area-bottom))"
-        : "calc(5.25rem + var(--safe-area-bottom))"
-      : differentialsCompareAddonActive
-        ? "calc(8.75rem + var(--safe-area-bottom))"
-        : compactMobileBottomSearch
-          ? "calc(5rem + var(--safe-area-bottom))"
-          : "calc(5.25rem + var(--safe-area-bottom))";
-  const mobileComposerReserve = bottomComposerHidden
-    ? "max(0.75rem, env(safe-area-inset-bottom))"
-    : visibleMobileComposerReserve;
+  // Hidden dock pad must stay at 0.75rem — Safari toolbar safe-area recreates a blank band.
+  const mobileComposerReserve = resolveMobileComposerReserve(
+    bottomComposerHidden,
+    resolveDashboardVisibleMobileComposerReserve({
+      searchMode,
+      hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
+      differentialsCompareAddonActive,
+      compactMobileBottomSearch,
+    }),
+  );
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : CircleAlert}

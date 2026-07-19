@@ -28,6 +28,11 @@ import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
 import { landingModeForPreference, readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import {
+  isDocumentViewerOwnedRoute,
+  resolveMobileComposerReserve,
+  resolveShellVisibleMobileComposerReserve,
+} from "@/components/clinical-dashboard/mobile-composer-reserve";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
@@ -341,18 +346,9 @@ function GlobalStandaloneSearchShellClient({
     (!isInfoPage || isToolDetailWithFooterSearch(pathname));
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
   // Standalone mode homes portal the composer into the hero (in-flow at every
-  // width), so phones need no bottom-dock clearance there.
-  const visibleMobileComposerReserve = !shouldShowSearchComposer
-    ? "max(2rem, var(--safe-area-bottom))"
-    : isStandaloneModeHome
-      ? "2rem"
-      : searchMode === "answer"
-        ? "calc(9rem + var(--safe-area-bottom))"
-        : differentialsCompareAddonActive
-          ? "calc(8.75rem + var(--safe-area-bottom))"
-          : useCompactBottomSearch
-            ? "calc(5.5rem + var(--safe-area-bottom))"
-            : "calc(9rem + var(--safe-area-bottom))";
+  // width), so phones need no bottom-dock clearance there. Document viewer
+  // routes own their own floating composer, so the shell keeps only a small pad
+  // and lets DocumentViewer manage visible-dock clearance.
   // Release the large bottom reserve only when the phone bottom composer is
   // actually hidden (MasterSearchHeader's bottomComposerHidden). Header-only
   // scroll-hide, pinned compare addons, open menus/sheets, and composer focus
@@ -361,9 +357,17 @@ function GlobalStandaloneSearchShellClient({
   // Reusing that inset after the app composer hides recreates a toolbar-sized
   // blank band, so the hidden state intentionally keeps only a small content
   // pad. Interactive composer chrome still receives the full inset above.
-  const mobileComposerReserve = bottomComposerHidden
-    ? "max(0.75rem, env(safe-area-inset-bottom))"
-    : visibleMobileComposerReserve;
+  const mobileComposerReserve = resolveMobileComposerReserve(
+    bottomComposerHidden,
+    resolveShellVisibleMobileComposerReserve({
+      shouldShowSearchComposer,
+      documentViewerOwnedRoute: isDocumentViewerOwnedRoute(pathname),
+      isStandaloneModeHome,
+      searchMode,
+      differentialsCompareAddonActive,
+      useCompactBottomSearch,
+    }),
+  );
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -739,17 +743,28 @@ function GlobalStandaloneSearchShellClient({
             // auto, which turns #main-content into the sticky scrollport while the
             // window does the actual scrolling — silently disabling every
             // position:sticky descendant (e.g. the document viewer rail).
-            "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
+            // Phone: keep a block formatting scrollport (not a column flex). A
+            // flex-1 child overflowed past a sibling spacer without extending
+            // scrollHeight, which parked long pages under the visible dock.
+            "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:min-h-0 max-sm:flex-1 max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
+            // sm+: static desktop clearance; use var(--safe-area-bottom) so tests
+            // can simulate insets without depending on env() in Chromium.
             !reservesFloatingComposer
-              ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
+              ? "sm:pb-8"
               : searchMode === "answer"
-                ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]"
+                ? "sm:pb-[calc(9rem+var(--safe-area-bottom))]"
                 : useCompactBottomSearch
-                  ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
-                  : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]",
+                  ? "sm:pb-8"
+                  : "sm:pb-[calc(9rem+var(--safe-area-bottom))]",
           )}
         >
-          <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col">
+          {/*
+            Phone dock clearance lives on this inner pad (not #main-content):
+            padding on the scrollport itself is omitted from scrollHeight in some
+            flex/overflow combinations. The inner block box includes padding in
+            its height, so end-of-page content clears the visible dock.
+          */}
+          <div data-testid="mobile-composer-reserve-pad" className="max-sm:pb-[var(--mobile-composer-reserve)]">
             <ClientHydrationBoundary
               fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
             >
