@@ -113,10 +113,8 @@ const candidateIconBySlug: Array<[string, LucideIcon]> = [
 ];
 
 /**
- * Mobile/tablet floating compare action. Portals into the search composer's
- * addon slot so it stays anchored beside the active result controls, but
- * renders as a self-contained floating pill so it reads as a batch-selection
- * action rather than composer chrome.
+ * Mobile/tablet compare action. Portals into the search composer's addon slot
+ * so it sits above the search pill as dock chrome and hides/reveals with it.
  */
 function DifferentialsMobileCompareBar({
   selectedCount,
