@@ -145,6 +145,21 @@ describe("provider-safe test environment", () => {
     expect(config).toContain('exclude: liveProviderTests ? [] : ["tests/**/*.live.test.ts"]');
   });
 
+  it("keeps residual source surfaces visible without lowering the core coverage floor", () => {
+    const config = readFileSync(new URL("../vitest.config.mts", import.meta.url), "utf8");
+    for (const pattern of [
+      '"src/**/*.{ts,tsx}"',
+      '"scripts/**/*.{ts,mjs,cjs}"',
+      '"worker/**/*.ts"',
+      '"supabase/functions/**/*.ts"',
+    ]) {
+      expect(config).toContain(pattern);
+    }
+    expect(config).toContain('"src/{lib/**/*.ts,app/**/route.ts,components/**/*.{ts,tsx}}"');
+    expect(config).not.toContain('"src/app/**/{page,layout,loading,error,not-found}.tsx"');
+    expect(config).not.toContain('"src/**/*mockup*"');
+  });
+
   it("refuses the live-test command before collection when permission is absent", () => {
     const result = spawnSync(process.execPath, ["scripts/run-live-tests.mjs"], {
       cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
@@ -168,6 +183,7 @@ describe("provider-safe test environment", () => {
     const runner = readFileSync(new URL("../scripts/run-playwright.mjs", import.meta.url), "utf8");
     const baseUrl = readFileSync(new URL("../scripts/playwright-base-url.ts", import.meta.url), "utf8");
     const ragRunner = readFileSync(new URL("../scripts/eval-rag-offline.mjs", import.meta.url), "utf8");
+    const playwrightConfig = readFileSync(new URL("../playwright.config.ts", import.meta.url), "utf8");
     const packageJson = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
       scripts: Record<string, string>;
     };
@@ -186,6 +202,7 @@ describe("provider-safe test environment", () => {
     expect(packageJson.scripts["test:e2e:regression"]).toContain('--grep-invert "@critical|@quarantine|@mockup"');
     expect(baseUrl.indexOf("if (!allowEnsure)")).toBeLessThan(baseUrl.indexOf("findExistingLocalProjectUrl();"));
     expect(ragRunner).toContain("cwd: projectRoot");
+    expect(playwrightConfig).toContain("visual-artifacts");
   });
 
   it("uses webpack when shared worktree dependencies resolve outside the project", () => {
