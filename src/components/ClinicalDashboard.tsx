@@ -114,7 +114,6 @@ import {
   type DocumentDrawerStatusFilter,
   type DocumentPagination,
   type LabelReviewMutationBody,
-  recentQueryStorageKey,
 } from "@/components/clinical-dashboard/dashboard-contracts";
 
 const DifferentialsHome = dynamic(
@@ -171,7 +170,7 @@ const DocumentSearchResultsPanel = dynamic(
   { ssr: false },
 );
 
-import { clearLegacyRecentQueries, demoRecentQueryOwnerId } from "@/components/clinical-dashboard/recent-query-storage";
+import { clearLegacyRecentQueries, demoRecentQueryOwnerId, recentQueryStorageKey } from "@/lib/recent-query-storage";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
 import { isWeakRelevance } from "@/components/clinical-dashboard/relevance";
 import {

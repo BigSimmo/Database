@@ -88,6 +88,15 @@ jobs:
       - name: PR policy self-test
         run: npm run check:pr-policy
 
+      - name: Codebase index coverage
+        run: npm run docs:check-index
+
+      - name: Dependency and duplicate-export hygiene
+        run: npm run check:knip
+
+      - name: Maintainability hotspot budgets
+        run: npm run check:maintainability-budgets
+
       - name: Format check
         run: npm run format:check
 

@@ -56,11 +56,15 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 | `/differentials`, `/diagnoses`, `/presentations`                                                          | `src/app/differentials/`               |
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/dsm/`                         |
 | `/documents/search`, `/source`, `/evidence`, `/[id]`                                                      | `src/app/documents/`                   |
+| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                 | `src/app/factsheets/`                  |
 | `/favourites`                                                                                             | `src/app/favourites/page.tsx`          |
 | `/forms`, `/forms/[slug]`                                                                                 | `src/app/forms/`                       |
 | `/medications`, `/medications/[slug]`                                                                     | `src/app/medications/`                 |
+| `/privacy`                                                                                                | `src/app/privacy/page.tsx`             |
+| `/reference/colour-coding`                                                                                | `src/app/reference/`                   |
 | `/services`, `/services/[slug]`                                                                           | `src/app/services/`                    |
 | `/therapy-compass`                                                                                        | `src/app/therapy-compass/`             |
+| `/tools`                                                                                                  | `src/app/tools/`                       |
 | `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`      | `src/app/specifiers/`                  |
 | `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map` | `src/app/formulation/`                 |
 | `/mockups/*`                                                                                              | `src/app/mockups/` (404 in production) |
@@ -70,6 +74,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 | Area          | Routes                                                                                                              | Entry files                                                     |
 | ------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Account       | `/api/account/favourites`, `/api/account/preferences`                                                               | `account/`                                                      |
 | Answers       | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                         | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
 | Search        | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                   | `search/`                                                       |
 | Upload        | `/api/upload`                                                                                                       | `upload/route.ts`                                               |
@@ -158,7 +163,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### Schema tables
 
-`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `medication_records`, `differential_records`, `source_review_events`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`
+`documents`, `document_pages`, `document_images`, `document_chunks`, `document_embedding_fields`, `document_index_units`, `document_table_facts`, `document_labels`, `document_summaries`, `document_sections`, `document_memory_cards`, `document_index_quality`, `document_title_words`, `document_publication_approvals`, `ingestion_jobs`, `ingestion_job_stages`, `indexing_v3_agent_jobs`, `import_batches`, `image_caption_cache`, `rag_queries`, `rag_query_misses`, `rag_aliases`, `rag_response_cache`, `rag_retrieval_logs`, `rag_visual_eval_cases`, `rag_visual_eval_runs`, `rag_answer_feedback`, `clinical_registry_records`, `clinical_registry_record_sources`, `medication_records`, `differential_records`, `source_review_events`, `user_favourites`, `user_preferences`, `api_rate_limits`, `api_rate_limit_subjects`, `audit_logs`, `storage_cleanup_jobs`
 
 **Storage buckets:** `clinical-documents`, `clinical-images` (private)
 

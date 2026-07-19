@@ -8,6 +8,14 @@ This document turns the current process review into phased, durable repo practic
 - **Provider-gated RAG safety ideas:** the same stale worktree contained conservative answer-quality thresholds, an evaluation cost-cap preflight, production-safety validation, deep-health assessment, and citation/vector proof tests. Its 754-line retrieval migration and route changes conflict with the later public-title privacy and migration chain and must not be replayed. If explicitly approved, rescope only the still-relevant preflight utilities and tests against current `main`; keep live OpenAI/Supabase validation separate.
 - **Semantic reranking rollout debt:** PR #901 keeps `RAG_SEMANTIC_RERANK_ENABLED=false`. Do not enable it until the provider-backed 36/36 retrieval-quality gate and an ambiguity-focused canary are explicitly approved and recorded.
 
+## P3 residual-debt controls (2026-07-19)
+
+- `docs:check-index` is now a local and required static-PR guard; product-route and schema-table additions must update `docs/codebase-index.md` in the same change.
+- `check:knip` blocks unused direct dependencies, unlisted or unresolved imports, and duplicate exports. Playwright's plugin is disabled because Knip already treats every `tests/**/*.spec.ts` file and both config files as entries, while executing the protected configs outside the repository runner is intentionally forbidden. `check:knip:exports` preserves the current 230 unused-export and 116 unused-type findings as advisory triage; do not bulk-delete those symbols without caller and runtime evidence.
+- Unit coverage inventories pages/layouts, mockups, scripts, the TypeScript worker, and Supabase Edge Functions. The historical core-source threshold remains unchanged and scoped to its previous file set, so the broader zero-coverage inventory cannot dilute the established floor.
+- The required Chromium PR job also runs the dashboard/document visual-artifact smoke. Quarantined and mockup journeys remain advisory, while full cross-browser coverage remains in the release matrix.
+- `check:maintainability-budgets` prevents the four current hotspots from growing beyond their post-remediation 2026-07-19 baselines: `ClinicalDashboard.tsx` 4,272 lines, `rag.ts` 5,238, `DocumentViewer.tsx` 3,166, and `indexing-v3-agent/index.ts` 2,191. A budget breach must be handled by a cohesive, separately verified extraction; do not raise a ceiling to land unrelated behavior.
+
 ## Staging tenancy evidence
 
 The provider-backed A/B tenancy regression is intentionally outside local and PR

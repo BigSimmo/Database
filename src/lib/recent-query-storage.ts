@@ -1,4 +1,4 @@
-import { recentQueryStorageKey } from "./dashboard-contracts";
+export const recentQueryStorageKey = "clinical-kb-recent-queries";
 
 export const demoRecentQueryOwnerId = "local-demo-session";
 

@@ -15,20 +15,19 @@ const config = {
       provider: "v8",
       reporter: ["text", "lcov"],
       reportsDirectory: "coverage",
-      include: ["src/lib/**/*.ts", "src/app/**/route.ts", "src/components/**/*.{ts,tsx}"],
-      exclude: [
-        "src/app/**/{page,layout,loading,error,not-found}.tsx",
-        // Design-exploration mockups are dev-only prototypes (see mockups/README.md).
-        "src/**/*mockup*",
-        "src/app/mockups/**",
-      ],
-      // Regression floor set just below current coverage. Raise over time; the point
-      // is to fail CI on a meaningful drop, not to chase a target.
+      // Inventory every executable TypeScript surface, including pages/layouts,
+      // mockups, scripts, the worker, and Supabase Edge Functions. The existing
+      // core threshold remains scoped to its historical files so expanding the
+      // inventory cannot weaken that regression floor.
+      include: ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs,cjs}", "worker/**/*.ts", "supabase/functions/**/*.ts"],
+      exclude: ["src/lib/supabase/database.types.ts"],
       thresholds: {
-        statements: 48,
-        branches: 38,
-        functions: 43,
-        lines: 50,
+        "src/{lib/**/*.ts,app/**/route.ts,components/**/*.{ts,tsx}}": {
+          statements: 48,
+          branches: 38,
+          functions: 43,
+          lines: 50,
+        },
       },
     },
     // Two projects run under one `npm run test` invocation. `extends: true` makes
