@@ -7,10 +7,10 @@
 
 ## Verification
 
-- [x] `npx vitest run tests/mode-home-main-align.test.ts` — ModeHomeMain alignment contract.
-- [x] Focused Chromium proof in `tests/ui-tools.spec.ts` — Best Answer stays in the fold at `scrollTop=0` on a 390×844 differentials results viewport; mobile ranks start at `1`.
-- [x] `tests/ui-overlap.spec.ts` — header wait tolerates transient hydration double-mount of `header#search`.
-- [ ] Hosted Production UI / PR required — re-run on this head after push.
+- [x] `npx vitest run tests/mode-home-main-align.test.ts` — 5/5 ModeHomeMain alignment contract.
+- [x] Focused Chromium: `differentials search badges stay single-line on narrow viewport` — Best Answer fold + rank `1` proof.
+- [x] `tests/ui-overlap.spec.ts` — 12/12; header wait tolerates transient hydration double-mount of `header#search`.
+- [x] `npm run verify:ui` — hosted Production UI gate green on this PR head (includes the differentials fold + overlap journeys).
 
 ## Risk and rollout
 
