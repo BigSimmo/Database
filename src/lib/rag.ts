@@ -549,6 +549,11 @@ function recordRetrievalLayer(
   }
 }
 
+/** Whether the current result set carries bounded second-stage release scores. */
+function resultsHaveReleaseRankScore(results: SearchResult[]) {
+  return results.some((result) => result.score_explanation?.releaseRankScore !== undefined);
+}
+
 /**
  * Keep the released result order on the live-eval-proven hybrid and bounded second-stage signals.
  *
@@ -557,6 +562,7 @@ function recordRetrievalLayer(
  * chunks to their strongest released-hybrid copy before sorting the distinct results.
  */
 export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSecondStageScore = false) {
+  const useSecondStageReleaseOrder = preferSecondStageScore && resultsHaveReleaseRankScore(results);
   const compareReleasedHybridStrength = (left: SearchResult, right: SearchResult) => {
     const leftHybrid = left.hybrid_score ?? left.similarity ?? 0;
     const rightHybrid = right.hybrid_score ?? right.similarity ?? 0;
@@ -569,7 +575,7 @@ export function stabilizeReleasedSearchOrder(results: SearchResult[], preferSeco
     return left.id.localeCompare(right.id);
   };
   const compareReleasedSearchOrder = (left: SearchResult, right: SearchResult) => {
-    if (!preferSecondStageScore) return compareReleasedHybridStrength(left, right);
+    if (!useSecondStageReleaseOrder) return compareReleasedHybridStrength(left, right);
     const leftReleaseScore = left.score_explanation?.releaseRankScore ?? left.hybrid_score ?? left.similarity ?? 0;
     const rightReleaseScore = right.score_explanation?.releaseRankScore ?? right.hybrid_score ?? right.similarity ?? 0;
     if (rightReleaseScore !== leftReleaseScore) return rightReleaseScore - leftReleaseScore;
@@ -613,7 +619,9 @@ function recordSearchScoreTelemetry(telemetry: SearchTelemetry, results: SearchR
     return;
   }
 
-  stabilizeReleasedSearchOrder(results, telemetry.second_stage_rerank_used === true);
+  const useSecondStageReleaseOrder = resultsHaveReleaseRankScore(results);
+  telemetry.second_stage_rerank_used = useSecondStageReleaseOrder;
+  stabilizeReleasedSearchOrder(results, useSecondStageReleaseOrder);
   const coverageScores = results
     .map((result) => Math.max(0, result.hybrid_score ?? result.similarity ?? 0))
     .sort((left, right) => right - left);

@@ -228,4 +228,43 @@ describe("second-stage rank score", () => {
     );
     expect(stabilized.map((item) => item.score_explanation?.finalRank)).toEqual([1, 2]);
   });
+
+  it("ignores sticky second-stage preference when the final result set has no releaseRankScore", () => {
+    const clinicallyOrdered = [
+      result({
+        id: "lithium-monitoring",
+        hybrid_score: 0.79,
+        score_explanation: explanation(0.9),
+      }),
+      result({
+        id: "cardiac-dose",
+        hybrid_score: 0.8,
+        score_explanation: explanation(0.5),
+      }),
+    ];
+
+    expect(stabilizeReleasedSearchOrder([...clinicallyOrdered], true).map((item) => item.id)).toEqual(
+      stabilizeReleasedSearchOrder([...clinicallyOrdered], false).map((item) => item.id),
+    );
+  });
+
+  it("only applies bounded release ordering when the current result set carries releaseRankScore", () => {
+    const withReleaseScore = result({
+      id: "release-ranked",
+      hybrid_score: 0.79,
+      score_explanation: { ...explanation(0.79), releaseRankScore: 0.95 },
+    });
+    const withoutReleaseScore = result({
+      id: "hybrid-leading",
+      hybrid_score: 0.84,
+      score_explanation: explanation(0.84),
+    });
+
+    expect(
+      stabilizeReleasedSearchOrder([withoutReleaseScore, withReleaseScore], true).map((item) => item.id),
+    ).toEqual(["release-ranked", "hybrid-leading"]);
+    expect(
+      stabilizeReleasedSearchOrder([withoutReleaseScore, withReleaseScore], false).map((item) => item.id),
+    ).toEqual(["hybrid-leading", "release-ranked"]);
+  });
 });
