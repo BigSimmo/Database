@@ -392,12 +392,16 @@ export function UniversalSearchCommandSurface({
   void commandScopes;
   void onCommandScopesChange;
   const config = searchCommandSurfaceConfig(modeId);
-  const crossModes = config
-    ? filterCrossModesForSession(config.crossModes, {
-        authenticated: canAccessFavourites,
-        demoMode,
-      })
-    : [];
+  const crossModes = useMemo(
+    () =>
+      config
+        ? filterCrossModesForSession(config.crossModes, {
+            authenticated: canAccessFavourites,
+            demoMode,
+          })
+        : [],
+    [canAccessFavourites, config, demoMode],
+  );
   const listboxId = useId();
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(-1);

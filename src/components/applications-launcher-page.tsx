@@ -22,7 +22,7 @@ import {
   Waves,
   type LucideIcon,
 } from "lucide-react";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
@@ -727,17 +727,14 @@ export function ApplicationsLauncherWorkspace({
     id: initialToolId(controlledQuery, launcherAppsForSession(canAccessFavourites)),
   }));
   const selectedId = detailOpen || selection.queryKey === normalizedQuery ? selection.id : queryDerivedId;
-
-  useEffect(() => {
-    if (activeFilter === "saved" && !canAccessFavourites) setActiveFilter("all");
-  }, [activeFilter, canAccessFavourites]);
+  const effectiveFilter: LauncherFilter = activeFilter === "saved" && !canAccessFavourites ? "all" : activeFilter;
 
   const filteredApps = useMemo(() => {
     return launcherApps.filter((app) => {
       const matchesFilter =
-        activeFilter === "all" ||
-        activeFilter === "more" ||
-        (activeFilter === "saved" ? app.area === "saved" : app.area === activeFilter);
+        effectiveFilter === "all" ||
+        effectiveFilter === "more" ||
+        (effectiveFilter === "saved" ? app.area === "saved" : app.area === effectiveFilter);
       const matchesQuery =
         !normalizedQuery ||
         [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, areaLabels[app.area], ...app.keywords]
@@ -747,7 +744,7 @@ export function ApplicationsLauncherWorkspace({
           .includes(normalizedQuery);
       return matchesFilter && matchesQuery;
     });
-  }, [activeFilter, launcherApps, normalizedQuery]);
+  }, [effectiveFilter, launcherApps, normalizedQuery]);
 
   const effectiveSelectedId = filteredApps.some((app) => app.id === selectedId)
     ? selectedId
@@ -756,8 +753,8 @@ export function ApplicationsLauncherWorkspace({
   // Label the results by the selected filter's visible label (mobile-only filters
   // like "More" included) so assistive tech hears which result set is active.
   const activeFilterLabel =
-    desktopFilters.find((filter) => filter.id === activeFilter)?.label ??
-    mobileFilters.find((filter) => filter.id === activeFilter)?.label;
+    desktopFilters.find((filter) => filter.id === effectiveFilter)?.label ??
+    mobileFilters.find((filter) => filter.id === effectiveFilter)?.label;
   const resultsPanelLabel =
     activeFilterLabel && activeFilterLabel !== copy.allSectionLabel
       ? `${activeFilterLabel} tools`
@@ -836,7 +833,7 @@ export function ApplicationsLauncherWorkspace({
           </div>
           <div className="flex items-center gap-3">
             <FilterTabs
-              activeFilter={activeFilter}
+              activeFilter={effectiveFilter}
               onFilterChange={setActiveFilter}
               canAccessFavourites={canAccessFavourites}
             />
