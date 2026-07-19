@@ -3873,9 +3873,9 @@ export function ClinicalDashboard({
                     />
                   ) : (
                     <>
-                      {searchMode !== "documents" ? (
+                      {searchMode === "documents" ? null : (
                         <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-                      ) : null}
+                      )}
                       <DocumentSearchResultsPanel
                         matches={documentMatches}
                         recordMatches={recordSearchMatches}
@@ -3892,9 +3892,7 @@ export function ClinicalDashboard({
                         setupWarning={setupWarning}
                         facets={searchFacets}
                         searchScope={searchMode === "documents" ? searchScope : null}
-                        sourceGovernanceWarnings={
-                          searchMode === "documents" ? sourceGovernanceWarnings : undefined
-                        }
+                        sourceGovernanceWarnings={searchMode === "documents" ? sourceGovernanceWarnings : undefined}
                         onScopeDocument={handleScopeDocument}
                         onAnswerFromDocument={handleAnswerFromDocument}
                         onOpenRecentDocuments={handleOpenRecentDocuments}
