@@ -1,6 +1,6 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
-import { scrollPrimarySurface } from "./playwright-scroll";
+import { readMobileComposerReservePx, scrollPrimarySurface } from "./playwright-scroll";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
@@ -3568,13 +3568,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
       document.documentElement.style.setProperty("--safe-area-bottom", "112px");
     });
     const viewerContent = page.getByTestId("document-viewer-content");
+    const main = page.locator("#main-content");
+    // DocumentViewer owns the floating dock. The shell must keep only a tiny
+    // pad even when Safari's toolbar inset is large — otherwise #932's
+    // max(2rem, --safe-area-bottom) shell reserve recreates the blank band
+    // under the viewer while the viewer itself collapses correctly.
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
     await expect
       .poll(async () =>
         viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
       )
       .toBeGreaterThan(250);
 
-    const main = page.locator("#main-content");
     await waitForReactEventHandler(main, "onScroll");
     await page.evaluate(() => {
       const main = window.document.getElementById("main-content");
@@ -3600,6 +3605,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
       )
       .toBeLessThanOrEqual(13);
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
 
     // Reappear on scroll up.
     await scrollPrimarySurface(page, 60);
@@ -3609,6 +3615,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
       )
       .toBeGreaterThan(250);
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
 
     // Keyboard focus inside the composer reveals it while hidden.
     await scrollPrimarySurface(page, 240);
@@ -3620,6 +3627,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
       )
       .toBeGreaterThan(250);
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
   });
 
   test("document questions use the shared answer stream with progress and cleaned bold formatting", async ({
