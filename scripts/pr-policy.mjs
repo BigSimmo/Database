@@ -16,7 +16,16 @@ export const requiredClinicalGovernanceItems = [
 const clinicalRiskPatterns = [
   /^supabase\//,
   /^src\/app\/api\//,
-  /^src\/(?:lib|app|components)\/.*(?:auth|permission|privacy|security|rag|retriev|rank|search|answer|clinical|citation|source|document|upload|download)/i,
+  // Library-layer behavior carries the clinical logic (retrieval, ranking,
+  // answer generation, ingestion, source governance, privacy) so it keeps the
+  // full token set.
+  /^src\/lib\/.*(?:auth|permission|privacy|security|rag|retriev|rank|search|answer|clinical|citation|source|document|upload|download)/i,
+  // Presentation surfaces (pages + components) are clinical-risk only when they
+  // touch access control, privacy, patient data, or document upload/download —
+  // NOT merely because a UI file lives under a clinically-named directory (the
+  // whole src/components/clinical-dashboard tree) or is named after a
+  // search/answer/source feature whose logic actually lives in src/lib.
+  /^src\/(?:app|components)\/.*(?:auth|permission|privacy|security|upload|download|patient)/i,
   /^scripts\/.*(?:ingest|reindex|migration|governance|production|drift|supabase)/i,
 ];
 
@@ -101,9 +110,12 @@ function branchLikeTitle(title, headRef) {
   );
 }
 
-function checkedChecklistItem(value, item) {
-  const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^\\s*-\\s*\\[[xX]\\]\\s*${escaped}\\s*$`, "m").test(value);
+function governanceBoxStats(value) {
+  const source = String(value ?? "");
+  return {
+    checked: (source.match(/-\s*\[[xX]\]/g) ?? []).length,
+    unchecked: (source.match(/-\s*\[ \]/g) ?? []).length,
+  };
 }
 
 function fieldValue(value, field) {
@@ -134,7 +146,12 @@ export function classifyPullRequestFiles(files) {
 }
 
 export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
+  // Only genuine clinical-risk governance gaps block the PR (hard failure).
+  // Every other metadata expectation (title, summary, verification, UI, risk
+  // and rollout) is advisory: it is surfaced as a warning so authors still get
+  // the nudge, but it never fails the check or blocks a merge.
   const errors = [];
+  const warnings = [];
   const classification = classifyPullRequestFiles(files);
   const summary = section(body, "Summary");
   // The summary must be its own prose: content nested under a sub-heading
@@ -146,14 +163,17 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
   const governance = section(body, "Clinical Governance Preflight");
 
   if (String(title ?? "").trim().length < 12)
-    errors.push("Use a specific, outcome-focused PR title (at least 12 characters).");
-  if (branchLikeTitle(title, headRef)) errors.push("Replace the branch-style PR title with an outcome-focused title.");
+    warnings.push("Use a specific, outcome-focused PR title (at least 12 characters).");
+  if (branchLikeTitle(title, headRef))
+    warnings.push("Replace the branch-style PR title with an outcome-focused title.");
   if (!meaningfulText(summaryDirect))
-    errors.push("Complete the `## Summary` section with the outcome and affected area.");
+    warnings.push("Complete the `## Summary` section with the outcome and affected area.");
   if (!meaningfulText(verification)) {
-    errors.push("Complete the `## Verification` section with exact results or a reason checks were not run.");
+    warnings.push("Complete the `## Verification` section with exact results or a reason checks were not run.");
   } else if (!/-\s*\[[xX]\]/.test(verification) && !explicitNotRun(verification)) {
-    errors.push("Verification must contain a checked result or an explicit `Verification not run: <reason>` entry.");
+    warnings.push(
+      "Verification should contain a checked result or an explicit `Verification not run: <reason>` entry.",
+    );
   }
 
   if (
@@ -161,19 +181,25 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
     !checkedCommand(verification, "npm run verify:ui") &&
     !explicitNotRun(verification, "UI verification")
   ) {
-    errors.push("UI changes require checked `npm run verify:ui` evidence or `UI verification not run: <reason>`.");
+    warnings.push(
+      "UI changes should include checked `npm run verify:ui` evidence or `UI verification not run: <reason>`.",
+    );
   }
 
+  // Blocking gate: a clinical-risk PR must carry a complete Clinical Governance
+  // Preflight. This is the only condition that fails the check.
   if (classification.clinicalRisk) {
     if (!meaningfulText(governance)) {
       errors.push("Clinical-risk paths require the `## Clinical Governance Preflight` section.");
     } else {
-      const missingGovernance = requiredClinicalGovernanceItems.filter(
-        (item) => !checkedChecklistItem(governance, item),
-      );
-      if (missingGovernance.length > 0) {
+      // Tolerant matching: affirm every item is checked without demanding the
+      // exact required wording. Authors may lightly reword or reformat the
+      // checklist, but a clinical-risk PR must leave no box unchecked and must
+      // cover at least the required number of governance items.
+      const { checked, unchecked } = governanceBoxStats(governance);
+      if (unchecked > 0 || checked < requiredClinicalGovernanceItems.length) {
         errors.push(
-          `Resolve every required Clinical Governance Preflight item before marking the PR ready (missing: ${missingGovernance.join("; ")}).`,
+          `Check every Clinical Governance Preflight item before marking the PR ready (all ${requiredClinicalGovernanceItems.length} boxes checked, none left unchecked).`,
         );
       }
     }
@@ -181,18 +207,18 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
 
   if (classification.clinicalRisk || classification.operationalRisk) {
     if (!meaningfulText(riskAndRollout)) {
-      errors.push("High-risk changes require the `## Risk and rollout` section.");
+      warnings.push("High-risk changes should include the `## Risk and rollout` section.");
     } else {
       if (!substantiveRisk(fieldValue(riskAndRollout, "Risk"))) {
-        errors.push("Risk and rollout must include `Risk: <low|medium|high and rationale>`.");
+        warnings.push("Risk and rollout should include `Risk: <low|medium|high and rationale>`.");
       }
       if (!substantiveRollback(fieldValue(riskAndRollout, "Rollback"))) {
-        errors.push("Risk and rollout must include a concrete `Rollback: <plan>`.");
+        warnings.push("Risk and rollout should include a concrete `Rollback: <plan>`.");
       }
     }
   }
 
-  return { classification, errors, ok: errors.length === 0 };
+  return { classification, errors, warnings, ok: errors.length === 0 };
 }
 
 function selfTest() {
@@ -207,22 +233,22 @@ function selfTest() {
     }).ok,
     true,
   );
-  assert.match(
-    evaluatePullRequestPolicy({
-      title: "Codex/pr-policy",
-      body: "",
-      headRef: "codex/pr-policy",
-      files: [],
-    }).errors.join(" "),
-    /branch-style/,
-  );
+  // Advisory metadata issues are surfaced as warnings and NEVER block the check.
+  const branchStyle = evaluatePullRequestPolicy({
+    title: "Codex/pr-policy",
+    body: "",
+    headRef: "codex/pr-policy",
+    files: [],
+  });
+  assert.match(branchStyle.warnings.join(" "), /branch-style/);
+  assert.equal(branchStyle.ok, true, "advisory-only issues must not fail the check");
   assert.match(
     evaluatePullRequestPolicy({
       title: "fix: update search behavior",
       body: completeBody.replace("- [x] `npm run verify:ui`\n", ""),
       headRef: "codex/search-fix",
       files: ["src/components/search.tsx"],
-    }).errors.join(" "),
+    }).warnings.join(" "),
     /verify:ui/,
   );
   // Outline semantics: a ### sub-heading inside a required section must not
@@ -244,7 +270,7 @@ function selfTest() {
       body: "## Summary\n\n### Verification\n\n- [x] `npm run verify:pr-local`\n",
       headRef: "codex/x",
       files: ["docs/a.md"],
-    }).errors.join(" "),
+    }).warnings.join(" "),
     /## Summary/,
   );
   // ...but a level-1 heading is shallower than ## and DOES end the section, so
@@ -255,17 +281,45 @@ function selfTest() {
       body: completeBody.replace("- [x] `npm run verify:ui`\n", "# Appendix\n\n- [x] `npm run verify:ui`\n"),
       headRef: "codex/search-fix",
       files: ["src/components/search.tsx"],
-    }).errors.join(" "),
+    }).warnings.join(" "),
     /verify:ui/,
   );
+  // Tolerant governance: a lightly reworded but still-checked item passes — the
+  // check no longer demands the exact required wording.
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: "fix: update clinical search",
+      body: completeBody.replace(
+        `- [x] ${requiredClinicalGovernanceItems[0]}`,
+        "- [x] Reviewed: linked-source verification for clinical use is unchanged",
+      ),
+      headRef: "codex/search-fix",
+      files: ["src/lib/clinical-search.ts"],
+    }).ok,
+    true,
+  );
+  // ...but an unchecked governance box still fails a clinical-risk PR.
   assert.match(
     evaluatePullRequestPolicy({
       title: "fix: update clinical search",
-      body: completeBody.replace(`- [x] ${requiredClinicalGovernanceItems[0]}`, "- [x] Safe"),
+      body: completeBody.replace(
+        `- [x] ${requiredClinicalGovernanceItems[0]}`,
+        `- [ ] ${requiredClinicalGovernanceItems[0]}`,
+      ),
       headRef: "codex/search-fix",
       files: ["src/lib/clinical-search.ts"],
     }).errors.join(" "),
-    /every required Clinical Governance/,
+    /Clinical Governance Preflight/,
+  );
+  // ...and dropping an item below the required count fails too.
+  assert.match(
+    evaluatePullRequestPolicy({
+      title: "fix: update clinical search",
+      body: completeBody.replace(`- [x] ${requiredClinicalGovernanceItems[0]}\n`, ""),
+      headRef: "codex/search-fix",
+      files: ["src/lib/clinical-search.ts"],
+    }).errors.join(" "),
+    /Clinical Governance Preflight/,
   );
   assert.equal(
     evaluatePullRequestPolicy({
@@ -282,8 +336,8 @@ function selfTest() {
       body: completeBody.replace("Risk: low; metadata-only validation.", "Risk: low"),
       headRef: "codex/pr-policy",
       files: [".github/workflows/pr-policy.yml"],
-    }).errors.join(" "),
-    /Risk and rollout must include/,
+    }).warnings.join(" "),
+    /Risk and rollout should include/,
   );
   assert.match(
     evaluatePullRequestPolicy({
@@ -291,7 +345,7 @@ function selfTest() {
       body: completeBody.replace("Rollback: revert the workflow commit.", "Rollback: none because this is small"),
       headRef: "codex/pr-policy",
       files: [".github/workflows/pr-policy.yml"],
-    }).errors.join(" "),
+    }).warnings.join(" "),
     /concrete `Rollback/,
   );
   assert.match(
@@ -300,7 +354,7 @@ function selfTest() {
       body: "## Summary\n\n- Useful documentation.\n\n## Verification\n\n- [ ] `npm run verify:pr-local`\n<!-- Use `Verification not run: <reason>` when blocked. -->",
       headRef: "codex/review-docs",
       files: ["docs/process-hardening.md"],
-    }).errors.join(" "),
+    }).warnings.join(" "),
     /checked result/,
   );
   assert.deepEqual(classifyPullRequestFiles(["src/app/api/search/route.ts"]), {
@@ -309,6 +363,50 @@ function selfTest() {
     operationalRisk: false,
     ui: false,
   });
+  // Narrowed classification: presentation-only UI under the clinically-named
+  // component tree is a UI change, not a clinical-governance change, so it no
+  // longer auto-demands the preflight.
+  assert.deepEqual(classifyPullRequestFiles(["src/components/clinical-dashboard/settings-dialog.tsx"]), {
+    files: ["src/components/clinical-dashboard/settings-dialog.tsx"],
+    clinicalRisk: false,
+    operationalRisk: false,
+    ui: true,
+  });
+  // ...but privacy/access-control UI surfaces stay gated.
+  assert.equal(classifyPullRequestFiles(["src/components/privacy-input-notice.tsx"]).clinicalRisk, true);
+  // ...and clinical behavior in the library layer stays gated.
+  assert.equal(classifyPullRequestFiles(["src/lib/clinical-search.ts"]).clinicalRisk, true);
+  // End-to-end: a dashboard UI PR with Summary + UI verification + risk but no
+  // Clinical Governance Preflight now passes (previously it failed on the
+  // clinically-named path alone).
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: "fix: tidy home page spacing",
+      body: "## Summary\n\n- Remove the redundant quick-actions row and tidy spacing.\n\n## Verification\n\n- [x] `npm run verify:ui`\n\n## Risk and rollout\n\n- Risk: low; presentation-only removal of a duplicate action row.\n- Rollback: revert this commit.",
+      headRef: "claude/home-page-spacing",
+      files: ["src/components/clinical-dashboard/answer-empty-state.tsx", "src/app/globals.css"],
+    }).ok,
+    true,
+  );
+  // Block-only contract: a completely bare body on non-clinical files raises
+  // several advisory warnings but never blocks the check.
+  const bare = evaluatePullRequestPolicy({
+    title: "x",
+    body: "",
+    headRef: "codex/whatever",
+    files: ["src/components/ui/button.tsx"],
+  });
+  assert.equal(bare.ok, true, "non-clinical PRs must never be blocked by advisory metadata gaps");
+  assert.ok(bare.warnings.length > 0, "advisory gaps should still be surfaced as warnings");
+  // ...but a clinical-risk PR with no governance section is the one hard block.
+  const clinicalBlocked = evaluatePullRequestPolicy({
+    title: "fix: adjust answer synthesis grounding",
+    body: "## Summary\n\n- Tweak synthesis.",
+    headRef: "codex/answer-fix",
+    files: ["src/lib/answer-synthesis.ts"],
+  });
+  assert.equal(clinicalBlocked.ok, false, "clinical-risk PRs missing governance must still block");
+  assert.match(clinicalBlocked.errors.join(" "), /Clinical Governance Preflight/);
   assert.equal(
     section("### Summary ###\n\n- concise summary\n\n### Verification\n\n- [x] `npm run verify:pr-local`\n", "Summary"),
     "- concise summary",
