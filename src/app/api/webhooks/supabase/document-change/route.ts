@@ -54,6 +54,16 @@ function skip(reason: string, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ skipped: true, reason, ...extra });
 }
 
+// A requested reindex-flag clear failed. Return 500 (not 2xx) so Supabase retries
+// delivery — leaving the flag set would let every later UPDATE re-trigger enqueue,
+// defeating the loop-safety guarantee documented above.
+function reindexFlagClearFailed() {
+  return NextResponse.json(
+    { error: "Failed to clear reindex flag; retry.", code: "reindex_flag_clear_failed" },
+    { status: 500 },
+  );
+}
+
 export async function POST(request: Request) {
   try {
     // Supabase webhooks can send custom headers, so require the secret in an
@@ -116,7 +126,8 @@ export async function POST(request: Request) {
       if (safety.reason === "supabase_unavailable") {
         return NextResponse.json({ error: safety.message, code: "supabase_unavailable" }, { status: 503 });
       }
-      await clearReindexFlagIfRequested(supabase, record.id, ownerId, reindexRequested);
+      const cleared = await clearReindexFlagIfRequested(supabase, record.id, ownerId, reindexRequested);
+      if (reindexRequested && !cleared) return reindexFlagClearFailed();
       return skip("already_active", { safetyReason: safety.reason });
     }
 
@@ -133,8 +144,13 @@ export async function POST(request: Request) {
 
     const result = await enqueueDocumentReindexJob({ supabase, document: document as EnqueueableDocument });
     // Clear the reindex flag once handled so a later UPDATE (including the worker's
-    // own completion write) cannot retrigger this endlessly.
-    await clearReindexFlagIfRequested(supabase, record.id, ownerId, reindexRequested);
+    // own completion write) cannot retrigger this endlessly. If the clear fails we
+    // must NOT return 2xx: the flag is still set, so respond 500 to make Supabase
+    // retry the delivery until the flag is actually cleared. The enqueue is
+    // idempotent (one-open-job-per-document unique index), so a retry cannot
+    // double-enqueue — it will take the already_active path and retry the clear.
+    const cleared = await clearReindexFlagIfRequested(supabase, record.id, ownerId, reindexRequested);
+    if (reindexRequested && !cleared) return reindexFlagClearFailed();
 
     if (result.outcome === "document_deleted") return skip("document_deleted");
     if (result.outcome === "already_active") return skip("already_active");
@@ -146,13 +162,15 @@ export async function POST(request: Request) {
   }
 }
 
+// Returns true when there was nothing to clear or the clear succeeded, false when
+// a requested clear failed (the caller then fails the request so Supabase retries).
 async function clearReindexFlagIfRequested(
   supabase: ReturnType<typeof createAdminClient>,
   documentId: string,
   ownerId: string,
   reindexRequested: boolean,
-) {
-  if (!reindexRequested) return;
+): Promise<boolean> {
+  if (!reindexRequested) return true;
   // Deep-merge {reindex_requested:false} onto documents.metadata. The RPC bumps
   // updated_at (firing another UPDATE webhook), but with the flag now false that
   // delivery hits "no_actionable_transition" — breaking the loop.
@@ -160,5 +178,9 @@ async function clearReindexFlagIfRequested(
     p_document_id: documentId,
     p_metadata_patch: { reindex_requested: false },
   });
-  if (error) logger.warn("Failed to clear reindex_requested flag", { ownerScoped: Boolean(ownerId) });
+  if (error) {
+    logger.warn("Failed to clear reindex_requested flag", { ownerScoped: Boolean(ownerId) });
+    return false;
+  }
+  return true;
 }

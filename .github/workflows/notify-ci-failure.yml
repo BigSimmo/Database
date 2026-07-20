@@ -39,8 +39,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     # Only alert on genuine failures of runs against protected branches.
+    # The head_repository guard restricts notifications to runs that originated
+    # in THIS repo (push, schedule, workflow_dispatch). A fork PR's triggering
+    # run also fires workflow_run with repo secrets in scope, and a fork could
+    # name its branch `main`/`release/...` to forge or spam alerts — the guard
+    # blocks that while preserving the scheduled production monitors (which run
+    # on `schedule`, so an `event == 'push'` filter would wrongly drop them).
     if: >-
       github.event.workflow_run.conclusion == 'failure' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
       (github.event.workflow_run.head_branch == 'main' ||
        startsWith(github.event.workflow_run.head_branch, 'release/'))
     steps:

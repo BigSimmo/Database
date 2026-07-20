@@ -15,10 +15,11 @@ type LoadOptions = {
   safety?: unknown;
   document?: unknown;
   enqueueResult?: unknown;
+  rpcError?: { message: string };
 };
 
 async function loadRoute(options: LoadOptions = {}) {
-  const rpcMock = vi.fn(async () => ({ error: null }));
+  const rpcMock = vi.fn(async () => ({ error: options.rpcError ?? null }));
   const maybeSingle = vi.fn(async () => ({
     data: options.document ?? { id: documentId, owner_id: ownerId, status: "queued", import_batch_id: null },
     error: null,
@@ -121,6 +122,23 @@ describe("POST /api/webhooks/supabase/document-change", () => {
       p_document_id: documentId,
       p_metadata_patch: { reindex_requested: false },
     });
+  });
+
+  it("returns 500 when a requested reindex-flag clear fails so Supabase retries", async () => {
+    const { route } = await loadRoute({
+      document: { id: documentId, owner_id: ownerId, status: "indexed", import_batch_id: null },
+      rpcError: { message: "rpc down" },
+    });
+    const response = await route.POST(
+      post({
+        type: "UPDATE",
+        table: "documents",
+        record: { id: documentId, owner_id: ownerId, status: "indexed", metadata: { reindex_requested: true } },
+      }),
+    );
+    const body = await response.json();
+    expect(response.status).toBe(500);
+    expect(body.code).toBe("reindex_flag_clear_failed");
   });
 
   it("treats an active job as an idempotent skip without enqueueing", async () => {

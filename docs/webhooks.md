@@ -8,7 +8,7 @@ share the same optional chat destinations.
 | --- | ------------------------------------ | --------- | --------------------------------------------- |
 | 1   | Railway deploy → chat                | inbound   | `POST /api/webhooks/railway`                  |
 | 2   | GitHub CI failure → chat             | outbound  | `.github/workflows/notify-ci-failure.yml`     |
-| 5   | Supabase document change → ingestion | inbound   | `POST /api/webhooks/supabase/document-change` |
+| 3   | Supabase document change → ingestion | inbound   | `POST /api/webhooks/supabase/document-change` |
 
 ## Chat destinations (shared)
 
@@ -57,7 +57,7 @@ monitors) and pings chat when a run on `main` or `release/*` fails.
 No secret → the workflow logs "nothing to notify" and exits cleanly. It posts with
 `curl` only (no external actions), so the pinned-action allowlist is not involved.
 
-## 5. Supabase document change → ingestion
+## 3. Supabase document change → ingestion
 
 `POST /api/webhooks/supabase/document-change` turns the polling ingestion path
 into an event-driven one: when a `public.documents` row is inserted outside the
@@ -77,7 +77,9 @@ constant-time. Fails closed (`503`) when unset, `401` on a bad secret.
 - **UPDATE** acts only when `record.metadata.reindex_requested === true`, then
   clears that flag via `apply_document_metadata_patch`. The worker's own
   completion writes (also UPDATEs) never carry the flag, so they cannot retrigger
-  an endless loop.
+  an endless loop. If the clear itself fails, the receiver responds `500` (not
+  `2xx`) so Supabase retries delivery until the flag is actually cleared — the
+  idempotent enqueue means a retry cannot double-queue.
 - `checkIngestionMutationSafety` refuses while a job is already active, and the
   enqueue reports `already_active` instead of erroring on a lost race.
 
