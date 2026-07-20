@@ -74,7 +74,7 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
 
   return (
     <TcProvider>
-      <div className="tc-root tc-workspace-006">
+      <div className={`tc-root tc-workspace-006${isHome ? " tc-root--home" : ""}`}>
         {isHome ? null : <TherapyCompassNav />}
         <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>
           {children}
