@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "playwright/test";
+import { stubZeroTouchPoints } from "./helpers/zero-touch";
 
 const axeWcagTags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const axeBlockingImpacts = new Set(["critical", "serious"]);
@@ -50,13 +51,7 @@ async function expectNoBlockingAxeViolations(page: Page, testInfo: TestInfo) {
 
 test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
-  // Playwright's Linux WebKit build advertises phantom touch points on the touch-free CI
-  // runner, tripping the fine-pointer/zero-touch gate on the search command surface
-  // (commandDropdownCanDisplay) that Chromium and Firefox pass via the zero-touch fallback.
-  // Report the runner's real capability so WebKit exercises the same desktop surfaces.
-  await page.addInitScript(() => {
-    Object.defineProperty(Navigator.prototype, "maxTouchPoints", { configurable: true, get: () => 0 });
-  });
+  await stubZeroTouchPoints({ page });
 });
 
 test("searches patient language, opens a mechanism guide, and carries it into the builder", async ({
@@ -171,6 +166,14 @@ test("moves a selected mechanism through framework, quality review, and an edita
   await expect(draft).not.toHaveValue("Stale edited draft");
   await expect(draft).toHaveValue(/Select mechanisms and add case evidence/);
   await expectNoHorizontalOverflow(page);
+  // WebKit can serve a stale :disabled computed style (opacity .4) for the step-nav
+  // Previous button after the select->draft transition re-enables it; axe folds that
+  // opacity into the glyph color and reports a phantom color-contrast violation for a
+  // state WCAG 1.4.3 exempts anyway (matrix run 4012). Poll the computed style so axe
+  // measures the live enabled state; a failure HERE is direct proof of the stale style.
+  const previousStep = page.getByRole("button", { name: "Previous", exact: true });
+  await expect(previousStep).toBeEnabled();
+  await expect(previousStep).toHaveCSS("opacity", "1");
   await expectNoBlockingAxeViolations(page, testInfo);
 });
 

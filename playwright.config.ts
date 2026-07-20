@@ -48,6 +48,13 @@ export default defineConfig({
     // reduced-motion a11y spec emulates a per-test mode, so suite-wide settings
     // remain stable across builds.
     contextOptions: { reducedMotion: "reduce" },
+    // In production builds the PWA worker (public/sw.js) registers in every test,
+    // claims the page, and serves every subsequent navigation — bypassing route
+    // interception for navigations outright, and wedging Playwright-Firefox's
+    // reload path under an active route (the two ui-smoke reload hangs in matrix
+    // run 4012). Only ui-pwa.spec.ts is meant to exercise the worker; it opts
+    // back in with test.use({ serviceWorkers: "allow" }).
+    serviceWorkers: "block",
   },
   projects: [
     {

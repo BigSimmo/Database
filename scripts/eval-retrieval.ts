@@ -255,6 +255,10 @@ const clinicalDocumentAliases: Record<string, string[]> = {
 
 const clinicalContentAliases: Record<string, string[]> = {
   anc: ["anc", "absolute neutrophil count", "neutrophil", "neutrophils"],
+  // The scale's written name is the hyphenated token "CIWA-Ar"; textContainsClinicalTerm is
+  // whitespace-delimited, so the bare fixture term can never match it (canary runs #50/#51:
+  // the top-5 included the CIWA-Ar dosing-table region yet the content gate reported a miss).
+  ciwa: ["ciwa", "ciwa-ar"],
   fbc: ["fbc", "full blood count", "full blood", "wbc", "white blood cell", "white cell"],
   im: ["im", "intramuscular", "intramuscularly"],
   mg: ["mg", "milligram", "milligrams", "dose", "doses"],
