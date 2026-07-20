@@ -22,6 +22,8 @@ These are all confirmation-required (`AGENTS.md` — `pr-ci-fix`, and the API/pr
 
 Default to local, offline reproduction of the failure and a proposed diff.
 
+Exception: during an explicit `Run PR` sweep (see `AGENTS.md` — "## Run PR shortcut") the parent session already holds the user's authorization for pushes, thread replies, and CI reruns. This agent still only diagnoses and returns the proposed diff — the parent session executes the mutations — but it must not stall the sweep by asking for a confirmation the user has already given.
+
 ## Workflow
 
 ### 1. Diagnose

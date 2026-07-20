@@ -98,7 +98,7 @@ function FormulationHome() {
       <ModeHomeTemplate
         testId="formulation"
         title="Formulation"
-        subtitle="Build a structured clinical formulation from the evidence."
+        subtitle="Build a formulation from the evidence."
         icon={Network}
         actionsLabel="Formulation workflows"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}

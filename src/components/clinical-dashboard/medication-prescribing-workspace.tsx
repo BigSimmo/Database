@@ -218,7 +218,7 @@ function MedicationHome({
     <ModeHomeTemplate
       testId="medication-home"
       title="Medication"
-      subtitle="Search a medication or prescribing question."
+      subtitle="Medication dosing and safety."
       icon={Pill}
       headingLevel={2}
       desktopComposerSlotId={desktopComposerSlotId}
