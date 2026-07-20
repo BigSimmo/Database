@@ -27,7 +27,8 @@ for much larger teams. This audit therefore found **few real gaps and a genuine 
 over-engineering** — the correct posture here is pruning, indexing, and diagram-adding, not
 adding scaffolding.
 
-**Most important risks (all Medium or lower; none Critical/High):**
+**Most important risks (the one High-priority gap — a missing security-reporting policy,
+row 35 — is closed in this PR; all remaining open risks are Medium or lower):**
 
 1. **Navigability of the code**, not the docs: `src/lib` is 197 flat `.ts` files organised
    by filename prefix, and module boundaries are enforced by convention + ad-hoc scripts,
@@ -164,7 +165,7 @@ The one aspirational structural change (backlog, not now) is inside `src/lib`, c
 the filename-prefix pseudo-namespaces into real directories so an import linter can enforce
 boundaries:
 
-```
+```text
 src/lib/rag/        ← rag*.ts, smart-rag-api.ts, retrieval-*, ranking-*   (start here: rag.ts is the seam)
 src/lib/answer/     ← answer-*.ts
 src/lib/ingestion/  ← ingestion*.ts, reindex-*.ts, chunking.ts
