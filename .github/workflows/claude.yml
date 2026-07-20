@@ -69,3 +69,7 @@ jobs:
           # The action's default trigger phrase is "@claude"; it reads the
           # triggering comment/review and acts on the current PR head.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Temporary: surface the full SDK output in the job log so an
+          # authentication/usage error is readable instead of hidden. Remove
+          # once @claude is confirmed working.
+          show_full_output: "true"
