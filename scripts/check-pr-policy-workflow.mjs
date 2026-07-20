@@ -69,8 +69,13 @@ if (!policyJob) {
     if (!validateStep.includes("github.rest.pulls.get")) {
       failures.push("PR policy validation must fetch the latest PR metadata before evaluating policy.");
     }
-    if (!validateStep.includes("latestPr.title") || !validateStep.includes("latestPr.body")) {
-      failures.push("PR policy validation must evaluate title/body from the latest fetched PR metadata.");
+    if (
+      !validateStep.includes("latestPr.title") ||
+      !validateStep.includes("latestPr.body") ||
+      !validateStep.includes("latestPr.draft") ||
+      !validateStep.includes("latestPr.head.ref")
+    ) {
+      failures.push("PR policy validation must use refreshed PR metadata for draft, title, body, and head ref.");
     }
   }
 
