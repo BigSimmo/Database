@@ -1,0 +1,75 @@
+name: Claude backlink
+
+# When a human mentions "@claude" on an issue or pull request, reply once with a
+# link back to Claude Code on claude.ai so the conversation can be picked up and
+# continued there. This is deliberately lightweight and self-contained: it only
+# posts a single backlink comment and never runs a model, so it works with no
+# configured secret. It complements the Claude Code Action in claude.yml (which
+# needs CLAUDE_CODE_OAUTH_TOKEN to actually act on the mention).
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+# Least privilege by default; the job widens only what it needs to comment.
+permissions:
+  contents: read
+
+jobs:
+  backlink:
+    name: Reply with a Claude Code link
+    runs-on: ubuntu-24.04
+    # Only when a human (never a bot — including this workflow's own reply and
+    # Claude's) mentions @claude, so the backlink never loops or spams automated
+    # comments.
+    if: >
+      (github.event_name == 'issue_comment' &&
+        github.event.comment.user.type != 'Bot' &&
+        contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' &&
+        github.event.comment.user.type != 'Bot' &&
+        contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' &&
+        github.event.review.user.type != 'Bot' &&
+        github.event.review.body != null &&
+        contains(github.event.review.body, '@claude'))
+    permissions:
+      issues: write # comment on issue / PR conversation threads
+      pull-requests: write # comment on pull requests
+    concurrency:
+      group: claude-backlink-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
+    timeout-minutes: 5
+    steps:
+      - name: Post backlink comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const number =
+              context.issue.number ?? context.payload.pull_request?.number;
+            if (!number) return;
+
+            const actor = context.actor;
+            const claudeCodeUrl = "https://claude.ai/code";
+            const target = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}`;
+
+            const body = [
+              `Hi @${actor} — thanks for the **@claude** mention.`,
+              "",
+              `Open this in Claude Code on the web to continue here: ${claudeCodeUrl}`,
+              "",
+              `Context: [\`${context.repo.owner}/${context.repo.repo}\`](${target}) · #${number}`,
+              "",
+              "<sub>Automated backlink from the Claude backlink workflow. Claude Code can pick up the mention and push a scoped fix to the branch.</sub>",
+            ].join("\n");
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: number,
+              body,
+            });

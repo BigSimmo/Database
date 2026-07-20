@@ -18,6 +18,7 @@ npm run docs:check-links
 | [codebase-index.md](codebase-index.md) | Structured architecture map: layout, module map, Supabase schema, scripts, domain concepts              |
 | [site-map.md](site-map.md)             | **Generated** route map — regenerate with `npm run sitemap:update`, verify with `npm run sitemap:check` |
 | [agents-guide.md](agents-guide.md)     | Human onboarding pointer; authoritative agent rules live in the root `AGENTS.md`                        |
+| [scripts-index.md](scripts-index.md)   | Curated map of `scripts/` and the `package.json` command surface by purpose                             |
 
 ## Architecture
 
@@ -69,6 +70,7 @@ npm run docs:check-links
 
 ## Plans and workstreams (living)
 
+- [maturity-backlog-workorders.md](maturity-backlog-workorders.md) — actionable work orders tracking the repository-maturity audit backlog
 - [framework-dependency-modernization-checklist.md](framework-dependency-modernization-checklist.md) — ordered Next.js 16, runtime, dependency, Turbopack, and verification migration program
 - [search-rag-master-plan.md](search-rag-master-plan.md) / [search-rag-master-context.md](search-rag-master-context.md) — search/RAG roadmap and shared context
 - [rag-hybrid-findings-and-todo.md](rag-hybrid-findings-and-todo.md) — hybrid retrieval findings backlog

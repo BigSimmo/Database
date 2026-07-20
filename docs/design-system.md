@@ -134,6 +134,11 @@ rung — never a new number.
 
 ## 7. Accessibility requirements
 
+**Target: WCAG 2.2 AA.** The rules below are the concrete, enforced floor for meeting it; partial
+automated coverage is provided by `tests/ui-accessibility.spec.ts` (reduced-motion, forced-colors,
+focus, labels, selected axe-core checks) for the areas it covers, rather than enforcing the full
+WCAG 2.2 AA standard, with manual checks for the rest.
+
 - Every interactive element has a visible focus state: the global `:focus-visible` rule is the
   floor; use the `focusRing` recipe on custom controls.
 - Dialogs/popovers: use `Sheet` (focus handling is free). If something genuinely can't use it,
