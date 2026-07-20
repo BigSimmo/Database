@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 
 const budgets = new Map([
   ["src/components/ClinicalDashboard.tsx", 4272],
-  ["src/lib/rag/rag.ts", 5238],
+  ["src/lib/rag/rag.ts", 5030],
   ["src/components/DocumentViewer.tsx", 3166],
   ["supabase/functions/indexing-v3-agent/index.ts", 2191],
 ]);
