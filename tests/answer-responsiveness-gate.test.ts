@@ -6,8 +6,8 @@ import {
   isBareDefinitionQuestion,
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
-} from "../src/lib/rag";
-import { hasClinicalAnswerQualityIssue } from "../src/lib/rag-answer-text";
+} from "../src/lib/rag/rag";
+import { hasClinicalAnswerQualityIssue } from "../src/lib/rag/rag-answer-text";
 import type { RagAnswer, RagQueryClass } from "../src/lib/types";
 
 function modelAnswer(overrides: Partial<RagAnswer> = {}): RagAnswer {

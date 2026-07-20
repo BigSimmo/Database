@@ -228,7 +228,7 @@ describe("architecture boundaries", () => {
     const forbidden = new Set([
       "src/lib/env.ts",
       "src/lib/openai.ts",
-      "src/lib/rag.ts",
+      "src/lib/rag/rag.ts",
       "src/lib/supabase/admin.ts",
       "src/lib/supabase/server.ts",
     ]);

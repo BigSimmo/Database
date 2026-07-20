@@ -1,6 +1,6 @@
 import { allowedChunkMap, citationFromResult as resultCitation, compactCitations } from "@/lib/citations";
-import { safeRecord, sanitizeStructuredText } from "@/lib/rag-answer-text";
-import { appendRoutingReason } from "@/lib/rag-routing";
+import { safeRecord, sanitizeStructuredText } from "@/lib/rag/rag-answer-text";
+import { appendRoutingReason } from "@/lib/rag/rag-routing";
 import { sourceTextForClinicalProse } from "@/lib/source-text-sanitizer";
 import type { ConflictOrGap, QuoteCard, RagAnswer, SearchResult } from "@/lib/types";
 

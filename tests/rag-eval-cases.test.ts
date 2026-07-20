@@ -9,7 +9,7 @@ import {
   scoreAnswerQualityEvalCase,
   scoreAnswerTargeting,
   type AnswerQualityEvalCase,
-} from "../src/lib/rag-eval-cases";
+} from "../src/lib/rag/rag-eval-cases";
 import type { RagAnswer } from "../src/lib/types";
 
 const row = {

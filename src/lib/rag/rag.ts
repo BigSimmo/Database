@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { loadDocumentSummaryContext } from "@/lib/rag-document-summary-context";
+import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
   callVersionedRetrievalRpc,
@@ -14,12 +14,12 @@ import {
   searchTextChunkCandidates,
   withMemoryBoostedCandidates,
   type MemoryCardCache,
-} from "@/lib/rag-candidate-sources";
+} from "@/lib/rag/rag-candidate-sources";
 export {
   callVersionedRetrievalRpc,
   loadChunksForMemoryCards,
   loadChunksForSignalMatches,
-} from "@/lib/rag-candidate-sources";
+} from "@/lib/rag/rag-candidate-sources";
 import { classifyCorpusGrounding } from "@/lib/corpus-grounding";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
@@ -35,22 +35,22 @@ import {
   classifyProviderFailure,
   isSourceOnlyMode,
   sourceOnlyReason,
-} from "@/lib/rag-provider";
+} from "@/lib/rag/rag-provider";
 import { allowedChunkMap, citationFromResult as resultCitation, compactCitations } from "@/lib/citations";
-import { assessAndEnforceClaimSupport } from "@/lib/rag-claim-support";
+import { assessAndEnforceClaimSupport } from "@/lib/rag/rag-claim-support";
 import {
   enrichGroundedReviewCitations,
   sanitizeConflictsOrGaps,
   sanitizeQuoteCards,
-} from "@/lib/rag-quote-verification";
+} from "@/lib/rag/rag-quote-verification";
 import { applyNumericVerification } from "@/lib/answer-verification";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
-import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag-context-selection";
+import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag/rag-context-selection";
 export {
   capPerDocumentCrowding,
   selectModelContextResults,
   summarizeAustralianSourceSelection,
-} from "@/lib/rag-context-selection";
+} from "@/lib/rag/rag-context-selection";
 import {
   buildExtractiveAnswer,
   cleanAnswerSectionHeading,
@@ -64,13 +64,13 @@ import {
   isUnusableGeneratedAnswer,
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
-} from "@/lib/rag-extractive-answer";
+} from "@/lib/rag/rag-extractive-answer";
 import {
   buildComparisonAnswer,
   buildComparisonEvidenceGapAnswer,
   buildComparisonMatrix,
   comparisonEvidenceGuide,
-} from "@/lib/rag-comparison";
+} from "@/lib/rag/rag-comparison";
 export {
   classifyAnswerIntent,
   completeExtractiveSentence,
@@ -78,7 +78,7 @@ export {
   isBareDefinitionQuestion,
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
-} from "@/lib/rag-extractive-answer";
+} from "@/lib/rag/rag-extractive-answer";
 import {
   assertGlobalSearchAllowed,
   buildRetrievalQueryVariants,
@@ -88,7 +88,7 @@ import {
   selectRagAliasExpansions,
   shouldApplyUnsupportedSearchShortCircuit,
   textCandidateBudgetForQueryClass,
-} from "@/lib/rag-retrieval-variants";
+} from "@/lib/rag/rag-retrieval-variants";
 export {
   buildRetrievalQueryVariants,
   relaxVariantToOrQuery,
@@ -96,7 +96,7 @@ export {
   shouldApplyUnsupportedSearchShortCircuit,
   shouldRelaxWeakTextMatches,
   textCandidateBudgetForQueryClass,
-} from "@/lib/rag-retrieval-variants";
+} from "@/lib/rag/rag-retrieval-variants";
 import {
   answerCacheAllowedForOwner,
   answerInflight,
@@ -114,21 +114,21 @@ import {
   scopedAnswerCacheKey,
   setCachedAnswer,
   setCachedSearch,
-} from "@/lib/rag-cache";
+} from "@/lib/rag/rag-cache";
 export {
   invalidateRagCachesForDocumentMutation,
   invalidateRagCachesForOwner,
   packedContextCacheKey,
   retrievalPlanCacheQuery,
-} from "@/lib/rag-cache";
+} from "@/lib/rag/rag-cache";
 import { classifySearchCacheOutcome, recordCacheLookup } from "@/lib/observability/cache-metrics";
 import {
   recordAnswerOrigination,
   recordAnswerOriginationFinished,
   recordCoalescedAnswerWaiter,
 } from "@/lib/observability/answer-coalescing-metrics";
-import { buildRagSourceBlock, compactContextText, neutralizeIdentityField } from "@/lib/rag-source-block";
-export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
+import { buildRagSourceBlock, compactContextText, neutralizeIdentityField } from "@/lib/rag/rag-source-block";
+export { buildRagSourceBlock, truncateForModel } from "@/lib/rag/rag-source-block";
 import {
   buildClinicalTextSearchQuery,
   classifyRagQuery,
@@ -146,7 +146,11 @@ import {
   zoneContextPatternsForQuery,
 } from "@/lib/clinical-search";
 import { env, requestedOpenAIAnswerModels } from "@/lib/env";
-import { ragAnswerPromptVersion, ragQueryClassifierPromptVersion, ragSummaryPromptVersion } from "@/lib/rag-versioning";
+import {
+  ragAnswerPromptVersion,
+  ragQueryClassifierPromptVersion,
+  ragSummaryPromptVersion,
+} from "@/lib/rag/rag-versioning";
 import {
   answerPrivacyMetadata,
   answerTextForStorage,
@@ -162,12 +166,12 @@ import {
   hasAdversarialManipulationIntent,
   hasDirectTitleSupport,
   shouldRetryWithStrongAfterFast,
-} from "@/lib/rag-routing";
+} from "@/lib/rag/rag-routing";
 import {
   answerRouteResultCanBeCached,
   createAnswerRouteDeadline,
   isAnswerRouteDeadlineExceeded,
-} from "@/lib/rag-route-budget";
+} from "@/lib/rag/rag-route-budget";
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEvidence } from "@/lib/answer-ranking";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
@@ -181,7 +185,7 @@ import {
   isProviderGenerationDegraded,
   machineReadableFallbackAnswer,
   scoreValue,
-} from "@/lib/rag-answer-support";
+} from "@/lib/rag/rag-answer-support";
 export {
   buildAnswerScoreExplanations,
   buildIndexingQuality,
@@ -193,15 +197,15 @@ export {
   machineReadableFallbackAnswer,
   rankMemoryCardsForAnswer,
   scoreValue,
-} from "@/lib/rag-answer-support";
-import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag-contracts";
-export { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag-contracts";
+} from "@/lib/rag/rag-answer-support";
+import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag/rag-contracts";
+export { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag/rag-contracts";
 import {
   clearlyOutsideCorpusMedicalPattern,
   isUnsupportedSoftTailAnalysis,
   unavailableDocumentNoisePattern,
-} from "@/lib/rag-query-guard";
-export { shouldShortCircuitUnsupportedSearch } from "@/lib/rag-query-guard";
+} from "@/lib/rag/rag-query-guard";
+export { shouldShortCircuitUnsupportedSearch } from "@/lib/rag/rag-query-guard";
 import { cleanClinicalSummaryText, isLowYieldClinicalText } from "@/lib/source-text-sanitizer";
 import {
   hasClinicalAnswerQualityIssue,
@@ -211,7 +215,7 @@ import {
   sanitizeStructuredText,
   metadataText,
   safeRecord,
-} from "@/lib/rag-answer-text";
+} from "@/lib/rag/rag-answer-text";
 import {
   buildCrossDocumentFusionBrief,
   buildCrossDocumentSourceGuide,

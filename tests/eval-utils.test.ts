@@ -11,7 +11,7 @@ import {
   withProviderBackoffProgress,
   type SupabaseAdmin,
 } from "../scripts/eval-utils";
-import type { RagEvalCase } from "../src/lib/rag-eval-cases";
+import type { RagEvalCase } from "../src/lib/rag/rag-eval-cases";
 import type { RagAnswer } from "../src/lib/types";
 
 describe("RAG eval source identity matching", () => {

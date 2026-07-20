@@ -1,5 +1,5 @@
 import { classifyRagQuery } from "@/lib/clinical-search";
-import { canBuildDeterministicComparison } from "@/lib/rag-comparison";
+import { canBuildDeterministicComparison } from "@/lib/rag/rag-comparison";
 import type { ConflictOrGap, RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 
 export type AnswerRouteMode = "unsupported" | "extractive" | "fast" | "strong";

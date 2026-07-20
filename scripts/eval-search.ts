@@ -7,7 +7,7 @@ import {
   selectRagEvalCases,
   type RagEvalCase,
   type SupabaseEvalCaseClient,
-} from "@/lib/rag-eval-cases";
+} from "@/lib/rag/rag-eval-cases";
 import type { SearchResult } from "@/lib/types";
 import {
   expectedFileCoverage,
@@ -194,7 +194,7 @@ async function main() {
 
   const [{ requireOpenAIEnv, requireServerEnv }, { searchChunksWithTelemetry }, supabase] = await Promise.all([
     import("@/lib/env"),
-    import("@/lib/rag"),
+    import("@/lib/rag/rag"),
     loadAdminClient(),
   ]);
 

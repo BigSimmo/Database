@@ -8,11 +8,11 @@ import { annotateDocumentMatches, annotateSearchResults, buildEvidenceRelevance 
 import { fetchRelatedDocuments, toDocumentMatch } from "@/lib/document-enrichment";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
-import { searchChunksWithTelemetry } from "@/lib/rag";
-import { weakRetrievalTopScoreThreshold } from "@/lib/rag-routing";
+import { searchChunksWithTelemetry } from "@/lib/rag/rag";
+import { weakRetrievalTopScoreThreshold } from "@/lib/rag/rag-routing";
 import { classifyRagQuery, normalizedClinicalSearchTokens } from "@/lib/clinical-search";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";
-import { SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag-provider";
+import { SOURCE_ONLY_EMBEDDING_SKIP_REASON } from "@/lib/rag/rag-provider";
 import { createAdminClient } from "@/lib/supabase/admin";
 import * as serverAuth from "@/lib/supabase/auth";
 import {

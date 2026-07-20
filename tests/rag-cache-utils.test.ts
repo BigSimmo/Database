@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ragCacheKeyMatchesOwner } from "../src/lib/rag-cache-utils";
+import { ragCacheKeyMatchesOwner } from "../src/lib/rag/rag-cache-utils";
 
 describe("ragCacheKeyMatchesOwner", () => {
   const ownerId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";

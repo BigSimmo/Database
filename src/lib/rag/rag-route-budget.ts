@@ -1,4 +1,4 @@
-import type { AnswerRouteMode } from "@/lib/rag-routing";
+import type { AnswerRouteMode } from "@/lib/rag/rag-routing";
 
 export const answerRouteBudgetMs = {
   unsupported: 0,

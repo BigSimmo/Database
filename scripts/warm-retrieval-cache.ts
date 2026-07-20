@@ -5,7 +5,7 @@ import {
   selectRagEvalCases,
   type RagEvalCase,
   type SupabaseEvalCaseClient,
-} from "@/lib/rag-eval-cases";
+} from "@/lib/rag/rag-eval-cases";
 import { findOwnerIdByEmail, loadAdminClient } from "./eval-utils";
 
 loadEnvConfig(process.cwd());
@@ -78,7 +78,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const [{ requireOpenAIEnv, requireServerEnv }, rag, supabase] = await Promise.all([
     import("@/lib/env"),
-    import("@/lib/rag"),
+    import("@/lib/rag/rag"),
     loadAdminClient(),
   ]);
 

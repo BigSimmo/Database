@@ -15,7 +15,7 @@ import { rowToMedicationRecord } from "@/lib/medication-records";
 import { defaultMedicationRecords, fetchOwnerMedicationRowsWithSeed } from "@/lib/medication-seed";
 import { medicationIndication, rankMedicationRecords, type MedicationRecord } from "@/lib/medications";
 import { loadOwnerCatalogue } from "@/lib/owner-catalogue-cache";
-import { searchChunksWithTelemetry } from "@/lib/rag";
+import { searchChunksWithTelemetry } from "@/lib/rag/rag";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import { fetchOwnerRegistryRows, mergeRegistryRecordsWithDefaults } from "@/lib/registry-seed";
 import { rankServiceRecords, serviceRecords, type ServiceRecord } from "@/lib/services";

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applySecondStageRerankIfNeeded } from "../src/lib/rag";
+import { applySecondStageRerankIfNeeded } from "../src/lib/rag/rag";
 import { classifyRagQuery, rankClinicalResults } from "../src/lib/clinical-search";
 import { selectRetrievalEvidence } from "../src/lib/retrieval-selection";
 import { resultsHaveReleaseRankScore, stabilizeReleasedSearchOrder } from "../src/lib/released-search-order";
-import type { SearchTelemetry } from "../src/lib/rag-contracts";
+import type { SearchTelemetry } from "../src/lib/rag/rag-contracts";
 import type { SearchResult } from "../src/lib/types";
 
 // Regression guards for the 2026-07-19 live golden-retrieval failures (the raw #901

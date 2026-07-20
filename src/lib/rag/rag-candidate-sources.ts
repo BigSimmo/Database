@@ -31,8 +31,8 @@ import {
   maxTextRpcQueryVariants,
   relaxVariantToOrQuery,
   shouldRelaxWeakTextMatches,
-} from "@/lib/rag-retrieval-variants";
-import type { SearchTelemetry } from "@/lib/rag-contracts";
+} from "@/lib/rag/rag-retrieval-variants";
+import type { SearchTelemetry } from "@/lib/rag/rag-contracts";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { isMissingRetrievalRpcError } from "@/lib/retrieval-rpc-rollout";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
