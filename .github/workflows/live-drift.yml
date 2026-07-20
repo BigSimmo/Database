@@ -57,3 +57,6 @@ jobs:
 
       - name: Compare live schema drift
         run: npm run check:drift
+
+      - name: Align migration history for Supabase Preview
+        run: npm run check:migration-history
