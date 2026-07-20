@@ -129,11 +129,51 @@ jobs:
     needs: changes
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read
+      # Read-only Actions access for the eval-canary liveness probe below.
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+
+      # GitHub cron fires are best-effort: the 2026-07-20 Sunday 18:00 UTC eval-canary slot
+      # silently never ran, and nothing noticed (the failure-issue step only reacts to runs
+      # that HAPPEN and fail). PR traffic runs many times a day, so a warn-only staleness
+      # probe here surfaces a dropped weekly canary within hours instead of weeks. Never
+      # fails the job — API hiccups and empty histories degrade to a warning at most.
+      - name: Eval-canary liveness (warn if stale)
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            try {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: "eval-canary.yml",
+                status: "completed",
+                per_page: 1,
+              });
+              const latest = data.workflow_runs?.[0];
+              if (!latest) {
+                core.warning("Eval-canary liveness: no completed canary runs found.");
+              } else {
+                const ageDays = (Date.now() - new Date(latest.run_started_at).getTime()) / 86_400_000;
+                if (ageDays > 8) {
+                  core.warning(
+                    `Eval-canary liveness: last completed canary run was ${ageDays.toFixed(1)} days ago (${latest.html_url}). ` +
+                      "The weekly Sunday 18:00 UTC schedule may have been dropped by GitHub - dispatch one manually " +
+                      "(provider-backed; needs explicit approval).",
+                  );
+                } else {
+                  core.info(`Eval-canary liveness: last completed run ${ageDays.toFixed(1)} days ago.`);
+                }
+              }
+            } catch (error) {
+              core.warning(`Eval-canary liveness check skipped: ${error.message}`);
+            }
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-cached
