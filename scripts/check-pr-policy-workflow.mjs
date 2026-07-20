@@ -108,6 +108,11 @@ if (!syncJob) {
     if (/map\(\(item\) => `\s*-\s*\[x\]/i.test(applyStep)) {
       failures.push("sync-pr-policy-body must not synthesize completed Clinical Governance Preflight items.");
     }
+    if (/forceChecked|GOVERNANCE_ALL_CHECKED/.test(applyStep)) {
+      failures.push(
+        "sync-pr-policy-body must not let PR-head markers force-check Clinical Governance Preflight items.",
+      );
+    }
   }
 }
 

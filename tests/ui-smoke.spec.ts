@@ -1322,7 +1322,68 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeMenu).toBeVisible();
     await page.mouse.click(640, 430);
     await expect(appModeMenu).toBeHidden();
+    await expect(page.getByTestId("app-mode-menu-sheet")).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone mode menu opens as a scrollable bottom sheet with the full mode list", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
+    await waitForReactEventHandler(appModeTrigger, "onClick");
+    await appModeTrigger.click();
+
+    const modeSheet = page.getByTestId("app-mode-menu-sheet");
+    const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
+    await expect(modeSheet).toBeVisible();
+    await expect(modeSheet).toHaveAttribute("role", "dialog");
+    await expect(appModeMenu).toBeVisible();
+    await expect(appModeTrigger).toHaveAttribute("aria-expanded", "true");
+    await expect(appModeTrigger).toHaveAttribute("aria-controls", "app-mode-menu");
+
+    // Full list must be present (not clipped out of the DOM by the old max-height panel).
+    const modeOptions = appModeMenu.getByRole("menuitemradio");
+    expect(await modeOptions.count()).toBeGreaterThanOrEqual(10);
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
+
+    // Scroll the sheet body so a lower mode is interactable, then select it.
+    const toolsMode = appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ });
+    await toolsMode.scrollIntoViewIfNeeded();
+    await expect(toolsMode).toBeVisible();
+    await toolsMode.click();
+
+    await expect(modeSheet).toHaveCount(0);
+    await expect(appModeMenu).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeFocused();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone mode menu dismisses via backdrop and restores focus to the Mode button", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
+    await waitForReactEventHandler(appModeTrigger, "onClick");
+    await appModeTrigger.click();
+
+    const modeSheet = page.getByTestId("app-mode-menu-sheet");
+    await expect(modeSheet).toBeVisible();
+
+    // Click the dimmed backdrop (outside the dialog panel) to dismiss.
+    await page
+      .locator(".fixed.inset-0.z-\\[100\\]")
+      .first()
+      .click({ position: { x: 8, y: 8 } });
+    await expect(modeSheet).toHaveCount(0);
+    await expect(appModeTrigger).toBeFocused();
+    await expect(appModeTrigger).toHaveAttribute("aria-expanded", "false");
   });
 
   test("desktop mode action placement coalesces scroll updates per frame", async ({ page }) => {
