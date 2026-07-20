@@ -92,19 +92,14 @@ jobs:
             }
             const { pathToFileURL } = require("node:url");
             const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/trusted-policy/scripts/pr-policy.mjs`).href;
-            const { requiredClinicalGovernanceItems } = await import(moduleUrl);
+            const { collectSatisfiedGovernanceItems, requiredClinicalGovernanceItems } = await import(moduleUrl);
             const pr = context.payload.pull_request;
             const existingBody = pr.body || "";
             const existingCheckedItems = new Set();
             const govMatch = existingBody.match(/##\s*Clinical Governance Preflight\s*([\s\S]*?)(?=\n##|$)/i);
             if (govMatch) {
               const govSection = govMatch[1];
-              for (const item of requiredClinicalGovernanceItems) {
-                const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-                if (new RegExp(`^\\s*-\\s*\\[[xX]\\]\\s*${escaped}\\s*$`, "m").test(govSection)) {
-                  existingCheckedItems.add(item);
-                }
-              }
+              for (const item of collectSatisfiedGovernanceItems(govSection)) existingCheckedItems.add(item);
             }
             const governance = requiredClinicalGovernanceItems
               .map((item) => {
