@@ -13,14 +13,21 @@ and are specified here.
 
 ## 1. Current state (what runs today)
 
-- **Live on Railway.** Project `clinical-kb`, environment `production`, region
+- **Live on Railway.** Project **`Database`** (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`),
+  environment `production` (`6aa16f7b-d3e8-4aa2-9854-ee9ead9fcbd4`), region
   **Southeast Asia (`asia-southeast1-eqsg3a`, Singapore)** — the closest Railway
-  region to the Supabase project. Two services from this one repo:
-  - **`app`** — the Next.js app tier (`Dockerfile`), reachable at its Railway
-    service domain (e.g. `https://app-production-68ebf.up.railway.app`), one warm
-    replica, `/api/health` healthcheck, restart-on-failure.
+  region to the Supabase project. Two services from this one repo, both connected
+  to the `BigSimmo/Database` GitHub repo and auto-deploying on pushes to `main`:
+  - **`Database`** — the Next.js app tier (`Dockerfile`), serving the custom domain
+    **`https://psychiatry.tools`**, one warm replica, Railway healthcheck path
+    `/api/health/ready`, restart-on-failure.
   - **`worker`** — the ingestion worker (`Dockerfile.worker`), one always-on
     replica, long-polling the ingestion queue.
+- **Superseded project.** An earlier Railway project named `clinical-kb`
+  (`4361c04f-dd3c-4ee9-9e97-49e4e5707b70`) still exists with `app`/`worker`/`staging-app`
+  services, but has **zero active deployments** (last activity 2026-07-14, all
+  `REMOVED`) and its generated domain `app-production-68ebf.up.railway.app` returns 404. It is not production. Do not `railway link` a worktree to it — deploys sent
+  there go nowhere. Retiring it is an open operator decision.
 - **Database/auth/storage:** live Supabase project `Clinical KB Database`
   (`sjrfecxgysukkwxsowpy`), region **ap-southeast-2 (Sydney)**, Postgres 17,
   ~2,000 indexed documents / ~69k chunks. RLS is service-role-only; the app
