@@ -76,6 +76,51 @@ if (!/^          src worker scripts supabase\/functions\s*$/m.test(semgrepScanSt
   failures.push("sast.yml: the Semgrep scan command must target src, worker, scripts, and supabase/functions.");
 }
 
+// One SHA per action across every workflow AND composite action. Dependabot bumps
+// one file at a time, so a laggard can sit on an old major indefinitely; because
+// the per-line validation above only covers workflows, a composite skew (e.g.
+// setup-node v5 vs v7) was previously invisible. Assert each action name resolves
+// to a single SHA everywhere it is used.
+function discoverCompositeActionFiles(workflowRoot) {
+  const actionsRoot = path.join(workflowRoot, ".github", "actions");
+  if (!existsSync(actionsRoot)) return [];
+  const files = [];
+  for (const entry of readdirSync(actionsRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    for (const name of ["action.yml", "action.yaml"]) {
+      const candidate = path.join(actionsRoot, entry.name, name);
+      if (existsSync(candidate)) files.push(candidate);
+    }
+  }
+  return files;
+}
+
+const actionPinPattern = /uses:\s*([^@\s]+)@([0-9a-f]{40})(?:\s*#\s*(\S+))?/;
+const shasByAction = new Map();
+for (const filePath of [...discoverGitHubActionFiles(process.cwd()), ...discoverCompositeActionFiles(process.cwd())]) {
+  const fileName = path.relative(process.cwd(), filePath).replaceAll("\\", "/");
+  readFileSync(filePath, "utf8")
+    .split(/\r?\n/)
+    .forEach((line, index) => {
+      const match = actionPinPattern.exec(line);
+      if (!match) return;
+      const [, name, sha, version] = match;
+      if (!shasByAction.has(name)) shasByAction.set(name, new Map());
+      const bySha = shasByAction.get(name);
+      if (!bySha.has(sha)) bySha.set(sha, { version: version ?? "(no version)", locations: [] });
+      bySha.get(sha).locations.push(`${fileName}:${index + 1}`);
+    });
+}
+for (const [name, bySha] of shasByAction) {
+  if (bySha.size <= 1) continue;
+  const detail = [...bySha.values()]
+    .map(({ version, locations }) => `${version} (${locations.join(", ")})`)
+    .join(" vs ");
+  failures.push(
+    `${name} is pinned to ${bySha.size} different SHAs across workflows/composites — standardize on one: ${detail}`,
+  );
+}
+
 if (failures.length > 0) {
   console.error("GitHub Actions pin check failed:");
   for (const failure of failures) console.error(`- ${failure}`);
