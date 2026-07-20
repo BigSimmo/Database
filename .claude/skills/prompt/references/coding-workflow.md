@@ -18,7 +18,7 @@ Higher-priority instructions and the repository's own `AGENTS.md` / `CLAUDE.md` 
 - Name the branch with a short kebab-case phrase that identifies the task, following the repository's existing prefix convention when one exists.
 - Inspect first: current branch, upstream, other worktrees, and `git status`. Never assume the branch or remote.
 - Do not commit directly to a protected or base branch (`main`, `master`, `develop`, `release/*`). If you find yourself on one, create the worktree/branch above before editing.
-- If the environment already placed you in a dedicated per-task worktree on a fresh branch, use it as-is; do not nest another one.
+- If the environment already placed you in a dedicated per-task worktree, verify it before trusting it as fresh: confirm the current branch, a clean `git status`, and that its merge base matches the latest remote default branch (`git fetch` first). Use it as-is only when those checks pass; otherwise create a new worktree and branch as above. Do not nest another worktree inside a verified one.
 - Preserve unrelated staged, unstaged, and untracked work. Do not stash, reset, clean, or discard changes you did not create.
 - Commit or push only when the task explicitly asks for it. Never force-push, rebase shared history, delete branches, or merge into a base branch without explicit confirmation.
 
