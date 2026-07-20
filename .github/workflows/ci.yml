@@ -129,11 +129,57 @@ jobs:
     needs: changes
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    permissions:
+      contents: read
+      # Read-only Actions access for the eval-canary liveness probe below.
+      actions: read
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+
+      # GitHub cron fires are best-effort, and the canary's own failure-issue step only reacts
+      # to runs that HAPPEN and fail — since #923 moved the canary cadence from daily to
+      # weekly (Sunday 18:00 UTC), a silently dropped fire would go unnoticed for a week or
+      # more. PR traffic runs many times a day, so a warn-only staleness probe here surfaces a
+      # dropped weekly canary within hours instead of weeks. Never fails the job — API hiccups
+      # and empty histories degrade to a warning at most.
+      - name: Eval-canary liveness (warn if stale)
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            try {
+              const { data } = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: "eval-canary.yml",
+                status: "completed",
+                per_page: 1,
+              });
+              const latest = data.workflow_runs?.[0];
+              // updated_at ~= completion time for a completed run (the REST payload carries no
+              // completed_at); run_started_at is the fallback for older/partial payloads.
+              const finishedAt = Date.parse(latest?.updated_at ?? latest?.run_started_at ?? "");
+              if (!latest) {
+                core.warning("Eval-canary liveness: no completed canary runs found.");
+              } else if (!Number.isFinite(finishedAt)) {
+                core.info("Eval-canary liveness: latest completed run has no parseable timestamp; skipping staleness check.");
+              } else {
+                const ageDays = (Date.now() - finishedAt) / 86_400_000;
+                if (ageDays > 8) {
+                  core.warning(
+                    `Eval-canary liveness: last completed canary run was ${ageDays.toFixed(1)} days ago (${latest.html_url}). ` +
+                      "The weekly Sunday 18:00 UTC schedule may have been dropped by GitHub - dispatch one manually " +
+                      "(provider-backed; needs explicit approval).",
+                  );
+                } else {
+                  core.info(`Eval-canary liveness: last completed run ${ageDays.toFixed(1)} days ago.`);
+                }
+              }
+            } catch (error) {
+              core.warning(`Eval-canary liveness check skipped: ${error.message}`);
+            }
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-cached
@@ -152,6 +198,9 @@ jobs:
 
       - name: PR policy self-test
         run: npm run check:pr-policy
+
+      - name: Gate-manifest self-test
+        run: npm run check:gate-manifest
 
       - name: Codebase index coverage
         run: npm run docs:check-index
@@ -176,6 +225,20 @@ jobs:
 
       - name: Brand asset check
         run: npm run brand:check
+
+      # More generated-output drift detectors that were local-only in
+      # verify:cheap — same rationale as the design-system guards above. Without
+      # them a stale site map, therapy index, or design-system contract merged
+      # green because no workflow ran them. The gate-manifest self-test now fails
+      # CI if this list drifts from verify:cheap again.
+      - name: Site map drift
+        run: npm run sitemap:check
+
+      - name: Therapy data index drift
+        run: npm run check:therapy-data-index
+
+      - name: Design-system contract
+        run: npm run check:design-system-contract
 
       # Fails if a SECURITY DEFINER public function is left executable by
       # PUBLIC/anon (privilege-escalation / cross-tenant read surface).

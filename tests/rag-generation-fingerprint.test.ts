@@ -4,7 +4,7 @@ import {
   buildAnswerGenerationFingerprint,
   scopedAnswerCacheKey,
   type AnswerGenerationFingerprintInput,
-} from "../src/lib/rag-cache";
+} from "../src/lib/rag/rag-cache";
 
 const baseline: AnswerGenerationFingerprintInput = {
   answerModel: "gpt-5.6-terra",

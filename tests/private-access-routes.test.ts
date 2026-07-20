@@ -310,7 +310,7 @@ function mockRuntime(
   } = {},
 ) {
   vi.resetModules();
-  vi.doUnmock("@/lib/rag");
+  vi.doUnmock("@/lib/rag/rag");
   vi.doUnmock("@/lib/openai");
   vi.doUnmock("@/lib/document-enrichment");
   vi.doUnmock("@/lib/deep-memory");
@@ -345,7 +345,7 @@ function mockRuntime(
     createAdminClient: () => client,
   }));
   if (ragMock) {
-    vi.doMock("@/lib/rag", () => ragMock);
+    vi.doMock("@/lib/rag/rag", () => ragMock);
   }
 }
 
@@ -4900,7 +4900,7 @@ describe("private document API access", () => {
       generateStructuredTextResponse: vi.fn(),
       generateStructuredTextResult: vi.fn(),
     }));
-    const { searchChunks } = await import("../src/lib/rag");
+    const { searchChunks } = await import("../src/lib/rag/rag");
 
     const results = await searchChunks({
       query: "monitoring",
@@ -4930,7 +4930,7 @@ describe("private document API access", () => {
       generateStructuredTextResponse: vi.fn(),
       generateStructuredTextResult: vi.fn(),
     }));
-    const { searchChunks } = await import("../src/lib/rag");
+    const { searchChunks } = await import("../src/lib/rag/rag");
 
     await searchChunks({ query: "monitoring", documentId: otherDocumentId, ownerId: userId });
 
@@ -4948,7 +4948,7 @@ describe("private document API access", () => {
       generateStructuredTextResponse: vi.fn(),
       generateStructuredTextResult: vi.fn(),
     }));
-    const { searchChunks } = await import("../src/lib/rag");
+    const { searchChunks } = await import("../src/lib/rag/rag");
 
     await searchChunks({
       query: "Find the NOCC document",

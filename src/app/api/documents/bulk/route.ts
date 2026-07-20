@@ -6,7 +6,7 @@ import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { safeErrorLogDetails } from "@/lib/privacy";
-import { invalidateRagCachesForOwner } from "@/lib/rag";
+import { invalidateRagCachesForOwner } from "@/lib/rag/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json, TablesUpdate } from "@/lib/supabase/database.types";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";

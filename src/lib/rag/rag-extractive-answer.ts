@@ -15,15 +15,15 @@ import {
   machineReadableFallbackAnswer,
   rankMemoryCardsForAnswer,
   scoreValue,
-} from "@/lib/rag-answer-support";
+} from "@/lib/rag/rag-answer-support";
 import {
   hasClinicalAnswerQualityIssue,
   looksLikeJsonArtifact,
   normalizeSectionText,
   sanitizeAnswerText,
   splitBalancedWords,
-} from "@/lib/rag-answer-text";
-import { ragProviderMode } from "@/lib/rag-provider";
+} from "@/lib/rag/rag-answer-text";
+import { ragProviderMode } from "@/lib/rag/rag-provider";
 import {
   isLowYieldClinicalText,
   normalizeInlineBulletGlyphs,
@@ -39,7 +39,7 @@ import type {
   RagQueryClass,
   SearchResult,
 } from "@/lib/types";
-import { assessAndEnforceClaimSupport } from "@/lib/rag-claim-support";
+import { assessAndEnforceClaimSupport } from "@/lib/rag/rag-claim-support";
 
 type AnswerIntent =
   | "dose"

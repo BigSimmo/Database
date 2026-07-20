@@ -1,5 +1,5 @@
 import { isClinicalImageEvidence } from "@/lib/image-filtering";
-import { metadataText, safeRecord } from "@/lib/rag-answer-text";
+import { metadataText, safeRecord } from "@/lib/rag/rag-answer-text";
 import {
   escapeEvidenceFenceSentinels,
   fenceSourceEvidence,

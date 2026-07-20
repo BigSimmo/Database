@@ -179,6 +179,50 @@ Operational notes:
   `workflow_dispatch` run and confirm it goes green before trusting the
   weekly cadence (repo gate for this workflow).
 
+### 3.1 Boundary-case and metric-interpretation policy (2026-07-20)
+
+Standing rules distilled from the ADDENDUM-4 eval/tuning cycle so the next
+regression triage does not relearn them:
+
+- **Top-5 boundary cases are a human decision, never a silent retry.** When a
+  golden case's expected document sits at the top-5 boundary among multiple
+  legitimate sources (the alcohol-ciwa history), the fix is alias coverage or
+  a deliberately widened gate — chosen by a human with the run artifact open,
+  not by rerunning until green or by ranking nudges aimed at one fixture.
+- **Fixture and snapshot move together.** The ranking snapshot's case count is
+  pinned to the golden fixture (tests/ranking-tuning.test.ts) and the snapshot
+  carries `generatedAt` provenance with a 30-day freshness gate. Regenerate
+  from the latest `eval-canary-output` artifact via
+  `npm run build:ranking-snapshot` — never hand-edit either file.
+- **mrr@10 has a baseline step at 2026-07-20.** The lithium case was the only
+  ungated case (its rr was a hardcoded 0); gating it lifted measured mrr@10 by
+  ~+0.028 with zero retrieval change. Trend readers must treat that date as a
+  baseline reset, not an improvement.
+- **`irrelevant_source_rate@10` is a labeling question before it is a ranking
+  question.** The rate is dominated by broad/vector cases whose extra top-10
+  documents are topically adjacent (e.g. sibling guidelines). Before treating
+  the metric as ranking debt, audit whether those documents are under-labeled
+  relevant (the alias-tier lesson) — widening sanctioned labels may be the
+  correct fix and ranking changes aimed at the raw number may be optimizing
+  against mislabeled ground truth.
+- **Ordering-headroom changes need a live pair, and two shapes are refuted.**
+  The residual rank-depth headroom on passing fast-path cases resisted both
+  per-class feature-weight tuning (live no-op, 2026-07-20 pair #53/#54) and a
+  saturation-tail spread of the primary/near-primary sort keys (live
+  regression, pair #54/#55 — spreading any comparator key ABOVE the
+  relevance score lets raw ts_rank override boost/title/subject-aware
+  ordering; see the branch-review ledger for the full post-mortems). Any third
+  attempt must (a) insert strictly BELOW the relevance key in the release
+  comparators, (b) carry a discriminating offline test that fails on the old
+  code with differently-relevant candidates (identical-content fixtures hide
+  this failure mode), and (c) run a dedicated before/after canary pair with
+  doc/content recall pinned at 1.0.
+- **Artifact-based trends.** Every canary run uploads `eval-canary-output`
+  (30-day retention). `npm run eval:trend -- <artifact.json...>` renders the
+  run-over-run metric table (and `--case <id>` a per-case rr trend) from
+  downloaded artifacts — the durable trend record without any new
+  infrastructure.
+
 ## 4. Degradation counters on `/api/health` (shipped)
 
 The §2 reliability SQL is now also a scrape. An **authorized deep probe** —
@@ -195,7 +239,7 @@ header (same operator gate as the Supabase probe) — returns three counter bloc
 - **`cache`** — `cacheMetricsSnapshot` (`src/lib/observability/cache-metrics.ts`)
   reports `{ lookups, hits, misses, hitRate }` for the retrieval search cache,
   incremented in-process at the two-layer cache orchestration in
-  `searchChunksWithTelemetry` (`src/lib/rag.ts`). A request served by **either**
+  `searchChunksWithTelemetry` (`src/lib/rag/rag.ts`). A request served by **either**
   the process-local or the shared (`rag_response_cache`) layer counts as a hit,
   so a cold process falling through to a warm shared cache is not miscounted as a
   miss; disabled/skipped lookups are recorded as neither. These are **cumulative

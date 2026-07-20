@@ -11,7 +11,7 @@ import {
   type IngestionJobRow,
 } from "@/lib/ingestion-mutation-safety";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
-import { invalidateRagCachesForOwner } from "@/lib/rag";
+import { invalidateRagCachesForOwner } from "@/lib/rag/rag";
 import { isAtomicReindexCandidate } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";

@@ -8,8 +8,8 @@ import {
 } from "@/lib/owner-scope";
 import { buildClinicalTextSearchQuery, normalizedClinicalSearchTokens, queriedZoneColour } from "@/lib/clinical-search";
 import { isDemoMode, isLocalNoAuthMode } from "@/lib/env";
-import type { SearchChunksArgs } from "@/lib/rag-contracts";
-import { shouldShortCircuitUnsupportedSearch } from "@/lib/rag-query-guard";
+import type { SearchChunksArgs } from "@/lib/rag/rag-contracts";
+import { shouldShortCircuitUnsupportedSearch } from "@/lib/rag/rag-query-guard";
 import type { ClinicalQueryAnalysis, RagQueryClass, SearchResult } from "@/lib/types";
 
 const maxRetrievalQueryVariants = 4;

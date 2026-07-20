@@ -4,6 +4,7 @@ import {
   isDocumentViewerOwnedRoute,
   mobileComposerDifferentialsCompareReserve,
   mobileComposerHiddenReserve,
+  mobileComposerHiddenReserveRem,
   mobileComposerIdleReserve,
   mobileComposerVisibleReserve,
   resolveDashboardVisibleMobileComposerReserve,
@@ -14,6 +15,9 @@ import {
 describe("mobile composer reserve contract", () => {
   it("collapses to the hidden pad without Safari toolbar safe-area", () => {
     expect(mobileComposerHiddenReserve).toBe("0.75rem");
+    // The rem number feeds readChromeCollapseBudget's px math; it must stay
+    // equal to the CSS string above or the collapse budget silently drifts.
+    expect(`${mobileComposerHiddenReserveRem}rem`).toBe(mobileComposerHiddenReserve);
     expect(resolveMobileComposerReserve(true, mobileComposerVisibleReserve.shellAnswer)).toBe(
       mobileComposerHiddenReserve,
     );

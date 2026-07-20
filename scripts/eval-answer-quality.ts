@@ -14,7 +14,7 @@ import {
   scoreAnswerTargeting,
   type AnswerQualityEvalCase,
   type AnswerQualityMetric,
-} from "@/lib/rag-eval-cases";
+} from "@/lib/rag/rag-eval-cases";
 import type { RagAnswer } from "@/lib/types";
 import { loadAdminClient, resolveEvalOwnerId, withProviderBackoff } from "./eval-utils";
 
@@ -58,7 +58,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const [{ requireOpenAIEnv, requireServerEnv }, { answerQuestionWithScope }, supabase] = await Promise.all([
     import("@/lib/env"),
-    import("@/lib/rag"),
+    import("@/lib/rag/rag"),
     loadAdminClient(),
   ]);
   requireServerEnv();

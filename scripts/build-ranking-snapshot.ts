@@ -2,7 +2,12 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { RagQueryClass } from "../src/lib/types";
-import { candidateFeatures, labelMatches, type ArtifactCandidate } from "./lib/ranking-snapshot-builder";
+import {
+  candidateFeatures,
+  contentLabelMatchesWithAliases,
+  documentLabelMatchesWithAliases,
+  type ArtifactCandidate,
+} from "./lib/ranking-snapshot-builder";
 import {
   RANKING_SNAPSHOT_VERSION,
   type RankingCandidateFeatures,
@@ -73,9 +78,15 @@ const hardNegativeTemplates: Array<{
   features: RankingCandidateFeatures;
 }>;
 
-function convertArtifact(artifact: RetrievalArtifact): RankingSnapshot {
-  if (!Array.isArray(artifact.results) || artifact.results.length !== 36) {
-    throw new Error("Expected a retrieval artifact containing exactly 36 cases");
+function convertArtifact(artifact: RetrievalArtifact, sourceRunId?: string): RankingSnapshot {
+  // Floor, not an exact pin: the golden fixture only ever grows, and a short artifact means a
+  // truncated or filtered eval run that must not silently become the tuner's ground truth.
+  if (!Array.isArray(artifact.results) || artifact.results.length < 36) {
+    throw new Error(
+      `Expected a retrieval artifact containing at least 36 cases (got ${
+        Array.isArray(artifact.results) ? artifact.results.length : 0
+      })`,
+    );
   }
   const cases = artifact.results.map((testCase) => {
     const expectedDocuments = testCase.expectedDocumentSubstrings ?? [];
@@ -83,9 +94,10 @@ function convertArtifact(artifact: RetrievalArtifact): RankingSnapshot {
     const candidates = (testCase.topResults ?? []).map((candidate, index): RankingSnapshotCandidate => {
       const documentText = `${candidate.title ?? ""} ${candidate.file_name ?? ""}`.toLowerCase();
       const contentText = (candidate.content_preview ?? "").toLowerCase();
-      const documentMatch = expectedDocuments.some((label) => labelMatches(documentText, label));
+      const documentMatch = expectedDocuments.some((label) => documentLabelMatchesWithAliases(documentText, label));
       const contentMatch =
-        expectedContent.length > 0 && expectedContent.every((label) => labelMatches(contentText, label));
+        expectedContent.length > 0 &&
+        expectedContent.every((label) => contentLabelMatchesWithAliases(contentText, label));
       return {
         candidateHash: candidateHash(`${testCase.id}:${candidate.chunk_id ?? `rank-${index + 1}`}`),
         relevanceGrade: documentMatch && contentMatch ? 3 : documentMatch ? 2 : contentMatch ? 1 : 0,
@@ -116,6 +128,10 @@ function convertArtifact(artifact: RetrievalArtifact): RankingSnapshot {
     schema: "rag-ranking-candidate-snapshot",
     version: RANKING_SNAPSHOT_VERSION,
     sourceCaseCount: cases.length,
+    // Freshness provenance: tests/ranking-tuning.test.ts fails the build when generatedAt is
+    // older than 30 days, so a checked-in snapshot cannot silently drift from the live corpus.
+    generatedAt: new Date().toISOString(),
+    ...(sourceRunId ? { sourceRunId } : {}),
     sanitization: {
       candidateIdentity: "sha256",
       excludes: ["raw_uuid", "source_passage", "patient_data", "provider_metadata", "document_storage_path"],
@@ -127,10 +143,15 @@ function convertArtifact(artifact: RetrievalArtifact): RankingSnapshot {
 function main() {
   const input = argument("--input");
   const output = argument("--output");
+  // Optional provenance: the GitHub Actions run id of the eval-canary run whose artifact
+  // produced --input, so a snapshot can be traced back to its live eval.
+  const sourceRunId = argument("--source-run-id");
   if (!input || !output)
-    throw new Error("Usage: build-ranking-snapshot --input <artifact.json> --output <snapshot.json>");
+    throw new Error(
+      "Usage: build-ranking-snapshot --input <artifact.json> --output <snapshot.json> [--source-run-id <actions-run-id>]",
+    );
   const artifact = JSON.parse(readFileSync(resolve(input), "utf8")) as RetrievalArtifact;
-  const snapshot = validateRankingSnapshot(convertArtifact(artifact));
+  const snapshot = validateRankingSnapshot(convertArtifact(artifact, sourceRunId));
   writeFileSync(resolve(output), `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
   console.log(JSON.stringify({ output: resolve(output), cases: snapshot.cases.length, version: snapshot.version }));
 }

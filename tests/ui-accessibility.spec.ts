@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "playwright/test";
+import { stubZeroTouchPoints } from "./helpers/zero-touch";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -178,6 +179,8 @@ async function expectNoBlockingAxeViolations(page: Page, testInfo: TestInfo, opt
   expect(summary, "axe found critical/serious WCAG A/AA violations").toEqual([]);
 }
 
+test.beforeEach(stubZeroTouchPoints);
+
 test.describe("Clinical KB accessibility coverage", () => {
   test.describe.configure({ timeout: 60_000 });
 
@@ -249,7 +252,11 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("solid-button label tokens stay legible with forced colors", async ({ page }) => {
+  test("solid-button label tokens stay legible with forced colors", async ({ browserName, page }) => {
+    test.skip(
+      browserName === "webkit",
+      "WebKit has no forced-colors implementation; Playwright's forcedColors emulation cannot engage the @media (forced-colors: active) token remap under test (the guarded glyph-backplate behavior is Chromium's).",
+    );
     // Chromium paints a Canvas backplate behind every glyph run in forced-colors
     // mode: a label whose color resolves into the Canvas/ButtonFace family
     // disappears into its own backplate (axe cannot see this — it reads CSS,

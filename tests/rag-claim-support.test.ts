@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { assessAndEnforceClaimSupport, assessClaimSupport } from "@/lib/rag-claim-support";
+import { assessAndEnforceClaimSupport, assessClaimSupport } from "@/lib/rag/rag-claim-support";
 import type { Citation, RagAnswer, SearchResult } from "@/lib/types";
 
 function source(id: string, content: string, overrides: Partial<SearchResult> = {}): SearchResult {

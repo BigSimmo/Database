@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from "playwright/test";
+import { stubZeroTouchPoints } from "./helpers/zero-touch";
 
 // Cross-entity universal typeahead in the command surface. The universal endpoint is
 // mocked so this spec exercises the UI contract (grouped sections, navigation,
@@ -114,6 +115,8 @@ async function openComposer(page: Page, href = "/?mode=documents&focus=1") {
   await input.click();
   return input;
 }
+
+test.beforeEach(stubZeroTouchPoints);
 
 test.describe("universal search typeahead", () => {
   test("shows grouped cross-entity results while typing", async ({ page }) => {

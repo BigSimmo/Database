@@ -121,7 +121,7 @@ describe("source review route", () => {
       hasActiveAgentEnrichmentJob,
       ingestionMutationSafetyPayload: vi.fn(),
     }));
-    vi.doMock("@/lib/rag", () => ({ invalidateRagCachesForOwner }));
+    vi.doMock("@/lib/rag/rag", () => ({ invalidateRagCachesForOwner }));
 
     const { POST } = await import("../src/app/api/documents/[id]/reviews/route");
     const response = await POST(

@@ -5,7 +5,7 @@ import {
   answerRouteResultCanBeCached,
   answerRouteBudgetMs,
   createAnswerRouteDeadline,
-} from "../src/lib/rag-route-budget";
+} from "../src/lib/rag/rag-route-budget";
 
 afterEach(() => {
   vi.useRealTimers();

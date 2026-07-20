@@ -16,7 +16,7 @@ import {
   buildGovernedAnswerClientResponse,
   buildGovernedDemoAnswerClientResponse,
 } from "@/lib/answer-response";
-import { answerQuestionWithScope, summarizeDocument, type AnswerProgressEvent } from "@/lib/rag";
+import { answerQuestionWithScope, summarizeDocument, type AnswerProgressEvent } from "@/lib/rag/rag";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { annotateSearchResults, buildEvidenceRelevance } from "@/lib/evidence-relevance";
 import { buildSmartRagApiPlan } from "@/lib/smart-rag-api";

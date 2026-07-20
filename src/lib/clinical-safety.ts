@@ -1,6 +1,6 @@
 import { documentCitationHref, formatCitationLabel } from "@/lib/citations";
 import { queryCoreTerms } from "@/lib/evidence-relevance";
-import { sanitizeAnswerText } from "@/lib/rag-answer-text";
+import { sanitizeAnswerText } from "@/lib/rag/rag-answer-text";
 import {
   clinicalProseUsefulness,
   sourceTextForCompactDisplay,

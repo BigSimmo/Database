@@ -8,18 +8,49 @@ import {
   tuneRankingSnapshot,
   validateRankingSnapshot,
 } from "../scripts/lib/ranking-tuning";
-import { candidateFeatures, labelMatches } from "../scripts/lib/ranking-snapshot-builder";
+import {
+  candidateFeatures,
+  contentLabelMatchesWithAliases,
+  documentLabelMatchesWithAliases,
+  labelMatches,
+} from "../scripts/lib/ranking-snapshot-builder";
 import { defaultRankingConfig, neutralRankingFeatureWeights } from "../src/lib/ranking-config";
 
 const snapshotPath = resolve("scripts/fixtures/rag-ranking-candidate-snapshot.v1.json");
 const snapshotText = readFileSync(snapshotPath, "utf8");
 const snapshot = validateRankingSnapshot(JSON.parse(snapshotText));
+// The snapshot must evolve in lockstep with the golden fixture: every golden case appears in the
+// eval artifact the snapshot is built from, so their counts must match exactly. A fixture case
+// added without regenerating the snapshot (or a snapshot built from a truncated artifact) fails
+// the pin below with regeneration instructions.
+const goldenCaseCount = (
+  JSON.parse(readFileSync(resolve("scripts/fixtures/rag-retrieval-golden.json"), "utf8")) as unknown[]
+).length;
 
 describe("offline ranking candidate snapshot", () => {
   it("matches label alternatives as complete tokens", () => {
     expect(labelMatches("ED IM PO options", "ed OR im OR po")).toBe(true);
     expect(labelMatches("managed over time with support", "ed OR im OR po")).toBe(false);
     expect(labelMatches("Full-blood-count monitoring", "full blood count")).toBe(true);
+  });
+
+  it("grades matches through the sanctioned alias tables the live eval gates use", () => {
+    // Discriminating document case: the EMHS agitation guideline satisfies the pinned MHSP
+    // fixture key only via clinicalDocumentAliases — raw labelMatches grades it a miss, which
+    // fed the tuner mislabeled ground truth before the builder became alias-aware.
+    const emhsTitle = "mental health pharmacological management of agitation and arousal guideline (emhs).pdf";
+    expect(labelMatches(emhsTitle, "AgitationArousalPharmaMgt")).toBe(false);
+    expect(documentLabelMatchesWithAliases(emhsTitle, "AgitationArousalPharmaMgt")).toBe(true);
+    expect(documentLabelMatchesWithAliases("clozapine prescribing guideline", "AgitationArousalPharmaMgt")).toBe(false);
+
+    // Discriminating content case: a preview spelling out "absolute neutrophil count" answers
+    // the "anc" expectation only through clinicalContentAliases.
+    const ancPreview = "if the absolute neutrophil count drops below 1.5 withhold clozapine";
+    expect(labelMatches(ancPreview, "anc")).toBe(false);
+    expect(contentLabelMatchesWithAliases(ancPreview, "anc")).toBe(true);
+    // OR-alternate labels (contentExpectationLabel output) expand aliases per part.
+    expect(contentLabelMatchesWithAliases("give medication as required for agitation", "prn OR stat")).toBe(true);
+    expect(contentLabelMatchesWithAliases("alcohol withdrawal overview page", "ciwa")).toBe(false);
   });
 
   it("uses exact runtime fusion signals before legacy aggregate reconstruction", () => {
@@ -45,10 +76,36 @@ describe("offline ranking candidate snapshot", () => {
     ).toEqual(fusionSignals);
   });
 
+  it("is regenerated within the 30-day freshness window", () => {
+    // Active since the first provenance-stamped regeneration (2026-07-20, canary run
+    // 29763761133): an aging snapshot fails here with regeneration instructions instead of
+    // silently drifting from the live corpus. generatedAt itself is validator-required.
+    const ageMs = Date.now() - Date.parse(snapshot.generatedAt);
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    const regenerate =
+      "Regenerate it: download the latest eval-canary run's eval-canary-output artifact, then " +
+      "`npm run build:ranking-snapshot -- --input golden-retrieval.json --output " +
+      "scripts/fixtures/rag-ranking-candidate-snapshot.v1.json --source-run-id <actions-run-id>`.";
+    expect(
+      ageMs,
+      `Ranking snapshot generatedAt (${snapshot.generatedAt}) is ${Math.round(ageMs / 86_400_000)} days old. ${regenerate}`,
+    ).toBeLessThanOrEqual(thirtyDaysMs);
+    expect(
+      ageMs,
+      `Ranking snapshot generatedAt (${snapshot.generatedAt}) is in the future. ${regenerate}`,
+    ).toBeGreaterThanOrEqual(-86_400_000);
+  });
+
   it("is versioned, complete, and excludes raw candidate/source data", () => {
     expect(snapshot.version).toBe(RANKING_SNAPSHOT_VERSION);
-    expect(snapshot.cases).toHaveLength(36);
-    expect(snapshot.sourceCaseCount).toBe(36);
+    const regenerate =
+      "Golden fixture and ranking snapshot must move together. Regenerate: download the latest " +
+      "eval-canary run's eval-canary-output artifact, then `npm run build:ranking-snapshot -- " +
+      "--input golden-retrieval.json --output scripts/fixtures/rag-ranking-candidate-snapshot.v1.json " +
+      "--source-run-id <actions-run-id>`.";
+    expect(goldenCaseCount, "golden fixture unexpectedly below its introduction size").toBeGreaterThanOrEqual(36);
+    expect(snapshot.cases.length, regenerate).toBe(goldenCaseCount);
+    expect(snapshot.sourceCaseCount, regenerate).toBe(goldenCaseCount);
     expect(snapshotText).not.toMatch(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i);
     expect(snapshotText).not.toContain("content_preview");
     expect(snapshotText).not.toContain("chunk_id");
@@ -93,6 +150,28 @@ describe("offline ranking candidate snapshot", () => {
     invalidSourceCount.sourceCaseCount = 35;
     expect(() => validateRankingSnapshot(invalidSourceCount)).toThrow(/sourceCaseCount/);
 
+    const truncated = structuredClone(snapshot);
+    truncated.cases = truncated.cases.slice(0, 35);
+    truncated.sourceCaseCount = 35;
+    expect(() => validateRankingSnapshot(truncated)).toThrow(/at least 36/);
+
+    const invalidGeneratedAt = structuredClone(snapshot);
+    invalidGeneratedAt.generatedAt = "not-a-date";
+    expect(() => validateRankingSnapshot(invalidGeneratedAt)).toThrow(/generatedAt/);
+
+    const missingGeneratedAt = structuredClone(snapshot) as Record<string, unknown>;
+    delete missingGeneratedAt.generatedAt;
+    expect(() => validateRankingSnapshot(missingGeneratedAt)).toThrow(/generatedAt/);
+
+    const invalidSourceRunId = structuredClone(snapshot);
+    invalidSourceRunId.sourceRunId = "";
+    expect(() => validateRankingSnapshot(invalidSourceRunId)).toThrow(/sourceRunId/);
+
+    const withProvenance = structuredClone(snapshot);
+    withProvenance.generatedAt = "2026-07-20T00:00:00.000Z";
+    withProvenance.sourceRunId = "16412345678";
+    expect(validateRankingSnapshot(withProvenance).generatedAt).toBe("2026-07-20T00:00:00.000Z");
+
     const invalidSanitization = structuredClone(snapshot);
     invalidSanitization.sanitization.candidateIdentity = "raw" as never;
     expect(() => validateRankingSnapshot(invalidSanitization)).toThrow(/sanitization/);
@@ -117,11 +196,15 @@ describe("offline ranking candidate snapshot", () => {
 
 describe("offline ranking tuner", () => {
   it("reports missing-positive retrieval separately from hard-negative ordering", () => {
+    // On the 2026-07-20 regenerated snapshot, agitation-im-po-options gained graded positives:
+    // the alias-aware builder recognizes the EMHS agitation guideline the live gates accept, so
+    // only flowchart-next-step still carries zero positives (its answer lives in flowchart-step
+    // actions that the top-result previews do not surface — the known flowchart rr headroom).
     const missingPositiveCases = snapshot.cases.filter((testCase) =>
       ["agitation-im-po-options", "flowchart-next-step"].includes(testCase.id),
     );
     const metrics = evaluateRankingCases(missingPositiveCases, neutralRankingFeatureWeights);
-    expect(metrics.missingPositiveCases).toBe(2);
+    expect(metrics.missingPositiveCases).toBe(1);
     expect(metrics.hardNegativeAccuracy).toBe(1);
     expect(metrics.highRiskHardNegativeFailures).toBe(0);
   });
@@ -129,10 +212,11 @@ describe("offline ranking tuner", () => {
   it("keeps the golden-regression hard negatives below the first relevant candidate at production weights", () => {
     // The four cases that failed the 2026-07-19 live golden retrieval eval on the raw #901
     // ordering (remediated same-day by #913-#926). This gate keys on relevanceGrade-derived
-    // metrics (missing positives, hard-negative ordering), not on documentMatch flags, so the
-    // snapshot builder's alias-free labelMatches cannot weaken it. It exercises the snapshot
-    // proxy scorer at production weights — a complementary floor, not a test of the
-    // selectRetrievalEvidence comparator (tests/rag-fast-path-ordering.test.ts covers that).
+    // metrics (missing positives, hard-negative ordering), not on documentMatch flags, so
+    // grading changes in the (now alias-aware) snapshot builder only reach it through a
+    // deliberate snapshot regeneration. It exercises the snapshot proxy scorer at production
+    // weights — a complementary floor, not a test of the selectRetrievalEvidence comparator
+    // (tests/rag-fast-path-ordering.test.ts covers that).
     const goldenRegressionCaseIds = [
       "lithium-therapy-monitoring",
       "clozapine-anc-threshold",
@@ -171,8 +255,10 @@ describe("offline ranking tuner", () => {
       expect(recommendation.metrics.highRiskHardNegativeFailures).toBe(0);
       expect(recommendation.distanceFromCurrent).toBeGreaterThan(0);
     }
-    expect(first.find((item) => item.queryClass === "broad_summary")?.weights).toEqual(
-      defaultRankingConfig.featureFusion.broad_summary,
-    );
+    // No equality pin against defaultRankingConfig here: the shipped defaults' provenance was
+    // the retired pre-provenance snapshot, and fresh-snapshot recommendations are Phase B input
+    // (reviewed + live-validated there), not a standing invariant of this fixture. The loop
+    // above pins the invariants that must always hold: determinism, objective gain, recall
+    // non-regression, and zero high-risk hard-negative failures.
   });
 });

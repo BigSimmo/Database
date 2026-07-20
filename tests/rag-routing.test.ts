@@ -4,8 +4,8 @@ import {
   hasAdversarialManipulationIntent,
   shouldRetryWithStrongAfterFast,
   weakRetrievalTopScoreThreshold,
-} from "../src/lib/rag-routing";
-import { ragEvalCases } from "../src/lib/rag-eval-cases";
+} from "../src/lib/rag/rag-routing";
+import { ragEvalCases } from "../src/lib/rag/rag-eval-cases";
 import type { DocumentTableFact, SearchResult } from "../src/lib/types";
 
 function source(overrides: Partial<SearchResult> = {}): SearchResult {

@@ -60,7 +60,7 @@ function mockRuntime(client: ReturnType<typeof rateLimitedClient>) {
     getOptionalAuthenticatedUser: vi.fn(async () => ({ id: userId })),
     unauthorizedResponse: () => new Response(JSON.stringify({ error: "Authentication required." }), { status: 401 }),
   }));
-  vi.doMock("@/lib/rag", () => ({
+  vi.doMock("@/lib/rag/rag", () => ({
     invalidateRagCachesForOwner: vi.fn(),
     invalidateRagCachesForDocumentMutation: vi.fn(),
   }));

@@ -112,7 +112,7 @@ one.
 
 - **In-memory coalescing and caches are load-bearing.** The answer pipeline
   coalesces identical in-flight questions (`answer_inflight_coalesced` in
-  `src/lib/rag.ts`) and holds LRU answer/search caches
+  `src/lib/rag/rag.ts`) and holds LRU answer/search caches
   (`RAG_ANSWER_CACHE_TTL_MS`/`RAG_ANSWER_CACHE_SIZE`). Serverless isolates get
   one request each, so coalescing never fires and every duplicate ward-round
   question pays the full ~6-RPC fan-out plus an OpenAI generation.

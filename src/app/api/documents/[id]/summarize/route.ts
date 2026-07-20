@@ -4,7 +4,7 @@ import { z } from "zod";
 import { demoSummary, getDemoDocument } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { documentSummaryQuestion } from "@/lib/answer-contract";
-import { summarizeDocument } from "@/lib/rag";
+import { summarizeDocument } from "@/lib/rag/rag";
 import { buildGovernedAnswerClientResponse, buildGovernedDemoAnswerClientResponse } from "@/lib/answer-response";
 import { logAnswerDiagnostics } from "@/lib/answer-telemetry";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";

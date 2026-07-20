@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "playwright/test";
+import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import type { Route } from "playwright-core";
 import { acuteConfusionPresentationWorkflow, differentialRecords } from "../src/lib/differentials";
 import { demoAnswer, demoDocuments } from "../src/lib/demo-data";
@@ -349,6 +350,8 @@ async function expectVerticalSeparation(page: Page, upperSelector: string, lower
   expect(metrics).not.toBeNull();
   expect((metrics?.lowerTop ?? 0) - (metrics?.upperBottom ?? 0)).toBeGreaterThanOrEqual(minimumGap);
 }
+
+test.beforeEach(stubZeroTouchPoints);
 
 test.describe("Clinical KB tools launcher", () => {
   test.describe.configure({ timeout: 60_000 });

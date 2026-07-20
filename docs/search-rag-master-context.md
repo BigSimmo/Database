@@ -20,13 +20,13 @@ The desired experience is:
 Phase 7 performance hardening is implemented:
 
 - `OPENAI_ANSWER_TIMEOUT_MS` is the answer-generation timeout budget. Phase 7 introduced it at 12000ms; the current default is **30000ms** — a deliberate product decision to favour natural, model-written answers over fast degradation to stitched extractive prose (see the rationale comment at `src/lib/env.ts` next to `OPENAI_ANSWER_TIMEOUT_MS`).
-- `src/lib/rag.ts` passes that timeout to structured answer generation so provider stalls fail into the existing source-backed fallback path faster than the global OpenAI request timeout.
+- `src/lib/rag/rag.ts` passes that timeout to structured answer generation so provider stalls fail into the existing source-backed fallback path faster than the global OpenAI request timeout.
 - `scripts/eval-rag.ts` excludes `generation_fallback` answers from the intentional routine-extractive latency bucket so provider timeout waits do not distort the model-free extractive metric.
 - Focused tests, typecheck, production-readiness, and capped RAG eval with threshold failure enabled passed after the change.
 
 Phase 7b latency polish is implemented:
 
-- `src/lib/rag-routing.ts` detects explicit table, chart, flowchart, figure, appendix, and form lookup questions.
+- `src/lib/rag/rag-routing.ts` detects explicit table, chart, flowchart, figure, appendix, and form lookup questions.
 - Safe explicit lookup questions route to extractive with reason `explicit_table_or_source_lookup`.
 - Medication/action/dose/threshold questions remain on model synthesis when they ask for clinical interpretation rather than source location.
 - The `agitation-arousal-table-lookup` eval case moved to extractive with `generation_latency_ms=0` and sub-second total latency in the Phase 7b validation run.
@@ -98,8 +98,8 @@ Answer and RAG flow:
 
 - `src/app/api/answer/route.ts`
 - `src/app/api/answer/stream/route.ts`
-- `src/lib/rag.ts`
-- `src/lib/rag-routing.ts`
+- `src/lib/rag/rag.ts`
+- `src/lib/rag/rag-routing.ts`
 - `src/lib/smart-rag-api.ts`
 - `src/lib/openai.ts`
 - `src/lib/types.ts`
