@@ -3581,7 +3581,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     // At the bottom, collapsing the in-flow header can reflow the scroll
     // surface and clamp scrollTop. That geometry-driven event is not an upward
-    // user gesture and must not immediately reveal the header.
+    // user gesture and must not immediately reveal the header. The collapse
+    // -budget gate refuses to START a hide at the bottom edge (that is the
+    // #964 "locks to the bottom" trap), so hide with runway remaining first,
+    // then ride the clamp to the bottom while hidden.
     await main.evaluate((node) => {
       node.scrollTop = 0;
     });
@@ -3589,7 +3592,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const visibleMaxOffset = await main.evaluate((node) => node.scrollHeight - node.clientHeight);
     await main.evaluate((node, top) => {
       node.scrollTop = top;
-    }, visibleMaxOffset);
+    }, visibleMaxOffset - 400);
+    await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
+    await main.evaluate((node) => {
+      node.scrollTop = node.scrollHeight - node.clientHeight;
+    });
     await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => collapseHost.getAttribute("data-scroll-hidden"), { timeout: 1_000 }).toBe("true");
     // The hidden attribute flips before the 240ms grid-row transition has

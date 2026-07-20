@@ -1739,25 +1739,24 @@ export function DocumentViewer({
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
     let cancelled = false;
-    let observer: MutationObserver | null = null;
-    // #main-content is the app-shell scroll container: it mounts once (usually
-    // before this effect runs) and persists for the viewer's lifetime. Resolve it
-    // synchronously, and only fall back to observing the DOM until it appears —
-    // then disconnect, rather than reacting to every app-wide mutation forever.
+    // #main-content is the app-shell scroll container, but it does NOT reliably
+    // mount once: the shell can remount it around chrome-visibility/hydration
+    // swaps, leaving a one-shot lookup holding a detached node whose scroll
+    // events never fire (the phone composer then never hides). Keep observing
+    // for the viewer's lifetime — childList-only mutations are infrequent, and
+    // the setState below dedups so unrelated inserts cost one no-op callback.
     const sync = () => {
       if (cancelled) return;
       const main = window.document.getElementById("main-content");
       if (!main) return;
       setShellScrollContainer((current) => (current === main ? current : main));
-      observer?.disconnect();
-      observer = null;
     };
-    observer = new MutationObserver(sync);
+    const observer = new MutationObserver(sync);
     observer.observe(window.document.body, { childList: true, subtree: true });
     sync();
     return () => {
       cancelled = true;
-      observer?.disconnect();
+      observer.disconnect();
     };
   }, []);
   const scrollHidden = useHideOnScroll({
