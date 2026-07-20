@@ -2950,7 +2950,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(startHereBox).not.toBeNull();
     expect(documentsHeadingBox).not.toBeNull();
     expect((documentsHeadingBox?.y ?? 0) + (documentsHeadingBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
-    expect(searchInputBox?.y ?? 0).toBeLessThan(startHereBox?.y ?? 0);
+    // Phones dock the compact composer at the bottom edge, below the hero content.
+    expect(searchInputBox?.y ?? 0).toBeGreaterThan(startHereBox?.y ?? 0);
+    await expect(page.locator('form.answer-footer-search-dock[data-footer-variant="compact"]')).toHaveCount(1);
     const recentDocumentsButton = page.getByRole("button", { name: /Recent documents/i }).first();
     const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
     const sourcePdfButton = page.getByRole("button", { name: /Open a source PDF/i }).first();

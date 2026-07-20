@@ -26,14 +26,14 @@ export function HomeScreen() {
 
   const therapyCountCopy =
     b.therapies.length === 0
-      ? "Search source-grounded therapy records by problem, symptom, skill or population — or jump into a clinical pathway."
-      : `Search ${b.therapies.length} source-grounded therapy ${b.therapies.length === 1 ? "record" : "records"} by problem, symptom, skill or population — or jump into a clinical pathway.`;
+      ? "Source-grounded therapy records and clinical pathways."
+      : `${b.therapies.length} source-grounded therapy ${b.therapies.length === 1 ? "record" : "records"} and clinical pathways.`;
 
   return (
     <ModeHomeMain testId="therapy-compass-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="therapy-compass"
-        title="What therapy are you looking for?"
+        title="Therapy"
         subtitle={therapyCountCopy}
         icon={Search}
         actionsLabel="Therapy workflows"
