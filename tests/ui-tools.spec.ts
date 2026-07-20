@@ -481,14 +481,14 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/\/services$/);
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     await expect(page.getByTestId("services-home")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "Find a service" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Services" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
     await expect(page.getByTestId("collapsed-account-settings")).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
     const servicesHomeSearch = page.getByTestId("services-home").getByTestId("global-search-input");
     await expect(servicesHomeSearch).toBeVisible();
     const servicesSearchBox = await servicesHomeSearch.boundingBox();
-    const servicesHeadingBox = await page.getByRole("heading", { level: 1, name: "Find a service" }).boundingBox();
+    const servicesHeadingBox = await page.getByRole("heading", { level: 1, name: "Services" }).boundingBox();
     expect(servicesSearchBox).not.toBeNull();
     expect(servicesHeadingBox).not.toBeNull();
     expect((servicesHeadingBox?.y ?? 0) + (servicesHeadingBox?.height ?? 0)).toBeLessThan(servicesSearchBox?.y ?? 0);
@@ -559,7 +559,7 @@ test.describe("Clinical KB tools launcher", () => {
 
     for (const home of [
       { path: "/?mode=answer", testId: "answer-empty-state", heading: "How can I help?", headingLevel: 2 },
-      { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
+      { path: "/services", testId: "services-home", heading: "Services", headingLevel: 1 },
       { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
       { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
       { path: "/favourites", testId: "favourites-hub", heading: "Favourites command library", headingLevel: 1 },
@@ -763,10 +763,10 @@ test.describe("Clinical KB tools launcher", () => {
       {
         path: "/?mode=prescribing",
         testId: "medication-home",
-        heading: "Medication prescribing",
+        heading: "Medication",
         headingLevel: 2,
       },
-      { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
+      { path: "/services", testId: "services-home", heading: "Services", headingLevel: 1 },
       { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
       { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
       { path: "/tools", testId: "tools-home", heading: "Tools", headingLevel: 1 },
