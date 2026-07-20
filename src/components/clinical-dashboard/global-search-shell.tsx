@@ -345,8 +345,8 @@ function GlobalStandaloneSearchShellClient({
     !isDifferentialPresentationWorkflow &&
     (!isInfoPage || isToolDetailWithFooterSearch(pathname));
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
-  // Standalone mode homes portal the composer into the hero (in-flow at every
-  // width), so phones need no bottom-dock clearance there. Document viewer
+  // Standalone mode homes keep the hero composer from sm up but dock the
+  // compact pill on phones, so they reserve dock clearance too. Document viewer
   // routes own their own floating composer, so the shell keeps only a small pad
   // and lets DocumentViewer manage visible-dock clearance.
   // Release the large bottom reserve only when the phone bottom composer is
@@ -365,7 +365,6 @@ function GlobalStandaloneSearchShellClient({
       isStandaloneModeHome,
       searchMode,
       differentialsCompareAddonActive,
-      useCompactBottomSearch,
     }),
   );
 
@@ -714,16 +713,18 @@ function GlobalStandaloneSearchShellClient({
             onCrossModeSearch={crossModeSearch}
             headerVariant={isDifferentialPresentationWorkflow ? "workflow" : "default"}
             mobileSearchPlacement="bottom"
-            // Submitted searches that stay in the shell (services results) are
-            // result views: compact the phone bottom composer so results keep
-            // maximum screen space. Mode homes keep the chip-row layout.
-            mobileBottomSearchVariant={useCompactBottomSearch ? "compact" : "default"}
+            // Every phone dock is the compact single-row pill so content keeps
+            // maximum screen space (mode homes and result views alike).
+            mobileBottomSearchVariant="compact"
             mobileBottomSearchAddonSlotId={
               differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
             }
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
+            // Standalone mode homes keep the hero pill from sm up; phones get
+            // the compact bottom dock (only the answer home hero owns phones).
+            heroComposerBreakpoint="sm-up"
             // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the header/composer to hand space back to content.
             hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
