@@ -12,7 +12,11 @@ import type { SearchResult } from "../src/lib/types";
 // (rag-candidate-sources.ts: similarity = 0.62 + min(text_rank, 1) * 0.3), so unrelated
 // documents matching the same query terms collapse to byte-identical vector/text/hybrid
 // scores and only content-aware ranking can separate them. Each test replays one failed
-// eval case's shape through the production ordering pipeline.
+// eval case's shape through the production ordering pipeline. Guard surface: the CIWA
+// case is the one whose top-1 assertion binds the selection contentRankScore tie-break
+// (its candidates tie on every clamped key); the lithium/clozapine/safety-plan cases win
+// earlier (subject boosts, table-type boosts, hybrid+id release order) and guard the
+// remediation stack end-to-end rather than the tie-break itself.
 
 type QueryClass = ReturnType<typeof classifyRagQuery>["queryClass"];
 
@@ -305,5 +309,60 @@ describe("text-fast-path ordering under imputed identical primaries", () => {
     expect(released[0]?.document_id).toBe("ptsafetyplan-doc");
     // Both are legitimate sources — the policy document must stay retrievable, not be dropped.
     expect(released.map((result) => result.document_id)).toContain("rkpg-policy-doc");
+  });
+
+  it("prefers the current document over an outdated twin at exact saturated ties (conservative direction)", () => {
+    // The tie-break key is the full clinical rank, which includes the bounded source-governance
+    // terms — so among otherwise-identical candidates the current, well-extracted document wins.
+    // This pins the conservative direction of the governance component at ties.
+    const query = "What monitoring is required for lithium therapy?";
+    const { queryClass } = classifyRagQuery(query);
+    const sharedFields = {
+      title: "Mood Stabiliser Guideline",
+      content:
+        "Serum lithium level should be checked 12 hours after the last dose during maintenance therapy, with renal function and thyroid function tests every six months.",
+    };
+    const governanceMetadata = (overrides: Partial<NonNullable<SearchResult["source_metadata"]>>) => ({
+      source_title: null,
+      publisher: null,
+      jurisdiction: null,
+      version: null,
+      publication_date: null,
+      review_date: null,
+      uploaded_at: null,
+      indexed_at: null,
+      uploaded_by: null,
+      document_status: "current" as const,
+      clinical_validation_status: "locally_reviewed" as const,
+      extraction_quality: "good" as const,
+      ...overrides,
+    });
+    const currentDoc = imputedResult({
+      ...sharedFields,
+      id: "guideline-current",
+      document_id: "current-doc",
+      file_name: "MoodStabiliserGuideline (SMHS).pdf",
+      source_metadata: governanceMetadata({}),
+    });
+    const outdatedTwin = imputedResult({
+      ...sharedFields,
+      id: "guideline-archived",
+      document_id: "archived-doc",
+      file_name: "MoodStabiliserGuideline 2019 (SMHS).pdf",
+      source_metadata: governanceMetadata({ document_status: "outdated", extraction_quality: "poor" }),
+    });
+
+    // Note "guideline-archived" < "guideline-current" lexicographically: without the
+    // governance-aware tie-break the chunk-id fallback would seat the outdated twin first.
+    const released = runTextFastPathOrdering({
+      query,
+      queryClass,
+      candidates: [outdatedTwin, currentDoc],
+      topK: 8,
+    });
+
+    expect(released[0]?.document_id).toBe("current-doc");
+    // Conservative availability: the outdated document is demoted, not dropped.
+    expect(released.map((result) => result.document_id)).toContain("archived-doc");
   });
 });

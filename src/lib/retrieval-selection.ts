@@ -493,7 +493,11 @@ export function buildRetrievalCandidates(
       // Carried ONLY as the last tie-break before chunk id: on the embedding-free fast path,
       // imputed primaries make clamped score/lexical/rerank ties routine, and a chunk-id tie-break
       // is arbitrary — the second stage's position-based adjustment then launders that arbitrary
-      // winner into the released order. Never added to score.
+      // winner into the released order. Never added to score. Note this rankScore is the full
+      // clinical rank, which includes the bounded source-governance metadata terms — deliberate
+      // for a tie-break: among otherwise-indistinguishable candidates it prefers the current,
+      // well-extracted document (the conservative direction), unlike governance WEIGHTING of the
+      // primary score, which the NOTE below still forbids.
       contentRankScore:
         result.score_explanation?.rankScore ??
         result.score_explanation?.preClampFinalScore ??

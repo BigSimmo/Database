@@ -128,9 +128,11 @@ describe("offline ranking tuner", () => {
 
   it("keeps the golden-regression hard negatives below the first relevant candidate at production weights", () => {
     // The four cases that failed the 2026-07-19 live golden retrieval eval on the raw #901
-    // ordering (remediated same-day by #913-#926). Snapshot-builder caveat: labelMatches does
-    // not apply the eval's clinicalDocumentAliases, so alias-keyed documentMatch flags are
-    // false snapshot-wide — the content-graded relevant candidates carry this gate instead.
+    // ordering (remediated same-day by #913-#926). This gate keys on relevanceGrade-derived
+    // metrics (missing positives, hard-negative ordering), not on documentMatch flags, so the
+    // snapshot builder's alias-free labelMatches cannot weaken it. It exercises the snapshot
+    // proxy scorer at production weights — a complementary floor, not a test of the
+    // selectRetrievalEvidence comparator (tests/rag-fast-path-ordering.test.ts covers that).
     const goldenRegressionCaseIds = [
       "lithium-therapy-monitoring",
       "clozapine-anc-threshold",
