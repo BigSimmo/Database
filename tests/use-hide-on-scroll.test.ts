@@ -223,6 +223,133 @@ describe("computeScrollHideUpdate", () => {
     });
   });
 
+  it("reproduces the short-page hide → clamp → tiny-reveal oscillation without a collapse budget", () => {
+    // Real numbers from a phone standalone mode home (390x844, post-#964):
+    // visible-chrome scroll runway maxOffset ≈ 300px; hiding the chrome
+    // releases ~240px (header grid collapse + dock reserve-pad shrink). The
+    // hide decision itself must be what prevents the trap; every guard below
+    // it can only hold state, not restore the lost runway.
+    let state = { hidden: false, lastOffset: 0, direction: null as "down" | "up" | null, directionTravel: 0 };
+    for (const offset of [40, 80, 100]) {
+      state = computeScrollHideUpdate({
+        offset,
+        lastOffset: state.lastOffset,
+        maxOffset: 300,
+        currentlyHidden: state.hidden,
+        direction: state.direction,
+        directionTravel: state.directionTravel,
+      });
+    }
+    // Today the chrome hides at ~100px on a 300px runway…
+    expect(state.hidden).toBe(true);
+
+    // …then the 240px geometry release clamps the offset to the shrinking
+    // bottom edge (held correctly by the bottom-clamp guard)…
+    for (const frame of [90, 75, 60]) {
+      state = computeScrollHideUpdate({
+        offset: frame,
+        lastOffset: state.lastOffset,
+        maxOffset: frame,
+        currentlyHidden: state.hidden,
+        direction: state.direction,
+        directionTravel: state.directionTravel,
+      });
+      expect(state.hidden).toBe(true);
+    }
+
+    // …and a mere 12px upward drag re-reveals, snapping ~240px of geometry
+    // back under the finger — the "locks to the bottom" oscillation.
+    const revealed = computeScrollHideUpdate({
+      offset: 48,
+      lastOffset: state.lastOffset,
+      maxOffset: 60,
+      currentlyHidden: state.hidden,
+      direction: state.direction,
+      directionTravel: state.directionTravel,
+    });
+    expect(revealed.hidden).toBe(false);
+  });
+
+  it("refuses to hide when the collapse budget exceeds the remaining runway", () => {
+    // /formulation at 390x844 (measured pre-fix): maxOffset 266 with chrome
+    // visible; hiding releases 182px (72px header strip + 110px reserve-pad
+    // shrink). At offset 100 only 166px of runway remains — hiding would clamp
+    // the offset straight onto the new bottom edge, so the gate must refuse.
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 266,
+        collapseBudget: 182,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }),
+    ).toEqual({
+      hidden: false,
+      lastOffset: 100,
+      direction: "down",
+      directionTravel: 100,
+    });
+  });
+
+  it("hides normally when ample runway remains below the collapse release", () => {
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 2000,
+        collapseBudget: 240,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(true);
+  });
+
+  it("keeps hiding when the collapse budget is not reported (back-compat)", () => {
+    // DocumentViewer / settings-dialog consumers report no budget; their
+    // behavior must be untouched even on a short scroller.
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 266,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(true);
+  });
+
+  it("blocks a hide that would land within one micro-drag of the reveal threshold", () => {
+    // runway (500-100) - budget 240 = 160 > 28 → allowed…
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 500,
+        collapseBudget: 240,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(true);
+    // …but with 28px or less of post-collapse runway the position would sit
+    // one reveal-intent drag from snapping the geometry back: refused.
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 368,
+        collapseBudget: 240,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(false);
+  });
+
   it("ignores an upward clamp caused by the viewport growing at the bottom", () => {
     const clamped = computeScrollHideUpdate({
       offset: 900,
