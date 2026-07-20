@@ -102,7 +102,9 @@ async function installFlipCounter(page: Page) {
     const counter = { flips: 0 };
     (window as unknown as { __scrollFlipCounter: typeof counter }).__scrollFlipCounter = counter;
     const header = document.querySelector('[data-testid="universal-header-collapse"]');
-    if (!header) return;
+    // Fail loudly: returning early would leave the counter pinned at 0, so
+    // every flip assertion would pass vacuously.
+    if (!header) throw new Error("installFlipCounter: universal-header-collapse not found");
     new MutationObserver(() => {
       counter.flips += 1;
     }).observe(header, { attributes: true, attributeFilter: ["data-scroll-hidden"] });

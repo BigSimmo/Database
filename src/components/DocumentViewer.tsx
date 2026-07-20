@@ -1747,8 +1747,11 @@ export function DocumentViewer({
     // the setState below dedups so unrelated inserts cost one no-op callback.
     const sync = () => {
       if (cancelled) return;
+      // Track absence too: a two-step remount would otherwise leave the state
+      // holding the detached node, keeping useHideOnScroll subscribed to a
+      // scroller that never fires. null falls back to window until the
+      // replacement mounts.
       const main = window.document.getElementById("main-content");
-      if (!main) return;
       setShellScrollContainer((current) => (current === main ? current : main));
     };
     const observer = new MutationObserver(sync);
