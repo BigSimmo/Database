@@ -11,6 +11,38 @@ ingestion worker run on Railway (Singapore) from the committed `Dockerfile` and
 Host provisioning, staging setup, and secret placement remain operator actions
 and are specified here.
 
+## Topology at a glance
+
+```mermaid
+flowchart TB
+    user["Clinician (browser / PWA)"]
+    subgraph railway["Railway — Southeast Asia (Singapore)"]
+        app["app tier: Next.js 16 (Dockerfile)<br/>service Database → psychiatry.tools"]
+        worker["ingestion worker (Dockerfile.worker)<br/>parse · OCR · chunk · embed"]
+    end
+    subgraph supabase["Supabase — ap-southeast-2 (Sydney)"]
+        pg[("Postgres 17 + pgvector<br/>RLS · retrieval RPCs")]
+        storage["Storage: clinical-documents /<br/>clinical-images (private)"]
+        auth["Auth: sessions · owner scope"]
+        edge["Edge Function<br/>indexing-v3-agent (cron gate)"]
+    end
+    openai["OpenAI<br/>embeddings · captions · answers"]
+
+    user -->|HTTPS| app
+    app -->|"upload → Storage + queue ingestion_jobs"| storage
+    app -->|"retrieval RPCs · session refresh"| pg
+    app --> auth
+    app -->|grounded answers| openai
+    worker -->|poll ingestion_jobs| pg
+    worker -->|"read/write artifacts"| storage
+    worker -->|"embeddings / captions"| openai
+    edge --> pg
+```
+
+The app↔Supabase path is public internet fronted by Supabase's CDN (Supabase is not on
+Railway's private network — see §2.1). Both Railway services deploy from
+`BigSimmo/Database` on pushes to `main`.
+
 ## 1. Current state (what runs today)
 
 - **Live on Railway.** Project **`Database`** (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`),
