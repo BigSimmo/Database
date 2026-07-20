@@ -8,10 +8,8 @@ import {
   History,
   Loader2,
   MessageSquareText,
-  Search,
   ShieldCheck,
   Square,
-  Upload,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -59,14 +57,10 @@ export function CopyButton({
 }
 
 export function AnswerEmptyState({
-  onSearchDocuments,
-  onUploadDocument,
   desktopComposerSlotId,
   recentQueries = [],
   onSelectRecent,
 }: {
-  onSearchDocuments: () => void;
-  onUploadDocument: () => void;
   desktopComposerSlotId?: string;
   recentQueries?: string[];
   onSelectRecent?: (query: string) => void;
@@ -104,20 +98,6 @@ export function AnswerEmptyState({
               icon={History}
             />
           )}
-          {/* Quick actions are secondary to the composer above, so they read as
-              light text links (not pills) with a hairline divider — this also
-              breaks the visual repetition of stacked equal-weight chip rows. */}
-          <div className="answer-quick-actions" role="group" aria-label={answerEmptyState.quickActionsLabel}>
-            <button type="button" className="answer-quick-action min-h-tap sm:min-h-7" onClick={onSearchDocuments}>
-              <Search className="answer-quick-action-icon" aria-hidden="true" />
-              {answerEmptyState.starters.searchDocuments.title}
-            </button>
-            <span className="answer-quick-action-divider" aria-hidden="true" />
-            <button type="button" className="answer-quick-action min-h-tap sm:min-h-7" onClick={onUploadDocument}>
-              <Upload className="answer-quick-action-icon" aria-hidden="true" />
-              {answerEmptyState.starters.uploadDocument.title}
-            </button>
-          </div>
           {/* No privacy link here: the composer's PrivacyInputNotice is the
               single site-wide notice, so the hero footer must not repeat it. */}
           {/* Pre-query copy must describe what the search does, not assert that
