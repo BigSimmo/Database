@@ -60,15 +60,17 @@ describe("Therapy Compass required data recovery", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent("Loading therapy library…");
     expect(screen.getAllByRole("main")).toHaveLength(1);
-    expect(screen.queryByText(/Search 0 source-grounded therapy/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "What therapy are you looking for?" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Source-grounded therapy records and clinical pathways/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Therapy" })).not.toBeInTheDocument();
 
     release(undefined);
 
-    await waitFor(() => expect(screen.getByText(/Search 1 source-grounded therapy record by/)).toBeInTheDocument());
-    expect(screen.getByRole("heading", { name: "What therapy are you looking for?" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText(/1 source-grounded therapy record and clinical pathways/)).toBeInTheDocument(),
+    );
+    expect(screen.getByRole("heading", { name: "Therapy" })).toBeInTheDocument();
     expect(screen.getAllByRole("main")).toHaveLength(1);
-    expect(screen.queryByText(/Search 0 source-grounded therapy/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Source-grounded therapy records and clinical pathways/)).not.toBeInTheDocument();
   });
 
   it("shows an honest load error, retries all required files, and recovers", async () => {
@@ -89,17 +91,17 @@ describe("Therapy Compass required data recovery", () => {
     );
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading therapy library");
-    expect(screen.queryByText(/Search 0 source-grounded therapy records/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Source-grounded therapy records and clinical pathways/)).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Frequently used therapies" })).not.toBeInTheDocument();
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Therapy Compass could not load");
-    expect(screen.queryByRole("heading", { name: "What therapy are you looking for?" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Therapy" })).not.toBeInTheDocument();
 
     failTherapies = false;
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
-    expect(await screen.findByRole("heading", { name: "What therapy are you looking for?" })).toBeInTheDocument();
-    expect(screen.getByText(/Search 1 source-grounded therapy record by/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Therapy" })).toBeInTheDocument();
+    expect(screen.getByText(/1 source-grounded therapy record and clinical pathways/)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
