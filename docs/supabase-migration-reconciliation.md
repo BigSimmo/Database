@@ -6,6 +6,7 @@ Target project: Clinical KB Database (`sjrfecxgysukkwxsowpy`)
 
 ## Policy
 
+- Hosted **Supabase Preview** fails with `Remote migration versions not found in local migrations directory` when `schema_migrations` still records a version after a local rename/renumber. Keep a local `*_historical_version_placeholder.sql` (no-op) for orphan versions, or repair remote history with `supabase migration repair --status reverted <version>` after verifying effects already exist under the replacement migration. Offline guard: `tests/migration-history-placeholders.test.ts`. Live diagnostic: `npm run check:migration-history` (also run from `.github/workflows/live-drift.yml`).
 - Do not use `supabase db push` while local and remote migration history are divergent.
 - **Never change a retrieval RPC, index, or function on the live project with raw SQL in the dashboard.** Use a committed migration under `supabase/migrations/` and reconcile `supabase/schema.sql` in the same change.
 - Use `supabase migration repair --linked --status applied <version>` only when live database evidence proves the migration effect already exists.
