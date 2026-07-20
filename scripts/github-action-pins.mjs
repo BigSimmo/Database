@@ -6,7 +6,13 @@ const reviewedActionPins = new Map([
       ["9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0", "v7.0.0"],
     ]),
   ],
-  ["actions/setup-node", new Map([["a0853c24544627f65ddf259abe73b1d18a591444", "v5.0.0"]])],
+  [
+    "actions/setup-node",
+    new Map([
+      ["a0853c24544627f65ddf259abe73b1d18a591444", "v5.0.0"],
+      ["820762786026740c76f36085b0efc47a31fe5020", "v7.0.0"],
+    ]),
+  ],
   ["actions/github-script", new Map([["3a2844b7e9c422d3c10d287c895573f7108da1b3", "v9.0.0"]])],
   ["actions/cache", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
   ["actions/upload-artifact", new Map([["043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "v7"]])],
