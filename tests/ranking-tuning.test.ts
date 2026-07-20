@@ -76,11 +76,10 @@ describe("offline ranking candidate snapshot", () => {
     ).toEqual(fusionSignals);
   });
 
-  it("is regenerated within the 30-day freshness window once provenance exists", () => {
-    // The pre-provenance checked-in snapshot has no generatedAt; the gate activates on the
-    // first regeneration (build:ranking-snapshot stamps it) and then blocks silent corpus
-    // drift from an aging snapshot.
-    if (!snapshot.generatedAt) return;
+  it("is regenerated within the 30-day freshness window", () => {
+    // Active since the first provenance-stamped regeneration (2026-07-20, canary run
+    // 29763761133): an aging snapshot fails here with regeneration instructions instead of
+    // silently drifting from the live corpus. generatedAt itself is validator-required.
     const ageMs = Date.now() - Date.parse(snapshot.generatedAt);
     const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
     const regenerate =
@@ -160,6 +159,10 @@ describe("offline ranking candidate snapshot", () => {
     invalidGeneratedAt.generatedAt = "not-a-date";
     expect(() => validateRankingSnapshot(invalidGeneratedAt)).toThrow(/generatedAt/);
 
+    const missingGeneratedAt = structuredClone(snapshot) as Record<string, unknown>;
+    delete missingGeneratedAt.generatedAt;
+    expect(() => validateRankingSnapshot(missingGeneratedAt)).toThrow(/generatedAt/);
+
     const invalidSourceRunId = structuredClone(snapshot);
     invalidSourceRunId.sourceRunId = "";
     expect(() => validateRankingSnapshot(invalidSourceRunId)).toThrow(/sourceRunId/);
@@ -193,11 +196,15 @@ describe("offline ranking candidate snapshot", () => {
 
 describe("offline ranking tuner", () => {
   it("reports missing-positive retrieval separately from hard-negative ordering", () => {
+    // On the 2026-07-20 regenerated snapshot, agitation-im-po-options gained graded positives:
+    // the alias-aware builder recognizes the EMHS agitation guideline the live gates accept, so
+    // only flowchart-next-step still carries zero positives (its answer lives in flowchart-step
+    // actions that the top-result previews do not surface — the known flowchart rr headroom).
     const missingPositiveCases = snapshot.cases.filter((testCase) =>
       ["agitation-im-po-options", "flowchart-next-step"].includes(testCase.id),
     );
     const metrics = evaluateRankingCases(missingPositiveCases, neutralRankingFeatureWeights);
-    expect(metrics.missingPositiveCases).toBe(2);
+    expect(metrics.missingPositiveCases).toBe(1);
     expect(metrics.hardNegativeAccuracy).toBe(1);
     expect(metrics.highRiskHardNegativeFailures).toBe(0);
   });
@@ -248,8 +255,10 @@ describe("offline ranking tuner", () => {
       expect(recommendation.metrics.highRiskHardNegativeFailures).toBe(0);
       expect(recommendation.distanceFromCurrent).toBeGreaterThan(0);
     }
-    expect(first.find((item) => item.queryClass === "broad_summary")?.weights).toEqual(
-      defaultRankingConfig.featureFusion.broad_summary,
-    );
+    // No equality pin against defaultRankingConfig here: the shipped defaults' provenance was
+    // the retired pre-provenance snapshot, and fresh-snapshot recommendations are Phase B input
+    // (reviewed + live-validated there), not a standing invariant of this fixture. The loop
+    // above pins the invariants that must always hold: determinism, objective gain, recall
+    // non-regression, and zero high-risk hard-negative failures.
   });
 });
