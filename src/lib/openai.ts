@@ -369,7 +369,7 @@ export function mapOpenAIError(error: unknown, operation: OpenAIOperation) {
     error instanceof PublicApiError ||
     (error && typeof error === "object" && "name" in error && error.name === "PublicApiError")
   )
-    return error as any;
+    return error as PublicApiError;
 
   const status = getErrorStatus(error);
   const code = getErrorCode(error) ?? "openai_request_failed";
