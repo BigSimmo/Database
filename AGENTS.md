@@ -185,6 +185,19 @@ When a branch or PR review completes, record the reviewed branch/ref, HEAD SHA, 
 
 <!-- END:supabase-project-safety -->
 
+<!-- BEGIN:railway-project-safety -->
+
+# Railway project safety
+
+- This repo deploys to the live Railway project `Database` (`5deaad0b-675a-4c13-978e-5ca2b5b877f9`) in workspace `bigsimmo's Projects`. Full topology: `docs/deployment-architecture.md` §1.
+- Production services `Database` (Next.js app tier, serves `https://psychiatry.tools`) and `worker` (ingestion) auto-deploy from `BigSimmo/Database` pushes to `main`; the `staging` environment runs the `app` service.
+- The older Railway project `clinical-kb` (`4361c04f-dd3c-4ee9-9e97-49e4e5707b70`) is superseded with zero active deployments; treat it as stale — never `railway link` to it or deploy there.
+- The similarly named Supabase project `Clinical KB Database` is the database/auth tier, not a Railway project; see "Supabase project safety" above.
+- Railway CLI/MCP auth uses `RAILWAY_API_TOKEN` (personal account token; see `.env.example`). The project-scoped `RAILWAY_TOKEN` is for CI deploys only and cannot list or link projects. The project-scoped Railway MCP server is registered in `.mcp.json`.
+- Railway deploys and mutations fall under the "API and provider confirmation boundary" below; verify target project/environment IDs before any mutation.
+
+<!-- END:railway-project-safety -->
+
 <!-- BEGIN:api-confirmation-boundary -->
 
 # API and provider confirmation boundary
