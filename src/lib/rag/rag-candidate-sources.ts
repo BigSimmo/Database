@@ -211,12 +211,7 @@ export async function searchTextChunkCandidates(args: {
     // most-terminal lexical layer surfaces in hybrid_rpc_errors telemetry
     // instead of silently degrading to zero candidates. Return value unchanged.
     if (error) recordHybridRpcError(args.telemetry, "match_document_chunks_text", error);
-    // Phase C: single choke point for every lexical-chunk variant (strict, corrected,
-    // OR-relaxed, legacy-merged) so saturated rows gain the discriminative hybrid lift
-    // before mergeSearchResults sees them.
-    return error || !data?.length
-      ? ([] as SearchResult[])
-      : (data as SearchResult[]).map(liftSaturatedLexicalChunkHybrid);
+    return error || !data?.length ? ([] as SearchResult[]) : (data as SearchResult[]);
   };
 
   const variants = args.queryVariants.slice(0, maxTextRpcQueryVariants);
@@ -318,60 +313,6 @@ type DocumentLookupChunkRow = {
   image_ids: string[] | null;
   text_rank?: number | null;
 };
-
-/**
- * ADDENDUM-4 Phase C: per-candidate discrimination for saturated imputed primaries.
- *
- * The embedding-free text fast path imputes primaries from text_rank through min(text_rank, 1),
- * so every candidate with text_rank >= 1 collapses to byte-identical values and unrelated
- * documents matching the same terms tie exactly — ordering then falls to chunk-id, which is
- * arbitrary (live evidence: canary #53/#54 identical rr@10 on the four fast-path headroom cases).
- * saturationTailUnit maps the raw rank's excess above the knee into [0, 1) — pure, strictly
- * monotone, set-independent (one candidate's value never depends on the rest of the pool) — and
- * the callers scale it into DEAD score bands above the pre-existing caps' functional range
- * (table-fact similarity (0.92, 0.94); lexical-chunk hybrid (0.48, 0.5)), where no retrieval
- * gate, routing threshold, or confidence bar exists. Below the knee the imputation is
- * byte-identical to the historical formulas, and genuinely equal text_ranks still tie, so the
- * coverage tie-break contract (retrieval-selection) is preserved. See the Phase C design in the
- * PR that introduced this for the full consumer map and envelope proof.
- */
-export function saturationTailUnit(textRank: number): number {
-  if (!Number.isFinite(textRank) || textRank <= 1) return 0;
-  return (textRank - 1) / (textRank - 1 + 0.5);
-}
-
-/**
- * Imputed table-fact primaries (S2). similarity carries the discriminative tail into its dead
- * cap band; hybridScore stays byte-identical to the historical formula so selection scores,
- * fast-path/coverage gates, and the second-stage trigger are provably unchanged — similarity is
- * exactly the tie-break key after hybrid/releaseRankScore in the released-order comparators.
- */
-export function imputedTableFactPrimaries(textRank: number): { similarity: number; hybridScore: number } {
-  return {
-    similarity: Math.min(0.94, 0.62 + Math.min(textRank, 1) * 0.3 + 0.02 * saturationTailUnit(textRank)),
-    hybridScore: Math.min(0.97, 0.66 + Math.min(textRank, 1) * 0.3),
-  };
-}
-
-/**
- * Lexical text-chunk lift (S1). Chunk rows keep similarity === 0 (the no-fabricated-cosine
- * contract), so their saturation spread goes into hybrid's dead (0.48, 0.5) band instead —
- * still strictly below the 0.5 answer-confidence and 0.64 strong-evidence bars. Guarded by the
- * truthful-contract signature, never a float-equality test on the saturated value.
- */
-export function liftSaturatedLexicalChunkHybrid(row: SearchResult): SearchResult {
-  const textRank = typeof row.text_rank === "number" ? row.text_rank : Number(row.text_rank ?? 0);
-  if (
-    row.similarity !== 0 ||
-    typeof row.lexical_score !== "number" ||
-    !Number.isFinite(textRank) ||
-    textRank <= 1 ||
-    typeof row.hybrid_score !== "number"
-  ) {
-    return row;
-  }
-  return { ...row, hybrid_score: Math.min(0.4999, 0.18 + 0.3 + 0.02 * saturationTailUnit(textRank)) };
-}
 
 export type ChunkSignalMatch = {
   chunkId: string;
@@ -1050,12 +991,11 @@ export async function searchTableFactCandidates(args: {
     const textRank = Number(fact.text_rank ?? 0);
     const current = grouped.get(fact.source_chunk_id);
     const tableFact = { ...fact, text_rank: textRank, match_reason: fact.match_reason ?? "table_row" };
-    const imputed = imputedTableFactPrimaries(textRank);
     const next: ChunkSignalMatch = {
       chunkId: fact.source_chunk_id,
-      similarity: imputed.similarity,
+      similarity: Math.min(0.94, 0.62 + Math.min(textRank, 1) * 0.3),
       textRank,
-      hybridScore: imputed.hybridScore,
+      hybridScore: Math.min(0.97, 0.66 + Math.min(textRank, 1) * 0.3),
       reason: fact.match_reason ?? "table_row",
       tableFacts: [...(current?.tableFacts ?? []), tableFact].slice(0, 5),
     };

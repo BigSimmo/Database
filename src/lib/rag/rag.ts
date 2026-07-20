@@ -831,11 +831,9 @@ function buildRetrievalDiagnostics(args: {
 }) {
   // Lexical-only retrieval rows carry a truthful score contract since migration
   // 20260713062107_restore_text_fallback_lexical_score: similarity is 0 (no vector
-  // ran) and hybrid_score stays strictly below 0.5 — 0.48 from SQL, plus a sub-0.5
-  // per-candidate saturation spread (liftSaturatedLexicalChunkHybrid, Phase C) that
-  // only disambiguates rows whose text_rank saturated the SQL clamp — so a keyword
-  // hit can never masquerade as a moderate/strong cosine match downstream. The honest
-  // lexical signal lives in lexical_score (0.4..0.99). This gate must therefore read
+  // ran) and hybrid_score is deliberately capped at 0.48 so a keyword hit can never
+  // masquerade as a moderate/strong cosine match downstream. The honest lexical
+  // signal lives in lexical_score (0.4..0.99). This gate must therefore read
   // max(scoreValue, lexical_score) — reading the capped hybrid_score alone makes
   // topScore < 0.5 unconditional for every text-fast-path answer, refusing
   // well-supported documentation lookups whose expected document is at rank 1.
