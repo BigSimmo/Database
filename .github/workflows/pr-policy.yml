@@ -45,8 +45,15 @@ jobs:
             const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-policy.mjs`).href;
             const { evaluatePullRequestPolicy } = await import(moduleUrl);
             const pr = context.payload.pull_request;
+            const latestPr = (
+              await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+              })
+            ).data;
 
-            if (pr.draft) {
+            if (latestPr.draft) {
               core.notice("Draft PR: metadata policy will be enforced when the PR is marked ready for review.");
               return;
             }
@@ -58,9 +65,9 @@ jobs:
               per_page: 100,
             });
             const result = evaluatePullRequestPolicy({
-              title: pr.title,
-              body: pr.body || "",
-              headRef: pr.head.ref,
+              title: latestPr.title,
+              body: latestPr.body || "",
+              headRef: latestPr.head.ref,
               files: changedFiles.map((file) => file.filename),
             });
 
