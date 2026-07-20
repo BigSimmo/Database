@@ -16,23 +16,25 @@ afterEach(() => {
 type ClientConfig = {
   jobInsert?: { data: unknown; error: { code?: string; message: string } | null };
   competing?: { data: unknown[]; error: null };
+  updateError?: { message: string };
 };
 
 function makeClient(cfg: ClientConfig) {
-  const calls = { documentUpdates: 0, competingSelects: 0 };
+  // eqCalls records the column names passed to .eq(), so tests can assert that
+  // both document writes (queue update + rollback) are owner-scoped.
+  const calls = { documentUpdates: 0, competingSelects: 0, eqCalls: [] as string[] };
   function builder(table: string) {
-    const state = { isCompetingSelect: false };
     const b: Record<string, unknown> = {};
     b.update = () => {
       if (table === "documents") calls.documentUpdates += 1;
       return b;
     };
     b.insert = () => b;
-    b.select = (cols?: string) => {
-      if (cols === "id") state.isCompetingSelect = true;
+    b.select = () => b;
+    b.eq = (col: string) => {
+      calls.eqCalls.push(col);
       return b;
     };
-    b.eq = () => b;
     b.in = () => b;
     b.limit = () => {
       calls.competingSelects += 1;
@@ -41,7 +43,7 @@ function makeClient(cfg: ClientConfig) {
     b.single = () => Promise.resolve(cfg.jobInsert ?? { data: { id: "job1" }, error: null });
     // Awaiting a documents.update chain resolves here.
     b.then = (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
-      Promise.resolve({ error: null }).then(resolve, reject);
+      Promise.resolve({ error: cfg.updateError ?? null }).then(resolve, reject);
     return b;
   }
   return { client: { from: (t: string) => builder(t) }, calls };
@@ -57,10 +59,19 @@ async function load(cfg: ClientConfig = {}) {
 const doc = { id: documentId, owner_id: ownerId, status: "queued", import_batch_id: null };
 
 describe("enqueueDocumentReindexJob", () => {
-  it("returns enqueued with the inserted job on success", async () => {
-    const { enqueueDocumentReindexJob, client } = await load();
+  it("returns enqueued with the inserted job on success and owner-scopes the write", async () => {
+    const { enqueueDocumentReindexJob, client, calls } = await load();
     const result = await enqueueDocumentReindexJob({ supabase: client as never, document: doc });
     expect(result).toEqual({ outcome: "enqueued", job: { id: "job1" } });
+    // The queue-state update must be scoped by owner_id (the app's tenancy layer).
+    expect(calls.eqCalls).toContain("owner_id");
+  });
+
+  it("throws when the initial document update fails", async () => {
+    const { enqueueDocumentReindexJob, client } = await load({ updateError: { message: "update failed" } });
+    await expect(enqueueDocumentReindexJob({ supabase: client as never, document: doc })).rejects.toThrow(
+      "update failed",
+    );
   });
 
   it("returns document_deleted on a 23503 FK violation", async () => {
@@ -83,15 +94,16 @@ describe("enqueueDocumentReindexJob", () => {
     expect(calls.competingSelects).toBe(1);
   });
 
-  it("rolls back the queue-state write when a 23505 leaves no competing open job", async () => {
+  it("rolls back the (owner-scoped) queue-state write when a 23505 leaves no competing open job", async () => {
     const { enqueueDocumentReindexJob, client, calls } = await load({
       jobInsert: { data: null, error: { code: "23505", message: "dup" } },
       competing: { data: [], error: null },
     });
     const result = await enqueueDocumentReindexJob({ supabase: client as never, document: doc });
     expect(result).toEqual({ outcome: "already_active" });
-    // Initial queue update + the compensating rollback update.
+    // Initial queue update + the compensating rollback update, both owner-scoped.
     expect(calls.documentUpdates).toBe(2);
+    expect(calls.eqCalls.filter((col) => col === "owner_id").length).toBeGreaterThanOrEqual(2);
   });
 
   it("throws on an unexpected job-insert error", async () => {
