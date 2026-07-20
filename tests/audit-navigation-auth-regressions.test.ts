@@ -105,6 +105,9 @@ describe("audit navigation and auth regressions", () => {
     expect(masterSearchHeaderSource).toContain('aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}');
     expect(masterSearchHeaderSource).toContain('mobilePlacement="bottom"');
     expect(masterSearchHeaderSource).toContain("phoneLayoutGateRef");
+    // Hydration-safe: do not read matchMedia in useState (SSR/client mismatch → React #418).
+    expect(masterSearchHeaderSource).toContain("const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);");
+    expect(masterSearchHeaderSource).toContain("setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());");
   });
 
   it("gates private polling and mutations on local readiness plus authenticated status", () => {

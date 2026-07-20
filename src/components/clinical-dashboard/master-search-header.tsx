@@ -321,11 +321,10 @@ export function MasterSearchHeader({
   // popover and the phone bottom sheet.
   const [modeMenuFocusIndex, setModeMenuFocusIndex] = useState(0);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
-  // Prefer the real phone gate on the first client paint so Mode does not briefly
-  // open the desktop absolute menu before the matchMedia effect syncs.
-  const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia(phoneSearchLayoutMediaQuery).matches : false,
-  );
+  // SSR and the first client hydration paint must agree (phone matchMedia is
+  // unavailable on the server). Sync from matchMedia after mount; Mode open
+  // paths also refresh from the live query so the first tap still picks Sheet.
+  const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
   // True once the hero portal is conclusively unavailable — the media query
   // does not match, or the slot never appeared after the retry budget. While a
@@ -751,11 +750,13 @@ export function MasterSearchHeader({
   function openModeMenuWithFocus(index: number) {
     closeModeSurfaces();
     const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
+    const phoneLayout = currentUsesPhoneSearchLayout();
+    setUsesPhoneSearchLayout(phoneLayout);
     setModeMenuFocusIndex(nextIndex);
     setModeMenuOpen(true);
     // Phone sheet owns initial focus via data-sheet-autofocus; desktop still
     // needs an rAF focus into the absolute menu after it mounts.
-    if (!usesPhoneSearchLayout) {
+    if (!phoneLayout) {
       window.requestAnimationFrame(() => focusModeOption(nextIndex));
     }
   }
@@ -766,6 +767,7 @@ export function MasterSearchHeader({
       setModeMenuOpen(false);
       return;
     }
+    setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());
     setModeMenuFocusIndex(selectedModeIndex);
     setModeMenuOpen(true);
   }
