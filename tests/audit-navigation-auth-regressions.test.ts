@@ -106,7 +106,9 @@ describe("audit navigation and auth regressions", () => {
     expect(masterSearchHeaderSource).toContain('mobilePlacement="bottom"');
     expect(masterSearchHeaderSource).toContain("phoneLayoutGateRef");
     // Hydration-safe: do not read matchMedia in useState (SSR/client mismatch → React #418).
-    expect(masterSearchHeaderSource).toContain("const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);");
+    expect(masterSearchHeaderSource).toContain(
+      "const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);",
+    );
     expect(masterSearchHeaderSource).toContain("setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());");
   });
 
