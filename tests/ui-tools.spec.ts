@@ -486,14 +486,14 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/\/services$/);
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     await expect(page.getByTestId("services-home")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "Find a service" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Services" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
     await expect(page.getByTestId("collapsed-account-settings")).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
     const servicesHomeSearch = page.getByTestId("services-home").getByTestId("global-search-input");
     await expect(servicesHomeSearch).toBeVisible();
     const servicesSearchBox = await servicesHomeSearch.boundingBox();
-    const servicesHeadingBox = await page.getByRole("heading", { level: 1, name: "Find a service" }).boundingBox();
+    const servicesHeadingBox = await page.getByRole("heading", { level: 1, name: "Services" }).boundingBox();
     expect(servicesSearchBox).not.toBeNull();
     expect(servicesHeadingBox).not.toBeNull();
     expect((servicesHeadingBox?.y ?? 0) + (servicesHeadingBox?.height ?? 0)).toBeLessThan(servicesSearchBox?.y ?? 0);
@@ -800,10 +800,10 @@ test.describe("Clinical KB tools launcher", () => {
       {
         path: "/?mode=prescribing",
         testId: "medication-home",
-        heading: "Medication prescribing",
+        heading: "Medication",
         headingLevel: 2,
       },
-      { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
+      { path: "/services", testId: "services-home", heading: "Services", headingLevel: 1 },
       { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
       { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
       { path: "/tools", testId: "tools-home", heading: "Tools", headingLevel: 1 },
@@ -821,8 +821,12 @@ test.describe("Clinical KB tools launcher", () => {
         await expect(heroSearch).toBeVisible();
 
         const searchBox = await heroSearch.boundingBox();
+        // Scope to the mode-home container and match exactly: the standalone
+        // "Medication" hero title is otherwise a substring of the answer
+        // section's sr-only "Medication matches" heading (strict-mode clash).
         const headingBox = await page
-          .getByRole("heading", { level: home.headingLevel, name: home.heading })
+          .getByTestId(home.testId)
+          .getByRole("heading", { level: home.headingLevel, name: home.heading, exact: true })
           .boundingBox();
         expect(searchBox).not.toBeNull();
         expect(headingBox).not.toBeNull();

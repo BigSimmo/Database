@@ -23,8 +23,8 @@ export function FactsheetsHomePage() {
       <div className="mode-home-template mx-auto flex w-full max-w-none flex-col items-center gap-5 px-0 text-center sm:max-w-[62rem] sm:gap-6">
         <ModeHomeHero
           testId="factsheets-home"
-          title="Clear information for the next conversation."
-          subtitle="Find a short, plain-language factsheet to support a patient conversation — sourced, dated, and easy to take away."
+          title="Factsheets"
+          subtitle="Plain-language patient handouts to print and share."
           icon={BookOpenText}
         />
 

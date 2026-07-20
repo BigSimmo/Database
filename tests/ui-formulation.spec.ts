@@ -57,7 +57,7 @@ test("searches patient language, opens a mechanism guide, and carries it into th
 }, testInfo) => {
   await gotoApp(page, "/formulation");
 
-  await expect(page.getByRole("heading", { name: "How can I help with the formulation?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Formulation", exact: true })).toBeVisible();
   await expect(page.getByTestId("formulation-home")).toBeVisible();
 
   const search = page.getByTestId("global-search-input").filter({ visible: true }).first();
