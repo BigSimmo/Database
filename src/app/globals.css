@@ -267,6 +267,10 @@
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
+  /* Phone/sm header chrome inset; matches mode-home px-4. Referenced by both
+     the layered .edge-glass-header base and the unlayered max-width:639px
+     guard so the values cannot drift apart. lg overrides to 1.5rem. */
+  --header-edge-pad: 1rem;
   /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
   --phone-dock-hidden-pad: 0.75rem;
   --phone-dock-differentials-compare-clearance: 12.5rem;
@@ -556,8 +560,12 @@ summary::-webkit-details-marker {
 @layer components {
   .edge-glass-header {
     isolation: isolate;
-    padding-left: max(0.75rem, var(--safe-area-left));
-    padding-right: max(0.75rem, var(--safe-area-right));
+    /* Uses --header-edge-pad (1rem) so phone icons align with mode-home px-4.
+       Keep safe-area max() so notched devices never under-inset. The unlayered
+       max-width:639px block below must also use this token — unlayered rules
+       beat @layer components, so a literal there would reintroduce drift. */
+    padding-left: max(var(--header-edge-pad), var(--safe-area-left));
+    padding-right: max(var(--header-edge-pad), var(--safe-area-right));
     /* Translucent glass bar: the header's backdrop-blur utilities frost the
        content scrolling beneath it (they were inert over the old opaque
        var(--surface)). The .edge-glass-header-backdrop scrim supersedes the
@@ -596,15 +604,9 @@ summary::-webkit-details-marker {
     box-shadow: none;
   }
 
-  /* Responsive header padding (moved in from the shared @media blocks below so
-   the whole .edge-glass-header class is layered together). */
-  @media (min-width: 640px) {
-    .edge-glass-header {
-      padding-left: max(1rem, var(--safe-area-left));
-      padding-right: max(1rem, var(--safe-area-right));
-    }
-  }
-
+  /* Desktop header padding (moved in from the shared @media blocks below so
+   the whole .edge-glass-header class is layered together). Base/sm share
+   --header-edge-pad. */
   @media (min-width: 1024px) {
     .edge-glass-header {
       padding-left: max(1.5rem, var(--safe-area-left));
@@ -1771,9 +1773,13 @@ summary::-webkit-details-marker {
 }
 
 @media (max-width: 639px) {
+  /* Unlayered on purpose: a prior max(0px, safe-area) here beat the layered
+     inset and pinned new-chat to the phone bezel. Keep the tokenized phone
+     value so unlayered media cannot reintroduce a 0px override or drift from
+     the @layer components base. */
   .edge-glass-header {
-    padding-left: max(0px, var(--safe-area-left));
-    padding-right: max(0px, var(--safe-area-right));
+    padding-left: max(var(--header-edge-pad), var(--safe-area-left));
+    padding-right: max(var(--header-edge-pad), var(--safe-area-right));
   }
 
   .dashboard-composer-edge.answer-footer-search-edge:not(.answer-footer-search-dock) {
