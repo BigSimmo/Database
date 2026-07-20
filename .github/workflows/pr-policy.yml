@@ -56,7 +56,7 @@ jobs:
               ).data;
             } catch (error) {
               core.setFailed(
-                `Unable to fetch latest PR metadata for PR #${pr.number}: ${error instanceof Error ? error.message : String(error)}`,
+                `Unable to fetch latest PR metadata for PR #${pr.number}: ${error instanceof Error ? error.message : String(error)}. If this was transient, rerun the job; if it persists, verify pull-requests:read permission.`,
               );
               return;
             }
