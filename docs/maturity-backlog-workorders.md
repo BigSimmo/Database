@@ -22,8 +22,7 @@ confirmation) · `SATISFIED` (already true in the repo; no work needed).
   github-actions bumps; majors stay individual.
 - **Files:** `.github/dependabot.yml`.
 - **Risk:** none (config only).
-- **Verification:** valid YAML; takes effect on the next Monday cadence. Grouping action bumps
-  also keeps pinned SHAs uniform across workflows (see L2).
+- **Verification:** valid YAML; takes effect on the next Monday cadence.
 - **Landed in:** this PR.
 
 ### N2 · Dependency-report workflow decision — `OPEN`
