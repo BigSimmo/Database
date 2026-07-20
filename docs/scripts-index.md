@@ -23,11 +23,13 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 ## Verification gates [live]
 
 `verify:cheap` → `verify:pr-local` → `verify:ui` → `verify:release`. Building blocks:
-`check-runtime.ts`, `check-github-action-pins.mjs`, `check-maintainability-budgets.mjs`,
-`check-codebase-index-coverage.mjs`, `check-docs-links.mjs`, `check-docs-script-refs.mjs`,
-`check-bundle-budget.mjs`, `check-type-scale.mjs`, `check-icon-scale.mjs`,
-`check-design-system-contract.mjs`, `check-function-grants.mjs`, `check-owner-scope-api.mjs`,
-`check-client-bundle-secrets.mjs`, `verify-pr-local.mjs`, `verify-release-offline.mjs`.
+`check-runtime.ts`, `check-github-action-pins.mjs`, `check-gate-manifest.mjs`,
+`check-maintainability-budgets.mjs`, `check-codebase-index-coverage.mjs`, `check-docs-links.mjs`,
+`check-docs-script-refs.mjs`, `check-bundle-budget.mjs`, `check-type-scale.mjs`,
+`check-icon-scale.mjs`, `check-design-system-contract.mjs`, `check-function-grants.mjs`,
+`check-owner-scope-api.mjs`, `check-client-bundle-secrets.mjs`, `verify-pr-local.mjs`,
+`verify-release-offline.mjs`. `check-gate-manifest.mjs` cross-checks that every gate in the
+`verify:cheap:internal` chain also runs in CI's `static-pr` job, so the two lists can't drift.
 
 ## Ingestion, indexing & reindex [live]
 
