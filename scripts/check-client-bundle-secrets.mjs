@@ -11,7 +11,11 @@ const forbiddenMarkers = [
   "OPENAI_ORG_ID",
   "OPENAI_PROJECT_ID",
   "RAG_QUERY_HASH_SECRET",
-  "sb_secret_",
+  // Match an actual secret *value* (prefix + a long token), not the bare "sb_secret_"
+  // prefix string. @supabase/supabase-js's own browser client code legitimately ships
+  // that literal prefix (isNewApiKey()/checkApiKeyFormat() in its fetch helpers, used to
+  // detect new-format Supabase API keys) — that string alone is not a leaked secret.
+  /\bsb_secret_[A-Za-z0-9_-]{20,}\b/,
   "sk-proj-",
   "sk-svcacct-",
 ];
@@ -47,9 +51,10 @@ const offenders = new Map();
 for (const file of [...textFiles(publicRoot), ...textFiles(clientBuildRoot)]) {
   const content = readFileSync(file, "utf8");
   for (const marker of forbiddenMarkers) {
-    if (content.includes(marker)) {
+    const matchedText = marker instanceof RegExp ? content.match(marker)?.[0] : content.includes(marker) ? marker : null;
+    if (matchedText) {
       const relativePath = relative(projectRoot, file).replaceAll("\\", "/");
-      offenders.set(`${relativePath}\0${marker}`, { marker, relativePath });
+      offenders.set(`${relativePath}\0${matchedText}`, { marker: matchedText, relativePath });
     }
   }
 }
