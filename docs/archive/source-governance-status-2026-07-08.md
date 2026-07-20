@@ -20,7 +20,7 @@ lack detectable local document-control endorsement).
 ## Three corrections to earlier framing
 
 1. **`document_status = "unknown"` triggers no governance warning.**
-   `sourceGovernanceWarnings` ([src/lib/source-governance.ts](../src/lib/source-governance.ts))
+   `sourceGovernanceWarnings` ([src/lib/source-governance.ts](../../src/lib/source-governance.ts))
    only warns on `outdated` (danger) and `review_due` (warning). "Unknown" is
    silent as a warning, though it renders as "Review status unknown" in the
    provenance line. So resolving unknown statuses improves the **displayed
@@ -35,7 +35,7 @@ lack detectable local document-control endorsement).
 3. **The `verification` metadata field is vestigial.** The consumed governance
    fields are `document_status`, `clinical_validation_status`,
    `clinical_validation_evidence`, and `extraction_quality` (the required set in
-   [scripts/audit-source-governance.ts](../scripts/audit-source-governance.ts)).
+   [scripts/audit-source-governance.ts](../../scripts/audit-source-governance.ts)).
    `verification` is not read by the warning logic; a null `verification` is not
    a governance gap.
 
@@ -60,7 +60,7 @@ lack detectable local document-control endorsement).
    (or re-derive from source).
 
    **Now automatic:** the cycle inference is folded into the canonical governance
-   backfill's `deriveMetadata` ([scripts/backfill-source-metadata.ts](../scripts/backfill-source-metadata.ts),
+   backfill's `deriveMetadata` ([scripts/backfill-source-metadata.ts](../../scripts/backfill-source-metadata.ts),
    `npm run backfill:source-metadata`), so any governance refresh derives
    cycle-based statuses for new docs without a separate pass. Date-less docs
    still resolve to `unknown` and **remain visible to users** — governance never
@@ -85,7 +85,7 @@ lack detectable local document-control endorsement).
 - **Full corpus re-index** — retrieval is lexical-fast-path dominant
   (`embedding_skipped_rate = 1.0`), recall metrics are at ceiling, and extraction
   is 100% good, so a re-index can only hold the line, not measurably improve.
-  See the shadow-harness design ([docs/reindex-shadow-harness-design.md](reindex-shadow-harness-design.md))
+  See the shadow-harness design ([docs/reindex-shadow-harness-design.md](../reindex-shadow-harness-design.md))
   — keep it as a dormant tripwire for future chunking changes, do not run now.
 
 ## How to re-measure

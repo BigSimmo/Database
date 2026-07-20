@@ -2,7 +2,7 @@
 
 **Status: complete (reconciled 2026-07-15).** This is a historical record of the June alignment pass,
 not an active cleanup backlog. Current dependency work is routed through the `dependency` shortcut;
-current operational work is tracked in [`operator-backlog.md`](operator-backlog.md).
+current operational work is tracked in [`operator-backlog.md`](../operator-backlog.md).
 
 ## Dependency decisions
 
