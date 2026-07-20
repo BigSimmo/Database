@@ -36,6 +36,29 @@ const eslintConfig = defineConfig([
       "local/require-lucide-icon-aria": "error",
     },
   },
+  // Import boundary: production source must not import design-scratch mockup
+  // modules. Every legitimate mockup import lives under `src/app/mockups/**` (all
+  // 404 in production) or inside the `*-mockups` component sources themselves;
+  // everything else is fenced off so a mockup can't leak into a shipped route.
+  // Verified 2026-07-20: zero violations outside the exempt directories.
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/app/mockups/**", "**/*-mockups/**", "**/*-mockups.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/*-mockups", "**/*-mockups/*", "**/*mockup*"],
+              message:
+                "Production code must not import mockup modules (design-scratch, 404 in production). Mockup routes live under src/app/mockups/**.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   // next/og image routes render <img> through Satori (rasterised server-side,
   // not DOM); next/image cannot run there. Turn the rule off for these files via
   // config rather than a per-file disable directive — the Next plugin reports
