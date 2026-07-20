@@ -185,6 +185,34 @@ When a branch or PR review completes, record the reviewed branch/ref, HEAD SHA, 
 
 <!-- END:supabase-project-safety -->
 
+<!-- BEGIN:rag-ranking-protection -->
+
+# RAG ranking protection
+
+Retrieval/ranking behaviour is live-validated and safeguarded. Before touching any protected
+surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approaches → safeguards).
+
+- **Flag it.** Any task that will touch `src/lib/rag/**`, clinical-search, retrieval-selection,
+  released-search-order, ranking-config, evidence/result-sort/answer-ranking, the eval harness
+  (`scripts/eval-retrieval.ts`, `scripts/lib/clinical-aliases.ts`, ranking-tuning/snapshot
+  tooling), the golden fixture/snapshot, or the retrieval RPCs must say so to the user BEFORE
+  editing, even when the change looks incidental (refactor, rename, "just a comment").
+- **PR gate.** PRs touching those surfaces fail `pr-policy` without an explicit `RAG impact:`
+  line in the body — either `RAG impact: no retrieval behaviour change — <reason>` or
+  `RAG impact: behaviour change — canary pair <baseline> -> <post>`. The source-pin contract
+  test (`tests/rag-imputation-contract.test.ts`) additionally goes red on any edit to the
+  imputation formulas or release-comparator key order.
+- **Canary for behaviour.** Any retrieval/ranking/ordering behaviour change requires a live
+  eval-canary before/after pair (doc/content recall pinned 1.0, zero per-case rr regressions)
+  before it is trusted; regression → immediate single-commit revert + confirmation run.
+  Dispatches are provider-backed (~$1–2) and always need explicit user approval.
+- **Never** insert a comparator key above the relevance score, bulk-merge the wide
+  captured-case alias tier into the strict golden tier, relax the clamped-score contract, or
+  adopt tuner recommendations without a measured live gain. Offline-green + review-approved
+  was proven insufficient for this surface on 2026-07-20 (see refuted-approaches).
+
+<!-- END:rag-ranking-protection -->
+
 <!-- BEGIN:railway-project-safety -->
 
 # Railway project safety
