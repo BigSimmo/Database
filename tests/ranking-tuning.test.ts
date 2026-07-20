@@ -126,6 +126,34 @@ describe("offline ranking tuner", () => {
     expect(metrics.highRiskHardNegativeFailures).toBe(0);
   });
 
+  it("keeps the golden-regression hard negatives below the first relevant candidate at production weights", () => {
+    // The four cases that failed the 2026-07-19 live golden retrieval eval on the raw #901
+    // ordering (remediated same-day by #913-#926). This gate keys on relevanceGrade-derived
+    // metrics (missing positives, hard-negative ordering), not on documentMatch flags, so the
+    // snapshot builder's alias-free labelMatches cannot weaken it. It exercises the snapshot
+    // proxy scorer at production weights — a complementary floor, not a test of the
+    // selectRetrievalEvidence comparator (tests/rag-fast-path-ordering.test.ts covers that).
+    const goldenRegressionCaseIds = [
+      "lithium-therapy-monitoring",
+      "clozapine-anc-threshold",
+      "alcohol-ciwa-threshold",
+      "patient-safety-plan-include",
+    ];
+    for (const caseId of goldenRegressionCaseIds) {
+      const testCase = snapshot.cases.find((item) => item.id === caseId);
+      expect(testCase, caseId).toBeDefined();
+      const metrics = evaluateRankingCases([testCase!], defaultRankingConfig.featureFusion[testCase!.queryClass]);
+      expect(metrics.missingPositiveCases, caseId).toBe(0);
+      expect(metrics.highRiskHardNegativeFailures, caseId).toBe(0);
+      expect(metrics.hardNegativeAccuracy, caseId).toBe(1);
+    }
+  });
+
+  it("keeps the full snapshot free of high-risk hard-negative failures at neutral weights", () => {
+    const metrics = evaluateRankingCases(snapshot.cases, neutralRankingFeatureWeights);
+    expect(metrics.highRiskHardNegativeFailures).toBe(0);
+  });
+
   it("is deterministic and only selects constrained improvements", () => {
     const first = tuneRankingSnapshot(snapshot);
     const second = tuneRankingSnapshot(snapshot);
