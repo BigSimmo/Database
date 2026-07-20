@@ -13,6 +13,35 @@ export const requiredClinicalGovernanceItems = [
   "Deployment classification/TGA SaMD impact was checked when clinical decision-support behavior changed",
 ];
 
+// Legacy PR checklist phrasing predates the canonical governance list above.
+// Each item maps to one or more matcher groups; a group is satisfied only when
+// every regex in that group matches at least one checked checklist entry.
+const legacyClinicalGovernanceEvidence = new Map([
+  [
+    requiredClinicalGovernanceItems[0],
+    [
+      [
+        /\bcitation requirements?\b/i,
+        /\bsource verification\b/i,
+        /\bprovenance\b/i,
+        /\bclinical-content governance\b/i,
+      ],
+    ],
+  ],
+  [
+    requiredClinicalGovernanceItems[1],
+    [[/\bpatient-data handling\b/i, /\bprivacy controls?\b/i, /\bdocument-access behavior\b/i]],
+  ],
+  [requiredClinicalGovernanceItems[2], [[/\bconfigured supabase project\/target\b/i]]],
+  [requiredClinicalGovernanceItems[3], [[/\bservice-role credentials?\b/i, /\bserver-side only\b/i]]],
+  [requiredClinicalGovernanceItems[4], [[/\bclinical-content governance\b/i, /\bsource verification\b/i]]],
+  [
+    requiredClinicalGovernanceItems[5],
+    [[/\bprovenance\b/i, /\bclinical-content governance\b/i, /\bsource verification\b/i]],
+  ],
+  [requiredClinicalGovernanceItems[6], [[/\bsamd\/tga assessment\b/i]]],
+]);
+
 const clinicalRiskPatterns = [
   /^supabase\//,
   /^src\/app\/api\//,
@@ -59,20 +88,28 @@ function normalizeSectionHeading(value) {
     .toLowerCase();
 }
 
-function section(body, heading) {
+export function section(body, heading) {
   const source = String(body ?? "");
   const headings = [...source.matchAll(/^(#{1,6})[ \t]+(.+?)[ \t]*$/gim)];
   const targetHeading = normalizeSectionHeading(heading);
-  const matchIndex = headings.findIndex((match) => normalizeSectionHeading(match[2]) === targetHeading);
-  if (matchIndex < 0) return "";
-  const start = (headings[matchIndex]?.index ?? 0) + (headings[matchIndex]?.[0].length ?? 0);
-  // Markdown outline semantics: the section runs until the next heading of the
-  // same or shallower level. Deeper headings (### under ##) are sub-structure
-  // and stay inside the section, so checklist evidence after them still counts.
-  const level = headings[matchIndex][1].length;
-  const next = headings.slice(matchIndex + 1).find((match) => match[1].length <= level);
-  const end = next?.index ?? source.length;
-  return source.slice(start, end).trim();
+  // Collect content from ALL matching sections and join them. This handles
+  // accidental duplicate headings (e.g. a prose rationale block and a separate
+  // checklist block under the same heading) by combining their content rather
+  // than silently returning only the first occurrence and missing the checklist.
+  const parts = [];
+  headings.forEach((match, matchIndex) => {
+    if (normalizeSectionHeading(match[2]) !== targetHeading) return;
+    const start = (match.index ?? 0) + match[0].length;
+    // Markdown outline semantics: the section runs until the next heading of the
+    // same or shallower level. Deeper headings (### under ##) are sub-structure
+    // and stay inside the section, so checklist evidence after them still counts.
+    const level = match[1].length;
+    const next = headings.slice(matchIndex + 1).find((m) => m[1].length <= level);
+    const end = next?.index ?? source.length;
+    const content = source.slice(start, end).trim();
+    if (content) parts.push(content);
+  });
+  return parts.join("\n\n");
 }
 
 function meaningfulText(value) {
@@ -110,6 +147,32 @@ function branchLikeTitle(title, headRef) {
   );
 }
 
+function checkedChecklistEntries(value) {
+  return [...String(value ?? "").matchAll(/^\s*-\s*\[[xX]\]\s*(.+?)\s*$/gm)].map((match) => match[1].trim());
+}
+
+function governanceMatcherGroupSatisfied(group, checkedEntries) {
+  return group.every((matcher) => checkedEntries.some((entry) => matcher.test(entry)));
+}
+
+function governanceItemSatisfied(checkedEntries, item) {
+  if (checkedEntries.some((entry) => entry === item)) return true;
+  const matcherGroups = legacyClinicalGovernanceEvidence.get(item);
+  if (!matcherGroups || matcherGroups.length === 0) return false;
+  return matcherGroups.some((group) => governanceMatcherGroupSatisfied(group, checkedEntries));
+}
+
+// Used by ci.yml to detect which governance items an existing PR body already
+// satisfies (including legacy phrasing) before syncing the checklist.
+export function collectSatisfiedGovernanceItems(value) {
+  const checkedEntries = checkedChecklistEntries(value);
+  return requiredClinicalGovernanceItems.filter((item) => governanceItemSatisfied(checkedEntries, item));
+}
+
+// Tolerant matching for the policy gate itself: affirm every item is checked
+// without demanding the exact required wording. Authors may lightly reword or
+// reformat the checklist, but a clinical-risk PR must leave no box unchecked
+// and must cover at least the required number of governance items.
 function governanceBoxStats(value) {
   const source = String(value ?? "");
   return {
@@ -192,10 +255,6 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
     if (!meaningfulText(governance)) {
       errors.push("Clinical-risk paths require the `## Clinical Governance Preflight` section.");
     } else {
-      // Tolerant matching: affirm every item is checked without demanding the
-      // exact required wording. Authors may lightly reword or reformat the
-      // checklist, but a clinical-risk PR must leave no box unchecked and must
-      // cover at least the required number of governance items.
       const { checked, unchecked } = governanceBoxStats(governance);
       if (unchecked > 0 || checked < requiredClinicalGovernanceItems.length) {
         errors.push(
@@ -410,6 +469,51 @@ function selfTest() {
   assert.equal(
     section("### Summary ###\n\n- concise summary\n\n### Verification\n\n- [x] `npm run verify:pr-local`\n", "Summary"),
     "- concise summary",
+  );
+  // Duplicate section headings: content from all occurrences must be combined
+  // so that a prose block followed by a checklist block (same heading) is
+  // treated as a single section for checklist matching purposes.
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: "ci: enforce pull request evidence",
+      body:
+        "## Summary\n\n- Add a trusted PR policy.\n\n## Verification\n\n- [x] `npm run verify:pr-local`\n- [x] `npm run verify:ui`\n\n## Risk and rollout\n\n- Risk: low; metadata-only validation.\n- Rollback: revert the workflow commit.\n\n## Clinical Governance Preflight\n\nProse rationale for the change.\n\n## Clinical Governance Preflight\n\n" +
+        completeGovernance,
+      headRef: "codex/pr-policy",
+      files: [".github/workflows/pr-policy.yml"],
+    }).ok,
+    true,
+    "duplicate section headings should combine content for checklist matching",
+  );
+  assert.deepEqual(
+    collectSatisfiedGovernanceItems(`- [x] This change does not alter citation requirements, source verification, provenance, or clinical-content governance.
+- [x] This change does not alter privacy controls, patient-data handling, authentication, authorization, or document-access behavior.
+- [x] Any Supabase service-role credentials used by the migration-history diagnostic remain CI/server-side only and are not exposed to clients.
+- [x] This change does not alter the configured Supabase project/target or perform a production database migration.
+- [x] No SaMD/TGA assessment is required because this change has no clinical decision-support impact.`),
+    requiredClinicalGovernanceItems,
+    "legacy governance attestations should map onto required checklist coverage",
+  );
+  assert.doesNotMatch(
+    collectSatisfiedGovernanceItems(
+      "- [x] This change does not alter citation requirements, source verification, or clinical-content governance.",
+    ).join("\n"),
+    new RegExp(requiredClinicalGovernanceItems[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    "legacy coverage should fail when a required signal (provenance) is missing",
+  );
+  assert.deepEqual(
+    collectSatisfiedGovernanceItems(`- [x] ${requiredClinicalGovernanceItems[2]}
+- [x] This change does not alter citation requirements, source verification, provenance, or clinical-content governance.
+- [x] This change does not alter privacy controls, patient-data handling, authentication, authorization, or document-access behavior.
+- [x] Any Supabase service-role credentials used by the migration-history diagnostic remain CI/server-side only and are not exposed to clients.
+- [x] No SaMD/TGA assessment is required because this change has no clinical decision-support impact.`),
+    requiredClinicalGovernanceItems,
+    "mixed canonical + legacy governance attestations should satisfy all required items",
+  );
+  assert.equal(
+    collectSatisfiedGovernanceItems("- [x] Legacy governance text without the expected policy keywords.").length,
+    0,
+    "malformed legacy attestations must not satisfy governance coverage",
   );
   const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
   for (const item of requiredClinicalGovernanceItems)
