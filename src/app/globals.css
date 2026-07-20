@@ -1800,7 +1800,8 @@ summary::-webkit-details-marker {
     padding-bottom: max(0.5rem, var(--safe-area-bottom));
   }
 
-  .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact {
+  .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact,
+  .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge.document-mobile-search-compact {
     padding-bottom: max(0.45rem, var(--safe-area-bottom));
   }
 
