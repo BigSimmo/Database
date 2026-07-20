@@ -55,8 +55,15 @@ afterEach(async () => {
 });
 
 describe("PDF extraction budgets", () => {
-  it("resolves python3 on non-Windows when PYTHON_BIN is unset", () => {
-    expect(resolvePythonBin("")).toBe(process.platform === "win32" ? "python" : "python3");
+  it("resolves the platform default when PYTHON_BIN is unset", () => {
+    const previous = process.env.PYTHON_BIN;
+    delete process.env.PYTHON_BIN;
+    try {
+      expect(resolvePythonBin()).toBe(process.platform === "win32" ? "python" : "python3");
+    } finally {
+      if (previous === undefined) delete process.env.PYTHON_BIN;
+      else process.env.PYTHON_BIN = previous;
+    }
   });
 
   it("honors an explicit PYTHON_BIN override", () => {

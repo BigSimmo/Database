@@ -25,7 +25,6 @@
 
 Touched extractors/document.ts (fail-closed process-tree cleanup only). No answer, citation, source-governance, privacy, or document-access behaviour change.
 
-<!-- GOVERNANCE_ALL_CHECKED -->
 <!-- GOVERNANCE_PREFLIGHT -->
 
 ## Notes

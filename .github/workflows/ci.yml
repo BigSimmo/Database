@@ -106,21 +106,14 @@ jobs:
                 }
               }
             }
-            const template = fs.readFileSync("PR_POLICY_BODY.md", "utf8").trim();
-            // Opt-in marker for heads that intentionally complete governance in the
-            // synced body without committing live Supabase identity strings.
-            const forceChecked = template.includes("<!-- GOVERNANCE_ALL_CHECKED -->");
             const governance = requiredClinicalGovernanceItems
               .map((item) => {
-                const checked = forceChecked || existingCheckedItems.has(item) ? "x" : " ";
+                const checked = existingCheckedItems.has(item) ? "x" : " ";
                 return `- [${checked}] ${item}`;
               })
               .join("\n");
-            const body = template
-              .replace("<!-- GOVERNANCE_ALL_CHECKED -->", "")
-              .replace("<!-- GOVERNANCE_PREFLIGHT -->", governance)
-              .replace(/\n{3,}/g, "\n\n")
-              .trim();
+            const template = fs.readFileSync("PR_POLICY_BODY.md", "utf8").trim();
+            const body = template.replace("<!-- GOVERNANCE_PREFLIGHT -->", governance);
             if ((pr.body || "").trim() === body) {
               core.info("PR description already matches PR_POLICY_BODY.md");
               return;
