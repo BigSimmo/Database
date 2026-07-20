@@ -2575,21 +2575,18 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
 }
 
 @media print {
-  html.factsheets-printing body * {
-    visibility: hidden !important;
+  /* Print only the portaled clean sheet. Removing every other <body> subtree from
+   * layout flow (display:none — NOT visibility:hidden) means the full-height shell
+   * chrome (sidebar <aside>, composer) and the tall screen article no longer
+   * paginate into trailing blank PDF pages. The print sheet keeps normal static
+   * flow inside its portal so it paginates correctly across pages. */
+  html.factsheets-printing body > *:not(.factsheet-print-portal) {
+    display: none !important;
   }
 
-  html.factsheets-printing .factsheet-print-sheet,
-  html.factsheets-printing .factsheet-print-sheet * {
-    visibility: visible !important;
-  }
-
+  html.factsheets-printing .factsheet-print-portal,
   html.factsheets-printing .factsheet-print-sheet {
     display: block !important;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
   }
 }
 
