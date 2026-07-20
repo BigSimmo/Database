@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { applySecondStageRerankIfNeeded } from "../src/lib/rag/rag";
+import {
+  imputedTableFactPrimaries,
+  liftSaturatedLexicalChunkHybrid,
+  saturationTailUnit,
+} from "../src/lib/rag/rag-candidate-sources";
 import { classifyRagQuery, rankClinicalResults } from "../src/lib/clinical-search";
 import { selectRetrievalEvidence } from "../src/lib/retrieval-selection";
 import { resultsHaveReleaseRankScore, stabilizeReleasedSearchOrder } from "../src/lib/released-search-order";
@@ -20,18 +25,25 @@ import type { SearchResult } from "../src/lib/types";
 
 type QueryClass = ReturnType<typeof classifyRagQuery>["queryClass"];
 
+// Fixtures derive their primaries from the production imputation helper so they stay
+// byte-accurate to whatever the fast path actually emits. At the historical default
+// text_rank 0.45 (sub-knee) this yields exactly the former hardcoded pair
+// similarity 0.755 / hybrid 0.795, keeping every pre-Phase-C guard's
+// "byte-identical primaries" premise intact.
 function imputedResult(
   overrides: Partial<SearchResult> & Pick<SearchResult, "id" | "document_id" | "title" | "file_name" | "content">,
 ): SearchResult {
+  const textRank = typeof overrides.text_rank === "number" ? overrides.text_rank : 0.45;
+  const imputed = imputedTableFactPrimaries(textRank);
   return {
     page_number: 5,
     chunk_index: 0,
     section_heading: null,
     image_ids: [],
     images: [],
-    similarity: 0.755,
-    text_rank: 0.45,
-    hybrid_score: 0.795,
+    similarity: imputed.similarity,
+    text_rank: textRank,
+    hybrid_score: imputed.hybridScore,
     ...overrides,
   };
 }
@@ -381,5 +393,185 @@ describe("text-fast-path ordering under imputed identical primaries", () => {
     expect(released[0]?.document_id).toBe("current-doc");
     // Conservative availability: the outdated document is demoted, not dropped.
     expect(released.map((result) => result.document_id)).toContain("archived-doc");
+  });
+});
+
+describe("Phase C saturation-tail primaries", () => {
+  it("keeps sub-knee imputation byte-identical to the historical formulas", () => {
+    for (const textRank of [0, 0.1, 0.25, 0.45, 0.7, 0.999, 1]) {
+      const { similarity, hybridScore } = imputedTableFactPrimaries(textRank);
+      expect(similarity).toBe(Math.min(0.94, 0.62 + Math.min(textRank, 1) * 0.3));
+      expect(hybridScore).toBe(Math.min(0.97, 0.66 + Math.min(textRank, 1) * 0.3));
+      expect(saturationTailUnit(textRank)).toBe(0);
+    }
+    // The historical hardcoded fixture pair reproduces exactly at the default text_rank.
+    expect(imputedTableFactPrimaries(0.45)).toEqual({ similarity: 0.755, hybridScore: 0.795 });
+  });
+
+  it("confines the saturated similarity tail to the dead (0.92, 0.94) band and leaves hybrid untouched", () => {
+    let previous = 0.92;
+    for (const textRank of [1.0001, 1.05, 1.5, 3, 50]) {
+      const { similarity, hybridScore } = imputedTableFactPrimaries(textRank);
+      expect(similarity).toBeGreaterThan(0.92);
+      expect(similarity).toBeLessThan(0.94);
+      // hybrid must stay byte-identical so gates, triggers, and selection scores cannot move.
+      expect(hybridScore).toBe(0.96);
+      // strict monotonicity in raw text relevance
+      expect(similarity).toBeGreaterThan(previous);
+      previous = similarity;
+      expect(saturationTailUnit(textRank)).toBeGreaterThan(0);
+      expect(saturationTailUnit(textRank)).toBeLessThan(1);
+    }
+  });
+
+  it("lifts saturated lexical chunks only under the truthful-contract signature and stays below 0.5", () => {
+    const base = imputedResult({
+      id: "chunk-a",
+      document_id: "doc-a",
+      title: "Reference Compendium",
+      file_name: "ReferenceCompendium.pdf",
+      content: "content",
+    });
+    const lexicalRow: SearchResult = { ...base, similarity: 0, lexical_score: 0.99, hybrid_score: 0.48 };
+
+    const lifted = liftSaturatedLexicalChunkHybrid({ ...lexicalRow, text_rank: 1.9 });
+    expect(lifted.hybrid_score).toBeGreaterThan(0.48);
+    expect(lifted.hybrid_score).toBeLessThan(0.5);
+    const liftedLower = liftSaturatedLexicalChunkHybrid({ ...lexicalRow, text_rank: 1.1 });
+    expect(liftedLower.hybrid_score).toBeGreaterThan(0.48);
+    expect(lifted.hybrid_score!).toBeGreaterThan(liftedLower.hybrid_score!);
+
+    // Non-matching signatures pass through unmodified: real-vector rows, sub-knee rows,
+    // rows without the lexical contract.
+    expect(liftSaturatedLexicalChunkHybrid({ ...lexicalRow, similarity: 0.5, text_rank: 1.9 }).hybrid_score).toBe(0.48);
+    expect(liftSaturatedLexicalChunkHybrid({ ...lexicalRow, text_rank: 0.9 }).hybrid_score).toBe(0.48);
+    expect(
+      liftSaturatedLexicalChunkHybrid({ ...lexicalRow, lexical_score: undefined, text_rank: 1.9 }).hybrid_score,
+    ).toBe(0.48);
+  });
+
+  it("resolves a saturated tie by raw text_rank instead of chunk-id order (the discriminating case)", () => {
+    // Both candidates saturate the historical clamp (text_rank >= 1) and tie on every
+    // pre-Phase-C key: identical content (identical coverage and boost signals), no table
+    // facts or images, query-token-free titles, no governance metadata — and ids chosen so
+    // the chunk-id fallback would seat the DISTRACTOR first. Under the pre-Phase-C
+    // byte-identical primaries this ordering was arbitrary (id order); the saturation tail
+    // makes the strictly more text-relevant document win. Verified red on the old formulas.
+    //
+    // Scope note (matches the live headroom evidence): the tail resolves ties at the
+    // release comparator, which is consulted when the second-stage rerank does NOT engage —
+    // exactly the pools where canary #53/#54 show id-order deciding (patient-safety, opioid,
+    // flowchart). A table_threshold pool with tied top scores always engages the second
+    // stage, whose position-derived releaseRankScore sorts first, so this case deliberately
+    // uses a visual-evidence-free document_lookup pool and pins the non-engaged premise.
+    const query = "What should a patient safety plan include?";
+    const { queryClass } = classifyRagQuery(query);
+    expect(queryClass).toBe("document_lookup");
+    const sharedContent =
+      "A patient safety plan should include warning signs, coping strategies, and emergency contacts.";
+
+    const distractor = imputedResult({
+      id: "aa-distractor",
+      document_id: "aa-generic-doc",
+      title: "Service Reference Compendium",
+      file_name: "ServiceReferenceCompendium (NMHS).pdf",
+      content: sharedContent,
+      text_rank: 1.05,
+    });
+    const correct = imputedResult({
+      id: "zz-correct",
+      document_id: "zz-relevant-doc",
+      title: "Ward Reference Compendium",
+      file_name: "WardReferenceCompendium (SMHS).pdf",
+      content: sharedContent,
+      text_rank: 1.8,
+    });
+
+    const released = runTextFastPathOrdering({
+      query,
+      queryClass,
+      candidates: [distractor, correct],
+      topK: 8,
+    });
+    // Non-engaged premise: no visual evidence in the pool, so release order falls through
+    // hybrid (tied) to the Phase C similarity spread.
+    expect(resultsHaveReleaseRankScore(released)).toBe(false);
+    expect(released[0]?.document_id).toBe("zz-relevant-doc");
+    expect(released.map((result) => result.document_id)).toContain("aa-generic-doc");
+
+    // Arrival order must not matter either.
+    const releasedReversed = runTextFastPathOrdering({
+      query,
+      queryClass,
+      candidates: [correct, distractor],
+      topK: 8,
+    });
+    expect(releasedReversed[0]?.document_id).toBe("zz-relevant-doc");
+  });
+
+  it("still ties genuinely equal text_ranks so the coverage comparator keeps deciding (#987 contract)", () => {
+    // Identical text_rank -> identical primaries under the tail too; the coverage-richer
+    // candidate must win regardless of adversarial id order, proving the tail cannot
+    // starve the content-aware tie-break.
+    const query = "What CIWA-Ar score threshold requires drug treatment in alcohol withdrawal?";
+    const { queryClass } = classifyRagQuery(query);
+
+    const coveragePoor = imputedResult({
+      id: "aa-poor-coverage",
+      document_id: "aa-poor-doc",
+      title: "Withdrawal Care Overview",
+      file_name: "WithdrawalCareOverview (NMHS).pdf",
+      content: "General supportive care principles for patients in alcohol withdrawal.",
+      text_rank: 1.6,
+    });
+    const coverageRich = imputedResult({
+      id: "zz-rich-coverage",
+      document_id: "zz-rich-doc",
+      title: "Withdrawal Scale Reference",
+      file_name: "WithdrawalScaleReference (SMHS).pdf",
+      content: "A CIWA-Ar score of 10 or more is the threshold that requires drug treatment in alcohol withdrawal.",
+      text_rank: 1.6,
+    });
+
+    expect(imputedTableFactPrimaries(1.6)).toEqual(imputedTableFactPrimaries(1.6));
+    const released = runTextFastPathOrdering({
+      query,
+      queryClass,
+      candidates: [coveragePoor, coverageRich],
+      topK: 8,
+    });
+    expect(released[0]?.document_id).toBe("zz-rich-doc");
+  });
+
+  it("orders saturated lexical text chunks by raw text_rank through the release pipeline", () => {
+    const query = "What ANC threshold requires review?";
+    const { queryClass } = classifyRagQuery(query);
+    const sharedContent = "The ANC threshold requires review whenever results fall in the flagged range.";
+    const lexicalChunk = (id: string, documentId: string, title: string, textRank: number): SearchResult =>
+      liftSaturatedLexicalChunkHybrid({
+        ...imputedResult({
+          id,
+          document_id: documentId,
+          title,
+          file_name: `${title.replace(/\s+/g, "")}.pdf`,
+          content: sharedContent,
+          text_rank: textRank,
+        }),
+        similarity: 0,
+        lexical_score: 0.99,
+        hybrid_score: 0.48,
+      });
+
+    const released = runTextFastPathOrdering({
+      query,
+      queryClass,
+      candidates: [
+        lexicalChunk("aa-low", "aa-low-doc", "Service Reference Compendium", 1.1),
+        lexicalChunk("zz-high", "zz-high-doc", "Ward Reference Compendium", 1.9),
+      ],
+      topK: 8,
+    });
+    expect(released[0]?.document_id).toBe("zz-high-doc");
+    expect(released.map((result) => result.document_id)).toContain("aa-low-doc");
   });
 });
