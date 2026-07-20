@@ -65,6 +65,21 @@ const operationalRiskPatterns = [
   /^(?:Dockerfile|railway(?:\.[^.]+)?\.json|nixpacks\.toml)$/,
 ];
 
+// RAG-ranking protected surfaces (docs/rag-behaviour/safeguards.md). Narrower than
+// clinicalRiskPatterns: these files change (or re-measure) retrieval/ranking ORDERING
+// behaviour, which is live-validated — offline-green plus review-approved was proven
+// insufficient here on 2026-07-20 (Phase C regression, canary #55). A PR touching any of
+// them must carry an explicit `RAG impact:` declaration (see evaluatePullRequestPolicy).
+const ragRankingPatterns = [
+  /^src\/lib\/rag\//,
+  /^src\/lib\/(?:clinical-search|retrieval-selection|released-search-order|ranking-config|evidence|result-sort|answer-ranking|evidence-relevance|semantic-rerank|eval-document-matching)\.ts$/,
+  /^scripts\/(?:eval-retrieval|build-ranking-snapshot|tune-search-weights)\.ts$/,
+  /^scripts\/lib\/(?:clinical-aliases|ranking-tuning|ranking-snapshot-builder)\.ts$/,
+  /^scripts\/fixtures\/(?:rag-retrieval-golden|rag-ranking-candidate-snapshot\.v1)\.json$/,
+  // The contract-pinning tests are protected too: weakening them is the evasion route.
+  /^tests\/(?:rag-fast-path-ordering|ranking-tuning|retrieval-selection|rag-second-stage-ranking|eval-retrieval|rag-imputation-contract)\.test\.ts$/,
+];
+
 const uiPatterns = [
   /^src\/app\/(?!api\/)/,
   /^src\/(?:components|styles)\//,
@@ -204,15 +219,30 @@ export function classifyPullRequestFiles(files) {
     files: normalized,
     clinicalRisk: normalized.some((file) => clinicalRiskPatterns.some((pattern) => pattern.test(file))),
     operationalRisk: normalized.some((file) => operationalRiskPatterns.some((pattern) => pattern.test(file))),
+    ragRanking: normalized.some((file) => ragRankingPatterns.some((pattern) => pattern.test(file))),
     ui: normalized.some((file) => uiPatterns.some((pattern) => pattern.test(file))),
   };
 }
 
+// The `RAG impact:` declaration a ragRanking PR must carry: either an explicit
+// no-behaviour-change statement (with a reason) or a canary-pair reference. Matched anywhere
+// in the body, list-marker tolerant, case-insensitive.
+export function ragImpactDeclared(body) {
+  const match = String(body ?? "").match(/^[\s>*-]*\*{0,2}RAG impact\*{0,2}:\s*(\S[^\n]*)/im);
+  if (!match) return { declared: false, satisfied: false };
+  const detail = match[1].trim();
+  const noChange = /no\s+(?:retrieval\s+|ranking\s+)?behaviou?r\s+change/i.test(detail);
+  const canary = /canar/i.test(detail);
+  return { declared: true, satisfied: (noChange || canary) && detail.length >= 12 };
+}
+
 export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
-  // Only genuine clinical-risk governance gaps block the PR (hard failure).
-  // Every other metadata expectation (title, summary, verification, UI, risk
-  // and rollout) is advisory: it is surfaced as a warning so authors still get
-  // the nudge, but it never fails the check or blocks a merge.
+  // Two conditions block the PR (hard failure): a clinical-risk diff without a
+  // complete Clinical Governance Preflight, and a RAG-ranking-surface diff
+  // without an explicit `RAG impact:` declaration. Every other metadata
+  // expectation (title, summary, verification, UI, risk and rollout) is
+  // advisory: it is surfaced as a warning so authors still get the nudge, but
+  // it never fails the check or blocks a merge.
   const errors = [];
   const warnings = [];
   const classification = classifyPullRequestFiles(files);
@@ -249,8 +279,25 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
     );
   }
 
+  // Blocking gate: a PR touching RAG-ranking protected surfaces must declare its impact
+  // explicitly (docs/rag-behaviour/safeguards.md — layer 1). Ordering behaviour is
+  // live-validated; the declaration forces every session/task to consciously state either
+  // "no behaviour change" (with a reason) or the canary pair covering the change.
+  if (classification.ragRanking) {
+    const ragImpact = ragImpactDeclared(body);
+    if (!ragImpact.declared) {
+      errors.push(
+        "This PR touches RAG-ranking protected surfaces. Add a `RAG impact:` line to the body — either `RAG impact: no retrieval behaviour change — <reason>` or `RAG impact: behaviour change — canary pair <baseline> -> <post>` (see docs/rag-behaviour/safeguards.md).",
+      );
+    } else if (!ragImpact.satisfied) {
+      errors.push(
+        "The `RAG impact:` line must state `no retrieval behaviour change — <reason>` or reference the validating canary pair (see docs/rag-behaviour/safeguards.md).",
+      );
+    }
+  }
+
   // Blocking gate: a clinical-risk PR must carry a complete Clinical Governance
-  // Preflight. This is the only condition that fails the check.
+  // Preflight. This is the only other condition that fails the check.
   if (classification.clinicalRisk) {
     if (!meaningfulText(governance)) {
       errors.push("Clinical-risk paths require the `## Clinical Governance Preflight` section.");
@@ -282,7 +329,7 @@ export function evaluatePullRequestPolicy({ title, body, headRef, files }) {
 
 function selfTest() {
   const completeGovernance = requiredClinicalGovernanceItems.map((item) => `- [x] ${item}`).join("\n");
-  const completeBody = `## Summary\n\n- Add a trusted PR policy.\n\n## Verification\n\n- [x] \`npm run verify:pr-local\`\n- [x] \`npm run verify:ui\`\n\n## Risk and rollout\n\n- Risk: low; metadata-only validation.\n- Rollback: revert the workflow commit.\n\n## Clinical Governance Preflight\n\n${completeGovernance}`;
+  const completeBody = `## Summary\n\n- Add a trusted PR policy.\n\nRAG impact: no retrieval behaviour change — metadata-only validation.\n\n## Verification\n\n- [x] \`npm run verify:pr-local\`\n- [x] \`npm run verify:ui\`\n\n## Risk and rollout\n\n- Risk: low; metadata-only validation.\n- Rollback: revert the workflow commit.\n\n## Clinical Governance Preflight\n\n${completeGovernance}`;
   assert.equal(
     evaluatePullRequestPolicy({
       title: "ci: enforce pull request evidence",
@@ -420,6 +467,7 @@ function selfTest() {
     files: ["src/app/api/search/route.ts"],
     clinicalRisk: true,
     operationalRisk: false,
+    ragRanking: false,
     ui: false,
   });
   // Narrowed classification: presentation-only UI under the clinically-named
@@ -429,8 +477,60 @@ function selfTest() {
     files: ["src/components/clinical-dashboard/settings-dialog.tsx"],
     clinicalRisk: false,
     operationalRisk: false,
+    ragRanking: false,
     ui: true,
   });
+  // RAG-ranking protected surfaces (docs/rag-behaviour/safeguards.md): a PR touching them
+  // without a `RAG impact:` declaration is hard-blocked...
+  const ragUndeclared = evaluatePullRequestPolicy({
+    title: "fix: adjust release ordering tie-break",
+    body: completeBody.replace(/^RAG impact:.*\n\n/m, ""),
+    headRef: "codex/ordering-fix",
+    files: ["src/lib/released-search-order.ts"],
+  });
+  assert.equal(ragUndeclared.ok, false, "RAG-surface PRs without a RAG impact line must block");
+  assert.match(ragUndeclared.errors.join(" "), /RAG impact/);
+  // ...a vague declaration (neither no-change nor canary) also blocks...
+  assert.match(
+    evaluatePullRequestPolicy({
+      title: "fix: adjust release ordering tie-break",
+      body: completeBody.replace(/^RAG impact:.*$/m, "RAG impact: probably fine"),
+      headRef: "codex/ordering-fix",
+      files: ["src/lib/released-search-order.ts"],
+    }).errors.join(" "),
+    /RAG impact/,
+  );
+  // ...an explicit no-behaviour-change declaration passes (with governance complete)...
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: "docs: clarify release-order comments",
+      body: completeBody,
+      headRef: "codex/ordering-docs",
+      files: ["src/lib/released-search-order.ts"],
+    }).ok,
+    true,
+    "a declared no-behaviour-change RAG PR must pass",
+  );
+  // ...and a canary-pair declaration passes for behaviour changes.
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: "feat: retrieval ordering change",
+      body: completeBody.replace(
+        /^RAG impact:.*$/m,
+        "RAG impact: behaviour change — canary pair run 54 -> post-merge dispatch planned",
+      ),
+      headRef: "codex/ordering-change",
+      files: ["src/lib/rag/rag-candidate-sources.ts", "tests/rag-fast-path-ordering.test.ts"],
+    }).ok,
+    true,
+    "a canary-pair-declared RAG behaviour change must pass",
+  );
+  // The golden fixture and contract tests are protected surfaces too.
+  assert.equal(classifyPullRequestFiles(["scripts/fixtures/rag-retrieval-golden.json"]).ragRanking, true);
+  assert.equal(classifyPullRequestFiles(["tests/ranking-tuning.test.ts"]).ragRanking, true);
+  // Answer synthesis is clinical-risk but NOT rag-ranking (retrieval ordering is the
+  // protected axis here; generation keeps the governance gate only).
+  assert.equal(classifyPullRequestFiles(["src/lib/answer-synthesis.ts"]).ragRanking, false);
   // ...but privacy/access-control UI surfaces stay gated.
   assert.equal(classifyPullRequestFiles(["src/components/privacy-input-notice.tsx"]).clinicalRisk, true);
   // ...and clinical behavior in the library layer stays gated.
