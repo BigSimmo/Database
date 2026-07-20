@@ -350,6 +350,16 @@ async function expectVerticalSeparation(page: Page, upperSelector: string, lower
   expect((metrics?.lowerTop ?? 0) - (metrics?.upperBottom ?? 0)).toBeGreaterThanOrEqual(minimumGap);
 }
 
+// Playwright's Linux WebKit build advertises phantom touch points on the touch-free CI
+// runner, tripping the fine-pointer/zero-touch gate on the search command surface
+// (commandDropdownCanDisplay) that Chromium and Firefox pass via the zero-touch fallback.
+// Report the runner's real capability so WebKit exercises the same desktop surfaces.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, "maxTouchPoints", { configurable: true, get: () => 0 });
+  });
+});
+
 test.describe("Clinical KB tools launcher", () => {
   test.describe.configure({ timeout: 60_000 });
 
