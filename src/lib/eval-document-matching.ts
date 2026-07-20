@@ -16,6 +16,13 @@ export function normalizedDocumentName(value: string) {
     .trim();
 }
 
+// TIERING — deliberately WIDER than scripts/lib/clinical-aliases.ts, and kept separate on
+// purpose. This table serves captured-case coverage (rag-eval-cases / eval-utils), where the
+// goal is absorbing corpus renames and near-equivalents so auto-captured expectations keep
+// matching. The scripts/lib module is the STRICT tier consumed by the zero-tolerance golden
+// gates and the ranking-snapshot relevance grades — entries there need a per-entry evidence
+// trail. Never bulk-merge this table into the strict tier: looser entries here (e.g.
+// "Clozapine GP Shared Care") would let adjacent documents satisfy pinned golden expectations.
 const clinicalDocumentAliases: Record<string, string[]> = {
   Acamprosate: ["Acamprosate"],
   ActiveCommunityPtED: [
