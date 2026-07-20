@@ -11,9 +11,12 @@ const forbiddenMarkers = [
   "OPENAI_ORG_ID",
   "OPENAI_PROJECT_ID",
   "RAG_QUERY_HASH_SECRET",
-  "sb_secret_",
-  "sk-proj-",
-  "sk-svcacct-",
+  // Match an actual key value (prefix + key body), not a bare prefix-check
+  // string literal. @supabase/supabase-js ships `key.startsWith('sb_secret_')`
+  // client-side as of 2.110.x, which would otherwise be a false positive here.
+  /sb_secret_[A-Za-z0-9]/,
+  /sk-proj-[A-Za-z0-9]/,
+  /sk-svcacct-[A-Za-z0-9]/,
 ];
 
 function textFiles(root) {
@@ -47,9 +50,11 @@ const offenders = new Map();
 for (const file of [...textFiles(publicRoot), ...textFiles(clientBuildRoot)]) {
   const content = readFileSync(file, "utf8");
   for (const marker of forbiddenMarkers) {
-    if (content.includes(marker)) {
+    const matched = marker instanceof RegExp ? marker.test(content) : content.includes(marker);
+    if (matched) {
+      const markerLabel = marker instanceof RegExp ? marker.source : marker;
       const relativePath = relative(projectRoot, file).replaceAll("\\", "/");
-      offenders.set(`${relativePath}\0${marker}`, { marker, relativePath });
+      offenders.set(`${relativePath}\0${markerLabel}`, { marker: markerLabel, relativePath });
     }
   }
 }
