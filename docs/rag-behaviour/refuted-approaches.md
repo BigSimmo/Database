@@ -58,14 +58,17 @@ Full audit trail: `docs/branch-review-ledger.md` (2026-07-20 rows), PRs #1003–
 5. **Honest sizing:** the prize is rank depth on 3–4 already-passing cases (~0.03–0.08 mrr).
    Weigh against the demonstrated regression risk before attempting at all.
 
-## Related follow-up plans (documented, not yet implemented)
+## Related follow-up plans
 
-- **Word-boundary content matcher:** `textContainsClinicalTerm` misses ordinary prose
-  punctuation (`treatment,` `(opioid` `ptsd.[35]`) — 4 live occurrences found in top-5
-  previews. A matcher-wide change to word-boundary semantics is a measurement-layer behaviour
-  shift: own PR, full 36-case impact audit offline (artifact replay), then one canary confirm.
-- **irrelevant@10 labeling audit:** before any ranking work aimed at the 0.108 rate, audit the
-  broad/vector cases' top-10 for under-labeled relevant siblings (the alias-tier lesson); the
-  fix may be sanctioned labels, not ranking.
+- **Word-boundary content matcher — ✅ IMPLEMENTED (2026-07-20, same-day follow-up).**
+  `textContainsClinicalTerm` now matches on non-alphanumeric boundaries. Safety: proven strict
+  superset by artifact replay (canary #53: 1,126 comparisons, 0 lost matches, 7 gained — the
+  exact known punctuation-joined occurrences). The weekly scheduled canary provides the free
+  live confirmation; a more-tolerant matcher cannot fail a previously-passing case.
+- **irrelevant@10 labeling audit — unblocked, not yet run.** The canary artifact now carries
+  the TOP 10 result rows per case (was 5), so the audit of broad/vector cases' extra top-10
+  documents for under-labeled relevant siblings can run offline against the next artifact.
+  Until it runs, treat the 0.108 rate as a labeling question, not ranking debt
+  (`docs/observability-slos.md` §3.1).
 - **Phase E (answer-side quality):** untouched by this cycle; requires its own approval and
   spend (~$2–5/run) per the master plan.

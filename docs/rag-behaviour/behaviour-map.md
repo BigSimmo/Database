@@ -75,10 +75,14 @@ free real estate for ordering keys (see §2's critical property).
 - Golden gates are zero-tolerance top-5 per-case checks; `--fail-on-threshold` fails the run on
   any miss. The canary log's per-case lines + human summary are what humans and the
   failure-issue analyzer read; `--json-out` writes the machine artifact independently.
-- `textContainsClinicalTerm` is whitespace-delimited: it cannot match punctuation-joined tokens
-  (`CIWA-Ar`, `treatment,`, `(opioid`). Sanctioned aliases (`scripts/lib/clinical-aliases.ts`,
-  the STRICT tier) absorb known cases; a word-boundary matcher change is a proposed,
-  separately-reviewed follow-up. The WIDER captured-case tier in
+- `textContainsClinicalTerm` uses word-boundary matching (2026-07-20 upgrade): boundaries and
+  internal separators accept any non-alphanumeric run, so punctuation-joined corpus tokens
+  (`CIWA-Ar`, `treatment,`, `(opioid`, line-broken `ciwa- ar`) match their fixture terms. The
+  change is a proven STRICT SUPERSET of the old whitespace matcher (artifact replay on canary
+  #53: 1,126 comparisons, 0 lost matches, 7 gained — exactly the known blind-spot occurrences),
+  so gates can only stay equal or become more satisfiable. Sanctioned aliases
+  (`scripts/lib/clinical-aliases.ts`, the STRICT tier) remain the drift-absorption mechanism
+  for genuinely different spellings; the WIDER captured-case tier in
   `src/lib/eval-document-matching.ts` must never be bulk-merged into the strict tier.
 - Fixture and ranking snapshot move in lockstep (test-pinned); the snapshot carries
   `generatedAt` provenance with an active 30-day freshness gate; regenerate from the latest

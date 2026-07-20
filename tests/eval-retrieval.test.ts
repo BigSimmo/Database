@@ -5,6 +5,7 @@ import {
   loadGoldenRetrievalCases,
   retrievalLimitForGoldenCase,
   summarizeGoldenRetrievalResults,
+  textContainsClinicalTerm,
 } from "../scripts/eval-retrieval";
 import type { SearchResult } from "../src/lib/types";
 
@@ -551,5 +552,31 @@ describe("golden retrieval eval helpers", () => {
       expectedContentTerms: [],
       topK: 8,
     });
+  });
+});
+
+describe("textContainsClinicalTerm word-boundary matching", () => {
+  // Inputs mirror resultContentText output: lowercase, whitespace-collapsed, punctuation kept.
+  it("preserves every whitespace-delimited match (superset guarantee)", () => {
+    expect(textContainsClinicalTerm("a ciwa score of 10", "ciwa")).toBe(true);
+    expect(textContainsClinicalTerm("full blood count monitoring", "full blood count")).toBe(true);
+    expect(textContainsClinicalTerm("anc below 1.5 requires review", "1.5")).toBe(true);
+  });
+
+  it("matches punctuation-joined corpus tokens the whitespace matcher missed (canary #53 audit classes)", () => {
+    expect(textContainsClinicalTerm("scores on the ciwa-ar scale", "ciwa")).toBe(true);
+    expect(textContainsClinicalTerm("assessment and treatment, then review", "treatment")).toBe(true);
+    expect(textContainsClinicalTerm("methadone (opioid substitution)", "opioid")).toBe(true);
+    expect(textContainsClinicalTerm("risk of developing ptsd.[35]", "ptsd")).toBe(true);
+    // Line-broken hyphenation from PDF extraction ("ciwa- ar") matches via the boundary run.
+    expect(textContainsClinicalTerm("the (ciwa- ar) scale, revised", "ciwa")).toBe(true);
+    // Multi-word terms tolerate punctuation as the internal separator too.
+    expect(textContainsClinicalTerm("full-blood-count monitoring", "full blood count")).toBe(true);
+  });
+
+  it("still rejects substrings inside words (no false positives from the widened boundary)", () => {
+    expect(textContainsClinicalTerm("managed over time with support", "ed")).toBe(false);
+    expect(textContainsClinicalTerm("prescription of lithium", "script")).toBe(false);
+    expect(textContainsClinicalTerm("intramuscularly administered", "im")).toBe(false);
   });
 });
