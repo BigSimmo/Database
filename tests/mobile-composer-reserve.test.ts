@@ -33,9 +33,51 @@ describe("mobile composer reserve contract", () => {
         isStandaloneModeHome: false,
         searchMode: "documents",
         differentialsCompareAddonActive: false,
-        useCompactBottomSearch: false,
       }),
     ).toBe(mobileComposerHiddenReserve);
+  });
+
+  it("reserves compact dock clearance on standalone mode homes (phone dock, hero from sm up)", () => {
+    expect(
+      resolveShellVisibleMobileComposerReserve({
+        shouldShowSearchComposer: true,
+        documentViewerOwnedRoute: false,
+        isStandaloneModeHome: true,
+        searchMode: "services",
+        differentialsCompareAddonActive: false,
+      }),
+    ).toBe(mobileComposerVisibleReserve.shellDock);
+  });
+
+  it("uses the compact dock reserve for every non-answer dashboard dock (mode homes included)", () => {
+    for (const searchMode of ["documents", "services", "forms", "tools", "favourites"]) {
+      expect(
+        resolveDashboardVisibleMobileComposerReserve({
+          searchMode,
+          hasAnswerFollowUps: false,
+          differentialsCompareAddonActive: false,
+        }),
+      ).toBe(mobileComposerVisibleReserve.dashboardDock);
+    }
+  });
+
+  it("keeps the answer dock reserve compact, growing only for the follow-up chip row", () => {
+    expect(
+      resolveDashboardVisibleMobileComposerReserve({
+        searchMode: "answer",
+        hasAnswerFollowUps: false,
+        differentialsCompareAddonActive: false,
+      }),
+    ).toBe(mobileComposerVisibleReserve.dashboardAnswer);
+    expect(
+      resolveDashboardVisibleMobileComposerReserve({
+        searchMode: "answer",
+        hasAnswerFollowUps: true,
+        differentialsCompareAddonActive: false,
+      }),
+    ).toBe(mobileComposerVisibleReserve.dashboardAnswerWithFollowUps);
+    expect(mobileComposerVisibleReserve.dashboardAnswer).toContain("var(--safe-area-bottom)");
+    expect(mobileComposerVisibleReserve.dashboardAnswerWithFollowUps).toContain("var(--safe-area-bottom)");
   });
 
   it("keeps differentials compare clearance shared across hosts", () => {
@@ -48,7 +90,15 @@ describe("mobile composer reserve contract", () => {
         searchMode: "differentials",
         hasAnswerFollowUps: false,
         differentialsCompareAddonActive: true,
-        compactMobileBottomSearch: true,
+      }),
+    ).toBe(mobileComposerDifferentialsCompareReserve);
+    expect(
+      resolveShellVisibleMobileComposerReserve({
+        shouldShowSearchComposer: true,
+        documentViewerOwnedRoute: false,
+        isStandaloneModeHome: false,
+        searchMode: "differentials",
+        differentialsCompareAddonActive: true,
       }),
     ).toBe(mobileComposerDifferentialsCompareReserve);
   });
