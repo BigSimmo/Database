@@ -45,6 +45,10 @@ jobs:
             const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-policy.mjs`).href;
             const { evaluatePullRequestPolicy } = await import(moduleUrl);
             const pr = context.payload.pull_request;
+            if (!pr?.number) {
+              core.setFailed("Missing pull_request.number in pull_request_target payload.");
+              return;
+            }
             let latestPr;
             try {
               latestPr = (
