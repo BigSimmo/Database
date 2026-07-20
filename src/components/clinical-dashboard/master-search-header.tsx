@@ -484,7 +484,9 @@ export function MasterSearchHeader({
                       ? "formulation"
                       : searchMode === "tools"
                         ? "tools"
-                        : "answer";
+                        : searchMode === "factsheets"
+                          ? "factsheets"
+                          : "answer";
   const actionMenuItems = modeActionItemsFor(actionMenuSetId);
   const actionMenuTitle = selectedAppMode.label;
   const actionMenuSubtitle = searchMode === "answer" ? "Source-backed mode" : selectedAppMode.description;
@@ -576,6 +578,15 @@ export function MasterSearchHeader({
     if (actionId === "documents-viewer") {
       onSearchModeChange("documents");
       onOpenSourcePdf?.();
+      return;
+    }
+    if (actionId === "factsheets-search") {
+      onSearchModeChange("factsheets");
+      return;
+    }
+    if (actionId === "factsheets-browse") {
+      onSearchModeChange("factsheets");
+      onQueryChange("");
       return;
     }
     if (actionId === "services-search") {

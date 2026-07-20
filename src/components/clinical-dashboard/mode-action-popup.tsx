@@ -15,6 +15,7 @@ import {
 import { createPortal } from "react-dom";
 import {
   Activity,
+  BookOpenText,
   TriangleAlert,
   CalendarDays,
   Check,
@@ -59,7 +60,8 @@ export type ModeActionSetId =
   | "dsm"
   | "specifiers"
   | "formulation"
-  | "prescribing";
+  | "prescribing"
+  | "factsheets";
 export type ModeActionPlacement = "up" | "down";
 
 type IntegratedSurfaceLayout = {
@@ -131,7 +133,9 @@ export type ModeActionId =
   | "formulation-search"
   | "formulation-builder"
   | "formulation-compare"
-  | "formulation-map";
+  | "formulation-map"
+  | "factsheets-search"
+  | "factsheets-browse";
 
 export type ModeActionItem = {
   id: ModeActionId;
@@ -328,6 +332,21 @@ const modeActionSets = {
       icon: TriangleAlert,
     },
     { id: "medication-access", label: "Documentation", description: "Required forms and eligibility", icon: Lock },
+  ],
+  factsheets: [
+    {
+      id: "factsheets-search",
+      label: "Search factsheets",
+      description: "Find a medicine, condition, therapy, or test",
+      icon: Search,
+      primary: true,
+    },
+    {
+      id: "factsheets-browse",
+      label: "Browse all sheets",
+      description: "Open the full patient-information library",
+      icon: BookOpenText,
+    },
   ],
 } as const satisfies Record<ModeActionSetId, readonly ModeActionItem[]>;
 
