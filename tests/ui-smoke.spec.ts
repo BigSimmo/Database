@@ -844,10 +844,10 @@ async function expectAccountSetupSurface(setup: Locator) {
 }
 
 async function expectAdminOnlyUploadNotice(page: Page) {
-  const uploadButton = page.getByRole("button", { name: /Upload document/i });
-  await expect(uploadButton).toBeVisible();
-  await waitForReactEventHandler(uploadButton, "onClick");
-  await uploadButton.click();
+  const menu = await openDailyActions(page);
+  const uploadAction = menu.getByRole("menuitem", { name: "Add document" });
+  await expect(uploadAction).toBeVisible();
+  await uploadAction.click();
   await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only." })).toContainText(
     "Use the source library to open indexed documents.",
   );
@@ -893,8 +893,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(page.getByTestId("scope-command-popover")).toBeHidden();
       await expect(page.getByTestId("scope-prompts-drawer")).toHaveCount(0);
       await expect(page.getByTestId("mobile-scope-popover")).toHaveCount(0);
-      await expect(page.getByRole("button", { name: "Search documents" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Upload document" })).toBeVisible();
       await expectDomIntegrity(page, { mobileNav: viewport.width <= 768 });
       if (viewport.width <= 768) {
         await expect(page.getByTestId("mobile-section-fab-button")).toHaveCount(0);

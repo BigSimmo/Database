@@ -3961,8 +3961,6 @@ export function ClinicalDashboard({
                   ) : null
                 ) : showAnswerHome ? (
                   <AnswerEmptyState
-                    onSearchDocuments={() => setSearchMode("documents")}
-                    onUploadDocument={openUploadDrawer}
                     desktopComposerSlotId={desktopHomeComposerSlotId}
                     recentQueries={recentQueries}
                     onSelectRecent={(recentQuery) => {
