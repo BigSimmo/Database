@@ -1,0 +1,68 @@
+name: Claude
+
+# Runs a Claude Code session when a collaborator mentions "@claude" on a pull
+# request comment or review. Claude reads the triggering comment, works on the
+# PR's current head, pushes a scoped fix to the PR branch, and replies in the
+# thread. Unlike a subscribed chat session, this fires on the webhook every
+# time, so it keeps working after the session that opened the PR has ended.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+# Least privilege by default; the job widens only what Claude needs.
+permissions:
+  contents: read
+
+jobs:
+  claude:
+    name: Respond to @claude
+    runs-on: ubuntu-24.04
+    # Only run when a human (not a bot) mentions @claude on a pull request, so
+    # ordinary comments — and Claude's own replies — never spin up a runner.
+    if: >
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request != null &&
+        github.event.comment.user.type != 'Bot' &&
+        contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' &&
+        github.event.comment.user.type != 'Bot' &&
+        contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review' &&
+        github.event.review.user.type != 'Bot' &&
+        github.event.review.body != null &&
+        contains(github.event.review.body, '@claude'))
+    permissions:
+      contents: write # push the scoped fix to the PR branch
+      pull-requests: write # comment back and update the PR
+      issues: write # comment on the PR conversation thread
+      id-token: write # OIDC used by the action
+      actions: read # read CI results for context
+    concurrency:
+      group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
+    timeout-minutes: 30
+    env:
+      # Assigned to job env so a step-level `if` can detect an unconfigured
+      # secret and skip gracefully instead of hard-failing the check.
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - name: Warn when the API key is not configured
+        if: ${{ env.ANTHROPIC_API_KEY == '' }}
+        run: echo "::warning title=Claude::ANTHROPIC_API_KEY secret is not configured; skipping. Add ANTHROPIC_API_KEY (or switch the action input to claude_code_oauth_token) in repository secrets so @claude mentions are handled."
+      - name: Checkout repository
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 1
+      - name: Run Claude Code
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        uses: anthropics/claude-code-action@af0559ee4f514d1ef21826982bed13f7edc3c35e # v1.0.178
+        with:
+          # The action's default trigger phrase is "@claude"; it reads the
+          # triggering comment/review and acts on the current PR head.
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
