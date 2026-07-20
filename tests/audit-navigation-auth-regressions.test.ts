@@ -92,9 +92,24 @@ describe("audit navigation and auth regressions", () => {
     );
 
     expect(focusLeaveContract).toContain("onBlur={(event) => {");
+    expect(focusLeaveContract).toContain("if (usesPhoneSearchLayout) return;");
     expect(focusLeaveContract).toContain("const nextFocusedElement = event.relatedTarget;");
     expect(focusLeaveContract).toContain("event.currentTarget.contains(nextFocusedElement)");
     expect(focusLeaveContract).toContain("setModeMenuOpen(false);");
+  });
+
+  it("opens the master mode menu as a phone bottom sheet below the phone layout gate", () => {
+    expect(masterSearchHeaderSource).toContain('testId="app-mode-menu-sheet"');
+    expect(masterSearchHeaderSource).toContain("enabled: modeMenuOpen && !usesPhoneSearchLayout");
+    expect(masterSearchHeaderSource).toContain("{!usesPhoneSearchLayout && modeMenuOpen ? (");
+    expect(masterSearchHeaderSource).toContain('aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}');
+    expect(masterSearchHeaderSource).toContain('mobilePlacement="bottom"');
+    expect(masterSearchHeaderSource).toContain("phoneLayoutGateRef");
+    // Hydration-safe: do not read matchMedia in useState (SSR/client mismatch → React #418).
+    expect(masterSearchHeaderSource).toContain(
+      "const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);",
+    );
+    expect(masterSearchHeaderSource).toContain("setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());");
   });
 
   it("gates private polling and mutations on local readiness plus authenticated status", () => {
