@@ -153,6 +153,7 @@
     "warm:retrieval": "node scripts/run-tsx.mjs scripts/warm-retrieval-cache.ts",
     "tune:search-weights": "node scripts/run-tsx.mjs scripts/tune-search-weights.ts",
     "build:ranking-snapshot": "node scripts/run-tsx.mjs scripts/build-ranking-snapshot.ts",
+    "eval:trend": "node scripts/eval-trend.mjs",
     "cleanup:storage": "node scripts/run-tsx.mjs scripts/cleanup-storage.ts",
     "purge:query-logs": "node scripts/run-tsx.mjs scripts/purge-query-logs.ts",
     "audit:tables": "node scripts/run-tsx.mjs scripts/audit-tables.ts",
