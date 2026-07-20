@@ -37,7 +37,7 @@ import { assessDocumentIndexQuality } from "../src/lib/index-quality";
 import { classifyAndCaptionImageFromBase64, embedTexts } from "../src/lib/openai";
 import { safeErrorLogDetails, safeIngestionJobLog, redactCaptionIdentifiers } from "../src/lib/privacy";
 import { isAtomicReindexCandidate } from "../src/lib/reindex-pipeline";
-import { invalidateRagCachesForDocumentMutation } from "../src/lib/rag";
+import { invalidateRagCachesForDocumentMutation } from "../src/lib/rag/rag";
 import { createAdminClient } from "../src/lib/supabase/admin";
 import { probeSupabaseHealth } from "../src/lib/supabase/health";
 import type { Json, TablesInsert, TablesUpdate } from "../src/lib/supabase/database.types";

@@ -23,7 +23,9 @@ function sourceFiles() {
 function parseModuleSource(sourceText: string) {
   return parse(sourceText, {
     sourceType: "module",
-    plugins: ["jsx", "typescript", "importAttributes"],
+    // @babel/parser 8 parses import attributes by default; the standalone
+    // "importAttributes" plugin was removed (and is now a type error).
+    plugins: ["jsx", "typescript"],
   });
 }
 
@@ -60,9 +62,33 @@ function moduleSpecifiersFromSource(_filePath: string, sourceText: string) {
     }
   }
 
+  const addDynamicSpecifier = (moduleSpecifier: Record<string, unknown> | undefined) => {
+    if (!moduleSpecifier) return;
+    if (moduleSpecifier.type === "StringLiteral" && typeof moduleSpecifier.value === "string") {
+      dynamicImports.add(moduleSpecifier.value);
+    } else if (
+      moduleSpecifier.type === "TemplateLiteral" &&
+      Array.isArray(moduleSpecifier.expressions) &&
+      moduleSpecifier.expressions.length === 0 &&
+      Array.isArray(moduleSpecifier.quasis) &&
+      moduleSpecifier.quasis.length === 1
+    ) {
+      const cooked = ((moduleSpecifier.quasis[0] as Record<string, unknown>).value as Record<string, unknown>)?.cooked;
+      if (typeof cooked === "string") dynamicImports.add(cooked);
+    }
+  };
+
   const visit = (node: unknown) => {
     if (!node || typeof node !== "object") return;
     const current = node as Record<string, unknown>;
+    // @babel/parser 8 models dynamic `import(...)` as an ESTree-aligned
+    // ImportExpression (specifier in `source`, import-attributes in `options`).
+    // @babel/parser 7 modelled it as a CallExpression whose callee is an
+    // `Import` node with the specifier in `arguments[0]`. Handle both shapes so
+    // this boundary graph stays parser-major agnostic.
+    if (current.type === "ImportExpression") {
+      addDynamicSpecifier(current.source as Record<string, unknown> | undefined);
+    }
     const argumentsList = Array.isArray(current.arguments) ? current.arguments : null;
     if (
       current.type === "CallExpression" &&
@@ -71,21 +97,8 @@ function moduleSpecifiersFromSource(_filePath: string, sourceText: string) {
       (argumentsList.length === 1 || argumentsList.length === 2)
     ) {
       const callee = current.callee as Record<string, unknown>;
-      const moduleSpecifier = argumentsList[0] as Record<string, unknown> | undefined;
-      if (callee.type === "Import" && moduleSpecifier) {
-        if (moduleSpecifier.type === "StringLiteral" && typeof moduleSpecifier.value === "string") {
-          dynamicImports.add(moduleSpecifier.value);
-        } else if (
-          moduleSpecifier.type === "TemplateLiteral" &&
-          Array.isArray(moduleSpecifier.expressions) &&
-          moduleSpecifier.expressions.length === 0 &&
-          Array.isArray(moduleSpecifier.quasis) &&
-          moduleSpecifier.quasis.length === 1
-        ) {
-          const cooked = ((moduleSpecifier.quasis[0] as Record<string, unknown>).value as Record<string, unknown>)
-            ?.cooked;
-          if (typeof cooked === "string") dynamicImports.add(cooked);
-        }
+      if (callee.type === "Import") {
+        addDynamicSpecifier(argumentsList[0] as Record<string, unknown> | undefined);
       }
     }
     for (const value of Object.values(current)) {
@@ -228,7 +241,7 @@ describe("architecture boundaries", () => {
     const forbidden = new Set([
       "src/lib/env.ts",
       "src/lib/openai.ts",
-      "src/lib/rag.ts",
+      "src/lib/rag/rag.ts",
       "src/lib/supabase/admin.ts",
       "src/lib/supabase/server.ts",
     ]);

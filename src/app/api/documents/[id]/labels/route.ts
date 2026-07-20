@@ -4,7 +4,7 @@ import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit
 import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { normalizeDocumentLabelForStorage } from "@/lib/document-tags";
-import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
+import { invalidateRagCachesForDocumentMutation } from "@/lib/rag/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import type { DocumentLabel, DocumentLabelType } from "@/lib/types";

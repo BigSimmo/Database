@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import { z } from "zod";
-import { loadCapturedRagEvalCases, type RagEvalCase, type SupabaseEvalCaseClient } from "@/lib/rag-eval-cases";
+import { loadCapturedRagEvalCases, type RagEvalCase, type SupabaseEvalCaseClient } from "@/lib/rag/rag-eval-cases";
 import type { SearchResult } from "@/lib/types";
 import {
   loadAdminClient,
@@ -12,6 +12,9 @@ import {
   resolveEvalOwnerId,
   withProviderBackoff,
 } from "./eval-utils";
+// Alias tables live in a shared module so the offline ranking-snapshot builder grades
+// candidates with the same sanctioned expansions this live eval's gates use.
+import { clinicalContentAliases, clinicalDocumentAliases } from "./lib/clinical-aliases";
 
 loadEnvConfig(process.cwd());
 
@@ -173,10 +176,10 @@ function parseArgs(argv: string[]): EvalArgs {
     if (token === "--owner-id") args.ownerId = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
     if (token === "--query") args.query = value;
-    if (token === "--json-out") {
-      args.jsonOut = value;
-      args.json = true;
-    }
+    // Deliberately independent of --json: the eval canary tees stdout into a log that both
+    // humans and the failure-issue analyzer read, so the artifact file must not silence the
+    // per-case PASS/FAIL lines and human summary.
+    if (token === "--json-out") args.jsonOut = value;
     if (token === "--mode") {
       if (!["combined", "quality", "latency"].includes(value))
         throw new Error("--mode must be combined, quality, or latency.");
@@ -227,46 +230,6 @@ function normalizedDocumentName(value: string) {
     .trim();
 }
 
-const clinicalDocumentAliases: Record<string, string[]> = {
-  AgitationArousalPharmaMgt: [
-    "Agitation and Arousal Pharmacological Management",
-    "Pharmacological Management of Acute Agitation and Arousal",
-    "Medication for Agitation and Arousal",
-    // The corpus has two legitimate agitation IM/PO guidelines. Once the full hybrid stack was
-    // restored, "Mental Health Pharmacological Management of Agitation and Arousal Guideline (EMHS)"
-    // ranks alongside/above MHSP.AgitationArousalPharmaMgt for agitation-med queries. Both are
-    // correct sources, so either satisfies the expectation. (Doc crowding/lexical-weighting for the
-    // pinned doc is tracked separately as a ranking item, not a retrieval miss.)
-    "Pharmacological Management of Agitation and Arousal",
-  ],
-  AdmissionCommunityPts: ["Admission of Community Patients", "Admission Community Patients"],
-  ActiveCommunityPtED: [
-    "Active Community Patients in the Emergency Department",
-    "Active Community Patients Emergency Department",
-  ],
-  ClozapinePresAdminMonitor: [
-    "Clozapine Prescribing Administration Monitoring",
-    "Clozapine Prescribing Administration and Monitoring",
-    "Clozapine Prescribing Administering Monitoring",
-    "Clozapine Prescribing Administering Monitoring and Capillary Sampling",
-  ],
-  PtSafetyPlan: ["Patient Safety Plan"],
-};
-
-const clinicalContentAliases: Record<string, string[]> = {
-  anc: ["anc", "absolute neutrophil count", "neutrophil", "neutrophils"],
-  fbc: ["fbc", "full blood count", "full blood", "wbc", "white blood cell", "white cell"],
-  im: ["im", "intramuscular", "intramuscularly"],
-  mg: ["mg", "milligram", "milligrams", "dose", "doses"],
-  microgram: ["microgram", "micrograms", "mcg", "dose", "doses"],
-  po: ["po", "oral", "orally"],
-  prn: ["prn", "as required"],
-  red: ["red", "red zone", "high risk", "visual alert", "aggression risk"],
-  route: ["route", "oral", "orally", "intramuscular", "intramuscularly", "im", "po"],
-  threshold: ["threshold", "below", "drops below", "between", "less than"],
-  withhold: ["withhold", "withheld", "withholding", "cease", "ceased", "stop", "stopped", "red"],
-};
-
 function contentExpectationAlternatives(expectation: GoldenRetrievalCase["expectedContentTerms"][number]) {
   const terms = Array.isArray(expectation) ? expectation : [expectation];
   return Array.from(
@@ -287,11 +250,22 @@ function documentExpectationAlternatives(expectation: string) {
   return [expectation, ...(clinicalDocumentAliases[expectation] ?? [])].map(normalizedDocumentName);
 }
 
-function textContainsClinicalTerm(text: string, term: string) {
+/**
+ * Word-boundary clinical-term matcher (exported for direct unit tests).
+ *
+ * Boundaries and internal separators accept any non-alphanumeric run, not just whitespace,
+ * so punctuation-joined corpus tokens ("CIWA-Ar", "treatment,", "(opioid", "ptsd.[35]",
+ * line-broken "ciwa- ar") match their fixture terms. This is a STRICT SUPERSET of the
+ * previous whitespace-delimited matcher (whitespace ⊂ non-alphanumeric for both boundaries
+ * and internal separators), proven by artifact replay on canary #53: every previous match is
+ * preserved, so live gates can only stay equal or become more satisfiable — never fail a
+ * previously-passing case. Substring-inside-a-word still cannot match ("ed" vs "managed").
+ */
+export function textContainsClinicalTerm(text: string, term: string) {
   const normalizedTerm = normalized(term);
   if (!normalizedTerm) return false;
-  const escaped = normalizedTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-  return new RegExp(`(?:^|\\s)${escaped}(?:$|\\s)`).test(text);
+  const escaped = normalizedTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "[^a-z0-9]+");
+  return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`).test(text);
 }
 
 function resultDocumentText(result: SearchResult) {
@@ -518,7 +492,10 @@ function hasTableEvidence(results: SearchResult[], limit = 5) {
 }
 
 function topResultSummary(results: SearchResult[]) {
-  return results.slice(0, 5).map((result, index) => {
+  // Top 10, not 5: irrelevant_source_rate@10 and rr@10 are top-10 metrics, so the artifact
+  // must carry the rows those metrics saw — enabling the offline irrelevant@10 labeling
+  // audit (docs/observability-slos.md §3.1) and deeper trend drill-downs without a live rerun.
+  return results.slice(0, 10).map((result, index) => {
     const validationEvidence =
       result.source_metadata?.clinical_validation_evidence &&
       typeof result.source_metadata.clinical_validation_evidence === "object" &&
@@ -910,7 +887,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const [{ requireOpenAIEnv, requireServerEnv }, { searchChunksWithTelemetry }, supabase] = await Promise.all([
     import("@/lib/env"),
-    import("@/lib/rag"),
+    import("@/lib/rag/rag"),
     loadAdminClient(),
   ]);
 
@@ -1012,7 +989,7 @@ async function main() {
             : "",
         ].filter(Boolean)
       : [];
-  if (args.json) {
+  if (args.json || args.jsonOut) {
     const payload = {
       fixture: args.fixture,
       mode: args.mode,
@@ -1026,8 +1003,9 @@ async function main() {
       mkdirSync(dirname(args.jsonOut), { recursive: true });
       writeFileSync(args.jsonOut, `${json}\n`);
     }
-    console.log(json);
-  } else {
+    if (args.json) console.log(json);
+  }
+  if (!args.json) {
     printHumanSummary(summary);
     if (latencyThresholdFailures.length) {
       console.log("");

@@ -1,5 +1,5 @@
 import { expectedFileCoverage } from "@/lib/eval-document-matching";
-import type { RagEvalCase } from "@/lib/rag-eval-cases";
+import type { RagEvalCase } from "@/lib/rag/rag-eval-cases";
 import type { RagAnswer, SearchResult, VisualEvidenceCard } from "@/lib/types";
 
 export { expectedFileCoverage, type ExpectedFileCoverage } from "@/lib/eval-document-matching";

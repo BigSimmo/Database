@@ -4,7 +4,7 @@ import {
   hasMaximumDoseEvidence,
   sentenceFromFact,
   splitClinicalEvidenceSentences,
-} from "../src/lib/rag-extractive-answer";
+} from "../src/lib/rag/rag-extractive-answer";
 import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 describe("maximum-dose evidence", () => {

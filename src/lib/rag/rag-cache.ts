@@ -5,12 +5,12 @@ import { readExpiringCacheEntry, writeBoundedExpiringCacheEntry } from "@/lib/bo
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
 import { env } from "@/lib/env";
 import { queryCacheKeyForStorage } from "@/lib/query-privacy";
-import { ragCacheKeyMatchesOwner } from "@/lib/rag-cache-utils";
+import { ragCacheKeyMatchesOwner } from "@/lib/rag/rag-cache-utils";
 import { retrievalAccessScopeForArgs, retrievalAccessScopeKey } from "@/lib/owner-scope";
-import { compactContextText } from "@/lib/rag-source-block";
+import { compactContextText } from "@/lib/rag/rag-source-block";
 import { committedIndexGeneration } from "@/lib/reindex-pipeline";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
-import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag-contracts";
+import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag/rag-contracts";
 import type { Json } from "@/lib/supabase/database.types";
 import type { RagAnswer, RagQueryClass, SearchResult } from "@/lib/types";
 import {
@@ -18,7 +18,7 @@ import {
   ragAnswerSchemaVersion,
   ragIndexingPromptVersion,
   ragQueryClassifierPromptVersion,
-} from "@/lib/rag-versioning";
+} from "@/lib/rag/rag-versioning";
 
 const answerCache = new Map<string, { expiresAt: number; answer: RagAnswer; indexingVersion: string }>();
 export const answerInflight = new Map<string, Promise<RagAnswer>>();

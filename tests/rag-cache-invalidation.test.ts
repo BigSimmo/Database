@@ -51,7 +51,7 @@ describe("RAG cache invalidation", () => {
       }),
     }));
 
-    const { invalidateRagCachesForDocumentMutation } = await import("../src/lib/rag");
+    const { invalidateRagCachesForDocumentMutation } = await import("../src/lib/rag/rag");
 
     invalidateRagCachesForDocumentMutation(ownerId);
 

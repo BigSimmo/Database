@@ -798,6 +798,14 @@ export function MasterSearchHeader({
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       openModeMenuWithFocus(selectedModeIndex - 1);
+    } else if (event.key === "Tab" && modeMenuOpen && !usesPhoneSearchLayout) {
+      // Desktop: Tab/Shift+Tab is leaving the trigger — close without trapping (APG
+      // menu-button pattern; arrow keys are the entry into the menu). WebKit's
+      // sequential focus navigation may never deliver a wrapper-escaping focusout
+      // (links are excluded from its Tab order, and backward navigation can wrap
+      // into the open menu), so keydown is the reliable dismiss signal; the wrapper
+      // onBlur remains the net for pointer and programmatic focus moves.
+      setModeMenuOpen(false);
     }
   }
 

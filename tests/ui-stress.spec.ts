@@ -1,5 +1,6 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Page } from "playwright/test";
+import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 
 const longTitle =
@@ -320,6 +321,8 @@ async function openScopeControl(page: Page) {
     await expect(page.getByTestId("scope-command-popover")).toBeVisible({ timeout: 5_000 });
   }).toPass({ timeout: 20_000 });
 }
+
+test.beforeEach(stubZeroTouchPoints);
 
 test.describe("Clinical KB long-content stress coverage", () => {
   for (const viewport of [

@@ -130,7 +130,7 @@ async function answerFromTextSources(
     generateStructuredTextResult,
   }));
 
-  const { answerQuestionWithScope } = await import("../src/lib/rag");
+  const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
   return answerQuestionWithScope({
     query,
     ownerId: undefined,
@@ -391,7 +391,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "what monitoring is required for clozapine",
@@ -754,7 +754,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "what monitoring is required for clozapine",
@@ -883,7 +883,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "what is bulimia nervosa",
@@ -1045,7 +1045,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "Compare document monitoring pathways across two guides",
@@ -1163,7 +1163,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "what clozapine monitoring action is needed for red range blood results",
@@ -1225,7 +1225,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope, machineReadableFallbackAnswer } = await import("../src/lib/rag");
+    const { answerQuestionWithScope, machineReadableFallbackAnswer } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "Summarize inpatient approach",
@@ -1308,7 +1308,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "Summarize inpatient approach",
@@ -1524,7 +1524,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     // Originating request aborts before it can produce an answer; its shared in-flight promise rejects.
     const controller = new AbortController();
@@ -1608,7 +1608,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
     const first = answerQuestionWithScope({
       query: "Summarize inpatient approach",
       ownerId: "owner-waiter-cancel",
@@ -1718,7 +1718,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
     const answer = await answerQuestionWithScope({
       query: "what is bulimia nervosa",
       ownerId: undefined,
@@ -1897,7 +1897,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope, isCacheableGroundedGenerationFallback } = await import("../src/lib/rag");
+    const { answerQuestionWithScope, isCacheableGroundedGenerationFallback } = await import("../src/lib/rag/rag");
     const progressEvents: Array<{
       stage: string;
       selectedContextCount?: number;
@@ -1981,7 +1981,7 @@ describe("RAG structured-output fallback", () => {
       ],
       new Error("OpenAI generation incomplete: max_output_tokens"),
     );
-    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag");
+    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag/rag");
 
     expect(answer.answer).not.toMatch(/fluoxetine|citalopram|60 mg|40 mg/i);
     expect(answer.answer).toMatch(/source|guidance|support|evidence/i);
@@ -1992,7 +1992,7 @@ describe("RAG structured-output fallback", () => {
   });
 
   it("never marks the generic source-review fallback as cacheable", async () => {
-    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag");
+    const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag/rag");
 
     expect(
       isCacheableGroundedGenerationFallback({
@@ -2074,7 +2074,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "How is discharge planning handled?",
@@ -2150,7 +2150,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
     const answer = await answerQuestionWithScope({
       query: "What should a patient safety plan include?",
       ownerId: undefined,
@@ -2253,7 +2253,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "Show the clozapine missed-dose monitoring guidance.",
@@ -2315,7 +2315,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "What does the metabolic screening document require?",
@@ -2379,7 +2379,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "How is discharge planning handled?",
@@ -2460,7 +2460,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult: vi.fn(),
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "What documents support lithium monitoring?",
@@ -2546,7 +2546,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult: vi.fn(),
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "What documents support outcome measures completion?",
@@ -2630,7 +2630,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult,
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "lithium dosing for patients",
@@ -2860,7 +2860,7 @@ describe("RAG structured-output fallback", () => {
       })),
     }));
 
-    const { answerQuestionWithScope } = await import("../src/lib/rag");
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
       query: "What is the maximum sertraline dose?",
@@ -2903,7 +2903,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult: vi.fn(),
     }));
 
-    const { searchChunksWithTelemetry } = await import("../src/lib/rag");
+    const { searchChunksWithTelemetry } = await import("../src/lib/rag/rag");
 
     await expect(
       searchChunksWithTelemetry({
@@ -2953,7 +2953,7 @@ describe("RAG structured-output fallback", () => {
       generateStructuredTextResult: vi.fn(),
     }));
 
-    const { searchChunksWithTelemetry } = await import("../src/lib/rag");
+    const { searchChunksWithTelemetry } = await import("../src/lib/rag/rag");
 
     const search = await searchChunksWithTelemetry({
       query: "monitoring requirements",

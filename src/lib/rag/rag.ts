@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { loadDocumentSummaryContext } from "@/lib/rag-document-summary-context";
+import { loadDocumentSummaryContext } from "@/lib/rag/rag-document-summary-context";
 import { retrievalAccessScopeForArgs, retrievalRpcScopeArgs } from "@/lib/owner-scope";
 import {
   callVersionedRetrievalRpc,
@@ -14,12 +14,12 @@ import {
   searchTextChunkCandidates,
   withMemoryBoostedCandidates,
   type MemoryCardCache,
-} from "@/lib/rag-candidate-sources";
+} from "@/lib/rag/rag-candidate-sources";
 export {
   callVersionedRetrievalRpc,
   loadChunksForMemoryCards,
   loadChunksForSignalMatches,
-} from "@/lib/rag-candidate-sources";
+} from "@/lib/rag/rag-candidate-sources";
 import { classifyCorpusGrounding } from "@/lib/corpus-grounding";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import {
@@ -35,22 +35,22 @@ import {
   classifyProviderFailure,
   isSourceOnlyMode,
   sourceOnlyReason,
-} from "@/lib/rag-provider";
+} from "@/lib/rag/rag-provider";
 import { allowedChunkMap, citationFromResult as resultCitation, compactCitations } from "@/lib/citations";
-import { assessAndEnforceClaimSupport } from "@/lib/rag-claim-support";
+import { assessAndEnforceClaimSupport } from "@/lib/rag/rag-claim-support";
 import {
   enrichGroundedReviewCitations,
   sanitizeConflictsOrGaps,
   sanitizeQuoteCards,
-} from "@/lib/rag-quote-verification";
+} from "@/lib/rag/rag-quote-verification";
 import { applyNumericVerification } from "@/lib/answer-verification";
 export { applyNumericVerification, unboldUnverifiedNumbers } from "@/lib/answer-verification";
-import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag-context-selection";
+import { selectModelContextResults, summarizeAustralianSourceSelection } from "@/lib/rag/rag-context-selection";
 export {
   capPerDocumentCrowding,
   selectModelContextResults,
   summarizeAustralianSourceSelection,
-} from "@/lib/rag-context-selection";
+} from "@/lib/rag/rag-context-selection";
 import {
   buildExtractiveAnswer,
   cleanAnswerSectionHeading,
@@ -64,13 +64,13 @@ import {
   isUnusableGeneratedAnswer,
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
-} from "@/lib/rag-extractive-answer";
+} from "@/lib/rag/rag-extractive-answer";
 import {
   buildComparisonAnswer,
   buildComparisonEvidenceGapAnswer,
   buildComparisonMatrix,
   comparisonEvidenceGuide,
-} from "@/lib/rag-comparison";
+} from "@/lib/rag/rag-comparison";
 export {
   classifyAnswerIntent,
   completeExtractiveSentence,
@@ -78,7 +78,7 @@ export {
   isBareDefinitionQuestion,
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
-} from "@/lib/rag-extractive-answer";
+} from "@/lib/rag/rag-extractive-answer";
 import {
   assertGlobalSearchAllowed,
   buildRetrievalQueryVariants,
@@ -88,7 +88,7 @@ import {
   selectRagAliasExpansions,
   shouldApplyUnsupportedSearchShortCircuit,
   textCandidateBudgetForQueryClass,
-} from "@/lib/rag-retrieval-variants";
+} from "@/lib/rag/rag-retrieval-variants";
 export {
   buildRetrievalQueryVariants,
   relaxVariantToOrQuery,
@@ -96,7 +96,7 @@ export {
   shouldApplyUnsupportedSearchShortCircuit,
   shouldRelaxWeakTextMatches,
   textCandidateBudgetForQueryClass,
-} from "@/lib/rag-retrieval-variants";
+} from "@/lib/rag/rag-retrieval-variants";
 import {
   answerCacheAllowedForOwner,
   answerInflight,
@@ -114,21 +114,21 @@ import {
   scopedAnswerCacheKey,
   setCachedAnswer,
   setCachedSearch,
-} from "@/lib/rag-cache";
+} from "@/lib/rag/rag-cache";
 export {
   invalidateRagCachesForDocumentMutation,
   invalidateRagCachesForOwner,
   packedContextCacheKey,
   retrievalPlanCacheQuery,
-} from "@/lib/rag-cache";
+} from "@/lib/rag/rag-cache";
 import { classifySearchCacheOutcome, recordCacheLookup } from "@/lib/observability/cache-metrics";
 import {
   recordAnswerOrigination,
   recordAnswerOriginationFinished,
   recordCoalescedAnswerWaiter,
 } from "@/lib/observability/answer-coalescing-metrics";
-import { buildRagSourceBlock, compactContextText, neutralizeIdentityField } from "@/lib/rag-source-block";
-export { buildRagSourceBlock, truncateForModel } from "@/lib/rag-source-block";
+import { buildRagSourceBlock, compactContextText, neutralizeIdentityField } from "@/lib/rag/rag-source-block";
+export { buildRagSourceBlock, truncateForModel } from "@/lib/rag/rag-source-block";
 import {
   buildClinicalTextSearchQuery,
   classifyRagQuery,
@@ -141,12 +141,13 @@ import {
   medicationDoseQueryContext,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
-  riskZoneActionPattern,
-  riskZoneContextPattern,
-  zoneContextPatternsForQuery,
 } from "@/lib/clinical-search";
 import { env, requestedOpenAIAnswerModels } from "@/lib/env";
-import { ragAnswerPromptVersion, ragQueryClassifierPromptVersion, ragSummaryPromptVersion } from "@/lib/rag-versioning";
+import {
+  ragAnswerPromptVersion,
+  ragQueryClassifierPromptVersion,
+  ragSummaryPromptVersion,
+} from "@/lib/rag/rag-versioning";
 import {
   answerPrivacyMetadata,
   answerTextForStorage,
@@ -155,19 +156,19 @@ import {
 } from "@/lib/query-privacy";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { safeErrorLogDetails } from "@/lib/privacy";
-import { isClinicalImageEvidence, normalizeImageBbox } from "@/lib/image-filtering";
+import { normalizeImageBbox } from "@/lib/image-filtering";
 import {
   SOURCE_BACKED_REVIEW_FALLBACK_REASON,
   chooseAnswerRoute,
   hasAdversarialManipulationIntent,
   hasDirectTitleSupport,
   shouldRetryWithStrongAfterFast,
-} from "@/lib/rag-routing";
+} from "@/lib/rag/rag-routing";
 import {
   answerRouteResultCanBeCached,
   createAnswerRouteDeadline,
   isAnswerRouteDeadlineExceeded,
-} from "@/lib/rag-route-budget";
+} from "@/lib/rag/rag-route-budget";
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
 import { boldHighYieldClinicalText, boldRagAnswerHighYieldText, rankAnswerEvidence } from "@/lib/answer-ranking";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
@@ -176,12 +177,11 @@ import {
   buildIndexingQuality,
   collectMemoryCards,
   deriveConfidence,
-  evidenceTextForGate,
   fallbackReasonFromRouting,
   isProviderGenerationDegraded,
   machineReadableFallbackAnswer,
   scoreValue,
-} from "@/lib/rag-answer-support";
+} from "@/lib/rag/rag-answer-support";
 export {
   buildAnswerScoreExplanations,
   buildIndexingQuality,
@@ -193,15 +193,30 @@ export {
   machineReadableFallbackAnswer,
   rankMemoryCardsForAnswer,
   scoreValue,
-} from "@/lib/rag-answer-support";
-import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag-contracts";
-export { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag-contracts";
+} from "@/lib/rag/rag-answer-support";
+import { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag/rag-contracts";
+export { retrievalPlanForQueryClass, type SearchChunksArgs, type SearchTelemetry } from "@/lib/rag/rag-contracts";
 import {
   clearlyOutsideCorpusMedicalPattern,
   isUnsupportedSoftTailAnalysis,
   unavailableDocumentNoisePattern,
-} from "@/lib/rag-query-guard";
-export { shouldShortCircuitUnsupportedSearch } from "@/lib/rag-query-guard";
+} from "@/lib/rag/rag-query-guard";
+export { shouldShortCircuitUnsupportedSearch } from "@/lib/rag/rag-query-guard";
+import {
+  directTitleOrAliasSupport,
+  hasAdmissionCommunityLookupIntent,
+  hasAdmissionCommunityTitleSupport,
+  hasAnyTerm,
+  hasDirectSourceImageEvidence,
+  hasDocumentAliasWithoutTopTitleSupport,
+  hasDoseAmountEvidenceForGate,
+  hasFrequencyEvidenceForGate,
+  hasRiskFlowchartActionEvidence,
+  hasRouteEvidenceForGate,
+  isRiskFlowchartNextStepQuery,
+  sourceImageRequiredForQuery,
+  topEvidenceText,
+} from "@/lib/rag/rag-evidence-gates";
 import { cleanClinicalSummaryText, isLowYieldClinicalText } from "@/lib/source-text-sanitizer";
 import {
   hasClinicalAnswerQualityIssue,
@@ -211,7 +226,7 @@ import {
   sanitizeStructuredText,
   metadataText,
   safeRecord,
-} from "@/lib/rag-answer-text";
+} from "@/lib/rag/rag-answer-text";
 import {
   buildCrossDocumentFusionBrief,
   buildCrossDocumentSourceGuide,
@@ -1881,52 +1896,6 @@ export function decideTextFastPath(
   return { returnFastPath: false, reason: "weak_text_match" };
 }
 
-/** Normalize document alias text. */
-function normalizeDocumentAliasText(value: string) {
-  return value
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/** Has document alias without top title support. */
-function hasDocumentAliasWithoutTopTitleSupport(query: string, results: SearchResult[]) {
-  const aliases = analyzeClinicalQuery(query)
-    .documentTitleTerms.map(normalizeDocumentAliasText)
-    .filter((term) => term.length > 3);
-  if (!aliases.length) return false;
-
-  return !results.slice(0, 5).some((result) => {
-    if (result.match_explanation?.titleHit || result.match_explanation?.labelHit) return true;
-    const title = normalizeDocumentAliasText(`${result.title} ${result.file_name}`);
-    return aliases.some((alias) => title.includes(alias));
-  });
-}
-
-/** Has admission community lookup intent. */
-function hasAdmissionCommunityLookupIntent(query: string) {
-  const normalized = normalizeDocumentAliasText(query);
-  return /\badmission\b/.test(normalized) && /\bcommunity\b/.test(normalized);
-}
-
-/** Has admission community title support. */
-function hasAdmissionCommunityTitleSupport(results: SearchResult[]) {
-  return results.slice(0, 5).some((result) => {
-    if (result.match_explanation?.titleHit || result.match_explanation?.labelHit) {
-      const title = normalizeDocumentAliasText(`${result.title} ${result.file_name}`);
-      return /\badmission\b/.test(title) && /\bcommunity\b/.test(title);
-    }
-    const title = normalizeDocumentAliasText(`${result.title} ${result.file_name}`);
-    return (
-      title.includes("admission of community patient") ||
-      title.includes("admission community pt") ||
-      title.includes("admission to discharge for community")
-    );
-  });
-}
-
 /** Should return before memory. */
 function shouldReturnBeforeMemory(
   queryClass: RagQueryClass,
@@ -1937,100 +1906,6 @@ function shouldReturnBeforeMemory(
   if (queryClass === "table_threshold") return decision.reason === "structured_threshold_text_match";
   if (queryClass === "medication_dose_risk") return decision.reason === "dose_evidence_text_match";
   return !shouldUseMemoryBeforeFastPath(queryClass);
-}
-
-/** Top evidence text. */
-function topEvidenceText(results: SearchResult[], limit = 5) {
-  return results.slice(0, limit).map(evidenceTextForGate).join(" ");
-}
-
-/** Has any term. */
-function hasAnyTerm(text: string, pattern: RegExp) {
-  return pattern.test(text);
-}
-
-/** Is risk flowchart next step query. */
-function isRiskFlowchartNextStepQuery(query: string) {
-  return (
-    /\b(?:flow\s*chart|flowchart|algorithm|pathway|risk[\s-]*matrix)\b/i.test(query) &&
-    riskZoneContextPattern.test(query) &&
-    /\b(?:next step|step after|after|action)\b/i.test(query)
-  );
-}
-
-/** Has risk flowchart action evidence. */
-function hasRiskFlowchartActionEvidence(query: string, results: SearchResult[], limit = 5) {
-  // A single result must carry BOTH the zone context and the action language
-  // (escalate / urgent review): scattering the two term groups across different
-  // results (or their image captions) let unrelated risk-assessment flowcharts
-  // pass. Deliberately does NOT require a flowchart word in the evidence — the
-  // escalation protocols that answer a red-zone question express the flowchart's
-  // decision steps as prose ("has any Purple or Red Zone criteria ... escalate
-  // for Senior Clinician Review") without ever saying "flowchart".
-  //
-  // The shared patterns are scoped to the colour the query names (a red-zone
-  // question must not fast-path on an amber-zone chunk); for risk-matrix /
-  // flowchart visual units the bare cell colour token counts as zone context.
-  const { zonePhrasePattern, bareColourPattern } = zoneContextPatternsForQuery(query);
-  return results.slice(0, limit).some((result) => {
-    const evidenceText = evidenceTextForGate(result);
-    if (!riskZoneActionPattern.test(evidenceText)) return false;
-    if (zonePhrasePattern.test(evidenceText)) return true;
-    return (
-      ["risk_matrix_cell", "flowchart_step", "diagram_decision"].includes(result.index_unit?.unit_type ?? "") &&
-      bareColourPattern.test(evidenceText)
-    );
-  });
-}
-
-/** Has dose amount evidence for gate. */
-function hasDoseAmountEvidenceForGate(result: SearchResult) {
-  return /\b\d+(?:\.\d+)?\s?(?:mg|mcg|micrograms?|milligrams?|ug|[µμ]g)\b/i.test(evidenceTextForGate(result));
-}
-
-/** Has route evidence for gate. */
-function hasRouteEvidenceForGate(result: SearchResult) {
-  return /\b(?:oral|orally|intramuscular|intramuscularly|subcutaneous|subcutaneously|subcut|sublingual|sublingually|\bim\b|\bpo\b|\bsc\b|\bsl\b)\b/i.test(
-    evidenceTextForGate(result),
-  );
-}
-
-/** Has administration frequency evidence for gate. */
-function hasFrequencyEvidenceForGate(result: SearchResult) {
-  return /\b(?:once|twice|daily|nightly|weekly|monthly|hourly|prn|bd|tds|qds|qid|every\s+\d+(?:\.\d+)?\s*(?:hours?|days?|weeks?)|\d+\s+times?\s+(?:a|per)\s+(?:day|week|hour))\b/i.test(
-    evidenceTextForGate(result),
-  );
-}
-
-/** Has direct source image evidence. */
-function hasDirectSourceImageEvidence(result: SearchResult) {
-  const sourceImageIds = new Set(
-    [result.index_unit?.source_image_id, ...(result.table_facts ?? []).map((fact) => fact.source_image_id)].filter(
-      Boolean,
-    ) as string[],
-  );
-  return (
-    sourceImageIds.size > 0 ||
-    (result.images ?? []).some(
-      (image) => sourceImageIds.has(image.id) || isClinicalImageEvidence(image) || image.source_kind === "table_crop",
-    )
-  );
-}
-
-/** Source image required for query. */
-function sourceImageRequiredForQuery(query: string) {
-  return (
-    /\b(?:show|display|attach|open|view|source|original)\b/i.test(query) &&
-    /\b(?:image|table|chart|figure|crop|visual)\b/i.test(query)
-  );
-}
-
-/** Direct title or alias support. */
-function directTitleOrAliasSupport(query: string, results: SearchResult[]) {
-  return (
-    hasDirectTitleSupport(query, results) ||
-    results.slice(0, 5).some((result) => result.match_explanation?.titleHit || result.match_explanation?.labelHit)
-  );
 }
 
 /** Record retrieval selection telemetry. */

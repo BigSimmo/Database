@@ -3,7 +3,8 @@
 # Runs the golden retrieval eval (which PR CI can never run — it needs live
 # Supabase + OpenAI keys) plus a small answer-quality subset against the live
 # project, and fails loudly on regression: red run + a GitHub issue on
-# scheduled failures.
+# scheduled failures. Each run also uploads the eval JSON artifact that feeds
+# offline ranking-snapshot regeneration (scripts/build-ranking-snapshot.ts).
 #
 # The schedule only fires from the default branch. After merging, trigger one
 # workflow_dispatch run and confirm it is green before trusting the weekly
@@ -17,6 +18,29 @@ on:
         description: "Number of answer-quality cases to run (--limit)"
         required: false
         default: "8"
+      # Staged ranking-weight evaluation (ADDENDUM 4 Phase B): a RAG_RANKING_CONFIG JSON
+      # override evaluated live WITHOUT touching code defaults. Empty = production weights.
+      # Malformed JSON fails the run loudly (validation step below) instead of silently
+      # reverting to defaults and corrupting a baseline/post comparison.
+      rag_ranking_config:
+        description: "Optional RAG_RANKING_CONFIG JSON override (staged ranking weights); empty = production defaults"
+        required: false
+        default: ""
+      # Pre-merge branch evals (Phase D-1): run the golden eval from a branch so ranking PRs
+      # can gather live proof BEFORE merging. Dispatch requires repo write access, so refs are
+      # limited to trusted collaborators' branches. Empty = the dispatched/default branch.
+      ref:
+        description: "Optional git ref (branch/SHA) to evaluate; empty = default branch"
+        required: false
+        default: ""
+      # Phase E: opt-in run of the 30-case answer-quality/targeting eval (eval:answer-quality)
+      # alongside the gate subset. Dispatch-only and default-off, so scheduled runs and
+      # existing dispatch shapes are byte-identical. Informational: the script exits 0
+      # without a --targeting-floor, so it can never fail the canary.
+      answer_quality_eval:
+        description: "Also run the 30-case answer-quality/targeting eval (eval:answer-quality); 'true' to enable"
+        required: false
+        default: ""
   schedule:
     # Sunday 18:00 UTC = Monday 02:00 Australia/Perth — off-peak for clinicians.
     - cron: "0 18 * * 0"
@@ -38,6 +62,9 @@ env:
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
   SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  # Empty for schedule runs and default dispatches (resolveRankingConfig treats empty as
+  # unset); non-empty only for staged ranking-weight evals via the dispatch input.
+  RAG_RANKING_CONFIG: ${{ github.event.inputs.rag_ranking_config || '' }}
   # Pace golden retrieval so forced-vector probes do not trip transient 429s
   # after a long text-fast-path run (see vector-ptsd history in eval-canary).
   RAG_EVAL_CASE_DELAY_MS: 2000
@@ -64,6 +91,24 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+          # Empty ref = checkout's default (the triggering sha) — schedule runs unaffected.
+          ref: ${{ github.event.inputs.ref || '' }}
+
+      # Fail loudly on a malformed override: resolveRankingConfig (src/lib/ranking-config.ts)
+      # silently falls back to production defaults on bad JSON, which would turn a staged-weights
+      # eval into an accidental baseline and corrupt the pair comparison.
+      - name: Validate ranking-config override
+        id: validate_override
+        if: github.event.inputs.rag_ranking_config != ''
+        run: |
+          node -e '
+            const raw = process.env.RAG_RANKING_CONFIG;
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+              throw new Error("rag_ranking_config must be a JSON object");
+            }
+            console.log("RAG_RANKING_CONFIG override active:", JSON.stringify(parsed));
+          '
 
       - name: Preflight required secrets
         id: preflight
@@ -97,7 +142,10 @@ jobs:
         run: |
           mkdir -p .local/eval-canary
           set -o pipefail
-          npm run eval:retrieval:quality -- --fail-on-threshold 2>&1 | tee .local/eval-canary/golden-retrieval.log
+          # --json-out writes the per-case artifact (input for scripts/build-ranking-snapshot.ts)
+          # without changing stdout — the tee'd log keeps the human-readable per-case lines the
+          # failure-issue analyzer parses.
+          npm run eval:retrieval:quality -- --fail-on-threshold --json-out .local/eval-canary/golden-retrieval.json 2>&1 | tee .local/eval-canary/golden-retrieval.log
 
       - name: Answer-quality subset (live generation)
         id: answer_quality
@@ -114,6 +162,40 @@ jobs:
           mkdir -p .local/eval-canary
           set -o pipefail
           npm run eval:quality -- --rag-only --limit "$ANSWER_CASE_LIMIT" --fail-on-threshold 2>&1 | tee .local/eval-canary/answer-quality.log
+
+      # Phase E baseline/paired-run instrument: the five answer-quality metrics (relevance,
+      # readability, artifact leaks, intent coverage, fail-closed) + per-intent structural
+      # targeting over the 30-case fixture. Informational by design — no --targeting-floor,
+      # exit 0 — so quality gates stay owned by the eval:quality step above; the tee'd log
+      # rides the existing artifact upload. `!cancelled()` keeps the instrument running when
+      # the gate subset above fails: a baseline/paired run must observe red gates too
+      # (proven necessary on dispatch #57, where a red eval:quality skipped this step).
+      - name: Answer-quality targeting eval (optional, dispatch-only)
+        id: answer_targeting
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && github.event.inputs.answer_quality_eval == 'true' }}
+        run: |
+          mkdir -p .local/eval-canary
+          set -o pipefail
+          npm run eval:answer-quality 2>&1 | tee .local/eval-canary/answer-targeting.log
+
+      # Uploaded on success AND failure: the JSON artifact regenerates the offline ranking
+      # snapshot (download it, then `npm run build:ranking-snapshot -- --input <json> --output
+      # scripts/fixtures/rag-ranking-candidate-snapshot.v1.json --source-run-id <run-id>`), and
+      # the logs carry failure diagnostics. Contents match what the tee'd step logs already
+      # expose (titles/file names, score telemetry, 220-char previews of the all-public corpus)
+      # — no env values or secrets are written to .local/eval-canary.
+      - name: Upload eval output artifact
+        if: always() && steps.install.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: eval-canary-output
+          path: .local/eval-canary/
+          # .local/ is a hidden directory (the repo's gitignored scratch convention), which
+          # upload-artifact excludes by default.
+          include-hidden-files: true
+          # Matches the snapshot freshness window enforced by tests/ranking-tuning.test.ts.
+          retention-days: 30
+          if-no-files-found: ignore
 
       - name: Open or update canary failure issue
         if: failure() && github.event_name == 'schedule'

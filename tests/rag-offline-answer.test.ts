@@ -106,7 +106,7 @@ async function answerOffline(
   const embedTextWithTelemetry = vi.fn();
   vi.doMock("@/lib/openai", () => ({ embedTextWithTelemetry, generateStructuredTextResult }));
 
-  const { answerQuestionWithScope } = await import("../src/lib/rag");
+  const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
   const answer = await answerQuestionWithScope({ query, ownerId: undefined, logQuery: false, skipCache: true });
   return { answer, generateStructuredTextResult, embedTextWithTelemetry };
 }

@@ -1,4 +1,4 @@
-import { appendRoutingReason } from "@/lib/rag-routing";
+import { appendRoutingReason } from "@/lib/rag/rag-routing";
 import type {
   AnswerSectionKind,
   Citation,

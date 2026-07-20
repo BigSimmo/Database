@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createChunkLoadCache, loadChunksForSignalMatches } from "../src/lib/rag-candidate-sources";
+import { createChunkLoadCache, loadChunksForSignalMatches } from "../src/lib/rag/rag-candidate-sources";
 
 const chunk = {
   id: "chunk-1",

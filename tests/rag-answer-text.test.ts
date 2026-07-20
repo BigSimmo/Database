@@ -6,7 +6,7 @@ import {
   sanitizeAnswerText,
   sanitizeStructuredText,
   splitBalancedWords,
-} from "../src/lib/rag-answer-text";
+} from "../src/lib/rag/rag-answer-text";
 
 describe("RAG answer text helpers", () => {
   it("strips bold by default but preserves it under preserveBold", () => {

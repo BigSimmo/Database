@@ -5,7 +5,7 @@ import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { env, isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { buildStorageCleanupJobUpdate } from "@/lib/ingestion";
-import { invalidateRagCachesForDocumentMutation } from "@/lib/rag";
+import { invalidateRagCachesForDocumentMutation } from "@/lib/rag/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { writeAuditLog } from "@/lib/audit";

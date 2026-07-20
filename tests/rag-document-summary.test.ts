@@ -92,7 +92,7 @@ describe("document summary context", () => {
       generateStructuredTextResult,
     }));
 
-    const { summarizeDocument } = await import("../src/lib/rag");
+    const { summarizeDocument } = await import("../src/lib/rag/rag");
     const controller = new AbortController();
     const answer = await summarizeDocument(documentId, ownerId, { signal: controller.signal });
 
@@ -127,7 +127,7 @@ describe("document summary context", () => {
       generateStructuredTextResult: vi.fn(),
     }));
 
-    const { summarizeDocument } = await import("../src/lib/rag");
+    const { summarizeDocument } = await import("../src/lib/rag/rag");
     const controller = new AbortController();
     controller.abort(new DOMException("Client disconnected.", "AbortError"));
 

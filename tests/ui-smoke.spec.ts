@@ -1,5 +1,6 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
+import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { readMobileComposerReservePx, scrollPrimarySurface } from "./playwright-scroll";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
@@ -873,6 +874,8 @@ async function openDailyActions(page: Page, triggerName: string | RegExp = /^Ope
   return menu;
 }
 
+test.beforeEach(stubZeroTouchPoints);
+
 test.describe("Clinical KB UI smoke coverage", () => {
   test.describe.configure({ timeout: 60000 });
 
@@ -977,6 +980,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const restingButtonShadow = await newChat.evaluate((element) => getComputedStyle(element).boxShadow);
     await closeMenu.focus();
     await page.keyboard.press("Tab");
+    // Firefox includes scrollable containers in the tab order; the sheet body
+    // (overflow-y-auto) sits between Close and "New chat" in DOM order and
+    // genuinely overflows at this viewport. Step over it when focused.
+    const onScrollableBody = await page.evaluate(() => {
+      const element = document.activeElement;
+      return element instanceof HTMLElement && element.classList.contains("overflow-y-auto");
+    });
+    if (onScrollableBody) await page.keyboard.press("Tab");
     await expect(newChat).toBeFocused();
     const buttonFocus = await newChat.evaluate((element) => {
       const style = getComputedStyle(element);
@@ -3581,7 +3592,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     // At the bottom, collapsing the in-flow header can reflow the scroll
     // surface and clamp scrollTop. That geometry-driven event is not an upward
-    // user gesture and must not immediately reveal the header.
+    // user gesture and must not immediately reveal the header. The collapse
+    // -budget gate refuses to START a hide at the bottom edge (that is the
+    // #964 "locks to the bottom" trap), so hide with runway remaining first,
+    // then ride the clamp to the bottom while hidden.
     await main.evaluate((node) => {
       node.scrollTop = 0;
     });
@@ -3589,7 +3603,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const visibleMaxOffset = await main.evaluate((node) => node.scrollHeight - node.clientHeight);
     await main.evaluate((node, top) => {
       node.scrollTop = top;
-    }, visibleMaxOffset);
+    }, visibleMaxOffset - 400);
+    await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
+    await main.evaluate((node) => {
+      node.scrollTop = node.scrollHeight - node.clientHeight;
+    });
     await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => collapseHost.getAttribute("data-scroll-hidden"), { timeout: 1_000 }).toBe("true");
     // The hidden attribute flips before the 240ms grid-row transition has

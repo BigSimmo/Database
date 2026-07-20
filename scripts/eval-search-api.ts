@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { loadEnvConfig } from "@next/env";
-import { selectRagEvalCases } from "@/lib/rag-eval-cases";
+import { selectRagEvalCases } from "@/lib/rag/rag-eval-cases";
 
 loadEnvConfig(process.cwd());
 

@@ -41,7 +41,7 @@ measurements are evidence, not instructions to repeat provider-backed work witho
 ## P0 — correctness / observability ✅ DONE (2026-07-01)
 
 1. ✅ **App silently swallows hybrid-RPC failures — FIXED.** Added `recordHybridRpcError` in
-   `src/lib/rag.ts` (structured `logger.error("hybrid_rpc_failed", …)` + new
+   `src/lib/rag/rag.ts` (structured `logger.error("hybrid_rpc_failed", …)` + new
    `SearchTelemetry.hybrid_rpc_errors` map surfaced in `rag_retrieval_logs`), threaded through
    `searchEmbeddingFieldCandidates` / `searchIndexUnitCandidates` / the chunks call, and a matching
    `logger.error` at the memory-card call in `src/lib/deep-memory.ts`. A dead hybrid layer now logs +

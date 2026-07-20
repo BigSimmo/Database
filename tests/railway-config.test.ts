@@ -75,7 +75,7 @@ describe("Railway config as code", () => {
     "tsconfig.json",
     "railway.worker.json",
     "data/services-snapshot.json",
-    "src/lib/rag.ts",
+    "src/lib/rag/rag.ts",
     "worker/main.ts",
     "worker/python/requirements.txt",
     "scripts/enable-server-only-stub.mjs",

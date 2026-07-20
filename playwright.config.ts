@@ -13,14 +13,14 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 // they share a spec file. Every required browser project uses the same
 // production matcher and tag exclusion.
 const productionSpecPattern =
-  /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|pwa|route-coverage|visual-artifacts))\.spec\.ts/;
+  /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|overlap|universal-search|specifiers|formulation|phone-scroll|pwa|route-coverage|visual-artifacts))\.spec\.ts/;
 const mockupSpecPattern = /.*ui-(tools|tools-collapse|tools-task-directory)\.spec\.ts/;
 const mockupTag = /@mockup/;
 
 export default defineConfig({
   testDir: "./tests",
   testMatch:
-    /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|tools-collapse|tools-task-directory|overlap|universal-search|specifiers|formulation|pwa|route-coverage|visual-artifacts))\.spec\.ts/,
+    /.*(?:answer-progress-ui-smoke|ui-(smoke|stress|accessibility|tools|tools-collapse|tools-task-directory|overlap|universal-search|specifiers|formulation|phone-scroll|pwa|route-coverage|visual-artifacts))\.spec\.ts/,
   timeout: 60_000,
   retries: 0,
   // Fail the run if a stray `test.only` is committed: otherwise it silently
@@ -48,6 +48,13 @@ export default defineConfig({
     // reduced-motion a11y spec emulates a per-test mode, so suite-wide settings
     // remain stable across builds.
     contextOptions: { reducedMotion: "reduce" },
+    // In production builds the PWA worker (public/sw.js) registers in every test,
+    // claims the page, and serves every subsequent navigation — bypassing route
+    // interception for navigations outright, and wedging Playwright-Firefox's
+    // reload path under an active route (the two ui-smoke reload hangs in matrix
+    // run 4012). Only ui-pwa.spec.ts is meant to exercise the worker; it opts
+    // back in with test.use({ serviceWorkers: "allow" }).
+    serviceWorkers: "block",
   },
   projects: [
     {

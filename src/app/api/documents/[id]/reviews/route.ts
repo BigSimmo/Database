@@ -8,7 +8,7 @@ import {
   hasActiveAgentEnrichmentJob,
   ingestionMutationSafetyPayload,
 } from "@/lib/ingestion-mutation-safety";
-import { invalidateRagCachesForOwner } from "@/lib/rag";
+import { invalidateRagCachesForOwner } from "@/lib/rag/rag";
 import { isValidReviewDate, sourceReviewDecisionSchema } from "@/lib/source-review";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";

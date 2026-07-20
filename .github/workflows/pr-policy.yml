@@ -94,13 +94,15 @@ jobs:
               .write();
 
             // Advisory metadata nudges (title/summary/verification/UI/risk) are
-            // surfaced but never fail the check. Only a clinical-risk PR with an
-            // incomplete Clinical Governance Preflight blocks the merge.
+            // surfaced but never fail the check. Two conditions block the merge: a
+            // clinical-risk PR with an incomplete Clinical Governance Preflight, and a
+            // RAG-ranking-surface PR without an explicit `RAG impact:` declaration
+            // (docs/rag-behaviour/safeguards.md).
             for (const warning of warnings) core.warning(warning);
 
             if (!result.ok) {
               for (const error of result.errors) core.error(error);
               core.setFailed(
-                `PR policy found ${result.errors.length} blocking clinical-governance issue(s). Complete the Clinical Governance Preflight and rerun.`,
+                `PR policy found ${result.errors.length} blocking issue(s) — see the errors above (Clinical Governance Preflight and/or the RAG impact declaration), fix the PR body, and rerun.`,
               );
             }

@@ -19,7 +19,7 @@ async function loadWithClassifierMock(mock: ReturnType<typeof vi.fn>) {
     const actual = await importOriginal<typeof import("../src/lib/openai")>();
     return { ...actual, generateParsedTextResult: mock };
   });
-  const rag = await import("../src/lib/rag");
+  const rag = await import("../src/lib/rag/rag");
   const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
   rag.resetClassifierVerdictMemoForTests();
   return { rag, analyzeClinicalQuery };
