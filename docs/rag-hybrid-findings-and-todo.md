@@ -297,10 +297,15 @@ denied to set parameter`)** — the RC11 blocker. The only method hosted allows 
     audit on `claude/retrieval-correctness`: the headline `least(0.95, 0.56 + text_rank*0.39)`
     proxy NO LONGER EXISTS — `match_document_chunks_text` already returns `similarity = 0` with
     hybrid capped at 0.5 and the lexical signal isolated in `lexical_score` (codified in
-    schema.sql with the "do not fabricate" comment). What remains synthetic are three app-side
-    fabricators, all tagged `similarity_origin: "synthetic_text"`: the document-lookup fast path
-    (0.58 + documentScore, hybrid ≤ 0.94), memory-card chunk loader (0.58 + confidence·0.28,
-    hybrid ≤ 0.89), and table-fact signal matches. Their consumers:
+    schema.sql with the "do not fabricate" comment). Since ADDENDUM-4 Phase C, rows whose
+    text_rank saturates the SQL clamp additionally get a per-candidate hybrid spread inside the
+    dead (0.48, 0.5) band (`liftSaturatedLexicalChunkHybrid`) so exact ties resolve by raw text
+    relevance instead of chunk-id order — the sub-0.5 contract holds. What remains synthetic are
+    three app-side fabricators, all tagged `similarity_origin: "synthetic_text"`: the
+    document-lookup fast path (0.58 + documentScore, hybrid ≤ 0.94), memory-card chunk loader
+    (0.58 + confidence·0.28, hybrid ≤ 0.89), and table-fact signal matches (whose imputed
+    similarity likewise carries a Phase C tail into its dead (0.92, 0.94) band via
+    `imputedTableFactPrimaries`; hybrid unchanged). Their consumers:
     `evaluateEvidenceCoverageGate` / `shouldReturnTextFastPath` / `chooseAnswerRoute` /
     `shouldUseExtractiveAnswer` (thresholds 0.32–0.76 — the fabricated 0.58 floor is
     deliberately load-bearing there, always paired with structural checks like
