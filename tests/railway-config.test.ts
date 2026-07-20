@@ -46,6 +46,11 @@ describe("Railway config as code", () => {
     });
   });
 
+  it("keeps the queue-draining worker alive after repeated failures", () => {
+    expect(worker.deploy).toMatchObject({ restartPolicyType: "ALWAYS" });
+    expect(worker.deploy).not.toHaveProperty("restartPolicyMaxRetries");
+  });
+
   it.each([
     "Dockerfile",
     ".dockerignore",

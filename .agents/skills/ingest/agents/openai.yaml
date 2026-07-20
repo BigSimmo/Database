@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ingest"
+  short_description: "Triage Database ingestion and worker pipelines"
+  default_prompt: "Use $ingest to trace and verify this Database ingestion, extraction, queue, or worker issue safely."

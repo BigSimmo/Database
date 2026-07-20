@@ -8,7 +8,7 @@ import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medi
 import { sortResultItems } from "../src/lib/result-sort";
 import { serviceRecords } from "../src/lib/services";
 import { openAppModeMenu } from "./playwright-app-mode";
-import { scrollPrimarySurface } from "./playwright-scroll";
+import { readMobileComposerReservePx, scrollPrimarySurface } from "./playwright-scroll";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -1021,6 +1021,24 @@ test.describe("Clinical KB tools launcher", () => {
     const dock = page.locator("form.answer-footer-search-dock");
     await expect(dock).toBeVisible();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    const main = page.locator("#main-content");
+    // Safari reports its translucent bottom toolbar through the safe-area
+    // inset. Make that region deliberately large so this catches the exact
+    // toolbar-sized blank band seen on an iPhone, even in Chromium CI.
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-bottom", "112px");
+    });
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeGreaterThan(112);
+    const visibleMainGeometry = await main.evaluate((node) => {
+      const style = window.getComputedStyle(node);
+      return {
+        bottom: Math.round(node.getBoundingClientRect().bottom),
+        marginBottom: Number.parseFloat(style.marginBottom),
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(visibleMainGeometry.marginBottom).toBe(0);
+    expect(Math.abs(visibleMainGeometry.bottom - visibleMainGeometry.viewportHeight)).toBeLessThanOrEqual(1);
     const transition = await dock.evaluate((node) => {
       const style = window.getComputedStyle(node);
       const durationMs = Math.max(
@@ -1070,12 +1088,55 @@ test.describe("Clinical KB tools launcher", () => {
     await expect
       .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform !== "none"))
       .toBe(true);
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
+    const hiddenMainGeometry = await main.evaluate((node) => {
+      const style = window.getComputedStyle(node);
+      return {
+        bottom: Math.round(node.getBoundingClientRect().bottom),
+        marginBottom: Number.parseFloat(style.marginBottom),
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(hiddenMainGeometry.marginBottom).toBe(0);
+    expect(Math.abs(hiddenMainGeometry.bottom - hiddenMainGeometry.viewportHeight)).toBeLessThanOrEqual(1);
 
     await scrollPrimarySurface(page, 60);
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect
       .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform === "none"))
       .toBe(true);
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeGreaterThan(112);
+  });
+
+  test("tablet and desktop forms results keep non-phone bottom clearance", async ({ page }) => {
+    // Phone dock reserve (max-sm) must not leak into sm+/lg layouts.
+    for (const viewport of [
+      { width: 768, height: 1024, label: "tablet" },
+      { width: 1280, height: 900, label: "desktop" },
+    ] as const) {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await gotoLauncher(page, "/forms?q=transport&run=1");
+      await expect(page.getByTestId("form-search-results")).toBeVisible();
+      const main = page.locator("#main-content");
+      await page.evaluate(() => {
+        document.documentElement.style.setProperty("--safe-area-bottom", "112px");
+      });
+      const geometry = await main.evaluate((node) => {
+        const style = window.getComputedStyle(node);
+        return {
+          paddingBottom: Number.parseFloat(style.paddingBottom),
+          marginBottom: Number.parseFloat(style.marginBottom),
+        };
+      });
+      // sm+ uses static desktop padding (pb-8 = 32px) or larger desktop dock
+      // clearance — never the phone hide-collapse path alone.
+      expect(geometry.paddingBottom, viewport.label).toBeGreaterThanOrEqual(32);
+      // Phone-only hide transform should not be active on these widths.
+      const dock = page.locator("form.answer-footer-search-dock");
+      if ((await dock.count()) > 0 && (await dock.first().isVisible())) {
+        await expect(dock.first()).not.toHaveAttribute("data-scroll-hidden", "true");
+      }
+    }
   });
 
   test("mode toggle keeps forms separate from services", async ({ page }) => {
@@ -1412,10 +1473,69 @@ test.describe("Clinical KB tools launcher", () => {
     });
     expect(badgeMetrics.height).toBeGreaterThanOrEqual(22);
     expect(badgeMetrics.scrollHeight).toBeLessThanOrEqual(badgeMetrics.height + 1);
+
+    // Tall results must be top-aligned: Best Answer stays reachable at scrollTop 0.
+    const mainContent = page.locator("#main-content");
+    await expect.poll(() => mainContent.evaluate((element) => element.scrollTop)).toBe(0);
+    const bestAnswer = page.getByTestId("differential-best-answer");
+    await expect(bestAnswer).toBeVisible();
+    const foldLayout = await bestAnswer.evaluate((best) => {
+      const main = document.querySelector("#main-content");
+      const header = document.querySelector("header.universal-header");
+      if (!main) return null;
+      const bestRect = best.getBoundingClientRect();
+      const headerBottom = header?.getBoundingClientRect().bottom ?? main.getBoundingClientRect().top;
+      return {
+        scrollTop: main.scrollTop,
+        bestTop: bestRect.top,
+        bestBottom: bestRect.bottom,
+        headerBottom,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(foldLayout).not.toBeNull();
+    expect(foldLayout!.scrollTop).toBe(0);
+    // Best Answer must start in the visible fold under the chrome — not clipped
+    // above the scrollport (the ModeHomeMain justify-center regression). Bound
+    // to the header band rather than a tight viewport fraction so tall chrome /
+    // safe-area insets do not flake the upper-half check.
+    expect(foldLayout!.bestTop).toBeGreaterThanOrEqual(foldLayout!.headerBottom - 2);
+    expect(foldLayout!.bestTop).toBeLessThan(foldLayout!.headerBottom + 240);
+
+    // Phone list hides the featured best answer, so ranks must start at 1.
+    const mobileCards = page.getByTestId("differential-mobile-result-card");
+    await expect(mobileCards.first()).toBeVisible();
+    await expect(mobileCards.first().getByTestId("differential-mobile-result-rank")).toHaveText("1");
+    const ranks = await mobileCards.getByTestId("differential-mobile-result-rank").allTextContents();
+    expect(ranks).toEqual(ranks.map((_, index) => String(index + 1)));
+
+    // Status badge sits on its own meta row below the title, never beside it.
+    const titleBadgeLayout = await mobileCards.first().evaluate((card) => {
+      const title = card.querySelector("a span.line-clamp-2") ?? card.querySelector("a");
+      const badge = card.querySelector('[data-testid="differential-status-badge"]');
+      if (!title || !badge) return null;
+      const titleRect = title.getBoundingClientRect();
+      const badgeRect = badge.getBoundingClientRect();
+      return { titleBottom: titleRect.bottom, badgeTop: badgeRect.top };
+    });
+    expect(titleBadgeLayout).not.toBeNull();
+    expect(titleBadgeLayout!.badgeTop).toBeGreaterThanOrEqual(titleBadgeLayout!.titleBottom - 1);
+
+    const cardOverflow = await mobileCards.evaluateAll((cards) =>
+      cards.map((card) => ({
+        overflowX: card.scrollWidth > card.clientWidth + 1,
+        width: card.clientWidth,
+      })),
+    );
+    for (const card of cardOverflow) {
+      expect(card.overflowX).toBe(false);
+    }
+
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("mobile differential compare action stays tappable while results scroll", async ({ page }) => {
+  test("mobile differential compare dock hides on scroll down and stays tappable when revealed", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
     await mockAnswerDashboardApi(page);
     await mockDifferentialCatalogApi(page);
     await page.route(/\/api\/search(?:\?.*)?$/, async (route) => {
@@ -1455,45 +1575,131 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.locator("#differentials-mobile-compare-addon-slot")).toHaveCount(1);
     await expect(compareAction).toBeVisible();
     await expect(compareAction).toContainText("Compare selected");
-
-    await mainContent.evaluate((element) => element.scrollTo({ top: 700, behavior: "instant" }));
-    await expect.poll(() => mainContent.evaluate((element) => element.scrollTop)).toBeGreaterThan(100);
-    await page.waitForTimeout(300);
-
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-    const mainPaddingBottom = await mainContent.evaluate((element) =>
-      Number.parseFloat(window.getComputedStyle(element).paddingBottom),
-    );
-    const dockHeight = await dock.evaluate((element) => element.getBoundingClientRect().height);
-    expect(mainPaddingBottom).toBeGreaterThanOrEqual(dockHeight);
 
+    // Keep the composer focused while measuring end-of-list clearance so
+    // hide-on-scroll cannot collapse --mobile-composer-reserve mid-check.
+    await input.focus();
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
     await mainContent.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
-    const lastResultBottom = await page
-      .getByTestId("differential-status-badge")
-      .last()
-      .evaluate(
-        (element) =>
-          element.closest("article")?.getBoundingClientRect().bottom ?? element.getBoundingClientRect().bottom,
-      );
-    const dockTop = await dock.evaluate((element) => element.getBoundingClientRect().top);
-    expect(lastResultBottom).toBeLessThanOrEqual(dockTop);
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
+    const clearance = await page.evaluate(() => {
+      const main = document.getElementById("main-content");
+      const last = document.querySelector('[data-testid="differential-mobile-result-card"]:last-of-type');
+      const dock = document.querySelector("form.answer-footer-search-dock");
+      const style = main ? window.getComputedStyle(main) : null;
+      const pad = main?.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
+      return {
+        lastBottom: last?.getBoundingClientRect().bottom ?? null,
+        dockTop: dock?.getBoundingClientRect().top ?? null,
+        reservePx: pad
+          ? Number.parseFloat(window.getComputedStyle(pad).paddingBottom)
+          : style
+            ? Number.parseFloat(style.paddingBottom)
+            : null,
+        reserve: style?.getPropertyValue("--mobile-composer-reserve").trim() ?? null,
+        scrollHidden: dock?.getAttribute("data-scroll-hidden"),
+        url: window.location.href,
+      };
+    });
+    expect(clearance, JSON.stringify(clearance)).toMatchObject({
+      scrollHidden: null,
+    });
+    expect(clearance.lastBottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(clearance.dockTop ?? 0);
 
-    const compareGeometry = await compareAction.evaluate((element) => {
+    // Compare lives in the dock addon slot above the search pill.
+    const revealedGeometry = await compareAction.evaluate((element) => {
       const rect = element.getBoundingClientRect();
+      const dockRect = element.closest("form")?.getBoundingClientRect();
       const centreX = rect.left + rect.width / 2;
       const centreY = rect.top + rect.height / 2;
       const hit = document.elementFromPoint(centreX, centreY);
       return {
         top: rect.top,
         bottom: rect.bottom,
+        dockTop: dockRect?.top ?? null,
+        dockBottom: dockRect?.bottom ?? null,
         viewportHeight: window.innerHeight,
         receivesPointer: hit === element || element.contains(hit),
       };
     });
-    expect(compareGeometry.top).toBeGreaterThanOrEqual(0);
-    expect(compareGeometry.bottom).toBeLessThanOrEqual(compareGeometry.viewportHeight);
-    expect(compareGeometry.receivesPointer).toBe(true);
-    expect(compareGeometry.bottom).toBeLessThan(dockTop);
+    expect(revealedGeometry.dockTop).not.toBeNull();
+    expect(revealedGeometry.top).toBeGreaterThanOrEqual(revealedGeometry.dockTop!);
+    expect(revealedGeometry.bottom).toBeLessThanOrEqual(revealedGeometry.dockBottom!);
+    expect(revealedGeometry.receivesPointer).toBe(true);
+    // Last card must clear the floating compare CTA, not only the composer dock.
+    expect(clearance.lastBottom ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(revealedGeometry.top);
+
+    const reservePx = await readMobileComposerReservePx(mainContent);
+    const dockHeight = await dock.evaluate((element) => element.getBoundingClientRect().height);
+    expect(reservePx).toBeGreaterThanOrEqual(dockHeight);
+
+    // Ensure enough scroll room for hide thresholds even with a short result list.
+    await page.evaluate(() => {
+      const container = document.getElementById("main-content");
+      if (!container) return;
+      const spacer = document.createElement("div");
+      spacer.id = "test-scroll-spacer";
+      spacer.style.height = "2000px";
+      spacer.style.minHeight = "2000px";
+      spacer.style.display = "block";
+      container.appendChild(spacer);
+    });
+
+    // Apply the Safari toolbar simulation after the visible-dock clearance
+    // checks above. A collapsed reserve that still includes the toolbar inset
+    // must fail the ≤13px assertion below.
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-bottom", "112px");
+    });
+    await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(200);
+
+    await expect(async () => {
+      await input.blur();
+      await expect(input).not.toBeFocused({ timeout: 1_000 });
+      await scrollPrimarySurface(page, 0);
+      for (const offset of [40, 80, 120, 160, 200]) {
+        await scrollPrimarySurface(page, offset);
+      }
+      await expect(dock).toHaveAttribute("data-scroll-hidden", "true", { timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
+
+    await expect
+      .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform !== "none"))
+      .toBe(true);
+    await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeLessThanOrEqual(13);
+
+    // Wait for the hide transition to finish so the in-dock Compare bar is fully
+    // off-screen (translateY(100%) parks the dock top on the viewport bottom edge).
+    await expect
+      .poll(async () =>
+        compareAction.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          return {
+            top: rect.top,
+            viewportHeight: window.innerHeight,
+            offscreen: rect.top >= window.innerHeight - 1,
+          };
+        }),
+      )
+      .toMatchObject({ offscreen: true });
+
+    await scrollPrimarySurface(page, 60);
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect(compareAction).toBeVisible();
+    // Poll through the reveal transition: a single elementFromPoint sample can
+    // miss while translateY is still easing back into the viewport on CI.
+    await expect
+      .poll(async () =>
+        compareAction.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+          return hit === element || element.contains(hit);
+        }),
+      )
+      .toBe(true);
     await expectNoPageHorizontalOverflow(page);
 
     // The result cards and compare bar remain in their non-desktop layout up
@@ -1664,8 +1870,17 @@ test.describe("Clinical KB service detail page", () => {
     const servicePage = page.getByTestId("service-detail-page");
     const footer = servicePage.getByText("Information accuracy may vary. Confirm locally before use.");
     const scrollport = page.locator("#main-content");
+    const dock = page.locator("form.answer-footer-search-dock, form.answer-footer-search-edge").first();
+    const dockInput = visibleGlobalSearchInput(page).first();
     await expect(servicePage).toBeVisible();
+    await expect(dock).toBeVisible();
+    // Keep the dock focused so hide-on-scroll cannot collapse --mobile-composer-reserve
+    // while we measure end-of-page clearance under a still-visible composer.
+    await dockInput.focus();
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect.poll(async () => readMobileComposerReservePx(scrollport)).toBeGreaterThan(120);
     await scrollport.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
     await expect
       .poll(() => scrollport.evaluate((element) => element.scrollHeight - element.clientHeight - element.scrollTop))
@@ -1673,19 +1888,34 @@ test.describe("Clinical KB service detail page", () => {
 
     const clearance = await footer.evaluate((element) => {
       const scrollElement = document.querySelector<HTMLElement>("#main-content");
-      const dock = document.querySelector<HTMLElement>(
+      const dockElement = document.querySelector<HTMLElement>(
         "form.answer-footer-search-dock, form.answer-footer-search-edge",
       );
-      if (!scrollElement || !dock) return null;
+      const servicePage = document.querySelector<HTMLElement>('[data-testid="service-detail-page"]');
+      if (!scrollElement || !dockElement) return null;
+      const scrollStyle = window.getComputedStyle(scrollElement);
+      const pad = scrollElement.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
       return {
         footerBottom: element.getBoundingClientRect().bottom,
         scrollBottom: scrollElement.getBoundingClientRect().bottom,
-        dockHeight: dock.getBoundingClientRect().height,
+        dockTop: dockElement.getBoundingClientRect().top,
+        dockHeight: dockElement.getBoundingClientRect().height,
+        reservePx: pad
+          ? Number.parseFloat(window.getComputedStyle(pad).paddingBottom)
+          : Number.parseFloat(scrollStyle.paddingBottom),
+        reserve: scrollStyle.getPropertyValue("--mobile-composer-reserve").trim(),
+        scrollTop: scrollElement.scrollTop,
+        scrollHeight: scrollElement.scrollHeight,
+        clientHeight: scrollElement.clientHeight,
+        serviceBottom: servicePage?.getBoundingClientRect().bottom ?? null,
+        serviceHeight: servicePage?.getBoundingClientRect().height ?? null,
+        scrollHidden: dockElement.getAttribute("data-scroll-hidden"),
       };
     });
 
-    expect(clearance).not.toBeNull();
-    expect(clearance!.footerBottom).toBeLessThanOrEqual(clearance!.scrollBottom - clearance!.dockHeight - 8);
+    expect(clearance, JSON.stringify(clearance)).not.toBeNull();
+    expect(clearance!.reservePx, JSON.stringify(clearance)).toBeGreaterThan(120);
+    expect(clearance!.footerBottom, JSON.stringify(clearance)).toBeLessThanOrEqual(clearance!.dockTop - 8);
   });
 
   test("service navigator action uses the shared global search route", async ({ page }) => {

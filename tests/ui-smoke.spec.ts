@@ -1,7 +1,6 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
-import { scrollPrimarySurface } from "./playwright-scroll";
-import { recentQueryStorageKey } from "../src/components/clinical-dashboard/dashboard-contracts";
+import { readMobileComposerReservePx, scrollPrimarySurface } from "./playwright-scroll";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
@@ -10,6 +9,7 @@ import { deriveGovernanceFromSections } from "../src/lib/medication-records";
 import { getMedicationRecord, loadMedicationSnapshot } from "../src/lib/medication-snapshot";
 import { medicationToSearchResult, rankMedicationRecords, type MedicationRecord } from "../src/lib/medications";
 import { serviceRecords } from "../src/lib/services";
+import { recentQueryStorageKey } from "../src/lib/recent-query-storage";
 
 const dashboardViewports = [
   { name: "small-mobile", width: 320, height: 720 },
@@ -667,6 +667,16 @@ async function openScopeControl(page: Page) {
     .catch(() => undefined);
 
   const composer = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible').first();
+  const bottomDock = page.locator("form.answer-footer-search-dock");
+  if (await bottomDock.isVisible().catch(() => false)) {
+    // Prior sheet/scroll interactions can leave the phone dock translated off-screen.
+    // Restore it before opening scope so the click lands in the viewport.
+    await scrollPrimarySurface(page, 0);
+    await expect(bottomDock).not.toHaveAttribute("data-scroll-hidden", "true");
+  }
+
+  // If the composer is scrolled out of view on mobile, scroll the container to the top to reveal it
+  await scrollPrimarySurface(page, 0);
 
   await composer.click();
   const scopeOption = page.getByRole("option", { name: /Scope sources/i });
@@ -1083,6 +1093,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { name: "Services", href: "/services" },
       // The rail speaks the catalogue-maturity badge as part of the Forms name.
       { name: "Forms (Early access)", href: "/forms" },
+      // Demo mode still exposes Favourites via the account-library rail entry.
       { name: "Favourites", href: "/favourites" },
       { name: "Differentials", href: "/differentials" },
       { name: "Medication", href: "/?mode=prescribing" },
@@ -1311,7 +1322,68 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeMenu).toBeVisible();
     await page.mouse.click(640, 430);
     await expect(appModeMenu).toBeHidden();
+    await expect(page.getByTestId("app-mode-menu-sheet")).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone mode menu opens as a scrollable bottom sheet with the full mode list", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
+    await waitForReactEventHandler(appModeTrigger, "onClick");
+    await appModeTrigger.click();
+
+    const modeSheet = page.getByTestId("app-mode-menu-sheet");
+    const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
+    await expect(modeSheet).toBeVisible();
+    await expect(modeSheet).toHaveAttribute("role", "dialog");
+    await expect(appModeMenu).toBeVisible();
+    await expect(appModeTrigger).toHaveAttribute("aria-expanded", "true");
+    await expect(appModeTrigger).toHaveAttribute("aria-controls", "app-mode-menu");
+
+    // Full list must be present (not clipped out of the DOM by the old max-height panel).
+    const modeOptions = appModeMenu.getByRole("menuitemradio");
+    expect(await modeOptions.count()).toBeGreaterThanOrEqual(10);
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
+
+    // Scroll the sheet body so a lower mode is interactable, then select it.
+    const toolsMode = appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ });
+    await toolsMode.scrollIntoViewIfNeeded();
+    await expect(toolsMode).toBeVisible();
+    await toolsMode.click();
+
+    await expect(modeSheet).toHaveCount(0);
+    await expect(appModeMenu).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeFocused();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone mode menu dismisses via backdrop and restores focus to the Mode button", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
+    await waitForReactEventHandler(appModeTrigger, "onClick");
+    await appModeTrigger.click();
+
+    const modeSheet = page.getByTestId("app-mode-menu-sheet");
+    await expect(modeSheet).toBeVisible();
+
+    // Click the dimmed backdrop (outside the dialog panel) to dismiss.
+    await page
+      .locator(".fixed.inset-0.z-\\[100\\]")
+      .first()
+      .click({ position: { x: 8, y: 8 } });
+    await expect(modeSheet).toHaveCount(0);
+    await expect(appModeTrigger).toBeFocused();
+    await expect(appModeTrigger).toHaveAttribute("aria-expanded", "false");
   });
 
   test("desktop mode action placement coalesces scroll updates per frame", async ({ page }) => {
@@ -1914,10 +1986,20 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // Wait for streaming to finish (deterministic) so the geometry below reads the
     // final, settled layout — replaces a fixed 400ms sleep.
     await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
-    // Start from the top so the assertions describe the resting, top-aligned view.
-    await page.locator("main#main-content").evaluate((el) => {
-      el.scrollTop = 0;
+    // Apply the Safari toolbar simulation after answer navigation has settled;
+    // the submit flow may update the URL and replace earlier document styles.
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-bottom", "112px");
     });
+    const main = page.locator("main#main-content");
+    const bottomDock = page.locator("form.answer-footer-search-dock");
+    // Start from the top so the assertions describe the resting, top-aligned
+    // view and the hide reporter has observed the restored position.
+    await scrollPrimarySurface(page, 0);
+    await expect(bottomDock).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect
+      .poll(async () => main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)))
+      .toBeGreaterThan(200);
 
     const geo = await page.evaluate(() => {
       const main = document.querySelector("main#main-content");
@@ -1927,6 +2009,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
         scrollHeight: main?.scrollHeight ?? 0,
         clientHeight: main?.clientHeight ?? 0,
         mainBottom: main ? Math.round(main.getBoundingClientRect().bottom) : 0,
+        mainMarginBottom: main ? Number.parseFloat(window.getComputedStyle(main).marginBottom) : -1,
+        mainPaddingBottom: main ? Number.parseFloat(window.getComputedStyle(main).paddingBottom) : 0,
+        viewportHeight: window.innerHeight,
         headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
         surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
       };
@@ -1934,39 +2019,51 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // A long answer overflows and scrolls, still top-aligned under the header.
     expect(geo.scrollHeight).toBeGreaterThan(geo.clientHeight + 40);
     expect(geo.surfaceTop - geo.headerBottom).toBeLessThanOrEqual(160);
-    // The <main> reserve keeps the opaque composer input fully below the scroll
-    // viewport, so answer content clears the composer instead of being hidden
-    // behind it. (The dock's blur scrim intentionally fades content above the
-    // input, so we anchor on the input itself, not the scrim's bounding box.)
+    // The scrollport itself remains edge-to-edge. Its content padding—not an
+    // outer margin—keeps the answer endpoint clear of the visible composer and
+    // Safari toolbar.
     const composerInputTop = await visibleQuestionInput(page).evaluate((el) =>
       Math.round(el.getBoundingClientRect().top),
     );
-    expect(composerInputTop).toBeGreaterThanOrEqual(geo.mainBottom - 4);
+    expect(geo.mainMarginBottom).toBe(0);
+    expect(Math.abs(geo.mainBottom - geo.viewportHeight)).toBeLessThanOrEqual(1);
+    expect(geo.mainPaddingBottom).toBeGreaterThan(112);
+    expect(geo.mainPaddingBottom + 4).toBeGreaterThanOrEqual(geo.mainBottom - composerInputTop);
 
-    // Hiding the fixed dock must not change the scrollable geometry. If its
-    // clearance is removed at the same time, reaching the bottom clamps
-    // scrollTop upward; hide-on-scroll reads that forced movement as an upward
-    // gesture and repeatedly restores/hides the dock, producing visible jitter.
-    const main = page.locator("main#main-content");
-    const bottomDock = page.locator("form.answer-footer-search-dock");
+    // Once the fixed dock is actually hidden, release both the composer and
+    // Safari toolbar reserve. The scrollport dimensions stay stable while its
+    // bottom padding contracts; the bottom-clamp guard must keep the dock from
+    // immediately reappearing as a false upward gesture. Do not compare total
+    // scrollHeight here because universal matches can finish streaming while
+    // this test moves the scrollport.
     const scrollGeometryBeforeHide = await main.evaluate((el) => ({
       clientHeight: el.clientHeight,
-      scrollHeight: el.scrollHeight,
+      paddingBottom: Number.parseFloat(window.getComputedStyle(el).paddingBottom),
     }));
-    for (const offset of [120, 240, 360]) {
-      await main.evaluate((el, top) => {
-        el.scrollTop = top;
-      }, offset);
-    }
-    await expect(bottomDock).toHaveAttribute("data-scroll-hidden", "true");
+    // WebKit retains focus on the submitted composer more aggressively than
+    // Chromium. Move focus to the scroll surface to model the user dismissing
+    // the composer before scrolling; focused composer chrome must stay visible.
+    await expect(async () => {
+      await main.focus();
+      await scrollPrimarySurface(page, 0);
+      await expect(bottomDock).not.toHaveAttribute("data-scroll-hidden", "true", { timeout: 1_000 });
+      for (const offset of [120, 240, 360]) {
+        await scrollPrimarySurface(page, offset);
+      }
+      await expect(bottomDock).toHaveAttribute("data-scroll-hidden", "true", { timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
     await expect
-      .poll(async () =>
-        main.evaluate((el) => ({
-          clientHeight: el.clientHeight,
-          scrollHeight: el.scrollHeight,
-        })),
-      )
-      .toEqual(scrollGeometryBeforeHide);
+      .poll(async () => main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)))
+      .toBeLessThanOrEqual(13);
+    const scrollGeometryAfterHide = await main.evaluate((el) => ({
+      clientHeight: el.clientHeight,
+      scrollHeight: el.scrollHeight,
+      paddingBottom: Number.parseFloat(window.getComputedStyle(el).paddingBottom),
+    }));
+    expect(scrollGeometryBeforeHide.paddingBottom).toBeGreaterThan(200);
+    expect(scrollGeometryAfterHide.clientHeight).toBe(scrollGeometryBeforeHide.clientHeight);
+    expect(scrollGeometryAfterHide.scrollHeight).toBeGreaterThan(scrollGeometryAfterHide.clientHeight);
+    await expect(bottomDock).toHaveAttribute("data-scroll-hidden", "true");
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -2896,10 +2993,36 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await submitDocumentSearch(page);
 
     await expect(page).toHaveURL(/\/documents\/search\?.*q=lithium\+monitoring/);
+    const documentWorkspace = page.getByTestId("document-search-workspace");
+    await expect(documentWorkspace.getByRole("heading", { name: /document/i }).first()).toBeVisible();
+    await expect(documentWorkspace.getByTestId("document-results-controls")).toBeVisible();
+    const resultsControls = documentWorkspace.getByTestId("document-results-controls");
+    await expect(resultsControls.getByLabel("Sort results")).toBeVisible();
+    await expect(resultsControls.getByRole("button", { name: "Open document library" })).toBeVisible();
+    await expect(documentWorkspace.getByText("Documents overview")).toHaveCount(0);
+    await expect(documentWorkspace.getByRole("button", { name: /Browse library/i })).toHaveCount(0);
+    await expect(page.getByTestId("cross-mode-links")).toHaveCount(0);
+    await expect(page.getByText(/Also in your library/i)).toHaveCount(0);
+
     const documentResults = page.getByRole("article").filter({ hasText: "Synthetic Lithium Monitoring Protocol" });
     await expect(documentResults).toBeVisible();
     await expect(documentResults).toContainText("Best match");
     await expect(documentResults).toContainText("1 table");
+
+    const typeFilters = resultsControls.getByLabel("Filter by result type");
+    if ((await typeFilters.count()) > 0) {
+      const tablesFilter = typeFilters.getByRole("button", { name: /Tables/i });
+      await expect(tablesFilter).toBeVisible();
+      await tablesFilter.click();
+      await expect(tablesFilter).toHaveAttribute("aria-pressed", "true");
+      await expect(documentResults).toBeVisible();
+      await typeFilters.getByRole("button", { name: /^All/i }).click();
+    }
+
+    await resultsControls.getByLabel("Sort results").selectOption("alpha");
+    await expect(page).toHaveURL(/[?&]sort=alpha/);
+    await resultsControls.getByLabel("Sort results").selectOption("relevance");
+
     const openDocumentLink = documentResults
       .getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })
       .last();
@@ -2912,6 +3035,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     );
     await expect(page.getByRole("complementary", { name: "Selected document evidence" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
+
+    await resultsControls.getByRole("button", { name: "Open document library" }).click();
+    const resultsLibraryDialog = page.getByRole("dialog", { name: "Source library" });
+    await expect(resultsLibraryDialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(resultsLibraryDialog).toHaveCount(0);
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(documentResults).toBeVisible();
@@ -3496,8 +3625,22 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // must restore it before the explicit hide-on-scroll checks below.
     await scrollPrimarySurface(page, 0);
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
-
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--safe-area-bottom", "112px");
+    });
+    const viewerContent = page.getByTestId("document-viewer-content");
     const main = page.locator("#main-content");
+    // DocumentViewer owns the floating dock. The shell must keep only a tiny
+    // pad even when Safari's toolbar inset is large — otherwise #932's
+    // max(2rem, --safe-area-bottom) shell reserve recreates the blank band
+    // under the viewer while the viewer itself collapses correctly.
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
+    await expect
+      .poll(async () =>
+        viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
+      )
+      .toBeGreaterThan(250);
+
     await waitForReactEventHandler(main, "onScroll");
     await page.evaluate(() => {
       const main = window.document.getElementById("main-content");
@@ -3507,21 +3650,45 @@ test.describe("Clinical KB UI smoke coverage", () => {
       (main ?? window.document.body).appendChild(spacer);
     });
 
-    // Hide on deliberate scroll down past the activation offset.
-    for (const offset of [40, 80, 120, 160, 200]) {
-      await scrollPrimarySurface(page, offset);
-    }
-    await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
+    // Hide on deliberate scroll down past the activation offset. The chunk
+    // deep-link effect can finish late in Chromium and move the scrollport once
+    // more, so treat reset + deliberate movement as one retriable action.
+    await expect(async () => {
+      await scrollPrimarySurface(page, 0);
+      await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true", { timeout: 1_000 });
+      for (const offset of [40, 80, 120, 160, 200]) {
+        await scrollPrimarySurface(page, offset);
+      }
+      await expect(composer).toHaveAttribute("data-scroll-hidden", "true", { timeout: 1_000 });
+    }).toPass({ timeout: 15_000 });
+    await expect
+      .poll(async () =>
+        viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
+      )
+      .toBeLessThanOrEqual(13);
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
 
     // Reappear on scroll up.
     await scrollPrimarySurface(page, 60);
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect
+      .poll(async () =>
+        viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
+      )
+      .toBeGreaterThan(250);
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
 
     // Keyboard focus inside the composer reveals it while hidden.
     await scrollPrimarySurface(page, 240);
     await expect(composer).toHaveAttribute("data-scroll-hidden", "true");
     await composer.locator("input").focus();
     await expect(composer).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect
+      .poll(async () =>
+        viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
+      )
+      .toBeGreaterThan(250);
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
   });
 
   test("document questions use the shared answer stream with progress and cleaned bold formatting", async ({

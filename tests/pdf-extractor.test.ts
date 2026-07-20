@@ -6,8 +6,16 @@ import path from "node:path";
 import PDFDocument from "pdfkit";
 import { describe, expect, it } from "vitest";
 
-const pythonBin = process.env.PYTHON_BIN || "python";
+import { resolvePythonBin } from "@/lib/python-bin";
+
+const pythonBin = resolvePythonBin();
 const hasPyMuPDF = spawnSync(pythonBin, ["-c", "import fitz"], { encoding: "utf8" }).status === 0;
+
+describe("Python PDF extraction prerequisite", () => {
+  it.runIf(Boolean(process.env.CI))("is installed in CI so extraction coverage cannot silently skip", () => {
+    expect(hasPyMuPDF).toBe(true);
+  });
+});
 
 async function writeSyntheticTablePdf(filePath: string) {
   await new Promise<void>((resolve, reject) => {

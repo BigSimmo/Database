@@ -321,7 +321,7 @@ export async function GET(request: Request) {
     if (isDemoMode()) return NextResponse.json({ items: [], demoMode: true });
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
 
     const rateLimit = await consumeApiRateLimit({
       supabase,

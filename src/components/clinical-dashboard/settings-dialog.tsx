@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 
 import { type SidebarIdentity } from "@/components/clinical-dashboard/ClinicalSidebar";
+import { useAccountData } from "@/components/account-data-provider";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import {
   ANSWER_STYLE_OPTIONS,
@@ -41,7 +42,7 @@ import {
   POPULATION_OPTIONS,
   useAppPreferences,
 } from "@/components/clinical-dashboard/use-app-preferences";
-import { clearRecentQueries, countRecentQueries } from "@/components/clinical-dashboard/recent-query-storage";
+import { clearRecentQueries, countRecentQueries } from "@/lib/recent-query-storage";
 import {
   cn,
   fieldControlWithIcon,
@@ -51,13 +52,6 @@ import {
   toggleThumbSurface,
 } from "@/components/ui-primitives";
 import { Sheet } from "@/components/ui/sheet";
-import {
-  readSavedRegistrySlugs,
-  savedDifferentialsStorageKey,
-  savedFormsStorageKey,
-  savedServicesStorageKey,
-  writeSavedRegistrySlugs,
-} from "@/lib/saved-registry-storage";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ThemePreference } from "@/lib/theme";
 
@@ -95,11 +89,7 @@ function sectionDomId(id: SettingsSectionId) {
 function readDataCounts(): { recent: number; saved: number } {
   if (typeof window === "undefined") return { recent: 0, saved: 0 };
   const recent = countRecentQueries();
-  const saved =
-    readSavedRegistrySlugs(savedServicesStorageKey).length +
-    readSavedRegistrySlugs(savedFormsStorageKey).length +
-    readSavedRegistrySlugs(savedDifferentialsStorageKey).length;
-  return { recent, saved };
+  return { recent, saved: 0 };
 }
 
 function settingsRowTestId(label: string) {
@@ -130,6 +120,8 @@ export function SettingsDialog({
   const { preferences, setPreference, resetPreferences } = useAppPreferences();
 
   const auth = useAuthSession();
+  const accountData = useAccountData();
+  const savedCount = Object.values(accountData.favourites).reduce((total, items) => total + items.length, 0);
   const [settingsEmail, setSettingsEmail] = useState("");
   const [emailEntryOpen, setEmailEntryOpen] = useState(false);
   const [settingsEmailAttempted, setSettingsEmailAttempted] = useState(false);
@@ -224,8 +216,13 @@ export function SettingsDialog({
     setAccountNotice(null);
   }
 
-  function chooseSettingsProvider(provider: string) {
-    setAccountNotice(`${provider} sign-in is a placeholder for now. Continue with email to use this workspace.`);
+  async function chooseSettingsProvider(provider: "Apple" | "Google" | "Microsoft") {
+    setAccountNotice(null);
+    if (provider === "Apple") {
+      setAccountNotice("Apple sign-in is not configured. Continue with email, Google, or Microsoft.");
+      return;
+    }
+    await auth.signInWithOAuth(provider === "Google" ? "google" : "azure");
   }
 
   function handleClearRecent() {
@@ -234,12 +231,9 @@ export function SettingsDialog({
     setPrivacyNotice("Recent searches cleared.");
   }
 
-  function handleClearSaved() {
-    writeSavedRegistrySlugs(savedServicesStorageKey, []);
-    writeSavedRegistrySlugs(savedFormsStorageKey, []);
-    writeSavedRegistrySlugs(savedDifferentialsStorageKey, []);
-    refreshDataCounts();
-    setPrivacyNotice("Saved items cleared.");
+  async function handleClearSaved() {
+    const cleared = await accountData.clearFavourites();
+    setPrivacyNotice(cleared ? "Saved items cleared." : "Sign in to clear account favourites.");
   }
 
   function handleResetPreferences() {
@@ -446,9 +440,12 @@ export function SettingsDialog({
                   </div>
 
                   <div className="grid gap-2">
-                    <SettingsProviderRow provider="Apple" onClick={() => chooseSettingsProvider("Apple")} />
-                    <SettingsProviderRow provider="Google" onClick={() => chooseSettingsProvider("Google")} />
-                    <SettingsProviderRow provider="Microsoft" onClick={() => chooseSettingsProvider("Microsoft")} />
+                    <SettingsProviderRow provider="Apple" onClick={() => void chooseSettingsProvider("Apple")} />
+                    <SettingsProviderRow provider="Google" onClick={() => void chooseSettingsProvider("Google")} />
+                    <SettingsProviderRow
+                      provider="Microsoft"
+                      onClick={() => void chooseSettingsProvider("Microsoft")}
+                    />
                     <SettingsProviderRow provider="email" onClick={openSettingsEmailEntry} />
                   </div>
 
@@ -457,7 +454,7 @@ export function SettingsDialog({
                       aria-hidden="true"
                       className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--text-soft)]"
                     />
-                    Accounts save preferences and search history. Do not enter PHI.
+                    Accounts sync favourites and preferences across signed-in devices. Do not enter PHI.
                   </p>
 
                   {(accountNotice || !auth.isConfigured || (settingsEmailAttempted && auth.error)) && (
@@ -599,13 +596,11 @@ export function SettingsDialog({
                 icon={PanelTop}
                 label="Default landing view"
                 description="The mode shown when you open the app."
-                notYetActive
                 labelId="settings-landing-label"
                 stacked
               >
                 <SegmentedControl
                   ariaLabelledBy="settings-landing-label"
-                  ariaDescribedBy={notYetActiveId("settings-landing-label")}
                   value={preferences.landing}
                   onChange={(value) => setPreference("landing", value)}
                   options={LANDING_OPTIONS}
@@ -626,7 +621,6 @@ export function SettingsDialog({
             <SettingsGroup>
               <SettingsToggleField
                 icon={PanelTop}
-                notYetActive
                 label="Recent searches on home"
                 description="Surface your latest questions when you land."
                 checked={preferences.showRecentOnHome}
@@ -642,7 +636,6 @@ export function SettingsDialog({
               />
               <SettingsToggleField
                 icon={BookOpen}
-                notYetActive
                 label="Compact citations"
                 description="Show tighter inline source references."
                 checked={preferences.compactCitations}
@@ -695,10 +688,10 @@ export function SettingsDialog({
               <SettingsActionRow
                 icon={Trash2}
                 label="Clear saved items"
-                meta={dataCounts.saved > 0 ? `${dataCounts.saved} saved` : "None"}
+                meta={savedCount > 0 ? `${savedCount} saved` : "None"}
                 actionLabel="Clear saved items"
                 onClick={handleClearSaved}
-                disabled={dataCounts.saved === 0}
+                disabled={savedCount === 0}
               />
               <SettingsActionRow
                 icon={RotateCcw}

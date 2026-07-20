@@ -47,11 +47,7 @@ import {
   type DifferentialSafetyFact,
 } from "@/lib/differential-detail";
 import type { DifferentialRecord, DifferentialSection } from "@/lib/differentials";
-import {
-  readSavedRegistrySlugs,
-  savedDifferentialsStorageKey,
-  writeSavedRegistrySlugs,
-} from "@/lib/saved-registry-storage";
+import { useAccountData } from "@/components/account-data-provider";
 
 const sectionIcons: Record<DifferentialSection["tone"], LucideIcon> = {
   fit: CircleCheck,
@@ -933,7 +929,9 @@ export function DifferentialDetailPage({
 }) {
   const [activeTab, setActiveTab] = useState<DifferentialDetailTabId>("overview");
   const [openSections, setOpenSections] = useState<ReadonlySet<string>>(() => new Set<string>());
-  const [saved, setSaved] = useState(false);
+  const accountData = useAccountData();
+  const saved = accountData.isSaved("differential", record.slug);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   const expandableSectionIds = useMemo(
     () =>
@@ -951,13 +949,6 @@ export function DifferentialDetailPage({
       setActiveTab(param);
     }
   }, []);
-
-  useEffect(() => {
-    // Hydrate the saved flag from localStorage after mount (SSR-safe: the
-    // server always renders the unsaved state).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSaved(readSavedRegistrySlugs(savedDifferentialsStorageKey).includes(record.slug));
-  }, [record.slug]);
 
   const changeTab = useCallback((id: DifferentialDetailTabId) => {
     setActiveTab(id);
@@ -981,10 +972,20 @@ export function DifferentialDetailPage({
     setOpenSections(allOpen ? new Set() : new Set(expandableSectionIds));
   }
 
-  function toggleSaved() {
-    const slugs = readSavedRegistrySlugs(savedDifferentialsStorageKey);
-    const next = saved ? slugs.filter((slug) => slug !== record.slug) : [...new Set([record.slug, ...slugs])];
-    if (writeSavedRegistrySlugs(savedDifferentialsStorageKey, next)) setSaved(!saved);
+  async function toggleSaved() {
+    try {
+      const nowSaved = !saved;
+      const updated = await accountData.setFavourite("differential", record.slug, nowSaved);
+      if (!updated) {
+        setSaveNotice(
+          accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save diagnoses.",
+        );
+        return;
+      }
+      setSaveNotice(nowSaved ? "Diagnosis saved." : "Diagnosis removed from saved items.");
+    } catch {
+      setSaveNotice("Save failed.");
+    }
   }
 
   const hasMustNotMiss = record.sections.some((section) => section.id === "must-not-miss");
@@ -1040,6 +1041,12 @@ export function DifferentialDetailPage({
           </div>
           <TopActions record={record} saved={saved} onToggleSaved={toggleSaved} onCompare={openCompareTab} />
         </div>
+
+        {saveNotice ? (
+          <p role="status" aria-live="polite" className="text-sm text-[color:var(--text-muted)]">
+            {saveNotice}
+          </p>
+        ) : null}
 
         <Tabs active={activeTab} onChange={changeTab} />
 

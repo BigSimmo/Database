@@ -1,7 +1,7 @@
 # Observability & SLOs
 
 Service-level objectives for the Clinical KB answer pipeline, the alert
-thresholds attached to them, and the nightly production eval canary that turns
+thresholds attached to them, and the weekly production eval canary that turns
 the golden eval into a standing guard. Written 2026-07-06.
 
 Context: this repo's defining failure mode is **silent degradation** — hybrid
@@ -105,7 +105,7 @@ group by 1 order by 2 desc;
 ```
 
 Complementary standing checks: `search_schema_health()` via
-`npm run check:indexing` (fails closed on RPC regression) and the nightly eval
+`npm run check:indexing` (fails closed on RPC regression) and the weekly eval
 canary below (fails closed on quality regression).
 
 ### Reliability — degraded/source-only answer rate
@@ -125,19 +125,20 @@ recent pre-flag provider failures remain visible until they age out. Keep `degra
 the broader source-only UI state and `fallback_reason` as diagnostic detail;
 neither is narrow enough for provider health on its own.
 
-## 3. Nightly production eval canary
+## 3. Weekly production eval canary
 
-`.github/workflows/eval-canary.yml` — scheduled nightly (18:00 UTC = 02:00
-Australia/Perth) plus `workflow_dispatch` for on-demand runs.
+`.github/workflows/eval-canary.yml` — scheduled weekly on Sunday at 18:00 UTC
+(Monday 02:00 Australia/Perth) plus `workflow_dispatch` for on-demand runs.
 
 What it does, in order:
 
 1. `npm run check:supabase-project` — hard guard that the configured env
    points at `sjrfecxgysukkwxsowpy` and nothing else.
 2. `npm run eval:retrieval:quality -- --fail-on-threshold` — the golden
-   retrieval eval (34 cases incl. forced-vector probes) against the live
+   retrieval eval (36 committed cases plus any captured cases, including
+   forced-vector probes) against the live
    corpus. This is the eval CI never runs on PRs (it needs live Supabase +
-   OpenAI keys); the canary makes it a standing nightly guard instead of a
+   OpenAI keys); the canary makes it a standing weekly guard instead of a
    manual pre-merge step that can be skipped.
 3. `npm run eval:quality -- --rag-only --limit 8 --fail-on-threshold` — a
    small answer-quality subset (grounding, citations, unsupported-correctness)
@@ -145,33 +146,38 @@ What it does, in order:
 
 Failing loudly:
 
-- Any threshold failure fails the workflow run (red nightly badge, email per
+- Any threshold failure fails the workflow run (red scheduled-run badge, email per
   GitHub notification settings).
 - On scheduled failures the workflow **opens a GitHub issue** labeled
   `eval-canary` (or comments on the existing open one), so a regression
   creates a durable, assignable artifact rather than a missed notification.
+- The failure comment records every step outcome plus a deterministic failure
+  class derived from the captured eval logs. A completed non-zero
+  `failed_cases` summary is classified as a probable regression; raw provider
+  failures and the all-cases/no-retrieval-layers signature are classified as
+  provider or live-configuration failures.
 
-Required repo secrets: `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`,
-`E2E_USER_EMAIL` (resolved to the eval owner via `RAG_EVAL_OWNER_EMAIL`).
-The workflow preflights these and fails with an explicit message when absent.
+Required repo secrets: `SUPABASE_SERVICE_ROLE_KEY` and `OPENAI_API_KEY`.
 The workflow preflights these and fails with an explicit message when absent.
 
 Operational notes:
 
 - The canary reads live shared corpus state; a pass is a snapshot, and a
   failure can be corpus-state-dependent (see the clozapine-wcc history).
-  Triage order: rerun via `workflow_dispatch` → check `hybrid_rpc_errors` and
-  `check:indexing` → only then bisect code.
+  Triage order: inspect the recorded failure class and failed step → resolve
+  provider/configuration failures or inspect `hybrid_rpc_errors` and
+  `check:indexing` → only then bisect code. A `workflow_dispatch` rerun and all
+  live checks require explicit provider approval.
 - Forced-vector golden cases (`forceEmbedding`) run after many text-fast-path
   cases; the workflow sets `RAG_EVAL_CASE_DELAY_MS` and
   `RAG_EVAL_FORCE_EMBEDDING_DELAY_MS` so embedding calls do not exhaust the
-  nightly OpenAI rate limit mid-run.
+  scheduled run's OpenAI rate limit mid-run.
 - Evals write telemetry rows (`rag_queries`) but mutate no content.
-- Cost bound: ~34 retrieval cases (embedding calls only on forced-vector
-  probes) + 8 generated answers per night.
+- Cost bound: 36 committed retrieval cases plus any captured cases (embedding
+  calls only on forced-vector probes) + 8 generated answers per week.
 - **The schedule only runs from `main`.** After merging, trigger one
   `workflow_dispatch` run and confirm it goes green before trusting the
-  nightly cadence (repo gate for this workflow).
+  weekly cadence (repo gate for this workflow).
 
 ## 4. Degradation counters on `/api/health` (shipped)
 

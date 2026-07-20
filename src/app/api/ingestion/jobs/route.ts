@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     }
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
 
     let query = supabase
       .from("ingestion_jobs")

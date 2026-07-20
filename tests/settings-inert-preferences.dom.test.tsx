@@ -23,24 +23,43 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
+vi.mock("@/components/account-data-provider", () => ({
+  useAccountData: () => ({
+    favourites: {},
+    clearFavourites: vi.fn(async () => true),
+    isSaved: () => false,
+    setFavourite: vi.fn(async () => true),
+  }),
+}));
+
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 
 const NOT_YET_ACTIVE_TEXT = "Saved for later — not active yet";
 
 const INERT_ROWS = [
+  // Clinical trio: wiring these into answer generation is provider-eval-gated
+  // (see AGENTS.md confirmation boundary) — they stay marked until that lands.
   "settings-row-jurisdiction",
   "settings-row-default-population",
   "settings-row-answer-style",
-  "settings-row-default-landing-view",
-  "settings-row-recent-searches-on-home",
+  // No saved-protocols module exists on the home surface yet.
   "settings-row-saved-protocols-on-home",
-  "settings-row-compact-citations",
+  // No notification delivery infrastructure exists yet.
   "settings-row-guideline-updates",
   "settings-row-product-news",
   "settings-row-saved-item-changes",
 ];
 
-const FUNCTIONAL_ROWS = ["settings-row-appearance", "settings-row-interface-density", "settings-row-reduce-motion"];
+const FUNCTIONAL_ROWS = [
+  "settings-row-appearance",
+  "settings-row-interface-density",
+  "settings-row-reduce-motion",
+  // Wired 2026-07-19: landing → shell mode redirect, recents → AnswerEmptyState
+  // gate, compact citations → source-capsule label.
+  "settings-row-default-landing-view",
+  "settings-row-recent-searches-on-home",
+  "settings-row-compact-citations",
+];
 
 function renderDialog() {
   return render(

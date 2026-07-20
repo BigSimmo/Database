@@ -314,7 +314,7 @@ function ResultsTable({
       </div>
       <div className="flex justify-center border-t border-[color:var(--border)] p-4">
         <Link
-          href="/forms"
+          href={appModeHomeHref("forms", { query, focus: true, run: true })}
           className={cn(
             "inline-flex min-h-9 items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
             searchFocusRing,
@@ -493,7 +493,7 @@ function MobileCards({ matches, query }: { matches: FormSearchMatch[]; query: st
         })}
       </div>
       <Link
-        href="/forms"
+        href={appModeHomeHref("forms", { query, focus: true, run: true })}
         className={cn(
           "mx-auto mt-2 flex min-h-tap w-fit items-center gap-2 rounded-md px-2 text-sm font-extrabold text-[color:var(--clinical-accent)] transition hover:bg-[color:var(--clinical-accent-soft)]",
           searchFocusRing,

@@ -62,7 +62,7 @@ import {
   appModeDefinitions,
   appModeSearchConfig,
   isSearchableAppMode,
-  visibleAppModeDefinitions,
+  visibleAppModeDefinitionsForSession,
   type AppModeId,
 } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -78,7 +78,6 @@ const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
 const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
-const defaultVisibleAppModeOptions = visibleAppModeDefinitions();
 
 function splitFilterText(value: string) {
   return value
@@ -186,6 +185,8 @@ export function MasterSearchHeader({
   onMobileBack,
   hideOnScroll,
   onBottomComposerHiddenChange,
+  canAccessFavourites = false,
+  onRequestAccountSetup,
 }: {
   demoMode: boolean;
   documents: ClinicalDocument[];
@@ -262,11 +263,28 @@ export function MasterSearchHeader({
   };
   /** Notify hosts when the phone bottom composer is actually hidden (not merely scrolled). */
   onBottomComposerHiddenChange?: (hidden: boolean) => void;
+  /**
+   * Favourites are account-scoped. When false, omit Favourites from the mode menu
+   * and route favourites actions to account setup instead of switching mode.
+   * Defaults to false (fail closed) so guests never see Favourites unless the host
+   * explicitly grants access from the current session / demo mode.
+   */
+  canAccessFavourites?: boolean;
+  /** Invoked when the user tries to open Favourites without access. */
+  onRequestAccountSetup?: () => void;
 }) {
-  const visibleAppModeOptions = defaultVisibleAppModeOptions;
+  // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
+  // Do not OR demoMode again here — that would reopen Favourites when props diverge.
+  const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
+    authenticated: canAccessFavourites,
+    demoMode: false,
+  });
   const trimmedQuery = query.trim();
   const selectedSearch = appModeSearchConfig(searchMode);
-  const selectedAppMode = appModeDefinition(searchMode);
+  // Guests on /favourites keep the route gate, but the mode trigger must not claim
+  // Favourites is a selectable guest mode when it is omitted from the menu.
+  const modeTriggerId = searchMode === "favourites" && !canAccessFavourites ? "answer" : searchMode;
+  const selectedAppMode = appModeDefinition(modeTriggerId);
   const selectedSearchable = isSearchableAppMode(searchMode);
   const isAnswerFooterComposer = searchMode === "answer";
   const isWorkflowHeader = headerVariant === "workflow";
@@ -298,7 +316,14 @@ export function MasterSearchHeader({
   const [commandListboxId, setCommandListboxId] = useState<string>();
   const [commandActiveItemId, setCommandActiveItemId] = useState<string | null>(null);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  // Which menuitemradio should receive initial focus when the mode menu opens
+  // (keyboard ArrowOpen or the active mode on tap). Shared by the desktop
+  // popover and the phone bottom sheet.
+  const [modeMenuFocusIndex, setModeMenuFocusIndex] = useState(0);
   const [usesScopeSheet, setUsesScopeSheet] = useState(false);
+  // SSR and the first client hydration paint must agree (phone matchMedia is
+  // unavailable on the server). Sync from matchMedia after mount; Mode open
+  // paths also refresh from the live query so the first tap still picks Sheet.
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
   // True once the hero portal is conclusively unavailable — the media query
@@ -325,9 +350,9 @@ export function MasterSearchHeader({
     searchComposerVisible &&
     !desktopHomeComposerSlotId &&
     (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
-  const bottomComposerScrollHiddenActive = Boolean(
-    hideOnScroll && phoneBottomSearchDockActive && !mobileBottomSearchAddonSlotId,
-  );
+  // Compare addon chrome lives inside the phone dock; hide/reveal with it so
+  // the search pill and Compare selected bar reclaim space together.
+  const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
   const bottomComposerHidden =
     bottomComposerScrollHiddenActive &&
     scrollHidden &&
@@ -594,11 +619,19 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "favourites-browse") {
+      if (!canAccessFavourites) {
+        onRequestAccountSetup?.();
+        return;
+      }
       onSearchModeChange("favourites");
       onQueryChange("");
       return;
     }
     if (actionId === "favourites-sets") {
+      if (!canAccessFavourites) {
+        onRequestAccountSetup?.();
+        return;
+      }
       onSearchModeChange("favourites");
       onQueryChange("set");
       return;
@@ -715,14 +748,39 @@ export function MasterSearchHeader({
 
   function focusModeOption(index: number) {
     const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
+    setModeMenuFocusIndex(nextIndex);
     modeOptionRefs.current[nextIndex]?.focus();
   }
 
-  function openModeMenuWithFocus(index: number) {
+  function closeModeSurfaces() {
     setActionMenuOpen(false);
     closeScope(false);
+    setScopeSheetOpen(false);
+  }
+
+  function openModeMenuWithFocus(index: number) {
+    closeModeSurfaces();
+    const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
+    const phoneLayout = currentUsesPhoneSearchLayout();
+    setUsesPhoneSearchLayout(phoneLayout);
+    setModeMenuFocusIndex(nextIndex);
     setModeMenuOpen(true);
-    window.requestAnimationFrame(() => focusModeOption(index));
+    // Phone sheet owns initial focus via data-sheet-autofocus; desktop still
+    // needs an rAF focus into the absolute menu after it mounts.
+    if (!phoneLayout) {
+      window.requestAnimationFrame(() => focusModeOption(nextIndex));
+    }
+  }
+
+  function toggleModeMenu() {
+    closeModeSurfaces();
+    if (modeMenuOpen) {
+      setModeMenuOpen(false);
+      return;
+    }
+    setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());
+    setModeMenuFocusIndex(selectedModeIndex);
+    setModeMenuOpen(true);
   }
 
   function handleModeTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
@@ -749,14 +807,67 @@ export function MasterSearchHeader({
       event.preventDefault();
       focusModeOption(visibleAppModeOptions.length - 1);
     } else if (event.key === "Escape") {
+      // Phone Sheet owns Escape + return-focus; handling here races its cleanup.
+      if (usesPhoneSearchLayout) return;
       event.preventDefault();
       setModeMenuOpen(false);
       window.requestAnimationFrame(() => modeButtonRef.current?.focus());
     } else if (event.key === "Tab") {
-      // Let the browser advance focus normally, but do not leave an abandoned
-      // menu open after keyboard focus moves into the surrounding header.
-      setModeMenuOpen(false);
+      // Desktop: let focus leave the absolute menu and close it. Phone sheet
+      // traps Tab itself — closing here would fight the dialog focus cycle.
+      if (!usesPhoneSearchLayout) {
+        setModeMenuOpen(false);
+      }
     }
+  }
+
+  function renderModeMenuOptions() {
+    return visibleAppModeOptions.map((mode, index) => {
+      const Icon = appModeIcons[mode.id];
+      const active = mode.id === searchMode;
+      return (
+        <button
+          key={mode.id}
+          ref={(element) => {
+            modeOptionRefs.current[index] = element;
+          }}
+          type="button"
+          role="menuitemradio"
+          aria-checked={active}
+          tabIndex={active ? 0 : -1}
+          data-sheet-autofocus={usesPhoneSearchLayout && index === modeMenuFocusIndex ? "true" : undefined}
+          onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
+          onClick={() => {
+            selectAppMode(mode);
+            window.requestAnimationFrame(() => modeButtonRef.current?.focus());
+          }}
+          className={cn(
+            "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+            active
+              ? "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)]"
+              : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
+          )}
+        >
+          <span
+            className={cn(
+              "grid h-8 w-8 place-items-center rounded-lg border",
+              active
+                ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
+            )}
+          >
+            <Icon aria-hidden="true" className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold">{mode.label}</span>
+            <span className="block truncate text-2xs font-medium text-[color:var(--text-soft)]">
+              {mode.description}
+            </span>
+          </span>
+          {active ? <Check aria-hidden="true" className="h-4 w-4 text-[color:var(--clinical-accent)]" /> : null}
+        </button>
+      );
+    });
   }
 
   const restoreActionMenuFocusRef = useRef(false);
@@ -780,12 +891,20 @@ export function MasterSearchHeader({
     });
   }, []);
 
+  const phoneLayoutGateRef = useRef<boolean | null>(null);
   useEffect(() => {
     const scopeMediaQuery = window.matchMedia(scopeSheetMediaQuery);
     const phoneMediaQuery = window.matchMedia(phoneSearchLayoutMediaQuery);
     const sync = () => {
       setUsesScopeSheet(scopeMediaQuery.matches);
-      setUsesPhoneSearchLayout(phoneMediaQuery.matches);
+      const nextPhoneLayout = phoneMediaQuery.matches;
+      // Crossing the phone gate while open would swap Sheet ↔ absolute menu
+      // under the user's finger/keyboard; close instead of mutating surface.
+      if (phoneLayoutGateRef.current !== null && phoneLayoutGateRef.current !== nextPhoneLayout) {
+        setModeMenuOpen(false);
+      }
+      phoneLayoutGateRef.current = nextPhoneLayout;
+      setUsesPhoneSearchLayout(nextPhoneLayout);
     };
     sync();
     scopeMediaQuery.addEventListener("change", sync);
@@ -891,7 +1010,9 @@ export function MasterSearchHeader({
   }
 
   useDismissableLayer({
-    enabled: modeMenuOpen,
+    // Phone Mode uses Sheet (backdrop / Escape / focus trap). Keep the
+    // dismissable-layer contract on the desktop absolute menu only.
+    enabled: modeMenuOpen && !usesPhoneSearchLayout,
     refs: [modeMenuRef],
     restoreFocusRef: modeButtonRef,
     onDismiss: dismissModeMenu,
@@ -1211,13 +1332,11 @@ export function MasterSearchHeader({
     const ModeIdentityIcon = appModeIcons[searchMode];
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
-    // A differential comparison is a persistent batch action: hiding its host
-    // dock on downward scroll makes the CTA slide under mobile browser chrome
-    // and disables pointer events just when users finish reviewing the list.
-    // Keep that dock pinned while the header can still collapse independently.
-    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock && !mobileBottomSearchAddonSlotId);
+    // Differentials compare addon is dock chrome (search pill + Compare bar).
+    // Hide/reveal the whole dock together; do not pin for the addon slot.
+    const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
     // Phone submitted non-answer result docks reserve pill-only scroll
-    // clearance (ClinicalDashboard <main> margins / global-search-shell
+    // clearance (ClinicalDashboard / global-search-shell <main> padding via
     // mobileComposerReserve), so an extra notice line would push the fixed
     // dock over the last result. Those flows already showed the notice on
     // their entry composer; answer docks keep it (their reserves were sized
@@ -1290,6 +1409,7 @@ export function MasterSearchHeader({
         ) : null}
         <UniversalSearchCommandSurface
           demoMode={demoMode}
+          canAccessFavourites={canAccessFavourites}
           modeId={searchMode}
           query={query}
           recentQueries={recentQueries}
@@ -1308,6 +1428,10 @@ export function MasterSearchHeader({
             onAsk();
           }}
           onCrossMode={(targetMode, crossQuery) => {
+            if (targetMode === "favourites" && !canAccessFavourites) {
+              onRequestAccountSetup?.();
+              return;
+            }
             if (onCrossModeSearch) {
               onCrossModeSearch(targetMode, crossQuery);
               return;
@@ -1345,6 +1469,7 @@ export function MasterSearchHeader({
                 setUsesScopeSheet(currentUsesScopeSheet());
                 setModeMenuOpen(false);
                 setScopeOpen(false);
+                setScopeSheetOpen(false);
               }}
               onAction={runModeAction}
               onModeSelect={selectAppModeById}
@@ -1576,9 +1701,9 @@ export function MasterSearchHeader({
                 "universal-header-icon-control h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                 // From md the desktop icon rail owns navigation, so the drawer
                 // trigger is phone-only outside workflow headers.
-                isWorkflowHeader ? "grid" : "grid md:hidden",
+                isWorkflowHeader || useMobileBackControl ? "grid" : "grid md:hidden",
               )}
-              aria-label={useMobileBackControl ? "Back to differentials home" : "Open Clinical Guide menu"}
+              aria-label={useMobileBackControl ? "Go back" : "Open Clinical Guide menu"}
             >
               {useMobileBackControl ? (
                 <ArrowLeft aria-hidden="true" className="h-5 w-5" />
@@ -1606,6 +1731,9 @@ export function MasterSearchHeader({
           <div
             ref={modeMenuRef}
             onBlur={(event) => {
+              // Phone Mode menu is portaled into Sheet; blur-leave on this wrapper
+              // would close the sheet as soon as focus moved into the dialog.
+              if (usesPhoneSearchLayout) return;
               const nextFocusedElement = event.relatedTarget;
               if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) return;
               setModeMenuOpen(false);
@@ -1615,11 +1743,7 @@ export function MasterSearchHeader({
             <button
               ref={modeButtonRef}
               type="button"
-              onClick={() => {
-                setActionMenuOpen(false);
-                closeScope(false);
-                setModeMenuOpen((open) => !open);
-              }}
+              onClick={toggleModeMenu}
               onKeyDown={handleModeTriggerKeyDown}
               className={cn(
                 // Size utilities live in the per-variant branch, never the shared
@@ -1632,7 +1756,7 @@ export function MasterSearchHeader({
                   ? "h-tap w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
                   : "h-12 w-[min(13rem,calc(100vw-11.5rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
               )}
-              aria-haspopup="menu"
+              aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}
               aria-expanded={modeMenuOpen}
               aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
               aria-label={`Mode ${selectedAppMode.label}`}
@@ -1657,63 +1781,17 @@ export function MasterSearchHeader({
               />
             </button>
 
-            {modeMenuOpen ? (
+            {!usesPhoneSearchLayout && modeMenuOpen ? (
               <div
                 id="app-mode-menu"
                 role="menu"
                 aria-label="Choose app mode"
                 className={cn(
                   glassOverlaySurface,
-                  "polished-scroll fixed left-[max(0.5rem,var(--safe-area-left))] right-[max(0.5rem,var(--safe-area-right))] top-[calc(4.25rem+env(safe-area-inset-top))] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)] sm:absolute sm:left-0 sm:right-auto sm:top-[calc(100%+0.5rem)] sm:w-[min(21rem,calc(100vw-2rem))]",
+                  "polished-scroll absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] w-[min(21rem,calc(100vw-2rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)]",
                 )}
               >
-                {visibleAppModeOptions.map((mode, index) => {
-                  const Icon = appModeIcons[mode.id];
-                  const active = mode.id === searchMode;
-                  return (
-                    <button
-                      key={mode.id}
-                      ref={(element) => {
-                        modeOptionRefs.current[index] = element;
-                      }}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={active}
-                      tabIndex={active ? 0 : -1}
-                      onKeyDown={(event) => handleModeOptionKeyDown(event, index)}
-                      onClick={() => {
-                        selectAppMode(mode);
-                        window.requestAnimationFrame(() => modeButtonRef.current?.focus());
-                      }}
-                      className={cn(
-                        "grid min-h-[3.25rem] w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 rounded-md px-2.5 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                        active
-                          ? "border-l-2 border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)]"
-                          : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "grid h-8 w-8 place-items-center rounded-lg border",
-                          active
-                            ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                            : "border-[color:var(--border)] bg-[color:var(--surface-raised)]",
-                        )}
-                      >
-                        <Icon aria-hidden="true" className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">{mode.label}</span>
-                        <span className="block truncate text-2xs font-medium text-[color:var(--text-soft)]">
-                          {mode.description}
-                        </span>
-                      </span>
-                      {active ? (
-                        <Check aria-hidden="true" className="h-4 w-4 text-[color:var(--clinical-accent)]" />
-                      ) : null}
-                    </button>
-                  );
-                })}
+                {renderModeMenuOptions()}
               </div>
             ) : null}
           </div>
@@ -1755,6 +1833,30 @@ export function MasterSearchHeader({
             ) : null}
           </div>
         </div>
+
+        {/* Portaled outside the 3-column header grid so a non-portal regression
+            cannot steal a grid track and shove trailing actions onto a new row. */}
+        {usesPhoneSearchLayout ? (
+          <Sheet
+            open={modeMenuOpen}
+            onClose={dismissModeMenu}
+            title="Choose mode"
+            description="Switch the clinical workspace mode."
+            closeLabel="Close mode menu"
+            returnFocusRef={modeButtonRef}
+            portal
+            mobilePlacement="bottom"
+            mobileSize="content"
+            testId="app-mode-menu-sheet"
+            contentClassName="max-h-[min(88dvh,36rem)] sm:max-w-md"
+            bodyClassName="p-2"
+            headerClassName="bg-[color:var(--surface-lux)] px-4 py-3"
+          >
+            <div id="app-mode-menu" role="menu" aria-label="Choose app mode" className="grid gap-0.5">
+              {renderModeMenuOptions()}
+            </div>
+          </Sheet>
+        ) : null}
       </header>
 
       {searchComposerVisible ? (

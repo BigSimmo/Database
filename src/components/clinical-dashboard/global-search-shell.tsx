@@ -15,11 +15,7 @@ import {
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { ClinicalDashboard } from "@/components/ClinicalDashboard";
-import {
-  clearLegacyRecentQueries,
-  demoRecentQueryOwnerId,
-  loadRecentQueries,
-} from "@/components/clinical-dashboard/recent-query-storage";
+import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
@@ -29,7 +25,14 @@ import {
   deriveSidebarIdentity,
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
+import { landingModeForPreference, readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
+import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import {
+  isDocumentViewerOwnedRoute,
+  resolveMobileComposerReserve,
+  resolveShellVisibleMobileComposerReserve,
+} from "@/components/clinical-dashboard/mobile-composer-reserve";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
@@ -102,7 +105,20 @@ export function GlobalSearchShell(props: GlobalSearchShellProps) {
 
 function GlobalSearchShellClient(props: GlobalSearchShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const landingPreferenceAppliedRef = useRef(false);
+  useEffect(() => {
+    if (landingPreferenceAppliedRef.current) return;
+    landingPreferenceAppliedRef.current = true;
+    if (pathname !== "/") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("mode") || params.get("q")?.trim() || params.get("query")?.trim() || params.get("run") === "1") {
+      return;
+    }
+    const landingMode = landingModeForPreference(readAppPreferences().landing);
+    if (landingMode) router.replace(`/?mode=${landingMode}`, { scroll: false });
+  }, [pathname, router]);
   const initialMode = props.initialMode ?? "answer";
   const visibleShellModes = visibleAppModeDefinitions().filter(
     (mode) => !props.availableModeIds?.length || props.availableModeIds.includes(mode.id),
@@ -141,6 +157,73 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
         <GlobalStandaloneSearchShellClient {...props} />
       )}
     </PatientProfileProvider>
+  );
+}
+
+function isInformationPage(pathname: string): boolean {
+  // Services detail: /services/[slug]
+  if (pathname.startsWith("/services/") && pathname !== "/services") return true;
+
+  // Forms detail: /forms/[slug]
+  if (pathname.startsWith("/forms/") && pathname !== "/forms") return true;
+
+  // Medications detail: /medications/[slug]
+  if (pathname.startsWith("/medications/") && pathname !== "/medications") return true;
+
+  // Psychiatric specifier detail: /specifiers/[slug]
+  if (
+    pathname.startsWith("/specifiers/") &&
+    pathname !== "/specifiers" &&
+    pathname !== "/specifiers/builder" &&
+    pathname !== "/specifiers/compare" &&
+    pathname !== "/specifiers/map"
+  )
+    return true;
+
+  // Clinical formulation detail: /formulation/[slug]
+  if (
+    pathname.startsWith("/formulation/") &&
+    pathname !== "/formulation" &&
+    pathname !== "/formulation/builder" &&
+    pathname !== "/formulation/compare" &&
+    pathname !== "/formulation/map"
+  )
+    return true;
+
+  // Factsheets detail: /factsheets/[slug]
+  if (pathname.startsWith("/factsheets/") && pathname !== "/factsheets" && pathname !== "/factsheets/search")
+    return true;
+
+  // Therapy compass detail: /therapy-compass/[slug]/brief or /therapy-compass/[slug]/sheet
+  if (
+    pathname.startsWith("/therapy-compass/") &&
+    pathname !== "/therapy-compass" &&
+    pathname !== "/therapy-compass/compare" &&
+    pathname !== "/therapy-compass/pathways" &&
+    pathname !== "/therapy-compass/recommend" &&
+    pathname !== "/therapy-compass/review" &&
+    pathname !== "/therapy-compass/search"
+  )
+    return true;
+
+  // Differential diagnosis detail: /differentials/diagnoses/[slug] or /differentials/presentations/[slug]
+  if (pathname.startsWith("/differentials/diagnoses/") || pathname.startsWith("/differentials/presentations/"))
+    return true;
+
+  // DSM-5 Diagnosis detail: /dsm/diagnoses/[slug] or /dsm/diagnoses/[slug]/differentials or /dsm/compare
+  if (pathname.startsWith("/dsm/diagnoses/")) return true;
+
+  // Document detail: /documents/[id] (excluding /documents/search)
+  if (pathname.startsWith("/documents/") && pathname !== "/documents/search") return true;
+
+  return false;
+}
+
+function isToolDetailWithFooterSearch(pathname: string): boolean {
+  return (
+    (pathname.startsWith("/services/") && pathname !== "/services") ||
+    (pathname.startsWith("/forms/") && pathname !== "/forms") ||
+    (pathname.startsWith("/medications/") && pathname !== "/medications")
   );
 }
 
@@ -205,7 +288,6 @@ function GlobalStandaloneSearchShellClient({
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [accountSetupOpen, setAccountSetupOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const [commandScopes, setCommandScopes] = useState<string[]>([]);
   const removeCommandScope = useCallback(
@@ -257,30 +339,35 @@ function GlobalStandaloneSearchShellClient({
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
   const effectiveSidebarWidth = shouldShowDesktopSidebar ? (effectiveSidebarCollapsed ? "5.25rem" : "20rem") : "0px";
-  const shouldShowSearchComposer = searchComposerVisible && !isDifferentialPresentationWorkflow;
+  const isInfoPage = isInformationPage(pathname);
+  const shouldShowSearchComposer =
+    searchComposerVisible &&
+    !isDifferentialPresentationWorkflow &&
+    (!isInfoPage || isToolDetailWithFooterSearch(pathname));
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
   // Standalone mode homes portal the composer into the hero (in-flow at every
-  // width), so phones need no bottom-dock clearance there.
-  const visibleMobileComposerReserve = !shouldShowSearchComposer
-    ? "2rem"
-    : isStandaloneModeHome
-      ? "2rem"
-      : searchMode === "answer"
-        ? "calc(9rem + env(safe-area-inset-bottom))"
-        : differentialsCompareAddonActive
-          ? "calc(8.75rem + env(safe-area-inset-bottom))"
-          : useCompactBottomSearch
-            ? "calc(5.5rem + env(safe-area-inset-bottom))"
-            : "calc(9rem + env(safe-area-inset-bottom))";
+  // width), so phones need no bottom-dock clearance there. Document viewer
+  // routes own their own floating composer, so the shell keeps only a small pad
+  // and lets DocumentViewer manage visible-dock clearance.
   // Release the large bottom reserve only when the phone bottom composer is
   // actually hidden (MasterSearchHeader's bottomComposerHidden). Header-only
   // scroll-hide, pinned compare addons, open menus/sheets, and composer focus
   // keep the full reserve so content does not slide under a still-visible dock.
-  // When the dock does hide, keep only a small safe-area breathing room so
-  // content — not the background — fills the revealed edge-to-edge viewport.
-  const mobileComposerReserve = bottomComposerHidden
-    ? "max(0.75rem, env(safe-area-inset-bottom))"
-    : visibleMobileComposerReserve;
+  // Safari's bottom safe-area inset includes its translucent browser toolbar.
+  // Reusing that inset after the app composer hides recreates a toolbar-sized
+  // blank band, so the hidden state intentionally keeps only a small content
+  // pad. Interactive composer chrome still receives the full inset above.
+  const mobileComposerReserve = resolveMobileComposerReserve(
+    bottomComposerHidden,
+    resolveShellVisibleMobileComposerReserve({
+      shouldShowSearchComposer,
+      documentViewerOwnedRoute: isDocumentViewerOwnedRoute(pathname),
+      isStandaloneModeHome,
+      searchMode,
+      differentialsCompareAddonActive,
+      useCompactBottomSearch,
+    }),
+  );
 
   useEffect(() => {
     // Re-derive the mode and query from the URL, but only when the search string
@@ -331,6 +418,8 @@ function GlobalStandaloneSearchShellClient({
     authUnavailableFallback: !auth.isConfigured,
     localNoAuthMode: isLocalNoAuthMode(),
   });
+  const { favouritesAccessible, accountSetupOpen, accountSetupIntent, openAccountSetup, closeAccountSetup } =
+    useFavouritesAccess(auth.status === "authenticated", clientDemoMode);
   const recentQueriesOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
 
   useEffect(() => {
@@ -350,7 +439,7 @@ function GlobalStandaloneSearchShellClient({
 
   function prefetchApplications() {
     router.prefetch("/?mode=tools");
-    router.prefetch("/favourites");
+    if (favouritesAccessible) router.prefetch("/favourites");
     router.prefetch("/differentials");
     router.prefetch("/dsm");
     router.prefetch("/specifiers");
@@ -360,14 +449,14 @@ function GlobalStandaloneSearchShellClient({
 
   function openGuide() {
     setSettingsOpen(false);
-    setAccountSetupOpen(false);
+    closeAccountSetup();
     setMobileMenuOpen(false);
     setGuideOpen(true);
   }
 
   function openSettings() {
     setGuideOpen(false);
-    setAccountSetupOpen(false);
+    closeAccountSetup();
     setMobileMenuOpen(false);
     setSettingsOpen(true);
   }
@@ -376,12 +465,12 @@ function GlobalStandaloneSearchShellClient({
     setGuideOpen(false);
     setMobileMenuOpen(false);
     if (sidebarIdentity.signedIn) {
-      setAccountSetupOpen(false);
+      closeAccountSetup();
       setSettingsOpen(true);
       return;
     }
     setSettingsOpen(false);
-    setAccountSetupOpen(true);
+    openAccountSetup("default");
   }
 
   function navigateToMode(mode: AppModeId, options: SearchNavigationOptions = {}) {
@@ -403,6 +492,13 @@ function GlobalStandaloneSearchShellClient({
   }
 
   function changeMode(mode: AppModeId) {
+    if (mode === "favourites" && !favouritesAccessible) {
+      setGuideOpen(false);
+      setSettingsOpen(false);
+      setMobileMenuOpen(false);
+      openAccountSetup("favourites");
+      return;
+    }
     setQuery("");
     setCommandScopes([]);
     setSearchMode(mode);
@@ -425,6 +521,13 @@ function GlobalStandaloneSearchShellClient({
   }
 
   function crossModeSearch(mode: AppModeId, crossQuery: string) {
+    if (mode === "favourites" && !favouritesAccessible) {
+      setGuideOpen(false);
+      setSettingsOpen(false);
+      setMobileMenuOpen(false);
+      openAccountSetup("favourites");
+      return;
+    }
     setQuery(crossQuery);
     setCommandScopes([]);
     setSearchMode(mode);
@@ -513,6 +616,7 @@ function GlobalStandaloneSearchShellClient({
               recentQueries={recentQueries}
               identity={sidebarIdentity}
               activeMode={searchMode}
+              showAccountLibrary={favouritesAccessible}
               onCollapsedChange={setSidebarCollapsed}
               onNewChat={startNewAnswerChat}
               onPickRecent={pickRecentQuery}
@@ -542,6 +646,13 @@ function GlobalStandaloneSearchShellClient({
             realDataReady
             onQueryChange={setQuery}
             onSearchModeChange={changeMode}
+            canAccessFavourites={favouritesAccessible}
+            onRequestAccountSetup={() => {
+              setGuideOpen(false);
+              setSettingsOpen(false);
+              setMobileMenuOpen(false);
+              openAccountSetup("favourites");
+            }}
             onAsk={submitSearch}
             onClearQuery={() => {
               setQuery("");
@@ -558,11 +669,41 @@ function GlobalStandaloneSearchShellClient({
             onNewChat={startNewAnswerChat}
             onOpenMobileSidebar={() => setMobileMenuOpen(true)}
             mobileLeadingAction={
-              pathname === "/differentials" && searchMode === "differentials" && requestedQuery ? "back" : "menu"
+              isInfoPage
+                ? "back"
+                : pathname === "/differentials" && searchMode === "differentials" && requestedQuery
+                  ? "back"
+                  : "menu"
             }
             onMobileBack={() => {
-              setQuery("");
-              navigateToMode(searchMode, { focus: true });
+              if (isInfoPage) {
+                if (pathname.startsWith("/services/")) {
+                  router.push("/services");
+                } else if (pathname.startsWith("/forms/")) {
+                  router.push("/forms");
+                } else if (pathname.startsWith("/medications/")) {
+                  router.push("/?mode=prescribing");
+                } else if (pathname.startsWith("/differentials/")) {
+                  router.push("/differentials");
+                } else if (pathname.startsWith("/dsm/")) {
+                  router.push("/dsm");
+                } else if (pathname.startsWith("/specifiers/")) {
+                  router.push("/specifiers");
+                } else if (pathname.startsWith("/formulation/")) {
+                  router.push("/formulation");
+                } else if (pathname.startsWith("/therapy-compass/")) {
+                  router.push("/therapy-compass");
+                } else if (pathname.startsWith("/factsheets/")) {
+                  router.push("/factsheets");
+                } else if (pathname.startsWith("/documents/")) {
+                  router.push("/documents/search");
+                } else {
+                  router.back();
+                }
+              } else {
+                setQuery("");
+                navigateToMode(searchMode, { focus: true });
+              }
             }}
             queryModeOptions={mockupQueryModeOptions}
             queryInputRef={inputRef}
@@ -596,22 +737,34 @@ function GlobalStandaloneSearchShellClient({
           ref={mainRefCallback}
           tabIndex={-1}
           onScroll={handleMainScroll}
+          data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
           className={cn(
             // sm+ uses overflow-x-clip (not hidden): hidden forces overflow-y to
             // auto, which turns #main-content into the sticky scrollport while the
             // window does the actual scrolling — silently disabling every
             // position:sticky descendant (e.g. the document viewer rail).
-            "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
+            // Phone: keep a block formatting scrollport (not a column flex). A
+            // flex-1 child overflowed past a sibling spacer without extending
+            // scrollHeight, which parked long pages under the visible dock.
+            "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:min-h-0 max-sm:flex-1 max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
+            // sm+: static desktop clearance; use var(--safe-area-bottom) so tests
+            // can simulate insets without depending on env() in Chromium.
             !reservesFloatingComposer
-              ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
+              ? "sm:pb-8"
               : searchMode === "answer"
-                ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]"
+                ? "sm:pb-[calc(9rem+var(--safe-area-bottom))]"
                 : useCompactBottomSearch
-                  ? "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-8"
-                  : "max-sm:pb-[var(--mobile-composer-reserve)] sm:pb-[calc(9rem+env(safe-area-inset-bottom))]",
+                  ? "sm:pb-8"
+                  : "sm:pb-[calc(9rem+var(--safe-area-bottom))]",
           )}
         >
-          <div className="max-sm:flex max-sm:min-h-0 max-sm:flex-1 max-sm:flex-col">
+          {/*
+            Phone dock clearance lives on this inner pad (not #main-content):
+            padding on the scrollport itself is omitted from scrollHeight in some
+            flex/overflow combinations. The inner block box includes padding in
+            its height, so end-of-page content clears the visible dock.
+          */}
+          <div data-testid="mobile-composer-reserve-pad" className="max-sm:pb-[var(--mobile-composer-reserve)]">
             <ClientHydrationBoundary
               fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
             >
@@ -629,7 +782,7 @@ function GlobalStandaloneSearchShellClient({
         onSignOut={auth.signOut}
         onOpenGuide={openGuide}
       />
-      <AccountSetupDialog open={accountSetupOpen} onClose={() => setAccountSetupOpen(false)} />
+      <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
         // The workflow header keeps its menu trigger past md, so the drawer
@@ -638,6 +791,7 @@ function GlobalStandaloneSearchShellClient({
         recentQueries={recentQueries}
         identity={sidebarIdentity}
         activeMode={searchMode}
+        showAccountLibrary={favouritesAccessible}
         onOpenChange={setMobileMenuOpen}
         onNewChat={startNewAnswerChat}
         onPickRecent={pickRecentQuery}

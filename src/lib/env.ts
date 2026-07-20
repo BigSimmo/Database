@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { resolvePythonBin } from "@/lib/python-bin";
 import { assertExpectedSupabaseProjectConfig, checkSupabaseProjectConfig } from "@/lib/supabase/project";
 
 const envSchema = z.object({
@@ -20,8 +21,6 @@ const envSchema = z.object({
   LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
   LOCAL_NO_AUTH_OWNER_ID: z.string().uuid().optional(),
-  PUBLIC_WORKSPACE_OWNER_ID: z.string().uuid().optional(),
-  NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED: z.enum(["true", "false"]).optional(),
   NEXT_PUBLIC_MOCKUPS_ENABLED: z.enum(["true", "false"]).optional(),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_EMBEDDING_MODEL: z.string().default("text-embedding-3-small"),
@@ -209,7 +208,7 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((value) => value === "true"),
-  PYTHON_BIN: z.string().default("python"),
+  PYTHON_BIN: z.string().default(resolvePythonBin()),
   NEXT_PUBLIC_DEMO_MODE: z.enum(["true", "false"]).optional().default("false"),
 });
 
@@ -303,14 +302,6 @@ export function isLocalNoAuthMode() {
   const serverNoAuth = typeof window === "undefined" && env.LOCAL_NO_AUTH === "true";
 
   return process.env.NODE_ENV !== "production" && (publicNoAuth || serverNoAuth);
-}
-
-export function publicWorkspaceOwnerId() {
-  return env.PUBLIC_WORKSPACE_OWNER_ID?.trim() || null;
-}
-
-export function publicUploadsEnabled() {
-  return env.NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED === "true";
 }
 
 export function mockupsEnabled() {

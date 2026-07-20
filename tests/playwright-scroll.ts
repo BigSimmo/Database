@@ -1,4 +1,17 @@
-import type { Page } from "playwright/test";
+import type { Locator, Page } from "playwright/test";
+
+/**
+ * Phone dock clearance in CSS pixels for #main-content.
+ * GlobalSearchShell applies the reserve on an inner pad (so it contributes to
+ * scrollHeight); ClinicalDashboard still pads #main-content directly.
+ */
+export async function readMobileComposerReservePx(main: Locator): Promise<number> {
+  return main.evaluate((node) => {
+    const pad = node.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
+    if (pad) return Number.parseFloat(window.getComputedStyle(pad).paddingBottom);
+    return Number.parseFloat(window.getComputedStyle(node).paddingBottom);
+  });
+}
 
 /** Scroll the app's primary phone surface (#main-content when present, else the document). */
 export async function scrollPrimarySurface(page: Page, top: number) {

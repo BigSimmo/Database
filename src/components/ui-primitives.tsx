@@ -21,15 +21,14 @@ export const glassPanel =
 export const glassOverlaySurface =
   "border border-[color:var(--border-lux)] ring-1 ring-[color:var(--surface-highlight)] backdrop-blur-xl";
 export const toggleThumbSurface = "bg-[color:var(--surface-raised)]";
-export const quietPanel =
+export const panelSubtle =
   "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]";
-export const sourceCard = `${quietPanel} transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)]`;
+export const sourceCard = `${panelSubtle} transition hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-hover)]`;
 export const answerSurface = "rounded-lg bg-transparent";
 export const evidenceSurface =
   "rounded-lg border border-[color:var(--border)] border-l-[3px] border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-tight)]";
 export const panel =
   "rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft)] ring-1 ring-[color:var(--border-strong)]/20 dark:ring-[color:var(--border-strong)]/10";
-export const panelSubtle = quietPanel;
 export const controlBase =
   "inline-flex min-h-tap items-center justify-center gap-2 rounded-lg text-sm font-semibold transition active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:shadow-none";
 export const primaryControl = `${controlBase} bg-[color:var(--command)] px-5 text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)] hover:shadow-[var(--shadow-hover)]`;
@@ -129,8 +128,11 @@ export const toneNeutral =
   "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
 
 export const searchPageCanvas = "bg-[color:var(--background)] text-[color:var(--text)]";
+// Phone bottom-dock clearance lives on #main-content / dashboard <main> via
+// --mobile-composer-reserve so it can collapse when the dock hides. Do not bake
+// a second dock-sized safe-area pad into page shells.
 export const searchPageShell =
-  "min-h-[calc(100dvh-4rem)] overflow-x-hidden px-3 py-3 pb-[calc(12rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-5 sm:pb-8 lg:px-6";
+  "min-h-[calc(100dvh-4rem)] overflow-x-hidden px-3 py-3 pb-4 sm:px-5 sm:py-5 sm:pb-8 lg:px-6";
 export const searchPageContainer = "mx-auto w-full max-w-[1500px]";
 // Canonical content-page width. Detail pages (service / form / differential),
 // medication record + prescribing workspace, and the forms results view converge

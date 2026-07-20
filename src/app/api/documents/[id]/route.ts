@@ -11,7 +11,7 @@ import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } f
 import { writeAuditLog } from "@/lib/audit";
 import {
   DocumentDetailRateLimitError,
-  documentDetailQuerySchema,
+  documentDetailApiQuerySchema,
   loadAuthorizedDocumentDetail,
 } from "@/lib/document-detail";
 import { parseJsonBody } from "@/lib/validation/body";
@@ -114,7 +114,7 @@ async function updateStorageCleanupJob(args: {
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: rawId } = await params;
-    const detailQuery = parseRequestQuery(request, documentDetailQuerySchema, "Invalid document detail query.");
+    const detailQuery = parseRequestQuery(request, documentDetailApiQuerySchema, "Invalid document detail query.");
     const payload = await loadAuthorizedDocumentDetail({ request, rawId, query: detailQuery });
     return NextResponse.json(payload);
   } catch (error) {
@@ -139,7 +139,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const body = await parseJsonBody(request, renameSchema, "Enter a document title between 1 and 180 characters.");
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
     const { data: document, error: documentError } = await supabase
       .from("documents")
       .select("id,owner_id,title,file_name,storage_path,content_hash,metadata")
@@ -200,7 +200,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
     const { id } = parseRouteParams({ id: rawId }, documentRouteParamsSchema, "Invalid document id.");
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
     const { data, error } = await supabase.rpc("delete_document_if_idle", {
       p_document_id: id,
       p_owner_id: user.id,

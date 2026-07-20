@@ -29,6 +29,7 @@ import {
   useFavouritesNavCollapsed,
   type FavouritesViewMode,
 } from "@/components/clinical-dashboard/favourites-library-nav";
+import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useDismissableLayer } from "@/components/use-dismissable-layer";
 import { cn } from "@/components/ui-primitives";
 import {
@@ -45,7 +46,9 @@ import {
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
 import { appModeIcons } from "@/lib/app-mode-icons";
+import { canAccessFavouritesMode } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { useAuthSession } from "@/lib/supabase/client";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 
 type FavouriteType =
@@ -1016,6 +1019,14 @@ function ItemWorkspace({ item, onClose }: { item: FavouriteItem; onClose: () => 
 export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?: string; demoMode: boolean }) {
   const router = useRouter();
   const command = useSearchCommand();
+  const auth = useAuthSession();
+  const favouritesAccessible = canAccessFavouritesMode({
+    authenticated: auth.status === "authenticated",
+    demoMode,
+  });
+  const authSettled = auth.status !== "loading";
+  const [accountSetupDismissed, setAccountSetupDismissed] = useState(false);
+  const accountSetupOpen = authSettled && !favouritesAccessible && !accountSetupDismissed;
   const [navCollapsed, setNavCollapsed] = useFavouritesNavCollapsed();
   const savedRegistryFavourites = useSavedRegistryFavourites();
   const items = useMemo(
@@ -1059,10 +1070,65 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     router.push("/favourites");
   }
 
+  if (!favouritesAccessible) {
+    return (
+      <main
+        data-testid="favourites-hub"
+        className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:pb-32 md:pb-0"
+      >
+        <span data-testid="favourites-command-library" className="sr-only">
+          Favourites command library
+        </span>
+        <div className="mx-auto grid min-w-0 max-w-[40rem] gap-4 px-4 py-8 sm:px-6">
+          <header>
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+                <Heart className="size-icon-lg" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-balance text-2xl-minus font-bold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-2xl">
+                  Favourites command library
+                </h1>
+                <p className="mt-1 text-pretty text-sm-minus font-medium leading-6 text-[color:var(--text-muted)]">
+                  Sign up to save favourites and access them across devices.
+                </p>
+              </div>
+            </div>
+          </header>
+          <div
+            role="status"
+            className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-4 text-sm font-semibold text-[color:var(--text)]"
+          >
+            <p>
+              {authSettled
+                ? "Favourites are tied to your account. Sign in or create an account to continue."
+                : "Checking your account…"}
+            </p>
+            {authSettled ? (
+              <button
+                type="button"
+                data-testid="favourites-open-account-setup"
+                onClick={() => setAccountSetupDismissed(false)}
+                className="mt-3 inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--clinical-accent)] px-4 text-sm font-semibold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] transition hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+              >
+                Sign up to save favourites
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <AccountSetupDialog
+          open={accountSetupOpen}
+          onClose={() => setAccountSetupDismissed(true)}
+          intent="favourites"
+        />
+      </main>
+    );
+  }
+
   return (
     <main
       data-testid="favourites-hub"
-      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-[calc(6rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:pb-32 md:pb-0"
+      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:pb-32 md:pb-0"
     >
       <span data-testid="favourites-command-library" className="sr-only">
         Favourites command library
@@ -1106,6 +1172,15 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
                 </div>
               </div>
             </header>
+
+            {!demoMode && auth.status !== "authenticated" && auth.status !== "loading" ? (
+              <p
+                role="status"
+                className="rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-4 py-3 text-sm font-semibold text-[color:var(--text)]"
+              >
+                Sign in or create an account from Account settings to save favourites and access them across devices.
+              </p>
+            ) : null}
 
             <div
               id={modeHomeDesktopComposerSlotId}

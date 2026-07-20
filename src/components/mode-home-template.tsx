@@ -95,25 +95,60 @@ export function ModeHomeHero({
 }
 
 /**
- * Standalone-route wrapper that mirrors the dashboard's vertically centred
- * mode homes: full-height, centred content. The shell reserves composer
- * clearance via --mobile-composer-reserve on #main-content.
+ * Vertical alignment for standalone mode-home shells.
+ *
+ * Introduced as always-`justify-center` flex in 39d14a51 (edge-to-edge mobile
+ * shell). That works for short empty homes, but centering a child taller than
+ * the phone scrollport clips the top — unreachable at scrollTop 0.
+ *
+ * Prefer this prop over className `justify-*` overrides: `cn()` concatenates
+ * and does not resolve Tailwind conflicts, so dual justify utilities are
+ * non-deterministic. Alignment classes are applied last and any stray
+ * `justify-*` tokens in `className` are stripped.
+ */
+export type ModeHomeMainAlign = "center" | "start" | "startOnPhone";
+
+const MODE_HOME_MAIN_ALIGN_CLASS: Record<ModeHomeMainAlign, string> = {
+  // Short empty homes — centre in the visible canvas.
+  center: "justify-center pt-[clamp(1.25rem,4vh,2.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)]",
+  // Tall results / content — keep the top reachable on every breakpoint.
+  start: "justify-start pt-3 sm:pt-4",
+  // Content-rich homes that still fit after sm — top-align on phone only.
+  startOnPhone: "justify-start pt-3 sm:justify-center sm:pt-[clamp(1.75rem,5vh,3.25rem)]",
+};
+
+/** Strip bare and prefixed justify utilities (`sm:justify-center`, `max-sm:justify-start`, …). */
+function withoutJustifyUtilities(className?: string) {
+  if (!className) return undefined;
+  const cleaned = className
+    .replace(/(?:^|\s)(?:[\w-]+:)*justify-(?:normal|start|end|center|between|around|evenly|stretch)(?=\s|$)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned || undefined;
+}
+
+/**
+ * Standalone-route wrapper that mirrors the dashboard mode homes. The shell
+ * reserves composer clearance via --mobile-composer-reserve on #main-content.
  */
 export function ModeHomeMain({
   testId,
   children,
   className,
+  contentAlign = "center",
 }: {
   testId?: string;
   children: ReactNode;
   className?: string;
+  contentAlign?: ModeHomeMainAlign;
 }) {
   return (
     <main
       data-testid={testId}
       className={cn(
-        "flex min-h-0 w-full flex-1 flex-col items-center justify-center bg-[color:var(--background)] px-0 pt-[clamp(1.25rem,4vh,2.25rem)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] sm:pt-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
-        className,
+        "flex min-h-0 w-full flex-1 flex-col items-center bg-[color:var(--background)] px-0 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
+        withoutJustifyUtilities(className),
+        MODE_HOME_MAIN_ALIGN_CLASS[contentAlign],
       )}
     >
       {children}

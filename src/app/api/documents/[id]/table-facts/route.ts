@@ -7,6 +7,7 @@ import { invalidateRagCachesForOwner } from "@/lib/rag";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
+import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
 import { tableReviewMetadata, tableReviewSchema } from "@/lib/table-review";
 import { parseJsonBody } from "@/lib/validation/body";
 import { parseRouteParams } from "@/lib/validation/params";
@@ -44,19 +45,16 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (isDemoMode()) return NextResponse.json({ tableFacts: [], demoMode: true });
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
-
-    const rateLimit = await consumeApiRateLimit({
-      supabase,
-      ownerId: user.id,
-      bucket: "document_admin",
-      allowInMemoryFallbackOnUnavailable: true,
-    });
+    const { access, rateLimit } = await enforceDocumentReadRateLimit(request, supabase);
     if (rateLimit.limited) {
-      return rateLimitJsonResponse("Too many document administration requests. Retry shortly.", rateLimit);
+      return rateLimitJsonResponse("Document requests are rate limited. Try again shortly.", rateLimit);
     }
 
-    const document = await loadOwnedDocument({ supabase, documentId: id, ownerId: user.id });
+    const { data: document, error: documentError } = await withOwnerReadScope(
+      supabase.from("documents").select("id,metadata").eq("id", id),
+      access.ownerId,
+    ).maybeSingle();
+    if (documentError) throw new Error(documentError.message);
     if (!document) {
       return NextResponse.json({ error: "Document not found." }, { status: 404 });
     }
@@ -69,11 +67,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .order("page_number", { ascending: true })
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
-    return NextResponse.json({
-      tableFacts: (data ?? []).filter((fact) =>
-        isCommittedGenerationMetadata({ rowMetadata: fact.metadata, committedGeneration }),
-      ),
-    });
+    const tableFacts = (data ?? [])
+      .filter((fact) => isCommittedGenerationMetadata({ rowMetadata: fact.metadata, committedGeneration }))
+      .map((fact) => ({
+        id: fact.id,
+        document_id: fact.document_id,
+        page_number: fact.page_number,
+        table_title: fact.table_title,
+        row_label: fact.row_label,
+        clinical_parameter: fact.clinical_parameter,
+        threshold_value: fact.threshold_value,
+        action: fact.action,
+        normalized_terms: fact.normalized_terms,
+        source_chunk_id: fact.source_chunk_id,
+        source_image_id: fact.source_image_id,
+        created_at: fact.created_at,
+      }));
+    return NextResponse.json({ tableFacts });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
     return jsonError(error);
@@ -89,7 +99,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const parsed = await parseJsonBody(request, updateSchema, "Table review payload is invalid.");
 
     const supabase = createAdminClient();
-    const user = await requireAuthenticatedUser(request, supabase);
+    const user = await requireAuthenticatedUser(request, supabase, { administrator: true });
 
     const rateLimit = await consumeApiRateLimit({
       supabase,

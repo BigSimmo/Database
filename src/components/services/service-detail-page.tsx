@@ -51,7 +51,7 @@ import {
   type ServiceStatusChip,
   type ServiceSummaryCard,
 } from "@/lib/service-ranker";
-import { readSavedRegistrySlugs, savedServicesStorageKey, writeSavedRegistrySlugs } from "@/lib/saved-registry-storage";
+import { useAccountData } from "@/components/account-data-provider";
 
 const missingText = "Not listed";
 
@@ -421,9 +421,8 @@ function TagList({ items, emptyLabel }: { items: string[]; emptyLabel: string })
 
 export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   const router = useRouter();
-  const [saved, setSaved] = useState(() =>
-    typeof window === "undefined" ? false : readSavedRegistrySlugs(savedServicesStorageKey).includes(service.slug),
-  );
+  const accountData = useAccountData();
+  const saved = accountData.isSaved("service", service.slug);
   const [notice, setNotice] = useState<string | null>(null);
   const primaryContact = hasText(service.primaryContact?.value)
     ? service.primaryContact
@@ -484,18 +483,15 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     }
   }
 
-  function toggleSaved() {
+  async function toggleSaved() {
     try {
-      const current = readSavedRegistrySlugs(savedServicesStorageKey);
-      const next = current.includes(service.slug)
-        ? current.filter((item) => item !== service.slug)
-        : [service.slug, ...current];
-      if (!writeSavedRegistrySlugs(savedServicesStorageKey, next)) {
-        setNotice("Save failed");
+      const nowSaved = !saved;
+      if (!(await accountData.setFavourite("service", service.slug, nowSaved))) {
+        setNotice(
+          accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save services",
+        );
         return;
       }
-      const nowSaved = next.includes(service.slug);
-      setSaved(nowSaved);
       setNotice(nowSaved ? "Service saved" : "Service removed from saved items");
     } catch {
       setNotice("Save failed");
@@ -509,7 +505,10 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   return (
     <main
       data-testid="service-detail-page"
-      className="min-h-[calc(100dvh-4rem)] max-sm:shrink-0 bg-[color:var(--background)] px-3 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
+      // Phone shell already owns dock clearance via --mobile-composer-reserve.
+      // A 100dvh min-height here overflows the inset scrollport and parks the
+      // page footer under the visible dock even when the shell pad is correct.
+      className="max-sm:min-h-0 max-sm:shrink-0 bg-[color:var(--background)] px-3 py-4 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
     >
       <div className={pageContainer}>
         {notice ? (

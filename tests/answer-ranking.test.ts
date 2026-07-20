@@ -157,6 +157,48 @@ describe("answer evidence ranking", () => {
 
     expect(ranking.rankedResults[0].id).toBe("dosing-table");
   });
+
+  it("retains semantic relevance as a bounded signal inside an ambiguous evidence band", () => {
+    const lowSemantic = result({
+      id: "low-semantic",
+      content: "Clozapine monitoring guidance.",
+      hybrid_score: 0.7,
+      score_explanation: { semanticRerankScore: 0.1 } as NonNullable<SearchResult["score_explanation"]>,
+    });
+    const highSemantic = result({
+      id: "high-semantic",
+      content: "Clozapine monitoring guidance.",
+      hybrid_score: 0.7,
+      score_explanation: { semanticRerankScore: 0.9 } as NonNullable<SearchResult["score_explanation"]>,
+    });
+
+    const ranking = rankAnswerEvidence("clozapine monitoring guidance", [lowSemantic, highSemantic]);
+
+    expect(ranking.rankedResults.map((item) => item.id)).toEqual(["high-semantic", "low-semantic"]);
+    expect(ranking.scoresByChunkId.get("high-semantic")).toBeGreaterThan(
+      ranking.scoresByChunkId.get("low-semantic") ?? 0,
+    );
+  });
+
+  it("uses the app-layer rank only as a final answer-evidence tie-breaker", () => {
+    const lowerRank = result({
+      id: "lower-rank",
+      content: "Lithium dosing guidance.",
+      hybrid_score: 0.7,
+      score_explanation: { rankScore: 0.8 } as NonNullable<SearchResult["score_explanation"]>,
+    });
+    const higherRank = result({
+      id: "higher-rank",
+      content: "Lithium dosing guidance.",
+      hybrid_score: 0.7,
+      score_explanation: { rankScore: 1.1 } as NonNullable<SearchResult["score_explanation"]>,
+    });
+
+    const ranking = rankAnswerEvidence("lithium dosing guidance", [lowerRank, higherRank]);
+
+    expect(ranking.rankedResults.map((item) => item.id)).toEqual(["higher-rank", "lower-rank"]);
+    expect(ranking.scoresByChunkId.get("higher-rank")).toBe(ranking.scoresByChunkId.get("lower-rank"));
+  });
 });
 
 describe("high-yield answer bolding", () => {

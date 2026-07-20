@@ -97,7 +97,7 @@ const uiPatterns = [
   /^tests\/ui-.*\.spec\.ts$/,
   /^tests\/playwright-.*\.ts$/,
   /^playwright(?:\..*)?\.config\.ts$/,
-  /^scripts\/(run-playwright|playwright-base-url)\.mjs$/,
+  /^scripts\/(run-playwright|playwright-base-url)\.(?:mjs|ts)$/,
 ];
 
 const dbPatterns = [
@@ -409,6 +409,11 @@ function selfTest() {
     build_changed: true,
   });
   assertScope("test-runner", ["scripts/run-vitest.mjs", "scripts/run-playwright.mjs"], {
+    source_changed: true,
+    coverage_changed: true,
+    ui_changed: true,
+  });
+  assertScope("playwright-base-url-helper", ["scripts/playwright-base-url.ts"], {
     source_changed: true,
     coverage_changed: true,
     ui_changed: true,

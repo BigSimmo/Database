@@ -47,7 +47,7 @@ import { FormCodeBadge, splitFormCode } from "@/components/forms/form-code-badge
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, type FormRecord } from "@/lib/form-ranker";
 import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/service-ranker";
-import { readSavedRegistrySlugs, savedFormsStorageKey, writeSavedRegistrySlugs } from "@/lib/saved-registry-storage";
+import { useAccountData } from "@/components/account-data-provider";
 
 const missingText = "Not listed";
 
@@ -168,6 +168,37 @@ function detailRowsFor(form: FormRecord) {
     { label: "Verification", value: joinNotes(form.verification?.notes) },
     { label: "Related pathway", value: form.route },
   ].filter((row) => hasText(row.value));
+}
+
+export function formDetailsClipboardText(form: FormRecord) {
+  const lines = [form.title, `Form code: ${formCode(form)}`];
+
+  if (hasText(form.subtitle)) lines.push(displayText(form.subtitle));
+  const statuses = (form.statusChips ?? []).map((chip) => chip.label?.trim()).filter(hasText);
+  if (statuses.length) lines.push(`Status: ${statuses.join(", ")}`);
+
+  for (const card of summaryCardsFor(form)) {
+    const label = displayText(card.label, "Priority fact");
+    const values = [card.title, card.detail].filter(hasText).map((value) => value.trim());
+    if (values.length) lines.push(`${label}: ${values.join(" — ")}`);
+  }
+
+  if (hasText(form.bestUse)) lines.push(`Legal boundary: ${displayText(form.bestUse)}`);
+  for (const row of detailRowsFor(form)) lines.push(`${row.label}: ${displayText(row.value)}`);
+
+  const primaryContact = hasText(form.primaryContact?.value)
+    ? form.primaryContact
+    : form.contacts?.find((contact) => hasText(contact.value));
+  if (primaryContact) {
+    lines.push(`${displayText(primaryContact.label, "Contact")}: ${displayText(primaryContact.value)}`);
+  }
+
+  if (hasText(form.source?.label)) lines.push(`Source: ${displayText(form.source.label)}`);
+  if (hasText(form.source?.status)) lines.push(`Source status: ${displayText(form.source.status)}`);
+  if (hasText(form.source?.reviewed)) lines.push(`Source reviewed: ${displayText(form.source.reviewed)}`);
+  if (hasText(form.source?.url)) lines.push(`Source URL: ${displayText(form.source.url)}`);
+
+  return lines.join("\n");
 }
 
 function callHref(contact: ServiceContact | null) {
@@ -477,9 +508,8 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value: string | 
 
 export function FormDetailPage({ form }: { form: FormRecord }) {
   const router = useRouter();
-  const [saved, setSaved] = useState(() =>
-    typeof window === "undefined" ? false : readSavedRegistrySlugs(savedFormsStorageKey).includes(form.slug),
-  );
+  const accountData = useAccountData();
+  const saved = accountData.isSaved("form", form.slug);
   const [notice, setNotice] = useState<string | null>(null);
   const code = formCode(form);
   const details = formCatalogDetails(form);
@@ -511,16 +541,15 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
     }
   }
 
-  function toggleSaved() {
+  async function toggleSaved() {
     try {
-      const current = readSavedRegistrySlugs(savedFormsStorageKey);
-      const next = current.includes(form.slug) ? current.filter((item) => item !== form.slug) : [form.slug, ...current];
-      if (!writeSavedRegistrySlugs(savedFormsStorageKey, next)) {
-        setNotice("Save failed");
+      const nowSaved = !saved;
+      if (!(await accountData.setFavourite("form", form.slug, nowSaved))) {
+        setNotice(
+          accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save forms",
+        );
         return;
       }
-      const nowSaved = next.includes(form.slug);
-      setSaved(nowSaved);
       setNotice(nowSaved ? "Form saved" : "Form removed from saved items");
     } catch {
       setNotice("Save failed");
@@ -530,7 +559,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
   return (
     <main
       data-testid="form-detail-page"
-      className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-3 pb-[calc(8rem+env(safe-area-inset-bottom))] pt-4 text-[color:var(--text)] sm:px-5 sm:pb-10 sm:pt-6 lg:px-8"
+      className="max-sm:min-h-0 bg-[color:var(--background)] px-3 pb-4 pt-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-5 sm:pb-10 sm:pt-6 lg:px-8"
     >
       <div className={pageContainer}>
         {notice ? (
@@ -691,7 +720,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             <div className="hidden lg:block">
               <ActionPanel
                 sourceHref={form.source?.url ?? null}
-                onCopy={() => copyValue(primaryContact?.value ?? form.title, "Form detail copied")}
+                onCopy={() => copyValue(formDetailsClipboardText(form), "Form details copied")}
                 hrefForCall={hrefForCall}
               />
             </div>
@@ -749,7 +778,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
               <SourceSnapshotCard form={form} />
               <ActionPanel
                 sourceHref={form.source?.url ?? null}
-                onCopy={() => copyValue(primaryContact?.value ?? form.title, "Form detail copied")}
+                onCopy={() => copyValue(formDetailsClipboardText(form), "Form details copied")}
                 hrefForCall={hrefForCall}
               />
             </div>

@@ -235,7 +235,7 @@ function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
   const storageFrom = vi.fn(() => ({ upload, createSignedUrl, remove }));
   const getUser = vi.fn(async (receivedToken?: string) =>
     receivedToken === token
-      ? { data: { user: { id: userId } }, error: null }
+      ? { data: { user: { id: userId, app_metadata: { site_role: "administrator" } } }, error: null }
       : { data: { user: null }, error: { message: "Invalid token" } },
   );
   const subjectRateLimitCounts = new Map<string, number>();
@@ -304,8 +304,6 @@ function mockRuntime(
     localOwnerEmail?: string;
     providerMode?: string;
     openAiKey?: string;
-    publicUploadsEnabled?: boolean;
-    publicWorkspaceOwnerId?: string;
     maxConcurrentUploads?: number;
     maxInFlightUploadMb?: number;
     demoMode?: boolean;
@@ -335,15 +333,11 @@ function mockRuntime(
       OPENAI_API_KEY: options.openAiKey ?? "sk-test",
       RAG_PROVIDER_MODE: options.providerMode ?? "auto",
       LOCAL_NO_AUTH_OWNER_EMAIL: options.localOwnerEmail,
-      PUBLIC_WORKSPACE_OWNER_ID: options.publicWorkspaceOwnerId,
-      NEXT_PUBLIC_PUBLIC_UPLOADS_ENABLED: options.publicUploadsEnabled ? "true" : undefined,
       WORKER_STALE_AFTER_MINUTES: 10,
       WORKER_MAX_ATTEMPTS: 3,
     },
     isDemoMode: () => Boolean(options.demoMode),
     isLocalNoAuthMode: () => Boolean(options.localNoAuth),
-    publicWorkspaceOwnerId: () => options.publicWorkspaceOwnerId ?? null,
-    publicUploadsEnabled: () => Boolean(options.publicUploadsEnabled),
     requireOpenAIEnv: () => undefined,
     requireServerEnv: () => undefined,
   }));
@@ -462,7 +456,7 @@ describe("private document API access", () => {
     expect(response.status).toBe(200);
     expect(client.auth.getUser).toHaveBeenCalledTimes(1);
   });
-  it("rejects local no-auth upload calls from unmanaged localhost ports before Supabase access", async () => {
+  it("does not let local no-auth bypass administrator upload authentication", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, undefined, { localNoAuth: true });
     const { POST } = await import("../src/app/api/upload/route");
@@ -476,13 +470,13 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(503);
-    expect(await payload(response)).toMatchObject({ error: "Public uploads are not configured for this workspace." });
+    expect(response.status).toBe(401);
+    expect(await payload(response)).toMatchObject({ code: "authentication_required" });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
 
-  it("rejects managed-port upload calls with stale localhost referers before Supabase access", async () => {
+  it("does not let a localhost referer bypass administrator upload authentication", async () => {
     const client = createSupabaseMock();
     mockRuntime(client, undefined, { localNoAuth: true });
     const { POST } = await import("../src/app/api/upload/route");
@@ -499,8 +493,8 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(503);
-    expect(await payload(response)).toMatchObject({ error: "Public uploads are not configured for this workspace." });
+    expect(response.status).toBe(401);
+    expect(await payload(response)).toMatchObject({ code: "authentication_required" });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.from).not.toHaveBeenCalled();
   });
@@ -1158,7 +1152,7 @@ describe("private document API access", () => {
     expect(client.storageMocks.createSignedUrl).not.toHaveBeenCalled();
   });
 
-  it("rejects anonymous upload with setup guidance when public uploads are not configured", async () => {
+  it("rejects anonymous uploads without touching storage", async () => {
     const client = createSupabaseMock();
     mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
@@ -1172,58 +1166,47 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(503);
-    expect(await payload(response)).toMatchObject({ error: "Public uploads are not configured for this workspace." });
+    expect(response.status).toBe(401);
+    expect(await payload(response)).toMatchObject({ code: "authentication_required" });
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.storageMocks.upload).not.toHaveBeenCalled();
   });
 
-  it("uploads anonymous documents to the configured public workspace owner", async () => {
-    const publicOwnerId = "99999999-9999-4999-8999-999999999999";
-    const client = createSupabaseMock((call) => {
-      if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
-      if (call.table === "documents" && call.operation === "insert") {
-        const inserted = call.insertPayload as { id: string; owner_id: string; storage_path: string };
-        return ok({ id: inserted.id, owner_id: inserted.owner_id, storage_path: inserted.storage_path });
-      }
-      if (call.table === "ingestion_jobs" && call.operation === "insert")
-        return ok({ id: "job-1", document_id: documentId });
-      return ok([]);
+  it("rejects an authenticated non-administrator upload", async () => {
+    const client = createSupabaseMock();
+    client.auth.getUser.mockResolvedValueOnce({
+      data: { user: { id: userId, app_metadata: { site_role: "user" } } },
+      error: null,
     });
-    mockRuntime(client, undefined, { publicUploadsEnabled: true, publicWorkspaceOwnerId: publicOwnerId });
+    mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
     formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
-      request("/api/upload", {
+      authenticatedRequest("/api/upload", {
         method: "POST",
         body: formData,
       }),
     );
 
-    expect(response.status).toBe(201);
-    expect(client.auth.getUser).not.toHaveBeenCalled();
-    expect(
-      client.calls.find((call) => call.table === "documents" && call.operation === "insert")?.insertPayload,
-    ).toMatchObject({
-      owner_id: publicOwnerId,
-    });
+    expect(response.status).toBe(403);
+    expect(await payload(response)).toMatchObject({ code: "administrator_required" });
+    expect(client.storageMocks.upload).not.toHaveBeenCalled();
   });
 
-  it("fails closed for anonymous uploads when the durable anonymous limiter is unavailable", async () => {
-    const publicOwnerId = "99999999-9999-4999-8999-999999999999";
+  it("fails closed for administrator uploads when the durable limiter is unavailable", async () => {
     const client = createSupabaseMock();
     client.rpc.mockImplementation(async (name: string) =>
       name === "consume_api_subject_rate_limit" ? fail("anonymous limiter table unavailable") : ok([]),
     );
-    mockRuntime(client, undefined, { publicUploadsEnabled: true, publicWorkspaceOwnerId: publicOwnerId });
+    mockRuntime(client);
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
     formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
 
     const response = await POST(
-      request("/api/upload", {
+      authenticatedRequest("/api/upload", {
         method: "POST",
         body: formData,
       }),
@@ -1662,10 +1645,23 @@ describe("private document API access", () => {
             chunk_index: 0,
             section_heading: "Management",
             content: "Agitation management table text.",
-            image_ids: [],
+            image_ids: ["private-search-image"],
             similarity: 0.9,
             hybrid_score: 0.92,
-            images: [],
+            images: [
+              {
+                id: "private-search-image",
+                page_number: 3,
+                storage_path: `${otherUserId}/images/private-search-image.png`,
+                source_kind: "table_crop",
+                sourceKind: "table_crop",
+                image_type: "clinical_table",
+                clinicalUseClass: "clinical_evidence",
+                searchable: true,
+                clinical_relevance_score: 0.9,
+                caption: "Agitation management table.",
+              },
+            ],
           },
         ],
         telemetry: {
@@ -1702,6 +1698,9 @@ describe("private document API access", () => {
       }),
     ]);
     expect(body.relatedDocuments).toHaveLength(1);
+    const resultRows = body.results as Array<{ images: Array<Record<string, unknown>> }>;
+    expect(resultRows[0].images[0]).not.toHaveProperty("storage_path");
+    expect(JSON.stringify(resultRows)).not.toContain(otherUserId);
   });
 
   it("accepts differentials as a standalone source-library search mode", async () => {
@@ -4070,6 +4069,46 @@ describe("private document API access", () => {
     expect(secondPayload.telemetry).toMatchObject({ coalesced: true });
   });
 
+  it("cancels shared search work only after every coalesced caller disconnects", async () => {
+    let providerSignal: AbortSignal | undefined;
+    const searchChunksWithTelemetry = vi.fn(async (args: { signal?: AbortSignal }) => {
+      providerSignal = args.signal;
+      return new Promise<never>((_resolve, reject) => {
+        args.signal?.addEventListener(
+          "abort",
+          () => reject(args.signal?.reason ?? new DOMException("aborted", "AbortError")),
+          { once: true },
+        );
+      });
+    });
+    const client = createSupabaseMock();
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const searchRoute = await import("../src/app/api/search/route");
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    const searchRequest = (signal: AbortSignal) =>
+      authenticatedRequest("/api/search", {
+        method: "POST",
+        signal,
+        body: JSON.stringify({ query: "cancel shared monitoring search", includeRelatedDocuments: false }),
+      });
+
+    const first = searchRoute.POST(searchRequest(firstController.signal));
+    const second = searchRoute.POST(searchRequest(secondController.signal));
+    for (let index = 0; index < 10 && !providerSignal; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(searchChunksWithTelemetry).toHaveBeenCalledTimes(1);
+
+    firstController.abort(new DOMException("first caller left", "AbortError"));
+    await first;
+    expect(providerSignal?.aborted).toBe(false);
+
+    secondController.abort(new DOMException("second caller left", "AbortError"));
+    await second;
+    expect(providerSignal?.aborted).toBe(true);
+  });
+
   it("streams only public progress details and exactly one completion before the final answer", async () => {
     const answerQuestionWithScope = vi.fn(async (args: { onProgress?: (event: unknown) => void | Promise<void> }) => {
       await args.onProgress?.({
@@ -4787,7 +4826,9 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(404);
     expect(await payload(response)).toMatchObject({ error: "Document not found." });
-    expect(summarizeDocument).toHaveBeenCalledWith(otherDocumentId, userId);
+    expect(summarizeDocument).toHaveBeenCalledWith(otherDocumentId, userId, {
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it("applies the shared danger-governance refusal to the legacy document summary endpoint", async () => {

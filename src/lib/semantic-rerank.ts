@@ -4,7 +4,7 @@ import { generateParsedTextResult } from "@/lib/openai";
 import { hasUsableOpenAIKey, isSourceOnlyMode } from "@/lib/rag-provider";
 import type { SearchTelemetry } from "@/lib/rag-contracts";
 import { fenceSourceEvidence } from "@/lib/source-text-sanitizer";
-import type { SearchResult } from "@/lib/types";
+import type { SearchResult, SearchScoreExplanation } from "@/lib/types";
 
 const maxSemanticCandidates = 8;
 const ambiguityScoreGap = 0.04;
@@ -28,6 +28,7 @@ export type SemanticRerankGenerator = (
     timeoutMs: number;
     maxRetries: number;
     signal?: AbortSignal;
+    safetyIdentifier?: string;
   },
 ) => Promise<{ parsed: unknown; status?: string; truncated?: boolean; incompleteReason?: string }>;
 
@@ -210,6 +211,7 @@ export async function semanticRerankIfAmbiguous(args: {
   results: SearchResult[];
   telemetry: SearchTelemetry;
   signal?: AbortSignal;
+  safetyIdentifier?: string;
   enabled?: boolean;
   providerAvailable?: boolean;
   requestModeEligible?: boolean;
@@ -274,6 +276,7 @@ export async function semanticRerankIfAmbiguous(args: {
       timeoutMs: 3_000,
       maxRetries: 0,
       signal: args.signal,
+      safetyIdentifier: args.safetyIdentifier,
     });
     const invalid = validateRanking(response.parsed, candidateIds);
     if (response.truncated || response.status === "incomplete" || invalid) {
@@ -285,7 +288,40 @@ export async function semanticRerankIfAmbiguous(args: {
     const relevanceByAlias = new Map(
       (response.parsed as SemanticRanking).ranking.map((item) => [item.candidateId, item.relevanceScore]),
     );
-    const sortedBand = [...aliases].sort(
+    const scoredBand = aliases.map((candidate) => {
+      const semanticRerankScore = relevanceByAlias.get(candidate.alias) ?? 0;
+      const existing = candidate.result.score_explanation;
+      const scoreExplanation: SearchScoreExplanation = existing
+        ? { ...existing, semanticRerankScore }
+        : {
+            vectorScore: candidate.result.similarity ?? 0,
+            textRank: candidate.result.text_rank ?? 0,
+            lexicalCoverageScore: candidate.result.lexical_score ?? 0,
+            metadataMatchScore: 0,
+            sectionTitleMatchBoost: 0,
+            freshnessRecencyBoost: 0,
+            weightedHybridScore: candidate.result.hybrid_score ?? candidate.result.similarity ?? 0,
+            rrfScore: candidate.result.rrf_score ?? null,
+            rrfBoost: 0,
+            memoryBoost: 0,
+            titleBoost: 0,
+            metadataBoost: 0,
+            clinicalSignalBoost: 0,
+            penalty: 0,
+            rankScore: deterministicScore(candidate.result),
+            finalScore: Math.min(1, Math.max(0, candidate.result.hybrid_score ?? candidate.result.similarity ?? 0)),
+            semanticRerankScore,
+            strategy: candidate.result.rrf_score == null ? "weighted_hybrid" : "weighted_hybrid_rrf_blend",
+          };
+      return {
+        ...candidate,
+        result: {
+          ...candidate.result,
+          score_explanation: scoreExplanation,
+        },
+      };
+    });
+    const sortedBand = scoredBand.sort(
       (left, right) =>
         (relevanceByAlias.get(right.alias) ?? 0) - (relevanceByAlias.get(left.alias) ?? 0) ||
         candidateIds.indexOf(left.alias) - candidateIds.indexOf(right.alias),

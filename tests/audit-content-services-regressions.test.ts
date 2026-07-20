@@ -140,6 +140,8 @@ describe("content and services audit regressions", () => {
     expect(formsSearchSource).toContain("Content match in record details");
     expect(formsSearchSource).not.toContain("Content match in related pathway");
     expect(formsSearchSource).toContain("View all forms");
+    expect(formsSearchSource).toContain('appModeHomeHref("forms", { query, focus: true, run: true })');
+    expect(formsSearchSource).not.toContain('href="/forms"');
     expect(formsHomeSource).not.toMatch(/Source verified|Open account setup/);
     expect(formsHomeSource).not.toMatch(
       /Number, pathway, clock|Maker, clock, copies|Browse pathways|Before, current, parallel, after|starter set of MHA 2014 forms|follow a pathway/,
