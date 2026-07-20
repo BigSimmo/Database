@@ -12,6 +12,7 @@ import {
   PdfExtractionResourceError,
 } from "@/lib/extractors/pdf-extraction-budget";
 import { isRetryableIngestionError } from "@/lib/ingestion";
+import { resolvePythonBin } from "@/lib/python-bin";
 
 const roots: string[] = [];
 
@@ -54,6 +55,21 @@ afterEach(async () => {
 });
 
 describe("PDF extraction budgets", () => {
+  it("resolves the platform default when PYTHON_BIN is unset", () => {
+    const previous = process.env.PYTHON_BIN;
+    delete process.env.PYTHON_BIN;
+    try {
+      expect(resolvePythonBin()).toBe(process.platform === "win32" ? "python" : "python3");
+    } finally {
+      if (previous === undefined) delete process.env.PYTHON_BIN;
+      else process.env.PYTHON_BIN = previous;
+    }
+  });
+
+  it("honors an explicit PYTHON_BIN override", () => {
+    expect(resolvePythonBin("/custom/python")).toBe("/custom/python");
+  });
+
   it("accepts exact aggregate boundaries and rejects the first byte or item beyond them", () => {
     const limits = {
       ...PDF_EXTRACTION_BUDGET,
@@ -109,14 +125,25 @@ describe("PDF extraction budgets", () => {
     ).rejects.toMatchObject({ code: "PDF_EXTRACTION_DEADLINE_EXCEEDED" });
 
     const childPid = Number(await readFile(childPidPath, "utf8"));
-    let childIsAlive = false;
-    try {
-      process.kill(childPid, 0);
-      childIsAlive = true;
-    } catch {
-      childIsAlive = false;
+    // SIGKILL delivery can lag under a busy suite; poll briefly before asserting.
+    let childIsAlive = true;
+    const deadline = Date.now() + 1_000;
+    while (Date.now() < deadline) {
+      try {
+        process.kill(childPid, 0);
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      } catch {
+        childIsAlive = false;
+        break;
+      }
     }
-    if (childIsAlive) process.kill(childPid, "SIGKILL");
+    if (childIsAlive) {
+      try {
+        process.kill(childPid, "SIGKILL");
+      } catch {
+        // already gone
+      }
+    }
     expect(childIsAlive).toBe(false);
   });
 
