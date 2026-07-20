@@ -94,7 +94,8 @@ confirmation) · `SATISFIED` (already true in the repo; no work needed).
 - **Files:** `.github/workflows/sast.yml`.
 - **Risk:** MEDIUM — could block on pre-existing findings if not triaged first.
 - **Verification:** a Semgrep run over the scoped paths reports zero ERROR before flipping the gate.
-- **Shipped 2026-07-21:** `semgrep-ingestion-gate` job in `sast.yml` (no `continue-on-error`),
+- **Shipped 2026-07-21 (this PR):** `semgrep-ingestion-gate` job in `sast.yml` (no `continue-on-error`,
+  container digest-pinned to the triage-verified `semgrep/semgrep:1.168.0` image),
   scoped to `worker`, `src/lib/ingestion*.ts`, `src/lib/extractors`, `src/app/api/ingestion`,
   `src/app/api/upload`, with `p/python` added for the OCR stack. Triage ran the CI-pinned
   `semgrep/semgrep:1.168.0` image over the scoped paths: 0 ERROR findings (24 TS rules,

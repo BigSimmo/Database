@@ -101,6 +101,9 @@ for (const target of [
 if (!semgrepGateStep.includes("--config p/python")) {
   failures.push("sast.yml: the ingestion gate must include p/python for the worker OCR stack.");
 }
+if (!/^      image: semgrep\/semgrep@sha256:[0-9a-f]{64}\s*$/m.test(semgrepGateJob)) {
+  failures.push("sast.yml: the blocking ingestion gate container must be digest-pinned (semgrep/semgrep@sha256:...).");
+}
 
 // One SHA per action across every workflow AND composite action. Dependabot bumps
 // one file at a time, so a laggard can sit on an old major indefinitely; because

@@ -65,7 +65,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     container:
-      image: semgrep/semgrep:1.168.0
+      # Digest-pinned (unlike the advisory job's tag): this job blocks merges,
+      # so the engine itself must be immutable. Digest of semgrep/semgrep:1.168.0,
+      # the exact image the X4 triage ran. check-github-action-pins.mjs rejects
+      # a tag-only reference here.
+      image: semgrep/semgrep@sha256:59fbed6127ea7c5dde3ba6a85142733bb20ea9aaa36120c953904f1539aaf66e
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
