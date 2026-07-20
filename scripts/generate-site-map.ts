@@ -124,6 +124,8 @@ const apiDescriptions: Record<string, string> = {
   "/api/search/interaction": "Search interaction telemetry.",
   "/api/setup-status": "Setup status.",
   "/api/upload": "Upload endpoint.",
+  "/api/webhooks/railway": "Railway deploy webhook -> chat forwarder.",
+  "/api/webhooks/supabase/document-change": "Supabase document-change webhook -> ingestion enqueue.",
 };
 
 const routeOwnershipRows = [
