@@ -129,6 +129,39 @@ test.describe("Header element overlap coverage", () => {
   }
 
   for (const viewport of [
+    { name: "narrow-phone", width: 360, height: 780 },
+    { name: "phone", width: 390, height: 820 },
+  ] as const) {
+    test(`header menu and new-chat insets stay symmetric on ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await mockDemoDashboard(page);
+      await gotoHome(page);
+
+      const menu = page.getByRole("button", { name: "Open Clinical Guide menu" });
+      const newChat = page.getByRole("button", { name: "Start a new chat" });
+      await expect(menu).toBeVisible();
+      await expect(newChat).toBeVisible();
+
+      // Headless Chromium reports env(safe-area-inset-*) as 0, so this asserts
+      // the --header-edge-pad (1rem) chrome inset — not notch asymmetry.
+      const menuBox = await menu.boundingBox();
+      const newChatBox = await newChat.boundingBox();
+      expect(menuBox, "menu control must have geometry").not.toBeNull();
+      expect(newChatBox, "new-chat control must have geometry").not.toBeNull();
+
+      const leftInset = menuBox!.x;
+      const rightInset = viewport.width - (newChatBox!.x + newChatBox!.width);
+      // 1rem header pad (~16px) with 2px subpixel tolerance.
+      expect(leftInset, "left menu inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
+      expect(rightInset, "right new-chat inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
+      expect(
+        Math.abs(leftInset - rightInset),
+        `left/right insets should match (left=${leftInset}, right=${rightInset})`,
+      ).toBeLessThanOrEqual(2);
+    });
+  }
+
+  for (const viewport of [
     { name: "mobile", width: 390, height: 820 },
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {
