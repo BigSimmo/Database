@@ -490,6 +490,15 @@ export function buildRetrievalCandidates(
       // rank already used rankScore; reusing the unbounded value here would compound boosts across
       // passes and reintroduce the measured recall regression guarded below.
       rerankScore: result.score_explanation?.finalScore ?? result.hybrid_score,
+      // Carried ONLY as the last tie-break before chunk id: on the embedding-free fast path,
+      // imputed primaries make clamped score/lexical/rerank ties routine, and a chunk-id tie-break
+      // is arbitrary — the second stage's position-based adjustment then launders that arbitrary
+      // winner into the released order. Never added to score.
+      contentRankScore:
+        result.score_explanation?.rankScore ??
+        result.score_explanation?.preClampFinalScore ??
+        result.score_explanation?.finalScore ??
+        result.hybrid_score,
       matchedSignals: [],
       sourceHref: documentCitationHref(citationFromResult(result)),
     };
@@ -602,6 +611,12 @@ export function selectRetrievalEvidence(args: {
     if ((right.lexicalScore ?? 0) !== (left.lexicalScore ?? 0))
       return (right.lexicalScore ?? 0) - (left.lexicalScore ?? 0);
     if ((right.rerankScore ?? 0) !== (left.rerankScore ?? 0)) return (right.rerankScore ?? 0) - (left.rerankScore ?? 0);
+    // Exact tie on every clamped key (routine on the embedding-free fast path, where imputed
+    // primaries are byte-identical and confidences saturate at 1.0): prefer the content-aware
+    // clinical rank over an arbitrary chunk-id ordering. This never raises any score — it only
+    // orders otherwise-indistinguishable candidates, so the measured clamped-score contract holds.
+    if ((right.contentRankScore ?? 0) !== (left.contentRankScore ?? 0))
+      return (right.contentRankScore ?? 0) - (left.contentRankScore ?? 0);
     return left.chunkId.localeCompare(right.chunkId);
   });
   const selectedCandidates: RetrievalCandidate[] = [];

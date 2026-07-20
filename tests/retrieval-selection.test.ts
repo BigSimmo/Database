@@ -682,7 +682,13 @@ describe("saturated-score tie-breaking", () => {
     };
   }
 
-  it("keeps the eval-validated stable order for saturated selection scores", () => {
+  it("breaks saturated-score ties by content-aware clinical rank, then chunk id", () => {
+    // Amended from #901's chunk-id-only pin (which was never live-eval-validated — the only
+    // golden eval on the #901 state failed 4/36): among candidates whose clamped score, lexical
+    // coverage, and clamped rerank confidence all tie exactly, the content-aware clinical rank
+    // now decides before the chunk-id fallback. On the embedding-free fast path this is what
+    // stops an arbitrary id ordering from burying the answer-bearing document
+    // (alcohol-ciwa-threshold class; see tests/rag-fast-path-ordering.test.ts).
     const higherPreClamp = source({
       id: "chunk-b",
       hybrid_score: 1,
@@ -704,8 +710,21 @@ describe("saturated-score tie-breaking", () => {
       maxResultsPerDocument: 2,
     });
 
-    expect(selection.results.map((item) => item.id)).toEqual(["chunk-a", "chunk-b"]);
+    expect(selection.results.map((item) => item.id)).toEqual(["chunk-b", "chunk-a"]);
     // The prior recall fix remains: selection never lowers the raw hybrid score.
     expect(selection.results.map((item) => item.hybrid_score)).toEqual([1, 1]);
+
+    // Identical content rank still falls back to the stable chunk-id order.
+    const tiedSelection = selectRetrievalEvidence({
+      query: "clinical guidance",
+      queryClass: "broad_summary",
+      results: [
+        source({ id: "chunk-d", hybrid_score: 1, similarity: 0.9, score_explanation: saturatedExplanation(1.4) }),
+        source({ id: "chunk-c", hybrid_score: 1, similarity: 0.9, score_explanation: saturatedExplanation(1.4) }),
+      ],
+      topK: 2,
+      maxResultsPerDocument: 2,
+    });
+    expect(tiedSelection.results.map((item) => item.id)).toEqual(["chunk-c", "chunk-d"]);
   });
 });
