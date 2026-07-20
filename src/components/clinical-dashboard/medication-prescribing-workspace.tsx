@@ -217,7 +217,7 @@ function MedicationHome({
   return (
     <ModeHomeTemplate
       testId="medication-home"
-      title="Medication prescribing"
+      title="Medication"
       subtitle="Search a medication or prescribing question."
       icon={Pill}
       headingLevel={2}

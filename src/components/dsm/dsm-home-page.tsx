@@ -15,7 +15,7 @@ export function DsmHomePage() {
       <ModeHomeTemplate
         testId="dsm-home"
         title="DSM-5 Diagnosis"
-        subtitle="Find diagnostic criteria, review specifiers, compare diagnoses, and clarify differential considerations."
+        subtitle="Diagnostic criteria, specifiers, and comparisons."
         icon={BookOpenCheck}
         actionsLabel="DSM-5 Diagnosis actions"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
