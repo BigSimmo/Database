@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capPerDocumentCrowding, packedContextCacheKey, selectModelContextResults } from "../src/lib/rag";
+import { capPerDocumentCrowding, packedContextCacheKey, selectModelContextResults } from "../src/lib/rag/rag";
 import type { RagQueryClass, SearchResult } from "../src/lib/types";
 
 function source(index: number, overrides: Partial<SearchResult> = {}): SearchResult {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { boldHighYieldClinicalText, rankAnswerEvidence } from "../src/lib/answer-ranking";
-import { parseAnswerJson } from "../src/lib/rag";
+import { parseAnswerJson } from "../src/lib/rag/rag";
 import type { SearchResult } from "../src/lib/types";
 
 function result(overrides: Partial<SearchResult> = {}): SearchResult {

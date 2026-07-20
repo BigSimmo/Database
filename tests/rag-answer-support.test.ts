@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isProviderGenerationDegraded } from "@/lib/rag-answer-support";
+import { isProviderGenerationDegraded } from "@/lib/rag/rag-answer-support";
 
 describe("provider generation degradation classification", () => {
   it("counts generation fallbacks but excludes intentional extractive and unsupported routes", () => {

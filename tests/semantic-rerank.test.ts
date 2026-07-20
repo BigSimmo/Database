@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { semanticRerankIfAmbiguous, type SemanticRerankGenerator } from "../src/lib/semantic-rerank";
-import type { SearchTelemetry } from "../src/lib/rag-contracts";
+import type { SearchTelemetry } from "../src/lib/rag/rag-contracts";
 import type { SearchResult, SearchScoreExplanation } from "../src/lib/types";
 
 function explanation(rankScore: number, lexicalCoverageScore = 0.6): SearchScoreExplanation {

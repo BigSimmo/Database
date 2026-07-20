@@ -94,6 +94,10 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### RAG, retrieval, answers
 
+The `rag.ts` orchestrator and its `rag-*` cluster live in **`src/lib/rag/`** (the first
+domain-extracted directory; imported as `@/lib/rag/rag*`). Other modules below remain flat in
+`src/lib/`.
+
 | Module                                                                                                                  | Role                                              |
 | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | `rag.ts`                                                                                                                | Main answer pipeline orchestrator                 |

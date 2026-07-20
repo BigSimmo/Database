@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { loadChunksForMemoryCards, loadChunksForSignalMatches } from "../src/lib/rag";
-import { createChunkLoadCache } from "../src/lib/rag-candidate-sources";
+import { loadChunksForMemoryCards, loadChunksForSignalMatches } from "../src/lib/rag/rag";
+import { createChunkLoadCache } from "../src/lib/rag/rag-candidate-sources";
 import type { DocumentMemoryCard } from "../src/lib/types";
 
 const chunks = [

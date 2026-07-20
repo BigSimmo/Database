@@ -195,7 +195,7 @@ header (same operator gate as the Supabase probe) — returns three counter bloc
 - **`cache`** — `cacheMetricsSnapshot` (`src/lib/observability/cache-metrics.ts`)
   reports `{ lookups, hits, misses, hitRate }` for the retrieval search cache,
   incremented in-process at the two-layer cache orchestration in
-  `searchChunksWithTelemetry` (`src/lib/rag.ts`). A request served by **either**
+  `searchChunksWithTelemetry` (`src/lib/rag/rag.ts`). A request served by **either**
   the process-local or the shared (`rag_response_cache`) layer counts as a hit,
   so a cold process falling through to a warm shared cache is not miscounted as a
   miss; disabled/skipped lookups are recorded as neither. These are **cumulative

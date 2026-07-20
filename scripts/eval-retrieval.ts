@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import { z } from "zod";
-import { loadCapturedRagEvalCases, type RagEvalCase, type SupabaseEvalCaseClient } from "@/lib/rag-eval-cases";
+import { loadCapturedRagEvalCases, type RagEvalCase, type SupabaseEvalCaseClient } from "@/lib/rag/rag-eval-cases";
 import type { SearchResult } from "@/lib/types";
 import {
   loadAdminClient,
@@ -914,7 +914,7 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const [{ requireOpenAIEnv, requireServerEnv }, { searchChunksWithTelemetry }, supabase] = await Promise.all([
     import("@/lib/env"),
-    import("@/lib/rag"),
+    import("@/lib/rag/rag"),
     loadAdminClient(),
   ]);
 

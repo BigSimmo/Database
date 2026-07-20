@@ -4,8 +4,8 @@ import {
   buildRagSourceBlock,
   classifyAnswerIntent,
   parseAnswerJson,
-} from "../src/lib/rag";
-import { buildExtractiveAnswer, finalizeRagAnswerQuality } from "../src/lib/rag-extractive-answer";
+} from "../src/lib/rag/rag";
+import { buildExtractiveAnswer, finalizeRagAnswerQuality } from "../src/lib/rag/rag-extractive-answer";
 import type { SearchResult } from "../src/lib/types";
 
 function source(overrides: Partial<SearchResult> = {}): SearchResult {

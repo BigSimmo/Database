@@ -94,7 +94,7 @@ async function runLexicalSearch(chunkResults: SearchResult[]) {
     }),
   }));
 
-  const { searchChunksWithTelemetry } = await import("@/lib/rag");
+  const { searchChunksWithTelemetry } = await import("@/lib/rag/rag");
   const result = await searchChunksWithTelemetry({
     query: multiVariantQuery,
     ownerId: "owner-1",

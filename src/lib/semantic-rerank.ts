@@ -1,8 +1,8 @@
 import { z, type ZodType } from "zod";
 import { env } from "@/lib/env";
 import { generateParsedTextResult } from "@/lib/openai";
-import { hasUsableOpenAIKey, isSourceOnlyMode } from "@/lib/rag-provider";
-import type { SearchTelemetry } from "@/lib/rag-contracts";
+import { hasUsableOpenAIKey, isSourceOnlyMode } from "@/lib/rag/rag-provider";
+import type { SearchTelemetry } from "@/lib/rag/rag-contracts";
 import { fenceSourceEvidence } from "@/lib/source-text-sanitizer";
 import type { SearchResult, SearchScoreExplanation } from "@/lib/types";
 

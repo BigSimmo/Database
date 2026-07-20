@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { applySecondStageRerankIfNeeded, stabilizeReleasedSearchOrder } from "../src/lib/rag";
-import type { SearchTelemetry } from "../src/lib/rag-contracts";
+import { applySecondStageRerankIfNeeded, stabilizeReleasedSearchOrder } from "../src/lib/rag/rag";
+import type { SearchTelemetry } from "../src/lib/rag/rag-contracts";
 import type { SearchResult, SearchScoreExplanation } from "../src/lib/types";
 
 function explanation(rankScore: number): SearchScoreExplanation {

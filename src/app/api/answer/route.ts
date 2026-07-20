@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { demoAnswer } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
-import { answerQuestionWithScope } from "@/lib/rag";
+import { answerQuestionWithScope } from "@/lib/rag/rag";
 import { jsonError, PublicApiError } from "@/lib/http";
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,

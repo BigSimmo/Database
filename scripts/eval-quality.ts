@@ -25,10 +25,10 @@ import {
   selectRagEvalCases,
   type RagEvalCase,
   type SupabaseEvalCaseClient,
-} from "@/lib/rag-eval-cases";
+} from "@/lib/rag/rag-eval-cases";
 import { sourceGovernanceWarnings } from "@/lib/source-governance";
-import { answerRouteBudgetMs } from "@/lib/rag-route-budget";
-import type { AnswerRouteMode } from "@/lib/rag-routing";
+import { answerRouteBudgetMs } from "@/lib/rag/rag-route-budget";
+import type { AnswerRouteMode } from "@/lib/rag/rag-routing";
 import type { RagAnswer } from "@/lib/types";
 
 loadEnvConfig(process.cwd());
@@ -977,7 +977,7 @@ async function runRetrievalQualityCases(args: {
   supabase: Awaited<ReturnType<typeof loadAdminClient>>;
 }) {
   const [{ searchChunksWithTelemetry }, capturedCases] = await Promise.all([
-    import("@/lib/rag"),
+    import("@/lib/rag/rag"),
     loadCapturedRagEvalCases({
       supabase: args.supabase as unknown as SupabaseEvalCaseClient,
       ownerId: args.ownerId,
@@ -1034,7 +1034,7 @@ async function runRagQualityCases(args: {
   supabase: Awaited<ReturnType<typeof loadAdminClient>>;
 }) {
   const [{ answerQuestionWithScope }, capturedCases] = await Promise.all([
-    import("@/lib/rag"),
+    import("@/lib/rag/rag"),
     loadCapturedRagEvalCases({
       supabase: args.supabase as unknown as SupabaseEvalCaseClient,
       ownerId: args.ownerId,

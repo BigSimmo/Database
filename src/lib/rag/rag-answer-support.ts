@@ -1,5 +1,5 @@
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
-import { normalizeSectionText, splitBalancedWords } from "@/lib/rag-answer-text";
+import { normalizeSectionText, splitBalancedWords } from "@/lib/rag/rag-answer-text";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import { sourceTextForDisplay } from "@/lib/source-text-sanitizer";
 import type {

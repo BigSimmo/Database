@@ -1,5 +1,5 @@
 import { extractClinicalValueAtoms, type ClinicalValueAtom } from "@/lib/answer-verification";
-import { SOURCE_BACKED_REVIEW_FALLBACK_REASON } from "@/lib/rag-routing";
+import { SOURCE_BACKED_REVIEW_FALLBACK_REASON } from "@/lib/rag/rag-routing";
 import type { CitationProvenance, EvidenceAssessment, RagAnswer, SearchResult, SupportedClaim } from "@/lib/types";
 
 const acceptedProvenance = new Set<CitationProvenance>([

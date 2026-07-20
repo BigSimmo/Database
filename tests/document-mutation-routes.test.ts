@@ -129,7 +129,7 @@ function mockRouteRuntime(client: ReturnType<typeof createSupabaseMock>["client"
     requireAuthenticatedUser: vi.fn(async () => ({ id: ownerId })),
     unauthorizedResponse: () => Response.json({ error: "Authentication required." }, { status: 401 }),
   }));
-  vi.doMock("@/lib/rag", () => ({ invalidateRagCachesForOwner }));
+  vi.doMock("@/lib/rag/rag", () => ({ invalidateRagCachesForOwner }));
   return { invalidateRagCachesForOwner };
 }
 

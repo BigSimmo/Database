@@ -212,7 +212,7 @@ describe("analyzeQueryWithClassifierFallback corpus grounding", () => {
       const actual = await importOriginal<typeof import("../src/lib/openai")>();
       return { ...actual, generateParsedTextResult: classifierMock };
     });
-    const rag = await import("../src/lib/rag");
+    const rag = await import("../src/lib/rag/rag");
     const corpusGrounding = await import("../src/lib/corpus-grounding");
     const { analyzeClinicalQuery } = await import("../src/lib/clinical-search");
     rag.resetClassifierVerdictMemoForTests();

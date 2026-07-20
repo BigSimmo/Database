@@ -185,7 +185,7 @@ function mockRuntime(options: { demoMode?: boolean } = {}) {
     };
   });
   vi.doMock("@/lib/demo-data", () => ({ demoAnswer, demoSearch }));
-  vi.doMock("@/lib/rag", () => ({ answerQuestionWithScope, searchChunksWithTelemetry }));
+  vi.doMock("@/lib/rag/rag", () => ({ answerQuestionWithScope, searchChunksWithTelemetry }));
   vi.doMock("@/lib/document-enrichment", () => ({
     fetchRelatedDocuments,
     toDocumentMatch: vi.fn((document: unknown) => document),

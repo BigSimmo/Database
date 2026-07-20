@@ -6,7 +6,7 @@ const mockedModuleSpecifiers = [
   "@/lib/differentials",
   "@/lib/document-enrichment",
   "@/lib/env",
-  "@/lib/rag",
+  "@/lib/rag/rag",
   "@/lib/supabase/admin",
   "@/lib/tools-catalog",
   "@/lib/universal-search",
@@ -201,8 +201,8 @@ describe("runUniversalSearch (demo/fixtures path)", () => {
         },
       ],
     }));
-    vi.doMock("@/lib/rag", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("../src/lib/rag")>();
+    vi.doMock("@/lib/rag/rag", async (importOriginal) => {
+      const actual = await importOriginal<typeof import("../src/lib/rag/rag")>();
       return {
         ...actual,
         searchChunksWithTelemetry,
