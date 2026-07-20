@@ -299,7 +299,7 @@ jobs:
           NEXT_BUILD_CPUS: "4"
         run: npm run build
 
-      - name: Bundle budget (warn-only until a baseline is enforced)
+      - name: Bundle budget (enforced — fails on >tolerancePct gzip growth vs baseline)
         run: npm run check:bundle-budget
 
       - name: Deployment boot smoke

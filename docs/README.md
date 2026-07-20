@@ -1,8 +1,9 @@
 # Clinical KB Documentation Index
 
-Curated map of everything under `docs/`. Categories distinguish **maintained**
-documents (keep these current when behavior changes) from **point-in-time
-records** (historical; do not update, supersede with a new dated doc instead).
+Curated map of the load-bearing docs under `docs/` (not an exhaustive listing of every
+file). Categories distinguish **maintained** documents (keep these current when behavior
+changes) from **point-in-time records** (historical; do not update, supersede with a new
+dated doc instead).
 
 Check that repo paths referenced from the maintained docs still resolve with:
 
@@ -27,6 +28,7 @@ npm run docs:check-links
 - [clinical-chat-ui-component-map.md](clinical-chat-ui-component-map.md) — chat UI component inventory
 - [clinical-badge-system-guide.md](clinical-badge-system-guide.md) — clinical badge semantics
 - [multi-user-auth-setup.md](multi-user-auth-setup.md) — auth, sessions, owner scoping
+- [pwa.md](pwa.md) — PWA install assets, privacy-first service worker, offline shell
 
 ## Operations runbooks
 
@@ -40,6 +42,9 @@ npm run docs:check-links
 - [database-drift-detection.md](database-drift-detection.md) — schema drift detection (`npm run check:drift`)
 - [supabase-migration-reconciliation.md](supabase-migration-reconciliation.md) — migration drift and repair policy
 - [observability-slos.md](observability-slos.md) — health probes, SLO counters, degraded modes
+- [openai-rag-operations.md](openai-rag-operations.md) — OpenAI/RAG provider operations and modes
+- [operator-backlog.md](operator-backlog.md) — pending operator debt backlog
+- [deploy-corrector-public-titles.md](deploy-corrector-public-titles.md) — public-title corrector deploy notes
 
 ## Governance, safety, privacy
 
@@ -50,10 +55,13 @@ npm run docs:check-links
 - [privacy-impact-assessment.md](privacy-impact-assessment.md) — PIA findings and launch blockers
 - [openai-cross-border-basis.md](openai-cross-border-basis.md) — cross-border data-processing basis
 - [production-readiness-checklist.md](production-readiness-checklist.md) — release readiness criteria
+- [samd-classification-medication-considerations.md](samd-classification-medication-considerations.md) — SaMD classification and medication considerations
 
 ## Process and review
 
 - [process-hardening.md](process-hardening.md) — verification gates, CI expectations, known debts
+- [testing.md](testing.md) — test execution, focused/live commands, Playwright ownership, flake policy
+- [productivity-workflows.md](productivity-workflows.md) — repo workflow planners (flightplan, triage, rag-lab, …)
 - [codex-review-protocol.md](codex-review-protocol.md) — shared review protocol for all review skills
 - [codex-prompt-playbook.md](codex-prompt-playbook.md) — copy/paste prompts for common repo work
 - [branch-cleanup-guide.md](branch-cleanup-guide.md) — branch hygiene workflow
@@ -75,10 +83,11 @@ Dated status reports, reviews, and operator decisions. They describe the repo
 as it was on that date; supersede with a new dated document rather than editing.
 
 - [audit/](audit/) — repo and UX/accessibility audits
+- [audit/2026-07-20-repository-maturity.md](audit/2026-07-20-repository-maturity.md) — full repository maturity, mapping, and organisation audit
 - [forward-codify-retrieval-rpcs-workorder.md](forward-codify-retrieval-rpcs-workorder.md) — completed retrieval RPC codification workorder
-- [project-alignment-cleanup.md](project-alignment-cleanup.md) — completed June 2026 repo-alignment record
+- [project-alignment-cleanup.md](archive/project-alignment-cleanup.md) — completed June 2026 repo-alignment record
 - [capacity-review.md](capacity-review.md), [scale-readiness-review.md](scale-readiness-review.md), [tenancy-defense-in-depth-review.md](tenancy-defense-in-depth-review.md)
-- `*-2026-*` findings and status docs, e.g. [chunking-ocr-reindex-lever-finding-2026-07-08.md](chunking-ocr-reindex-lever-finding-2026-07-08.md), [source-governance-status-2026-07-08.md](source-governance-status-2026-07-08.md), [source-governance-priorities-2026-07-02.md](source-governance-priorities-2026-07-02.md), [source-review-priority-2026-07-02.md](source-review-priority-2026-07-02.md), [operator-apply-july8-batch.md](operator-apply-july8-batch.md)
+- `*-2026-*` findings and status docs, e.g. [chunking-ocr-reindex-lever-finding-2026-07-08.md](chunking-ocr-reindex-lever-finding-2026-07-08.md), [source-governance-status-2026-07-08.md](archive/source-governance-status-2026-07-08.md), [source-governance-priorities-2026-07-02.md](archive/source-governance-priorities-2026-07-02.md), [source-review-priority-2026-07-02.md](source-review-priority-2026-07-02.md), [operator-apply-july8-batch.md](operator-apply-july8-batch.md)
 
 ## Archive
 

@@ -261,6 +261,28 @@ Golden retrieval fixture: `scripts/fixtures/rag-retrieval-golden.json`
 - Caching: `rag_response_cache`, app-layer caches in `env.ts`
 - Eval: `npm run eval:quality`, `eval:retrieval`
 
+Answer request flow (`rag.ts` orchestrates retrieval → ranking → generation →
+verification; failed generation degrades to a deterministic source-only answer):
+
+```mermaid
+sequenceDiagram
+    actor U as Clinician
+    participant API as api/answer route
+    participant RAG as rag.ts orchestrator
+    participant DB as Supabase hybrid retrieval RPCs
+    participant AI as OpenAI (fast / strong)
+    U->>API: question (owner-scoped)
+    API->>RAG: build answer for query
+    RAG->>DB: match_document_chunks_hybrid / text / table_facts
+    DB-->>RAG: candidate chunks + sources
+    RAG->>RAG: retrieval-selection + answer-ranking
+    RAG->>AI: grounded generation (routed model)
+    AI-->>RAG: draft answer
+    RAG->>RAG: answer-verification + render policy
+    RAG-->>API: cited answer (PDF-linked) or source-only fallback
+    API-->>U: response (cached in rag_response_cache)
+```
+
 ### Clinical KB surface
 
 - 11 app modes with unified search shell
