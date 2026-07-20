@@ -68,6 +68,7 @@ const envSchema = z.object({
   // batches of this size. 256 keeps total tokens well under the ceiling even for the
   // largest (narrative-profile) chunks while staying far below the 2048 input cap.
   OPENAI_EMBEDDING_BATCH_SIZE: z.coerce.number().int().positive().max(2048).default(256),
+  OPENAI_EMBEDDING_CONCURRENCY_LIMIT: z.coerce.number().int().positive().default(5),
   OPENAI_VISION_MODEL: z.string().default("gpt-5.6-terra"),
   OPENAI_VISION_IMAGE_DETAIL: z.enum(["auto", "low", "high"]).default("auto"),
   OPENAI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(45000),
