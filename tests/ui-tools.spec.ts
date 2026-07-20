@@ -1689,12 +1689,17 @@ test.describe("Clinical KB tools launcher", () => {
     await scrollPrimarySurface(page, 60);
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect(compareAction).toBeVisible();
-    const restoredPointer = await compareAction.evaluate((element) => {
-      const rect = element.getBoundingClientRect();
-      const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-      return hit === element || element.contains(hit);
-    });
-    expect(restoredPointer).toBe(true);
+    // Poll through the reveal transition: a single elementFromPoint sample can
+    // miss while translateY is still easing back into the viewport on CI.
+    await expect
+      .poll(async () =>
+        compareAction.evaluate((element) => {
+          const rect = element.getBoundingClientRect();
+          const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+          return hit === element || element.contains(hit);
+        }),
+      )
+      .toBe(true);
     await expectNoPageHorizontalOverflow(page);
 
     // The result cards and compare bar remain in their non-desktop layout up
