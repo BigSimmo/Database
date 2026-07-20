@@ -784,8 +784,12 @@ test.describe("Clinical KB tools launcher", () => {
         await expect(heroSearch).toBeVisible();
 
         const searchBox = await heroSearch.boundingBox();
+        // Scope to the mode-home container and match exactly: the standalone
+        // "Medication" hero title is otherwise a substring of the answer
+        // section's sr-only "Medication matches" heading (strict-mode clash).
         const headingBox = await page
-          .getByRole("heading", { level: home.headingLevel, name: home.heading })
+          .getByTestId(home.testId)
+          .getByRole("heading", { level: home.headingLevel, name: home.heading, exact: true })
           .boundingBox();
         expect(searchBox).not.toBeNull();
         expect(headingBox).not.toBeNull();
