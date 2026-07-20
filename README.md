@@ -269,3 +269,15 @@ synthetic and must not be used as clinical guidance.
 by Git. The smaller `public/demo-documents/` set is tracked because the app uses
 it for demo-mode source and image rendering when live Supabase setup is
 unavailable.
+
+## Security
+
+Report vulnerabilities privately — see `SECURITY.md`. Do not open a public issue for
+a security problem. Threat models and the privacy assessment live under `docs/`
+(`rag-injection-threat-model.md`, `tenancy-defense-in-depth-review.md`,
+`privacy-impact-assessment.md`).
+
+## License
+
+Proprietary — all rights reserved. This repository is private and is not licensed for
+redistribution or reuse (`package.json` declares `"license": "UNLICENSED"`).
