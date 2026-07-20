@@ -33,6 +33,14 @@ on:
         description: "Optional git ref (branch/SHA) to evaluate; empty = default branch"
         required: false
         default: ""
+      # Phase E: opt-in run of the 30-case answer-quality/targeting eval (eval:answer-quality)
+      # alongside the gate subset. Dispatch-only and default-off, so scheduled runs and
+      # existing dispatch shapes are byte-identical. Informational: the script exits 0
+      # without a --targeting-floor, so it can never fail the canary.
+      answer_quality_eval:
+        description: "Also run the 30-case answer-quality/targeting eval (eval:answer-quality); 'true' to enable"
+        required: false
+        default: ""
   schedule:
     # Sunday 18:00 UTC = Monday 02:00 Australia/Perth — off-peak for clinicians.
     - cron: "0 18 * * 0"
@@ -154,6 +162,21 @@ jobs:
           mkdir -p .local/eval-canary
           set -o pipefail
           npm run eval:quality -- --rag-only --limit "$ANSWER_CASE_LIMIT" --fail-on-threshold 2>&1 | tee .local/eval-canary/answer-quality.log
+
+      # Phase E baseline/paired-run instrument: the five answer-quality metrics (relevance,
+      # readability, artifact leaks, intent coverage, fail-closed) + per-intent structural
+      # targeting over the 30-case fixture. Informational by design — no --targeting-floor,
+      # exit 0 — so quality gates stay owned by the eval:quality step above; the tee'd log
+      # rides the existing artifact upload. `!cancelled()` keeps the instrument running when
+      # the gate subset above fails: a baseline/paired run must observe red gates too
+      # (proven necessary on dispatch #57, where a red eval:quality skipped this step).
+      - name: Answer-quality targeting eval (optional, dispatch-only)
+        id: answer_targeting
+        if: ${{ !cancelled() && github.event_name == 'workflow_dispatch' && github.event.inputs.answer_quality_eval == 'true' }}
+        run: |
+          mkdir -p .local/eval-canary
+          set -o pipefail
+          npm run eval:answer-quality 2>&1 | tee .local/eval-canary/answer-targeting.log
 
       # Uploaded on success AND failure: the JSON artifact regenerates the offline ranking
       # snapshot (download it, then `npm run build:ranking-snapshot -- --input <json> --output
