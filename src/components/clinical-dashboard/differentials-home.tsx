@@ -1267,7 +1267,7 @@ export function DifferentialsHome({
       <ModeHomeTemplate
         testId="differentials-home-template"
         title="Differentials"
-        subtitle="Match your catalogue against your indexed library."
+        subtitle="Match your catalogue to your library."
         icon={BrainCircuit}
         headingLevel={1}
         desktopComposerSlotId={desktopComposerSlotId}

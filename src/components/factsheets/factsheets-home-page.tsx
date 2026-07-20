@@ -24,7 +24,7 @@ export function FactsheetsHomePage() {
         <ModeHomeHero
           testId="factsheets-home"
           title="Factsheets"
-          subtitle="Plain-language patient handouts to print and share."
+          subtitle="Plain-language patient handouts."
           icon={BookOpenText}
         />
 
