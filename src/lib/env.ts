@@ -17,6 +17,22 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_DB_URL: z.string().url().optional(),
   HEALTH_DEEP_PROBE_SECRET: z.string().min(16).optional(),
+  // Inbound webhook receivers. Each shared secret gates a machine-to-machine
+  // endpoint under /api/webhooks/* and fails closed when unset (the route 503s
+  // rather than trusting an unauthenticated caller). See docs/webhooks.md.
+  // Railway deploy webhook -> chat forwarder. Railway only lets you configure a
+  // target URL (no custom headers), so this secret travels as `?token=` in the
+  // configured URL and is compared constant-time. Min 16 chars.
+  RAILWAY_WEBHOOK_SECRET: z.string().min(16).optional(),
+  // Supabase Database Webhook -> ingestion enqueue. Supabase webhooks DO allow
+  // custom headers, so this secret is sent as `Authorization: Bearer` (or the
+  // `x-webhook-secret` header) and compared constant-time. Min 16 chars.
+  SUPABASE_INGESTION_WEBHOOK_SECRET: z.string().min(16).optional(),
+  // Optional outbound chat destinations shared by every /api/webhooks/* forwarder
+  // and the CI-failure GitHub workflow. Set either, both, or neither; a receiver
+  // with no destination configured accepts the event and reports it undelivered.
+  SLACK_WEBHOOK_URL: z.string().url().optional(),
+  DISCORD_WEBHOOK_URL: z.string().url().optional(),
   NEXT_PUBLIC_LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
@@ -68,6 +84,7 @@ const envSchema = z.object({
   // batches of this size. 256 keeps total tokens well under the ceiling even for the
   // largest (narrative-profile) chunks while staying far below the 2048 input cap.
   OPENAI_EMBEDDING_BATCH_SIZE: z.coerce.number().int().positive().max(2048).default(256),
+  OPENAI_EMBEDDING_CONCURRENCY_LIMIT: z.coerce.number().int().positive().default(5),
   OPENAI_VISION_MODEL: z.string().default("gpt-5.6-terra"),
   OPENAI_VISION_IMAGE_DETAIL: z.enum(["auto", "low", "high"]).default("auto"),
   OPENAI_REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(45000),

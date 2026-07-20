@@ -105,7 +105,7 @@ function SpecifiersHome() {
       <ModeHomeTemplate
         testId="specifiers"
         title="Specifiers"
-        subtitle="Refine diagnostic wording, exclusions, and episode patterns."
+        subtitle="Check specifier fit and exclusions."
         icon={Tags}
         actionsLabel="Specifier workflows"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}

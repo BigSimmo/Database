@@ -107,7 +107,7 @@ function launcherAppsForSession(canAccessFavourites: boolean): LauncherApp[] {
 
 const toolsLauncherCopy = {
   heading: "Tools",
-  description: "Assessment, prescribing, and clinical workflows.",
+  description: "Assessment, prescribing, workflows.",
   allSectionLabel: "All tools",
   countNoun: "tools",
   emptyTitle: "No tools match",

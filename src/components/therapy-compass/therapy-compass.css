@@ -4,6 +4,17 @@
   color: var(--text);
 }
 
+/*
+ * The home route renders ModeHomeMain, which owns a full-height --background
+ * (white) canvas exactly like every other mode home. The workspace shell must
+ * not paint its grey --surface-chrome behind it: on phones ModeHomeMain is only
+ * content-height, so the chrome showed through below the fold as a mismatched
+ * grey block. Match the other mode homes by using --background on home.
+ */
+.tc-root.tc-root--home {
+  background: var(--background);
+}
+
 .tc-root .tc-main {
   min-width: 0;
   padding: 32px 40px 40px;

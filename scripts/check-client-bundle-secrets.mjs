@@ -47,15 +47,27 @@ if (!existsSync(clientBuildRoot)) {
   process.exit(1);
 }
 
+// Mask a matched secret *value* so the full token never reaches CI logs. Keeps a
+// short, non-sensitive prefix for context and reveals only its length.
+function maskSecret(value) {
+  const visiblePrefix = value.slice(0, 10);
+  return `${visiblePrefix}…[redacted, ${value.length} chars]`;
+}
+
 const offenders = new Map();
 for (const file of [...textFiles(publicRoot), ...textFiles(clientBuildRoot)]) {
   const content = readFileSync(file, "utf8");
   for (const marker of forbiddenMarkers) {
-    const matchedText =
-      marker instanceof RegExp ? content.match(marker)?.[0] : content.includes(marker) ? marker : null;
+    // For literal markers the matched text is the constant marker name (safe to log). For
+    // regex markers it is the actual matched secret value, which must be masked before logging.
+    const isRegexMarker = marker instanceof RegExp;
+    const matchedText = isRegexMarker ? content.match(marker)?.[0] : content.includes(marker) ? marker : null;
     if (matchedText) {
       const relativePath = relative(projectRoot, file).replaceAll("\\", "/");
-      offenders.set(`${relativePath}\0${matchedText}`, { marker: matchedText, relativePath });
+      const displayMarker = isRegexMarker ? maskSecret(matchedText) : matchedText;
+      // Dedupe on the raw matched value so distinct secrets in one file are all reported,
+      // but only ever store/log the masked placeholder.
+      offenders.set(`${relativePath}\0${matchedText}`, { marker: displayMarker, relativePath });
     }
   }
 }
