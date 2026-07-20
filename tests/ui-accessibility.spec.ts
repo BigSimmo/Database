@@ -382,7 +382,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/therapy-compass", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByRole("heading", { name: "What therapy are you looking for?" })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Therapy", exact: true })).toBeVisible({
       timeout: 60_000,
     });
 

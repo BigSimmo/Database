@@ -382,7 +382,12 @@ test.describe("Clinical KB tools launcher", () => {
       }
       await expect(page.getByLabel("Mode Tools")).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
-      await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toBeVisible();
+      if (viewport.name === "mobile") {
+        // Phones dock the compact shared search at the bottom edge.
+        await expect(page.locator("form.answer-footer-search-dock").getByTestId("global-search-input")).toBeVisible();
+      } else {
+        await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toBeVisible();
+      }
       await expect(page.getByTestId("tools-local-search-input")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     });
@@ -481,14 +486,14 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/\/services$/);
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     await expect(page.getByTestId("services-home")).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "Find a service" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Services" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Expand sidebar" })).toBeVisible();
     await expect(page.getByTestId("collapsed-account-settings")).toBeVisible();
     await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
     const servicesHomeSearch = page.getByTestId("services-home").getByTestId("global-search-input");
     await expect(servicesHomeSearch).toBeVisible();
     const servicesSearchBox = await servicesHomeSearch.boundingBox();
-    const servicesHeadingBox = await page.getByRole("heading", { level: 1, name: "Find a service" }).boundingBox();
+    const servicesHeadingBox = await page.getByRole("heading", { level: 1, name: "Services" }).boundingBox();
     expect(servicesSearchBox).not.toBeNull();
     expect(servicesHeadingBox).not.toBeNull();
     expect((servicesHeadingBox?.y ?? 0) + (servicesHeadingBox?.height ?? 0)).toBeLessThan(servicesSearchBox?.y ?? 0);
@@ -553,49 +558,82 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("mode home routes center the shared search on mobile", async ({ page }) => {
+  test("phone keeps the answer home search centered in the hero with the privacy notice", async ({ page }) => {
+    await mockAnswerDashboardApi(page);
+    await page.setViewportSize({ width: 390, height: 820 });
+
+    await gotoLauncher(page, "/?mode=answer");
+    await expect(page.getByTestId("answer-empty-state")).toBeVisible();
+    await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
+
+    const heroSearch = page.getByTestId("answer-empty-state").getByTestId("global-search-input");
+    await expect(heroSearch).toBeVisible();
+
+    const searchBox = await heroSearch.boundingBox();
+    const headingBox = await page.getByRole("heading", { level: 2, name: "How can I help?" }).boundingBox();
+    const mainBox = await page.locator("#main-content").boundingBox();
+    expect(searchBox).not.toBeNull();
+    expect(headingBox).not.toBeNull();
+    expect(mainBox).not.toBeNull();
+    expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
+    // The home centres its hero+search block in the scrollable main pane on
+    // phones (below the sticky header), not necessarily the full viewport.
+    const searchMidpoint = (searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2;
+    const mainTop = mainBox?.y ?? 0;
+    const mainHeight = mainBox?.height ?? 820;
+    expect(searchMidpoint).toBeLessThan(mainTop + mainHeight * 0.72);
+    expect(searchMidpoint).toBeGreaterThan(mainTop + mainHeight * 0.08);
+    const metrics = await globalSearchComposerMetrics(page, "answer-empty-state");
+    expect(metrics).not.toBeNull();
+    expect(metrics?.position).not.toBe("fixed");
+    expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390 - 16);
+    expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
+    expect(metrics?.homeCenterX).not.toBeNull();
+    expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
+    await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
+    // The home hero is the only phone surface with the APP-5 privacy notice.
+    await expect(page.getByTestId("answer-composer-privacy-warning")).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone mode homes dock the compact shared search at the bottom edge", async ({ page }) => {
     await mockAnswerDashboardApi(page);
     await page.setViewportSize({ width: 390, height: 820 });
 
     for (const home of [
-      { path: "/?mode=answer", testId: "answer-empty-state", heading: "How can I help?", headingLevel: 2 },
-      { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
-      { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
-      { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
-      { path: "/favourites", testId: "favourites-hub", heading: "Favourites command library", headingLevel: 1 },
-      { path: "/tools", testId: "tools-home", heading: "Tools", headingLevel: 1 },
+      { path: "/services", testId: "services-home" },
+      { path: "/forms", testId: "forms-home" },
+      { path: "/differentials", testId: "differentials-home" },
+      { path: "/favourites", testId: "favourites-hub" },
+      { path: "/tools", testId: "tools-home" },
     ] as const) {
       await gotoLauncher(page, home.path);
       await expect(page.getByTestId(home.testId)).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
 
-      const heroSearch = page.getByTestId(home.testId).getByTestId("global-search-input");
-      await expect(heroSearch).toBeVisible();
+      // Phones dock the composer as the compact single-row pill; the hero slot
+      // stays empty below sm (it hosts the pill again from the sm breakpoint).
+      const dock = page.locator('form.answer-footer-search-dock[data-footer-variant="compact"]');
+      await expect(dock, home.path).toHaveCount(1);
+      await expect(dock.getByTestId("global-search-input")).toBeVisible();
+      await expect(page.locator(".mode-home-composer-slot").getByTestId("global-search-input")).toHaveCount(0);
 
-      const searchBox = await heroSearch.boundingBox();
-      const headingBox = await page
-        .getByRole("heading", { level: home.headingLevel, name: home.heading })
-        .boundingBox();
-      const mainBox = await page.locator("#main-content").boundingBox();
-      expect(searchBox).not.toBeNull();
-      expect(headingBox).not.toBeNull();
-      expect(mainBox).not.toBeNull();
-      expect((headingBox?.y ?? 0) + (headingBox?.height ?? 0)).toBeLessThan(searchBox?.y ?? 0);
-      // Short homes centre their hero+search block in the scrollable main pane on
-      // phones (below the sticky header), not necessarily the full viewport.
-      const searchMidpoint = (searchBox?.y ?? 0) + (searchBox?.height ?? 0) / 2;
-      const mainTop = mainBox?.y ?? 0;
-      const mainHeight = mainBox?.height ?? 820;
-      expect(searchMidpoint).toBeLessThan(mainTop + mainHeight * 0.72);
-      expect(searchMidpoint).toBeGreaterThan(mainTop + mainHeight * 0.08);
-      const metrics = await globalSearchComposerMetrics(page, home.testId);
-      expect(metrics).not.toBeNull();
-      expect(metrics?.position).not.toBe("fixed");
-      expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390 - 16);
+      const metrics = await globalSearchComposerMetrics(page);
+      expect(metrics, home.path).not.toBeNull();
+      expect(metrics?.position).toBe("fixed");
+      expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(820 - 48);
+      expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390);
       expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
-      expect(metrics?.homeCenterX).not.toBeNull();
-      expect(Math.abs((metrics?.formCenterX ?? 0) - (metrics?.homeCenterX ?? 0))).toBeLessThanOrEqual(24);
+      // Compact docks drop the chip row and the privacy notice on phones.
       await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
+      await expect(page.getByTestId("answer-composer-privacy-warning")).toHaveCount(0);
+
+      // Phone dock composers must not cover the page with the universal sheet.
+      const dockInput = dock.getByTestId("global-search-input");
+      await dockInput.click();
+      await dockInput.press("ArrowDown");
+      await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
+      await expect(page.getByRole("listbox")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     }
   });
@@ -623,9 +661,14 @@ test.describe("Clinical KB tools launcher", () => {
         await expect(page.getByTestId(home.testId)).toBeVisible();
         // The composer must never vanish: exactly one visible search input.
         await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
-        // Hero-centred design: the input lives inside the mode-home hero at
-        // every width, phones included.
-        await expect(page.getByTestId(home.testId).getByTestId("global-search-input")).toBeVisible();
+        if (viewport.name === "phone" && home.path !== "/?mode=answer") {
+          // Phones dock the standalone mode-home composer at the bottom edge.
+          await expect(page.locator("form.answer-footer-search-dock").getByTestId("global-search-input")).toBeVisible();
+        } else {
+          // The hero owns the composer: the answer home at every width, and
+          // every mode home from the sm breakpoint up.
+          await expect(page.getByTestId(home.testId).getByTestId("global-search-input")).toBeVisible();
+        }
       });
     }
   }
@@ -715,8 +758,8 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("phone mode homes keep the shared search in the hero, not the bottom dock", async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 820 });
+  test("tablet mode homes keep the shared search in the hero, not the bottom dock", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
     for (const home of ["/services", "/forms", "/differentials", "/tools"]) {
       await gotoLauncher(page, home);
       const heroInput = page.locator(".mode-home-composer-slot").getByTestId("global-search-input");
@@ -730,12 +773,6 @@ test.describe("Clinical KB tools launcher", () => {
       });
       expect(geometry.top).toBeGreaterThan(0);
       expect(geometry.bottom).toBeLessThan(geometry.viewportHeight - 40);
-
-      // Phone hero composers must not cover the page with the universal sheet.
-      await heroInput.click();
-      await heroInput.press("ArrowDown");
-      await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
-      await expect(page.getByRole("listbox")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
     }
   });
@@ -763,10 +800,10 @@ test.describe("Clinical KB tools launcher", () => {
       {
         path: "/?mode=prescribing",
         testId: "medication-home",
-        heading: "Medication prescribing",
+        heading: "Medication",
         headingLevel: 2,
       },
-      { path: "/services", testId: "services-home", heading: "Find a service", headingLevel: 1 },
+      { path: "/services", testId: "services-home", heading: "Services", headingLevel: 1 },
       { path: "/forms", testId: "forms-home", heading: "Forms", headingLevel: 1 },
       { path: "/differentials", testId: "differentials-home", heading: "Differentials", headingLevel: 1 },
       { path: "/tools", testId: "tools-home", heading: "Tools", headingLevel: 1 },
@@ -784,8 +821,12 @@ test.describe("Clinical KB tools launcher", () => {
         await expect(heroSearch).toBeVisible();
 
         const searchBox = await heroSearch.boundingBox();
+        // Scope to the mode-home container and match exactly: the standalone
+        // "Medication" hero title is otherwise a substring of the answer
+        // section's sr-only "Medication matches" heading (strict-mode clash).
         const headingBox = await page
-          .getByRole("heading", { level: home.headingLevel, name: home.heading })
+          .getByTestId(home.testId)
+          .getByRole("heading", { level: home.headingLevel, name: home.heading, exact: true })
           .boundingBox();
         expect(searchBox).not.toBeNull();
         expect(headingBox).not.toBeNull();
@@ -815,7 +856,7 @@ test.describe("Clinical KB tools launcher", () => {
   ] as const) {
     for (const route of [
       { path: "/services?q=13YARN&focus=1&run=1", modeButton: "Mode Services", compactBottomSearch: true },
-      { path: "/services/13yarn", modeButton: "Mode Services", compactBottomSearch: false },
+      { path: "/services/13yarn", modeButton: "Mode Services", compactBottomSearch: true },
       { path: "/forms?q=transport&focus=1&run=1", modeButton: "Mode Forms", compactBottomSearch: true },
       { path: "/favourites?q=lithium&focus=1&run=1", modeButton: "Mode Favourites", compactBottomSearch: true },
       {
@@ -1878,7 +1919,8 @@ test.describe("Clinical KB service detail page", () => {
     // while we measure end-of-page clearance under a still-visible composer.
     await dockInput.focus();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-    await expect.poll(async () => readMobileComposerReservePx(scrollport)).toBeGreaterThan(120);
+    // The compact dock reserve is 5.5rem (88px) plus any safe-area inset.
+    await expect.poll(async () => readMobileComposerReservePx(scrollport)).toBeGreaterThanOrEqual(80);
     await scrollport.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
@@ -1914,7 +1956,7 @@ test.describe("Clinical KB service detail page", () => {
     });
 
     expect(clearance, JSON.stringify(clearance)).not.toBeNull();
-    expect(clearance!.reservePx, JSON.stringify(clearance)).toBeGreaterThan(120);
+    expect(clearance!.reservePx, JSON.stringify(clearance)).toBeGreaterThanOrEqual(80);
     expect(clearance!.footerBottom, JSON.stringify(clearance)).toBeLessThanOrEqual(clearance!.dockTop - 8);
   });
 
