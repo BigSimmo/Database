@@ -71,7 +71,7 @@ if (!policyJob) {
     }
     if (
       !/title:\s*latestPr\.title/.test(validateStep) ||
-      !/body:\s*latestPr\.body\s*(?:\|\||\?\?)\s*(["'])\1/.test(validateStep)
+      !/body:\s*latestPr\.body\s*(?:\|\||\?\?)\s*(?:""|'')/.test(validateStep)
     ) {
       failures.push("PR policy validation must evaluate title/body from the latest fetched PR metadata.");
     }
