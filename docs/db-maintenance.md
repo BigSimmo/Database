@@ -37,15 +37,32 @@ replay + (for retrieval tables) canary pair — never a bulk advisor-driven swee
   (magic-link/OAuth only). Revisit at the next instance-size change (dashboard config —
   confirmation-required).
 
-## Telemetry retention — open decision (2026-07-20)
+## Telemetry retention — RESOLVED: already active in pg_cron (verified live 2026-07-20)
 
-`rag_queries` / `rag_retrieval_logs` telemetry grows with live and eval traffic.
-`npm run purge:query-logs` exists (owner-scoped, `--older-than-days`, `--dry-run`,
-fails loudly on unknown flags) but is **scheduled nowhere** — retention is currently manual
-and unbounded. Wiring a schedule is deliberately NOT done unilaterally because it is a
-recurring live-deletion job needing an explicit policy: which owner scope, what retention
-window (script default 90 days), and where it runs (a small weekly workflow with the
-service-role secret is the natural home). Decision recorded here when made.
+An earlier revision of this section called retention "manual and unbounded" after finding
+`npm run purge:query-logs` scheduled nowhere. That premise was wrong: retention runs INSIDE
+the database via pg_cron, not in CI. Read-only `cron.job` verification (2026-07-20) matches
+`docs/privacy-impact-assessment.md` §6 exactly:
+
+| jobid | Job                         | Schedule (UTC) | Window / mechanism                                 |
+| ----- | --------------------------- | -------------- | -------------------------------------------------- |
+| 11    | `purge-expired-rag-queries` | daily 03:30    | `purge_expired_rag_queries(30)` — 30 days          |
+| 12    | `purge-rag-retrieval-logs`  | daily 03:00    | raw delete where `created_at` older than 90 days   |
+| 13    | `purge-rag-query-misses`    | daily 03:45    | `purge_expired_rag_query_misses(90)` — 90 days     |
+| 16    | `purge-rag-response-cache`  | hourly at :15  | `purge_expired_rag_response_cache(1000)` (bounded) |
+
+All four are active; the obsolete unbounded cache job remains absent; `audit_logs` retention
+is indefinite BY DESIGN (compliance note in migration `20260702120000` — do not add a purge
+without compliance review). **No GitHub-side retention workflow is needed, and none was
+added**: a second scheduled deleter would duplicate pg_cron and invite window drift — the
+once-proposed weekly 90-day sweep of `rag_queries` could never delete anything the 30-day
+job had not already removed. Retention windows are PIA-governed privacy decisions; change
+them via migration + PIA update, never ad hoc.
+
+`npm run purge:query-logs` is the MANUAL owner-scoped deletion tool (privacy requests,
+targeted eval-owner cleanup; requires `--owner-email`, supports `--dry-run`, default 90
+days). It is deliberately unscheduled — it is not the retention mechanism, and its absence
+from cron is not a gap.
 
 ## Cross-references
 
