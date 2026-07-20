@@ -17,6 +17,22 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_DB_URL: z.string().url().optional(),
   HEALTH_DEEP_PROBE_SECRET: z.string().min(16).optional(),
+  // Inbound webhook receivers. Each shared secret gates a machine-to-machine
+  // endpoint under /api/webhooks/* and fails closed when unset (the route 503s
+  // rather than trusting an unauthenticated caller). See docs/webhooks.md.
+  // Railway deploy webhook -> chat forwarder. Railway only lets you configure a
+  // target URL (no custom headers), so this secret travels as `?token=` in the
+  // configured URL and is compared constant-time. Min 16 chars.
+  RAILWAY_WEBHOOK_SECRET: z.string().min(16).optional(),
+  // Supabase Database Webhook -> ingestion enqueue. Supabase webhooks DO allow
+  // custom headers, so this secret is sent as `Authorization: Bearer` (or the
+  // `x-webhook-secret` header) and compared constant-time. Min 16 chars.
+  SUPABASE_INGESTION_WEBHOOK_SECRET: z.string().min(16).optional(),
+  // Optional outbound chat destinations shared by every /api/webhooks/* forwarder
+  // and the CI-failure GitHub workflow. Set either, both, or neither; a receiver
+  // with no destination configured accepts the event and reports it undelivered.
+  SLACK_WEBHOOK_URL: z.string().url().optional(),
+  DISCORD_WEBHOOK_URL: z.string().url().optional(),
   NEXT_PUBLIC_LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
