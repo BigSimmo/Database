@@ -76,6 +76,35 @@ if (!/^          src worker scripts supabase\/functions\s*$/m.test(semgrepScanSt
   failures.push("sast.yml: the Semgrep scan command must target src, worker, scripts, and supabase/functions.");
 }
 
+// Maturity X4: the untrusted-document parsing surface has a BLOCKING Semgrep
+// gate — the inverse policy of the advisory repo-wide job above. yamlBlock
+// returns "" when the job is missing, so every assertion below fails closed.
+const semgrepGateJob = yamlBlock(sastWorkflow, "semgrep-ingestion-gate:", 2);
+const semgrepGateStep = yamlBlock(semgrepGateJob, "- name: Semgrep scan (blocking)", 6);
+if (!semgrepGateJob) {
+  failures.push("sast.yml: the semgrep-ingestion-gate job must exist (maturity X4).");
+}
+if (/^\s*continue-on-error\s*:/m.test(semgrepGateJob)) {
+  failures.push("sast.yml: the Semgrep ingestion gate must block — no continue-on-error anywhere in the job.");
+}
+for (const target of [
+  "worker",
+  "src/lib/ingestion*.ts",
+  "src/lib/extractors",
+  "src/app/api/ingestion",
+  "src/app/api/upload",
+]) {
+  if (!semgrepGateStep.includes(target)) {
+    failures.push(`sast.yml: the ingestion gate must keep scanning ${target}.`);
+  }
+}
+if (!semgrepGateStep.includes("--config p/python")) {
+  failures.push("sast.yml: the ingestion gate must include p/python for the worker OCR stack.");
+}
+if (!/^      image: semgrep\/semgrep@sha256:[0-9a-f]{64}\s*$/m.test(semgrepGateJob)) {
+  failures.push("sast.yml: the blocking ingestion gate container must be digest-pinned (semgrep/semgrep@sha256:...).");
+}
+
 // One SHA per action across every workflow AND composite action. Dependabot bumps
 // one file at a time, so a laggard can sit on an old major indefinitely; because
 // the per-line validation above only covers workflows, a composite skew (e.g.
