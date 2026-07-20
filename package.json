@@ -202,7 +202,9 @@
     "postcss": "^8.5.15",
     "esbuild": "0.28.1",
     "tmp": "^0.2.7",
-    "uuid": "^11.1.1"
+    "uuid": "^11.1.1",
+    "brace-expansion@1": "^1.1.16",
+    "brace-expansion@2": "^2.1.2"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
