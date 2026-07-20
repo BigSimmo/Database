@@ -50,6 +50,10 @@ export type RankingSnapshot = {
   schema: "rag-ranking-candidate-snapshot";
   version: typeof RANKING_SNAPSHOT_VERSION;
   sourceCaseCount: number;
+  /** ISO timestamp of snapshot generation; drives the 30-day freshness gate once present. */
+  generatedAt?: string;
+  /** GitHub Actions run id of the eval-canary run whose artifact produced this snapshot. */
+  sourceRunId?: string;
   sanitization: {
     candidateIdentity: "sha256";
     excludes: string[];
@@ -120,11 +124,21 @@ export function validateRankingSnapshot(value: unknown): RankingSnapshot {
   if (!isRecord(value)) throw new Error("Ranking snapshot must be an object");
   if (value.schema !== "rag-ranking-candidate-snapshot") throw new Error("Unsupported ranking snapshot schema");
   if (value.version !== RANKING_SNAPSHOT_VERSION) throw new Error("Unsupported ranking snapshot version");
-  if (!Array.isArray(value.cases) || value.cases.length !== 36) {
-    throw new Error("Ranking snapshot must contain exactly 36 cases");
+  // Floor, not an exact pin: the golden fixture only grows (36 at introduction), and fewer
+  // cases means a truncated artifact that must not become the tuner's ground truth.
+  if (!Array.isArray(value.cases) || value.cases.length < 36) {
+    throw new Error("Ranking snapshot must contain at least 36 cases");
   }
   if (value.sourceCaseCount !== value.cases.length) {
     throw new Error("Ranking snapshot sourceCaseCount must match cases.length");
+  }
+  if (value.generatedAt !== undefined) {
+    if (typeof value.generatedAt !== "string" || !Number.isFinite(Date.parse(value.generatedAt))) {
+      throw new Error("Ranking snapshot generatedAt must be an ISO date-time string when present");
+    }
+  }
+  if (value.sourceRunId !== undefined && (typeof value.sourceRunId !== "string" || !value.sourceRunId)) {
+    throw new Error("Ranking snapshot sourceRunId must be a non-empty string when present");
   }
   const sanitization = value.sanitization;
   if (!isRecord(sanitization) || sanitization.candidateIdentity !== "sha256") {

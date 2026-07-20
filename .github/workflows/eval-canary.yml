@@ -3,7 +3,8 @@
 # Runs the golden retrieval eval (which PR CI can never run — it needs live
 # Supabase + OpenAI keys) plus a small answer-quality subset against the live
 # project, and fails loudly on regression: red run + a GitHub issue on
-# scheduled failures.
+# scheduled failures. Each run also uploads the eval JSON artifact that feeds
+# offline ranking-snapshot regeneration (scripts/build-ranking-snapshot.ts).
 #
 # The schedule only fires from the default branch. After merging, trigger one
 # workflow_dispatch run and confirm it is green before trusting the weekly
@@ -97,7 +98,10 @@ jobs:
         run: |
           mkdir -p .local/eval-canary
           set -o pipefail
-          npm run eval:retrieval:quality -- --fail-on-threshold 2>&1 | tee .local/eval-canary/golden-retrieval.log
+          # --json-out writes the per-case artifact (input for scripts/build-ranking-snapshot.ts)
+          # without changing stdout — the tee'd log keeps the human-readable per-case lines the
+          # failure-issue analyzer parses.
+          npm run eval:retrieval:quality -- --fail-on-threshold --json-out .local/eval-canary/golden-retrieval.json 2>&1 | tee .local/eval-canary/golden-retrieval.log
 
       - name: Answer-quality subset (live generation)
         id: answer_quality
@@ -114,6 +118,25 @@ jobs:
           mkdir -p .local/eval-canary
           set -o pipefail
           npm run eval:quality -- --rag-only --limit "$ANSWER_CASE_LIMIT" --fail-on-threshold 2>&1 | tee .local/eval-canary/answer-quality.log
+
+      # Uploaded on success AND failure: the JSON artifact regenerates the offline ranking
+      # snapshot (download it, then `npm run build:ranking-snapshot -- --input <json> --output
+      # scripts/fixtures/rag-ranking-candidate-snapshot.v1.json --source-run-id <run-id>`), and
+      # the logs carry failure diagnostics. Contents match what the tee'd step logs already
+      # expose (titles/file names, score telemetry, 220-char previews of the all-public corpus)
+      # — no env values or secrets are written to .local/eval-canary.
+      - name: Upload eval output artifact
+        if: always() && steps.install.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: eval-canary-output
+          path: .local/eval-canary/
+          # .local/ is a hidden directory (the repo's gitignored scratch convention), which
+          # upload-artifact excludes by default.
+          include-hidden-files: true
+          # Matches the snapshot freshness window enforced by tests/ranking-tuning.test.ts.
+          retention-days: 30
+          if-no-files-found: ignore
 
       - name: Open or update canary failure issue
         if: failure() && github.event_name == 'schedule'
