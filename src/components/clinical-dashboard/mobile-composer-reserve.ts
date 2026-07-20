@@ -12,20 +12,20 @@
 /** Content pad after the phone bottom composer has scrolled away. */
 export const mobileComposerHiddenReserve = "0.75rem";
 
-/** Routes with no floating bottom dock (info pages, in-flow mode-home composers). */
+/** Routes with no floating bottom dock (info pages, the answer home hero). */
 export const mobileComposerIdleReserve = "2rem";
 
 /** Differentials Compare selected bar + compact search pill. */
 export const mobileComposerDifferentialsCompareReserve = "calc(12.5rem + var(--safe-area-bottom))";
 
+// Every phone dock is the compact single-row pill (mode homes and result views
+// alike); only the answer dock with a follow-up chip row is taller.
 export const mobileComposerVisibleReserve = {
-  shellAnswer: "calc(9rem + var(--safe-area-bottom))",
-  shellCompactSubmitted: "calc(5.5rem + var(--safe-area-bottom))",
-  shellDefaultDock: "calc(9rem + var(--safe-area-bottom))",
+  shellAnswer: "calc(5.5rem + var(--safe-area-bottom))",
+  shellDock: "calc(5.5rem + var(--safe-area-bottom))",
   dashboardAnswerWithFollowUps: "calc(7.5rem + var(--safe-area-bottom))",
-  dashboardAnswer: "calc(5.25rem + var(--safe-area-bottom))",
-  dashboardCompactSubmitted: "calc(5rem + var(--safe-area-bottom))",
-  dashboardDefaultDock: "calc(5.25rem + var(--safe-area-bottom))",
+  dashboardAnswer: "calc(5rem + var(--safe-area-bottom))",
+  dashboardDock: "calc(5rem + var(--safe-area-bottom))",
   differentialsCompare: mobileComposerDifferentialsCompareReserve,
 } as const;
 
@@ -45,7 +45,6 @@ export function resolveDashboardVisibleMobileComposerReserve(input: {
   searchMode: string;
   hasAnswerFollowUps: boolean;
   differentialsCompareAddonActive: boolean;
-  compactMobileBottomSearch: boolean;
 }): string {
   if (input.searchMode === "answer") {
     return input.hasAnswerFollowUps
@@ -55,9 +54,7 @@ export function resolveDashboardVisibleMobileComposerReserve(input: {
   if (input.differentialsCompareAddonActive) {
     return mobileComposerVisibleReserve.differentialsCompare;
   }
-  return input.compactMobileBottomSearch
-    ? mobileComposerVisibleReserve.dashboardCompactSubmitted
-    : mobileComposerVisibleReserve.dashboardDefaultDock;
+  return mobileComposerVisibleReserve.dashboardDock;
 }
 
 export function resolveShellVisibleMobileComposerReserve(input: {
@@ -66,16 +63,15 @@ export function resolveShellVisibleMobileComposerReserve(input: {
   isStandaloneModeHome: boolean;
   searchMode: string;
   differentialsCompareAddonActive: boolean;
-  useCompactBottomSearch: boolean;
 }): string {
   if (!input.shouldShowSearchComposer) {
     // DocumentViewer owns its dock; shell keeps only the hidden-size pad.
     return input.documentViewerOwnedRoute ? mobileComposerHiddenReserve : mobileComposerIdleReserve;
   }
-  if (input.isStandaloneModeHome) return mobileComposerIdleReserve;
+  // Standalone mode homes keep the hero composer from sm up but dock the
+  // compact pill on phones, so they reserve the same clearance as result docks.
+  if (input.isStandaloneModeHome) return mobileComposerVisibleReserve.shellDock;
   if (input.searchMode === "answer") return mobileComposerVisibleReserve.shellAnswer;
   if (input.differentialsCompareAddonActive) return mobileComposerVisibleReserve.differentialsCompare;
-  return input.useCompactBottomSearch
-    ? mobileComposerVisibleReserve.shellCompactSubmitted
-    : mobileComposerVisibleReserve.shellDefaultDock;
+  return mobileComposerVisibleReserve.shellDock;
 }

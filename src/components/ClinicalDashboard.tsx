@@ -3242,10 +3242,6 @@ export function ClinicalDashboard({
   const compactMobileModeHome =
     centeredModeHome ||
     ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
-  // Submitted (non-answer) searches are result views, not mode homes: on phones
-  // the bottom composer drops its chip row and hugs the screen edge so results
-  // keep maximum vertical space. Mode homes keep the default chip-row layout.
-  const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
   // Hidden dock pad must stay at 0.75rem — Safari toolbar safe-area recreates a blank band.
@@ -3255,7 +3251,6 @@ export function ClinicalDashboard({
       searchMode,
       hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
       differentialsCompareAddonActive,
-      compactMobileBottomSearch,
     }),
   );
   const renderDegradedNotice = () => (
@@ -3527,11 +3522,17 @@ export function ClinicalDashboard({
           composerFollowUpSuggestionsDisabled={loading}
           composerPlaceholder={searchMode === "answer" && latestAnswerQuery ? "Ask a follow-up..." : undefined}
           mobileSearchPlacement={hasMobileBottomSearch ? "bottom" : "default"}
-          mobileBottomSearchVariant={compactMobileBottomSearch ? "compact" : "default"}
+          // Every phone dock is the compact single-row pill so content keeps
+          // maximum screen space (mode homes and result views alike).
+          mobileBottomSearchVariant="compact"
           mobileBottomSearchAddonSlotId={
             differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
+          // Only the answer home ("How can I help?") keeps the in-flow hero
+          // pill + privacy notice on phones; every other mode home docks the
+          // compact pill to the bottom edge below sm.
+          heroComposerBreakpoint={showAnswerHome ? "all" : "sm-up"}
           // Answer view: the header overlays the scrolling <main> at every width
           // (main reserves matching top padding) so content frosts under the
           // glass bar, and it slides away/returns with scroll direction. Other
@@ -3575,11 +3576,10 @@ export function ClinicalDashboard({
                   // bottom-clamp guard in use-hide-on-scroll prevents false reveals.
                   "max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-24"
               : hasMobileBottomSearch
-                ? // Mode homes keep the composer in the hero (in-flow at every
-                  // width), so phones need no bottom-dock clearance on them.
-                  compactMobileModeHome || showDesktopHomeComposer
-                  ? "mb-0"
-                  : "max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-0"
+                ? // Phones dock the compact composer on every non-answer view
+                  // (mode homes included), so they always reserve dock
+                  // clearance; sm+ keeps the in-flow hero/sticky composers.
+                  "max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-0"
                 : "mb-0",
           )}
         >
@@ -3635,11 +3635,11 @@ export function ClinicalDashboard({
                       // keep the original generous padding.
                       "pb-4 sm:pb-36 lg:pb-40"
                   : hasMobileBottomSearch
-                    ? compactMobileModeHome
+                    ? // The <main> reserve clears the compact dock on phones, so
+                      // content keeps only a small pad of its own.
+                      compactMobileModeHome
                       ? "pb-4 sm:pb-10 lg:pb-12"
-                      : compactMobileBottomSearch || showDesktopHomeComposer
-                        ? "pb-8 sm:pb-10 lg:pb-12"
-                        : "pb-32 sm:pb-10 lg:pb-12"
+                      : "pb-8 sm:pb-10 lg:pb-12"
                     : "pb-8 sm:pb-10 lg:pb-12",
               )}
             >
