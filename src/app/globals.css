@@ -1974,14 +1974,33 @@ summary::-webkit-details-marker {
    toast under the header on desktop — beside the browser's own install
    affordance and clear of the composer. */
 .pwa-notice-stack {
+  --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 5.5rem);
   position: fixed;
   z-index: 95;
   left: max(0.75rem, var(--safe-area-left));
   right: max(0.75rem, var(--safe-area-right));
-  bottom: calc(max(0.75rem, var(--safe-area-bottom)) + 5.5rem);
+  bottom: var(--pwa-notice-bottom-gap);
   display: grid;
   gap: 0.75rem;
   pointer-events: none;
+}
+
+/* Install notices present as a native-feeling bottom sheet on phones: full
+   bleed to the viewport edges (escaping the stack gutter), flush to the
+   bottom over the composer zone while visible, top corners only, and content
+   padded clear of the home indicator. Matches the drag-grip language of the
+   phone Mode-menu sheet (src/components/ui/sheet.tsx). */
+@media (max-width: 639.98px) {
+  .pwa-install-sheet {
+    margin-left: calc(-1 * max(0.75rem, var(--safe-area-left)));
+    margin-right: calc(-1 * max(0.75rem, var(--safe-area-right)));
+    margin-bottom: calc(-1 * var(--pwa-notice-bottom-gap));
+    border-radius: 1.25rem 1.25rem 0 0;
+    border-bottom: 0;
+    padding-left: max(1.25rem, var(--safe-area-left));
+    padding-right: max(1.25rem, var(--safe-area-right));
+    padding-bottom: calc(1.25rem + var(--safe-area-bottom));
+  }
 }
 
 .pwa-notice-card {
@@ -2008,7 +2027,7 @@ summary::-webkit-details-marker {
 
 @media (display-mode: standalone) {
   .pwa-notice-stack {
-    bottom: calc(max(0.75rem, var(--safe-area-bottom)) + 6rem);
+    --pwa-notice-bottom-gap: calc(max(0.75rem, var(--safe-area-bottom)) + 6rem);
   }
 }
 

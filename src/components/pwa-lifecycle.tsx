@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownToLine, RefreshCw, Share, Wifi, WifiOff, X, type LucideIcon } from "lucide-react";
+import { RefreshCw, Share, SquarePlus, Wifi, WifiOff, X, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 const SERVICE_WORKER_URL = "/sw.js";
@@ -127,6 +127,49 @@ function NoticeIcon({ icon: Icon, tone }: { icon: LucideIcon; tone: "accent" | "
       aria-hidden="true"
     >
       <Icon className="h-5 w-5" />
+    </span>
+  );
+}
+
+// Phone install notices read as a native install sheet: grip bar (visual
+// echo of src/components/ui/sheet.tsx; static — notices are transient cards,
+// not draggable dialogs) and the real app icon as the identity mark.
+function InstallSheetGrip() {
+  return (
+    <div className="flex justify-center pb-2 pt-0.5 sm:hidden" aria-hidden="true">
+      <span className="h-1 w-9 rounded-full bg-[color:var(--border-strong)]" />
+    </div>
+  );
+}
+
+function InstallAppIdentity({ title, titleId, tagline }: { title: string; titleId: string; tagline: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3.5">
+      {/* eslint-disable-next-line @next/next/no-img-element -- static same-origin
+          brand asset; next/image adds a client chunk for zero benefit here. */}
+      <img
+        src="/icons/icon-192"
+        alt=""
+        aria-hidden="true"
+        width={56}
+        height={56}
+        className="h-14 w-14 shrink-0 rounded-xl border border-[color:var(--border-lux)] shadow-[var(--shadow-tight)]"
+      />
+      <div className="min-w-0">
+        <p id={titleId} className="text-base font-bold leading-tight text-[color:var(--text-heading)]">
+          {title}
+        </p>
+        <p className="mt-1 text-sm leading-5 text-[color:var(--text-muted)]">{tagline}</p>
+      </div>
+    </div>
+  );
+}
+
+function InstallStepChip({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+  return (
+    <span className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-semibold text-[color:var(--clinical-accent)]">
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      {label}
     </span>
   );
 }
@@ -460,7 +503,12 @@ export function PwaLifecycle() {
       ) : null}
 
       {showIosInstallHint ? (
-        <section className={cardClassName} role="region" aria-labelledby="pwa-ios-install-title" aria-live="polite">
+        <section
+          className={`${cardClassName} pwa-install-sheet`}
+          role="region"
+          aria-labelledby="pwa-ios-install-title"
+          aria-live="polite"
+        >
           <button
             type="button"
             className={dismissIconButtonClassName}
@@ -469,27 +517,36 @@ export function PwaLifecycle() {
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
-          <div className="flex items-start gap-3 pr-12">
-            <NoticeIcon icon={Share} tone="accent" />
-            <div className="min-w-0">
-              <p id="pwa-ios-install-title" className="text-sm font-bold text-[color:var(--text-heading)]">
-                Install Clinical KB
-              </p>
-              <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-                In Safari, tap Share, then Add to Home Screen. Private clinical features still require a connection.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" className={secondaryButtonClassName} onClick={dismissIosHint}>
-                  Not now
-                </button>
-              </div>
+          <InstallSheetGrip />
+          <div className="pr-12 sm:pr-10">
+            <InstallAppIdentity
+              title="Install Clinical KB"
+              titleId="pwa-ios-install-title"
+              tagline="Clinical guidelines on your home screen."
+            />
+            <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
+              In Safari, tap Share, then Add to Home Screen. Private clinical features still require a connection.
+            </p>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2" aria-hidden="true">
+              <InstallStepChip icon={Share} label="1. Tap Share" />
+              <InstallStepChip icon={SquarePlus} label="2. Add to Home Screen" />
+            </div>
+            <div className="mt-3.5 flex flex-wrap gap-2">
+              <button type="button" className={secondaryButtonClassName} onClick={dismissIosHint}>
+                Not now
+              </button>
             </div>
           </div>
         </section>
       ) : null}
 
       {showInstall ? (
-        <section className={cardClassName} role="region" aria-labelledby="pwa-install-title" aria-live="polite">
+        <section
+          className={`${cardClassName} pwa-install-sheet`}
+          role="region"
+          aria-labelledby="pwa-install-title"
+          aria-live="polite"
+        >
           <button
             type="button"
             className={dismissIconButtonClassName}
@@ -498,23 +555,30 @@ export function PwaLifecycle() {
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
-          <div className="flex items-start gap-3 pr-12">
-            <NoticeIcon icon={ArrowDownToLine} tone="accent" />
-            <div className="min-w-0">
-              <p id="pwa-install-title" className="text-sm font-bold text-[color:var(--text-heading)]">
-                Install Clinical KB
-              </p>
-              <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
-                Open it from your device like an app. Private clinical features still require a connection.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" className={primaryButtonClassName} onClick={() => void requestInstall()}>
-                  Install app
-                </button>
-                <button type="button" className={secondaryButtonClassName} onClick={dismissInstall}>
-                  Not now
-                </button>
-              </div>
+          <InstallSheetGrip />
+          <div className="pr-12 sm:pr-10">
+            <InstallAppIdentity
+              title="Install Clinical KB"
+              titleId="pwa-install-title"
+              tagline="Clinical guidelines on your home screen."
+            />
+            <p className="mt-3 text-sm leading-6 text-[color:var(--text-muted)]">
+              Open it from your device like an app. Private clinical features still require a connection.
+            </p>
+            <p className="mt-1.5 text-xs font-semibold tracking-[0.01em] text-[color:var(--text-soft)]">
+              Free · No app store · Takes a few seconds
+            </p>
+            <div className="mt-3.5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={`${primaryButtonClassName} max-sm:flex-1`}
+                onClick={() => void requestInstall()}
+              >
+                Install app
+              </button>
+              <button type="button" className={secondaryButtonClassName} onClick={dismissInstall}>
+                Not now
+              </button>
             </div>
           </div>
         </section>
