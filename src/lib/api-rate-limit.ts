@@ -349,10 +349,17 @@ function consumeInMemoryApiRateLimit({
   const windowMs = windowSeconds * 1000;
   const key = `${ownerId}:${bucket}`;
 
-  // Evict expired entries to prevent memory leak
-  for (const [k, v] of inMemoryApiRateLimits.entries()) {
-    if (now >= v.resetAtMs) {
-      inMemoryApiRateLimits.delete(k);
+  // Lazy per-key eviction: the most common path touches only the accessed entry.
+  // A full-map sweep runs only when the map exceeds a size ceiling so stale entries
+  // don't accumulate indefinitely, without scanning on every request.
+  const EVICTION_SIZE_CEILING = 2000;
+  const stale = inMemoryApiRateLimits.get(key);
+  if (stale && now >= stale.resetAtMs) {
+    inMemoryApiRateLimits.delete(key);
+  }
+  if (inMemoryApiRateLimits.size > EVICTION_SIZE_CEILING) {
+    for (const [k, v] of inMemoryApiRateLimits.entries()) {
+      if (now >= v.resetAtMs) inMemoryApiRateLimits.delete(k);
     }
   }
 

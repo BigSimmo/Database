@@ -86,9 +86,9 @@ function registryCitationHref(citation: Citation) {
   if (!slug) return null;
 
   return registryCorpusDetailHref({
-    kind: metadata.registry_record_kind,
+    kind: metadata.registry_record_kind ?? undefined,
     slug: encodeURIComponent(slug),
-    subkind: metadata.registry_record_subkind,
+    subkind: metadata.registry_record_subkind ?? undefined,
   });
 }
 
