@@ -25,9 +25,14 @@ type ClaimedJob = {
   };
 };
 
-type LeaseRpcRow = {
-  result: { ok?: boolean } | null;
+type IngestionRpcResult = {
+  ok?: boolean;
+  reason?: string;
 };
+
+function isLeaseLost(result: IngestionRpcResult | null | undefined): boolean {
+  return result?.ok === false && result.reason === "lease_lost";
+}
 
 const SUPABASE_DB_URL = Deno.env.get("SUPABASE_DB_URL");
 if (!SUPABASE_DB_URL) throw new Error("SUPABASE_DB_URL is required");
@@ -163,15 +168,15 @@ async function upsertEmbeddingFields(job: ClaimedJob, summaryText: string): Prom
     })),
   );
 
-  await sql.begin(async (transaction) => {
-    await transaction`
+  await sql.begin(async (tx) => {
+    await tx`
       delete from public.document_embedding_fields
       where document_id = ${docId}::uuid
         and field_type = any(${entries.map((entry) => entry.fieldType)}::text[])
     `;
 
     for (const entry of prepared) {
-      await transaction`
+      await tx`
         insert into public.document_embedding_fields (
           owner_id,
           document_id,
@@ -210,26 +215,52 @@ async function markEnrichmentMetadata(documentId: string): Promise<void> {
   `;
 }
 
-function leaseMutationSucceeded(rows: LeaseRpcRow[]): boolean {
-  return rows[0]?.result?.ok === true;
-}
-
-async function processJob(job: ClaimedJob, workerId: string): Promise<boolean> {
-  const summary = await upsertDocumentSummary(job);
-  await upsertEmbeddingFields(job, summary);
-  await markEnrichmentMetadata(job.document_id);
-
-  const completion = await sql<LeaseRpcRow[]>`
+async function completeIngestionJob(job: ClaimedJob, workerId: string): Promise<IngestionRpcResult | null> {
+  const [row] = await sql<Array<{ complete_ingestion_job: IngestionRpcResult }>>`
     select public.complete_ingestion_job(
       ${job.id}::uuid,
       ${job.document_id}::uuid,
       ${job.batch_id}::uuid,
       ${"indexed + enrichment backfill"},
       ${workerId}
-    ) as result
+    )
   `;
+  return row?.complete_ingestion_job ?? null;
+}
 
-  return leaseMutationSucceeded(completion);
+async function failOrRetryIngestionJob(
+  job: ClaimedJob,
+  workerId: string,
+  shouldRetry: boolean,
+  message: string,
+): Promise<IngestionRpcResult | null> {
+  const [row] = await sql<Array<{ fail_or_retry_ingestion_job: IngestionRpcResult }>>`
+    select public.fail_or_retry_ingestion_job(
+      ${job.id}::uuid,
+      ${job.document_id}::uuid,
+      ${job.batch_id}::uuid,
+      ${shouldRetry},
+      ${"indexed"},
+      ${"enrichment backfill failed"},
+      ${message},
+      ${new Date(Date.now() + 60_000).toISOString()}::timestamptz,
+      ${workerId}
+    )
+  `;
+  return row?.fail_or_retry_ingestion_job ?? null;
+}
+
+async function processJob(job: ClaimedJob, workerId: string): Promise<"completed" | "lease_lost"> {
+  const summary = await upsertDocumentSummary(job);
+  await upsertEmbeddingFields(job, summary);
+  await markEnrichmentMetadata(job.document_id);
+
+  const completion = await completeIngestionJob(job, workerId);
+  if (isLeaseLost(completion)) return "lease_lost";
+  if (!completion || completion.ok === false) {
+    throw new Error(`complete_ingestion_job did not confirm success: ${completion?.reason ?? "no result row"}`);
+  }
+  return "completed";
 }
 
 Deno.serve(async (req: Request) => {
@@ -243,7 +274,7 @@ Deno.serve(async (req: Request) => {
 
     const url = new URL(req.url);
     const limitRaw = url.searchParams.get("limit") ?? "10";
-    const limit = Number.isFinite(Number(limitRaw)) ? Math.max(1, Math.min(50, Number(limitRaw))) : 10;
+    const limit = Number.isFinite(Number(limitRaw)) ? Math.max(1, Math.min(50, Math.trunc(Number(limitRaw)))) : 10;
     const workerId = `edge-ingestion-worker-${crypto.randomUUID()}`;
 
     const claimed = await sql<ClaimedJob[]>`
@@ -262,8 +293,8 @@ Deno.serve(async (req: Request) => {
 
     for (const job of claimed) {
       try {
-        const completed = await processJob(job, workerId);
-        if (!completed) {
+        const outcome = await processJob(job, workerId);
+        if (outcome === "lease_lost") {
           leaseLost += 1;
           continue;
         }
@@ -271,22 +302,9 @@ Deno.serve(async (req: Request) => {
       } catch (error) {
         const message = error instanceof Error ? error.message : JSON.stringify(error);
         const shouldRetry = job.attempt_count < job.max_attempts;
+        const failure = await failOrRetryIngestionJob(job, workerId, shouldRetry, message);
 
-        const failureUpdate = await sql<LeaseRpcRow[]>`
-          select public.fail_or_retry_ingestion_job(
-            ${job.id}::uuid,
-            ${job.document_id}::uuid,
-            ${job.batch_id}::uuid,
-            ${shouldRetry},
-            ${"indexed"},
-            ${"enrichment backfill failed"},
-            ${message},
-            ${new Date(Date.now() + 60_000).toISOString()}::timestamptz,
-            ${workerId}
-          ) as result
-        `;
-
-        if (!leaseMutationSucceeded(failureUpdate)) {
+        if (isLeaseLost(failure)) {
           leaseLost += 1;
           continue;
         }

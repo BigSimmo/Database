@@ -75,7 +75,6 @@ const sidebarToolItems = [
   { id: "services", label: "Services", icon: appModeIcons.services, href: "/services" },
   // badge = catalogue-maturity pill: the Forms registry is a small starter set.
   { id: "forms", label: "Forms", icon: ClipboardPen, href: "/forms", badge: "Early access" },
-  { id: "favourites", label: "Favourites", icon: Heart, href: "/favourites" },
   { id: "differentials", label: "Differentials", icon: BrainCircuit, href: "/differentials" },
   { id: "dsm", label: "DSM-5 Diagnosis", icon: appModeIcons.dsm, href: "/dsm" },
   { id: "specifiers", label: "Specifiers", icon: Tags, href: "/specifiers" },
@@ -84,6 +83,10 @@ const sidebarToolItems = [
   { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
   { id: "therapy-compass", label: "Therapy", icon: appModeIcons["therapy-compass"], href: "/therapy-compass" },
   { id: "factsheets", label: "Factsheets", icon: appModeIcons.factsheets, href: "/factsheets" },
+] as const;
+
+const sidebarAccountLibraryItems = [
+  { id: "favourites" as const, label: "Favourites", icon: Heart, href: "/favourites" },
 ] as const;
 
 // Drop any tool whose id is a dev-only app mode from the production nav. Non-mode
@@ -108,6 +111,7 @@ export function ClinicalSidebarContent({
   recentQueries,
   identity,
   activeMode,
+  showAccountLibrary = false,
   onNewChat,
   onPickRecent,
   onOpenGuide,
@@ -123,6 +127,8 @@ export function ClinicalSidebarContent({
   recentQueries: string[];
   identity: SidebarIdentity;
   activeMode: AppModeId;
+  /** Account-scoped nav (Favourites). Shown for signed-in users and demo mode. */
+  showAccountLibrary?: boolean;
   onNewChat: () => void;
   onPickRecent: (query: string) => void;
   onOpenGuide: () => void;
@@ -279,6 +285,44 @@ export function ClinicalSidebarContent({
             })}
           </nav>
         </section>
+
+        {showAccountLibrary ? (
+          <section className="min-w-0 shrink-0">
+            <div className="mb-2 flex items-center justify-between gap-2 px-1">
+              <p className="text-2xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-soft)]">
+                Your library
+              </p>
+            </div>
+            <nav aria-label="Your library" className="grid gap-0.5">
+              {sidebarAccountLibraryItems.map((item) => {
+                const Icon = item.icon;
+                const active = activeMode === item.id;
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    onClick={onNavigate}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      sidebarItem,
+                      "border-l-2 border-transparent",
+                      active &&
+                        "border-l-[color:var(--clinical-accent)] bg-[color:var(--surface-chrome)] text-[color:var(--text)] hover:bg-[color:var(--surface-chrome)]",
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 shrink-0",
+                        active ? "text-[color:var(--clinical-accent)]" : "text-[color:var(--text-soft)]",
+                      )}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </section>
+        ) : null}
       </div>
 
       <div className="mt-auto grid shrink-0 gap-1 border-t border-[color:var(--border)] pt-3">
@@ -350,6 +394,7 @@ function ClinicalCollapsedRail({
   collapseLocked,
   identity,
   activeMode,
+  showAccountLibrary = false,
   onCollapsedChange,
   onNewChat,
   onOpenGuide,
@@ -364,6 +409,7 @@ function ClinicalCollapsedRail({
   collapseLocked: boolean;
   identity: SidebarIdentity;
   activeMode: AppModeId;
+  showAccountLibrary?: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   onNewChat: () => void;
   onOpenGuide: () => void;
@@ -451,6 +497,24 @@ function ClinicalCollapsedRail({
             </Link>
           );
         })}
+        {showAccountLibrary
+          ? sidebarAccountLibraryItems.map((item) => {
+              const Icon = item.icon;
+              const active = activeMode === item.id;
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className={cn(collapsedSidebarButton, active && collapsedSidebarActiveButton)}
+                  aria-label={item.label}
+                  title={item.label}
+                  aria-current={active ? "page" : undefined}
+                >
+                  <Icon className="h-4 w-4" />
+                </Link>
+              );
+            })
+          : null}
         <span className="h-px w-8 bg-[color:var(--border)]" aria-hidden="true" />
         <button
           type="button"
@@ -500,6 +564,7 @@ export function ClinicalDesktopSidebar({
   recentQueries,
   identity,
   activeMode,
+  showAccountLibrary = false,
   onCollapsedChange,
   onNewChat,
   onPickRecent,
@@ -515,6 +580,7 @@ export function ClinicalDesktopSidebar({
   recentQueries: string[];
   identity: SidebarIdentity;
   activeMode: AppModeId;
+  showAccountLibrary?: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   onNewChat: () => void;
   onPickRecent: (query: string) => void;
@@ -534,6 +600,7 @@ export function ClinicalDesktopSidebar({
         collapseLocked={collapseLocked}
         identity={identity}
         activeMode={activeMode}
+        showAccountLibrary={showAccountLibrary}
         onCollapsedChange={onCollapsedChange}
         onNewChat={onNewChat}
         onOpenGuide={onOpenGuide}
@@ -553,6 +620,7 @@ export function ClinicalDesktopSidebar({
             recentQueries={recentQueries}
             identity={identity}
             activeMode={activeMode}
+            showAccountLibrary={showAccountLibrary}
             onCollapsedChange={onCollapsedChange}
             onNewChat={onNewChat}
             onPickRecent={onPickRecent}
@@ -574,6 +642,7 @@ export function ClinicalMobileSidebar({
   recentQueries,
   identity,
   activeMode,
+  showAccountLibrary = false,
   onOpenChange,
   onNewChat,
   onPickRecent,
@@ -589,6 +658,7 @@ export function ClinicalMobileSidebar({
   recentQueries: string[];
   identity: SidebarIdentity;
   activeMode: AppModeId;
+  showAccountLibrary?: boolean;
   onOpenChange: (open: boolean) => void;
   onNewChat: () => void;
   onPickRecent: (query: string) => void;
@@ -617,6 +687,7 @@ export function ClinicalMobileSidebar({
         recentQueries={recentQueries}
         identity={identity}
         activeMode={activeMode}
+        showAccountLibrary={showAccountLibrary}
         onNewChat={onNewChat}
         onPickRecent={onPickRecent}
         onOpenGuide={onOpenGuide}

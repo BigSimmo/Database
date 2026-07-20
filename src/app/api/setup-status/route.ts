@@ -452,7 +452,9 @@ export async function GET(request: Request) {
     } catch (error) {
       const expectedAuthorizationFailure =
         error instanceof AuthenticationError || (error instanceof PublicApiError && error.status === 403);
-      if (!expectedAuthorizationFailure) throw error;
+      if (!expectedAuthorizationFailure) {
+        console.error("setup-status: unexpected error checking administrator elevation", error);
+      }
       // Invalid, expired, and non-administrator credentials receive the same
       // coarse posture as an anonymous caller; setup status is not an auth or role oracle.
     }

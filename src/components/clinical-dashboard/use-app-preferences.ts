@@ -55,6 +55,7 @@ let inMemoryFallback: AppPreferences | null = null;
 // between reads (a fresh object each call would loop the store forever).
 let cachedRaw: string | null = null;
 let cachedValue: AppPreferences = DEFAULT_PREFERENCES;
+let lastLocalPreferenceChangeAt = 0;
 
 function readStored(): AppPreferences {
   let raw: string | null = null;
@@ -98,6 +99,7 @@ function subscribe(onChange: () => void) {
 }
 
 function persist(next: AppPreferences) {
+  lastLocalPreferenceChangeAt = Date.now();
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(next));
     inMemoryFallback = null;
@@ -154,6 +156,7 @@ export function useAppPreferences() {
   useEffect(() => {
     if (authStatus !== "authenticated") return;
     const controller = new AbortController();
+    const fetchStartedAt = Date.now();
     fetch("/api/account/preferences", {
       cache: "no-store",
       headers: authorizationHeader,
@@ -165,6 +168,7 @@ export function useAppPreferences() {
           return;
         }
         const payload = await response.json().catch(() => ({}));
+        if (lastLocalPreferenceChangeAt > fetchStartedAt) return;
         if (payload.preferences) {
           persist(normalizePreferences(payload.preferences));
           return;

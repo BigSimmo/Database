@@ -56,7 +56,7 @@
     "check:maintainability-budgets": "node scripts/check-maintainability-budgets.mjs",
     "check:ci-scope": "node scripts/ci-change-scope.mjs --self-test",
     "check:ci-triage": "node scripts/ci-triage.mjs --self-test",
-    "check:pr-policy": "node scripts/pr-policy.mjs --self-test",
+    "check:pr-policy": "node scripts/pr-policy.mjs --self-test && node scripts/check-pr-policy-workflow.mjs",
     "check:env-parity": "node scripts/check-env-parity.mjs",
     "sweep:branch-ledger": "node scripts/sweep-branch-ledger.mjs",
     "docs:check-links": "node scripts/check-docs-links.mjs",

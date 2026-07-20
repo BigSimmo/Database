@@ -94,7 +94,7 @@ function FormulationThreadStrip() {
 
 function FormulationHome() {
   return (
-    <ModeHomeMain testId="formulation-home" className="justify-start sm:justify-center">
+    <ModeHomeMain testId="formulation-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="formulation"
         title="How can I help with the formulation?"

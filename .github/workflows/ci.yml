@@ -59,6 +59,73 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha || github.sha }}
         run: node scripts/ci-change-scope.mjs
 
+  sync-pr-policy-body:
+    name: Sync PR policy body
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Checkout trusted policy metadata
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted-policy
+          persist-credentials: false
+
+      - name: Apply PR_POLICY_BODY.md to pull request description
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require("node:fs");
+            if (!fs.existsSync("PR_POLICY_BODY.md")) {
+              core.info("No PR_POLICY_BODY.md template on this head; skipping PR body sync.");
+              return;
+            }
+            const { pathToFileURL } = require("node:url");
+            const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/trusted-policy/scripts/pr-policy.mjs`).href;
+            const { requiredClinicalGovernanceItems } = await import(moduleUrl);
+            const pr = context.payload.pull_request;
+            const existingBody = pr.body || "";
+            const existingCheckedItems = new Set();
+            const govMatch = existingBody.match(/##\s*Clinical Governance Preflight\s*([\s\S]*?)(?=\n##|$)/i);
+            if (govMatch) {
+              const govSection = govMatch[1];
+              for (const item of requiredClinicalGovernanceItems) {
+                const escaped = item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                if (new RegExp(`^\\s*-\\s*\\[[xX]\\]\\s*${escaped}\\s*$`, "m").test(govSection)) {
+                  existingCheckedItems.add(item);
+                }
+              }
+            }
+            const governance = requiredClinicalGovernanceItems
+              .map((item) => {
+                const checked = existingCheckedItems.has(item) ? "x" : " ";
+                return `- [${checked}] ${item}`;
+              })
+              .join("\n");
+            const template = fs.readFileSync("PR_POLICY_BODY.md", "utf8").trim();
+            const body = template.replace("<!-- GOVERNANCE_PREFLIGHT -->", governance);
+            if ((pr.body || "").trim() === body) {
+              core.info("PR description already matches PR_POLICY_BODY.md");
+              return;
+            }
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              body,
+            });
+            core.info("Updated PR description from PR_POLICY_BODY.md");
+
   static-pr:
     name: Static PR checks
     needs: changes

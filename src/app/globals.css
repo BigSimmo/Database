@@ -267,6 +267,14 @@
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
+  /* Phone/sm header chrome inset; matches mode-home px-4. Referenced by both
+     the layered .edge-glass-header base and the unlayered max-width:639px
+     guard so the values cannot drift apart. lg overrides to 1.5rem. */
+  --header-edge-pad: 1rem;
+  /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
+  --phone-dock-hidden-pad: 0.75rem;
+  --phone-dock-differentials-compare-clearance: 12.5rem;
+  --phone-dock-differentials-compare-compact-clearance: 12.25rem;
   /* Radius tokens are the single source of truth in @theme above (they also
      generate the rounded-* utilities); do not redefine them here or var() and
      the utilities drift apart. */
@@ -552,8 +560,12 @@ summary::-webkit-details-marker {
 @layer components {
   .edge-glass-header {
     isolation: isolate;
-    padding-left: max(0.75rem, var(--safe-area-left));
-    padding-right: max(0.75rem, var(--safe-area-right));
+    /* Uses --header-edge-pad (1rem) so phone icons align with mode-home px-4.
+       Keep safe-area max() so notched devices never under-inset. The unlayered
+       max-width:639px block below must also use this token — unlayered rules
+       beat @layer components, so a literal there would reintroduce drift. */
+    padding-left: max(var(--header-edge-pad), var(--safe-area-left));
+    padding-right: max(var(--header-edge-pad), var(--safe-area-right));
     /* Translucent glass bar: the header's backdrop-blur utilities frost the
        content scrolling beneath it (they were inert over the old opaque
        var(--surface)). The .edge-glass-header-backdrop scrim supersedes the
@@ -592,15 +604,9 @@ summary::-webkit-details-marker {
     box-shadow: none;
   }
 
-  /* Responsive header padding (moved in from the shared @media blocks below so
-   the whole .edge-glass-header class is layered together). */
-  @media (min-width: 640px) {
-    .edge-glass-header {
-      padding-left: max(1rem, var(--safe-area-left));
-      padding-right: max(1rem, var(--safe-area-right));
-    }
-  }
-
+  /* Desktop header padding (moved in from the shared @media blocks below so
+   the whole .edge-glass-header class is layered together). Base/sm share
+   --header-edge-pad. */
   @media (min-width: 1024px) {
     .edge-glass-header {
       padding-left: max(1.5rem, var(--safe-area-left));
@@ -746,14 +752,16 @@ summary::-webkit-details-marker {
   --footer-scrim-height: max(7rem, calc(var(--safe-area-bottom) + 5.5rem));
 }
 
+/* In-flow above the search pill inside the phone dock so scroll-hide
+   translateY moves the Compare bar with the composer (no viewport-fixed jump). */
 .differentials-mobile-compare-fab {
   pointer-events: none;
-  position: fixed;
-  inset-inline: max(1rem, var(--safe-area-left)) max(1rem, var(--safe-area-right));
-  bottom: max(5.35rem, calc(var(--safe-area-bottom) + 5.05rem));
-  z-index: 50;
+  position: relative;
+  z-index: 10;
   display: flex;
+  width: 100%;
   justify-content: center;
+  margin-bottom: 0.5rem;
 }
 
 .differentials-mobile-compare-fab__button {
@@ -1765,9 +1773,13 @@ summary::-webkit-details-marker {
 }
 
 @media (max-width: 639px) {
+  /* Unlayered on purpose: a prior max(0px, safe-area) here beat the layered
+     inset and pinned new-chat to the phone bezel. Keep the tokenized phone
+     value so unlayered media cannot reintroduce a 0px override or drift from
+     the @layer components base. */
   .edge-glass-header {
-    padding-left: max(0px, var(--safe-area-left));
-    padding-right: max(0px, var(--safe-area-right));
+    padding-left: max(var(--header-edge-pad), var(--safe-area-left));
+    padding-right: max(var(--header-edge-pad), var(--safe-area-right));
   }
 
   .dashboard-composer-edge.answer-footer-search-edge:not(.answer-footer-search-dock) {
@@ -1800,14 +1812,15 @@ summary::-webkit-details-marker {
     height: max(5rem, calc(var(--safe-area-bottom) + 4.4rem));
   }
 
-  /* Differentials search results: compare action sits above the search pill in the dock. */
+  /* Differentials search results: compare action sits above the search pill in the dock.
+     Heights track --phone-dock-differentials-compare-* (same as content reserve). */
   .answer-footer-search-dock[data-footer-addon="differentials-compare"] .answer-footer-search-backdrop {
-    height: max(8.75rem, calc(var(--safe-area-bottom) + 7.5rem));
+    height: max(var(--phone-dock-differentials-compare-clearance), calc(var(--safe-area-bottom) + 11.25rem));
   }
 
   .answer-footer-search-dock.document-mobile-search-compact[data-footer-addon="differentials-compare"]
     .answer-footer-search-backdrop {
-    height: max(8.5rem, calc(var(--safe-area-bottom) + 7.25rem));
+    height: max(var(--phone-dock-differentials-compare-compact-clearance), calc(var(--safe-area-bottom) + 11rem));
   }
 
   .document-mobile-search-pill {
@@ -1844,6 +1857,12 @@ summary::-webkit-details-marker {
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-scroll-hidden="true"] {
     transform: translateY(calc(100% + env(safe-area-inset-bottom)));
     pointer-events: none;
+  }
+
+  /* Compare addon adds in-flow chrome above the pill; clear a little extra so
+     the Compare bar does not leave a 1px/subpixel peep on the viewport edge. */
+  .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-footer-addon="differentials-compare"][data-scroll-hidden="true"] {
+    transform: translateY(calc(100% + 0.75rem + env(safe-area-inset-bottom)));
   }
 
   /* Document viewer bottom composer mirrors the dock's hide-on-scroll. Unlike
@@ -2555,20 +2574,52 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
 }
 
 @media print {
-  html.factsheets-printing body * {
-    visibility: hidden !important;
+  /* Print only the portaled clean sheet. Removing every other <body> subtree from
+   * layout flow (display:none — NOT visibility:hidden) means the full-height shell
+   * chrome (sidebar <aside>, composer) and the tall screen article no longer
+   * paginate into trailing blank PDF pages. The print sheet keeps normal static
+   * flow inside its portal so it paginates correctly across pages. */
+  html.factsheets-printing body > *:not(.factsheet-print-portal) {
+    display: none !important;
   }
 
-  html.factsheets-printing .factsheet-print-sheet,
-  html.factsheets-printing .factsheet-print-sheet * {
-    visibility: visible !important;
-  }
-
+  html.factsheets-printing .factsheet-print-portal,
   html.factsheets-printing .factsheet-print-sheet {
     display: block !important;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+  }
+}
+
+/* iOS Safari bottom reserve transitions to match the composer's hide/show motion.
+   Shell routes animate the inner reserve pad; dashboard/answer animates
+   #main-content padding; DocumentViewer animates its own content pad. */
+@media (max-width: 639px) {
+  #main-content {
+    transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  #main-content[data-bottom-composer-hidden="true"] {
+    transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  #main-content [data-testid="mobile-composer-reserve-pad"] {
+    transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  #main-content[data-bottom-composer-hidden="true"] [data-testid="mobile-composer-reserve-pad"] {
+    transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  [data-testid="document-viewer-content"] {
+    transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  [data-testid="document-viewer-content"][data-scroll-hidden="true"] {
+    transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@media (max-width: 639px) and (prefers-reduced-motion: reduce) {
+  #main-content,
+  #main-content[data-bottom-composer-hidden="true"],
+  #main-content [data-testid="mobile-composer-reserve-pad"],
+  #main-content[data-bottom-composer-hidden="true"] [data-testid="mobile-composer-reserve-pad"],
+  [data-testid="document-viewer-content"],
+  [data-testid="document-viewer-content"][data-scroll-hidden="true"] {
+    transition: none;
   }
 }

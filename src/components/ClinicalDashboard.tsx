@@ -52,7 +52,6 @@ import {
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { CrossModeLinksSection } from "@/components/clinical-dashboard/cross-mode-links";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
@@ -91,7 +90,13 @@ import {
 } from "@/components/clinical-dashboard/answer-progress";
 import { evidenceMapRowsFromRenderModel } from "@/components/clinical-dashboard/evidence-map-model";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import {
+  resolveDashboardVisibleMobileComposerReserve,
+  resolveMobileComposerReserve,
+} from "@/components/clinical-dashboard/mobile-composer-reserve";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
+import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
+import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
 import { useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
@@ -115,7 +120,6 @@ import {
   type DocumentPagination,
   type LabelReviewMutationBody,
 } from "@/components/clinical-dashboard/dashboard-contracts";
-
 const DifferentialsHome = dynamic(
   () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
   { ssr: false },
@@ -672,7 +676,6 @@ export function ClinicalDashboard({
   const [activeHash, setActiveHash] = useState("#search");
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [accountSetupOpen, setAccountSetupOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
@@ -811,6 +814,31 @@ export function ClinicalDashboard({
     authUnavailableFallback: browserAuthUnavailableDemoFallback,
     localNoAuthMode,
   });
+  const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
+  const {
+    favouritesAccessible,
+    accountSetupOpen,
+    accountSetupIntent,
+    closeAccountSetup,
+    closeTransientSurfaces: closeDashboardTransientSurfaces,
+    openAccountSetup,
+    openGuide,
+    closeGuide,
+    openSettings,
+    closeSettings,
+    openAccountProfile,
+    prefetchApplications,
+  } = useDashboardShellActions({
+    authenticated: auth.status === "authenticated",
+    demoMode: clientDemoMode,
+    signedIn: sidebarIdentity.signedIn,
+    setGuideOpen,
+    setSettingsOpen,
+    setMobileSidebarOpen,
+    setDocumentsDrawerOpen,
+    setUploadDrawerOpen,
+    prefetch: (href) => router.prefetch(href),
+  });
   const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
   const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
   useEffect(() => {
@@ -885,43 +913,6 @@ export function ClinicalDashboard({
     canUseDegradedLocalSearchApis ||
     canUseNonProductionDemoFallback ||
     canAttemptDeployedPublicSearch;
-  const closeDashboardTransientSurfaces = useCallback(
-    (except?: "guide" | "settings" | "accountSetup" | "mobileSidebar" | "documents" | "upload") => {
-      if (except !== "guide") setGuideOpen(false);
-      if (except !== "settings") setSettingsOpen(false);
-      if (except !== "accountSetup") setAccountSetupOpen(false);
-      if (except !== "mobileSidebar") setMobileSidebarOpen(false);
-      if (except !== "documents") setDocumentsDrawerOpen(false);
-      if (except !== "upload") setUploadDrawerOpen(false);
-    },
-    [],
-  );
-  const openGuide = useCallback(() => {
-    closeDashboardTransientSurfaces("guide");
-    setGuideOpen(true);
-  }, [closeDashboardTransientSurfaces]);
-  const closeGuide = useCallback(() => setGuideOpen(false), []);
-  const openSettings = useCallback(() => {
-    closeDashboardTransientSurfaces("settings");
-    setSettingsOpen(true);
-  }, [closeDashboardTransientSurfaces]);
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
-  const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
-  const openAccountProfile = useCallback(() => {
-    if (sidebarIdentity.signedIn) {
-      closeDashboardTransientSurfaces("settings");
-      setSettingsOpen(true);
-      return;
-    }
-    closeDashboardTransientSurfaces("accountSetup");
-    setAccountSetupOpen(true);
-  }, [closeDashboardTransientSurfaces, sidebarIdentity.signedIn]);
-  const closeAccountSetup = useCallback(() => setAccountSetupOpen(false), []);
-  const prefetchApplications = useCallback(() => {
-    router.prefetch("/?mode=tools");
-    router.prefetch("/favourites");
-    router.prefetch("/differentials");
-  }, [router]);
   const openLibraryHealthTarget = useCallback(
     (target: LibraryHealthTarget) => {
       if (!canUseAdministrativeApis) {
@@ -2479,6 +2470,10 @@ export function ClinicalDashboard({
   }
 
   function crossModeSearch(mode: AppModeId, crossQuery: string) {
+    if (mode === "favourites" && !favouritesAccessible) {
+      openAccountSetup("favourites");
+      return;
+    }
     modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setCommandScopes([]);
@@ -2760,6 +2755,10 @@ export function ClinicalDashboard({
   }
 
   function selectSearchMode(mode: AppModeId) {
+    if (mode === "favourites" && !favouritesAccessible) {
+      openAccountSetup("favourites");
+      return;
+    }
     modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setQuery("");
@@ -3249,20 +3248,16 @@ export function ClinicalDashboard({
   const compactMobileBottomSearch = hasMobileBottomSearch && modeSearchSubmitted;
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
-  const visibleMobileComposerReserve =
-    searchMode === "answer"
-      ? answerFollowUpSuggestions.length > 0
-        ? "calc(7.5rem + var(--safe-area-bottom))"
-        : "calc(5.25rem + var(--safe-area-bottom))"
-      : differentialsCompareAddonActive
-        ? "calc(8.75rem + var(--safe-area-bottom))"
-        : compactMobileBottomSearch
-          ? "calc(5rem + var(--safe-area-bottom))"
-          : "calc(5.25rem + var(--safe-area-bottom))";
-  // Browser safe areas protect the visible interactive dock. Once it has
-  // scrolled away, reserving Safari's translucent toolbar inset would leave a
-  // large blank band instead of allowing ordinary content to paint beneath it.
-  const mobileComposerReserve = bottomComposerHidden ? "0.75rem" : visibleMobileComposerReserve;
+  // Hidden dock pad must stay at 0.75rem — Safari toolbar safe-area recreates a blank band.
+  const mobileComposerReserve = resolveMobileComposerReserve(
+    bottomComposerHidden,
+    resolveDashboardVisibleMobileComposerReserve({
+      searchMode,
+      hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
+      differentialsCompareAddonActive,
+      compactMobileBottomSearch,
+    }),
+  );
   const renderDegradedNotice = () => (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : CircleAlert}
@@ -3477,6 +3472,7 @@ export function ClinicalDashboard({
         theme={theme}
         onToggleTheme={toggleTheme}
         onPrefetchApplications={prefetchApplications}
+        showAccountLibrary={favouritesAccessible}
       />
 
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
@@ -3493,6 +3489,8 @@ export function ClinicalDashboard({
           realDataReady={canRunSearch}
           onQueryChange={setQuery}
           onSearchModeChange={selectSearchMode}
+          canAccessFavourites={favouritesAccessible}
+          onRequestAccountSetup={() => openAccountSetup("favourites")}
           onAsk={ask}
           onClearQuery={() => {
             setQuery("");
@@ -3551,7 +3549,9 @@ export function ClinicalDashboard({
           id="main-content"
           ref={assignMainRef}
           tabIndex={-1}
+          // prettier-ignore
           onScroll={handleMainScroll}
+          data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
           className={cn(
             "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
             // Answer view: the glass header is absolute over this scroll container,
@@ -3846,7 +3846,7 @@ export function ClinicalDashboard({
                   />
                 ) : activeModeResultKind === "tools" ? (
                   <ToolsHub query={query} desktopComposerSlotId={desktopHomeComposerSlotId} />
-                ) : activeModeResultKind === "favourites" ? (
+                ) : activeModeResultKind === "favourites" && favouritesAccessible ? (
                   <FavouritesHub
                     query={query}
                     demoMode={clientDemoMode}
@@ -3857,6 +3857,8 @@ export function ClinicalDashboard({
                     }}
                     desktopComposerSlotId={desktopHomeComposerSlotId}
                   />
+                ) : activeModeResultKind === "favourites" ? (
+                  <FavouritesGuestGate onOpenAccountSetup={() => openAccountSetup("favourites")} />
                 ) : activeModeResultKind === "documents" || activeModeResultKind === "services" ? (
                   searchMode === "prescribing" ? (
                     <MedicationPrescribingWorkspace
@@ -3872,9 +3874,8 @@ export function ClinicalDashboard({
                     />
                   ) : (
                     <>
-                      <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
-                      {searchMode === "documents" && modeSearchSubmitted && (
-                        <CrossModeLinksSection queries={[query]} onModeSearch={crossModeSearch} />
+                      {searchMode === "documents" ? null : (
+                        <ScopeAndGovernanceNotice scope={searchScope} warnings={sourceGovernanceWarnings} />
                       )}
                       <DocumentSearchResultsPanel
                         matches={documentMatches}
@@ -3891,6 +3892,8 @@ export function ClinicalDashboard({
                         apiUnavailable={apiUnavailable}
                         setupWarning={setupWarning}
                         facets={searchFacets}
+                        searchScope={searchMode === "documents" ? searchScope : null}
+                        sourceGovernanceWarnings={searchMode === "documents" ? sourceGovernanceWarnings : undefined}
                         onScopeDocument={handleScopeDocument}
                         onAnswerFromDocument={handleAnswerFromDocument}
                         onOpenRecentDocuments={handleOpenRecentDocuments}
@@ -3985,7 +3988,9 @@ export function ClinicalDashboard({
               )}
               {(documentsDrawerOpen || uploadDrawerOpen) && (
                 <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
-                  <DrawerGroupLabel title={drawerGroupTitle} />
+                  <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
+                    {drawerGroupTitle}
+                  </p>
                   {documentsDrawerOpen ? (
                     <UtilityDrawer
                       id="dashboard-documents-drawer"
@@ -4244,7 +4249,7 @@ export function ClinicalDashboard({
           onSignOut={auth.signOut}
           onOpenGuide={openGuide}
         />
-        <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} />
+        <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
         <ClinicalMobileSidebar
           open={mobileSidebarOpen}
           recentQueries={recentQueries}
@@ -4259,14 +4264,9 @@ export function ClinicalDashboard({
           theme={theme}
           onToggleTheme={toggleTheme}
           onPrefetchApplications={prefetchApplications}
+          showAccountLibrary={favouritesAccessible}
         />
       </div>
     </div>
-  );
-}
-
-function DrawerGroupLabel({ title }: { title: string }) {
-  return (
-    <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">{title}</p>
   );
 }

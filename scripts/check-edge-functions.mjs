@@ -16,7 +16,7 @@ if (entrypoints.length === 0) {
   process.exit(1);
 }
 
-const args = ["check", "--node-modules-dir=false", "--no-lock", ...entrypoints];
+const args = ["check", "--node-modules-dir=false", ...entrypoints];
 const deno = spawnSync("deno", ["--version"], { encoding: "utf8" });
 const denoVersionLine = deno.stdout?.split("\n")[0]?.trim() ?? "";
 const denoVersionMatch = denoVersionLine.match(/^deno\s+(\d+)\./);

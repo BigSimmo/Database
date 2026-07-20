@@ -81,6 +81,10 @@ export function Sheet({
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
   const dragRef = useRef<{ startY: number; dragging: boolean }>({ startY: 0, dragging: false });
+  // Backdrop dismiss must require the gesture to *start* on the dimmed area.
+  // Otherwise a press that begins on the panel and ends on the backdrop would
+  // synthesize a click on the common ancestor and accidentally close the sheet.
+  const backdropPointerDownRef = useRef(false);
   const titleId = useId();
   const descId = useId();
 
@@ -147,7 +151,9 @@ export function Sheet({
 
       const focusable = Array.from(
         panelRef.current?.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+          // Exclude tabindex="-1" buttons so roving-tabindex menus (e.g. Mode
+          // options) do not dump every inactive item into the Tab cycle.
+          'a[href], button:not([disabled]):not([tabindex="-1"]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
         ) ?? [],
       ).filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true");
       if (focusable.length === 0) return;
@@ -209,8 +215,16 @@ export function Sheet({
               ? "items-start justify-center px-3 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:items-center sm:p-6"
               : "items-end justify-center sm:items-center sm:p-6",
       )}
+      // Dismiss on click (not pointerdown) so the sheet stays mounted through
+      // pointerup and the same gesture cannot click-through into content below.
+      // Only honor the click when the pointerdown also began on the backdrop.
       onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        backdropPointerDownRef.current = event.target === event.currentTarget;
+      }}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget || !backdropPointerDownRef.current) return;
+        backdropPointerDownRef.current = false;
+        onClose();
       }}
     >
       <div
@@ -220,7 +234,10 @@ export function Sheet({
         aria-modal="true"
         aria-labelledby={resolvedLabelledBy}
         aria-describedby={description || descriptionContent ? descId : undefined}
-        onPointerDown={(event) => event.stopPropagation()}
+        onPointerDown={(event) => {
+          backdropPointerDownRef.current = false;
+          event.stopPropagation();
+        }}
         style={contentStyle}
         className={cn(
           "flex min-w-0 w-full flex-col overflow-hidden border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text)] shadow-[var(--shadow-elevated)] pb-safe",

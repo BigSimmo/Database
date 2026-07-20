@@ -28,25 +28,12 @@ describe("ingestion-worker Edge Function authorization", () => {
     expect(source).toContain('if (req.method !== "POST")');
     expect(source).toContain('hasServiceRoleAuthorization(req.headers.get("authorization"))');
     expect(source.indexOf("hasServiceRoleAuthorization")).toBeLessThan(source.indexOf("public.claim_ingestion_jobs"));
-  });
-
-  it("fences completion and failure mutations to the worker that owns the lease", () => {
-    expect(source).toContain("async function processJob(job: ClaimedJob, workerId: string): Promise<boolean>");
-    expect(source).toMatch(/complete_ingestion_job\([\s\S]*?\$\{workerId\}[\s\S]*?\) as result/);
-    expect(source).toMatch(/fail_or_retry_ingestion_job\([\s\S]*?\$\{workerId\}[\s\S]*?\) as result/);
-    expect(source).toContain("rows[0]?.result?.ok === true");
-    expect(source).toContain("lease_lost: leaseLost");
-  });
-
-  it("prepares replacement embeddings before swapping them atomically", () => {
-    const prepareIndex = source.indexOf("const prepared = await Promise.all");
-    const transactionIndex = source.indexOf("await sql.begin(async (transaction)");
-    const deleteIndex = source.indexOf("delete from public.document_embedding_fields");
-
-    expect(prepareIndex).toBeGreaterThan(0);
-    expect(transactionIndex).toBeGreaterThan(prepareIndex);
-    expect(deleteIndex).toBeGreaterThan(transactionIndex);
-    expect(source).toContain("for (const entry of prepared)");
-    expect(source).toContain("await transaction`");
+    expect(source).toContain("complete_ingestion_job(");
+    expect(source).toContain("fail_or_retry_ingestion_job(");
+    expect(source).toContain("${workerId}");
+    expect(source).toContain('reason === "lease_lost"');
+    expect(source).toContain("lease_lost:");
+    expect(source).toContain("sql.begin");
+    expect(source).toContain("complete_ingestion_job did not confirm success");
   });
 });

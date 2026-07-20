@@ -57,6 +57,7 @@ function mockRuntime(client: ReturnType<typeof rateLimitedClient>) {
   vi.doMock("@/lib/supabase/auth", () => ({
     AuthenticationError: class AuthenticationError extends Error {},
     requireAuthenticatedUser: vi.fn(async () => ({ id: userId })),
+    getOptionalAuthenticatedUser: vi.fn(async () => ({ id: userId })),
     unauthorizedResponse: () => new Response(JSON.stringify({ error: "Authentication required." }), { status: 401 }),
   }));
   vi.doMock("@/lib/rag", () => ({

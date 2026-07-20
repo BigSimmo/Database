@@ -1,6 +1,6 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
-import { scrollPrimarySurface } from "./playwright-scroll";
+import { readMobileComposerReservePx, scrollPrimarySurface } from "./playwright-scroll";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
@@ -675,6 +675,9 @@ async function openScopeControl(page: Page) {
     await expect(bottomDock).not.toHaveAttribute("data-scroll-hidden", "true");
   }
 
+  // If the composer is scrolled out of view on mobile, scroll the container to the top to reveal it
+  await scrollPrimarySurface(page, 0);
+
   await composer.click();
   const scopeOption = page.getByRole("option", { name: /Scope sources/i });
   if (await scopeOption.isVisible({ timeout: 2_000 }).catch(() => false)) {
@@ -1090,6 +1093,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { name: "Services", href: "/services" },
       // The rail speaks the catalogue-maturity badge as part of the Forms name.
       { name: "Forms (Early access)", href: "/forms" },
+      // Demo mode still exposes Favourites via the account-library rail entry.
       { name: "Favourites", href: "/favourites" },
       { name: "Differentials", href: "/differentials" },
       { name: "Medication", href: "/?mode=prescribing" },
@@ -1318,7 +1322,68 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeMenu).toBeVisible();
     await page.mouse.click(640, 430);
     await expect(appModeMenu).toBeHidden();
+    await expect(page.getByTestId("app-mode-menu-sheet")).toHaveCount(0);
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone mode menu opens as a scrollable bottom sheet with the full mode list", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
+    await waitForReactEventHandler(appModeTrigger, "onClick");
+    await appModeTrigger.click();
+
+    const modeSheet = page.getByTestId("app-mode-menu-sheet");
+    const appModeMenu = page.getByRole("menu", { name: "Choose app mode" });
+    await expect(modeSheet).toBeVisible();
+    await expect(modeSheet).toHaveAttribute("role", "dialog");
+    await expect(appModeMenu).toBeVisible();
+    await expect(appModeTrigger).toHaveAttribute("aria-expanded", "true");
+    await expect(appModeTrigger).toHaveAttribute("aria-controls", "app-mode-menu");
+
+    // Full list must be present (not clipped out of the DOM by the old max-height panel).
+    const modeOptions = appModeMenu.getByRole("menuitemradio");
+    expect(await modeOptions.count()).toBeGreaterThanOrEqual(10);
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ })).toBeAttached();
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
+
+    // Scroll the sheet body so a lower mode is interactable, then select it.
+    const toolsMode = appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ });
+    await toolsMode.scrollIntoViewIfNeeded();
+    await expect(toolsMode).toBeVisible();
+    await toolsMode.click();
+
+    await expect(modeSheet).toHaveCount(0);
+    await expect(appModeMenu).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeFocused();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone mode menu dismisses via backdrop and restores focus to the Mode button", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockPrivateUnauthenticatedApi(page);
+    await gotoApp(page, "/");
+    await waitForDemoDashboardReady(page);
+
+    const appModeTrigger = page.getByRole("button", { name: "Mode Answer" });
+    await waitForReactEventHandler(appModeTrigger, "onClick");
+    await appModeTrigger.click();
+
+    const modeSheet = page.getByTestId("app-mode-menu-sheet");
+    await expect(modeSheet).toBeVisible();
+
+    // Click the dimmed backdrop (outside the dialog panel) to dismiss.
+    await page
+      .locator(".fixed.inset-0.z-\\[100\\]")
+      .first()
+      .click({ position: { x: 8, y: 8 } });
+    await expect(modeSheet).toHaveCount(0);
+    await expect(appModeTrigger).toBeFocused();
+    await expect(appModeTrigger).toHaveAttribute("aria-expanded", "false");
   });
 
   test("desktop mode action placement coalesces scroll updates per frame", async ({ page }) => {
@@ -2928,10 +2993,36 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await submitDocumentSearch(page);
 
     await expect(page).toHaveURL(/\/documents\/search\?.*q=lithium\+monitoring/);
+    const documentWorkspace = page.getByTestId("document-search-workspace");
+    await expect(documentWorkspace.getByRole("heading", { name: /document/i }).first()).toBeVisible();
+    await expect(documentWorkspace.getByTestId("document-results-controls")).toBeVisible();
+    const resultsControls = documentWorkspace.getByTestId("document-results-controls");
+    await expect(resultsControls.getByLabel("Sort results")).toBeVisible();
+    await expect(resultsControls.getByRole("button", { name: "Open document library" })).toBeVisible();
+    await expect(documentWorkspace.getByText("Documents overview")).toHaveCount(0);
+    await expect(documentWorkspace.getByRole("button", { name: /Browse library/i })).toHaveCount(0);
+    await expect(page.getByTestId("cross-mode-links")).toHaveCount(0);
+    await expect(page.getByText(/Also in your library/i)).toHaveCount(0);
+
     const documentResults = page.getByRole("article").filter({ hasText: "Synthetic Lithium Monitoring Protocol" });
     await expect(documentResults).toBeVisible();
     await expect(documentResults).toContainText("Best match");
     await expect(documentResults).toContainText("1 table");
+
+    const typeFilters = resultsControls.getByLabel("Filter by result type");
+    if ((await typeFilters.count()) > 0) {
+      const tablesFilter = typeFilters.getByRole("button", { name: /Tables/i });
+      await expect(tablesFilter).toBeVisible();
+      await tablesFilter.click();
+      await expect(tablesFilter).toHaveAttribute("aria-pressed", "true");
+      await expect(documentResults).toBeVisible();
+      await typeFilters.getByRole("button", { name: /^All/i }).click();
+    }
+
+    await resultsControls.getByLabel("Sort results").selectOption("alpha");
+    await expect(page).toHaveURL(/[?&]sort=alpha/);
+    await resultsControls.getByLabel("Sort results").selectOption("relevance");
+
     const openDocumentLink = documentResults
       .getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })
       .last();
@@ -2944,6 +3035,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     );
     await expect(page.getByRole("complementary", { name: "Selected document evidence" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
+
+    await resultsControls.getByRole("button", { name: "Open document library" }).click();
+    const resultsLibraryDialog = page.getByRole("dialog", { name: "Source library" });
+    await expect(resultsLibraryDialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(resultsLibraryDialog).toHaveCount(0);
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(documentResults).toBeVisible();
@@ -3532,13 +3629,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
       document.documentElement.style.setProperty("--safe-area-bottom", "112px");
     });
     const viewerContent = page.getByTestId("document-viewer-content");
+    const main = page.locator("#main-content");
+    // DocumentViewer owns the floating dock. The shell must keep only a tiny
+    // pad even when Safari's toolbar inset is large — otherwise #932's
+    // max(2rem, --safe-area-bottom) shell reserve recreates the blank band
+    // under the viewer while the viewer itself collapses correctly.
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
     await expect
       .poll(async () =>
         viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
       )
       .toBeGreaterThan(250);
 
-    const main = page.locator("#main-content");
     await waitForReactEventHandler(main, "onScroll");
     await page.evaluate(() => {
       const main = window.document.getElementById("main-content");
@@ -3564,6 +3666,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
       )
       .toBeLessThanOrEqual(13);
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
 
     // Reappear on scroll up.
     await scrollPrimarySurface(page, 60);
@@ -3573,6 +3676,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
       )
       .toBeGreaterThan(250);
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
 
     // Keyboard focus inside the composer reveals it while hidden.
     await scrollPrimarySurface(page, 240);
@@ -3584,6 +3688,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
         viewerContent.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingBottom)),
       )
       .toBeGreaterThan(250);
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
   });
 
   test("document questions use the shared answer stream with progress and cleaned bold formatting", async ({

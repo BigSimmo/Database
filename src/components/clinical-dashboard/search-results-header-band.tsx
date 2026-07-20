@@ -133,10 +133,13 @@ export function ResultSortControl({
   value,
   onChange,
   className,
+  compact = false,
 }: {
   value: ResultSortValue;
   onChange: (value: ResultSortValue) => void;
   className?: string;
+  /** Hide the visual "Sort" label on narrow viewports; the select keeps its accessible name. */
+  compact?: boolean;
 }) {
   return (
     <label
@@ -146,7 +149,7 @@ export function ResultSortControl({
         className,
       )}
     >
-      <span className="text-[color:var(--text-soft)]">Sort</span>
+      <span className={cn("text-[color:var(--text-soft)]", compact && "sr-only sm:not-sr-only sm:inline")}>Sort</span>
       {/* appearance-none strips the native control chrome so "Relevance" renders at the
           same size/weight as the rest of the band and the caret sits in a fixed slot. */}
       <select
@@ -159,7 +162,7 @@ export function ResultSortControl({
         <option value="alpha">A–Z</option>
       </select>
       <ChevronsUpDown
-        className="pointer-events-none absolute right-2 h-3.5 w-3.5 text-[color:var(--text-soft)]"
+        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--text-soft)]"
         aria-hidden
       />
     </label>
@@ -172,15 +175,18 @@ export function SearchResultsEmptyState({
   onClearScopes,
   onTryExample,
   onCrossMode,
+  canAccessFavourites = false,
 }: {
   modeId: AppModeId;
   query: string;
   onClearScopes?: () => void;
   onTryExample?: (example: string) => void;
   onCrossMode?: (modeId: AppModeId) => void;
+  canAccessFavourites?: boolean;
 }) {
   const command = useSearchCommand();
   const config = searchCommandSurfaceConfig(modeId);
+  const crossModes = (config?.crossModes ?? []).filter((target) => canAccessFavourites || target !== "favourites");
   const activeScopes = command?.commandScopes ?? [];
 
   return (
@@ -219,7 +225,7 @@ export function SearchResultsEmptyState({
             Try: {config.examples[0]}
           </button>
         ) : null}
-        {config?.crossModes.slice(0, 2).map((target) =>
+        {crossModes.slice(0, 2).map((target) =>
           onCrossMode ? (
             <button
               key={target}

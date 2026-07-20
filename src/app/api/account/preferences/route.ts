@@ -3,7 +3,7 @@ import { z } from "zod";
 import { normalizePreferences } from "@/lib/account-preferences";
 import { jsonError } from "@/lib/http";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireAuthenticatedUser } from "@/lib/supabase/auth";
+import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
@@ -35,18 +35,12 @@ export async function GET(request: Request) {
       .eq("user_id", user.id)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return Response.json(
-      {
-        preferences: data ? normalizePreferences(data.preferences) : null,
-        updatedAt: data?.updated_at,
-      },
-      {
-        headers: {
-          "Cache-Control": "private, no-store",
-        },
-      },
-    );
+    return Response.json({
+      preferences: data ? normalizePreferences(data.preferences) : null,
+      updatedAt: data?.updated_at,
+    });
   } catch (error) {
+    if (error instanceof AuthenticationError) return unauthorizedResponse();
     return jsonError(error);
   }
 }
@@ -62,15 +56,9 @@ export async function PUT(request: Request) {
       updated_at: new Date().toISOString(),
     });
     if (error) throw new Error(error.message);
-    return Response.json(
-      { preferences },
-      {
-        headers: {
-          "Cache-Control": "private, no-store",
-        },
-      },
-    );
+    return Response.json({ preferences });
   } catch (error) {
+    if (error instanceof AuthenticationError) return unauthorizedResponse();
     return jsonError(error);
   }
 }

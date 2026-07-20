@@ -11,7 +11,7 @@ const featuredCategories = dsmCategories
 
 export function DsmHomePage() {
   return (
-    <ModeHomeMain testId="dsm-home-main">
+    <ModeHomeMain testId="dsm-home-main" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="dsm-home"
         title="DSM-5 Diagnosis"

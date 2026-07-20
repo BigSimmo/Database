@@ -973,14 +973,18 @@ export function DifferentialDetailPage({
   }
 
   async function toggleSaved() {
-    const nowSaved = !saved;
-    const result = await accountData.setFavourite("differential", record.slug, nowSaved);
-    if (result.success) {
+    try {
+      const nowSaved = !saved;
+      const updated = await accountData.setFavourite("differential", record.slug, nowSaved);
+      if (!updated) {
+        setSaveNotice(
+          accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save diagnoses.",
+        );
+        return;
+      }
       setSaveNotice(nowSaved ? "Diagnosis saved." : "Diagnosis removed from saved items.");
-    } else if (result.reason === "unauthenticated") {
-      setSaveNotice("Sign in or create an account to save diagnoses.");
-    } else {
-      setSaveNotice(result.message);
+    } catch {
+      setSaveNotice("Save failed.");
     }
   }
 

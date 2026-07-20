@@ -62,8 +62,17 @@ async function mockDemoDashboard(page: Page) {
 }
 
 async function gotoHome(page: Page) {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.locator("header#search").waitFor({ state: "visible", timeout: 30_000 });
+  // Pin mode=answer so GlobalSearchShell does not immediately router.replace()
+  // for a stored landing preference. That replace can briefly leave two mounted
+  // shells (and two header#search nodes), which trips Playwright strict mode.
+  await page.goto("/?mode=answer", { waitUntil: "domcontentloaded" });
+  // Wait until React settles on a single header. During client remount /
+  // hydration a second transient header#search can exist briefly and trip
+  // Playwright strict mode even though the stable tree has only one banner.
+  // Permanent double-render still fails toHaveCount(1).
+  const header = page.locator("header#search");
+  await expect(header).toHaveCount(1, { timeout: 30_000 });
+  await header.waitFor({ state: "visible", timeout: 30_000 });
   await page.getByRole("button", { name: "Open answer options" }).waitFor({ state: "visible", timeout: 30_000 });
 }
 
@@ -116,6 +125,39 @@ test.describe("Header element overlap coverage", () => {
       const report = await collectHeaderOverlaps(page);
       expect(report.count, "expected at least the mode pill and one control in the header").toBeGreaterThanOrEqual(2);
       expect(report.overlaps, `overlapping header elements at ${width}px`).toEqual([]);
+    });
+  }
+
+  for (const viewport of [
+    { name: "narrow-phone", width: 360, height: 780 },
+    { name: "phone", width: 390, height: 820 },
+  ] as const) {
+    test(`header menu and new-chat insets stay symmetric on ${viewport.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await mockDemoDashboard(page);
+      await gotoHome(page);
+
+      const menu = page.getByRole("button", { name: "Open Clinical Guide menu" });
+      const newChat = page.getByRole("button", { name: "Start a new chat" });
+      await expect(menu).toBeVisible();
+      await expect(newChat).toBeVisible();
+
+      // Headless Chromium reports env(safe-area-inset-*) as 0, so this asserts
+      // the --header-edge-pad (1rem) chrome inset — not notch asymmetry.
+      const menuBox = await menu.boundingBox();
+      const newChatBox = await newChat.boundingBox();
+      expect(menuBox, "menu control must have geometry").not.toBeNull();
+      expect(newChatBox, "new-chat control must have geometry").not.toBeNull();
+
+      const leftInset = menuBox!.x;
+      const rightInset = viewport.width - (newChatBox!.x + newChatBox!.width);
+      // 1rem header pad (~16px) with 2px subpixel tolerance.
+      expect(leftInset, "left menu inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
+      expect(rightInset, "right new-chat inset should be at least ~1rem").toBeGreaterThanOrEqual(14);
+      expect(
+        Math.abs(leftInset - rightInset),
+        `left/right insets should match (left=${leftInset}, right=${rightInset})`,
+      ).toBeLessThanOrEqual(2);
     });
   }
 

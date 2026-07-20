@@ -1798,7 +1798,7 @@ export function DocumentViewer({
   const canViewSourceDocuments = localProjectReady;
   const canUsePrivateApis = localProjectReady && (clientDemoMode || authStatus === "authenticated");
   const canUseAdministrativeApis =
-    localProjectReady && !serverDemoMode && authStatus === "authenticated" && isAdministratorUser(session?.user);
+    localProjectReady && (serverDemoMode || (authStatus === "authenticated" && isAdministratorUser(session?.user)));
 
   useEffect(() => {
     if (authStatus !== "loading") {
@@ -2281,12 +2281,12 @@ export function DocumentViewer({
   }, []);
 
   async function summarize() {
-    if (!canSummarizeDocument) {
-      setSummaryError(
-        !canUsePrivateApis
-          ? "Sign in before summarising private documents."
-          : "Load a source document before summarising.",
-      );
+    if (!canUsePrivateApis) {
+      setSummaryError("Sign in before summarising private documents.");
+      return;
+    }
+    if (viewerState !== "ready" || loadingSummary) {
+      setSummaryError("Load a source document before summarising.");
       return;
     }
     const summaryMode = sourceSearch.trim().length === 0;
@@ -2408,11 +2408,11 @@ export function DocumentViewer({
     : documentHomeHref;
   const usefulPageHref = (page: number) => documentPageHref(documentId, page);
   const canSummarizeDocument = viewerState === "ready" && !loadingSummary && canUsePrivateApis;
-  const summarizeTitle = canSummarizeDocument
-    ? "Answer from this document"
-    : !canUsePrivateApis
-      ? "Sign in required to answer from this document"
-      : "Load a source document before answering";
+  const summarizeTitle = !canUsePrivateApis
+    ? "Sign in before answering from this document"
+    : viewerState !== "ready" || loadingSummary
+      ? "Load a source document before answering"
+      : "Answer from this document";
   const pageByNumber = useMemo(() => new Map(pages.map((page) => [page.page_number, page])), [pages]);
   const chunkById = useMemo(() => new Map(chunks.map((chunk) => [chunk.id, chunk])), [chunks]);
   const selectedPage = pageByNumber.get(activePage) ?? pages[0];
@@ -2679,6 +2679,7 @@ export function DocumentViewer({
 
       <section
         data-testid="document-viewer-content"
+        data-scroll-hidden={composerScrollHidden ? "true" : undefined}
         className={cn(
           "mx-auto grid max-w-[1440px] gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
           // The visible fixed composer needs endpoint clearance. Once hidden,
@@ -3123,7 +3124,10 @@ export function DocumentViewer({
           }}
           className={cn(
             glassOverlaySurface,
-            "document-viewer-composer floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-transform max-sm:duration-200 max-sm:ease-out motion-reduce:transition-none",
+            "document-viewer-composer floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-transform motion-reduce:transition-none",
+            composerScrollHidden
+              ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+              : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
           )}
         >
           <button

@@ -486,14 +486,13 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   async function toggleSaved() {
     try {
       const nowSaved = !saved;
-      const result = await accountData.setFavourite("service", service.slug, nowSaved);
-      if (result.success) {
-        setNotice(nowSaved ? "Service saved" : "Service removed from saved items");
-      } else if (result.reason === "unauthenticated") {
-        setNotice("Sign in or create an account to save services");
-      } else {
-        setNotice(result.message);
+      if (!(await accountData.setFavourite("service", service.slug, nowSaved))) {
+        setNotice(
+          accountData.isAuthenticated ? "Save failed. Try again." : "Sign in or create an account to save services",
+        );
+        return;
       }
+      setNotice(nowSaved ? "Service saved" : "Service removed from saved items");
     } catch {
       setNotice("Save failed");
     }
@@ -506,7 +505,10 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
   return (
     <main
       data-testid="service-detail-page"
-      className="min-h-[calc(100dvh-4rem)] max-sm:shrink-0 bg-[color:var(--background)] px-3 py-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] text-[color:var(--text)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
+      // Phone shell already owns dock clearance via --mobile-composer-reserve.
+      // A 100dvh min-height here overflows the inset scrollport and parks the
+      // page footer under the visible dock even when the shell pad is correct.
+      className="max-sm:min-h-0 max-sm:shrink-0 bg-[color:var(--background)] px-3 py-4 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
     >
       <div className={pageContainer}>
         {notice ? (

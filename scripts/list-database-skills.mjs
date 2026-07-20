@@ -77,6 +77,7 @@ export function validateSkillCatalog(catalog = loadSkillCatalog(), discovered = 
   const aliasTargets = new Map(aliases);
   const discoveredByName = new Map(discovered.map((skill) => [skill.name, skill]));
   const discoveredNames = discovered.map((skill) => skill.name);
+  const descriptions = new Map();
 
   for (const [label, names] of [
     ["category", categoryNames],
@@ -95,7 +96,7 @@ export function validateSkillCatalog(catalog = loadSkillCatalog(), discovered = 
     else if (discoveredSkill.directory !== skill.name) {
       errors.push(`Canonical skill directory mismatch: ${skill.name} is in ${discoveredSkill.directory}`);
     } else {
-      skill.description = discoveredSkill.description;
+      descriptions.set(skill.name, discoveredSkill.description);
     }
   }
 
@@ -146,7 +147,7 @@ export function validateSkillCatalog(catalog = loadSkillCatalog(), discovered = 
     }
   }
 
-  return { errors, canonical, aliases, discovered };
+  return { errors, canonical, aliases, discovered, descriptions };
 }
 
 export function summarizeSkillDescription(description) {
@@ -160,7 +161,7 @@ export function renderSkillCatalog(catalog = loadSkillCatalog(), discovered = di
   const validation = validateSkillCatalog(catalog, discovered);
   if (validation.errors.length) throw new Error(validation.errors.join("\n"));
 
-  const descriptions = new Map(validation.canonical.map((skill) => [skill.name, skill.description]));
+  const descriptions = validation.descriptions;
   const lines = [`Database skills (${validation.canonical.length})`, ""];
   for (const category of catalog.categories) {
     lines.push(category.name);

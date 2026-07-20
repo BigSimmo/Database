@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useRef, useState } from "react";
-import { Clock3, FileText, LockKeyhole, Mail, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
+import { Clock3, FileText, Heart, LockKeyhole, Mail, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { ProviderBrandIcon, type SsoProvider } from "@/components/clinical-dashboard/provider-brand-icons";
@@ -35,6 +35,24 @@ const accountBenefits = [
   },
 ] as const;
 
+const favouritesAccountBenefits = [
+  {
+    label: "Saved favourites",
+    detail: "Sign up to save favourites and reopen them on any device.",
+    icon: Heart,
+  },
+  {
+    label: "Search history",
+    detail: "Pick up recent questions on any device.",
+    icon: Clock3,
+  },
+  {
+    label: "Clinical defaults",
+    detail: "Jurisdiction and answer style, remembered.",
+    icon: SlidersHorizontal,
+  },
+] as const;
+
 const securitySummary = [
   {
     label: "Private workspace",
@@ -53,7 +71,16 @@ const securitySummary = [
   },
 ] as const;
 
-export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function AccountSetupDialog({
+  open,
+  onClose,
+  intent = "default",
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** When opened from Favourites, lead with save-favourites messaging. */
+  intent?: "default" | "favourites";
+}) {
   const auth = useAuthSession();
   const emailInputRef = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState("");
@@ -61,6 +88,15 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
   const [emailAttempted, setEmailAttempted] = useState(false);
   const busy = auth.status === "loading";
   const statusMessage = providerNotice ?? (emailAttempted ? auth.error : null);
+  const isFavouritesIntent = intent === "favourites";
+  const benefits = isFavouritesIntent ? favouritesAccountBenefits : accountBenefits;
+  const title = isFavouritesIntent ? "Sign up to save favourites" : "Set up your workspace";
+  const subtitle = isFavouritesIntent
+    ? "Create an account to save clinical favourites and access them across devices."
+    : "Sync source preferences, search history, and clinical defaults across devices.";
+  const benefitsHeading = isFavouritesIntent
+    ? "Favourites stay with your account"
+    : "Everything syncs across your devices";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -109,11 +145,9 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                 id="account-setup-title"
                 className="mt-3.5 text-2xl-minus font-semibold leading-7 text-[color:var(--text-heading)] sm:mt-4 sm:text-2xl sm:leading-8"
               >
-                Set up your workspace
+                {title}
               </h2>
-              <p className={cn("mx-auto mt-2 max-w-[22rem] text-sm font-medium leading-6", textMuted)}>
-                Sync source preferences, search history, and clinical defaults across devices.
-              </p>
+              <p className={cn("mx-auto mt-2 max-w-[22rem] text-sm font-medium leading-6", textMuted)}>{subtitle}</p>
             </header>
 
             <label className="block">
@@ -172,10 +206,10 @@ export function AccountSetupDialog({ open, onClose }: { open: boolean; onClose: 
                 id="account-benefits-title"
                 className="mb-2.5 px-0.5 text-xs font-semibold uppercase leading-4 tracking-[0.06em] text-[color:var(--text-soft)]"
               >
-                Everything syncs across your devices
+                {benefitsHeading}
               </h3>
               <ul className="grid gap-1.5 sm:grid-cols-3 sm:gap-2">
-                {accountBenefits.map((benefit) => {
+                {benefits.map((benefit) => {
                   const Icon = benefit.icon;
                   return (
                     <li
