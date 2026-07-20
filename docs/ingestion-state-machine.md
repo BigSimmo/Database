@@ -32,8 +32,9 @@ stateDiagram-v2
     queued --> processing: worker claims ingestion_job
     processing --> indexed: commit_document_index_generation
     processing --> failed: fail_or_retry_ingestion_job
+    processing --> queued: retry / recovery
     failed --> queued: retry route / queue recovery
-    indexed --> queued: reindex enqueue
+    indexed --> indexed: atomic reindex enqueue (job pending)
     indexed --> [*]
 
     note right of processing
