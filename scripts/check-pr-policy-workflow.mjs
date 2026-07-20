@@ -66,6 +66,17 @@ if (!policyJob) {
     if (!validateStep.includes(`uses: actions/github-script@${githubScriptPin} # v9.0.0`)) {
       failures.push("PR policy validation must use the pinned github-script action.");
     }
+    if (!validateStep.includes("github.rest.pulls.get")) {
+      failures.push("PR policy validation must fetch the latest PR metadata before evaluating policy.");
+    }
+    if (
+      !validateStep.includes("latestPr.title") ||
+      !validateStep.includes("latestPr.body") ||
+      !validateStep.includes("latestPr.draft") ||
+      !validateStep.includes("latestPr.head.ref")
+    ) {
+      failures.push("PR policy validation must use refreshed PR metadata for draft, title, body, and head ref.");
+    }
   }
 
   if (
