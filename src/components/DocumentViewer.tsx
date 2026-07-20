@@ -1873,7 +1873,7 @@ export function DocumentViewer({
   );
 
   const openSourcePreview = useCallback(
-    (options: { signal: AbortSignal; useCache: boolean }) => {
+    (options: { signal: AbortSignal; useCache: boolean }): Promise<SignedUrlResponsePayload> => {
       const endpoint = `/api/documents/${documentId}/signed-url`;
       const cached = options.useCache ? getCachedSignedUrl(endpoint) : null;
       return cached
