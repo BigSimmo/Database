@@ -78,6 +78,7 @@ const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
 const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
+const modeHomeComposerSmUpMediaQuery = "(min-width: 640px)";
 
 function splitFilterText(value: string) {
   return value
@@ -180,6 +181,7 @@ export function MasterSearchHeader({
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
   desktopHomeComposerSlotId,
+  heroComposerBreakpoint = "all",
   mobileBottomSearchAddonSlotId,
   mobileLeadingAction = "menu",
   onMobileBack,
@@ -229,16 +231,20 @@ export function MasterSearchHeader({
   composerFollowUpSuggestionsDisabled?: boolean;
   headerVariant?: "default" | "workflow";
   mobileSearchPlacement?: "default" | "bottom";
-  /** "compact" drops the phone footer chip row and hugs the bottom edge —
-   *  used by search/result views so results keep maximum screen space.
-   *  Mode homes keep the default chip-row layout. */
+  /** "compact" drops the phone footer chip row and hugs the bottom edge so
+   *  content keeps maximum screen space. Every phone dock uses it now; the
+   *  "default" value remains for hosts that need the taller legacy dock. */
   mobileBottomSearchVariant?: "default" | "compact";
   desktopSearchPlacement?: "default" | "hero";
   searchComposerVisible?: boolean;
-  /** Mode-home slot the composer portals into at every viewport width, so the
-   *  search pill sits in the middle of the hero on phones as well as desktop
-   *  instead of docking to the bottom edge. */
+  /** Mode-home slot the composer portals into so the search pill sits in the
+   *  middle of the hero instead of docking to the bottom edge. Which widths the
+   *  hero owns is controlled by `heroComposerBreakpoint`. */
   desktopHomeComposerSlotId?: string;
+  /** Widths where the mode-home hero slot hosts the composer. "all" keeps the
+   *  hero pill on phones too (the answer home); "sm-up" reserves the hero for
+   *  sm+ widths and hands phones the compact bottom dock instead. */
+  heroComposerBreakpoint?: "all" | "sm-up";
   /** Mobile/tablet slot rendered above the search pill for page-specific composer addons. */
   mobileBottomSearchAddonSlotId?: string;
   mobileLeadingAction?: "menu" | "back";
@@ -343,12 +349,14 @@ export function MasterSearchHeader({
   const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
   const headerChromeHidden =
     scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
-  // Mode homes portal the composer into the hero slot at every width, so the
-  // phone bottom dock only exists when no hero slot is provided.
+  // Mode homes portal the composer into the hero slot. With "all" the hero owns
+  // every width (the answer home keeps its in-flow pill on phones); "sm-up"
+  // hero hosts hand phones the bottom dock instead.
+  const heroComposerOwnsPhones = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
   const phoneBottomSearchDockActive =
     usesPhoneSearchLayout &&
     searchComposerVisible &&
-    !desktopHomeComposerSlotId &&
+    !heroComposerOwnsPhones &&
     (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
   // Compare addon chrome lives inside the phone dock; hide/reveal with it so
   // the search pill and Compare selected bar reclaim space together.
@@ -942,15 +950,20 @@ export function MasterSearchHeader({
     // into it made React reconcile the portal against a container that another
     // part of the tree had already removed, throwing a null-parentNode error.
     // Because the host is stable, React's portal container never disappears.
-    // The slot is used at every viewport width — phones included — so mode
-    // homes keep the composer in the middle of the hero instead of docking it
-    // to the bottom edge.
+    // heroComposerBreakpoint decides which widths use the slot: "all" keeps the
+    // composer in the middle of the hero on phones too (the answer home), while
+    // "sm-up" leaves phones to the compact bottom dock and reserves the hero
+    // for sm+ widths.
     const host = document.createElement("div");
     // Layout-transparent so the composer lays out as a direct child of the slot.
     host.style.display = "contents";
 
     const mediaQuery = window.matchMedia(
-      desktopHomeComposerSlotId ? modeHomeComposerMediaQuery : desktopHomeComposerMediaQuery,
+      desktopHomeComposerSlotId
+        ? heroComposerBreakpoint === "sm-up"
+          ? modeHomeComposerSmUpMediaQuery
+          : modeHomeComposerMediaQuery
+        : desktopHomeComposerMediaQuery,
     );
 
     let retryTimeout: number | null = null;
@@ -1002,7 +1015,7 @@ export function MasterSearchHeader({
       setDesktopHomeComposerFallback(false);
       setDesktopHomeComposerHost(null);
     };
-  }, [desktopHomeComposerSlotId]);
+  }, [desktopHomeComposerSlotId, heroComposerBreakpoint]);
 
   const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
   function dismissScope(reason: "outside" | "escape") {
@@ -1320,7 +1333,6 @@ export function MasterSearchHeader({
     const isDesktopHomeComposer = placement === "desktop-home";
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
-    const usesCompactMobileBottomStyle = usesMobileBottomStyle && mobileBottomSearchVariant === "compact";
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
     // Sticky-top result composers (tablet+) share the footer chip layout so the
     // pill + chip row looks identical across homes, results, and the answer dock.
@@ -1332,16 +1344,26 @@ export function MasterSearchHeader({
     const ModeIdentityIcon = appModeIcons[searchMode];
     const hasScopeFooterChip = searchMode === "answer" || searchMode === "documents" || searchMode === "forms";
     const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;
+    const showsAnswerFollowUpRow = Boolean(
+      usesPhoneFooterDock &&
+      searchMode === "answer" &&
+      composerFollowUpSuggestions?.length &&
+      onPickComposerFollowUpSuggestion,
+    );
+    // Every phone dock is the compact single-row pill; the answer dock only
+    // keeps the taller default treatment while its follow-up chip row renders
+    // above the pill (the compact scrim would be too short for it).
+    const usesCompactMobileBottomStyle =
+      (usesMobileBottomStyle && mobileBottomSearchVariant === "compact") ||
+      (usesAnswerFooterStyle && usesPhoneFooterDock && !showsAnswerFollowUpRow);
     // Differentials compare addon is dock chrome (search pill + Compare bar).
     // Hide/reveal the whole dock together; do not pin for the addon slot.
     const shouldHideBottomOnScroll = Boolean(hideOnScroll && usesPhoneFooterDock);
-    // Phone submitted non-answer result docks reserve pill-only scroll
-    // clearance (ClinicalDashboard / global-search-shell <main> padding via
-    // mobileComposerReserve), so an extra notice line would push the fixed
-    // dock over the last result. Those flows already showed the notice on
-    // their entry composer; answer docks keep it (their reserves were sized
-    // for the old taller notice-above-pill stack).
-    const showsComposerPrivacyNotice = searchMode === "answer" || !usesPhoneFooterDock;
+    // Phones show the APP-5 notice only on the home hero (the answer mode
+    // home's in-flow composer); every phone bottom dock is a compact
+    // result/entry pill without it, so content keeps maximum screen space.
+    // Tablet/desktop composers keep the site-wide notice everywhere.
+    const showsComposerPrivacyNotice = usesPhoneSearchLayout ? isDesktopHomeComposer : true;
 
     const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
 
@@ -1394,10 +1416,7 @@ export function MasterSearchHeader({
             className="differentials-mobile-search-addon relative z-10 w-full empty:hidden"
           />
         ) : null}
-        {usesPhoneFooterDock &&
-        searchMode === "answer" &&
-        composerFollowUpSuggestions?.length &&
-        onPickComposerFollowUpSuggestion ? (
+        {showsAnswerFollowUpRow && composerFollowUpSuggestions?.length && onPickComposerFollowUpSuggestion ? (
           <AnswerFollowUpSuggestions
             suggestions={composerFollowUpSuggestions}
             onPick={onPickComposerFollowUpSuggestion}
@@ -1548,10 +1567,10 @@ export function MasterSearchHeader({
             </button>
           </div>
         </UniversalSearchCommandSurface>
-        {/* Single site-wide APP-5 privacy line: every composer variant (home
-            hero, answer dock, sticky search) renders exactly one compact
-            notice below the pill; no other surface may duplicate it. Phone
-            non-answer result docks skip it — see showsComposerPrivacyNotice. */}
+        {/* Single site-wide APP-5 privacy line: every tablet/desktop composer
+            variant renders exactly one compact notice below the pill; no other
+            surface may duplicate it. Phones show it only on the home hero —
+            see showsComposerPrivacyNotice. */}
         {showsComposerPrivacyNotice ? (
           <PrivacyInputNotice
             id={composerPrivacyWarningId}
