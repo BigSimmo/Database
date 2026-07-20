@@ -169,6 +169,23 @@ describe("client environment isolation", () => {
       expect(publicResult.status).toBe(1);
       expect(publicResult.stderr).toContain("public/unsafe.txt");
       expect(publicResult.stderr).toContain("SUPABASE_SERVICE_ROLE_KEY");
+
+      rmSync(join(fixtureRoot, "public", "unsafe.txt"));
+      // @supabase/supabase-js ships a bare `key.startsWith('sb_secret_')` prefix
+      // check client-side; that literal alone must not trip the scanner.
+      writeFileSync(
+        join(staticRoot, "sdk-prefix-check.js"),
+        "const isNewApiKey = (key) => key.startsWith(\"sb_publishable_\") || key.startsWith(\"sb_secret_\");",
+        "utf8",
+      );
+      const prefixOnlyResult = spawnSync(process.execPath, [scannerPath], { cwd: fixtureRoot, encoding: "utf8" });
+      expect(prefixOnlyResult.status).toBe(0);
+
+      rmSync(join(staticRoot, "sdk-prefix-check.js"));
+      writeFileSync(join(staticRoot, "leaked-key.js"), "const key = 'sb_secret_abc123DEF456';", "utf8");
+      const leakedKeyResult = spawnSync(process.execPath, [scannerPath], { cwd: fixtureRoot, encoding: "utf8" });
+      expect(leakedKeyResult.status).toBe(1);
+      expect(leakedKeyResult.stderr).toContain(".next/static/leaked-key.js");
     } finally {
       rmSync(fixtureRoot, { recursive: true, force: true });
     }
