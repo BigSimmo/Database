@@ -135,11 +135,11 @@ transcripts; this is the consolidated verdict.
 
 ### Search
 
-| Route · method                 | Verdict            | Owner mechanism                                                                                                                                                                                                               |
-| ------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/search`             | ✅ verified-scoped | `searchChunksWithTelemetry({ownerId,allowGlobalSearch:!ownerId})`; RPCs owner-filter; `assertGlobalSearchAllowed` throws in prod ([search/route.ts:726-728](src/app/api/search/route.ts); [rag.ts:2151-2164](src/lib/rag.ts)) |
-| `GET /api/search/universal`    | ✅ verified-scoped | live branch only when `access.ownerId` truthy; each domain owner-seeded; static catalogs intended-public ([universal/route.ts:70-82](src/app/api/search/universal/route.ts))                                                  |
-| `POST /api/search/interaction` | ✅ verified-scoped | writes hard-pinned to `owner_id:user.id`; clicked doc/chunk validated owner-owned or nulled ([interaction/route.ts:44-84](src/app/api/search/interaction/route.ts))                                                           |
+| Route · method                 | Verdict            | Owner mechanism                                                                                                                                                                                                                   |
+| ------------------------------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/search`             | ✅ verified-scoped | `searchChunksWithTelemetry({ownerId,allowGlobalSearch:!ownerId})`; RPCs owner-filter; `assertGlobalSearchAllowed` throws in prod ([search/route.ts:726-728](src/app/api/search/route.ts); [rag.ts:2151-2164](src/lib/rag/rag.ts)) |
+| `GET /api/search/universal`    | ✅ verified-scoped | live branch only when `access.ownerId` truthy; each domain owner-seeded; static catalogs intended-public ([universal/route.ts:70-82](src/app/api/search/universal/route.ts))                                                      |
+| `POST /api/search/interaction` | ✅ verified-scoped | writes hard-pinned to `owner_id:user.id`; clicked doc/chunk validated owner-owned or nulled ([interaction/route.ts:44-84](src/app/api/search/interaction/route.ts))                                                               |
 
 ### Ingestion · jobs
 
@@ -224,12 +224,12 @@ does **not** yield a cross-tenant leak:
 
 - **In-memory answer/search caches:** the cache **key** includes `ownerId` as an explicit component —
   `scopedAnswerCacheKey = [depVersion, ownerId ?? "anonymous", scopeKey, modeKey, query]`
-  ([rag.ts:1453-1459](src/lib/rag.ts)) and `scopedSearchCacheKey`
-  ([rag.ts:1553-1559](src/lib/rag.ts)). User A's UUID-prefixed key cannot collide with B's.
+  ([rag.ts:1453-1459](src/lib/rag/rag.ts)) and `scopedSearchCacheKey`
+  ([rag.ts:1553-1559](src/lib/rag/rag.ts)). User A's UUID-prefixed key cannot collide with B's.
 - **Persisted `rag_response_cache`:** owner enforced as a **column predicate** on both read and write —
   `sharedCacheSelector` adds `.eq('owner_id', args.ownerId)` (authed) or `.is('owner_id', null)` (anon)
-  ([rag.ts:1667](src/lib/rag.ts)); writes stamp `owner_id: args.ownerId ?? null` after a same-owner
-  delete ([rag.ts:1870-1873](src/lib/rag.ts)). A reads only `owner_id = A` rows — never B's, never the
+  ([rag.ts:1667](src/lib/rag/rag.ts)); writes stamp `owner_id: args.ownerId ?? null` after a same-owner
+  delete ([rag.ts:1870-1873](src/lib/rag/rag.ts)). A reads only `owner_id = A` rows — never B's, never the
   null bucket.
 - The `owner_id IS NULL` cache partition is shared **among anonymous callers only**, and only ever
   holds answers built from **public null-owner documents** — the intended public corpus, not private
@@ -332,7 +332,7 @@ new entry must be added here and to the list in the guard, or the regression tes
   disclosure (a function/relation name), only to a caller past the local-origin gate. Fix: return a
   generic message; log the raw error server-side.
 - **TEN-N2 (latent):** `summarizeDocument(documentId, ownerId?)` has an **optional** `ownerId`
-  ([rag.ts:7792](src/lib/rag.ts)) and would skip the owner filter if ever called with `undefined`. The
+  ([rag.ts:7792](src/lib/rag/rag.ts)) and would skip the owner filter if ever called with `undefined`. The
   only caller passes `user.id` ([summarize/route.ts:34](src/app/api/documents/[id]/summarize/route.ts)),
   so no live exploit — but make the parameter required (or fail closed) so a future caller can't
   reintroduce a gap.

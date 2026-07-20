@@ -61,22 +61,23 @@ confirmation) · `SATISFIED` (already true in the repo; no work needed).
 - **Verification:** `npm run lint` reports **0** new errors; add a deliberately-wrong import in a
   scratch file to confirm the rule fires, then remove it.
 
-### X2 · `src/lib` domain-directory extraction — rag pilot — `OPEN`
+### X2 · `src/lib` domain-directory extraction — rag pilot — `DONE`
 
 - **Outcome:** the first real domain directory; unblocks directory-scoped boundary rules for the
   rest of `src/lib` (197 flat files).
-- **Approach:** `git mv` the `rag*.ts` cluster (~23 files) into a new `rag/` directory under
-  `src/lib/`; codemod `@/lib/rag*` importers; update the per-file paths in
-  `scripts/check-maintainability-budgets.mjs`.
-- **Files:** ~23 `src/lib/rag*.ts` + every importer + the budgets script + `docs/codebase-index.md`.
-- **Risk:** HIGH — broad import churn; keep it isolated with no behaviour change.
-- **Verification:** `npm run typecheck` && `npm run test`; diff must be pure moves + import-path
-  rewrites (no logic changes).
+- **Landed:** `git mv` the 22-file `rag` cluster (`rag.ts` + 21 `rag-*.ts`) into `src/lib/rag/`;
+  codemod every `@/lib/rag*` and `../src/lib/rag*` importer to `.../rag/rag*`; updated the budgets
+  key, the client-bundle boundary + worker-deploy test fixtures, `docs/codebase-index.md`, and
+  the rag path references across 13 maintained docs. **Pure moves + path rewrites, no logic
+  change.**
+- **Verification:** `typecheck`, full `test` suite (only the pre-existing container-only
+  `pdf-extraction-budget` flake fails — confirmed identical on `origin/main`), `lint`,
+  `docs:check-index`, `docs:check-links`, and maintainability budgets all pass.
 
 ### X3 · Decompose the monoliths — `OPEN`
 
 - **Outcome:** shrink the three files the maintainability ratchet caps but never reduces:
-  `src/lib/rag.ts` (5,143), `src/components/ClinicalDashboard.tsx` (4,270),
+  `src/lib/rag/rag.ts` (5,143), `src/components/ClinicalDashboard.tsx` (4,270),
   `src/components/DocumentViewer.tsx` (3,166).
 - **Approach:** extract cohesive units behind the existing budgets; `rag.ts` is the natural seam
   once X2 lands (its ~23 siblings already exist).
@@ -180,7 +181,7 @@ collaborators join — `AGENTS.md` + the PR template already carry that load.
 | N1 Dependabot grouping         | Now      | **DONE** (this PR)                             |
 | N2 Dependency-report decision  | Now      | OPEN (recommend enable)                        |
 | X1 Import-boundary linter      | Next     | READY (mockup rule; service-role rule dropped) |
-| X2 `src/lib` rag extraction    | Next     | OPEN (isolated PR)                             |
+| X2 `src/lib` rag extraction    | Next     | **DONE** (this PR)                             |
 | X3 Monolith decomposition      | Next     | OPEN                                           |
 | X4 SAST-blocking on parser     | Next     | PROVIDER-GATED (triage-first)                  |
 | X5 ACL-migration consolidation | Next     | PROVIDER-GATED (DB owner)                      |
