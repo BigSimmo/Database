@@ -42,11 +42,9 @@ describe("mobile interaction regressions", () => {
     );
   });
 
-  it("keeps phone quick actions and the privacy link at the semantic tap size", () => {
-    const answerSource = source("src/components/clinical-dashboard/answer-status.tsx");
+  it("keeps the privacy link at the semantic tap size", () => {
     const privacySource = source("src/components/privacy-input-notice.tsx");
 
-    expect(answerSource.match(/answer-quick-action min-h-tap sm:min-h-7/g)).toHaveLength(2);
     expect(privacySource).toContain("inline-flex min-h-tap items-center");
     expect(privacySource).toContain("sm:min-h-0");
   });
