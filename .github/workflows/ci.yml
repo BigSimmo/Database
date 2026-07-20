@@ -11,7 +11,11 @@ on:
     - cron: "0 18 * * 0"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Deliberate one-off runs (workflow_dispatch, weekly schedule) get a per-run group so a
+  # push to the same ref cannot cancel them mid-flight — release-browser-matrix takes up to
+  # 70 minutes and was repeatedly killed by main churn. Push/PR runs keep the shared ref
+  # group with cancel-in-progress so superseded heads still stop early.
+  group: ${{ github.workflow }}-${{ (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.run_id || github.ref }}
   cancel-in-progress: true
 
 permissions:
