@@ -209,7 +209,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(modeButton).toHaveAttribute("aria-expanded", "false");
   });
 
-  test("phone quick actions meet the tap target and guests do not poll private ingestion routes", async ({ page }) => {
+  test("phone privacy link meets the tap target and guests do not poll private ingestion routes", async ({ page }) => {
     const privateIngestionRequests: string[] = [];
     page.on("request", (request) => {
       if (/\/api\/ingestion\/(?:jobs|batches|quality)(?:\?|$)/.test(request.url())) {
@@ -223,11 +223,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expectDashboardUsable(page);
 
     const targetSizes = await Promise.all(
-      [
-        page.getByRole("button", { name: "Search documents", exact: true }),
-        page.getByRole("button", { name: "Upload document", exact: true }),
-        page.getByRole("link", { name: "Privacy and data processing", exact: true }),
-      ].map((target) =>
+      [page.getByRole("link", { name: "Privacy and data processing", exact: true })].map((target) =>
         target.evaluate((element) => {
           const bounds = element.getBoundingClientRect();
           return { width: bounds.width, height: bounds.height };
@@ -365,9 +361,12 @@ test.describe("Clinical KB accessibility coverage", () => {
     await mockMinimalDashboardApi(page);
     await gotoApp(page);
 
-    const uploadButton = page.getByRole("button", { name: /Upload document/i });
-    await expect(uploadButton).toBeVisible();
-    await uploadButton.click();
+    const menuTrigger = page.getByRole("button", { name: "Open answer options" });
+    await expect(menuTrigger).toBeVisible();
+    await menuTrigger.click();
+    const menu = page.getByTestId("daily-actions-menu");
+    await expect(menu).toBeVisible();
+    await menu.getByRole("menuitem", { name: "Add document" }).click();
     await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
     await expect(page.getByRole("dialog", { name: "Source library" })).toBeVisible();
     await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only" })).toContainText(

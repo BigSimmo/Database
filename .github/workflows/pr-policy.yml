@@ -64,14 +64,24 @@ jobs:
               files: changedFiles.map((file) => file.filename),
             });
 
+            const warnings = result.warnings || [];
             await core.summary
               .addHeading("PR policy")
               .addRaw(`Clinical risk: ${result.classification.clinicalRisk ? "yes" : "no"}<br>`)
               .addRaw(`Operational risk: ${result.classification.operationalRisk ? "yes" : "no"}<br>`)
               .addRaw(`UI change: ${result.classification.ui ? "yes" : "no"}<br>`)
+              .addRaw(`Blocking issues: ${result.errors.length}<br>`)
+              .addRaw(`Advisory warnings: ${warnings.length}<br>`)
               .write();
+
+            // Advisory metadata nudges (title/summary/verification/UI/risk) are
+            // surfaced but never fail the check. Only a clinical-risk PR with an
+            // incomplete Clinical Governance Preflight blocks the merge.
+            for (const warning of warnings) core.warning(warning);
 
             if (!result.ok) {
               for (const error of result.errors) core.error(error);
-              core.setFailed(`PR policy found ${result.errors.length} issue(s). Edit the PR title/body and rerun.`);
+              core.setFailed(
+                `PR policy found ${result.errors.length} blocking clinical-governance issue(s). Complete the Clinical Governance Preflight and rerun.`,
+              );
             }
