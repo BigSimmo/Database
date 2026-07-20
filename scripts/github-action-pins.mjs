@@ -14,6 +14,7 @@ const reviewedActionPins = new Map([
     ]),
   ],
   ["actions/github-script", new Map([["3a2844b7e9c422d3c10d287c895573f7108da1b3", "v9.0.0"]])],
+  ["anthropics/claude-code-action", new Map([["af0559ee4f514d1ef21826982bed13f7edc3c35e", "v1.0.178"]])],
   ["actions/cache", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
   ["actions/upload-artifact", new Map([["043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "v7"]])],
   ["denoland/setup-deno", new Map([["22d081ff2d3a40755e97629de92e3bcbfa7cf2ed", "v2.0.5"]])],
