@@ -250,11 +250,22 @@ function documentExpectationAlternatives(expectation: string) {
   return [expectation, ...(clinicalDocumentAliases[expectation] ?? [])].map(normalizedDocumentName);
 }
 
-function textContainsClinicalTerm(text: string, term: string) {
+/**
+ * Word-boundary clinical-term matcher (exported for direct unit tests).
+ *
+ * Boundaries and internal separators accept any non-alphanumeric run, not just whitespace,
+ * so punctuation-joined corpus tokens ("CIWA-Ar", "treatment,", "(opioid", "ptsd.[35]",
+ * line-broken "ciwa- ar") match their fixture terms. This is a STRICT SUPERSET of the
+ * previous whitespace-delimited matcher (whitespace ⊂ non-alphanumeric for both boundaries
+ * and internal separators), proven by artifact replay on canary #53: every previous match is
+ * preserved, so live gates can only stay equal or become more satisfiable — never fail a
+ * previously-passing case. Substring-inside-a-word still cannot match ("ed" vs "managed").
+ */
+export function textContainsClinicalTerm(text: string, term: string) {
   const normalizedTerm = normalized(term);
   if (!normalizedTerm) return false;
-  const escaped = normalizedTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-  return new RegExp(`(?:^|\\s)${escaped}(?:$|\\s)`).test(text);
+  const escaped = normalizedTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "[^a-z0-9]+");
+  return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`).test(text);
 }
 
 function resultDocumentText(result: SearchResult) {
@@ -481,7 +492,10 @@ function hasTableEvidence(results: SearchResult[], limit = 5) {
 }
 
 function topResultSummary(results: SearchResult[]) {
-  return results.slice(0, 5).map((result, index) => {
+  // Top 10, not 5: irrelevant_source_rate@10 and rr@10 are top-10 metrics, so the artifact
+  // must carry the rows those metrics saw — enabling the offline irrelevant@10 labeling
+  // audit (docs/observability-slos.md §3.1) and deeper trend drill-downs without a live rerun.
+  return results.slice(0, 10).map((result, index) => {
     const validationEvidence =
       result.source_metadata?.clinical_validation_evidence &&
       typeof result.source_metadata.clinical_validation_evidence === "object" &&
