@@ -51,3 +51,44 @@ jobs:
           --config p/react
           --config p/nodejs
           src worker scripts supabase/functions
+
+  # Blocking SAST gate for the untrusted-document parsing surface (maturity X4).
+  # These paths open attacker-supplied uploads (PDF/DOCX/XLSX parsing, OCR,
+  # ingestion queue and its API routes), so ERROR-severity findings here fail
+  # the workflow instead of merely advising. The registry-rule mutability that
+  # keeps the repo-wide job above advisory is accepted for this narrow surface:
+  # ERROR-only + ~21 files keeps rule churn rare, and a triage documented in
+  # docs/maturity-backlog-workorders.md (X4) started the gate at zero findings.
+  # p/python covers worker/python — the code that actually parses untrusted PDFs.
+  semgrep-ingestion-gate:
+    name: Semgrep ingestion gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: semgrep/semgrep:1.168.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Semgrep scan (blocking)
+        # Deliberately NO continue-on-error: this job must block on findings.
+        # scripts/check-github-action-pins.mjs enforces both halves of the
+        # policy (advisory repo-wide job, blocking ingestion gate).
+        run: >
+          semgrep scan
+          --error
+          --severity ERROR
+          --oss-only
+          --metrics off
+          --config p/typescript
+          --config p/javascript
+          --config p/react
+          --config p/nodejs
+          --config p/python
+          worker
+          src/lib/ingestion*.ts
+          src/lib/extractors
+          src/app/api/ingestion
+          src/app/api/upload
