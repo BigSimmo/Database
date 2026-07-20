@@ -67,10 +67,10 @@ export function sourceResultHref(source: SearchResult) {
       ? (source.source_metadata as Record<string, unknown>)
       : {};
   const registryHref = registryCorpusDetailHref({
-    kind: metadata.registry_record_kind,
-    slug: metadata.registry_record_slug,
-    subkind: metadata.registry_record_subkind,
-    recordId: metadata.registry_record_id,
+    kind: metadata.registry_record_kind as string | undefined,
+    slug: metadata.registry_record_slug as string | undefined,
+    subkind: metadata.registry_record_subkind as string | undefined,
+    recordId: metadata.registry_record_id as string | undefined,
   });
   if (registryHref) return registryHref;
   return `/documents/${source.document_id}?page=${source.page_number ?? 1}&chunk=${source.id}`;

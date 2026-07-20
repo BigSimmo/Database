@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-19T10:21:34.307Z",
+  "generated_at": "2026-07-20T08:31:04.870Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "f4b18b6fc86646a43daba7b73ef0c61a52ede0ac43bfeef5d73a56779a238871",
-  "replay_seconds": 75,
+  "schema_sha256": "50da0978a164058f2bfe539a77c011902b52f91f6c006c67ed0ff7c700b464c5",
+  "replay_seconds": 16,
   "snapshot": {
     "views": [
       {
@@ -5429,6 +5429,12 @@
         "name": "documents_owner_status_idx",
         "table": "documents",
         "def_hash": "d516bc49b5f81bb31779e01d3d52c11b"
+      },
+      {
+        "def": "CREATE INDEX documents_owner_updated_at_indexed_idx ON public.documents USING btree (owner_id, updated_at DESC) WHERE (status = 'indexed'::text)",
+        "name": "documents_owner_updated_at_indexed_idx",
+        "table": "documents",
+        "def_hash": "d821f4b02d3d865d6764c174dbc5ca3c"
       },
       {
         "def": "CREATE UNIQUE INDEX documents_pkey ON public.documents USING btree (id)",

@@ -6200,6 +6200,7 @@ create index if not exists document_summaries_owner_id_idx on public.document_su
 create index if not exists document_table_facts_document_generation_idx on public.document_table_facts (document_id, index_generation_id) where index_generation_id is not null;
 create index if not exists document_table_facts_title_row_param_trgm_idx on public.document_table_facts using gin (lower(coalesce(table_title, '') || ' ' || coalesce(row_label, '') || ' ' || coalesce(clinical_parameter, '')) extensions.gin_trgm_ops);
 create index if not exists documents_indexed_updated_at_idx on public.documents (updated_at, id) where status = 'indexed';
+create index if not exists documents_owner_updated_at_indexed_idx on public.documents (owner_id, updated_at desc) where status = 'indexed';
 create index if not exists image_caption_cache_owner_id_idx on public.image_caption_cache (owner_id);
 create index if not exists import_batches_owner_id_idx on public.import_batches (owner_id);
 create index if not exists ingestion_job_stages_job_idx on public.ingestion_job_stages (job_id, started_at desc);
