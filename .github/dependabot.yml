@@ -8,6 +8,16 @@ updates:
       time: "09:00"
       timezone: "Australia/Perth"
     open-pull-requests-limit: 5
+    # Batch low-risk updates so a solo maintainer reviews a couple of grouped PRs
+    # instead of up to ~5/week each triggering full CI. Majors stay individual —
+    # each major deserves its own review (per the AGENTS.md dependency protocol).
+    groups:
+      npm-production:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
+      npm-development:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -17,3 +27,9 @@ updates:
       time: "09:00"
       timezone: "Australia/Perth"
     open-pull-requests-limit: 5
+    # One batched PR for all action SHA bumps keeps pinned versions uniform across
+    # workflows/composites (mitigates the action-version-skew finding) and keeps
+    # check:github-actions green in a single review.
+    groups:
+      github-actions:
+        patterns: ["*"]
