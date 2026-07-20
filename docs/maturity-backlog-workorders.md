@@ -128,14 +128,16 @@ confirmation) · `SATISFIED` (already true in the repo; no work needed).
   of this item — a curated script map — ships now as
   [`docs/scripts-index.md`](scripts-index.md).
 
-### L2 · Single-SHA-per-action uniformity — `OPEN`
+### L2 · Single-SHA-per-action uniformity — `DONE`
 
 - **Outcome:** every third-party action pinned to one SHA across all workflow + composite files.
-- **Approach:** extend `scripts/check-github-action-pins.mjs` (it already parses every workflow)
-  to assert one SHA per action name. Partly mitigated already by N1 (grouped action bumps land
-  together).
-- **Files:** `scripts/check-github-action-pins.mjs`.
-- **Verification:** `npm run check:github-actions`.
+- **Landed:** aligned the laggards (`actions/checkout` v6.0.3 → v7.0.0 in 5 workflows,
+  `actions/setup-node` v5.0.0 → v7.0.0 in the `setup-node-cached` composite) and extended
+  `scripts/check-github-action-pins.mjs` to assert one SHA per action across **workflows and
+  composites** — the checker previously scanned only workflows, so the composite skew was invisible.
+- **Files:** `scripts/check-github-action-pins.mjs`, `.github/actions/setup-node-cached/action.yml`,
+  5 workflow files.
+- **Verification:** `npm run check:github-actions` passes; a reintroduced skew is correctly rejected.
 
 ### L3 · Single gate manifest — `OPEN`
 
@@ -186,7 +188,7 @@ collaborators join — `AGENTS.md` + the PR template already carry that load.
 | X5 ACL-migration consolidation | Next     | PROVIDER-GATED (DB owner)                      |
 | X6 Coverage floors             | Next     | OPEN                                           |
 | L1 Archive one-shot scripts    | Later    | OPEN (index shipped)                           |
-| L2 Action-SHA uniformity       | Later    | OPEN (mitigated by N1)                         |
+| L2 Action-SHA uniformity       | Later    | **DONE** (this PR)                             |
 | L3 Single gate manifest        | Later    | OPEN                                           |
 | L4 Ledger rotation             | Later    | OPEN                                           |
 | L5 AI map / WCAG / RPO-RTO     | Later    | **DONE / SATISFIED**                           |

@@ -321,6 +321,16 @@ async function openScopeControl(page: Page) {
   }).toPass({ timeout: 20_000 });
 }
 
+// Playwright's Linux WebKit build advertises phantom touch points on the touch-free CI
+// runner, tripping the fine-pointer/zero-touch gate on the search command surface
+// (commandDropdownCanDisplay) that Chromium and Firefox pass via the zero-touch fallback.
+// Report the runner's real capability so WebKit exercises the same desktop surfaces.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, "maxTouchPoints", { configurable: true, get: () => 0 });
+  });
+});
+
 test.describe("Clinical KB long-content stress coverage", () => {
   for (const viewport of [
     { name: "mobile", width: 320, height: 740 },
