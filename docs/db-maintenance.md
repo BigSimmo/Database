@@ -50,7 +50,9 @@ service-role secret is the natural home). Decision recorded here when made.
 ## Cross-references
 
 - Weekly eval canary + liveness probe: `docs/observability-slos.md` §3 (the `static-pr` job
-  warns when the last completed canary is > 8 days old — added after GitHub silently dropped
-  the 2026-07-20 scheduled fire).
+  warns when the last completed canary is > 8 days old — added when #923 moved the canary
+  from daily to weekly cadence, where a dropped Sunday fire would otherwise go unnoticed for
+  a week; a suspected 2026-07-20 drop turned out to be a mis-read — the Sunday 2026-07-19
+  slot fired and succeeded, and Monday 2026-07-20 has no slot under the weekly cron).
 - RAG-protected surfaces and change protocol: `docs/rag-behaviour/safeguards.md`.
 - Hybrid RPC health: `search_schema_health()` execution smoke + `npm run check:indexing`.
