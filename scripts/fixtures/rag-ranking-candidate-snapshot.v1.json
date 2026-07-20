@@ -2,17 +2,11 @@
   "schema": "rag-ranking-candidate-snapshot",
   "version": 1,
   "sourceCaseCount": 36,
-  "generatedAt": "2026-07-20T18:16:26.941Z",
+  "generatedAt": "2026-07-20T18:22:02.934Z",
   "sourceRunId": "29763761133",
   "sanitization": {
     "candidateIdentity": "sha256",
-    "excludes": [
-      "raw_uuid",
-      "source_passage",
-      "patient_data",
-      "provider_metadata",
-      "document_storage_path"
-    ]
+    "excludes": ["raw_uuid", "source_passage", "patient_data", "provider_metadata", "document_storage_path"]
   },
   "cases": [
     {
@@ -20,15 +14,8 @@
       "query": "What ANC or FBC threshold should withhold clozapine?",
       "queryClass": "table_threshold",
       "expectedLabels": {
-        "documents": [
-          "Clozapine"
-        ],
-        "content": [
-          "clozapine",
-          "anc",
-          "fbc OR full blood count OR wbc",
-          "withhold OR cease OR stop OR red"
-        ]
+        "documents": ["Clozapine"],
+        "content": ["clozapine", "anc", "fbc OR full blood count OR wbc", "withhold OR cease OR stop OR red"]
       },
       "candidates": [
         {
@@ -132,14 +119,8 @@
       "query": "What IM or PO options are listed for agitation?",
       "queryClass": "medication_dose_risk",
       "expectedLabels": {
-        "documents": [
-          "AgitationArousalPharmaMgt"
-        ],
-        "content": [
-          "agitation",
-          "im",
-          "po"
-        ]
+        "documents": ["AgitationArousalPharmaMgt"],
+        "content": ["agitation", "im", "po"]
       },
       "candidates": [
         {
@@ -243,13 +224,8 @@
       "query": "What should a patient safety plan include?",
       "queryClass": "document_lookup",
       "expectedLabels": {
-        "documents": [
-          "PtSafetyPlan"
-        ],
-        "content": [
-          "safety",
-          "plan"
-        ]
+        "documents": ["PtSafetyPlan"],
+        "content": ["safety", "plan"]
       },
       "candidates": [
         {
@@ -353,13 +329,8 @@
       "query": "How are active community patients in ED managed?",
       "queryClass": "document_lookup",
       "expectedLabels": {
-        "documents": [
-          "ActiveCommunityPtED"
-        ],
-        "content": [
-          "community",
-          "ed"
-        ]
+        "documents": ["ActiveCommunityPtED"],
+        "content": ["community", "ed"]
       },
       "candidates": [
         {
@@ -463,14 +434,8 @@
       "query": "Compare admission and discharge requirements",
       "queryClass": "comparison",
       "expectedLabels": {
-        "documents": [
-          "AdmissionCommunityPts",
-          "Discharge"
-        ],
-        "content": [
-          "admission",
-          "discharge"
-        ]
+        "documents": ["AdmissionCommunityPts", "Discharge"],
+        "content": ["admission", "discharge"]
       },
       "candidates": [
         {
@@ -574,14 +539,8 @@
       "query": "Show the source table image for clozapine ANC monitoring",
       "queryClass": "table_threshold",
       "expectedLabels": {
-        "documents": [
-          "Clozapine"
-        ],
-        "content": [
-          "clozapine",
-          "anc",
-          "monitoring"
-        ]
+        "documents": ["Clozapine"],
+        "content": ["clozapine", "anc", "monitoring"]
       },
       "candidates": [
         {
@@ -666,15 +625,8 @@
       "query": "In the clinical flowchart, what is the next step after red-zone risk?",
       "queryClass": "document_lookup",
       "expectedLabels": {
-        "documents": [
-          "risk",
-          "flow"
-        ],
-        "content": [
-          "risk",
-          "red",
-          "escalate OR urgent OR review"
-        ]
+        "documents": ["risk", "flow"],
+        "content": ["risk", "red", "escalate OR urgent OR review"]
       },
       "candidates": [
         {
@@ -797,15 +749,8 @@
       "query": "What items are shown in the patient property restricted-items table?",
       "queryClass": "table_threshold",
       "expectedLabels": {
-        "documents": [
-          "Patient Property"
-        ],
-        "content": [
-          "patient",
-          "property",
-          "restricted OR prohibited",
-          "items"
-        ]
+        "documents": ["Patient Property"],
+        "content": ["patient", "property", "restricted OR prohibited", "items"]
       },
       "candidates": [
         {
@@ -890,15 +835,8 @@
       "query": "What dose and route are shown in the agitation medication chart?",
       "queryClass": "medication_dose_risk",
       "expectedLabels": {
-        "documents": [
-          "AgitationArousalPharmaMgt"
-        ],
-        "content": [
-          "dose",
-          "route",
-          "im OR po",
-          "mg OR microgram"
-        ]
+        "documents": ["AgitationArousalPharmaMgt"],
+        "content": ["dose", "route", "im OR po", "mg OR microgram"]
       },
       "candidates": [
         {
@@ -983,14 +921,8 @@
       "query": "What clozapine ANC or FBC monitoring threshold is shown in the source chart?",
       "queryClass": "table_threshold",
       "expectedLabels": {
-        "documents": [
-          "Clozapine"
-        ],
-        "content": [
-          "monitoring",
-          "threshold",
-          "anc OR fbc OR wbc"
-        ]
+        "documents": ["Clozapine"],
+        "content": ["monitoring", "threshold", "anc OR fbc OR wbc"]
       },
       "candidates": [
         {
@@ -1075,13 +1007,8 @@
       "query": "What is the recommended management of alcohol withdrawal?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Alcohol withdrawal"
-        ],
-        "content": [
-          "alcohol",
-          "withdrawal"
-        ]
+        "documents": ["Alcohol withdrawal"],
+        "content": ["alcohol", "withdrawal"]
       },
       "candidates": [
         {
@@ -1166,13 +1093,8 @@
       "query": "How is opioid use disorder managed?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Opioid use disorder"
-        ],
-        "content": [
-          "opioid",
-          "disorder"
-        ]
+        "documents": ["Opioid use disorder"],
+        "content": ["opioid", "disorder"]
       },
       "candidates": [
         {
@@ -1242,13 +1164,8 @@
       "query": "How should insomnia be assessed and managed?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Insomnia"
-        ],
-        "content": [
-          "insomnia",
-          "sleep"
-        ]
+        "documents": ["Insomnia"],
+        "content": ["insomnia", "sleep"]
       },
       "candidates": [
         {
@@ -1333,12 +1250,8 @@
       "query": "Summarise strategies to reduce inpatient suicide",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Suicide risk mitigation"
-        ],
-        "content": [
-          "suicide"
-        ]
+        "documents": ["Suicide risk mitigation"],
+        "content": ["suicide"]
       },
       "candidates": [
         {
@@ -1423,13 +1336,8 @@
       "query": "Give an overview of schizophrenia assessment and treatment",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Schizophrenia"
-        ],
-        "content": [
-          "schizophrenia",
-          "treatment OR antipsychotic OR management"
-        ]
+        "documents": ["Schizophrenia"],
+        "content": ["schizophrenia", "treatment OR antipsychotic OR management"]
       },
       "candidates": [
         {
@@ -1514,13 +1422,8 @@
       "query": "Summarise the management of bipolar disorder in adults",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Bipolar disorder in adults"
-        ],
-        "content": [
-          "bipolar",
-          "lithium OR mood OR treatment"
-        ]
+        "documents": ["Bipolar disorder in adults"],
+        "content": ["bipolar", "lithium OR mood OR treatment"]
       },
       "candidates": [
         {
@@ -1605,13 +1508,8 @@
       "query": "Compare depression in adults versus depression in children",
       "queryClass": "comparison",
       "expectedLabels": {
-        "documents": [
-          "Depression in adults",
-          "Depression in children"
-        ],
-        "content": [
-          "depression"
-        ]
+        "documents": ["Depression in adults", "Depression in children"],
+        "content": ["depression"]
       },
       "candidates": [
         {
@@ -1715,13 +1613,8 @@
       "query": "Explain the CIWA-Ar scoring used in alcohol withdrawal",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Alcohol withdrawal"
-        ],
-        "content": [
-          "alcohol",
-          "ciwa OR withdrawal OR score"
-        ]
+        "documents": ["Alcohol withdrawal"],
+        "content": ["alcohol", "ciwa OR withdrawal OR score"]
       },
       "candidates": [
         {
@@ -1806,14 +1699,8 @@
       "query": "What medication doses are used for opioid withdrawal?",
       "queryClass": "medication_dose_risk",
       "expectedLabels": {
-        "documents": [
-          "Opioid use disorder"
-        ],
-        "content": [
-          "opioid",
-          "withdrawal",
-          "buprenorphine OR methadone OR dose"
-        ]
+        "documents": ["Opioid use disorder"],
+        "content": ["opioid", "withdrawal", "buprenorphine OR methadone OR dose"]
       },
       "candidates": [
         {
@@ -1917,13 +1804,8 @@
       "query": "How is postnatal depression treated?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Postnatal depression"
-        ],
-        "content": [
-          "postnatal",
-          "depression"
-        ]
+        "documents": ["Postnatal depression"],
+        "content": ["postnatal", "depression"]
       },
       "candidates": [
         {
@@ -2008,14 +1890,8 @@
       "query": "Compare bipolar disorder and schizoaffective disorder",
       "queryClass": "comparison",
       "expectedLabels": {
-        "documents": [
-          "Bipolar disorder in adults",
-          "Schizoaffective disorder"
-        ],
-        "content": [
-          "bipolar",
-          "schizoaffective"
-        ]
+        "documents": ["Bipolar disorder in adults", "Schizoaffective disorder"],
+        "content": ["bipolar", "schizoaffective"]
       },
       "candidates": [
         {
@@ -2100,17 +1976,14 @@
       "query": "What monitoring is required for lithium therapy?",
       "queryClass": "medication_dose_risk",
       "expectedLabels": {
-        "documents": [],
-        "content": [
-          "lithium",
-          "monitor OR level OR thyroid OR renal OR tsh"
-        ]
+        "documents": ["Lithium"],
+        "content": ["lithium", "monitor OR level OR thyroid OR renal OR tsh"]
       },
       "candidates": [
         {
           "candidateHash": "sha256:4cdafc24d0783c1822aacc13feaee970ded6ce618c8b913cee69b5715757b934",
-          "relevanceGrade": 0,
-          "documentMatch": false,
+          "relevanceGrade": 2,
+          "documentMatch": true,
           "contentMatch": false,
           "features": {
             "hybridRelevance": 0.1905,
@@ -2124,8 +1997,8 @@
         },
         {
           "candidateHash": "sha256:0e19bc2499e9d13f9a4592167c397a07100de664dc3844253f21bf24bbd3340d",
-          "relevanceGrade": 0,
-          "documentMatch": false,
+          "relevanceGrade": 2,
+          "documentMatch": true,
           "contentMatch": false,
           "features": {
             "hybridRelevance": 0.1891,
@@ -2139,8 +2012,8 @@
         },
         {
           "candidateHash": "sha256:d54bf0e610ff17012453f56b6fbfa13a50c94f9cc32dedc37600d7f1dc27d856",
-          "relevanceGrade": 1,
-          "documentMatch": false,
+          "relevanceGrade": 3,
+          "documentMatch": true,
           "contentMatch": true,
           "features": {
             "hybridRelevance": 0.1917,
@@ -2154,8 +2027,8 @@
         },
         {
           "candidateHash": "sha256:152e7c27e923ef102191722fb5517e0eb714dade75e83d11194b4809734f70c7",
-          "relevanceGrade": 1,
-          "documentMatch": false,
+          "relevanceGrade": 3,
+          "documentMatch": true,
           "contentMatch": true,
           "features": {
             "hybridRelevance": 0.1895,
@@ -2208,14 +2081,8 @@
       "query": "What CIWA-Ar score threshold requires drug treatment in alcohol withdrawal?",
       "queryClass": "table_threshold",
       "expectedLabels": {
-        "documents": [
-          "Alcohol withdrawal"
-        ],
-        "content": [
-          "alcohol",
-          "withdrawal",
-          "ciwa OR score OR threshold"
-        ]
+        "documents": ["Alcohol withdrawal"],
+        "content": ["alcohol", "withdrawal", "ciwa OR score OR threshold"]
       },
       "candidates": [
         {
@@ -2319,9 +2186,7 @@
       "query": "What CBC (complete blood count) or neutrophil threshold should withhold clozapine?",
       "queryClass": "table_threshold",
       "expectedLabels": {
-        "documents": [
-          "Clozapine"
-        ],
+        "documents": ["Clozapine"],
         "content": [
           "clozapine",
           "anc OR neutrophil",
@@ -2431,12 +2296,8 @@
       "query": "How is post-traumatic stress disorder managed in a person with intrusive flashbacks, nightmares, hyperarousal and avoidance after a traumatic event?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Traumatic Stress"
-        ],
-        "content": [
-          "trauma OR traumatic OR ptsd OR flashback"
-        ]
+        "documents": ["Traumatic Stress"],
+        "content": ["trauma OR traumatic OR ptsd OR flashback"]
       },
       "candidates": [
         {
@@ -2521,12 +2382,8 @@
       "query": "How is obsessive-compulsive disorder managed in a person with distressing intrusive obsessions and repetitive compulsive rituals?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Obsessive"
-        ],
-        "content": [
-          "obsess OR compuls OR intrusive OR ocd"
-        ]
+        "documents": ["Obsessive"],
+        "content": ["obsess OR compuls OR intrusive OR ocd"]
       },
       "candidates": [
         {
@@ -2611,12 +2468,8 @@
       "query": "How is panic disorder managed in a person with recurrent unexpected panic attacks, palpitations and anticipatory anxiety?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Panic"
-        ],
-        "content": [
-          "panic OR attack OR anxiety"
-        ]
+        "documents": ["Panic"],
+        "content": ["panic OR attack OR anxiety"]
       },
       "candidates": [
         {
@@ -2701,12 +2554,8 @@
       "query": "How is anorexia nervosa managed in a person with severe dietary restriction, intense fear of weight gain and body-image disturbance?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Anorexia"
-        ],
-        "content": [
-          "anorexia OR eating OR weight"
-        ]
+        "documents": ["Anorexia"],
+        "content": ["anorexia OR eating OR weight"]
       },
       "candidates": [
         {
@@ -2791,13 +2640,8 @@
       "query": "How is a patient managed who has persistent, excessive worry about many everyday things that they find very hard to control, along with restlessness and muscle tension?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Generalised Anxiety"
-        ],
-        "content": [
-          "worry OR anxiety OR generalised",
-          "cbt OR ssri OR snri OR antidepressant OR psychotherapy"
-        ]
+        "documents": ["Generalised Anxiety"],
+        "content": ["worry OR anxiety OR generalised", "cbt OR ssri OR snri OR antidepressant OR psychotherapy"]
       },
       "candidates": [
         {
@@ -2882,12 +2726,8 @@
       "query": "How is Tourette syndrome managed in a child with chronic motor tics and vocal tics?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Tourette"
-        ],
-        "content": [
-          "tic OR tics OR tourette"
-        ]
+        "documents": ["Tourette"],
+        "content": ["tic OR tics OR tourette"]
       },
       "candidates": [
         {
@@ -2972,12 +2812,8 @@
       "query": "How is postnatal (postpartum) depression managed in a new mother who develops low mood and poor bonding with her infant in the first weeks postpartum?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Postnatal"
-        ],
-        "content": [
-          "postnatal OR postpartum OR perinatal OR depression"
-        ]
+        "documents": ["Postnatal"],
+        "content": ["postnatal OR postpartum OR perinatal OR depression"]
       },
       "candidates": [
         {
@@ -3062,12 +2898,8 @@
       "query": "How is bipolar disorder managed in an adult with recurrent episodes of mania and depression?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Bipolar"
-        ],
-        "content": [
-          "bipolar OR mania OR manic OR mood"
-        ]
+        "documents": ["Bipolar"],
+        "content": ["bipolar OR mania OR manic OR mood"]
       },
       "candidates": [
         {
@@ -3152,12 +2984,8 @@
       "query": "How is attention deficit hyperactivity disorder managed in an adult with inattention, distractibility and impulsivity?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Attention Deficit Hyperactivity"
-        ],
-        "content": [
-          "attention OR adhd OR hyperactiv OR impuls"
-        ]
+        "documents": ["Attention Deficit Hyperactivity"],
+        "content": ["attention OR adhd OR hyperactiv OR impuls"]
       },
       "candidates": [
         {
@@ -3242,12 +3070,8 @@
       "query": "How is opioid use disorder managed in a person dependent on heroin?",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Opioid Use Disorder"
-        ],
-        "content": [
-          "opioid OR heroin OR opiate OR methadone OR buprenorphine"
-        ]
+        "documents": ["Opioid Use Disorder"],
+        "content": ["opioid OR heroin OR opiate OR methadone OR buprenorphine"]
       },
       "candidates": [
         {
@@ -3332,12 +3156,8 @@
       "query": "bipolar disorder",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Bipolar"
-        ],
-        "content": [
-          "bipolar OR mania OR manic OR mood"
-        ]
+        "documents": ["Bipolar"],
+        "content": ["bipolar OR mania OR manic OR mood"]
       },
       "candidates": [
         {
@@ -3407,12 +3227,8 @@
       "query": "anorexia management",
       "queryClass": "broad_summary",
       "expectedLabels": {
-        "documents": [
-          "Anorexia"
-        ],
-        "content": [
-          "anorexia OR eating OR weight"
-        ]
+        "documents": ["Anorexia"],
+        "content": ["anorexia OR eating OR weight"]
       },
       "candidates": [
         {
