@@ -19,6 +19,13 @@ import { defaultRankingConfig, neutralRankingFeatureWeights } from "../src/lib/r
 const snapshotPath = resolve("scripts/fixtures/rag-ranking-candidate-snapshot.v1.json");
 const snapshotText = readFileSync(snapshotPath, "utf8");
 const snapshot = validateRankingSnapshot(JSON.parse(snapshotText));
+// The snapshot must evolve in lockstep with the golden fixture: every golden case appears in the
+// eval artifact the snapshot is built from, so their counts must match exactly. A fixture case
+// added without regenerating the snapshot (or a snapshot built from a truncated artifact) fails
+// the pin below with regeneration instructions.
+const goldenCaseCount = (
+  JSON.parse(readFileSync(resolve("scripts/fixtures/rag-retrieval-golden.json"), "utf8")) as unknown[]
+).length;
 
 describe("offline ranking candidate snapshot", () => {
   it("matches label alternatives as complete tokens", () => {
@@ -92,8 +99,14 @@ describe("offline ranking candidate snapshot", () => {
 
   it("is versioned, complete, and excludes raw candidate/source data", () => {
     expect(snapshot.version).toBe(RANKING_SNAPSHOT_VERSION);
-    expect(snapshot.cases).toHaveLength(36);
-    expect(snapshot.sourceCaseCount).toBe(36);
+    const regenerate =
+      "Golden fixture and ranking snapshot must move together. Regenerate: download the latest " +
+      "eval-canary run's eval-canary-output artifact, then `npm run build:ranking-snapshot -- " +
+      "--input golden-retrieval.json --output scripts/fixtures/rag-ranking-candidate-snapshot.v1.json " +
+      "--source-run-id <actions-run-id>`.";
+    expect(goldenCaseCount, "golden fixture unexpectedly below its introduction size").toBeGreaterThanOrEqual(36);
+    expect(snapshot.cases.length, regenerate).toBe(goldenCaseCount);
+    expect(snapshot.sourceCaseCount, regenerate).toBe(goldenCaseCount);
     expect(snapshotText).not.toMatch(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i);
     expect(snapshotText).not.toContain("content_preview");
     expect(snapshotText).not.toContain("chunk_id");
