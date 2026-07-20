@@ -101,10 +101,13 @@ async function installFlipCounter(page: Page) {
   await page.evaluate(() => {
     const counter = { flips: 0 };
     (window as unknown as { __scrollFlipCounter: typeof counter }).__scrollFlipCounter = counter;
-    const header = document.querySelector('[data-testid="universal-header-collapse"]');
+    // Collapse hosts flip data-scroll-hidden on the grid wrapper; overlay
+    // hosts (the answer home's glass bar) flip it on header#search itself.
+    const header =
+      document.querySelector('[data-testid="universal-header-collapse"]') ?? document.querySelector("header#search");
     // Fail loudly: returning early would leave the counter pinned at 0, so
     // every flip assertion would pass vacuously.
-    if (!header) throw new Error("installFlipCounter: universal-header-collapse not found");
+    if (!header) throw new Error("installFlipCounter: no scroll-hide chrome element found");
     new MutationObserver(() => {
       counter.flips += 1;
     }).observe(header, { attributes: true, attributeFilter: ["data-scroll-hidden"] });

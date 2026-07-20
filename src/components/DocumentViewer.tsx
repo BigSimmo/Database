@@ -1739,18 +1739,14 @@ export function DocumentViewer({
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
     let cancelled = false;
-    // #main-content is the app-shell scroll container, but it does NOT reliably
-    // mount once: the shell can remount it around chrome-visibility/hydration
-    // swaps, leaving a one-shot lookup holding a detached node whose scroll
-    // events never fire (the phone composer then never hides). Keep observing
-    // for the viewer's lifetime — childList-only mutations are infrequent, and
-    // the setState below dedups so unrelated inserts cost one no-op callback.
+    // #main-content does NOT reliably mount once: the shell can remount it,
+    // and a one-shot lookup then holds a detached node whose scroll events
+    // never fire (the phone composer never hides). Observe for the viewer's
+    // lifetime — childList mutations are infrequent and the setState dedups.
     const sync = () => {
       if (cancelled) return;
-      // Track absence too: a two-step remount would otherwise leave the state
-      // holding the detached node, keeping useHideOnScroll subscribed to a
-      // scroller that never fires. null falls back to window until the
-      // replacement mounts.
+      // Track absence too: mid-remount, null falls back to window until the
+      // replacement mounts (a stale detached node would never fire again).
       const main = window.document.getElementById("main-content");
       setShellScrollContainer((current) => (current === main ? current : main));
     };
