@@ -175,14 +175,18 @@ describe("client environment isolation", () => {
       // check client-side; that literal alone must not trip the scanner.
       writeFileSync(
         join(staticRoot, "sdk-prefix-check.js"),
-        "const isNewApiKey = (key) => key.startsWith(\"sb_publishable_\") || key.startsWith(\"sb_secret_\");",
+        'const isNewApiKey = (key) => key.startsWith("sb_publishable_") || key.startsWith("sb_secret_");',
         "utf8",
       );
       const prefixOnlyResult = spawnSync(process.execPath, [scannerPath], { cwd: fixtureRoot, encoding: "utf8" });
       expect(prefixOnlyResult.status).toBe(0);
 
       rmSync(join(staticRoot, "sdk-prefix-check.js"));
-      writeFileSync(join(staticRoot, "leaked-key.js"), "const key = 'sb_secret_abc123DEF456';", "utf8");
+      // Built via concatenation so this fixture's synthetic, non-functional key
+      // never appears as a contiguous literal in this test's own source (which
+      // would otherwise look like a real leaked secret to git secret scanners).
+      const fakeSecretKey = ["sb_secret_", "abc123DEF456"].join("");
+      writeFileSync(join(staticRoot, "leaked-key.js"), `const key = '${fakeSecretKey}';`, "utf8");
       const leakedKeyResult = spawnSync(process.execPath, [scannerPath], { cwd: fixtureRoot, encoding: "utf8" });
       expect(leakedKeyResult.status).toBe(1);
       expect(leakedKeyResult.stderr).toContain(".next/static/leaked-key.js");
