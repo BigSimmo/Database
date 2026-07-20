@@ -30,11 +30,12 @@ function localMigrationVersions(migrationsDir: string): string[] {
     .sort();
 }
 
-async function fetchRemoteVersions(url: string, serviceKey: string): Promise<RemoteRow[] | null> {
+async function fetchRemoteVersions(url: string, serviceKey: string): Promise<RemoteRow[]> {
   // Read supabase_migrations via Accept-Profile when the project exposes that
   // schema to the Data API. Preview alignment itself only needs local files to
   // cover remote versions; this check is diagnostic for live history drift.
   const profileResponse = await fetch(`${url}/rest/v1/schema_migrations?select=version,name&order=version.asc`, {
+    signal: AbortSignal.timeout(10_000),
     headers: {
       apikey: serviceKey,
       Authorization: `Bearer ${serviceKey}`,
@@ -46,12 +47,10 @@ async function fetchRemoteVersions(url: string, serviceKey: string): Promise<Rem
   }
 
   const profileText = await profileResponse.text();
-  console.warn(
+  throw new Error(
     `Unable to read remote schema_migrations via Accept-Profile ` +
-      `(status ${profileResponse.status}: ${profileText.slice(0, 240)}). ` +
-      `Skipping live history comparison; local orphan-version placeholders still protect Preview.`,
+      `(status ${profileResponse.status}: ${profileText.slice(0, 240)})`,
   );
-  return null;
 }
 
 async function main() {
@@ -66,11 +65,6 @@ async function main() {
   console.log(`Local migration versions: ${local.size}`);
 
   const remoteRows = await fetchRemoteVersions(url, serviceKey);
-  if (!remoteRows) {
-    console.log("Live history comparison skipped (transport unavailable).");
-    return;
-  }
-
   const remote = new Set(remoteRows.map((row) => row.version));
   const remoteOnly = [...remote].filter((version) => !local.has(version)).sort();
   const localOnly = [...local].filter((version) => !remote.has(version)).sort();
