@@ -172,6 +172,7 @@
     "skills": "node scripts/list-database-skills.mjs",
     "check:skills": "node scripts/list-database-skills.mjs --check",
     "check:drift": "node scripts/run-tsx.mjs scripts/check-drift.ts",
+    "check:migration-history": "node scripts/run-tsx.mjs scripts/check-migration-history-alignment.ts",
     "drift:manifest": "node scripts/run-tsx.mjs scripts/generate-drift-manifest.ts"
   },
   "dependencies": {
