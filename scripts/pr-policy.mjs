@@ -19,7 +19,14 @@ export const requiredClinicalGovernanceItems = [
 const legacyClinicalGovernanceEvidence = new Map([
   [
     requiredClinicalGovernanceItems[0],
-    [[/\bcitation requirements?\b/i, /\bsource verification\b/i, /\bprovenance\b/i, /\bclinical-content governance\b/i]],
+    [
+      [
+        /\bcitation requirements?\b/i,
+        /\bsource verification\b/i,
+        /\bprovenance\b/i,
+        /\bclinical-content governance\b/i,
+      ],
+    ],
   ],
   [
     requiredClinicalGovernanceItems[1],
@@ -28,7 +35,10 @@ const legacyClinicalGovernanceEvidence = new Map([
   [requiredClinicalGovernanceItems[2], [[/\bconfigured supabase project\/target\b/i]]],
   [requiredClinicalGovernanceItems[3], [[/\bservice-role credentials?\b/i, /\bserver-side only\b/i]]],
   [requiredClinicalGovernanceItems[4], [[/\bclinical-content governance\b/i, /\bsource verification\b/i]]],
-  [requiredClinicalGovernanceItems[5], [[/\bprovenance\b/i, /\bclinical-content governance\b/i, /\bsource verification\b/i]]],
+  [
+    requiredClinicalGovernanceItems[5],
+    [[/\bprovenance\b/i, /\bclinical-content governance\b/i, /\bsource verification\b/i]],
+  ],
   [requiredClinicalGovernanceItems[6], [[/\bsamd\/tga assessment\b/i]]],
 ]);
 
