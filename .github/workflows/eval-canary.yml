@@ -18,6 +18,21 @@ on:
         description: "Number of answer-quality cases to run (--limit)"
         required: false
         default: "8"
+      # Staged ranking-weight evaluation (ADDENDUM 4 Phase B): a RAG_RANKING_CONFIG JSON
+      # override evaluated live WITHOUT touching code defaults. Empty = production weights.
+      # Malformed JSON fails the run loudly (validation step below) instead of silently
+      # reverting to defaults and corrupting a baseline/post comparison.
+      rag_ranking_config:
+        description: "Optional RAG_RANKING_CONFIG JSON override (staged ranking weights); empty = production defaults"
+        required: false
+        default: ""
+      # Pre-merge branch evals (Phase D-1): run the golden eval from a branch so ranking PRs
+      # can gather live proof BEFORE merging. Dispatch requires repo write access, so refs are
+      # limited to trusted collaborators' branches. Empty = the dispatched/default branch.
+      ref:
+        description: "Optional git ref (branch/SHA) to evaluate; empty = default branch"
+        required: false
+        default: ""
   schedule:
     # Sunday 18:00 UTC = Monday 02:00 Australia/Perth — off-peak for clinicians.
     - cron: "0 18 * * 0"
@@ -39,6 +54,9 @@ env:
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
   SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  # Empty for schedule runs and default dispatches (resolveRankingConfig treats empty as
+  # unset); non-empty only for staged ranking-weight evals via the dispatch input.
+  RAG_RANKING_CONFIG: ${{ github.event.inputs.rag_ranking_config || '' }}
   # Pace golden retrieval so forced-vector probes do not trip transient 429s
   # after a long text-fast-path run (see vector-ptsd history in eval-canary).
   RAG_EVAL_CASE_DELAY_MS: 2000
@@ -65,6 +83,24 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+          # Empty ref = checkout's default (the triggering sha) — schedule runs unaffected.
+          ref: ${{ github.event.inputs.ref || '' }}
+
+      # Fail loudly on a malformed override: resolveRankingConfig (src/lib/ranking-config.ts)
+      # silently falls back to production defaults on bad JSON, which would turn a staged-weights
+      # eval into an accidental baseline and corrupt the pair comparison.
+      - name: Validate ranking-config override
+        id: validate_override
+        if: github.event.inputs.rag_ranking_config != ''
+        run: |
+          node -e '
+            const raw = process.env.RAG_RANKING_CONFIG;
+            const parsed = JSON.parse(raw);
+            if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+              throw new Error("rag_ranking_config must be a JSON object");
+            }
+            console.log("RAG_RANKING_CONFIG override active:", JSON.stringify(parsed));
+          '
 
       - name: Preflight required secrets
         id: preflight
