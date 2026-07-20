@@ -50,6 +50,13 @@ async function expectNoBlockingAxeViolations(page: Page, testInfo: TestInfo) {
 
 test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
+  // Playwright's Linux WebKit build advertises phantom touch points on the touch-free CI
+  // runner, tripping the fine-pointer/zero-touch gate on the search command surface
+  // (commandDropdownCanDisplay) that Chromium and Firefox pass via the zero-touch fallback.
+  // Report the runner's real capability so WebKit exercises the same desktop surfaces.
+  await page.addInitScript(() => {
+    Object.defineProperty(Navigator.prototype, "maxTouchPoints", { configurable: true, get: () => 0 });
+  });
 });
 
 test("searches patient language, opens a mechanism guide, and carries it into the builder", async ({
