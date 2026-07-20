@@ -116,7 +116,7 @@ export function FormsHomePage() {
       <ModeHomeTemplate
         testId="forms-home-template"
         title="Forms"
-        subtitle="The complete WA MHA 2014 forms register."
+        subtitle="The WA MHA 2014 forms register."
         icon={FileText}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Forms tasks"

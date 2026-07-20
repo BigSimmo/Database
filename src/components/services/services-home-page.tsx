@@ -127,7 +127,7 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
       <ModeHomeTemplate
         testId="services-home-template"
         title="Services"
-        subtitle="Search by need, catchment, or referral route."
+        subtitle="Search by need, catchment, or route."
         icon={Users}
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
         actionsLabel="Service tasks"
