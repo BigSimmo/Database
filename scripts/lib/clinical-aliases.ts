@@ -7,6 +7,14 @@
 // another name. Adding an alias is a clinical-governance change — it widens what counts as a hit
 // for both the live gates and the snapshot's relevance grades — so each entry needs the same
 // evidence trail as a fixture edit (see the per-entry comments).
+//
+// TIERING — do not merge with src/lib/eval-document-matching.ts. That module keeps a deliberately
+// WIDER document-alias table (extra keys and looser per-key entries, e.g. "Clozapine GP Shared
+// Care") for captured-case coverage reporting, where absorbing corpus renames is the goal. This
+// module is the STRICT tier: zero-tolerance golden gates and tuner relevance grades. Folding the
+// wide tier in here would let topically-adjacent documents satisfy pinned golden expectations —
+// a silent loosening of clinical ground truth. Any entry promoted from the wide tier to this one
+// needs its own evidence trail, not a bulk merge.
 
 /**
  * Document-name aliases, keyed by the fixture's `expectedDocumentSubstrings` entry (verbatim).

@@ -50,8 +50,12 @@ export type RankingSnapshot = {
   schema: "rag-ranking-candidate-snapshot";
   version: typeof RANKING_SNAPSHOT_VERSION;
   sourceCaseCount: number;
-  /** ISO timestamp of snapshot generation; drives the 30-day freshness gate once present. */
-  generatedAt?: string;
+  /**
+   * ISO timestamp of snapshot generation; drives the 30-day freshness gate. Required since the
+   * first provenance-stamped regeneration (2026-07-20) so a hand-edit cannot silently remove
+   * the freshness protection.
+   */
+  generatedAt: string;
   /** GitHub Actions run id of the eval-canary run whose artifact produced this snapshot. */
   sourceRunId?: string;
   sanitization: {
@@ -132,10 +136,10 @@ export function validateRankingSnapshot(value: unknown): RankingSnapshot {
   if (value.sourceCaseCount !== value.cases.length) {
     throw new Error("Ranking snapshot sourceCaseCount must match cases.length");
   }
-  if (value.generatedAt !== undefined) {
-    if (typeof value.generatedAt !== "string" || !Number.isFinite(Date.parse(value.generatedAt))) {
-      throw new Error("Ranking snapshot generatedAt must be an ISO date-time string when present");
-    }
+  // Required, not optional: every builder-produced snapshot is stamped, and an absent value
+  // would silently disable the 30-day freshness gate in tests/ranking-tuning.test.ts.
+  if (typeof value.generatedAt !== "string" || !Number.isFinite(Date.parse(value.generatedAt))) {
+    throw new Error("Ranking snapshot generatedAt must be an ISO date-time string");
   }
   if (value.sourceRunId !== undefined && (typeof value.sourceRunId !== "string" || !value.sourceRunId)) {
     throw new Error("Ranking snapshot sourceRunId must be a non-empty string when present");
