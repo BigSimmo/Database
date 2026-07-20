@@ -99,9 +99,19 @@ const actionPinPattern = /uses:\s*([^@\s]+)@([0-9a-f]{40})(?:\s*#\s*(\S+))?/;
 const shasByAction = new Map();
 for (const filePath of [...discoverGitHubActionFiles(process.cwd()), ...discoverCompositeActionFiles(process.cwd())]) {
   const fileName = path.relative(process.cwd(), filePath).replaceAll("\\", "/");
+  // Workflow lines are already run through validateActionReference in the first
+  // pass; composite files are not, so validate them here. Without this, a
+  // non-SHA composite reference (e.g. vendor/action@v1) matches neither the
+  // 40-hex actionPinPattern below nor the first pass, so it would slip through
+  // unpinned. Local `./` refs are correctly ignored by validateActionReference.
+  const isComposite = fileName.startsWith(".github/actions/");
   readFileSync(filePath, "utf8")
     .split(/\r?\n/)
     .forEach((line, index) => {
+      if (isComposite) {
+        const actionFailure = validateActionReference(line);
+        if (actionFailure) failures.push(`${fileName}:${index + 1}: ${actionFailure}`);
+      }
       const match = actionPinPattern.exec(line);
       if (!match) return;
       const [, name, sha, version] = match;
