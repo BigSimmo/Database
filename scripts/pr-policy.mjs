@@ -54,16 +54,24 @@ function section(body, heading) {
   const source = String(body ?? "");
   const headings = [...source.matchAll(/^(#{1,6})[ \t]+(.+?)[ \t]*$/gim)];
   const targetHeading = normalizeSectionHeading(heading);
-  const matchIndex = headings.findIndex((match) => normalizeSectionHeading(match[2]) === targetHeading);
-  if (matchIndex < 0) return "";
-  const start = (headings[matchIndex]?.index ?? 0) + (headings[matchIndex]?.[0].length ?? 0);
-  // Markdown outline semantics: the section runs until the next heading of the
-  // same or shallower level. Deeper headings (### under ##) are sub-structure
-  // and stay inside the section, so checklist evidence after them still counts.
-  const level = headings[matchIndex][1].length;
-  const next = headings.slice(matchIndex + 1).find((match) => match[1].length <= level);
-  const end = next?.index ?? source.length;
-  return source.slice(start, end).trim();
+  // Collect content from ALL matching sections and join them. This handles
+  // accidental duplicate headings (e.g. a prose rationale block and a separate
+  // checklist block under the same heading) by combining their content rather
+  // than silently returning only the first occurrence and missing the checklist.
+  const parts = [];
+  headings.forEach((match, matchIndex) => {
+    if (normalizeSectionHeading(match[2]) !== targetHeading) return;
+    const start = (match.index ?? 0) + match[0].length;
+    // Markdown outline semantics: the section runs until the next heading of the
+    // same or shallower level. Deeper headings (### under ##) are sub-structure
+    // and stay inside the section, so checklist evidence after them still counts.
+    const level = match[1].length;
+    const next = headings.slice(matchIndex + 1).find((m) => m[1].length <= level);
+    const end = next?.index ?? source.length;
+    const content = source.slice(start, end).trim();
+    if (content) parts.push(content);
+  });
+  return parts.join("\n\n");
 }
 
 function meaningfulText(value) {
@@ -312,6 +320,21 @@ function selfTest() {
   assert.equal(
     section("### Summary ###\n\n- concise summary\n\n### Verification\n\n- [x] `npm run verify:pr-local`\n", "Summary"),
     "- concise summary",
+  );
+  // Duplicate section headings: content from all occurrences must be combined
+  // so that a prose block followed by a checklist block (same heading) is
+  // treated as a single section for checklist matching purposes.
+  assert.equal(
+    evaluatePullRequestPolicy({
+      title: "ci: enforce pull request evidence",
+      body:
+        "## Summary\n\n- Add a trusted PR policy.\n\n## Verification\n\n- [x] `npm run verify:pr-local`\n- [x] `npm run verify:ui`\n\n## Risk and rollout\n\n- Risk: low; metadata-only validation.\n- Rollback: revert the workflow commit.\n\n## Clinical Governance Preflight\n\nProse rationale for the change.\n\n## Clinical Governance Preflight\n\n" +
+        completeGovernance,
+      headRef: "codex/pr-policy",
+      files: [".github/workflows/pr-policy.yml"],
+    }).ok,
+    true,
+    "duplicate section headings should combine content for checklist matching",
   );
   const template = readFileSync(new URL("../.github/pull_request_template.md", import.meta.url), "utf8");
   for (const item of requiredClinicalGovernanceItems)
