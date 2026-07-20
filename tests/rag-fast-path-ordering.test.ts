@@ -13,7 +13,7 @@ import type { SearchResult } from "../src/lib/types";
 // documents matching the same query terms collapse to byte-identical vector/text/hybrid
 // scores and only content-aware ranking can separate them. Each test replays one failed
 // eval case's shape through the production ordering pipeline. Guard surface: the CIWA
-// case is the one whose top-1 assertion binds the selection contentRankScore tie-break
+// case is the one whose top-1 assertion binds the selection contentCoverageScore tie-break
 // (its candidates tie on every clamped key); the lithium/clozapine/safety-plan cases win
 // earlier (subject boosts, table-type boosts, hybrid+id release order) and guard the
 // remediation stack end-to-end rather than the tie-break itself.
@@ -258,14 +258,29 @@ describe("text-fast-path ordering under imputed identical primaries", () => {
       content:
         "Assessment of intoxication, toxicity and withdrawal for alcohol and other drugs, with supportive care and monitoring principles.",
     });
+    // Models the chunk that took #1 in the 2026-07-20 live golden run (eval-canary #50) when the
+    // tie-break keyed on the boost-laden rankScore: screening/monitoring vocabulary earns strong
+    // generic clinicalSignalBoost, its content covers several query terms (alcohol, withdrawal,
+    // treatment, drug) — but none of the answer terms (ciwa/score/threshold). Query-term coverage
+    // must still rank the answer-bearing scale chunk above it.
+    const screeningChunk = imputedResult({
+      id: "aod-screening-p1",
+      document_id: "aod-doc",
+      title: "Alcohol and Other Drugs - Addiction, Toxicity and Withdrawal",
+      file_name: "Alcohol and Other Drugs - Addiction, Toxicity and Withdrawal (FSH).pdf",
+      page_number: 1,
+      section_heading: "Screening and treatment outcomes monitoring",
+      content:
+        "Use the screening tool to initially screen all patients presenting to the service, and monitor treatment outcomes for alcohol and other drug withdrawal management.",
+    });
 
-    // Offline this pins the pairwise decision between the two live contenders; the live
-    // corpus depth (the expected document sat at rank ~8 on 2026-07-19) is covered by the
-    // live golden eval, not this fixture.
+    // Offline this pins the pairwise decision among the live contenders; the live corpus depth
+    // (the expected document sat at rank ~8 on 2026-07-19) is covered by the live golden eval,
+    // not this fixture.
     const released = runTextFastPathOrdering({
       query,
       queryClass,
-      candidates: [aodOverview, ciwaDoc],
+      candidates: [aodOverview, screeningChunk, ciwaDoc],
       topK: 12,
     });
 
@@ -274,6 +289,8 @@ describe("text-fast-path ordering under imputed identical primaries", () => {
       .slice(0, 5)
       .some((result) => normalizedDocumentName(`${result.title} ${result.file_name}`).includes("alcohol withdrawal"));
     expect(docGateSatisfied).toBe(true);
+    // The eval's content gate for this case: at least one top-5 chunk must carry an answer term.
+    expect(released.slice(0, 5).some((result) => /ciwa|score|threshold/i.test(result.content))).toBe(true);
   });
 
   it("ranks the pinned safety-plan document above the policy duplicate for document lookups (patient-safety-plan-include)", () => {

@@ -493,16 +493,13 @@ export function buildRetrievalCandidates(
       // Carried ONLY as the last tie-break before chunk id: on the embedding-free fast path,
       // imputed primaries make clamped score/lexical/rerank ties routine, and a chunk-id tie-break
       // is arbitrary — the second stage's position-based adjustment then launders that arbitrary
-      // winner into the released order. Never added to score. Note this rankScore is the full
-      // clinical rank, which includes the bounded source-governance metadata terms — deliberate
-      // for a tie-break: among otherwise-indistinguishable candidates it prefers the current,
-      // well-extracted document (the conservative direction), unlike governance WEIGHTING of the
-      // primary score, which the NOTE below still forbids.
-      contentRankScore:
-        result.score_explanation?.rankScore ??
-        result.score_explanation?.preClampFinalScore ??
-        result.score_explanation?.finalScore ??
-        result.hybrid_score,
+      // winner into the released order. The key is the clinical rank's QUERY-TERM COVERAGE, not
+      // the boost-laden rankScore: the 2026-07-20 live golden run (eval-canary #50) showed that
+      // breaking saturated ties by rankScore lets generic clinicalSignalBoost stacking outvote the
+      // chunk that actually contains the queried terms (alcohol-ciwa-threshold regressed to FAIL),
+      // which is the same failure mode the clamped-score contract below exists to prevent.
+      // Never added to score.
+      contentCoverageScore: result.score_explanation?.lexicalCoverageScore,
       matchedSignals: [],
       sourceHref: documentCitationHref(citationFromResult(result)),
     };
@@ -616,11 +613,12 @@ export function selectRetrievalEvidence(args: {
       return (right.lexicalScore ?? 0) - (left.lexicalScore ?? 0);
     if ((right.rerankScore ?? 0) !== (left.rerankScore ?? 0)) return (right.rerankScore ?? 0) - (left.rerankScore ?? 0);
     // Exact tie on every clamped key (routine on the embedding-free fast path, where imputed
-    // primaries are byte-identical and confidences saturate at 1.0): prefer the content-aware
-    // clinical rank over an arbitrary chunk-id ordering. This never raises any score — it only
-    // orders otherwise-indistinguishable candidates, so the measured clamped-score contract holds.
-    if ((right.contentRankScore ?? 0) !== (left.contentRankScore ?? 0))
-      return (right.contentRankScore ?? 0) - (left.contentRankScore ?? 0);
+    // primaries are byte-identical and confidences saturate at 1.0): prefer the candidate whose
+    // content actually covers the query's terms over an arbitrary chunk-id ordering. This never
+    // raises any score — it only orders otherwise-indistinguishable candidates, so the measured
+    // clamped-score contract holds, and generic boost stacking cannot outvote query relevance.
+    if ((right.contentCoverageScore ?? 0) !== (left.contentCoverageScore ?? 0))
+      return (right.contentCoverageScore ?? 0) - (left.contentCoverageScore ?? 0);
     return left.chunkId.localeCompare(right.chunkId);
   });
   const selectedCandidates: RetrievalCandidate[] = [];
