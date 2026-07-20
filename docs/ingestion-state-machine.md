@@ -21,6 +21,28 @@ Companion docs: `docs/audit/repo-audit-2026-07-01.md` (M9/M11/M13 proved this
 bug class live), `docs/scale-readiness-review.md` (phase 2),
 `docs/reindex-runbook.md`.
 
+## Lifecycle at a glance
+
+The `documents.status` lifecycle, with the writer/RPC for each transition (see §1 for the
+column-level detail and the concurrency violations):
+
+```mermaid
+stateDiagram-v2
+    [*] --> queued: upload / reindex / retry / recovery
+    queued --> processing: worker claims ingestion_job
+    processing --> indexed: commit_document_index_generation
+    processing --> failed: fail_or_retry_ingestion_job
+    processing --> queued: retry / recovery
+    failed --> queued: retry route / queue recovery
+    indexed --> indexed: atomic reindex enqueue (job pending)
+    indexed --> [*]
+
+    note right of processing
+        ingestion_jobs: pending to processing to completed or failed.
+        Lease has no heartbeat; 45-min staleness is a runtime ceiling, not liveness.
+    end note
+```
+
 ## 1. Entities and state columns
 
 ### documents (one row per document)

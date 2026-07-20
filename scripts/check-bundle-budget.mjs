@@ -8,10 +8,11 @@
  * client chunks and compares total gzip size against a committed baseline
  * (bundle-budget.json), failing when growth exceeds the tolerance.
  *
- * ROLLOUT: warn-only until a baseline is captured and enforcement is turned on.
- *   - `bundle-budget.json` ships with `enforce: false` and `totalGzipBytes: null`.
- *   - After a known-good production build, run `--update` to record the baseline.
- *   - Flip `enforce` to true to make CI fail on >tolerancePct growth.
+ * STATUS: enforced. `bundle-budget.json` carries `enforce: true` and a committed
+ * `totalGzipBytes` baseline, so CI fails on >tolerancePct gzip growth.
+ *   - After an intentional, known-good production build, run
+ *     `npm run check:bundle-budget -- --update` to refresh the baseline.
+ *   - Set `enforce: false` to fall back to warn-only.
  * Reads .next/static/chunks/**.js. If no build output exists it prints a note and
  * exits 0 (so it never breaks a run that didn't build).
  *
