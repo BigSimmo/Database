@@ -45,13 +45,21 @@ jobs:
             const moduleUrl = pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/pr-policy.mjs`).href;
             const { evaluatePullRequestPolicy } = await import(moduleUrl);
             const pr = context.payload.pull_request;
-            const latestPr = (
-              await github.rest.pulls.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: pr.number,
-              })
-            ).data;
+            let latestPr;
+            try {
+              latestPr = (
+                await github.rest.pulls.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: pr.number,
+                })
+              ).data;
+            } catch (error) {
+              core.setFailed(
+                `Unable to fetch latest PR metadata for policy evaluation: ${error instanceof Error ? error.message : String(error)}`,
+              );
+              return;
+            }
 
             if (latestPr.draft) {
               core.notice("Draft PR: metadata policy will be enforced when the PR is marked ready for review.");
