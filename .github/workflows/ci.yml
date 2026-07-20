@@ -193,6 +193,9 @@ jobs:
       - name: PR policy self-test
         run: npm run check:pr-policy
 
+      - name: Gate-manifest self-test
+        run: npm run check:gate-manifest
+
       - name: Codebase index coverage
         run: npm run docs:check-index
 
@@ -216,6 +219,20 @@ jobs:
 
       - name: Brand asset check
         run: npm run brand:check
+
+      # More generated-output drift detectors that were local-only in
+      # verify:cheap — same rationale as the design-system guards above. Without
+      # them a stale site map, therapy index, or design-system contract merged
+      # green because no workflow ran them. The gate-manifest self-test now fails
+      # CI if this list drifts from verify:cheap again.
+      - name: Site map drift
+        run: npm run sitemap:check
+
+      - name: Therapy data index drift
+        run: npm run check:therapy-data-index
+
+      - name: Design-system contract
+        run: npm run check:design-system-contract
 
       # Fails if a SECURITY DEFINER public function is left executable by
       # PUBLIC/anon (privilege-escalation / cross-tenant read surface).
