@@ -31,3 +31,22 @@ duplicate those rules, so it cannot drift from them.
   `npm run verify:pr-local` when the change is PR-ready (see
   [`docs/process-hardening.md`](process-hardening.md) for the full
   verification pyramid).
+
+## AI tooling map
+
+This repo intentionally uses several AI systems; the overlap is by design, not
+accident. [`AGENTS.md`](../AGENTS.md) is the single source of truth — every system
+below defers to it, so rules live in one place and cannot drift.
+
+| System                    | Owns                                                       | Where it is configured                                                                                                                                     |
+| ------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AGENTS.md** (canonical) | All agent rules, gates, safety boundaries                  | `AGENTS.md`; `CLAUDE.md` is a one-line `@AGENTS.md` import                                                                                                 |
+| **Codex** (OpenAI)        | Primary PR code-review + automatic resolve                 | AGENTS.md "Codex review" sections, `docs/codex-review-protocol.md`, `docs/codex-prompt-playbook.md`, `.github/workflows/codex-autofix-review-comments.yml` |
+| **Claude Code**           | Interactive dev; scoped review subagents + workflow skills | `.claude/` (agents, skills, hooks), `.github/workflows/claude.yml`                                                                                         |
+| **Cursor**                | DB inspection via Supabase MCP; editor skills              | `.cursor/` (skills, `mcp.json`)                                                                                                                            |
+| **CodeRabbit**            | Advisory PR review (never blocking)                        | `.coderabbit.yaml` (`commit_status: false`)                                                                                                                |
+| **`.agents/`**            | Home-grown single-word skill catalogue                     | `.agents/skills/catalog.json`; list with `npm run skills`                                                                                                  |
+
+Rule of thumb: change agent behaviour in `AGENTS.md`, then let each system inherit it.
+Do not add a new AI system or grow the skill count without retiring something — the
+breadth is already a maintenance cost for a single maintainer.

@@ -659,11 +659,14 @@ describe("retrieval source selection", () => {
 });
 
 describe("saturated-score tie-breaking", () => {
-  function saturatedExplanation(preClampFinalScore: number): NonNullable<SearchResult["score_explanation"]> {
+  function saturatedExplanation(
+    preClampFinalScore: number,
+    lexicalCoverageScore = 0.5,
+  ): NonNullable<SearchResult["score_explanation"]> {
     return {
       vectorScore: 0.9,
       textRank: 0.3,
-      lexicalCoverageScore: 0.5,
+      lexicalCoverageScore,
       metadataMatchScore: 0.2,
       sectionTitleMatchBoost: 0.1,
       freshnessRecencyBoost: 0,
@@ -682,30 +685,32 @@ describe("saturated-score tie-breaking", () => {
     };
   }
 
-  it("breaks saturated-score ties by content-aware clinical rank, then chunk id", () => {
-    // Amended from #901's chunk-id-only pin (which was never live-eval-validated — the only
-    // golden eval on the #901 state failed 4/36): among candidates whose clamped score, lexical
-    // coverage, and clamped rerank confidence all tie exactly, the content-aware clinical rank
-    // now decides before the chunk-id fallback. On the embedding-free fast path this is what
-    // stops an arbitrary id ordering from burying the answer-bearing document
-    // (alcohol-ciwa-threshold class; see tests/rag-fast-path-ordering.test.ts).
-    const higherPreClamp = source({
+  it("breaks saturated-score ties by query-term coverage, then chunk id", () => {
+    // Amended from #901's chunk-id-only pin (never live-eval-validated — the only golden eval on
+    // the #901 state failed 4/36): among candidates whose clamped score, lexical signal score, and
+    // clamped rerank confidence all tie exactly, the clinical rank's QUERY-TERM COVERAGE decides
+    // before the chunk-id fallback. Coverage — not the boost-laden rankScore — is deliberate:
+    // the 2026-07-20 live golden run (eval-canary #50) proved a rankScore tie-break lets generic
+    // clinicalSignalBoost stacking outvote the chunk that contains the queried terms
+    // (alcohol-ciwa-threshold regressed to FAIL). Note the chunk-b fixture carries the LOWER
+    // rankScore: boost magnitude must not win a saturated tie, coverage must.
+    const higherCoverage = source({
       id: "chunk-b",
       hybrid_score: 1,
       similarity: 0.9,
-      score_explanation: saturatedExplanation(1.8),
+      score_explanation: saturatedExplanation(1.2, 0.9),
     });
-    const lowerPreClamp = source({
+    const lowerCoverage = source({
       id: "chunk-a",
       hybrid_score: 1,
       similarity: 0.9,
-      score_explanation: saturatedExplanation(1.2),
+      score_explanation: saturatedExplanation(1.8, 0.5),
     });
 
     const selection = selectRetrievalEvidence({
       query: "clinical guidance",
       queryClass: "broad_summary",
-      results: [lowerPreClamp, higherPreClamp],
+      results: [lowerCoverage, higherCoverage],
       topK: 2,
       maxResultsPerDocument: 2,
     });
@@ -714,12 +719,12 @@ describe("saturated-score tie-breaking", () => {
     // The prior recall fix remains: selection never lowers the raw hybrid score.
     expect(selection.results.map((item) => item.hybrid_score)).toEqual([1, 1]);
 
-    // Identical content rank still falls back to the stable chunk-id order.
+    // Identical coverage still falls back to the stable chunk-id order, regardless of rankScore.
     const tiedSelection = selectRetrievalEvidence({
       query: "clinical guidance",
       queryClass: "broad_summary",
       results: [
-        source({ id: "chunk-d", hybrid_score: 1, similarity: 0.9, score_explanation: saturatedExplanation(1.4) }),
+        source({ id: "chunk-d", hybrid_score: 1, similarity: 0.9, score_explanation: saturatedExplanation(1.6) }),
         source({ id: "chunk-c", hybrid_score: 1, similarity: 0.9, score_explanation: saturatedExplanation(1.4) }),
       ],
       topK: 2,
