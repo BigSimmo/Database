@@ -69,7 +69,7 @@ function normalizeSectionHeading(value) {
     .toLowerCase();
 }
 
-function section(body, heading) {
+export function section(body, heading) {
   const source = String(body ?? "");
   const headings = [...source.matchAll(/^(#{1,6})[ \t]+(.+?)[ \t]*$/gim)];
   const targetHeading = normalizeSectionHeading(heading);
