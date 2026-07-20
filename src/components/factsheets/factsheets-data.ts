@@ -13,6 +13,14 @@
  * patient information before treating sheets as locally approved.
  */
 
+/**
+ * Demonstration/governance status shown on-screen and preserved in the printed /
+ * exported take-away, so a handout is never mistaken for approved local patient
+ * information. Kept as a single source of truth for the disclaimer copy.
+ */
+export const FACTSHEET_DEMO_NOTICE =
+  "Demonstration content — not clinician-approved. Governance-approved patient information must replace it before any clinical use or sharing.";
+
 export type FactsheetCategory = "Medications" | "Conditions" | "Therapies" | "Tests & procedures";
 
 export type FactsheetKind = "medRich" | "medLite" | "condition" | "therapy" | "procedure";
