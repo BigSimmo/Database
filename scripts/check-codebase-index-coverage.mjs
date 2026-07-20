@@ -13,8 +13,8 @@
  * dirs), not every file — the index maps modules by theme, so per-file coverage
  * would be pure noise.
  *
- * Advisory: run `npm run docs:check-index`. Not in CI (kept alongside the other
- * docs:* advisory checks). Exit 1 on gaps.
+ * Run: `npm run docs:check-index`. Blocking — runs in `verify:cheap:internal` and in
+ * CI (`.github/workflows/ci.yml`, the "Codebase index coverage" step). Exit 1 on gaps.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
