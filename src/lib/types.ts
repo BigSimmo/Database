@@ -179,6 +179,7 @@ export type RetrievalCandidate = {
   lexicalScore?: number;
   semanticScore?: number;
   rerankScore?: number;
+  contentRankScore?: number;
   matchedSignals: string[];
   sourceHref?: string;
 };
