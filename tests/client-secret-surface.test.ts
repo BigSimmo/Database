@@ -58,7 +58,9 @@ function localImports(file: string) {
   const text = readFileSync(file, "utf8");
   const source = parse(text, {
     sourceType: "module",
-    plugins: ["jsx", "typescript", "importAttributes"],
+    // @babel/parser 8 parses import attributes by default; the standalone
+    // "importAttributes" plugin was removed (and is now a type error).
+    plugins: ["jsx", "typescript"],
   });
   const specifiers: string[] = [];
   for (const statement of source.program.body) {
