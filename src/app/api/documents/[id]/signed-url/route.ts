@@ -53,10 +53,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     const registryHref =
       (typeof metadata.registry_detail_href === "string" && metadata.registry_detail_href) ||
       registryCorpusDetailHref({
-        kind: metadata.registry_record_kind,
-        slug: metadata.registry_record_slug,
-        subkind: metadata.registry_record_subkind,
-        recordId: metadata.registry_record_id,
+        kind: metadata.registry_record_kind as string | undefined,
+        slug: metadata.registry_record_slug as string | undefined,
+        subkind: metadata.registry_record_subkind as string | undefined,
+        recordId: metadata.registry_record_id as string | undefined,
       });
     if (source.source_kind === "registry_record" && registryHref) {
       return NextResponse.json({
