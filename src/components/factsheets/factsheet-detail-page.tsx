@@ -15,10 +15,12 @@ import {
   TriangleAlert,
   Zap,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 import {
   categoryTheme,
+  FACTSHEET_DEMO_NOTICE,
   printBlocks,
   relatedFactsheets,
   sameTopicFactsheets,
@@ -41,6 +43,14 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
   const [readingLevel, setReadingLevel] = useState<"easy" | "standard">("easy");
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
+  // The print sheet is portaled to <body> so print can isolate it from the shell
+  // chrome; the portal is client-only, gated behind a mount flag. useSyncExternalStore
+  // is the lint-safe way to flip false→true on hydration without setState-in-effect.
+  const mounted = useSyncExternalStore(
+    () => () => undefined,
+    () => true,
+    () => false,
+  );
 
   const related = relatedFactsheets(factsheet.slug);
   const moreInTopic = sameTopicFactsheets(factsheet.slug);
@@ -299,10 +309,13 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
               </div>
             </section>
 
-            <p className="mt-6 border-t border-[color:var(--border)] pt-3.5 text-xs leading-5 text-[color:var(--text-soft)]">
-              This sheet is general information, not personal medical advice. Always follow the instructions from your
-              own doctor or pharmacist.
-            </p>
+            <div className="mt-6 border-t border-[color:var(--border)] pt-3.5">
+              <p className="text-xs font-bold text-[color:var(--warning)]">{FACTSHEET_DEMO_NOTICE}</p>
+              <p className="mt-1.5 text-xs leading-5 text-[color:var(--text-soft)]">
+                This sheet is general information, not personal medical advice. Always follow the instructions from your
+                own doctor or pharmacist.
+              </p>
+            </div>
           </article>
 
           {/* sidebar */}
@@ -361,8 +374,17 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
         </div>
       </div>
 
-      {/* print-only clean A4 sheet */}
-      <FactsheetPrintSheet factsheet={factsheet} blocks={blocks} />
+      {/* Print-only clean A4 sheet, portaled to <body> so print can remove every
+          other body subtree from layout flow (see globals.css factsheets-printing
+          rules) — otherwise the hidden shell chrome paginates into blank pages. */}
+      {mounted
+        ? createPortal(
+            <div className="factsheet-print-portal">
+              <FactsheetPrintSheet factsheet={factsheet} blocks={blocks} />
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
@@ -685,6 +707,22 @@ function FactsheetPrintSheet({ factsheet, blocks }: { factsheet: Factsheet; bloc
       className="factsheet-print-sheet"
       style={{ maxWidth: "720px", margin: "0 auto", padding: "8px", color: "#111", fontFamily: "var(--font-sans)" }}
     >
+      <div
+        style={{
+          border: "1.5px solid #b42318",
+          background: "#fef3f2",
+          color: "#b42318",
+          fontSize: "11px",
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: "0.04em",
+          padding: "6px 10px",
+          borderRadius: "6px",
+          marginBottom: "12px",
+        }}
+      >
+        Sample — not for clinical use
+      </div>
       <div style={{ borderBottom: "2px solid var(--clinical-accent)", paddingBottom: "12px", marginBottom: "18px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <span
@@ -778,8 +816,9 @@ function FactsheetPrintSheet({ factsheet, blocks }: { factsheet: Factsheet; bloc
           lineHeight: 1.5,
         }}
       >
-        This sheet is general information, not personal medical advice. Always follow the instructions from your own
-        doctor or pharmacist. In an emergency call 000.
+        <strong style={{ color: "#b42318" }}>{FACTSHEET_DEMO_NOTICE}</strong> This sheet is general information, not
+        personal medical advice. Always follow the instructions from your own doctor or pharmacist. In an emergency call
+        000.
       </p>
     </div>
   );
