@@ -87,8 +87,13 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
     [router, routedSearchContext.queryMode, routedSearchContext.scopeFilters],
   );
 
+  // `autoRunSearch` is true on /differentials?q=…&run=1 — that mounts the tall
+  // SearchResultsView. Empty homes stay centred; results must top-align or the
+  // Best Answer / query band are clipped above the phone scrollport.
+  const showingResults = autoRunSearch;
+
   return (
-    <ModeHomeMain>
+    <ModeHomeMain contentAlign={showingResults ? "start" : "center"}>
       <DifferentialsHome
         query={query}
         loading={loading}

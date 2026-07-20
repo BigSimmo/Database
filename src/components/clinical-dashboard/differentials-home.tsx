@@ -322,11 +322,23 @@ function MatchBadge({ label }: { label: string }) {
   );
 }
 
-function Chip({ children, className }: { children: string; className?: string }) {
+function Chip({
+  children,
+  className,
+  density = "default",
+}: {
+  children: string;
+  className?: string;
+  /** Comfortable chips use a single exclusive type scale — never dual text-* via cn(). */
+  density?: "default" | "comfortable";
+}) {
   return (
     <span
       className={cn(
-        "inline-flex min-h-6 min-w-0 max-w-full items-center rounded-md bg-[color:var(--surface-subtle)] px-2 text-2xs font-bold leading-none text-[color:var(--text-muted)]",
+        "inline-flex min-h-6 min-w-0 max-w-full items-center rounded-md bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+        density === "comfortable"
+          ? "px-2.5 py-1 text-xs font-semibold leading-snug"
+          : "px-2 text-2xs font-bold leading-none",
         className,
       )}
     >
@@ -489,12 +501,12 @@ function MobileResultCard({
       </div>
       <div className="flex min-w-0 max-w-full flex-wrap gap-1.5">
         {result.tags.slice(0, 2).map((tag) => (
-          <Chip key={`${result.id}-${tag}`} className="max-w-full px-2.5 py-1 text-xs font-semibold leading-snug">
+          <Chip key={`${result.id}-${tag}`} density="comfortable" className="max-w-full">
             {tag}
           </Chip>
         ))}
         {result.tags.length > 2 ? (
-          <Chip className="shrink-0 px-2.5 py-1 text-xs font-semibold leading-snug">{`+${result.tags.length - 2}`}</Chip>
+          <Chip density="comfortable" className="shrink-0">{`+${result.tags.length - 2}`}</Chip>
         ) : null}
       </div>
     </article>
@@ -526,6 +538,7 @@ function BestAnswerCard({
 
   return (
     <section
+      data-testid={compact ? "differential-best-answer" : undefined}
       className={cn("rounded-lg border shadow-[var(--shadow-inset)]", compact ? "p-3.5" : "p-4")}
       style={{
         borderColor: `color-mix(in srgb, ${cardBorderColor}, transparent)`,
@@ -570,14 +583,25 @@ function BestAnswerCard({
         </div>
         {onToggle ? <SelectionToggle selected={Boolean(selected)} onClick={onToggle} label={best.title} /> : null}
       </div>
-      <p className={cn("text-sm font-medium leading-6 text-[color:var(--text-muted)]", compact ? "mt-2.5" : "mt-3")}>
+      <p
+        className={cn(
+          "min-w-0 text-sm font-medium leading-6 text-[color:var(--text-muted)]",
+          compact ? "mt-2.5 line-clamp-3" : "mt-3",
+        )}
+      >
         {best.subtitle}
       </p>
-      <div className={cn("flex flex-wrap gap-1.5", compact ? "mt-2.5" : "mt-3")}>
+      <div className={cn("flex min-w-0 max-w-full flex-wrap gap-1.5", compact ? "mt-2.5" : "mt-3")}>
         {visibleTags.map((tag) => (
-          <Chip key={tag}>{tag}</Chip>
+          <Chip key={tag} density={compact ? "comfortable" : "default"} className={compact ? "max-w-full" : undefined}>
+            {tag}
+          </Chip>
         ))}
-        {hiddenTagCount > 0 ? <Chip>{`+${hiddenTagCount}`}</Chip> : null}
+        {hiddenTagCount > 0 ? (
+          <Chip density={compact ? "comfortable" : "default"} className={compact ? "shrink-0" : undefined}>
+            {`+${hiddenTagCount}`}
+          </Chip>
+        ) : null}
       </div>
     </section>
   );
