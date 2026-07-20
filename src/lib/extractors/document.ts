@@ -57,26 +57,47 @@ export function parseExtractedDocumentPayload(raw: string): ExtractedDocument {
 }
 
 export async function terminateProcessTree(child: ChildProcess) {
-  if (!child.pid || child.exitCode !== null) return;
+  const pid = child.pid;
+  if (!pid) return;
+
   if (process.platform === "win32") {
     await new Promise<void>((resolve) => {
-      const killer = spawn("taskkill", ["/pid", String(child.pid), "/t", "/f"], {
+      const killer = spawn("taskkill", ["/pid", String(pid), "/t", "/f"], {
         stdio: "ignore",
         windowsHide: true,
       });
       killer.once("error", () => {
-        child.kill("SIGKILL");
+        if (child.exitCode === null) child.kill("SIGKILL");
         resolve();
       });
       killer.once("close", () => resolve());
     });
     return;
   }
+
+  // Always attempt a process-group kill first. Skipping when `exitCode` is set
+  // left detached grandchildren alive after the leader had already exited.
   try {
-    process.kill(-child.pid, "SIGKILL");
+    process.kill(-pid, "SIGKILL");
   } catch {
-    child.kill("SIGKILL");
+    if (child.exitCode === null) {
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        // already gone
+      }
+    }
   }
+
+  if (child.exitCode !== null) return;
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, 1_000);
+    timer.unref();
+    child.once("close", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 }
 
 export async function runPythonPdfExtractor(

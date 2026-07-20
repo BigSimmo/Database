@@ -18,6 +18,14 @@ describe("overlay and global CSS contracts", () => {
     expect(answerResultSurfaceSource).not.toContain("sm:bg-black/50");
   });
 
+  it("dismisses the Sheet backdrop only when the gesture starts on the dimmed area", () => {
+    expect(sheetSource).toContain("backdropPointerDownRef");
+    expect(sheetSource).toContain("backdropPointerDownRef.current = event.target === event.currentTarget");
+    expect(sheetSource).toContain(
+      "if (event.target !== event.currentTarget || !backdropPointerDownRef.current) return",
+    );
+  });
+
   it("defines the shared easing tokens only once", () => {
     expect(occurrenceCount(globalStylesSource, "--ease-standard:")).toBe(1);
     expect(occurrenceCount(globalStylesSource, "--ease-emphasized:")).toBe(1);
@@ -38,5 +46,18 @@ describe("overlay and global CSS contracts", () => {
     expect(baseBlock).not.toMatch(/\bborder\s*:/);
     expect(baseBlock).not.toContain("border-color:");
     expect(globalStylesSource).toMatch(/\.answer-footer-search-pill:focus-within\s*\{[\s\S]*?border-color:/);
+  });
+
+  it("keeps phone header edge padding tokenized and never zeroed by unlayered media", () => {
+    // --header-edge-pad is the single phone/sm inset shared by the layered
+    // .edge-glass-header base and the unlayered max-width:639px guard. A bare
+    // max(0px, safe-area) override previously pinned new-chat to the bezel.
+    expect(occurrenceCount(globalStylesSource, "--header-edge-pad:")).toBe(1);
+    expect(globalStylesSource).toMatch(/--header-edge-pad:\s*1rem;/);
+    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-left))")).toBe(2);
+    expect(occurrenceCount(globalStylesSource, "max(var(--header-edge-pad), var(--safe-area-right))")).toBe(2);
+    expect(globalStylesSource).not.toMatch(
+      /\.edge-glass-header\s*\{[^}]*padding-left:\s*max\(0px,\s*var\(--safe-area-left\)\)/s,
+    );
   });
 });
