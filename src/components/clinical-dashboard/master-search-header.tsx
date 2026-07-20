@@ -185,7 +185,7 @@ export function MasterSearchHeader({
   onMobileBack,
   hideOnScroll,
   onBottomComposerHiddenChange,
-  canAccessFavourites = true,
+  canAccessFavourites = false,
   onRequestAccountSetup,
 }: {
   demoMode: boolean;
@@ -266,19 +266,25 @@ export function MasterSearchHeader({
   /**
    * Favourites are account-scoped. When false, omit Favourites from the mode menu
    * and route favourites actions to account setup instead of switching mode.
-   * Defaults to true for backward-compatible call sites (tests/story fixtures).
+   * Defaults to false (fail closed) so guests never see Favourites unless the host
+   * explicitly grants access from the current session / demo mode.
    */
   canAccessFavourites?: boolean;
   /** Invoked when the user tries to open Favourites without access. */
   onRequestAccountSetup?: () => void;
 }) {
+  // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
+  // Do not OR demoMode again here — that would reopen Favourites when props diverge.
   const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
     authenticated: canAccessFavourites,
     demoMode: false,
   });
   const trimmedQuery = query.trim();
   const selectedSearch = appModeSearchConfig(searchMode);
-  const selectedAppMode = appModeDefinition(searchMode);
+  // Guests on /favourites keep the route gate, but the mode trigger must not claim
+  // Favourites is a selectable guest mode when it is omitted from the menu.
+  const modeTriggerId = searchMode === "favourites" && !canAccessFavourites ? "answer" : searchMode;
+  const selectedAppMode = appModeDefinition(modeTriggerId);
   const selectedSearchable = isSearchableAppMode(searchMode);
   const isAnswerFooterComposer = searchMode === "answer";
   const isWorkflowHeader = headerVariant === "workflow";
@@ -1297,6 +1303,7 @@ export function MasterSearchHeader({
         ) : null}
         <UniversalSearchCommandSurface
           demoMode={demoMode}
+          canAccessFavourites={canAccessFavourites}
           modeId={searchMode}
           query={query}
           recentQueries={recentQueries}
@@ -1315,6 +1322,10 @@ export function MasterSearchHeader({
             onAsk();
           }}
           onCrossMode={(targetMode, crossQuery) => {
+            if (targetMode === "favourites" && !canAccessFavourites) {
+              onRequestAccountSetup?.();
+              return;
+            }
             if (onCrossModeSearch) {
               onCrossModeSearch(targetMode, crossQuery);
               return;

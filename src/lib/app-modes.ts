@@ -491,3 +491,12 @@ export function visibleAppModeDefinitionsForSession(
   const favouritesAllowed = canAccessFavouritesMode(options);
   return visibleAppModeDefinitions(environment).filter((mode) => mode.id !== "favourites" || favouritesAllowed);
 }
+
+/** Omit Favourites from composer cross-mode chips for signed-out non-demo sessions. */
+export function filterCrossModesForSession(
+  crossModes: readonly AppModeId[],
+  options: { authenticated: boolean; demoMode: boolean },
+): AppModeId[] {
+  if (canAccessFavouritesMode(options)) return [...crossModes];
+  return crossModes.filter((mode) => mode !== "favourites");
+}

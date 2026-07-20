@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   ArrowRight,
-  CheckCircle2,
   ChevronRight,
   GitCompareArrows,
   ListChecks,
@@ -17,10 +16,11 @@ import {
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import {
   CategoryTag,
-  DiagnosisChips,
   ReviewStatusBadge,
   SpecifierBreadcrumbs,
-  SpecifierFamilyBadge,
+  SpecifierDiagnosisFilter,
+  SpecifierFamilyFilterChips,
+  SpecifierMatchCard,
   SpecifierPageShell,
   SpecifierSafetyNote,
   SpecifierSubnav,
@@ -29,7 +29,7 @@ import {
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { searchSpecifiers, specifierFamilies, specifierSearchPresets, type SpecifierFamily } from "@/lib/specifiers";
+import { searchSpecifiers, specifierSearchPresets, type SpecifierFamily } from "@/lib/specifiers";
 import { searchSpecifierCatalog, type SpecifierCatalogMatch } from "@/lib/specifiers-search-index";
 
 // The curated set covers a small number of high-signal mood-episode specifiers.
@@ -101,7 +101,7 @@ function SpecifierPathwayStrip() {
 
 function SpecifiersHome() {
   return (
-    <ModeHomeMain testId="specifiers-home" className="justify-start sm:justify-center">
+    <ModeHomeMain testId="specifiers-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="specifiers"
         title="Refine the diagnosis with the right specifier"
@@ -255,16 +255,12 @@ function SpecifierResults({ query }: { query: string }) {
         <SpecifierSubnav active="search" />
       </div>
 
-      <header className="grid gap-2 border-b border-[color:var(--border)] pb-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-        <div className="grid gap-1.5">
+      <header className="grid gap-1 border-b border-[color:var(--border)] pb-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:gap-3 sm:pb-5">
+        <div className="grid gap-1">
           <p className={eyebrowText}>Specifier search</p>
           <h1 className="text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
             Matches for &ldquo;{query}&rdquo;
           </h1>
-          <p className="max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-            Results ranked by text relevance: title, keywords, episode timing, and patient language. Open a result to
-            check exclusions and wording.
-          </p>
         </div>
         <p className="nums text-sm font-bold text-[color:var(--text-muted)]" aria-live="polite">
           {totalMatches} {totalMatches === 1 ? "match" : "matches"}
@@ -273,44 +269,10 @@ function SpecifierResults({ query }: { query: string }) {
 
       <section
         aria-label="Filter specifier results"
-        className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_13rem] sm:items-center"
+        className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5"
       >
-        <div className="polished-scroll flex gap-1 overflow-x-auto rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]">
-          {specifierFamilies.map((option) => {
-            const active = family === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setFamily(option.id)}
-                aria-pressed={active}
-                className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center rounded-md px-3 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:text-sm",
-                  active
-                    ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
-                )}
-              >
-                <span className="sm:hidden">{option.shortLabel}</span>
-                <span className="hidden sm:inline">{option.label}</span>
-              </button>
-            );
-          })}
-        </div>
-        <label className="grid gap-1">
-          <span className="sr-only">Filter by diagnosis</span>
-          <select
-            value={diagnosis}
-            onChange={(event) => setDiagnosis(event.target.value)}
-            className="min-h-tap rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-inset)] outline-none focus:border-[color:var(--focus)] focus:ring-4 focus:ring-[color:var(--focus)]/20"
-          >
-            {diagnosisOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SpecifierFamilyFilterChips value={family} onChange={setFamily} />
+        <SpecifierDiagnosisFilter value={diagnosis} onChange={setDiagnosis} options={diagnosisOptions} />
       </section>
 
       {totalMatches === 0 ? (
@@ -318,73 +280,7 @@ function SpecifierResults({ query }: { query: string }) {
       ) : results.length > 0 ? (
         <section aria-label="Specifier matches" className="grid gap-3">
           {results.map(({ record }, index) => (
-            <article
-              key={record.slug}
-              className={cn(
-                specifierCard,
-                "group overflow-hidden transition hover:border-[color:var(--clinical-accent-border)] hover:shadow-[var(--shadow-soft)]",
-                index === 0 && "border-l-[3px] border-l-[color:var(--clinical-accent)]",
-              )}
-            >
-              <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,0.62fr)_auto] sm:items-center sm:p-5">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      href={`/specifiers/${record.slug}`}
-                      className="text-lg font-extrabold text-[color:var(--text-heading)] hover:text-[color:var(--clinical-accent)] sm:text-xl"
-                    >
-                      {record.name}
-                    </Link>
-                    {index === 0 ? (
-                      <span className="inline-flex min-h-6 items-center gap-1 rounded-full bg-[color:var(--success-soft)] px-2 text-2xs font-extrabold text-[color:var(--success)]">
-                        <CheckCircle2 className="h-3 w-3" aria-hidden />
-                        Top match
-                      </span>
-                    ) : null}
-                  </div>
-                  <p className="mt-1 max-w-3xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                    {record.summary}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <SpecifierFamilyBadge record={record} />
-                    <DiagnosisChips values={record.appliesTo.slice(0, 2)} />
-                  </div>
-                </div>
-
-                <div className="grid gap-2 border-t border-[color:var(--border)] pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
-                  <p className={eyebrowText}>Deciding signal</p>
-                  <p className="text-sm font-semibold leading-5 text-[color:var(--text-heading)]">
-                    {record.clinicalSignal}
-                  </p>
-                </div>
-
-                <Link
-                  href={`/specifiers/${record.slug}`}
-                  aria-label={`Open ${record.name}`}
-                  className="inline-flex min-h-tap items-center justify-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-3 text-sm font-bold text-[color:var(--text)] transition hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:w-tap sm:px-0"
-                >
-                  <span className="sm:sr-only">Open</span>
-                  <ArrowRight
-                    className="h-4 w-4 transition group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
-                    aria-hidden
-                  />
-                </Link>
-              </div>
-              <div className="grid border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)]/55 sm:grid-cols-2">
-                <div className="px-4 py-3 sm:px-5">
-                  <p className={eyebrowText}>Ask this</p>
-                  <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    {record.decisionQuestion}
-                  </p>
-                </div>
-                <div className="border-t border-[color:var(--border)] px-4 py-3 sm:border-l sm:border-t-0 sm:px-5">
-                  <p className={eyebrowText}>Typical language</p>
-                  <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    &ldquo;{record.patientLanguage[0]}&rdquo;
-                  </p>
-                </div>
-              </div>
-            </article>
+            <SpecifierMatchCard key={record.slug} record={record} isTopMatch={index === 0} />
           ))}
         </section>
       ) : null}
