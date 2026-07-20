@@ -163,7 +163,7 @@ export function FavouritesHub({
         <ModeHomeHero
           testId="favourites-home"
           title="Favourites"
-          subtitle="Notes, sources, and clinical sets, ready to reuse."
+          subtitle="Saved notes, sources, and sets."
           icon={Heart}
           headingLevel={headingLevel}
         />

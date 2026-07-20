@@ -26,8 +26,8 @@ export function HomeScreen() {
 
   const therapyCountCopy =
     b.therapies.length === 0
-      ? "Source-grounded therapy records and clinical pathways."
-      : `${b.therapies.length} source-grounded therapy ${b.therapies.length === 1 ? "record" : "records"} and clinical pathways.`;
+      ? "Source-grounded therapy records."
+      : `${b.therapies.length} source-grounded therapy ${b.therapies.length === 1 ? "record" : "records"}.`;
 
   return (
     <ModeHomeMain testId="therapy-compass-home" contentAlign="startOnPhone">
