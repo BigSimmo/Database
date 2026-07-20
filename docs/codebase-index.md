@@ -86,6 +86,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 | Images        | `/api/images/[id]/signed-url`                                                                                       | `images/[id]/signed-url/route.ts`                               |
 | Ops           | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                    | `health/`, `setup-status/`, `local-project-id/`                 |
 | Eval / jobs   | `/api/eval-cases`, `/api/jobs`                                                                                      | `eval-cases/`, `jobs/`                                          |
+| Webhooks      | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)    | `webhooks/`                                                     |
 
 ---
 
@@ -106,14 +107,15 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### Ingestion and indexing
 
-| Module                                                                  | Role                             |
-| ----------------------------------------------------------------------- | -------------------------------- |
-| `ingestion.ts`, `ingestion-recovery.ts`, `ingestion-mutation-safety.ts` | Job queue semantics and recovery |
-| `chunking.ts`, `extractors/document.ts`                                 | Text extraction and chunking     |
-| `document-index-units.ts`, `document-enrichment.ts`, `deep-memory.ts`   | Index artifacts and enrichment   |
-| `visual-intelligence.ts`, `image-filtering.ts`                          | Image captioning and filtering   |
-| `index-quality.ts`, `indexing-coverage.ts`, `model-index-extraction.ts` | Index quality gates              |
-| `reindex-pipeline.ts`, `reindex-eval-gate.ts`, `bulk-import.ts`         | Atomic reindex and bulk import   |
+| Module                                                                   | Role                                                |
+| ------------------------------------------------------------------------ | --------------------------------------------------- |
+| `ingestion.ts`, `ingestion-recovery.ts`, `ingestion-mutation-safety.ts`  | Job queue semantics and recovery                    |
+| `ingestion-enqueue.ts`, `webhooks/` (`secret-auth.ts`, `chat-notify.ts`) | Reindex enqueue + inbound webhook auth/chat forward |
+| `chunking.ts`, `extractors/document.ts`                                  | Text extraction and chunking                        |
+| `document-index-units.ts`, `document-enrichment.ts`, `deep-memory.ts`    | Index artifacts and enrichment                      |
+| `visual-intelligence.ts`, `image-filtering.ts`                           | Image captioning and filtering                      |
+| `index-quality.ts`, `indexing-coverage.ts`, `model-index-extraction.ts`  | Index quality gates                                 |
+| `reindex-pipeline.ts`, `reindex-eval-gate.ts`, `bulk-import.ts`          | Atomic reindex and bulk import                      |
 
 ### Source governance and metadata
 
