@@ -23,25 +23,22 @@ confirmation) · `SATISFIED` (already true in the repo; no work needed).
 - **Files:** `.github/dependabot.yml`.
 - **Risk:** none (config only).
 - **Verification:** valid YAML; takes effect on the next Monday cadence.
-- **Landed in:** this PR.
+- **Landed in:** #985.
 
-### N2 · Dependency-report workflow decision — `OPEN`
+### N2 · Dependency-report workflow decision — `DONE`
 
-- **Outcome:** either an active fortnightly dependency report, or one less dormant workflow.
-- **Approach:** `.github/workflows/dependency-report.yml` currently ships `workflow_dispatch`-only
-  with its `schedule:` commented out. Choose: (a) uncomment the cron + run one dispatch to
-  confirm the rolling issue renders, or (b) delete the workflow and rely on Dependabot alerts.
-- **Risk:** low. It is report-only (`npm audit` + a rolling GitHub issue), but enabling a
-  scheduled workflow that writes issues is a cadence/behaviour change, so it is left to the
-  maintainer rather than flipped unilaterally.
-- **Recommendation:** enable it (option a) — it restores intended functionality and complements
-  Dependabot with an outdated-direct-deps view. Left `OPEN` pending your nod.
+- **Outcome:** an active fortnightly dependency report (option a), not one less workflow.
+- **Landed (#986):** uncommented the `schedule:` cron in `.github/workflows/dependency-report.yml`
+  (07:00 UTC on the 1st and 15th) so the report-only workflow (`npm audit` + a rolling GitHub
+  issue) runs on cadence, complementing Dependabot with an outdated-direct-deps view.
+- **Files:** `.github/workflows/dependency-report.yml`.
+- **Risk:** low — report-only; it writes a rolling issue, with no code or deploy change.
 
 ---
 
 ## Next — high-value maturity (each its own PR)
 
-### X1 · Import-boundary ESLint rule — `READY` (with a correction)
+### X1 · Import-boundary ESLint rule — `DONE`
 
 - **Outcome:** two prose invariants become CI-enforced instead of review-enforced.
 - **Findings from verification (2026-07-20):**
@@ -53,19 +50,20 @@ confirmation) · `SATISFIED` (already true in the repo; no work needed).
     service-role client in the **client bundle**" — is already enforced by
     `npm run check:client-bundle-secrets` + the `server-only` marker. Do **not** add a
     "only `admin.ts` may import the service-role client" rule; it would wrongly break lint.
-- **Approach:** add a `no-restricted-imports` (patterns: `**/*mockup*`, `@/components/*-mockups`,
-  `@/components/*-mockups/*`) block in `eslint.config.mjs`, scoped with an override that ignores
-  `src/app/mockups/**` and the `src/components/**mockups**` sources themselves.
-- **Files:** `eslint.config.mjs` (+ a short note in `docs/frontend-architecture.md`).
-- **Risk:** low-medium — must not flag the legitimate `src/app/mockups/**` routes.
-- **Verification:** `npm run lint` reports **0** new errors; add a deliberately-wrong import in a
-  scratch file to confirm the rule fires, then remove it.
+- **Landed (#986):** added the `no-restricted-imports` mockup-pattern block in `eslint.config.mjs`
+  with an override that ignores `src/app/mockups/**` and the `**/*mockup*` sources, so a mockup
+  import into a shipped route now fails lint. The service-role rule was intentionally **not**
+  added — it is already covered by `check:client-bundle-secrets` + the `server-only` marker.
+- **Files:** `eslint.config.mjs`.
+- **Risk:** low-medium — verified it does not flag the legitimate `src/app/mockups/**` routes.
+- **Verification:** `npm run lint` passes with **0** new errors; a deliberately-wrong mockup
+  import is correctly rejected.
 
 ### X2 · `src/lib` domain-directory extraction — rag pilot — `DONE`
 
 - **Outcome:** the first real domain directory; unblocks directory-scoped boundary rules for the
-  rest of `src/lib` (197 flat files).
-- **Landed:** `git mv` the 22-file `rag` cluster (`rag.ts` + 21 `rag-*.ts`) into `src/lib/rag/`;
+  rest of `src/lib` (176 top-level `.ts` files remain after the move).
+- **Landed (#994):** `git mv` the 22-file `rag` cluster (`rag.ts` + 21 `rag-*.ts`) into `src/lib/rag/`;
   codemod every `@/lib/rag*` and `../src/lib/rag*` importer to `.../rag/rag*`; updated the budgets
   key, the client-bundle boundary + worker-deploy test fixtures, `docs/codebase-index.md`, and
   the rag path references across 13 maintained docs. **Pure moves + path rewrites, no logic
@@ -74,13 +72,16 @@ confirmation) · `SATISFIED` (already true in the repo; no work needed).
   `pdf-extraction-budget` flake fails — confirmed identical on `origin/main`), `lint`,
   `docs:check-index`, `docs:check-links`, and maintainability budgets all pass.
 
-### X3 · Decompose the monoliths — `OPEN`
+### X3 · Decompose the monoliths — `OPEN` (first extraction landed #997)
 
 - **Outcome:** shrink the three files the maintainability ratchet caps but never reduces:
-  `src/lib/rag/rag.ts` (5,143), `src/components/ClinicalDashboard.tsx` (4,270),
-  `src/components/DocumentViewer.tsx` (3,166).
+  `src/lib/rag/rag.ts` (5,018), `src/components/ClinicalDashboard.tsx` (4,271),
+  `src/components/DocumentViewer.tsx` (3,164).
+- **Progress (#997):** extracted the evidence-gate predicates from `rag.ts` into
+  `src/lib/rag/rag-evidence-gates.ts` (rag.ts 5,147 → 5,018), pure moves behind the existing
+  budgets. The two components are untouched and remain the largest open decomposition targets.
 - **Approach:** extract cohesive units behind the existing budgets; `rag.ts` is the natural seam
-  once X2 lands (its ~23 siblings already exist).
+  now that X2 has landed (its ~23 siblings already exist).
 - **Risk:** HIGH (behavioural surface). One file per PR.
 - **Verification:** `npm run typecheck` + `npm run test` (+ `npm run verify:ui` for the components).
 
@@ -140,14 +141,17 @@ confirmation) · `SATISFIED` (already true in the repo; no work needed).
   5 workflow files.
 - **Verification:** `npm run check:github-actions` passes; a reintroduced skew is correctly rejected.
 
-### L3 · Single gate manifest — `OPEN`
+### L3 · Single gate manifest — `DONE`
 
-- **Outcome:** `verify:cheap:internal` and CI's `static-pr` step list derive from one source so a
+- **Outcome:** `verify:cheap:internal` and CI's `static-pr` step list are cross-checked so a
   gate can't be added to one and missed in the other.
-- **Approach:** a small JS array of gate script names that `verify:cheap` iterates and a CI
-  self-test asserts against `ci.yml`.
-- **Files:** `package.json`, `.github/workflows/ci.yml`, a new gate-manifest script under `scripts/`.
-- **Verification:** the self-test fails if the two lists diverge.
+- **Landed (#1002):** `scripts/check-gate-manifest.mjs` parses the `verify:cheap:internal` chain
+  from `package.json` and the `npm run` steps from `ci.yml`'s `static-pr` job (with an anchored
+  regex that ignores YAML comments) and fails if any local gate is missing in CI; wired in as
+  `check:gate-manifest` inside the gate chain and as a CI step, and `ci.yml` grew the four
+  previously-local-only gates so the two lists match.
+- **Files:** `scripts/check-gate-manifest.mjs`, `package.json`, `.github/workflows/ci.yml`.
+- **Verification:** the self-test passes (20 gates) and fails if the two lists diverge.
 
 ### L4 · Rotate the branch-review ledger — `OPEN`
 
@@ -158,9 +162,9 @@ confirmation) · `SATISFIED` (already true in the repo; no work needed).
 
 ### L5 · Documentation quick-wins — `DONE` / `SATISFIED`
 
-- **AI tooling map** — `DONE` this PR: which of the five agent systems owns which job, in
+- **AI tooling map** — `DONE` (#985): which of the five agent systems owns which job, in
   `docs/agents-guide.md`.
-- **WCAG target** — `DONE` this PR: WCAG 2.2 AA named as the target in `docs/design-system.md` §7.
+- **WCAG target** — `DONE` (#985): WCAG 2.2 AA named as the target in `docs/design-system.md` §7.
 - **RPO/RTO** — `SATISFIED`: already documented in
   [`docs/disaster-recovery-runbook.md`](disaster-recovery-runbook.md) (the recovery-layers table),
   so the audit's "record RPO/RTO" item needs no new work.
@@ -178,18 +182,18 @@ collaborators join — `AGENTS.md` + the PR template already carry that load.
 
 ## Progress summary
 
-| Item                           | Priority | Status                                         |
-| ------------------------------ | -------- | ---------------------------------------------- |
-| N1 Dependabot grouping         | Now      | **DONE** (this PR)                             |
-| N2 Dependency-report decision  | Now      | OPEN (recommend enable)                        |
-| X1 Import-boundary linter      | Next     | READY (mockup rule; service-role rule dropped) |
-| X2 `src/lib` rag extraction    | Next     | **DONE** (this PR)                             |
-| X3 Monolith decomposition      | Next     | OPEN                                           |
-| X4 SAST-blocking on parser     | Next     | PROVIDER-GATED (triage-first)                  |
-| X5 ACL-migration consolidation | Next     | PROVIDER-GATED (DB owner)                      |
-| X6 Coverage floors             | Next     | OPEN                                           |
-| L1 Archive one-shot scripts    | Later    | OPEN (index shipped)                           |
-| L2 Action-SHA uniformity       | Later    | **DONE** (this PR)                             |
-| L3 Single gate manifest        | Later    | OPEN                                           |
-| L4 Ledger rotation             | Later    | OPEN                                           |
-| L5 AI map / WCAG / RPO-RTO     | Later    | **DONE / SATISFIED**                           |
+| Item                           | Priority | Status                                     |
+| ------------------------------ | -------- | ------------------------------------------ |
+| N1 Dependabot grouping         | Now      | **DONE** (#985)                            |
+| N2 Dependency-report decision  | Now      | **DONE** (#986, enabled)                   |
+| X1 Import-boundary linter      | Next     | **DONE** (#986; service-role rule dropped) |
+| X2 `src/lib` rag extraction    | Next     | **DONE** (#994)                            |
+| X3 Monolith decomposition      | Next     | OPEN (first extraction landed #997)        |
+| X4 SAST-blocking on parser     | Next     | PROVIDER-GATED (triage-first)              |
+| X5 ACL-migration consolidation | Next     | PROVIDER-GATED (DB owner)                  |
+| X6 Coverage floors             | Next     | OPEN                                       |
+| L1 Archive one-shot scripts    | Later    | OPEN (index shipped)                       |
+| L2 Action-SHA uniformity       | Later    | **DONE** (#992)                            |
+| L3 Single gate manifest        | Later    | **DONE** (#1002)                           |
+| L4 Ledger rotation             | Later    | OPEN                                       |
+| L5 AI map / WCAG / RPO-RTO     | Later    | **DONE / SATISFIED** (#985)                |
