@@ -51,7 +51,8 @@ const offenders = new Map();
 for (const file of [...textFiles(publicRoot), ...textFiles(clientBuildRoot)]) {
   const content = readFileSync(file, "utf8");
   for (const marker of forbiddenMarkers) {
-    const matchedText = marker instanceof RegExp ? content.match(marker)?.[0] : content.includes(marker) ? marker : null;
+    const matchedText =
+      marker instanceof RegExp ? content.match(marker)?.[0] : content.includes(marker) ? marker : null;
     if (matchedText) {
       const relativePath = relative(projectRoot, file).replaceAll("\\", "/");
       offenders.set(`${relativePath}\0${matchedText}`, { marker: matchedText, relativePath });
