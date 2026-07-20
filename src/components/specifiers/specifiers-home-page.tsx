@@ -104,8 +104,8 @@ function SpecifiersHome() {
     <ModeHomeMain testId="specifiers-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="specifiers"
-        title="Refine the diagnosis with the right specifier"
-        subtitle="Describe the presentation in ordinary clinical language, then check fit, exclusions, and diagnostic wording."
+        title="Specifiers"
+        subtitle="Refine diagnostic wording, exclusions, and episode patterns."
         icon={Tags}
         actionsLabel="Specifier workflows"
         desktopComposerSlotId={modeHomeDesktopComposerSlotId}
