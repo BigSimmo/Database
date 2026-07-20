@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "playwright/test";
+import { stubZeroTouchPoints } from "./helpers/zero-touch";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -178,15 +179,7 @@ async function expectNoBlockingAxeViolations(page: Page, testInfo: TestInfo, opt
   expect(summary, "axe found critical/serious WCAG A/AA violations").toEqual([]);
 }
 
-// Playwright's Linux WebKit build advertises phantom touch points on the touch-free CI
-// runner, tripping the fine-pointer/zero-touch gate on the search command surface
-// (commandDropdownCanDisplay) that Chromium and Firefox pass via the zero-touch fallback.
-// Report the runner's real capability so WebKit exercises the same desktop surfaces.
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(Navigator.prototype, "maxTouchPoints", { configurable: true, get: () => 0 });
-  });
-});
+test.beforeEach(stubZeroTouchPoints);
 
 test.describe("Clinical KB accessibility coverage", () => {
   test.describe.configure({ timeout: 60_000 });
@@ -259,7 +252,11 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("solid-button label tokens stay legible with forced colors", async ({ page }) => {
+  test("solid-button label tokens stay legible with forced colors", async ({ browserName, page }) => {
+    test.skip(
+      browserName === "webkit",
+      "WebKit has no forced-colors implementation; Playwright's forcedColors emulation cannot engage the @media (forced-colors: active) token remap under test (the guarded glyph-backplate behavior is Chromium's).",
+    );
     // Chromium paints a Canvas backplate behind every glyph run in forced-colors
     // mode: a label whose color resolves into the Canvas/ButtonFace family
     // disappears into its own backplate (axe cannot see this — it reads CSS,

@@ -1,5 +1,6 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
+import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { readMobileComposerReservePx, scrollPrimarySurface } from "./playwright-scroll";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
@@ -873,15 +874,7 @@ async function openDailyActions(page: Page, triggerName: string | RegExp = /^Ope
   return menu;
 }
 
-// Playwright's Linux WebKit build advertises phantom touch points on the touch-free CI
-// runner, tripping the fine-pointer/zero-touch gate on the search command surface
-// (commandDropdownCanDisplay) that Chromium and Firefox pass via the zero-touch fallback.
-// Report the runner's real capability so WebKit exercises the same desktop surfaces.
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(Navigator.prototype, "maxTouchPoints", { configurable: true, get: () => 0 });
-  });
-});
+test.beforeEach(stubZeroTouchPoints);
 
 test.describe("Clinical KB UI smoke coverage", () => {
   test.describe.configure({ timeout: 60000 });
@@ -987,6 +980,14 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const restingButtonShadow = await newChat.evaluate((element) => getComputedStyle(element).boxShadow);
     await closeMenu.focus();
     await page.keyboard.press("Tab");
+    // Firefox includes scrollable containers in the tab order; the sheet body
+    // (overflow-y-auto) sits between Close and "New chat" in DOM order and
+    // genuinely overflows at this viewport. Step over it when focused.
+    const onScrollableBody = await page.evaluate(() => {
+      const element = document.activeElement;
+      return element instanceof HTMLElement && element.classList.contains("overflow-y-auto");
+    });
+    if (onScrollableBody) await page.keyboard.press("Tab");
     await expect(newChat).toBeFocused();
     const buttonFocus = await newChat.evaluate((element) => {
       const style = getComputedStyle(element);

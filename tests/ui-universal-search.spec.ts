@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from "playwright/test";
+import { stubZeroTouchPoints } from "./helpers/zero-touch";
 
 // Cross-entity universal typeahead in the command surface. The universal endpoint is
 // mocked so this spec exercises the UI contract (grouped sections, navigation,
@@ -115,17 +116,7 @@ async function openComposer(page: Page, href = "/?mode=documents&focus=1") {
   return input;
 }
 
-// Playwright's Linux WebKit build advertises phantom touch points on the touch-free CI
-// runner. That trips the deliberate fine-pointer/zero-touch gate on the search command
-// surface (commandDropdownCanDisplay: headless browsers fail the fine-pointer media query
-// and rely on the zero-touch fallback), silently hiding the desktop dropdown that Chromium
-// and Firefox render — every typeahead assertion then fails with "element not found".
-// Report the runner's real capability; the product gate and its unit pins stay unchanged.
-test.beforeEach(async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(Navigator.prototype, "maxTouchPoints", { configurable: true, get: () => 0 });
-  });
-});
+test.beforeEach(stubZeroTouchPoints);
 
 test.describe("universal search typeahead", () => {
   test("shows grouped cross-entity results while typing", async ({ page }) => {
