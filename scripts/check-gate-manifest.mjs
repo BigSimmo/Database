@@ -24,16 +24,23 @@ if (localGates.length === 0) {
   process.exit(1);
 }
 
+// The `npm run <script>` invoked by a real YAML `run:` step, anchored to the
+// field so a comment that merely mentions `run: npm run X` cannot masquerade as
+// an executed gate (which would let the drift check pass after the real step was
+// deleted). Trailing `# comment` on the step line is allowed. Steps in this repo
+// are single-command, so a single capture is sufficient.
+const npmRunScript = (line) => line.match(/^\s*(?:-\s*)?run:\s+npm run ([\w:.-]+)\s*(?:#.*)?$/)?.[1];
+
 // Extract the `run: npm run X` scripts inside a named top-level job (2-space key).
 function jobScripts(name) {
-  const lines = ci.split("\n");
+  const lines = ci.split(/\r?\n/);
   const start = lines.findIndex((line) => line === `  ${name}:`);
   if (start === -1) return null;
   const scripts = [];
   for (let i = start + 1; i < lines.length; i++) {
     if (/^  \S/.test(lines[i])) break; // reached the next top-level job
-    const match = lines[i].match(/run: npm run ([\w:.-]+)/);
-    if (match) scripts.push(match[1]);
+    const script = npmRunScript(lines[i]);
+    if (script) scripts.push(script);
   }
   return scripts;
 }
@@ -46,7 +53,7 @@ if (!staticPr) {
 
 // Every `npm run X` anywhere in ci.yml — used to satisfy gates that run in CI
 // under a different job/name than in the local chain.
-const allCiScripts = new Set([...ci.matchAll(/run: npm run ([\w:.-]+)/g)].map((m) => m[1]));
+const allCiScripts = new Set(ci.split(/\r?\n/).map(npmRunScript).filter(Boolean));
 
 // A local gate whose CI counterpart has a different script name / job.
 const CI_EQUIVALENT = new Map([
