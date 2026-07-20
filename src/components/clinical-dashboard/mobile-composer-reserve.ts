@@ -19,13 +19,18 @@ export const mobileComposerIdleReserve = "2rem";
 export const mobileComposerDifferentialsCompareReserve = "calc(12.5rem + var(--safe-area-bottom))";
 
 // Every phone dock is the compact single-row pill (mode homes and result views
-// alike); only the answer dock with a follow-up chip row is taller.
+// alike); only the answer dock with a follow-up chip row is taller. The answer
+// values are derived from the dock constants so the pairs cannot silently
+// diverge — master-search-header's compact styling assumes they stay equal.
+const shellCompactSingleRowReserve = "calc(5.5rem + var(--safe-area-bottom))";
+const dashboardCompactSingleRowReserve = "calc(5rem + var(--safe-area-bottom))";
+
 export const mobileComposerVisibleReserve = {
-  shellAnswer: "calc(5.5rem + var(--safe-area-bottom))",
-  shellDock: "calc(5.5rem + var(--safe-area-bottom))",
+  shellAnswer: shellCompactSingleRowReserve,
+  shellDock: shellCompactSingleRowReserve,
   dashboardAnswerWithFollowUps: "calc(7.5rem + var(--safe-area-bottom))",
-  dashboardAnswer: "calc(5rem + var(--safe-area-bottom))",
-  dashboardDock: "calc(5rem + var(--safe-area-bottom))",
+  dashboardAnswer: dashboardCompactSingleRowReserve,
+  dashboardDock: dashboardCompactSingleRowReserve,
   differentialsCompare: mobileComposerDifferentialsCompareReserve,
 } as const;
 

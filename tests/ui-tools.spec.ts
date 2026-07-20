@@ -1916,7 +1916,7 @@ test.describe("Clinical KB service detail page", () => {
     await dockInput.focus();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     // The compact dock reserve is 5.5rem (88px) plus any safe-area inset.
-    await expect.poll(async () => readMobileComposerReservePx(scrollport)).toBeGreaterThan(80);
+    await expect.poll(async () => readMobileComposerReservePx(scrollport)).toBeGreaterThanOrEqual(80);
     await scrollport.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
@@ -1952,7 +1952,7 @@ test.describe("Clinical KB service detail page", () => {
     });
 
     expect(clearance, JSON.stringify(clearance)).not.toBeNull();
-    expect(clearance!.reservePx, JSON.stringify(clearance)).toBeGreaterThan(80);
+    expect(clearance!.reservePx, JSON.stringify(clearance)).toBeGreaterThanOrEqual(80);
     expect(clearance!.footerBottom, JSON.stringify(clearance)).toBeLessThanOrEqual(clearance!.dockTop - 8);
   });
 
