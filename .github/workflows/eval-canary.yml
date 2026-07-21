@@ -72,6 +72,14 @@ env:
   RAG_EVAL_PROVIDER_RETRY_ATTEMPTS: 6
   RAG_EVAL_PROVIDER_RETRY_INITIAL_MS: 8000
   RAG_EVAL_PROVIDER_RETRY_MAX_MS: 120000
+  # Cost self-reporting (estimated_cost_usd in eval summaries; was "n/a" with these unset).
+  # Rates = gpt-5.6-terra standard tier per 1M tokens (verified from the OpenAI pricing page
+  # 2026-07-21). The strong model (gpt-5.6-sol) costs 2x these rates and the estimator
+  # applies ONE rate set to all usage, so estimated_cost_usd is a LOWER BOUND on runs where
+  # strong retries fire. Public list prices, not secrets.
+  RAG_EVAL_INPUT_USD_PER_MILLION: "2.50"
+  RAG_EVAL_CACHED_INPUT_USD_PER_MILLION: "0.25"
+  RAG_EVAL_OUTPUT_USD_PER_MILLION: "15.00"
   # The live corpus is all-public (owner_id = NULL). Owner-scoped retrieval
   # fail-closes on a null owner, so the eval must run as the public-owner
   # sentinel. resolveEvalOwnerId (scripts/eval-utils.ts) defaults to that
