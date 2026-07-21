@@ -174,7 +174,12 @@ describe("audit navigation and auth regressions", () => {
     for (const section of ["setup", "upload", "indexing", "quality"]) {
       expect(clinicalDashboardSource).toContain(`id="dashboard-${section}-section-heading"`);
     }
-    expect(clinicalDashboardSource).toContain("subscribeToUploadDesktopLayout");
+    // The viewport-driven region/tabpanel role is wired through the extracted hook, whose
+    // media-query subscription carries the guard with it.
+    expect(clinicalDashboardSource).toContain("useUploadDesktopLayout()");
+    expect(source("src/components/clinical-dashboard/use-upload-desktop-layout.ts")).toContain(
+      "subscribeToUploadDesktopLayout",
+    );
     expect(clinicalDashboardSource).toContain('event.key === "ArrowRight"');
     expect(clinicalDashboardSource).toContain('event.key === "ArrowLeft"');
     expect(clinicalDashboardSource).toContain('event.key === "Home"');
