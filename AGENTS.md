@@ -411,6 +411,20 @@ Run the matching planner command in `docs/productivity-workflows.md` without sid
 
 <!-- END:repo-productivity-skills -->
 
+## Outstanding-work memory (`/issues`)
+
+`docs/outstanding-issues.md` is the durable, cross-session memory of every outstanding **task**,
+**recommendation**, and **issue** for this repo. Chat context resets between sessions; that file does
+not, so anything worth remembering after a session ends belongs there.
+
+- When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): read
+  `docs/outstanding-issues.md` and state the open items back, grouped by priority. A plain `/issues`
+  is read-only — it mutates and commits nothing.
+- `/issues add|done|update|capture …` mutate the ledger; each mutation commits **only**
+  `docs/outstanding-issues.md` (no push unless the user asks or you are already handing off).
+- Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger
+  before a session's context is lost — that is what keeps it a memory rather than a stale list.
+
 ## Codex GitHub review behavior
 
 These instructions apply to Codex GitHub pull request reviews and Codex tasks started from PR comments.
