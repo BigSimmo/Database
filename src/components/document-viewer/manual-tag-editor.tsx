@@ -241,7 +241,19 @@ export function DocumentManualTagEditor({
                     </>
                   ) : confirmingDeleteId === label.id ? (
                     <>
+                      {/* Distinct keys keep React from reusing the Remove button's DOM node for
+                          the destructive confirm (so the control the user pressed is never turned
+                          into "delete" in place), and the leading prompt occupies the position the
+                          Remove button was clicked from — together a rapid double-click on the old
+                          Remove target can't reach the confirm. */}
+                      <span
+                        key="delete-confirm-prompt"
+                        className="inline-flex min-h-tap items-center px-1 text-xs font-semibold text-[color:var(--text-muted)] sm:min-h-9"
+                      >
+                        Remove this tag?
+                      </span>
                       <button
+                        key="delete-confirm"
                         type="button"
                         onClick={() => deleteManualTag(label)}
                         disabled={!canManage || busyAction !== null}
@@ -256,9 +268,10 @@ export function DocumentManualTagEditor({
                         ) : (
                           <Trash2 aria-hidden="true" className="h-4 w-4" />
                         )}
-                        Remove
+                        Confirm remove
                       </button>
                       <button
+                        key="delete-cancel"
                         type="button"
                         onClick={() => setConfirmingDeleteId(null)}
                         disabled={busyAction !== null}
@@ -271,6 +284,7 @@ export function DocumentManualTagEditor({
                   ) : (
                     <>
                       <button
+                        key="rename"
                         type="button"
                         onClick={() => {
                           setConfirmingDeleteId(null);
@@ -285,6 +299,7 @@ export function DocumentManualTagEditor({
                         <Pencil aria-hidden="true" className="h-4 w-4" />
                       </button>
                       <button
+                        key="remove"
                         type="button"
                         onClick={() => setConfirmingDeleteId(label.id)}
                         disabled={!canManage || busyAction !== null}

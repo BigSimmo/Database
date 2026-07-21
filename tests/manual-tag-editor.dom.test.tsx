@@ -73,6 +73,29 @@ describe("DocumentManualTagEditor", () => {
     expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: "DELETE" });
   });
 
+  it("keeps a double-click on the initial Remove control from reaching the destructive confirm", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ labels: [] }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<DocumentManualTagEditor document={makeDocument([manualLabel()])} {...baseProps} />);
+
+    const removeButton = screen.getByRole("button", { name: "Remove Existing tag" });
+    fireEvent.click(removeButton);
+
+    // The original Remove hit target is replaced by a non-action prompt, and the destructive
+    // control is a separately-labelled button rendered after it — so the second click of a
+    // rapid double-click on the old Remove position cannot confirm the delete.
+    expect(screen.queryByRole("button", { name: "Remove Existing tag" })).toBeNull();
+    expect(screen.getByText("Remove this tag?")).toBeTruthy();
+    fireEvent.click(removeButton); // stale/detached node — must not issue a request
+    await Promise.resolve();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("routes a 401 to onUnauthorized without also raising an inline error banner", async () => {
     const onUnauthorized = vi.fn();
     const fetchMock = vi.fn().mockResolvedValue({
