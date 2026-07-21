@@ -9,6 +9,12 @@ import type { ClinicalDocument, DocumentLabel, DocumentLabelType } from "@/lib/t
 const primaryButton = primaryControl;
 const secondaryButton = floatingControl;
 
+// Mirrors the server contract (`manualLabelSchema` in
+// src/app/api/documents/[id]/labels/route.ts: z.string().trim().min(2).max(64)) so a too-short
+// or too-long tag is caught in the field instead of round-tripping to a generic 400.
+const manualLabelMinLength = 2;
+const manualLabelMaxLength = 64;
+
 const manualLabelTypeOptions: Array<{ value: DocumentLabelType; label: string }> = [
   { value: "site", label: "Site" },
   { value: "topic", label: "Topic" },
@@ -52,6 +58,7 @@ export function DocumentManualTagEditor({
   const [editingLabel, setEditingLabel] = useState("");
   const [editingType, setEditingType] = useState<DocumentLabelType>("topic");
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function submitManualTag(method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>, action: string) {
@@ -67,7 +74,12 @@ export function DocumentManualTagEditor({
         body: JSON.stringify(body),
       });
       const payload = await response.json().catch(() => ({}));
-      if (response.status === 401) onUnauthorized();
+      if (response.status === 401) {
+        // Hand off to the parent's unauthorized UI and stop here — falling through
+        // to the generic throw would also raise an inline error banner underneath it.
+        onUnauthorized();
+        return false;
+      }
       if (!response.ok) throw new Error(typeof payload?.error === "string" ? payload.error : "Tag update failed.");
       if (Array.isArray(payload.labels)) onLabelsUpdated(payload.labels as DocumentLabel[]);
       return true;
@@ -101,6 +113,7 @@ export function DocumentManualTagEditor({
   }
 
   async function deleteManualTag(label: DocumentLabel) {
+    setConfirmingDeleteId(null);
     await submitManualTag("DELETE", { labelId: label.id }, `delete:${label.id}`);
   }
 
@@ -126,6 +139,7 @@ export function DocumentManualTagEditor({
           onChange={(event) => setDraftLabel(event.target.value)}
           placeholder="Add clean manual tag"
           disabled={!canManage || busyAction !== null}
+          maxLength={manualLabelMaxLength}
           className={fieldControl}
           aria-label="Manual tag"
         />
@@ -144,7 +158,7 @@ export function DocumentManualTagEditor({
         </select>
         <button
           type="submit"
-          disabled={!canManage || busyAction !== null || !draftLabel.trim()}
+          disabled={!canManage || busyAction !== null || draftLabel.trim().length < manualLabelMinLength}
           className={cn(primaryButton, "min-h-tap px-3 text-xs")}
         >
           {busyAction === "add" ? (
@@ -176,6 +190,7 @@ export function DocumentManualTagEditor({
                     <input
                       value={editingLabel}
                       onChange={(event) => setEditingLabel(event.target.value)}
+                      maxLength={manualLabelMaxLength}
                       className={fieldControl}
                       aria-label="Manual tag label"
                     />
@@ -204,7 +219,7 @@ export function DocumentManualTagEditor({
                       <button
                         type="button"
                         onClick={() => saveManualTag(label)}
-                        disabled={!editingLabel.trim() || busyAction !== null}
+                        disabled={editingLabel.trim().length < manualLabelMinLength || busyAction !== null}
                         className={cn(primaryButton, "sm:min-h-9 px-2 text-xs")}
                         aria-label={`Save ${label.label}`}
                       >
@@ -224,11 +239,41 @@ export function DocumentManualTagEditor({
                         <X aria-hidden="true" className="h-4 w-4" />
                       </button>
                     </>
+                  ) : confirmingDeleteId === label.id ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => deleteManualTag(label)}
+                        disabled={!canManage || busyAction !== null}
+                        className={cn(
+                          secondaryButton,
+                          "sm:min-h-9 px-2 text-xs border-[color:var(--danger)]/40 text-[color:var(--danger)]",
+                        )}
+                        aria-label={`Confirm remove ${label.label}`}
+                      >
+                        {busyAction === `delete:${label.id}` ? (
+                          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 aria-hidden="true" className="h-4 w-4" />
+                        )}
+                        Remove
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingDeleteId(null)}
+                        disabled={busyAction !== null}
+                        className={cn(secondaryButton, "sm:min-h-9 px-2 text-xs")}
+                        aria-label={`Cancel removing ${label.label}`}
+                      >
+                        <X aria-hidden="true" className="h-4 w-4" />
+                      </button>
+                    </>
                   ) : (
                     <>
                       <button
                         type="button"
                         onClick={() => {
+                          setConfirmingDeleteId(null);
                           setEditingId(label.id);
                           setEditingLabel(label.label);
                           setEditingType(label.label_type);
@@ -241,16 +286,12 @@ export function DocumentManualTagEditor({
                       </button>
                       <button
                         type="button"
-                        onClick={() => deleteManualTag(label)}
+                        onClick={() => setConfirmingDeleteId(label.id)}
                         disabled={!canManage || busyAction !== null}
                         className={cn(secondaryButton, "sm:min-h-9 px-2 text-xs text-[color:var(--danger)]")}
                         aria-label={`Remove ${label.label}`}
                       >
-                        {busyAction === `delete:${label.id}` ? (
-                          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 aria-hidden="true" className="h-4 w-4" />
-                        )}
+                        <Trash2 aria-hidden="true" className="h-4 w-4" />
                       </button>
                     </>
                   )}
