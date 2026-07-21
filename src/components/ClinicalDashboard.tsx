@@ -2838,7 +2838,9 @@ export function ClinicalDashboard({
     setDocumentsDrawerOpen(true);
     if (window.matchMedia("(min-width: 1024px)").matches) {
       window.requestAnimationFrame(() => {
-        document.getElementById("dashboard-documents-drawer")?.scrollIntoView({ block: "start", behavior: resolveScrollBehavior() });
+        document
+          .getElementById("dashboard-documents-drawer")
+          ?.scrollIntoView({ block: "start", behavior: resolveScrollBehavior() });
       });
     }
   }
