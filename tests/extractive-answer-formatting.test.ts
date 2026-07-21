@@ -462,12 +462,14 @@ describe("zero-atom figure promotion guard (reviewer P2)", () => {
     const answer = extractiveAnswerFor(question, [
       figureChunk({
         id: "monitoring-guard-1",
-        section_heading: "Metabolic monitoring",
-        // The synopsis shares the bare number but not the unit, and carries no
-        // intent tokens so it can never be admitted as a competing fact. The
+        // The synopsis shares the bare number but not the unit. The
         // "every 6 weeks" figure yields a 6/week quantity atom, so atom
         // identity must refuse the 6/month corpus — and the interval pattern's
         // full-match ordering keeps the verbatim fallback equally honest.
+        // (The synopsis's own "every 6 months" is corpus-verbatim and may be
+        // legitimately admitted via the figure coverage escape; the pin here is
+        // only that the mismatched adjacent-context figure never ships.)
+        section_heading: "Metabolic monitoring",
         retrieval_synopsis: "Reviewed every 6 months",
         content: leadOnly,
         adjacent_context: intervalSentence,
@@ -475,7 +477,6 @@ describe("zero-atom figure promotion guard (reviewer P2)", () => {
     ]);
     const plain = (answer.answer ?? "").replace(/\*\*/g, "");
     expect(plain).not.toMatch(/every 6 weeks/i);
-    expect(plain).not.toMatch(/every 6 months/i);
   });
 
   // Longer than leadOnly so it stays a promotion candidate instead of taking
@@ -531,5 +532,69 @@ describe("zero-atom figure promotion guard (reviewer P2)", () => {
     ]);
     const plain = (answer.answer ?? "").replace(/\*\*/g, "");
     expect(plain).not.toMatch(/every 6 weeks/i);
+  });
+});
+
+// Run-#60 miss class: the monitoring-schedule evidence GATE was narrower than
+// the fact filter and the eval judge, so schedule/range/panel sentences passed
+// fact filtering but died at the gate (or at kind classification) — "reviewed",
+// "annually", "monitored", bare durations, and the level-range/metabolic-panel
+// vocabulary were all rejected. These pin the widened shared vocabulary.
+describe("monitoring evidence gate parity (run-#60 miss class)", () => {
+  it("admits a level-range fact phrased without monitor/level tokens", () => {
+    const answer = extractiveAnswerFor("What lithium level range is used for maintenance monitoring?", [
+      figureChunk({
+        id: "lithium-range-chunk-1",
+        title: "Lithium (AKG)",
+        file_name: "Lithium (AKG).pdf",
+        section_heading: "Lithium",
+        content: "Lithium is prescribed for bipolar maintenance. Maintenance range is 0.6-0.8 mmol/L.",
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).toMatch(/0\.6-0\.8 mmol\/L/i);
+  });
+
+  it("still refuses a schedule-free monitoring sentence with no query-token coverage", () => {
+    const answer = extractiveAnswerFor("What metabolic monitoring is required for antipsychotics?", [
+      figureChunk({
+        id: "metabolic-uncovered-chunk-1",
+        section_heading: "Metabolic monitoring",
+        content:
+          "Metabolic monitoring is required for all patients prescribed antipsychotics. Community staff arrange the reviews with the general practitioner.",
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    // "reviews" passes the widened evidence gate but carries no schedule figure
+    // and names no query token, so the coverage escape must NOT admit it.
+    expect(plain).toBe("Metabolic monitoring is required for all patients prescribed antipsychotics.");
+  });
+
+  it("admits a metabolic-panel fact whose schedule uses inflected tokens", () => {
+    const answer = extractiveAnswerFor("What metabolic monitoring is required for antipsychotics?", [
+      figureChunk({
+        id: "metabolic-annual-chunk-1",
+        section_heading: "Metabolic monitoring",
+        content:
+          "Metabolic monitoring is required for all patients prescribed antipsychotics. Weight, BMI, fasting glucose and lipids are reviewed annually.",
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).toMatch(/annually/i);
+  });
+
+  it("admits a duration-figure fact phrased with 'monitored for N hours'", () => {
+    const answer = extractiveAnswerFor("What monitoring is required after olanzapine LAI?", [
+      figureChunk({
+        id: "olanzapine-lai-chunk-1",
+        title: "Olanzapine LAI (AKG)",
+        file_name: "Olanzapine LAI (AKG).pdf",
+        section_heading: "Post-injection observation",
+        content:
+          "Olanzapine LAI requires post-injection observation. The patient is monitored for 3 hours after each injection.",
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).toMatch(/3 hours/i);
   });
 });
