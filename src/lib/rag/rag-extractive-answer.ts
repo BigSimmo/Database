@@ -383,11 +383,20 @@ const monitoringUnitRangeFigurePattern =
  * Other intents have no figure requirement and always return false.
  */
 function factCarriesIntentFigure(intent: AnswerIntent, text: string) {
-  if (intent === "dose") return clinicalDoseValuePattern.test(text) || maximumDoseEquivalentPattern.test(text);
-  if (intent === "monitoring_schedule") {
-    return monitoringIntervalFigurePattern.test(text) || monitoringUnitRangeFigurePattern.test(text);
+  return intentFigureMatchText(intent, text) !== null;
+}
+
+/** The matched figure substring for the intent, or null — lets the promotion
+ * guard verify a zero-atom figure (e.g. "every 6 weeks") verbatim in the
+ * claim-support corpus rather than trusting it atom-free. */
+function intentFigureMatchText(intent: AnswerIntent, text: string) {
+  if (intent === "dose") {
+    return clinicalDoseValuePattern.exec(text)?.[0] ?? maximumDoseEquivalentPattern.exec(text)?.[0] ?? null;
   }
-  return false;
+  if (intent === "monitoring_schedule") {
+    return monitoringIntervalFigurePattern.exec(text)?.[0] ?? monitoringUnitRangeFigurePattern.exec(text)?.[0] ?? null;
+  }
+  return null;
 }
 
 /**
@@ -1107,13 +1116,27 @@ function promotionAtomKey(atom: ClinicalValueAtom) {
  * does not — so a figure that lives only in adjacent context would pass numeric
  * verification and then trip claim_support_high_risk_gap, nuking the whole
  * answer. Facts with no value atoms (e.g. "checked at baseline, then annually")
- * have nothing to co-locate and pass.
+ * instead require their figure tokens verbatim in the same corpus: bare-number
+ * intervals like "every 6 weeks" match the monitoring figure pattern yet yield
+ * no atom (reviewer P2), so the atom check alone would pass a figure that lives
+ * only in adjacent context and claim support would then nuke.
  */
-function promotedFactFigureIsClaimSupportable(fact: ExtractedClinicalFact, results: SearchResult[]) {
-  const factAtoms = extractClinicalValueAtoms(fact.text);
-  if (factAtoms.length === 0) return true;
+function promotedFactFigureIsClaimSupportable(
+  fact: ExtractedClinicalFact,
+  results: SearchResult[],
+  intent: AnswerIntent,
+) {
   const citingResults = results.filter((result) => fact.citationChunkIds.includes(result.id));
   if (citingResults.length === 0) return false;
+  const factAtoms = extractClinicalValueAtoms(fact.text);
+  if (factAtoms.length === 0) {
+    const figureMatch = intentFigureMatchText(intent, fact.text);
+    if (!figureMatch) return false;
+    const normalizedFigure = figureMatch.toLowerCase().replace(/\s+/g, " ").trim();
+    return citingResults.some((result) =>
+      sourceEvidenceText(result).toLowerCase().replace(/\s+/g, " ").includes(normalizedFigure),
+    );
+  }
   const corpusAtomKeys = new Set(
     citingResults.flatMap((result) => extractClinicalValueAtoms(sourceEvidenceText(result)).map(promotionAtomKey)),
   );
@@ -1137,7 +1160,10 @@ function promoteIntentFigureLeadFacts(
   if (leadFacts.some((fact) => factCarriesIntentFigure(intent, fact.text))) return leadFacts;
   const promoted = facts
     .slice(leadFacts.length)
-    .find((fact) => factCarriesIntentFigure(intent, fact.text) && promotedFactFigureIsClaimSupportable(fact, results));
+    .find(
+      (fact) =>
+        factCarriesIntentFigure(intent, fact.text) && promotedFactFigureIsClaimSupportable(fact, results, intent),
+    );
   if (!promoted) return leadFacts;
   return intent === "dose" ? [...leadFacts.slice(0, -1), promoted] : [...leadFacts, promoted];
 }

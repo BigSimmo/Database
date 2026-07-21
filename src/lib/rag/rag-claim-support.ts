@@ -216,7 +216,9 @@ function compatibleSafetyDimensions(claim: string, evidence: string) {
 // candidate fact's value atoms against the EXACT corpus this module assesses claims with.
 // Keep the two in lockstep: a promoted figure verified against a wider corpus (e.g. one that
 // includes adjacent_context) would pass numeric verification and then trip
-// claim_support_high_risk_gap here.
+// claim_support_high_risk_gap here. (Precision note: this corpus also includes
+// index_unit metadata that the numeric-verification corpus does not, so it is not a strict
+// subset — that sole divergence fails safe: the guard passes, the numeric gate then nukes.)
 export function sourceEvidenceText(source: SearchResult) {
   return [
     source.section_heading,

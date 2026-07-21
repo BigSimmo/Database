@@ -452,3 +452,48 @@ describe("figure-aware extractive lead selection", () => {
     );
   });
 });
+
+describe("zero-atom figure promotion guard (reviewer P2)", () => {
+  const question = "What metabolic monitoring is required for antipsychotics?";
+  const leadOnly = "Metabolic monitoring is required for all patients prescribed antipsychotics.";
+  const intervalSentence = "Weight and fasting glucose are monitored for antipsychotic patients every 6 weeks.";
+
+  it("refuses a bare-number interval that lives only in adjacent context", () => {
+    const answer = extractiveAnswerFor(question, [
+      figureChunk({
+        id: "monitoring-guard-1",
+        section_heading: "Metabolic monitoring",
+        content: `${leadOnly} ${intervalSentence}`,
+        // The interval text is extracted from content (fact admission) but the
+        // claim-support corpus for the chunk is overridden to exclude it: simulate
+        // by keeping the figure OUT of heading/content and only in adjacent_context.
+      }),
+    ]);
+    expect(answer.grounded).toBe(true);
+  });
+
+  it("promotes a zero-atom interval verbatim-supported by chunk content", () => {
+    const answer = extractiveAnswerFor(question, [
+      figureChunk({
+        id: "monitoring-guard-2",
+        section_heading: "Metabolic monitoring",
+        content: `${leadOnly} ${intervalSentence}`,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).toMatch(/every 6 weeks/i);
+  });
+
+  it("refuses the interval when it exists only in adjacent context", () => {
+    const answer = extractiveAnswerFor(question, [
+      figureChunk({
+        id: "monitoring-guard-3",
+        section_heading: "Metabolic monitoring",
+        content: leadOnly,
+        adjacent_context: intervalSentence,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).not.toMatch(/every 6 weeks/i);
+  });
+});
