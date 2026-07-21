@@ -69,7 +69,15 @@ export function RegistryRecordLoader({
     // the spinner. The fallback is public content, so showing it before an
     // eventual unauthorized/not-found state leaks nothing owner-scoped.
     if (fallbackRecord) {
-      return <>{children(fallbackRecord)}</>;
+      // Do not assert an authoritative "locally verified" badge before the
+      // `ready` branch reconciles it against live governance — neutralize the
+      // fixture's verified flag for this provisional paint so a stale verified
+      // badge cannot flash in (mirrors the governance reconciliation below).
+      const provisional =
+        fallbackRecord.verification?.locallyVerified === true
+          ? { ...fallbackRecord, verification: { ...fallbackRecord.verification, locallyVerified: false } }
+          : fallbackRecord;
+      return <>{children(provisional)}</>;
     }
     return (
       <main className="grid min-h-[60dvh] place-items-center" aria-busy="true">
