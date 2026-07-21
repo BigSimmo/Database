@@ -5,6 +5,9 @@
 // This is a SEPARATE, opt-in script (npm run eval:answer-quality) — it does not touch eval:quality
 // or add spend to any existing run. All metrics are reported informationally; the script exits 0
 // unless --fail-on-threshold is passed with an explicit floor, so it can be calibrated safely.
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+import { pathToFileURL } from "node:url";
 import { loadEnvConfig } from "@next/env";
 import {
   answerQualityEvalCases,
@@ -27,9 +30,10 @@ type Args = {
   intent?: string;
   json: boolean;
   targetingFloor?: number;
+  dumpAnswers?: string;
 };
 
-function parseArgs(argv: string[]): Args {
+export function parseArgs(argv: string[]): Args {
   const args: Args = {
     ownerEmail: process.env.RAG_EVAL_OWNER_EMAIL,
     ownerId: process.env.RAG_EVAL_OWNER_ID ?? process.env.LOCAL_NO_AUTH_OWNER_ID,
@@ -48,8 +52,38 @@ function parseArgs(argv: string[]): Args {
     if (token === "--intent") args.intent = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
     if (token === "--targeting-floor") args.targetingFloor = Number.parseFloat(value);
+    if (token === "--dump-answers") args.dumpAnswers = value;
   }
   return args;
+}
+
+// Per-case answer-text record for the --dump-answers artifact (E-3c instrument): answers are
+// not retained anywhere at rest (privacy design), so diagnosing targeting misses (e.g. "no
+// dose figure") needs the texts captured at eval time. Sections included because
+// scoreAnswerTargeting scores over answer + sections.
+export function buildAnswerDumpRecord(
+  testCase: AnswerQualityEvalCase,
+  answer: RagAnswer,
+  targeting: ReturnType<typeof scoreAnswerTargeting>,
+) {
+  return {
+    id: testCase.id,
+    question: testCase.question,
+    intent: testCase.expectedIntent,
+    route: answer.routingMode ?? null,
+    routing_reason: answer.routingReason ?? null,
+    query_class: answer.queryClass ?? null,
+    grounded: answer.grounded,
+    confidence: answer.confidence,
+    citation_count: answer.citations.length,
+    answer_length: answer.answer?.length ?? 0,
+    targeting: { applicable: targeting.applicable, score: targeting.score, reason: targeting.reason },
+    answer: answer.answer ?? "",
+    answer_sections: (answer.answerSections ?? []).map((section) => ({
+      heading: section.heading,
+      body: section.body,
+    })),
+  };
 }
 
 const METRICS: AnswerQualityMetric[] = ["relevance", "readability", "artifact_leaks", "intent_coverage", "fail_closed"];
@@ -81,6 +115,7 @@ async function main() {
   let targetingHit = 0;
   const targetingMisses: Array<{ id: string; intent: string; reason: string; answer_length: number }> = [];
   const caseResults: Array<Record<string, unknown>> = [];
+  const dumpRecords: Array<ReturnType<typeof buildAnswerDumpRecord>> = [];
 
   for (const testCase of cases) {
     const answer = (await withProviderBackoff(`answer-quality:${testCase.id}`, () =>
@@ -93,6 +128,7 @@ async function main() {
     }
 
     const targeting = scoreAnswerTargeting(testCase, answer);
+    if (args.dumpAnswers) dumpRecords.push(buildAnswerDumpRecord(testCase, answer, targeting));
     const bucket = targetingByIntent.get(testCase.expectedIntent) ?? { applicable: 0, hit: 0 };
     if (targeting.applicable) {
       bucket.applicable += 1;
@@ -170,15 +206,29 @@ async function main() {
     }
   }
 
+  if (args.dumpAnswers) {
+    await mkdir(dirname(args.dumpAnswers), { recursive: true });
+    await writeFile(
+      args.dumpAnswers,
+      JSON.stringify({ generated_at: new Date().toISOString(), case_count: caseCount, cases: dumpRecords }, null, 2),
+    );
+    // Non-JSON mode only, mirroring the --json-out no-stdout-interference convention.
+    if (!args.json) console.log(`  answer dump written: ${args.dumpAnswers} (${dumpRecords.length} case(s))`);
+  }
+
   if (args.targetingFloor !== undefined && targetingRate !== null && targetingRate < args.targetingFloor) {
     console.error(`FAIL: targeting_rate ${targetingRate} < floor ${args.targetingFloor}`);
     process.exit(1);
   }
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+// Main-guard (eval-quality.ts precedent) so tests can import parseArgs/buildAnswerDumpRecord
+// without executing the provider-backed eval.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error);
+      process.exit(1);
+    });
+}

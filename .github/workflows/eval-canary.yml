@@ -184,7 +184,10 @@ jobs:
         run: |
           mkdir -p .local/eval-canary
           set -o pipefail
-          npm run eval:answer-quality 2>&1 | tee .local/eval-canary/answer-targeting.log
+          # --dump-answers captures per-case answer TEXTS (not retained anywhere at rest) so
+          # targeting misses are diagnosable offline; rides the existing artifact upload.
+          # Content sensitivity matches the tee'd log: all-public corpus, no env values.
+          npm run eval:answer-quality -- --dump-answers .local/eval-canary/answer-targeting-answers.json 2>&1 | tee .local/eval-canary/answer-targeting.log
 
       # Uploaded on success AND failure: the JSON artifact regenerates the offline ranking
       # snapshot (download it, then `npm run build:ranking-snapshot -- --input <json> --output
