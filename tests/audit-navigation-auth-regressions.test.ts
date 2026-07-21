@@ -177,8 +177,13 @@ describe("audit navigation and auth regressions", () => {
     // The viewport-driven region/tabpanel role is wired through the extracted hook, whose
     // media-query subscription carries the guard with it.
     expect(clinicalDashboardSource).toContain("useUploadDesktopLayout()");
-    expect(source("src/components/clinical-dashboard/use-upload-desktop-layout.ts")).toContain(
-      "subscribeToUploadDesktopLayout",
+    // Assert the hook actually wires the media-query subscription through
+    // useSyncExternalStore (with the () => false server snapshot), so this guard
+    // fails on a disconnected subscription or a dropped SSR fallback — not merely
+    // when the helper name is present but unused.
+    const uploadDesktopHookSource = source("src/components/clinical-dashboard/use-upload-desktop-layout.ts");
+    expect(uploadDesktopHookSource).toMatch(
+      /useSyncExternalStore\(\s*subscribeToUploadDesktopLayout,\s*getUploadDesktopLayoutSnapshot,\s*\(\)\s*=>\s*false/,
     );
     expect(clinicalDashboardSource).toContain('event.key === "ArrowRight"');
     expect(clinicalDashboardSource).toContain('event.key === "ArrowLeft"');
