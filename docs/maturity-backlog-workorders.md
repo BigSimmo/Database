@@ -7,9 +7,10 @@ files**, **risk**, **verification**, and **status**. High-risk items are deliber
 their own work order — the audit's rule is one dedicated PR + full-suite verification per
 structural change, not a single mixed PR.
 
-**Status legend:** `DONE` (landed) · `READY` (scoped, safe to start) · `OPEN` (needs a
-decision or a dedicated PR) · `PROVIDER-GATED` (touches live DB/CI/provider — needs explicit
-confirmation) · `SATISFIED` (already true in the repo; no work needed).
+**Status legend:** `DONE` (landed) · `IN PROGRESS` (partially landed; more PRs remain) ·
+`READY` (scoped, safe to start) · `OPEN` (needs a decision or a dedicated PR) ·
+`PROVIDER-GATED` (touches live DB/CI/provider — needs explicit confirmation) · `SATISFIED`
+(already true in the repo; no work needed).
 
 ---
 
@@ -72,16 +73,24 @@ confirmation) · `SATISFIED` (already true in the repo; no work needed).
   `pdf-extraction-budget` flake fails — confirmed identical on `origin/main`), `lint`,
   `docs:check-index`, `docs:check-links`, and maintainability budgets all pass.
 
-### X3 · Decompose the monoliths — `OPEN` (first extraction landed #997)
+### X3 · Decompose the monoliths — `IN PROGRESS`
 
 - **Outcome:** shrink the three files the maintainability ratchet caps but never reduces:
   `src/lib/rag/rag.ts` (5,018), `src/components/ClinicalDashboard.tsx` (4,271),
-  `src/components/DocumentViewer.tsx` (3,164).
+  `src/components/DocumentViewer.tsx` (was 3,164, now 1,733).
 - **Progress (#997):** extracted the evidence-gate predicates from `rag.ts` into
   `src/lib/rag/rag-evidence-gates.ts` (rag.ts 5,147 → 5,018), pure moves behind the existing
-  budgets. The two components are untouched and remain the largest open decomposition targets.
-- **Approach:** extract cohesive units behind the existing budgets; `rag.ts` is the natural seam
-  now that X2 has landed (its ~23 siblings already exist).
+  budgets.
+- **Progress (`DocumentViewer.tsx`):** extracted the cohesive leaf modules into
+  `src/components/document-viewer/` — shared row `types.ts`, `source-panels.tsx` (summary
+  profile, high-yield summary, source images/tables, pinned evidence, indexed-text panel), the
+  behaviour-bearing `manual-tag-editor.tsx` (add/rename/delete manual labels), and
+  `document-overview-landing.tsx`. The moves are verbatim (no logic changed); the container is
+  now composition-focused — it retains the detail fetch, dynamic PDF loading, and state
+  orchestration (3,164 → 1,733, budget ratcheted to 1,733). `ClinicalDashboard.tsx` (4,271)
+  and `rag.ts` remain the open decomposition targets.
+- **Approach:** extract cohesive units behind the existing budgets; the components decompose
+  into their `*/` sibling directories, and `rag.ts` is the natural seam now that X2 has landed.
 - **Risk:** HIGH (behavioural surface). One file per PR.
 - **Verification:** `npm run typecheck` + `npm run test` (+ `npm run verify:ui` for the components).
 
@@ -189,18 +198,18 @@ collaborators join — `AGENTS.md` + the PR template already carry that load.
 
 ## Progress summary
 
-| Item                           | Priority | Status                                     |
-| ------------------------------ | -------- | ------------------------------------------ |
-| N1 Dependabot grouping         | Now      | **DONE** (#985)                            |
-| N2 Dependency-report decision  | Now      | **DONE** (#986, enabled)                   |
-| X1 Import-boundary linter      | Next     | **DONE** (#986; service-role rule dropped) |
-| X2 `src/lib` rag extraction    | Next     | **DONE** (#994)                            |
-| X3 Monolith decomposition      | Next     | OPEN (first extraction landed #997)        |
-| X4 SAST-blocking on parser     | Next     | **DONE** (gate + policy check)             |
-| X5 ACL-migration consolidation | Next     | PROVIDER-GATED (DB owner)                  |
-| X6 Coverage floors             | Next     | OPEN                                       |
-| L1 Archive one-shot scripts    | Later    | OPEN (index shipped)                       |
-| L2 Action-SHA uniformity       | Later    | **DONE** (#992)                            |
-| L3 Single gate manifest        | Later    | **DONE** (#1002)                           |
-| L4 Ledger rotation             | Later    | OPEN                                       |
-| L5 AI map / WCAG / RPO-RTO     | Later    | **DONE / SATISFIED** (#985)                |
+| Item                           | Priority | Status                                      |
+| ------------------------------ | -------- | ------------------------------------------- |
+| N1 Dependabot grouping         | Now      | **DONE** (#985)                             |
+| N2 Dependency-report decision  | Now      | **DONE** (#986, enabled)                    |
+| X1 Import-boundary linter      | Next     | **DONE** (#986; service-role rule dropped)  |
+| X2 `src/lib` rag extraction    | Next     | **DONE** (#994)                             |
+| X3 Monolith decomposition      | Next     | IN PROGRESS (rag #997; DocumentViewer done) |
+| X4 SAST-blocking on parser     | Next     | **DONE** (gate + policy check)              |
+| X5 ACL-migration consolidation | Next     | PROVIDER-GATED (DB owner)                   |
+| X6 Coverage floors             | Next     | OPEN                                        |
+| L1 Archive one-shot scripts    | Later    | OPEN (index shipped)                        |
+| L2 Action-SHA uniformity       | Later    | **DONE** (#992)                             |
+| L3 Single gate manifest        | Later    | **DONE** (#1002)                            |
+| L4 Ledger rotation             | Later    | OPEN                                        |
+| L5 AI map / WCAG / RPO-RTO     | Later    | **DONE / SATISFIED** (#985)                 |
