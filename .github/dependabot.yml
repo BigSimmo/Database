@@ -24,8 +24,17 @@ updates:
     # The repo keeps a separate @typescript/typescript6 for the compiler API.
     # Remove this once the lint toolchain ships native-port support.
     # Context: merged #1014 / closed #990.
+    #
+    # Hold the ESLint major (10.x): eslint-config-next@16.2.10 bundles an
+    # eslint-plugin-react that still calls the removed context.getFilename() API,
+    # so ESLint 10 crashes `npm run lint` outright ("TypeError: ... getFilename is
+    # not a function"). Same shape as the TypeScript hold — the lint toolchain is
+    # not yet ESLint-10-ready. Remove once eslint-config-next supports ESLint 10.
+    # Context: closed #1022.
     ignore:
       - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
