@@ -41,7 +41,10 @@ export default async function MedicationPage({ params }: MedicationPageProps) {
   const fallbackGovernance = record
     ? (() => {
         const derived = deriveGovernanceFromSections(record);
-        return { sourceStatus: derived.source_status, validationStatus: derived.validation_status };
+        // Validation/review status is a governance decision that must come from
+        // the live/authoritative response, not a hard-coded guess used only for
+        // the pre-fetch content-first paint.
+        return { sourceStatus: derived.source_status, validationStatus: "unverified" as const };
       })()
     : undefined;
 

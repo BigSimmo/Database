@@ -490,7 +490,10 @@ export function MedicationRecordPage({
   // when there is no server record to show (owner-only slugs) and the fetch is
   // still in flight; the error state applies only when nothing renderable exists.
   const record = data?.record ?? fallbackRecord ?? null;
-  const governance = data?.governance ?? fallbackGovernance;
+  // Only trust the SSR fallback governance while the live fetch is still in
+  // flight. A failed request means the authoritative status is unknown, so
+  // don't keep presenting the fixture-derived guess as if it were confirmed.
+  const governance = data?.governance ?? (error ? undefined : fallbackGovernance);
 
   return (
     <main className="min-h-[calc(100dvh-4rem)] text-[color:var(--text)]" data-testid={`medication-page-${slug}`}>

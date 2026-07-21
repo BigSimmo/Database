@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
+import { expectedSupabaseProject } from "./src/lib/supabase/project";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const requestedDistDir = process.env.NEXT_DIST_DIR?.trim();
@@ -52,15 +53,20 @@ const nextConfig: NextConfig = {
     // next/image output.
     formats: ["image/avif", "image/webp"],
     // Permit optimizing Supabase Storage signed URLs (private document/image
-    // previews) through next/image. Signed URLs are served from the project's
-    // *.supabase.co storage object endpoint; the path scope keeps this narrow.
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.supabase.co",
+    // previews) through next/image. Scoped to this app's exact production and
+    // (when configured) staging project hostnames, not the wildcard *.supabase.co.
+    remotePatterns: (() => {
+      const allowedHostnames = [expectedSupabaseProject.ref + ".supabase.co"];
+      const stagingRef = process.env.SUPABASE_STAGING_PROJECT_REF?.trim();
+      if (stagingRef) {
+        allowedHostnames.push(stagingRef + ".supabase.co");
+      }
+      return allowedHostnames.map((hostname) => ({
+        protocol: "https" as const,
+        hostname,
         pathname: "/storage/v1/object/**",
-      },
-    ],
+      }));
+    })(),
   },
   turbopack: {
     root: projectRoot,
