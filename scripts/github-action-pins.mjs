@@ -4,6 +4,7 @@ const reviewedActionPins = new Map([
     new Map([
       ["9f698171ed81b15d1823a05fc7211befd50c8ae0", "v6.0.3"],
       ["9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0", "v7.0.0"],
+      ["3d3c42e5aac5ba805825da76410c181273ba90b1", "v7.0.1"],
     ]),
   ],
   [
@@ -14,7 +15,13 @@ const reviewedActionPins = new Map([
     ]),
   ],
   ["actions/github-script", new Map([["3a2844b7e9c422d3c10d287c895573f7108da1b3", "v9.0.0"]])],
-  ["anthropics/claude-code-action", new Map([["af0559ee4f514d1ef21826982bed13f7edc3c35e", "v1.0.178"]])],
+  [
+    "anthropics/claude-code-action",
+    new Map([
+      ["af0559ee4f514d1ef21826982bed13f7edc3c35e", "v1.0.178"],
+      ["b76a0776ae74036e77cd11018083743453d7ad35", "v1.0.179"],
+    ]),
+  ],
   ["actions/cache", new Map([["55cc8345863c7cc4c66a329aec7e433d2d1c52a9", "v6"]])],
   ["actions/upload-artifact", new Map([["043fb46d1a93c77aae656e7c1c64a875d1fc6a0a", "v7"]])],
   ["denoland/setup-deno", new Map([["22d081ff2d3a40755e97629de92e3bcbfa7cf2ed", "v2.0.5"]])],
