@@ -31,9 +31,9 @@ import {
   useReducer,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
+import { useUploadDesktopLayout } from "@/components/clinical-dashboard/use-upload-desktop-layout";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { isLocalNoAuthMode, resolveClientDemoMode, resolveUploadReadOnlyMode } from "@/lib/client-env";
@@ -123,22 +123,6 @@ const FavouritesHub = dynamic(
   { ssr: false },
 );
 
-const uploadDesktopMediaQuery = "(min-width: 1024px)";
-
-function subscribeToUploadDesktopLayout(callback: () => void) {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => {};
-  const media = window.matchMedia(uploadDesktopMediaQuery);
-  media.addEventListener("change", callback);
-  return () => media.removeEventListener("change", callback);
-}
-
-function getUploadDesktopLayoutSnapshot() {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia(uploadDesktopMediaQuery).matches
-  );
-}
 const MedicationPrescribingWorkspace = dynamic(
   () =>
     import("@/components/clinical-dashboard/medication-prescribing-workspace").then(
@@ -570,11 +554,7 @@ export function ClinicalDashboard({
   const [documentsDrawerMode, setDocumentsDrawerMode] = useState<DocumentDrawerMode>("library");
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [uploadMobileTab, setUploadMobileTab] = useState<UploadIndexingTab>("upload");
-  const uploadUsesDesktopRegions = useSyncExternalStore(
-    subscribeToUploadDesktopLayout,
-    getUploadDesktopLayoutSnapshot,
-    () => false,
-  );
+  const uploadUsesDesktopRegions = useUploadDesktopLayout();
   const uploadTabRefs = useRef(new Map<UploadIndexingTab, HTMLButtonElement>());
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
