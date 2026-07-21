@@ -11,7 +11,7 @@ describe("eval canary workflow input", () => {
   });
 
   it("validates the dispatch limit outside shell source and passes it as one quoted argument", () => {
-    expect(workflow).toContain("ANSWER_CASE_LIMIT: ${{ github.event.inputs.answer_case_limit || '8' }}");
+    expect(workflow).toContain("ANSWER_CASE_LIMIT: ${{ github.event.inputs.answer_case_limit || '44' }}");
     expect(workflow).toContain('[[ ! "$ANSWER_CASE_LIMIT" =~ ^[0-9]+$ ]]');
     expect(workflow).toContain("ANSWER_CASE_LIMIT < 1 || ANSWER_CASE_LIMIT > 100");
     expect(workflow).toContain('--limit "$ANSWER_CASE_LIMIT"');
