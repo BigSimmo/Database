@@ -283,7 +283,12 @@ function evaluateRow(patient: MedicationPatientMetadata, profile: PatientProfile
       const crcl = numberField(profile.crcl);
       if (egfr !== null && egfr < RENAL_IMPAIRMENT_EGFR) reasons.push(`Renal impairment (eGFR ${egfr})`);
       else if (crcl !== null && crcl < RENAL_IMPAIRMENT_EGFR) reasons.push(`Renal impairment (CrCl ${crcl})`);
-      else if (egfr === null && crcl === null) missingGates.push("eGFR or CrCl");
+      // Fail-safe: flag the gate unassessed when EITHER renal input is missing and
+      // neither fired. A renal contraindication clears only when both eGFR and CrCl
+      // are present and non-firing, so an input rejected as out-of-range (nulled by
+      // sanitizeProfile) can never be silently read as an all-clear when the other
+      // input happens to be present and normal.
+      else if (egfr === null || crcl === null) missingGates.push("eGFR or CrCl");
     } else if (factor === "hepatic" && !coversHepatic) {
       if (!profile.hepatic) missingGates.push("hepatic status");
       else if (profile.hepatic !== "none") reasons.push(`${capitalize(profile.hepatic)} hepatic impairment`);
