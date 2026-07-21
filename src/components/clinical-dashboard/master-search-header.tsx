@@ -1828,12 +1828,17 @@ export function MasterSearchHeader({
               <>
                 <button
                   type="button"
-                  className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label="Open language and region settings"
-                  title="Language and region"
+                  aria-disabled="true"
+                  aria-describedby="workflow-language-region-unavailable"
+                  className="universal-header-icon-control grid h-tap w-tap shrink-0 cursor-not-allowed place-items-center rounded-full text-[color:var(--text-muted)] opacity-60 transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  aria-label="Language and region settings (coming soon)"
+                  title="Language and region — coming soon"
                 >
                   <Globe2 className="h-5 w-5" aria-hidden />
                 </button>
+                <span id="workflow-language-region-unavailable" className="sr-only">
+                  Language and region settings are coming soon.
+                </span>
                 <span className="hidden h-8 w-px bg-[color:var(--border)] sm:block" aria-hidden />
                 <button
                   type="button"
