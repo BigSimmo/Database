@@ -36,7 +36,12 @@ type AsyncState<T> = {
 };
 
 async function fetchJson<T>(url: string, headers?: HeadersInit): Promise<T> {
-  const response = await fetch(url, { cache: "no-store", headers });
+  // Use the default cache mode (not `no-store`) so public responses honor the
+  // API's `public, max-age=300, s-maxage=3600, stale-while-revalidate` headers.
+  // Owner responses are served `private, no-store` with `Vary: Authorization`,
+  // so the browser never caches them across auth states — matching the sibling
+  // registry/differential hooks, which also fetch with the default cache mode.
+  const response = await fetch(url, { headers });
   if (!response.ok) {
     throw new Error(`Request failed (${response.status})`);
   }

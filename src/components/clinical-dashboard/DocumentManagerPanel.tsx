@@ -429,8 +429,8 @@ export function UploadPanel({
             className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
           >
             <div
-              className="h-full rounded-full bg-[color:var(--clinical-accent)] transition-[width] duration-200 ease-out motion-reduce:transition-none"
-              style={{ width: `${uploadPercent}%` }}
+              className="h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform duration-200 ease-out motion-reduce:transition-none"
+              style={{ transform: `scaleX(${uploadPercent / 100})` }}
             />
           </div>
         </div>

@@ -51,16 +51,34 @@ function StatePanel({
 export function RegistryRecordLoader({
   kind,
   slug,
+  fallbackRecord,
   children,
 }: {
   kind: RegistryRecordKind;
   slug: string;
+  fallbackRecord?: ServiceRecord | null;
   children: (record: ServiceRecord) => ReactNode;
 }) {
   const { status, record, governance } = useRegistryRecord(kind, slug);
   const copy = kindCopy[kind];
 
   if (status === "loading") {
+    // Content-first: when the server supplied the public fixture record, paint
+    // it immediately instead of a centered spinner; the owner-aware live record
+    // swaps in when the fetch resolves. Owner-only slugs (no fixture) still show
+    // the spinner. The fallback is public content, so showing it before an
+    // eventual unauthorized/not-found state leaks nothing owner-scoped.
+    if (fallbackRecord) {
+      // Do not assert an authoritative "locally verified" badge before the
+      // `ready` branch reconciles it against live governance — neutralize the
+      // fixture's verified flag for this provisional paint so a stale verified
+      // badge cannot flash in (mirrors the governance reconciliation below).
+      const provisional =
+        fallbackRecord.verification?.locallyVerified === true
+          ? { ...fallbackRecord, verification: { ...fallbackRecord.verification, locallyVerified: false } }
+          : fallbackRecord;
+      return <>{children(provisional)}</>;
+    }
     return (
       <main className="grid min-h-[60dvh] place-items-center" aria-busy="true">
         <div className={cn("inline-flex items-center gap-2 text-sm font-semibold", textMuted)}>
