@@ -401,7 +401,7 @@ export function UploadPanel({
           multiple
           disabled={demoMode || !canUpload || uploading}
           onChange={() => changeStatus(null)}
-          className="mt-2 block w-full text-xs font-medium text-[color:var(--text-muted)] file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border file:border-[color:var(--border)] file:bg-[color:var(--surface)] file:px-3 file:text-xs file:font-semibold file:text-[color:var(--text)] file:shadow-[var(--shadow-inset)] file:transition file:hover:bg-[color:var(--surface-subtle)] file:disabled:opacity-50"
+          className="mt-2 block w-full text-xs font-medium text-[color:var(--text-muted)] file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border file:border-[color:var(--border)] file:bg-[color:var(--surface)] file:px-3 file:text-xs file:font-semibold file:text-[color:var(--text)] file:shadow-[var(--shadow-inset)] file:transition file:hover:bg-[color:var(--surface-subtle)] disabled:file:opacity-50"
         />
       </label>
       <div className="mt-3">
@@ -429,8 +429,8 @@ export function UploadPanel({
             className="h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
           >
             <div
-              className="h-full rounded-full bg-[color:var(--clinical-accent)] transition-[width] duration-200 ease-out motion-reduce:transition-none"
-              style={{ width: `${uploadPercent}%` }}
+              className="h-full w-full origin-left rounded-full bg-[color:var(--clinical-accent)] transition-transform duration-200 ease-out motion-reduce:transition-none"
+              style={{ transform: `scaleX(${uploadPercent / 100})` }}
             />
           </div>
         </div>

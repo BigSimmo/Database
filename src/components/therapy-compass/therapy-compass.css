@@ -898,12 +898,15 @@
   border-radius: 50%;
   background: var(--surface-raised);
   box-shadow: var(--shadow-tight);
-  transform: translateY(-50%);
-  transition: left 150ms ease;
+  /* Animate the horizontal move on the compositor (transform) rather than `left`,
+     which forces layout each frame. The 18px offset matches the knob width so the
+     resting/active positions are visually identical to the old left-based values. */
+  transform: translate(0, -50%);
+  transition: transform 150ms ease;
 }
 
 .tc-clinician-knob.tc-is-active {
-  left: 50%;
+  transform: translate(18px, -50%);
 }
 
 .tc-paper {
