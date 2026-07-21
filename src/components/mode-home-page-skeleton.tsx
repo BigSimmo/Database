@@ -32,7 +32,7 @@ export function ModeHomePageSkeleton() {
 
 export function ModeHomeRouteLoading() {
   return (
-    <div className="grid min-h-[calc(100dvh-13.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] items-center justify-items-center bg-[color:var(--background)] sm:min-h-[calc(100dvh-4rem)]">
+    <div className="grid min-h-[calc(100dvh-13.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] items-center justify-items-center bg-[color:var(--background)] sm:min-h-[calc(100dvh-var(--shell-header-h))]">
       <ModeHomePageSkeleton />
     </div>
   );
@@ -59,7 +59,11 @@ export function DocumentSearchPageSkeleton() {
 
 export function DocumentViewerPageSkeleton() {
   return (
-    <div className="flex h-[calc(100dvh-4rem)] flex-col gap-4 px-4 py-4" role="status" aria-label="Loading document">
+    <div
+      className="flex h-[calc(100dvh-var(--shell-header-h))] flex-col gap-4 px-4 py-4"
+      role="status"
+      aria-label="Loading document"
+    >
       <SkeletonBlock className="h-10 w-full max-w-lg" />
       <SkeletonBlock className="min-h-0 flex-1 rounded-lg" />
       <span className="sr-only">Loading document</span>
