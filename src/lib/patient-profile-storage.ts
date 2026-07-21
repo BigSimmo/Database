@@ -69,6 +69,19 @@ function boundedNumberOrNull(value: unknown, bounds: { min: number; max: number 
     : null;
 }
 
+// Convert a serum-creatinine value between display units, preserving the
+// underlying physiological quantity (µmol/L is canonical; the alert engine uses
+// the same ×SCR_UMOL_PER_MGDL factor). Used when the clinician toggles the
+// creatinine unit so the stored value follows the unit instead of being silently
+// reinterpreted on the new scale. Rounds to the display precision of the target
+// unit (integer µmol/L, 2 dp mg/dL). A null/non-finite value stays null.
+export function convertScrValue(value: number | null | undefined, from: ScrUnit, to: ScrUnit): number | null {
+  if (value == null || !Number.isFinite(value) || from === to) return value ?? null;
+  const umol = from === "mg/dL" ? value * SCR_UMOL_PER_MGDL : value;
+  const converted = to === "mg/dL" ? umol / SCR_UMOL_PER_MGDL : umol;
+  return to === "mg/dL" ? Math.round(converted * 100) / 100 : Math.round(converted);
+}
+
 // Returns the entered value (in its own unit) when its µmol/L-normalised
 // magnitude is physiologically valid, else null. The engine re-normalises the
 // raw value itself, so we only use the normalised figure for the range check.

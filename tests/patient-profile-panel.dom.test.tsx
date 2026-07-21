@@ -71,6 +71,30 @@ describe("PatientProfilePanel — physiological input validation", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("converts the stored serum creatinine when the unit is switched, preserving the value", () => {
+    renderPanel();
+    const scr = screen.getByTestId("patient-scr") as HTMLInputElement;
+
+    // A normal µmol/L creatinine.
+    fireEvent.change(scr, { target: { value: "90" } });
+    expect(storedProfile().scr).toBe(90);
+    expect(storedProfile().scrUnit).toBe("umol/L");
+
+    // Switching to mg/dL must convert (90 / 88.4 ≈ 1.02), not leave 90 to be
+    // reinterpreted as 90 mg/dL by the alert engine.
+    fireEvent.click(screen.getByRole("button", { name: "mg/dL" }));
+    expect(storedProfile().scrUnit).toBe("mg/dL");
+    expect(storedProfile().scr as number).toBeCloseTo(1.02, 2);
+    const scrMgdl = screen.getByTestId("patient-scr") as HTMLInputElement;
+    expect(scrMgdl.value).toBe("1.02");
+    expect(scrMgdl).not.toHaveAttribute("aria-invalid");
+
+    // Switching back restores ~90 µmol/L (round-trip within display rounding).
+    fireEvent.click(screen.getByRole("button", { name: "µmol/L" }));
+    expect(storedProfile().scrUnit).toBe("umol/L");
+    expect(storedProfile().scr).toBe(90);
+  });
+
   it("applies unit-aware bounds to serum creatinine after switching to mg/dL", () => {
     renderPanel();
     fireEvent.click(screen.getByRole("button", { name: "mg/dL" }));

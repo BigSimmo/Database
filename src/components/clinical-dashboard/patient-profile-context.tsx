@@ -2,8 +2,9 @@
 
 import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
 
-import { isProfileEmpty, type AllergyClass, type PatientProfile } from "@/lib/medication-patient-alerts";
+import { isProfileEmpty, type AllergyClass, type PatientProfile, type ScrUnit } from "@/lib/medication-patient-alerts";
 import {
+  convertScrValue,
   EMPTY_PATIENT_PROFILE,
   getPatientProfileSnapshot,
   getServerPatientProfileSnapshot,
@@ -14,6 +15,7 @@ import {
 export type PatientProfileContextValue = {
   profile: PatientProfile;
   updateField: <K extends keyof PatientProfile>(key: K, value: PatientProfile[K]) => void;
+  setScrUnit: (unit: ScrUnit) => void;
   toggleAllergy: (allergy: AllergyClass) => void;
   clear: () => void;
   isEmpty: boolean;
@@ -34,6 +36,17 @@ export function PatientProfileProvider({ children }: { children: React.ReactNode
     writePatientProfile({ ...getPatientProfileSnapshot(), [key]: value });
   }, []);
 
+  // Switching the creatinine unit must convert the stored value, not just relabel
+  // it — otherwise the alert engine re-reads the same number on the new scale. The
+  // convert + unit change is a single write so the sanitiser never sees the
+  // mismatched intermediate (which a two-step update would drop to null).
+  const setScrUnit = useCallback((unit: ScrUnit) => {
+    const current = getPatientProfileSnapshot();
+    const from = current.scrUnit ?? "umol/L";
+    if (from === unit) return;
+    writePatientProfile({ ...current, scr: convertScrValue(current.scr, from, unit), scrUnit: unit });
+  }, []);
+
   const toggleAllergy = useCallback((allergy: AllergyClass) => {
     const current = getPatientProfileSnapshot();
     const allergies = current.allergies ?? [];
@@ -46,8 +59,8 @@ export function PatientProfileProvider({ children }: { children: React.ReactNode
   }, []);
 
   const value = useMemo<PatientProfileContextValue>(
-    () => ({ profile, updateField, toggleAllergy, clear, isEmpty: isProfileEmpty(profile) }),
-    [profile, updateField, toggleAllergy, clear],
+    () => ({ profile, updateField, setScrUnit, toggleAllergy, clear, isEmpty: isProfileEmpty(profile) }),
+    [profile, updateField, setScrUnit, toggleAllergy, clear],
   );
 
   return <PatientProfileContext.Provider value={value}>{children}</PatientProfileContext.Provider>;

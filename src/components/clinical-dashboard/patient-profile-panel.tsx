@@ -129,7 +129,7 @@ export function PatientProfilePanel({
   defaultOpen?: boolean;
   className?: string;
 }) {
-  const { profile, updateField, toggleAllergy, clear, isEmpty } = usePatientProfile();
+  const { profile, updateField, setScrUnit, toggleAllergy, clear, isEmpty } = usePatientProfile();
   const [open, setOpen] = useState(defaultOpen ?? variant === "full");
   // Bumped on Clear to remount the numeric fields, so an out-of-range entry that
   // is showing a validation message (stored value already null) is reset too.
@@ -238,7 +238,7 @@ export function PatientProfilePanel({
                     key={option.value}
                     type="button"
                     aria-pressed={active}
-                    onClick={() => updateField("scrUnit", option.value)}
+                    onClick={() => setScrUnit(option.value)}
                     className={cn(segmentBase, "flex-1", active ? segmentActive : segmentIdle)}
                   >
                     {option.label}

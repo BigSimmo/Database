@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { evaluatePatientAlerts } from "@/lib/medication-patient-alerts";
 import type { MedicationPatientMetadata, MedicationRecord } from "@/lib/medications";
 import {
+  convertScrValue,
   PATIENT_PROFILE_NUMERIC_BOUNDS,
   PATIENT_PROFILE_SCR_UMOL_BOUNDS,
   sanitizeProfile,
@@ -63,6 +64,21 @@ describe("sanitizeProfile — physiological input bounds", () => {
     expect(sanitizeProfile({ egfr: Number.NaN }).egfr).toBeNull();
     expect(sanitizeProfile({ qtc: Number.POSITIVE_INFINITY }).qtc).toBeNull();
     expect(sanitizeProfile(null)).toMatchObject({ egfr: null, qtc: null });
+  });
+
+  it("converts a stored creatinine on a unit switch instead of reinterpreting it on the new scale", () => {
+    // No-ops: same unit, or a missing value.
+    expect(convertScrValue(90, "umol/L", "umol/L")).toBe(90);
+    expect(convertScrValue(null, "umol/L", "mg/dL")).toBeNull();
+    // µmol/L → mg/dL (÷88.4, 2 dp) and mg/dL → µmol/L (×88.4, integer).
+    expect(convertScrValue(90, "umol/L", "mg/dL")).toBeCloseTo(1.02, 2);
+    expect(convertScrValue(1.02, "mg/dL", "umol/L")).toBe(90);
+    expect(convertScrValue(442, "umol/L", "mg/dL")).toBeCloseTo(5, 2);
+    // Round-trips within display rounding, and a converted value stays a valid
+    // stored input — the switch must never spuriously reject the value.
+    expect(convertScrValue(convertScrValue(120, "umol/L", "mg/dL"), "mg/dL", "umol/L")).toBe(120);
+    const mgdl = convertScrValue(200, "umol/L", "mg/dL");
+    expect(sanitizeProfile({ scr: mgdl, scrUnit: "mg/dL" }).scr).toBe(mgdl);
   });
 
   it("exposes the verified bounds as named exports (validity, not clinical thresholds)", () => {
