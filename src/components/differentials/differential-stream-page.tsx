@@ -40,7 +40,7 @@ const streamCopy: Record<
 export function DifferentialStreamPage({ stream, query = "" }: DifferentialStreamPageProps) {
   const copy = streamCopy[stream];
   return (
-    <main className="min-h-[calc(100dvh-4rem)] bg-[color:var(--background)] px-4 py-10 text-[color:var(--text)] sm:px-6 lg:px-8">
+    <main className="min-h-[calc(100dvh-var(--shell-header-h))] bg-[color:var(--background)] px-4 py-10 text-[color:var(--text)] sm:px-6 lg:px-8">
       <div className="mx-auto grid w-full max-w-6xl gap-6">
         <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-4 shadow-[var(--shadow-soft)] sm:p-6">
           <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)]">

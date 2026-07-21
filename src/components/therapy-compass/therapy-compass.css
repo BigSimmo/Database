@@ -1,5 +1,5 @@
 .tc-root {
-  min-height: calc(100dvh - 4rem);
+  min-height: calc(100dvh - var(--shell-header-h));
   background: var(--surface-chrome);
   color: var(--text);
 }
@@ -1293,7 +1293,7 @@
   padding: 32px 40px 40px;
 }
 .tc-root .tc-workspace-006 {
-  min-height: calc(100dvh - 4rem);
+  min-height: calc(100dvh - var(--shell-header-h));
   background: var(--surface-chrome);
   color: var(--text);
 }
