@@ -17,6 +17,10 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   // at the bottom on phones), so the shared universal composer is suppressed here
   // to avoid a second, floating search bar.
   const isCalculatorsSearchPageMockup = pathname === "/mockups/calculators-search-page";
+  // The safety-plan generator is a full builder workspace with its own primary
+  // surfaces, so it hides the shared bottom search composer (same treatment as
+  // the tool and favourites mockups).
+  const isSafetyPlanMockup = pathname === "/mockups/patient-safety-plan";
 
   return (
     <GlobalMockupSearchShell
@@ -34,7 +38,8 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isFavouritesPageMockup &&
         !isStandaloneDocumentFlow &&
         !isUniversalSearchRedesignMockup &&
-        !isCalculatorsSearchPageMockup
+        !isCalculatorsSearchPageMockup &&
+        !isSafetyPlanMockup
       }
       chromeVisible={!isSourceOverlayRedesignMockup}
     >
