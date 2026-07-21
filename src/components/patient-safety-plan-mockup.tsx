@@ -21,7 +21,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import {
   cn,
@@ -187,9 +187,6 @@ const SEED_REASONS: Entry[] = [
   { id: "r3", primary: "The camping trip with mates in spring" },
   { id: "r4", primary: "Being there for my niece" },
 ];
-
-let seq = 0;
-const uid = (prefix: string) => `${prefix}-live-${seq++}`;
 
 /* ---------- small building blocks ---------- */
 
@@ -418,10 +415,18 @@ export function PatientSafetyPlanMockup() {
   const [copied, setCopied] = useState(false);
   const [finalised, setFinalised] = useState(false);
 
-  const addEntry = useCallback((key: StepKey, primary: string, secondary?: string) => {
-    setEntries((prev) => ({ ...prev, [key]: [...prev[key], { id: uid(key), primary, secondary }] }));
-    setFinalised(false);
-  }, []);
+  // Per-instance id counter — avoids a module-level mutable that would persist
+  // across remounts; ids only need to be unique within this mounted plan.
+  const uidRef = useRef(0);
+  const uid = useCallback((prefix: string) => `${prefix}-live-${uidRef.current++}`, []);
+
+  const addEntry = useCallback(
+    (key: StepKey, primary: string, secondary?: string) => {
+      setEntries((prev) => ({ ...prev, [key]: [...prev[key], { id: uid(key), primary, secondary }] }));
+      setFinalised(false);
+    },
+    [uid],
+  );
 
   const removeEntry = useCallback((key: StepKey, id: string) => {
     setEntries((prev) => ({ ...prev, [key]: prev[key].filter((entry) => entry.id !== id) }));
