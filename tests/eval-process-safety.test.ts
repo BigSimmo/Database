@@ -62,7 +62,7 @@ describe("run-eval-safe process ownership safety", () => {
     }
 
     // Reset the mock before call
-    const mockedSpawnSync = spawnSync as any;
+    const mockedSpawnSync = spawnSync as import("vitest").Mock;
     mockedSpawnSync.mockClear();
 
     const killedCount = terminateOwnedProcessTree(1000, mockSnapshot);
@@ -70,7 +70,7 @@ describe("run-eval-safe process ownership safety", () => {
     expect(mockedSpawnSync).toHaveBeenCalledTimes(3);
     expect(killedCount).toBe(3);
 
-    const calledPids = mockedSpawnSync.mock.calls.map((call: any) => call[1]?.[1]);
+    const calledPids = mockedSpawnSync.mock.calls.map((call: unknown[]) => (call[1] as string[])?.[1]);
     expect(calledPids).toContain("1000");
     expect(calledPids).toContain("1001");
     expect(calledPids).toContain("1002");
