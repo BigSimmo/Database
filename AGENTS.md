@@ -174,6 +174,39 @@ When a branch or PR review completes, record the reviewed branch/ref, HEAD SHA, 
 
 <!-- END:process-hardening -->
 
+<!-- BEGIN:page-and-button-wiring -->
+
+# Page and button wiring
+
+Interactive controls and routes follow conventions the codebase already holds to. Before adding
+or moving a button, link, or route, read `docs/wiring-conventions.md`. A control that advertises an
+action must perform one; a page that ships must be reachable.
+
+- **Buttons.** Every interactive `<button>` must do something: an `onClick`, a `type="submit"`
+  inside a `<form onSubmit>`, or navigation (wrap it in a `<Link>` / call `router.push`). A control
+  whose feature is not yet built uses the explicit disabled-placeholder pattern — `disabled` or
+  `aria-disabled="true"` + `title="… — coming soon"` + an `sr-only` note wired via
+  `aria-describedby` (see `favourites-hub.tsx`). **Never** ship a styled, `aria-label`led button
+  with no handler and no disabled state — that was the "Language and region" defect fixed
+  2026-07-21.
+- **Navigation.** Internal navigation uses `<Link>`, `router.push`, or server `redirect()` — never
+  a raw `<a href="/…">` to an internal route. Build hrefs from the existing sources
+  (`src/lib/app-modes.ts`, `src/lib/tools-catalog.ts`, `src/lib/universal-search.ts`), not
+  hardcoded strings scattered across components.
+- **New-route checklist.** Add the page → link it from real nav (sidebar / launcher / mode home /
+  search) → `npm run sitemap:update` → document it in `docs/codebase-index.md` → add a
+  reachability/coverage assertion. A production page route with no inbound link is an orphan.
+- **Gates.** `eslint-rules/require-button-wiring.mjs` (in `npm run lint`) fails on an un-wired
+  `<button>`; `tests/route-reachability.test.ts` (in `npm run test`) fails when a production page
+  route has no inbound nav link unless it is consciously added to that test's documented
+  allowlist (redirect targets / legacy-compat routes). Both run in `verify:cheap` and CI. Mockups
+  (`src/app/mockups/**`, `*-mockups.tsx`) are design-scratch and exempt from both.
+- **Never** add a production page route without either an inbound link or a documented
+  reachability allowlist entry plus an `/issues` note, and never silence the button-wiring rule
+  with a blanket disable — wire the control or make it an explicit placeholder.
+
+<!-- END:page-and-button-wiring -->
+
 <!-- BEGIN:supabase-project-safety -->
 
 # Supabase project safety
