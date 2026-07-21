@@ -44,6 +44,7 @@ import {
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
 import { NonPdfSourcePreview } from "@/components/document-viewer/non-pdf-source-preview";
 import { clearCachedSignedUrl, getCachedSignedUrl, setCachedSignedUrl } from "@/lib/signed-url-cache";
+import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
 import {
   documentLoadKey,
@@ -910,7 +911,7 @@ export function DocumentViewer({
         return;
       setSummary(payload);
       window.requestAnimationFrame(() => {
-        generatedSummaryRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+        generatedSummaryRef.current?.scrollIntoView({ block: "start", behavior: resolveScrollBehavior() });
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
@@ -1003,7 +1004,7 @@ export function DocumentViewer({
     if (!activeChunkId || loadingDocument) return;
     window.document
       .querySelector<HTMLElement>(`[data-source-chunk-id="${CSS.escape(activeChunkId)}"]`)
-      ?.scrollIntoView({ block: "center", behavior: "smooth" });
+      ?.scrollIntoView({ block: "center", behavior: resolveScrollBehavior() });
   }, [activeChunkId, loadingDocument, chunks.length]);
   const retryPreview = () => {
     setViewerError(null);

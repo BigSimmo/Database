@@ -192,13 +192,18 @@ export function ModeHomeStatusNotice({
   body,
   actionHref,
   actionLabel,
+  onAction,
 }: {
   icon: LucideIcon;
   title: string;
   body: string;
   actionHref?: string;
   actionLabel?: string;
+  /** Renders the action as a button (e.g. Retry) instead of a navigation link. */
+  onAction?: () => void;
 }) {
+  const actionClass =
+    "inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:min-h-9";
   return (
     <div className="mx-auto grid max-w-xl gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3 text-left shadow-[var(--shadow-inset)] sm:grid-cols-[2.25rem_minmax(0,1fr)_auto] sm:items-center">
       <span className="grid h-9 w-9 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
@@ -208,11 +213,12 @@ export function ModeHomeStatusNotice({
         <span className="text-sm font-bold text-[color:var(--text-heading)]">{title}</span>
         <span className="text-sm leading-5 text-[color:var(--text-muted)]">{body}</span>
       </span>
-      {actionHref && actionLabel ? (
-        <Link
-          href={actionHref}
-          className="inline-flex min-h-tap items-center justify-center rounded-lg bg-[color:var(--command)] px-3 text-sm font-semibold text-[color:var(--command-contrast)] hover:bg-[color:var(--command-hover)] lg:min-h-9"
-        >
+      {onAction && actionLabel ? (
+        <button type="button" onClick={onAction} className={actionClass}>
+          {actionLabel}
+        </button>
+      ) : actionHref && actionLabel ? (
+        <Link href={actionHref} className={actionClass}>
           {actionLabel}
         </Link>
       ) : null}

@@ -84,7 +84,7 @@ describe("favourites demo-data boundary", () => {
     expect(librarySource).toContain('"hidden min-w-0 max-w-full items-center gap-2.5 rounded-md text-left xl:flex"');
     expect(librarySource).toContain('"block min-w-0 max-w-full rounded-md text-left xl:hidden"');
     expect(librarySource).toContain(
-      '"xl:bg-[color:var(--clinical-accent-soft)]/45 xl:shadow-[inset_3px_0_0_var(--clinical-accent)]"',
+      '"xl:bg-[color:var(--clinical-accent-soft)]/45 xl:shadow-[var(--shadow-rail-active)]"',
     );
   });
 

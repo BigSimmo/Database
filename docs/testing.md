@@ -23,6 +23,22 @@ Ordinary Vitest and Playwright runs remove OpenAI, Supabase, database, and E2E c
 
 Set `FAST_CHECK_SEED` to reproduce a property-test run. Local and ordinary CI runs default to `424242`; scheduled CI may derive a bounded seed from the run ID.
 
+## Component tests (jsdom)
+
+Two Vitest projects run under one `npm run test` (see `vitest.config.mts`):
+
+- **node** (`tests/**/*.test.ts`) — pure logic, route handlers, and SSR-string assertions.
+- **jsdom** (`tests/**/*.dom.test.tsx`) — interactive component tests via `@testing-library/react`. The `.dom.test.tsx` suffix is required; a `.test.ts` file is collected by the node project and has no DOM.
+
+Author component tests to assert **user-visible behaviour**, not markup snapshots:
+
+- Query by role and accessible name (`getByRole("button", { name: … })`) so a missing or wrong `aria-label` fails the test; drive interactions with `@testing-library/user-event`.
+- Cover the state matrix the change touches — loading / empty / error / disabled — plus keyboard operability and focus where relevant.
+- The shared setup (`tests/setup/jsdom.setup.ts`) registers jest-dom matchers, auto-unmounts between tests, and polyfills `matchMedia` (override per test with the exported `installMatchMediaStub`) and `Element.scrollIntoView`.
+- Mock hooks/modules with `vi.mock`; when the factory needs a spy, create it with `vi.hoisted` so it exists when the hoisted mock runs.
+
+Reference examples: `tests/icon-button.dom.test.tsx` (accessible-name contract), `tests/sheet.dom.test.tsx` (stacked-overlay keyboard + scroll-lock), `tests/scroll-behavior.dom.test.tsx` (reduced-motion), `tests/registry-retry.dom.test.tsx` (`vi.hoisted` hook mock + error recovery).
+
 ## Playwright ownership
 
 The repository runner exclusively builds and serves each Playwright production app. It selects a safe port, verifies `/api/local-project-id`, uses an isolated `.next-playwright/<run-id>` build directory, replaces provider configuration with inert loopback values, and removes its server and output on success, failure, or signal. Playwright configuration never starts a server. The production boot guard permits this demo profile only when the output is isolated, provider mode is offline, credentials are absent, and the Supabase URL is the inert `127.0.0.1:1` target.
@@ -36,3 +52,15 @@ Blocking tests run with zero retries. CI publishes list, JUnit, and JSON reports
 ## CI topology
 
 PR CI keeps static checks separate from one required full unit run with coverage. UI scope uses one required production Chromium invocation for non-quarantined critical, regression, and dashboard/document visual-artifact journeys, plus one advisory invocation for quarantined and mockup journeys. Build, migration, security, and release behavior remain independently scoped and unchanged.
+
+## Contribution checklist (UI changes)
+
+Before opening a UI PR, confirm:
+
+- **Reuse first.** Check `src/components/ui-primitives.tsx` (class recipes plus `IconButton`, `AsyncButton`, `InlineNotice`, `EmptyState`, `LoadingPanel`, `ToggleSwitch`) and `src/components/ui/sheet.tsx` (the only overlay primitive) before hand-rolling. Icon-only buttons use `IconButton` (its `label` is a required prop).
+- **Tokens only.** No raw hex or Tailwind palette classes, no literal shadows, no `text-[Npx]` — see [`docs/design-system.md`](./design-system.md) §1–§5. `check:design-system-contract`, `check:type-scale`, and `check:icon-scale` enforce this.
+- **States.** Handle loading / empty / error / disabled where they apply; async surfaces expose a retry, not a dead end.
+- **Accessibility** ([design-system §7](./design-system.md)): keyboard operable, visible focus, accessible names on icon controls, live regions for async status, and reduced motion honoured — scripted `scrollTo`/`scrollIntoView` go through `resolveScrollBehavior` (`src/lib/scroll-behavior.ts`), never a hard-coded `behavior: "smooth"`.
+- **Tests.** Add a `.dom.test.tsx` for changed component behaviour (see "Component tests" above) and update the E2E journeys for changed flows.
+- **Verify** ([design-system §9](./design-system.md)): `npm run verify:cheap`, then `npm run verify:ui` for UI/routing/styling changes, plus a manual dark-mode + forced-colors spot check on touched surfaces.
+- Architecture and state-ownership conventions: [`docs/frontend-architecture.md`](./frontend-architecture.md).

@@ -263,6 +263,9 @@
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 64%), 0 12px 34px rgb(8 16 24 / 7%);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 58%);
   --shadow-card: var(--shadow-tight);
+  /* Active left-rail marker (nav/list "current" indicator). One token so the
+     accent rail is a consistent 2px everywhere instead of hand-inlined at 2px/3px. */
+  --shadow-rail-active: inset 2px 0 0 var(--clinical-accent);
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
@@ -2454,6 +2457,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     --shadow-elevated: none;
     --shadow-lux: none;
     --shadow-inset: none;
+    --shadow-rail-active: none;
   }
 
   button,
