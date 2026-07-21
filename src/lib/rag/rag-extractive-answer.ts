@@ -751,9 +751,17 @@ function factKindForSentence(sentence: string, query: string, intent: AnswerInte
   // range 0.6-0.8 mmol/L" from the dose arm below and change fact priorities
   // for non-monitoring intents. "review" stays exact for the same reason:
   // review\w* would reclassify dose-review sentences ("doses should be
-  // reviewed daily") away from the dose arm.
+  // reviewed daily") away from the dose arm. The legacy tokens classify
+  // byte-identically; a sentence claimed ONLY via the new inflections that
+  // also carries a concrete dose value ("Quetiapine is monitored at a dose of
+  // 200 mg daily") falls through to the dose arm — otherwise a sole
+  // dose-bearing fact would be dropped by dose-intent answers (reviewer P2).
+  const legacyMonitoringKindPattern =
+    /\b(?:monitor|monitoring|baseline|weekly|monthly|annual|every|level|levels|blood test|ecg|lft|review)\b/i;
+  const inflectedMonitoringKindPattern = /\b(?:monitor\w*|annual(?:ly)?|levels?|blood tests?|ecgs?|lfts?)\b/i;
   if (
-    /\b(?:monitor\w*|baseline|weekly|monthly|annual(?:ly)?|every|levels?|blood tests?|ecgs?|lfts?|review)\b/i.test(text)
+    legacyMonitoringKindPattern.test(text) ||
+    (inflectedMonitoringKindPattern.test(text) && !clinicalDoseValuePattern.test(text))
   ) {
     return "monitoring";
   }
@@ -870,13 +878,15 @@ function factSentenceMatchesQueryFromResult(
   const sentenceMedicationEntities = medicationEntitiesInText(sentence);
   const resultMedicationEntities = medicationEntitiesInText(resultText);
   if (
-    intent === "dose" &&
+    (intent === "dose" || intent === "monitoring_schedule") &&
     queryMedicationEntities.length > 0 &&
     sentenceMedicationEntities.length === 0 &&
     resultMedicationEntities.length > 1
   ) {
-    // A bare dose row from a multi-drug table cannot safely inherit the query's
-    // medication/class label. Require the row itself to name its medication.
+    // A bare dose or schedule row from a multi-drug table cannot safely inherit
+    // the query's medication/class label. Require the row itself to name its
+    // medication. (Monitoring joined dose here when the figure coverage escape
+    // below made bare interval/range rows admissible without a query token.)
     return false;
   }
   const entityCoveredByResult =

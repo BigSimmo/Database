@@ -555,6 +555,40 @@ describe("monitoring evidence gate parity (run-#60 miss class)", () => {
     expect(plain).toMatch(/0\.6-0\.8 mmol\/L/i);
   });
 
+  it("keeps a sole dose figure whose sentence uses inflected monitoring tokens (reviewer P2)", () => {
+    // The inflected monitoring kind tokens must not steal a dose-value sentence
+    // from the dose arm: with these as the only dose-bearing facts, dose-intent
+    // answers previously flipped to a source-gap after the inflection widen.
+    for (const sentence of [
+      "Quetiapine is monitored at a dose of 200 mg daily.",
+      "Quetiapine 200 mg daily is reviewed annually.",
+    ]) {
+      const answer = extractiveAnswerFor("What is the quetiapine dose?", [
+        figureChunk({ id: "dose-steal-guard-1", content: sentence }),
+      ]);
+      const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+      expect(answer.grounded).toBe(true);
+      expect(plain).toContain("200 mg");
+    }
+  });
+
+  it("refuses a bare schedule row from a multi-drug chunk (reviewer P3)", () => {
+    const answer = extractiveAnswerFor("What monitoring is required for clozapine?", [
+      figureChunk({
+        id: "multi-drug-monitoring-guard-1",
+        title: "Antipsychotic Monitoring Summary",
+        file_name: "Antipsychotic Monitoring Summary.pdf",
+        section_heading: "Monitoring",
+        // The bare interval row names no drug; the chunk names two. The figure
+        // coverage escape must not let the row inherit the queried drug.
+        content:
+          "Clozapine and olanzapine monitoring requirements are listed below. Reviewed every 6 months with fasting bloods.",
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).not.toMatch(/every 6 months/i);
+  });
+
   it("still refuses a schedule-free monitoring sentence with no query-token coverage", () => {
     const answer = extractiveAnswerFor("What metabolic monitoring is required for antipsychotics?", [
       figureChunk({
