@@ -35,6 +35,7 @@ import {
 } from "react";
 import { type DocumentDeleteResult } from "@/components/DocumentManagementActions";
 import { extractSafetyFindings } from "@/lib/clinical-safety";
+import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import { isLocalNoAuthMode, resolveClientDemoMode, resolveUploadReadOnlyMode } from "@/lib/client-env";
 import { isAdministratorUser } from "@/lib/authorization";
 import { readLocalProjectIdentity, unsafeLocalProjectMessage } from "@/lib/local-project-identity";
@@ -842,7 +843,7 @@ export function ClinicalDashboard({
       }
 
       window.setTimeout(() => {
-        document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        document.getElementById(targetId)?.scrollIntoView({ behavior: resolveScrollBehavior(), block: "start" });
       }, 0);
     },
     [canUseAdministrativeApis, closeDashboardTransientSurfaces],
@@ -1980,7 +1981,7 @@ export function ClinicalDashboard({
       setLoading(false);
       setError(null);
       rememberRecentQuery(trimmedQuery);
-      window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+      window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() }));
       return;
     }
     if (!canRunSearch) {
@@ -2196,7 +2197,7 @@ export function ClinicalDashboard({
           if (isAnswerFollowUp) {
             window.requestAnimationFrame(() => {
               const main = mainRef.current;
-              main?.scrollTo({ top: main.scrollHeight, behavior: "smooth" });
+              main?.scrollTo({ top: main.scrollHeight, behavior: resolveScrollBehavior() });
             });
           }
         }
@@ -2231,7 +2232,7 @@ export function ClinicalDashboard({
     setError(null);
     setAnswerProgress(null);
     rememberRecentQuery(trimmedSearchText);
-    window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+    window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() }));
     if (updateUrl) {
       router.replace(appModeHomeHref("prescribing", { query: trimmedSearchText, queryMode, scopeFilters }));
     }
@@ -2457,7 +2458,7 @@ export function ClinicalDashboard({
   function answerFromDocument(documentId: string) {
     setSelectedDocumentIds([documentId]);
     setSearchMode("answer");
-    window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+    window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() }));
   }
 
   function updateDocumentSearchUrl(
@@ -2488,7 +2489,7 @@ export function ClinicalDashboard({
       setError(null);
       setAnswerProgress(null);
       rememberRecentQuery(trimmedSearchText);
-      window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+      window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() }));
       if (updateUrl) {
         router.push(
           documentsSearchHref({
@@ -2523,7 +2524,7 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setAnswerViewMode("high_yield");
     rememberRecentQuery(trimmedSearchText);
-    window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: "smooth" }));
+    window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() }));
     if (updateUrl) updateDocumentSearchUrl(trimmedSearchText, targetMode, filtersOverride);
 
     const requestId = ++searchRequestSeqRef.current;
@@ -2710,7 +2711,7 @@ export function ClinicalDashboard({
     setAnswerViewMode("high_yield");
     router.replace(href);
     window.requestAnimationFrame(() => {
-      mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+      mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() });
     });
     focusComposerInput();
   }
@@ -2723,7 +2724,9 @@ export function ClinicalDashboard({
     setDocumentsDrawerOpen(true);
     if (window.matchMedia("(min-width: 1024px)").matches) {
       window.requestAnimationFrame(() => {
-        document.getElementById("dashboard-documents-drawer")?.scrollIntoView({ block: "start", behavior: "smooth" });
+        document
+          .getElementById("dashboard-documents-drawer")
+          ?.scrollIntoView({ block: "start", behavior: resolveScrollBehavior() });
       });
     }
   }
@@ -2755,7 +2758,7 @@ export function ClinicalDashboard({
     setUploadDrawerOpen(true);
     window.requestAnimationFrame(() => {
       const drawer = document.getElementById("dashboard-upload-drawer") as HTMLDetailsElement | null;
-      drawer?.scrollIntoView({ block: "start", behavior: "smooth" });
+      drawer?.scrollIntoView({ block: "start", behavior: resolveScrollBehavior() });
       if (drawer && !drawer.open) {
         drawer.querySelector<HTMLElement>("summary")?.click();
       }
@@ -2766,7 +2769,7 @@ export function ClinicalDashboard({
     closeDashboardTransientSurfaces();
     const reviewTrigger = document.getElementById("answer-evidence-drawer-mobile-trigger") as HTMLButtonElement | null;
     if (reviewTrigger) {
-      reviewTrigger.scrollIntoView({ block: "center", behavior: "smooth" });
+      reviewTrigger.scrollIntoView({ block: "center", behavior: resolveScrollBehavior() });
       reviewTrigger.click();
       return;
     }
@@ -3461,12 +3464,12 @@ export function ClinicalDashboard({
                   // dock inside its scrollable content. Padding can collapse when the
                   // dock hides without exposing the app-shell background; the
                   // bottom-clamp guard in use-hide-on-scroll prevents false reveals.
-                  "max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-24"
+                  "max-sm:pb-[var(--mobile-composer-reserve)] max-sm:[scroll-padding-bottom:var(--mobile-composer-reserve)] sm:mb-24"
               : hasMobileBottomSearch
                 ? // Phones dock the compact composer on every non-answer view
                   // (mode homes included), so they always reserve dock
                   // clearance; sm+ keeps the in-flow hero/sticky composers.
-                  "max-sm:pb-[var(--mobile-composer-reserve)] sm:mb-0"
+                  "max-sm:pb-[var(--mobile-composer-reserve)] max-sm:[scroll-padding-bottom:var(--mobile-composer-reserve)] sm:mb-0"
                 : "mb-0",
           )}
         >

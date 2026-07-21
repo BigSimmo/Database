@@ -115,8 +115,12 @@ export function AnswerEmptyState({
 }
 
 export function AnswerSkeleton() {
+  // role=status (matching LoadingPanel) so the initial answer-pending window —
+  // after submit but before the first progress event — is announced. Without it
+  // the aria-label sits on a plain div and screen readers stay silent until the
+  // progress stepper (its own role=status) mounts.
   return (
-    <div className="space-y-4" aria-label={answerLoading.ariaLabel}>
+    <div className="space-y-4" role="status" aria-label={answerLoading.ariaLabel}>
       <div className="space-y-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4">
         <div className="h-4 w-10/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
         <div className="h-4 w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
@@ -137,6 +141,7 @@ export function AnswerSkeleton() {
         <div className="h-28 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
         <div className="hidden h-28 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)] sm:block" />
       </div>
+      <span className="sr-only">{answerLoading.ariaLabel}</span>
     </div>
   );
 }
