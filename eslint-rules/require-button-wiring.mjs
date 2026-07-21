@@ -41,15 +41,38 @@ function isTypeButton(attr) {
 }
 
 /**
- * True when the attribute wires click behaviour. Only `onClick` counts as a
- * handler: other `on*` events (onFocus/onMouseEnter) leave a click doing
- * nothing, and `formAction` has no submit effect on a non-submit button.
+ * True when a JSX attribute value is a *statically-known* value that means "off":
+ * a literal `false`/`null`, the string `"false"`, or the identifier `undefined`
+ * (bare or inside an expression container). Anything dynamic — an identifier,
+ * call, arrow function, member access, ternary — is unknown at lint time and is
+ * NOT treated as off, so it keeps passing (same fail-open stance as the spread
+ * escape hatch). A bare boolean attribute (`disabled`, no value) is `true`.
+ */
+function isStaticallyOff(value) {
+  if (value == null) return false; // bare boolean attribute → `true`, not off
+  const nodeIsOff = (node) =>
+    node.type === "Literal"
+      ? node.value === false || node.value === null || node.value === "false"
+      : node.type === "Identifier" && node.name === "undefined";
+  if (value.type === "Literal") return nodeIsOff(value);
+  if (value.type === "JSXExpressionContainer") return nodeIsOff(value.expression);
+  return false;
+}
+
+/**
+ * True when the attribute actually wires click behaviour with a live value. Only
+ * `onClick` counts as a handler: other `on*` events (onFocus/onMouseEnter) leave
+ * a click doing nothing, and `formAction` has no submit effect on a non-submit
+ * button. A statically-known "off" value does not wire or disable the button —
+ * `onClick={null}`, `disabled={false}`, and `aria-disabled="false"` are treated
+ * as unwired, while dynamic values and `aria-disabled="true"` remain valid.
  */
 function isWiringAttr(attr) {
   if (attr.type !== "JSXAttribute") return false;
   if (attr.name.type !== "JSXIdentifier") return false;
   const name = attr.name.name;
-  return name === "onClick" || EXPLICIT_WIRING_ATTRS.has(name);
+  if (name !== "onClick" && !EXPLICIT_WIRING_ATTRS.has(name)) return false;
+  return !isStaticallyOff(attr.value);
 }
 
 /** @type {import("eslint").Rule.RuleModule} */
