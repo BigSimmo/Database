@@ -525,8 +525,9 @@ summary {
   transition-timing-function: var(--ease-out-soft);
 }
 
+/* Tactile press only on button-like controls. Applying it to every `a` nudged
+   inline body/citation links down 1px on tap, which reads oddly for text links. */
 button:active,
-a:active,
 summary:active {
   transform: translateY(1px);
 }
