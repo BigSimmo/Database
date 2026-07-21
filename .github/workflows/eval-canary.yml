@@ -17,7 +17,7 @@ on:
       answer_case_limit:
         description: "Number of answer-quality cases to run (--limit)"
         required: false
-        default: "8"
+        default: "44"
       # Staged ranking-weight evaluation (ADDENDUM 4 Phase B): a RAG_RANKING_CONFIG JSON
       # override evaluated live WITHOUT touching code defaults. Empty = production weights.
       # Malformed JSON fails the run loudly (validation step below) instead of silently
@@ -158,7 +158,7 @@ jobs:
       - name: Answer-quality subset (live generation)
         id: answer_quality
         env:
-          ANSWER_CASE_LIMIT: ${{ github.event.inputs.answer_case_limit || '8' }}
+          ANSWER_CASE_LIMIT: ${{ github.event.inputs.answer_case_limit || '44' }}
           # Canary-only latency allowance: cross-region runner -> Sydney Supabase
           # + OpenAI. Release/local eval:quality keeps the strict default gates.
           EVAL_LATENCY_CONTEXT: cross-region-runner
