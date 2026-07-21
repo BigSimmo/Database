@@ -2122,12 +2122,30 @@ function markEmbeddingSkippedByTextFastPath(telemetry: SearchTelemetry, reason: 
 }
 
 /** Should attempt document lookup fast path. */
-function shouldAttemptDocumentLookupFastPath(queryClass: RagQueryClass) {
-  return (
+export function shouldAttemptDocumentLookupFastPath(
+  queryClass: RagQueryClass,
+  analysis?: Pick<ClinicalQueryAnalysis, "intent" | "documentTitleTerms">,
+) {
+  if (
     queryClass === "document_lookup" ||
     queryClass === "broad_summary" ||
     queryClass === "table_threshold" ||
     queryClass === "comparison"
+  ) {
+    return true;
+  }
+  // Title-supported escalation rescue: a medication_dose_risk query only
+  // reaches the S3 block after its lexical pool failed the dose fast-path
+  // floor (decideTextFastPath), so this is rescue semantics by construction.
+  // Both predicates are existing deterministic classifier signals — the
+  // escalation_risk intent is only assigned when drug_dosing wording did NOT
+  // match, so pure dose/route/frequency questions can never engage this layer,
+  // and documentTitleTerms > 0 means a curated title alias phrase is present
+  // for the alias tier to rescue with.
+  return (
+    queryClass === "medication_dose_risk" &&
+    analysis?.intent === "escalation_risk" &&
+    (analysis?.documentTitleTerms.length ?? 0) > 0
   );
 }
 
@@ -2532,7 +2550,7 @@ export async function searchChunksWithTelemetry(
     }
   }
 
-  if (shouldAttemptDocumentLookupFastPath(queryClassification.queryClass)) {
+  if (shouldAttemptDocumentLookupFastPath(queryClassification.queryClass, queryAnalysis)) {
     const documentLookupStartedAt = Date.now();
     const documentLookupData = await searchDocumentLookupFastPath({
       supabase,
