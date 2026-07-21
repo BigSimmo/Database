@@ -458,21 +458,57 @@ describe("zero-atom figure promotion guard (reviewer P2)", () => {
   const leadOnly = "Metabolic monitoring is required for all patients prescribed antipsychotics.";
   const intervalSentence = "Weight and fasting glucose are monitored for antipsychotic patients every 6 weeks.";
 
-  it("refuses a bare-number interval that lives only in adjacent context", () => {
+  it("refuses an adjacent-context interval whose number matches corpus text with a different unit", () => {
     const answer = extractiveAnswerFor(question, [
       figureChunk({
         id: "monitoring-guard-1",
         section_heading: "Metabolic monitoring",
-        content: `${leadOnly} ${intervalSentence}`,
-        // The interval text is extracted from content (fact admission) but the
-        // claim-support corpus for the chunk is overridden to exclude it: simulate
-        // by keeping the figure OUT of heading/content and only in adjacent_context.
+        // The synopsis shares the bare number but not the unit, and carries no
+        // intent tokens so it can never be admitted as a competing fact. The
+        // "every 6 weeks" figure yields a 6/week quantity atom, so atom
+        // identity must refuse the 6/month corpus — and the interval pattern's
+        // full-match ordering keeps the verbatim fallback equally honest.
+        retrieval_synopsis: "Reviewed every 6 months",
+        content: leadOnly,
+        adjacent_context: intervalSentence,
       }),
     ]);
-    expect(answer.grounded).toBe(true);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).not.toMatch(/every 6 weeks/i);
+    expect(plain).not.toMatch(/every 6 months/i);
   });
 
-  it("promotes a zero-atom interval verbatim-supported by chunk content", () => {
+  // Longer than leadOnly so it stays a promotion candidate instead of taking
+  // the shortest-first lead slot, and digit-free so it yields no value atom —
+  // exercising the guard's verbatim-corpus fallback rather than atom identity.
+  const annualSentence = "Weight and fasting glucose monitoring is repeated annually for all antipsychotic patients.";
+
+  it("promotes a truly zero-atom schedule token verbatim-supported by chunk content", () => {
+    const answer = extractiveAnswerFor(question, [
+      figureChunk({
+        id: "monitoring-guard-4",
+        section_heading: "Metabolic monitoring",
+        content: `${leadOnly} ${annualSentence}`,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).toMatch(/annually/i);
+  });
+
+  it("refuses a truly zero-atom schedule token that exists only in adjacent context", () => {
+    const answer = extractiveAnswerFor(question, [
+      figureChunk({
+        id: "monitoring-guard-5",
+        section_heading: "Metabolic monitoring",
+        content: leadOnly,
+        adjacent_context: annualSentence,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).not.toMatch(/annually/i);
+  });
+
+  it("promotes an atom-backed interval verbatim-supported by chunk content", () => {
     const answer = extractiveAnswerFor(question, [
       figureChunk({
         id: "monitoring-guard-2",

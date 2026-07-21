@@ -1,5 +1,5 @@
 import { boldHighYieldClinicalText } from "@/lib/answer-ranking";
-import { applyNumericVerification, extractClinicalValueAtoms, type ClinicalValueAtom } from "@/lib/answer-verification";
+import { applyNumericVerification, extractClinicalValueAtoms } from "@/lib/answer-verification";
 import { citationFromResult as resultCitation, compactCitations } from "@/lib/citations";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
@@ -40,7 +40,7 @@ import type {
   RagQueryClass,
   SearchResult,
 } from "@/lib/types";
-import { assessAndEnforceClaimSupport, sourceEvidenceText } from "@/lib/rag/rag-claim-support";
+import { assessAndEnforceClaimSupport, clinicalValueAtomKey, sourceEvidenceText } from "@/lib/rag/rag-claim-support";
 
 type AnswerIntent =
   | "dose"
@@ -371,8 +371,13 @@ const doseIntentEvidencePattern = new RegExp(
 // Interval/schedule tokens that make a monitoring fact carry its asked-for
 // schedule ("baseline", "annually", "every 3", "6 months"), plus unit-bearing
 // level ranges ("0.6-0.8 mmol/L") for target-level monitoring answers.
+// Alternation order is load-bearing: "every N unit" must precede bare
+// "every N" so exec() returns the full schedule, not a truncated "every 6".
+// Digit+unit intervals also yield value atoms, so atom identity catches
+// unit mismatches today — the full match keeps the promotion guard's
+// verbatim-corpus fallback equally honest if that coverage ever drifts.
 const monitoringIntervalFigurePattern =
-  /\b(?:baseline|weekly|monthly|annual(?:ly)?|every\s+\d+|\d+\s*(?:week|month|day|hour|year)s?)\b/i;
+  /\b(?:baseline|weekly|monthly|annual(?:ly)?|every\s+\d+\s*(?:week|month|day|hour|year)s?|every\s+\d+|\d+\s*(?:week|month|day|hour|year)s?)\b/i;
 const monitoringUnitRangeFigurePattern =
   /\d+(?:\.\d+)?\s*[-–]\s*\d+(?:\.\d+)?\s*(?:mmol\/L|mg|micrograms?|nmol\/L|mcg)/i;
 
@@ -1091,23 +1096,6 @@ function buildFactSections(facts: ExtractedClinicalFact[], query: string) {
     .filter((section) => section.body && section.citation_chunk_ids.length > 0);
 }
 
-// Mirrors the private atom identity used by rag-claim-support's evidence check
-// (same fields, same separator) so the promotion guard below agrees with claim
-// assessment about whether a figure is present in the evidence corpus.
-function promotionAtomKey(atom: ClinicalValueAtom) {
-  return [
-    atom.kind,
-    atom.canonicalValue,
-    atom.comparator ?? "",
-    atom.canonicalUnit ?? "",
-    atom.denominatorUnit ?? "",
-    atom.denominatorTime ?? "",
-    atom.denominatorWeight ?? "",
-    atom.route ?? "",
-    atom.frequency ?? "",
-  ].join("|");
-}
-
 /**
  * Nuke-proofing guard for lead-slot figure promotion: only promote a fact whose
  * clinical value atoms ALL appear in the claim-support evidence corpus
@@ -1115,11 +1103,11 @@ function promotionAtomKey(atom: ClinicalValueAtom) {
  * adjacent_context and numeric verification accepts it too, but claim support
  * does not — so a figure that lives only in adjacent context would pass numeric
  * verification and then trip claim_support_high_risk_gap, nuking the whole
- * answer. Facts with no value atoms (e.g. "checked at baseline, then annually")
- * instead require their figure tokens verbatim in the same corpus: bare-number
- * intervals like "every 6 weeks" match the monitoring figure pattern yet yield
- * no atom (reviewer P2), so the atom check alone would pass a figure that lives
- * only in adjacent context and claim support would then nuke.
+ * answer. Facts with no value atoms instead require their figure tokens
+ * verbatim in the same corpus: schedule tokens like "baseline" or "annually"
+ * match the monitoring figure pattern yet yield no atom (reviewer P2), so the
+ * atom check alone would pass a figure that lives only in adjacent context and
+ * claim support would then nuke.
  */
 function promotedFactFigureIsClaimSupportable(
   fact: ExtractedClinicalFact,
@@ -1138,9 +1126,9 @@ function promotedFactFigureIsClaimSupportable(
     );
   }
   const corpusAtomKeys = new Set(
-    citingResults.flatMap((result) => extractClinicalValueAtoms(sourceEvidenceText(result)).map(promotionAtomKey)),
+    citingResults.flatMap((result) => extractClinicalValueAtoms(sourceEvidenceText(result)).map(clinicalValueAtomKey)),
   );
-  return factAtoms.every((atom) => corpusAtomKeys.has(promotionAtomKey(atom)));
+  return factAtoms.every((atom) => corpusAtomKeys.has(clinicalValueAtomKey(atom)));
 }
 
 /**

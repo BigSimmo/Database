@@ -99,7 +99,12 @@ function splitComparisonClaims(value: string) {
     .slice(0, 24);
 }
 
-function atomKey(atom: ClinicalValueAtom) {
+/**
+ * Canonical identity for a clinical value atom, shared with the extractive
+ * lead-figure promotion guard (rag-extractive-answer.ts) so promotion and
+ * claim-support agree on whether a figure is present in the evidence corpus.
+ */
+export function clinicalValueAtomKey(atom: ClinicalValueAtom) {
   return [
     atom.kind,
     atom.canonicalValue,
@@ -250,8 +255,8 @@ function sourceSupportsClaim(claim: string, source: SearchResult) {
   if (!compatibleSafetyDimensions(claim, evidence)) return false;
   if (!compatibleHighRiskTrigger(claim, evidence)) return false;
 
-  const evidenceAtoms = new Set(extractClinicalValueAtoms(evidence).map(atomKey));
-  if (extractClinicalValueAtoms(claim).some((atom) => !evidenceAtoms.has(atomKey(atom)))) return false;
+  const evidenceAtoms = new Set(extractClinicalValueAtoms(evidence).map(clinicalValueAtomKey));
+  if (extractClinicalValueAtoms(claim).some((atom) => !evidenceAtoms.has(clinicalValueAtomKey(atom)))) return false;
 
   const claimTopics = topicTokens(claim);
   const evidenceTopics = topicTokens(evidence);
