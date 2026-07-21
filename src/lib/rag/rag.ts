@@ -2145,7 +2145,7 @@ export function shouldAttemptDocumentLookupFastPath(
   return (
     queryClass === "medication_dose_risk" &&
     analysis?.intent === "escalation_risk" &&
-    (analysis?.documentTitleTerms.length ?? 0) > 0
+    analysis.documentTitleTerms.length > 0
   );
 }
 
