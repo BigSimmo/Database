@@ -227,6 +227,7 @@ function AddRow({
           }
         }}
         placeholder={primaryPlaceholder}
+        aria-label={primaryPlaceholder}
         className={cn(fieldControlPlain, "min-h-10")}
       />
       {kind === "contact" ? (
@@ -240,6 +241,7 @@ function AddRow({
             }
           }}
           placeholder={secondaryPlaceholder}
+          aria-label={secondaryPlaceholder}
           className={cn(fieldControlPlain, "min-h-10")}
         />
       ) : null}
@@ -446,10 +448,15 @@ export function PatientSafetyPlanMockup() {
       }
       lines.push("");
     }
+    if (reasons.length) {
+      lines.push("MY REASONS FOR LIVING");
+      for (const reason of reasons) lines.push(`   • ${reason.primary}`);
+      lines.push("");
+    }
     lines.push("In an emergency: call 000 or go to your nearest Emergency Department.");
-    lines.push("24/7 support: Lifeline 13 11 14.");
+    lines.push("24/7 support: Lifeline 13 11 14 · Suicide Call Back Service 1300 659 467.");
     return lines.filter((line, index, all) => !(line === "" && all[index - 1] === "")).join("\n");
-  }, [entries, patient, planDate]);
+  }, [entries, patient, planDate, reasons]);
 
   const copyPlan = async () => {
     try {
@@ -594,7 +601,10 @@ export function PatientSafetyPlanMockup() {
               <input
                 id="spg-patient"
                 value={patient}
-                onChange={(event) => setPatient(event.target.value)}
+                onChange={(event) => {
+                  setPatient(event.target.value);
+                  setFinalised(false);
+                }}
                 placeholder="e.g. Sam R."
                 className={fieldControlPlain}
               />
@@ -606,7 +616,10 @@ export function PatientSafetyPlanMockup() {
               <input
                 id="spg-date"
                 value={planDate}
-                onChange={(event) => setPlanDate(event.target.value)}
+                onChange={(event) => {
+                  setPlanDate(event.target.value);
+                  setFinalised(false);
+                }}
                 placeholder="e.g. 12 Aug 2026"
                 className={fieldControlPlain}
               />
@@ -652,7 +665,10 @@ export function PatientSafetyPlanMockup() {
                     {reason.primary}
                     <button
                       type="button"
-                      onClick={() => setReasons((prev) => prev.filter((item) => item.id !== reason.id))}
+                      onClick={() => {
+                        setReasons((prev) => prev.filter((item) => item.id !== reason.id));
+                        setFinalised(false);
+                      }}
                       aria-label={`Remove “${reason.primary}”`}
                       className={cn(
                         "grid size-5 place-items-center rounded-full text-[color:var(--text-soft)] transition hover:bg-[color:var(--danger-soft)] hover:text-[color:var(--danger)]",
@@ -668,7 +684,10 @@ export function PatientSafetyPlanMockup() {
             <AddRow
               kind="list"
               primaryPlaceholder="e.g. Finishing my apprenticeship"
-              onAdd={(primary) => setReasons((prev) => [...prev, { id: uid("reason"), primary }])}
+              onAdd={(primary) => {
+                setReasons((prev) => [...prev, { id: uid("reason"), primary }]);
+                setFinalised(false);
+              }}
             />
           </section>
         </div>
