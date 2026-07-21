@@ -56,7 +56,7 @@ function collectSourceFiles(dir: string): { rel: string; content: string }[] {
     const abs = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       out.push(...collectSourceFiles(abs));
-    } else if (/\.(ts|tsx)$/.test(entry.name)) {
+    } else if (/\.(js|jsx|ts|tsx)$/.test(entry.name)) {
       const rel = path.relative(repoRoot, abs).split(path.sep).join("/");
       if (!isMockupPath(rel)) out.push({ rel, content: readFileSync(abs, "utf8") });
     }
@@ -69,8 +69,14 @@ const sourceFiles = collectSourceFiles(srcRoot);
 /** Route targets produced by the canonical nav builders (never bare string literals). */
 const builderTargets = new Set<string>();
 for (const mode of appModeDefinitions) {
-  const href = ("href" in mode ? mode.href : undefined) ?? appModeHomeHref(mode.id);
-  builderTargets.add(pathOnly(href));
+  // Record both the default home path and a query-bearing variant: appModeHomeHref
+  // can emit a different path when given a query (e.g. document / namespaced-search
+  // routes), and those are valid static targets that must not read as orphaned.
+  const hrefs = [
+    ("href" in mode ? mode.href : undefined) ?? appModeHomeHref(mode.id),
+    appModeHomeHref(mode.id, { query: "__reachability__" }),
+  ];
+  for (const href of hrefs) builderTargets.add(pathOnly(href));
 }
 for (const tool of tools) builderTargets.add(pathOnly(tool.href));
 
@@ -80,9 +86,24 @@ for (const tool of tools) builderTargets.add(pathOnly(tool.href));
 // the family's reserved segments straight from the source of truth so new screens
 // are picked up automatically. See src/components/therapy-compass/bindings.tsx.
 const tcBindingsSrc = readFileSync(path.join(srcRoot, "components/therapy-compass/bindings.tsx"), "utf8");
-const tcBase = tcBindingsSrc.match(/const BASE = "([^"]+)"/)?.[1] ?? "/therapy-compass";
-const tcReserved = tcBindingsSrc.match(/RESERVED_SEGMENTS = new Set\(\[([^\]]*)]\)/);
-for (const match of (tcReserved?.[1] ?? "").matchAll(/"([^"]+)"/g)) {
+const tcBaseMatch = tcBindingsSrc.match(/const BASE = "([^"]+)"/);
+const tcReservedMatch = tcBindingsSrc.match(/RESERVED_SEGMENTS = new Set\(\[([^\]]*)]\)/);
+// Fail loudly if the source shape changed: a silent `?? default` / empty fallback
+// would drop every reserved Therapy Compass route from the guard without notice.
+if (!tcBaseMatch || !tcReservedMatch) {
+  throw new Error(
+    "route-reachability: could not parse BASE / RESERVED_SEGMENTS from therapy-compass/bindings.tsx — " +
+      "update this parser to match the current source so reserved routes stay covered.",
+  );
+}
+const tcBase = tcBaseMatch[1];
+const tcReservedSegments = [...tcReservedMatch[1].matchAll(/"([^"]+)"/g)];
+if (tcReservedSegments.length === 0) {
+  throw new Error(
+    "route-reachability: RESERVED_SEGMENTS parsed to an empty set — Therapy Compass routes would be unchecked.",
+  );
+}
+for (const match of tcReservedSegments) {
   builderTargets.add(`${tcBase}/${match[1]}`);
 }
 

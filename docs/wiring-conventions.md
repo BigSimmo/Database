@@ -45,7 +45,7 @@ operable `role="switch"` only when an `onToggle` is passed; without it, it is a 
 indicator by design — a "switch" with no handler is intentional, not a dead control.
 
 **Never** ship a styled, `aria-label`led `<button type="button">` with no handler and no disabled
-state. That was the "Language and region" globe defect (`master-search-header.tsx`, fixed 2026-07-20)
+state. That was the "Language and region" globe defect (`master-search-header.tsx`, fixed 2026-07-21)
 and is exactly what the ESLint gate below now catches.
 
 ## Navigation and route wiring

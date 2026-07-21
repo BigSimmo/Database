@@ -16,9 +16,11 @@ const localRulesPlugin = {
 };
 
 // Design-scratch mockups (404 in production) are exempt from the local rules.
-// This is the repo's full mockup surface: the `/mockups/*` routes, the
-// `*-mockups/` component directories, and the `*-mockups.tsx` singletons.
-const MOCKUP_IGNORES = ["**/*mockup*", "**/mockups/**", "**/*-mockups/**", "**/*-mockups.tsx"];
+// Match the repo's documented mockup surface precisely — the `/mockups/*`
+// routes, the `*-mockups/` component directories, and the `*-mockup(s).tsx`
+// singletons — instead of a broad `*mockup*` substring, which would also exempt
+// arbitrary production files whose name merely contains "mockup".
+const MOCKUP_IGNORES = ["src/app/mockups/**", "**/*-mockups/**", "**/*-mockups.tsx", "**/*-mockup.tsx"];
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -51,13 +53,13 @@ const eslintConfig = defineConfig([
     },
   },
   // A styled, labelled `<button type="button">` with no handler is a dead control
-  // (the "Language and region" globe class, fixed 2026-07-20). Require an explicit
-  // non-submit button to carry a handler/formAction or an explicit disabled state.
+  // (the "Language and region" globe class, fixed 2026-07-21). Require an explicit
+  // non-submit button to carry an onClick handler or an explicit disabled state.
   // Scoped to production source (`src/**`): this is a product-UX concern, so test
   // fixtures that render a bare <button> to exercise a slot are out of scope. The
   // full mockup-ignore set exempts the `*-mockups/` design-scratch previews.
   {
-    files: ["src/**/*.{jsx,tsx}"],
+    files: ["src/**/*.{js,jsx,ts,tsx}"],
     ignores: MOCKUP_IGNORES,
     plugins: { local: localRulesPlugin },
     rules: {
