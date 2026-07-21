@@ -132,7 +132,7 @@ export const searchPageCanvas = "bg-[color:var(--background)] text-[color:var(--
 // --mobile-composer-reserve so it can collapse when the dock hides. Do not bake
 // a second dock-sized safe-area pad into page shells.
 export const searchPageShell =
-  "min-h-[calc(100dvh-4rem)] overflow-x-hidden px-3 py-3 pb-4 sm:px-5 sm:py-5 sm:pb-8 lg:px-6";
+  "min-h-[calc(100dvh-var(--shell-header-h))] overflow-x-hidden px-3 py-3 pb-4 sm:px-5 sm:py-5 sm:pb-8 lg:px-6";
 export const searchPageContainer = "mx-auto w-full max-w-[1500px]";
 // Canonical content-page width. Detail pages (service / form / differential),
 // medication record + prescribing workspace, and the forms results view converge

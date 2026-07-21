@@ -274,6 +274,10 @@
      the layered .edge-glass-header base and the unlayered max-width:639px
      guard so the values cannot drift apart. lg overrides to 1.5rem. */
   --header-edge-pad: 1rem;
+  /* Borderless app-shell/header height (the min-h-14 bar). Page shells fill the
+     viewport below it via calc(100dvh - var(--shell-header-h)); one token so the
+     header height and those page-fill floors cannot silently drift apart. */
+  --shell-header-h: 4rem;
   /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
   --phone-dock-hidden-pad: 0.75rem;
   --phone-dock-differentials-compare-clearance: 12.5rem;

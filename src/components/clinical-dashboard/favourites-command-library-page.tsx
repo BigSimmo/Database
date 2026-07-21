@@ -1073,7 +1073,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
     return (
       <main
         data-testid="favourites-hub"
-        className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:pb-32 md:pb-0"
+        className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:pb-32 md:pb-0"
       >
         <span data-testid="favourites-command-library" className="sr-only">
           Favourites command library
@@ -1127,14 +1127,14 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
   return (
     <main
       data-testid="favourites-hub"
-      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:pb-32 md:pb-0"
+      className="min-h-0 overflow-x-clip bg-[color:var(--background)] pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:pb-32 md:pb-0"
     >
       <span data-testid="favourites-command-library" className="sr-only">
         Favourites command library
       </span>
       <div
         className={cn(
-          "grid min-h-0 min-w-0 overflow-x-clip sm:min-h-[calc(100dvh-4rem)]",
+          "grid min-h-0 min-w-0 overflow-x-clip sm:min-h-[calc(100dvh-var(--shell-header-h))]",
           navCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[17.5rem_minmax(0,1fr)]",
           selectedItem &&
             (navCollapsed

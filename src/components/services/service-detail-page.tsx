@@ -508,7 +508,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
       // Phone shell already owns dock clearance via --mobile-composer-reserve.
       // A 100dvh min-height here overflows the inset scrollport and parks the
       // page footer under the visible dock even when the shell pad is correct.
-      className="max-sm:min-h-0 max-sm:shrink-0 bg-[color:var(--background)] px-3 py-4 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
+      className="max-sm:min-h-0 max-sm:shrink-0 bg-[color:var(--background)] px-3 py-4 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-5 sm:py-6 sm:pb-10 lg:px-8"
     >
       <div className={pageContainer}>
         {notice ? (
