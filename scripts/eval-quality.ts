@@ -89,6 +89,7 @@ export type RagQualityResult = {
     totalMs: number;
     routeBudgetMs: number;
     routeDeadlineExceeded: boolean;
+    budgetExhaustedByRetrieval?: boolean;
   };
   routeCeilingExceeded?: boolean;
   estimatedCostUsd: number | null;
@@ -150,7 +151,10 @@ export function deliveredGroundedAfterSourceGovernancePolicy(
 
 const crossRegionRunnerLatencyContext = process.env.EVAL_LATENCY_CONTEXT === "cross-region-runner";
 
-export function ragAnswerTimingDiagnostics(answer: Pick<RagAnswer, "latencyTimings" | "routingMode">) {
+export function ragAnswerTimingDiagnostics(
+  answer: Pick<RagAnswer, "latencyTimings" | "routingMode">,
+  options?: { crossRegionRunner?: boolean },
+) {
   const latencyTimings = answer.latencyTimings;
   const answerRoute = answer.routingMode ?? "unsupported";
   const defaultRouteBudgetMs = answerRouteBudgetMs[answerRoute as AnswerRouteMode] ?? 0;
@@ -158,6 +162,14 @@ export function ragAnswerTimingDiagnostics(answer: Pick<RagAnswer, "latencyTimin
   const totalMs = latencyTimings?.total_latency_ms ?? 0;
   const generationMs = latencyTimings?.generation_latency_ms ?? 0;
   const routeDeadlineExceeded = latencyTimings?.route_deadline_exceeded ?? false;
+  const budgetExhaustedByRetrieval = latencyTimings?.route_budget_exhausted_by_retrieval ?? false;
+  const crossRegionRunner = options?.crossRegionRunner ?? crossRegionRunnerLatencyContext;
+  // Cross-region carve-out (E-3b): when GitHub's US runner spends the whole route budget on
+  // retrieval alone and the runtime then behaves optimally (zero generation), the ceiling is
+  // runner geography, not a runtime regression. Requires ALL THREE: the sanctioned cross-region
+  // context, the runtime's own authoritative flag, and no generation time. Local/release
+  // contexts (EVAL_LATENCY_CONTEXT unset) are unaffected — the gate is not weakened there.
+  const ceilingExcusedByCrossRegionRetrieval = crossRegionRunner && budgetExhaustedByRetrieval && generationMs === 0;
   return {
     timings: {
       retrievalMs: latencyTimings?.retrieval_latency_ms ?? latencyTimings?.search_latency_ms ?? 0,
@@ -167,8 +179,11 @@ export function ragAnswerTimingDiagnostics(answer: Pick<RagAnswer, "latencyTimin
       totalMs,
       routeBudgetMs,
       routeDeadlineExceeded,
+      budgetExhaustedByRetrieval,
     },
-    routeCeilingExceeded: routeDeadlineExceeded || (routeBudgetMs === 0 ? generationMs > 0 : totalMs > routeBudgetMs),
+    routeCeilingExceeded: ceilingExcusedByCrossRegionRetrieval
+      ? false
+      : routeDeadlineExceeded || (routeBudgetMs === 0 ? generationMs > 0 : totalMs > routeBudgetMs),
   };
 }
 
@@ -744,7 +759,13 @@ function ragCaseDiagnosticsTable(results: RagQualityResult[]) {
         result.rpcLatencyMs,
         result.embeddingLatencyMs,
         result.timings?.routeBudgetMs,
-        result.timings?.routeDeadlineExceeded ? "yes" : "no",
+        // "retrieval-exhausted" keeps cross-region-suppressed ceilings auditable in
+        // run-over-run comparisons even though they no longer fail the gate.
+        result.timings?.routeDeadlineExceeded
+          ? result.timings?.budgetExhaustedByRetrieval
+            ? "retrieval-exhausted"
+            : "yes"
+          : "no",
         result.model,
         result.failures.length > 0 ? `failed (${result.failures.length})` : "passed",
       ]
@@ -841,9 +862,13 @@ export function renderEvalQualityMarkdown(report: EvalQualityReport) {
           item.timings?.generationMs ?? "n/a"
         }ms verification=${item.timings?.verificationMs ?? "n/a"}ms total=${
           item.timings?.totalMs ?? item.latencyMs
-        }ms budget=${
-          item.timings?.routeBudgetMs ?? "n/a"
-        }ms deadline=${item.timings?.routeDeadlineExceeded ? "yes" : "no"}`,
+        }ms budget=${item.timings?.routeBudgetMs ?? "n/a"}ms deadline=${
+          item.timings?.routeDeadlineExceeded
+            ? item.timings?.budgetExhaustedByRetrieval
+              ? "retrieval-exhausted"
+              : "yes"
+            : "no"
+        }`,
     )
     .join("\n");
   return `# Retrieval Quality Report

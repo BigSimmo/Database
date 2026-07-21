@@ -167,6 +167,7 @@ import {
 import {
   answerRouteResultCanBeCached,
   createAnswerRouteDeadline,
+  deadlineAllowsGenerationRetry,
   isAnswerRouteDeadlineExceeded,
 } from "@/lib/rag/rag-route-budget";
 import { fetchRelatedDocumentMetadata, fetchRelatedDocuments } from "@/lib/document-enrichment";
@@ -3570,11 +3571,16 @@ async function answerQuestionWithScopeUncoalesced(
     callerSignal: args.signal,
     startedAt,
   });
+  // True exactly when pre-answer work (dominated by retrieval) consumed the whole route
+  // budget before any generation could start — e.g. slow cross-region RPC on an extractive
+  // route. Additive telemetry only; deadlineExceeded semantics are unchanged.
+  const routeBudgetExhaustedByRetrieval = routeDeadline.budgetMs > 0 && routeDeadline.remainingMs() <= 0;
   const routeTimingDiagnostics = () => ({
     retrieval_latency_ms: searchLatencyMs,
     routing_latency_ms: routingLatencyMs,
     route_budget_ms: routeDeadline.budgetMs,
     route_deadline_exceeded: routeDeadline.deadlineExceeded,
+    route_budget_exhausted_by_retrieval: routeBudgetExhaustedByRetrieval,
   });
   const finalizeAnswer = (answer: RagAnswer, numericVerificationSources?: SearchResult[]) => {
     const verificationStartedAt = Date.now();
@@ -4059,7 +4065,10 @@ ${qualityRetryInstruction}`
           schemaName: "clinical_rag_answer",
           instructions: answerInstructions,
           promptCacheKey: ragAnswerPromptVersion,
-          timeoutMs: routeDeadline.requestTimeoutMs(env.OPENAI_ANSWER_TIMEOUT_MS),
+          // Reserve-aware: an attempt may never spend the recovery path's share of the
+          // route budget (eval run #57: a provider timeout consumed the whole fallback
+          // budget and the successful recovery still missed the route ceiling by 54ms).
+          timeoutMs: routeDeadline.generationRequestTimeoutMs(env.OPENAI_ANSWER_TIMEOUT_MS),
           maxRetries: 0,
           reasoningEffort: useStrongReasoning
             ? strongReasoningEffortForQueryClass(queryClass, env.OPENAI_STRONG_REASONING_EFFORT)
@@ -4261,8 +4270,14 @@ ${qualityRetryInstruction}`
     });
     // Adopted from main: retry truncation once for BOTH fast- and strong-routed first attempts
     // (previously fast-only), keyed on route.mode rather than model identity so it stays correct
-    // when the tiers share a model.
-    if (generated.truncated && !retriedWithStrong) {
+    // when the tiers share a model. Budget-gated (E-3b): truncated attempts measure ~20s+
+    // before hitting max_output_tokens, so a retry into a nearly-spent budget is a
+    // guaranteed-discard — skip it and let the existing source-backed recovery deliver.
+    if (generated.truncated && !retriedWithStrong && !deadlineAllowsGenerationRetry(routeDeadline)) {
+      answerRetryReasons.push(
+        `truncation_retry_skipped_budget_reserve:${generationRetryReason(route.mode === "fast" ? "fast" : "strong", generated)}`,
+      );
+    } else if (generated.truncated && !retriedWithStrong) {
       const retryPrefix = route.mode === "fast" ? "fast" : "strong";
       const retryReason = `${generationRetryReason(retryPrefix, generated)}_retry_strong`;
       answerRetryCount += 1;
