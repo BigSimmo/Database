@@ -599,7 +599,7 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("phone mode homes dock the compact shared search at the bottom edge", async ({ page }) => {
+  test("phone mode homes keep the in-flow hero pill, matching the answer home", async ({ page }) => {
     await mockAnswerDashboardApi(page);
     await page.setViewportSize({ width: 390, height: 820 });
 
@@ -614,27 +614,29 @@ test.describe("Clinical KB tools launcher", () => {
       await expect(page.getByTestId(home.testId)).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
 
-      // Phones dock the composer as the compact single-row pill; the hero slot
-      // stays empty below sm (it hosts the pill again from the sm breakpoint).
-      const dock = page.locator('form.answer-footer-search-dock[data-footer-variant="compact"]');
-      await expect(dock, home.path).toHaveCount(1);
-      await expect(dock.getByTestId("global-search-input")).toBeVisible();
-      await expect(page.locator(".mode-home-composer-slot").getByTestId("global-search-input")).toHaveCount(0);
+      // The composer sits in the middle of the hero (in-flow) at phone width too,
+      // not docked to the bottom edge: it renders inside the mode-home composer
+      // slot and there is no fixed bottom dock.
+      await expect(page.locator(".mode-home-composer-slot").getByTestId("global-search-input"), home.path).toHaveCount(
+        1,
+      );
+      await expect(page.locator("form.answer-footer-search-dock"), home.path).toHaveCount(0);
 
-      const metrics = await globalSearchComposerMetrics(page);
+      const metrics = await globalSearchComposerMetrics(page, home.testId);
       expect(metrics, home.path).not.toBeNull();
-      expect(metrics?.position).toBe("fixed");
-      expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(820 - 48);
+      // In-flow (not viewport-fixed), scrolls with the content, and stays within
+      // the phone column. The pill class is shared with the dock, so it still
+      // reads answer-footer-search-pill.
+      expect(metrics?.position, home.path).not.toBe("fixed");
       expect(metrics?.formWidth ?? 0).toBeLessThanOrEqual(390);
       expect(metrics?.pillClassName).toContain("answer-footer-search-pill");
-      // Compact docks drop the chip row and the privacy notice on phones.
-      await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
-      await expect(page.getByTestId("answer-composer-privacy-warning")).toHaveCount(0);
+      // The APP-5 privacy notice rides the hero pill on phones too (as on desktop).
+      await expect(page.getByTestId("answer-composer-privacy-warning"), home.path).toBeVisible();
 
-      // Phone dock composers must not cover the page with the universal sheet.
-      const dockInput = dock.getByTestId("global-search-input");
-      await dockInput.click();
-      await dockInput.press("ArrowDown");
+      // The in-flow composer must not cover the page with the universal sheet.
+      const heroInput = page.locator(".mode-home-composer-slot").getByTestId("global-search-input");
+      await heroInput.click();
+      await heroInput.press("ArrowDown");
       await expect(page.locator(".universal-command-dropdown:visible")).toHaveCount(0);
       await expect(page.getByRole("listbox")).toHaveCount(0);
       await expectNoPageHorizontalOverflow(page);
@@ -664,14 +666,9 @@ test.describe("Clinical KB tools launcher", () => {
         await expect(page.getByTestId(home.testId)).toBeVisible();
         // The composer must never vanish: exactly one visible search input.
         await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
-        if (viewport.name === "phone" && home.path !== "/?mode=answer") {
-          // Phones dock the standalone mode-home composer at the bottom edge.
-          await expect(page.locator("form.answer-footer-search-dock").getByTestId("global-search-input")).toBeVisible();
-        } else {
-          // The hero owns the composer: the answer home at every width, and
-          // every mode home from the sm breakpoint up.
-          await expect(page.getByTestId(home.testId).getByTestId("global-search-input")).toBeVisible();
-        }
+        // The hero owns the composer at every width: the answer home and every
+        // standalone mode home keep the in-flow hero pill, phones included.
+        await expect(page.getByTestId(home.testId).getByTestId("global-search-input")).toBeVisible();
       });
     }
   }
