@@ -4,21 +4,12 @@ import { spawn, spawnSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const isWindows = process.platform === "win32";
+export const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+export const isWindows = process.platform === "win32";
 const [targetScript, ...forwardArgs] = process.argv.slice(2);
 const offlineProviderRequested = forwardArgs.some(
   (token, index) => token === "--provider-mode" && forwardArgs[index + 1] === "offline",
 );
-
-if (!targetScript) {
-  console.error("Usage: node scripts/run-eval-safe.mjs <script> [args...]");
-  process.exit(1);
-}
-
-function normalizeCommandLine(value) {
-  return value.toLowerCase().replaceAll("/", "\\");
-}
 
 function toDateOrDefault(rawValue) {
   if (!rawValue) return null;
@@ -44,61 +35,7 @@ function toDateOrDefault(rawValue) {
   return null;
 }
 
-function shouldTerminateCandidate(commandLine) {
-  const normalizedCommandLine = normalizeCommandLine(commandLine);
-  const hasRepoScripts = normalizedCommandLine.includes("\\scripts\\");
-
-  if (normalizedCommandLine.includes("\\run-eval-safe.mjs")) return false;
-
-  if (hasRepoScripts && normalizedCommandLine.includes("\\node_modules\\tsx\\dist\\cli.mjs")) {
-    if (normalizedCommandLine.includes("\\scripts\\eval-")) return true;
-    if (normalizedCommandLine.includes("\\scripts\\eval")) return true;
-    return false;
-  }
-
-  if (hasRepoScripts && normalizedCommandLine.includes("\\scripts\\run-tsx.mjs")) {
-    return normalizedCommandLine.includes("\\scripts\\eval");
-  }
-
-  if (
-    hasRepoScripts &&
-    normalizedCommandLine.includes("\\node_modules\\tsx\\dist\\preflight.cjs") &&
-    normalizedCommandLine.includes(" --import ")
-  ) {
-    return true;
-  }
-
-  if (normalizedCommandLine.includes("\\node_modules\\playwright")) {
-    return true;
-  }
-
-  if (
-    normalizedCommandLine.includes("\\node_modules\\vitest\\vitest.mjs") &&
-    normalizedCommandLine.includes("\\tests\\")
-  ) {
-    return true;
-  }
-
-  if (normalizedCommandLine.includes("\\node_modules\\next\\dist\\bin\\next")) {
-    return true;
-  }
-
-  if (normalizedCommandLine.includes("\\node_modules\\next\\dist\\server\\lib\\start-server.js")) {
-    return true;
-  }
-
-  if (normalizedCommandLine.includes("\\node_modules\\next\\dist\\compiled\\jest-worker\\processchild.js")) {
-    return true;
-  }
-
-  if (normalizedCommandLine.includes("\\.next\\build\\") || normalizedCommandLine.includes("\\.next\\dev\\build\\")) {
-    return true;
-  }
-
-  return false;
-}
-
-function listRepoNodeProcesses() {
+export function listRepoNodeProcesses() {
   if (!isWindows) return [];
 
   const command = [
@@ -142,16 +79,7 @@ function listRepoNodeProcesses() {
   }
 }
 
-function listCandidateProcesses() {
-  if (!isWindows) return [];
-
-  return listRepoNodeProcesses().filter((candidate) => {
-    if (!candidate?.commandLine) return false;
-    return shouldTerminateCandidate(candidate.commandLine);
-  });
-}
-
-function getDescendantPids(rootPid, allProcesses = listRepoNodeProcesses()) {
+export function getDescendantPids(rootPid, allProcesses = listRepoNodeProcesses()) {
   const visited = new Set([rootPid]);
   const queue = [rootPid];
 
@@ -168,7 +96,7 @@ function getDescendantPids(rootPid, allProcesses = listRepoNodeProcesses()) {
   return Array.from(visited);
 }
 
-function terminateProcesses(pids, context) {
+export function terminateProcesses(pids, context) {
   if (!isWindows) return 0;
 
   let killed = 0;
@@ -190,29 +118,23 @@ function terminateProcesses(pids, context) {
   return killed;
 }
 
-function cleanupResidualEvaluationProcesses() {
-  if (!isWindows) return;
-
-  const selfPid = process.pid;
-  const candidates = listCandidateProcesses().filter((candidate) => candidate.pid > 0 && candidate.pid !== selfPid);
-  if (candidates.length === 0) return;
-  const pids = candidates.map((candidate) => candidate.pid);
-  terminateProcesses(pids, "cleanupResidualEvaluationProcesses");
-}
-
-function terminateEvalProcessTree(pid) {
-  if (!isWindows || !pid || pid <= 0) return;
-  const processSnapshot = listRepoNodeProcesses();
+export function terminateOwnedProcessTree(pid, processSnapshot = listRepoNodeProcesses()) {
+  if (!isWindows || !pid || pid <= 0) return 0;
   const descendants = getDescendantPids(pid, processSnapshot);
-  terminateProcesses(descendants, "terminateEvalProcessTree");
+  return terminateProcesses(descendants, "terminateOwnedProcessTree");
 }
 
 function terminateEvalProcess(pid) {
   if (!pid || pid <= 0) return;
-  terminateEvalProcessTree(pid);
+  terminateOwnedProcessTree(pid);
 }
 
 function runEvalScript() {
+  if (!targetScript) {
+    console.error("Usage: node scripts/run-eval-safe.mjs <script> [args...]");
+    process.exit(1);
+  }
+
   const targetPath = resolve(projectRoot, targetScript);
   const command = process.execPath;
   const commandArgs = [resolve(projectRoot, "scripts", "run-tsx.mjs"), targetPath, ...forwardArgs];
@@ -226,8 +148,6 @@ function runEvalScript() {
       ? {
           ...process.env,
           RAG_PROVIDER_MODE: "offline",
-          // Empty values prevent @next/env from restoring credentials from an
-          // env file before eval-quality actively deletes them in the child.
           OPENAI_API_KEY: "",
           OPENAI_ORG_ID: "",
           OPENAI_PROJECT_ID: "",
@@ -275,5 +195,7 @@ function runEvalScript() {
   });
 }
 
-cleanupResidualEvaluationProcesses();
-runEvalScript();
+const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+if (isMain) {
+  runEvalScript();
+}

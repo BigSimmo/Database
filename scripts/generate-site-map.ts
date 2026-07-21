@@ -43,6 +43,11 @@ const productRouteHandlerPaths = new Set(["/applications", "/differentials/prese
 const documentedRedirectTargets: Record<string, string> = {
   "/applications": "/tools",
   "/differentials/presentations": "/differentials/presentations/[workflow-slug]",
+  // The source page redirects a valid id to the canonical `/documents/[id]` viewer
+  // (page.tsx line 20) and only falls back to `/documents/search` for an invalid id
+  // (line 14). Pin the canonical target here so the generated map does not report the
+  // invalid-id fallback that its first-`redirect()` regex would otherwise capture.
+  "/documents/source": "/documents/[id]",
   "/medications": "/?mode=prescribing",
 };
 

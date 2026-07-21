@@ -299,11 +299,12 @@ sequenceDiagram
 
 One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
-- **Mode homes** (`/services`, `/forms`, `/favourites`, `/differentials`, `/formulation`, `/applications`, and dashboard homes): inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike.
+- **Mode homes** (`/services`, `/forms`, `/favourites`, `/differentials`, `/formulation`, `/tools`, and dashboard homes): inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike. (`/applications` is a redirect to `/tools`, not a composer surface.)
 - **Result and detail views**: fixed bottom dock on phone (compact variant on submitted searches), sticky top from `sm` up.
-- **Results routing**: standalone routes own their submitted searches via `?q=…&run=1` (`/services` → `ServicesNavigatorPage`, `/forms` → `FormsSearchResultsPage`, `/differentials` → `DifferentialsHome` results view, `/formulation` → local mechanism results, `/favourites` filters the command library in place). Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. `/?mode=favourites` redirects to `/favourites`; `/?mode=differentials` redirects to `/differentials`; `/?mode=formulation` redirects to `/formulation`.
+- **Results routing**: standalone routes own their submitted searches via `?q=…&run=1` (`/services` → `ServicesNavigatorPage`, `/forms` → `FormsSearchResultsPage`, `/differentials` → `DifferentialsHome` results view, `/formulation` → local mechanism results, `/favourites` filters the command library in place). Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. `/?mode=favourites` redirects to `/favourites`; `/?mode=differentials` redirects to `/differentials`; `/?mode=dsm` redirects to `/dsm`; `/?mode=specifiers` redirects to `/specifiers`; `/?mode=formulation` redirects to `/formulation`.
 - **Intentionally composer-free routes**: `/differentials/presentations/*` (comparison workflow owns its chrome), `/documents/[id]` viewer (has its own in-document ask composer), `/documents/source/*` (document flow owns mobile chrome). Do not re-flag these in search-consistency audits.
 - **Local filter fields** (sidebar "Search chats", document drawer "Find a document"/"Find a source PDF") are scoped filters, not global search; they share the `fieldControlWithIcon`/`fieldIcon` primitives.
+- **Wiring conventions** for buttons and route navigation (and the gates that enforce them — the dead-button ESLint rule and the orphan-route reachability test) live in `docs/wiring-conventions.md`.
 
 ---
 
