@@ -332,6 +332,30 @@ function queryIntentTokens(query: string, intent: AnswerIntent) {
   return tokens;
 }
 
+// Shared monitoring-schedule evidence vocabulary. The answer-intent gate
+// (answerIntentEvidencePattern) and the fact filter (factSupportsAnswerIntent)
+// must accept the same schedule/parameter language: the run-#60 targeting
+// misses came from range, metabolic-panel, and inflected-schedule sentences
+// ("reviewed annually", "monitored for 3 hours", "Maintenance range
+// 0.6-0.8 mmol/L") passing the filter but dying at the narrower gate.
+// Inflections match by prefix (monitor\w*), acronyms accept plurals, and bare
+// digit durations ("at 12 weeks") count as schedule evidence.
+const monitoringScheduleEvidenceSource = String.raw`monitor\w*|follow[-\s]?up|baseline|weekly|monthly|annual(?:ly)?|yearly|every|several\s+times\s+a\s+year|screen(?:ing|ed)?|levels?|blood tests?|bloods|fbcs?|ancs?|wbcs?|ecgs?|lfts?|renal|thyroid|metabolic|glucose|bsl|lipids|cholesterol|triglycerides|blood pressure|bp|pulse|weight|bmi|mmol\/l|mcg\/l|ng\/ml|range|target|therapeutic|maintenance|review\w*|\d+\s*(?:week|month|day|hour|year)s?`;
+const monitoringScheduleEvidencePattern = new RegExp(String.raw`\b(?:${monitoringScheduleEvidenceSource})\b`, "i");
+// The strict subset of the monitoring vocabulary that is an actual cadence or
+// level signal: dose-kind facts must carry one of these before they count as
+// monitoring evidence, so generic dose wording (range/therapeutic/maintenance
+// around a mg figure) cannot masquerade as a schedule.
+const monitoringCadenceOrLevelPattern = new RegExp(
+  String.raw`\b(?:monitor\w*|follow[-\s]?up|baseline|weekly|monthly|annual(?:ly)?|yearly|every|several\s+times\s+a\s+year|screen(?:ing|ed)?|review\w*|levels?|serum|trough|plasma|mmol\/l|mcg\/l|ng\/ml|\d+\s*(?:week|month|day|hour|year)s?)\b`,
+  "i",
+);
+// Level/concentration ranges only, for the monitoring intent COVERAGE escapes:
+// dose-amount unit ranges ("300-450 mg") must not grant coverage — the wider
+// monitoringUnitRangeFigurePattern (which also matches mg/mcg dose ranges)
+// stays reserved for the corpus-guarded figure-promotion checks.
+const monitoringLevelRangeCoveragePattern = /\d+(?:\.\d+)?\s*[-–]\s*\d+(?:\.\d+)?\s*(?:mmol\/L|nmol\/L|mcg\/L|ng\/mL)/i;
+
 /** Answer intent evidence pattern. */
 function answerIntentEvidencePattern(intent: AnswerIntent) {
   switch (intent) {
@@ -340,7 +364,7 @@ function answerIntentEvidencePattern(intent: AnswerIntent) {
     case "contraindication":
       return /\b(?:contraindicat\w*|avoid|must not|do not|should not|not use|opioid[-\s]?free|withdrawal|precipitat\w*)\b/i;
     case "monitoring_schedule":
-      return /\b(?:monitor|monitoring|baseline|weekly|monthly|annual|every|level|levels|blood test|fbc|anc|ecg|lft|renal|review)\b/i;
+      return monitoringScheduleEvidencePattern;
     case "red_result_action":
       return /\b(?:red|amber|green|threshold|withhold|cease|stop|discontinue|discontinued|urgent|contact|repeat|review|anc|fbc|wbc|neutrophil|toxic\w*|action|patholog\w*|haematolog\w*|hematolog\w*)\b/i;
     case "pathway_referral":
@@ -463,12 +487,21 @@ function resultCoversAnswerIntent(result: SearchResult, query: string, intent: A
   if (intent === "general") return true;
   const asksForMaximumDose = intent === "dose" && /\bmax(?:imum)?\b/i.test(query);
   const maximumDoseCoverage = asksForMaximumDose && hasMaximumDoseEvidence(text);
-  const intentCoverage = answerIntentEvidencePattern(intent).test(text) || maximumDoseCoverage;
+  // Result-level twin of the sentence-level figure escape: a chunk that carries
+  // the asked-for schedule/interval or unit range (a bare range table, "reviewed
+  // annually" prose) is monitoring evidence even when it never says
+  // monitor/level — the run-#60 miss class rejected such chunks wholesale here.
+  const monitoringFigureCoverage =
+    intent === "monitoring_schedule" &&
+    (monitoringIntervalFigurePattern.test(text) || monitoringLevelRangeCoveragePattern.test(text));
+  const intentCoverage =
+    answerIntentEvidencePattern(intent).test(text) || maximumDoseCoverage || monitoringFigureCoverage;
   if (!intentCoverage) return false;
   if (
     intentTokens.length > 0 &&
     !intentTokens.some((token) => queryTokenMatchesText(token, text)) &&
-    !maximumDoseCoverage
+    !maximumDoseCoverage &&
+    !monitoringFigureCoverage
   ) {
     return false;
   }
@@ -726,8 +759,22 @@ function factKindForSentence(sentence: string, query: string, intent: AnswerInte
   if (/\b(?:pathway|refer|referral|criteria|indicat\w*|ect|electroconvulsive|specialist|psychiat\w*)\b/i.test(text)) {
     return "pathway_referral";
   }
+  // Inflection-tolerant only (monitored/annually/LFTs): the wider panel/range
+  // vocabulary must NOT move here — it would steal sentences like "Maintenance
+  // range 0.6-0.8 mmol/L" from the dose arm below and change fact priorities
+  // for non-monitoring intents. "review" stays exact for the same reason:
+  // review\w* would reclassify dose-review sentences ("doses should be
+  // reviewed daily") away from the dose arm. The legacy tokens classify
+  // byte-identically; a sentence claimed ONLY via the new inflections that
+  // also carries a concrete dose value ("Quetiapine is monitored at a dose of
+  // 200 mg daily") falls through to the dose arm — otherwise a sole
+  // dose-bearing fact would be dropped by dose-intent answers (reviewer P2).
+  const legacyMonitoringKindPattern =
+    /\b(?:monitor|monitoring|baseline|weekly|monthly|annual|every|level|levels|blood test|ecg|lft|review)\b/i;
+  const inflectedMonitoringKindPattern = /\b(?:monitor\w*|annual(?:ly)?|levels?|blood tests?|ecgs?|lfts?)\b/i;
   if (
-    /\b(?:monitor|monitoring|baseline|weekly|monthly|annual|every|level|levels|blood test|ecg|lft|review)\b/i.test(text)
+    legacyMonitoringKindPattern.test(text) ||
+    (inflectedMonitoringKindPattern.test(text) && !clinicalDoseValuePattern.test(text))
   ) {
     return "monitoring";
   }
@@ -786,9 +833,14 @@ function factSupportsAnswerIntent(
       // are classified as renal_limit (renal check triggers before monitoring), but are directly relevant
       // to monitoring schedule answers.
       if (kind !== "monitoring" && kind !== "dose" && kind !== "renal_limit") return false;
-      return /\b(?:monitor|monitoring|follow[-\s]?up|baseline|weekly|monthly|annual|every|several\s+times\s+a\s+year|level|levels|blood test|fbc|anc|wbc|ecg|lft|renal|thyroid|metabolic|glucose|bsl|lipids|cholesterol|triglycerides|blood pressure|bp|pulse|weight|bmi|mmol\/l|range)\b/i.test(
-        text,
-      );
+      // A dose-kind fact must carry an actual cadence or level signal — the
+      // shared vocabulary alone would admit generic dose language
+      // ("The therapeutic dose range is 300-450 mg daily.") as monitoring
+      // evidence via range/therapeutic/maintenance tokens (CodeRabbit major).
+      // Level ranges like "Maintenance range is 0.6-0.8 mmol/L" stay admissible
+      // through their level units.
+      if (kind === "dose" && !monitoringCadenceOrLevelPattern.test(text)) return false;
+      return monitoringScheduleEvidencePattern.test(text);
     case "red_result_action":
       if (kind !== "threshold_action" && kind !== "caveat") return false;
       if (requiresBloodCountEvidence(query) && !hasBloodCountEvidence(text)) return false;
@@ -846,13 +898,15 @@ function factSentenceMatchesQueryFromResult(
   const sentenceMedicationEntities = medicationEntitiesInText(sentence);
   const resultMedicationEntities = medicationEntitiesInText(resultText);
   if (
-    intent === "dose" &&
+    (intent === "dose" || intent === "monitoring_schedule") &&
     queryMedicationEntities.length > 0 &&
     sentenceMedicationEntities.length === 0 &&
     resultMedicationEntities.length > 1
   ) {
-    // A bare dose row from a multi-drug table cannot safely inherit the query's
-    // medication/class label. Require the row itself to name its medication.
+    // A bare dose or schedule row from a multi-drug table cannot safely inherit
+    // the query's medication/class label. Require the row itself to name its
+    // medication. (Monitoring joined dose here when the figure coverage escape
+    // below made bare interval/range rows admissible without a query token.)
     return false;
   }
   const entityCoveredByResult =
@@ -861,10 +915,17 @@ function factSentenceMatchesQueryFromResult(
 
   const normalized = normalizeSectionText(sentence).toLowerCase();
   const intentTokens = queryIntentTokens(query, intent);
+  // Mirrors the dose escape below: a sentence that carries the asked-for
+  // schedule/interval or unit range itself ("reviewed annually", "monitored
+  // for 3 hours", "Maintenance range 0.6-0.8 mmol/L") is monitoring evidence
+  // even when it names no query token — the run-#60 miss class. Figure-bearing
+  // sentences only, so plain schedule-free prose still needs token coverage.
   const intentCovered =
     intentTokens.length === 0 ||
     intentTokens.some((token) => queryTokenMatchesText(token, normalized)) ||
-    (intent === "dose" && extractiveConcreteDosePattern.test(normalized));
+    (intent === "dose" && extractiveConcreteDosePattern.test(normalized)) ||
+    (intent === "monitoring_schedule" &&
+      (monitoringIntervalFigurePattern.test(normalized) || monitoringLevelRangeCoveragePattern.test(normalized)));
   return answerIntentEvidencePattern(intent).test(normalized) && intentCovered;
 }
 
