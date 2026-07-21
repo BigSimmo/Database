@@ -2215,6 +2215,203 @@ describe("RAG structured-output fallback", () => {
     expect(answer.grounded).toBe(true);
   });
 
+  // Pre-generation validated-extractive short-circuit (rag-extractive-first). The titles below
+  // deliberately share no topic token with the query so routing cannot take the existing
+  // title-supported extractive branch: the route must be fast/"strong_routine_retrieval" with a
+  // passed gate — the measured wasted-generation shape.
+  const proceduralFirstSources = () => [
+    source({
+      id: "procedural-first-reference",
+      document_id: "procedural-first-doc",
+      title: "Consumer Crisis Response Guideline",
+      file_name: "consumer-crisis-response.pdf",
+      section_heading: "Related procedures",
+      content:
+        "Related procedures and guidelines. Women's and Perinatal Mental Health Referral and Management Guideline.",
+      similarity: 0.9,
+      hybrid_score: 0.9,
+      text_rank: 0.12,
+    }),
+    source({
+      id: "procedural-first-requirements",
+      document_id: "procedural-first-doc",
+      title: "Consumer Crisis Response Guideline",
+      file_name: "consumer-crisis-response.pdf",
+      section_heading: "Safety planning for identified risks",
+      content:
+        "The Consumer Safety Plan must be developed in collaboration with the consumer, involve carers and family where appropriate, identify actions for a crisis and who is responsible, and be reviewed when clinical status changes.",
+      similarity: 0.9,
+      hybrid_score: 0.9,
+      text_rank: 0.11,
+    }),
+  ];
+
+  it("short-circuits a validated gate-passed routine procedural answer before model generation", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const sources = proceduralFirstSources();
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn();
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
+    const answer = await answerQuestionWithScope({
+      query: "What should a patient safety plan include?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(generateStructuredTextResult).not.toHaveBeenCalled();
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("validated_routine_extractive_first");
+    expect(answer.retrievalDiagnostics).toMatchObject({ gateStatus: "passed", topScore: 0.9 });
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.citations.length).toBeGreaterThan(0);
+  });
+
+  it("keeps gate-passed 'How is…' document-content queries on model synthesis under the procedural short-circuit", async () => {
+    const answer = await answerFromTextSources("How is patient safety planning handled?", proceduralFirstSources(), {
+      answer:
+        "Patient safety planning is handled collaboratively with the consumer and reviewed when clinical status changes.",
+      grounded: true,
+      confidence: "medium",
+      answerSections: [],
+      citations: [{ chunk_id: "procedural-first-requirements" }],
+      quoteCards: [],
+      conflictsOrGaps: [],
+    });
+
+    expect(answer.routingMode).toBe("fast");
+    expect(answer.routingReason).toBe("strong_routine_retrieval");
+    expect(answer.routingReason).not.toContain("validated_routine_extractive_first");
+    expect(answer.modelUsed).not.toBeNull();
+    expect(answer.openAIRequestIds).toEqual(["req_answer_from_text_sources"]);
+  });
+
+  it("keeps a procedural query on model synthesis when the only extractive candidate fails the final gates", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    // Only a bare cross-reference chunk is available: it redirects to another named document
+    // (see isBareCrossReferenceAnswer) and answers nothing itself, so the extractive candidate
+    // fails the final gates and the short-circuit must refuse — generation still runs.
+    const sources = [
+      source({
+        id: "procedural-first-cross-reference",
+        document_id: "procedural-first-doc",
+        title: "Consumer Crisis Response Guideline",
+        file_name: "consumer-crisis-response.pdf",
+        section_heading: "Related procedures",
+        content:
+          "Refer to the Women's and Perinatal Mental Health Referral and Management Guideline for further information about related procedures.",
+        similarity: 0.9,
+        hybrid_score: 0.9,
+        text_rank: 0.12,
+      }),
+    ];
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    const generateStructuredTextResult = vi.fn(async () => ({
+      text: JSON.stringify({
+        answer: "A patient safety plan should include collaboratively developed actions for identified risks.",
+        grounded: true,
+        confidence: "medium",
+        answerSections: [],
+        citations: [{ chunk_id: "procedural-first-cross-reference" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      }),
+      model: "gpt-4.1-mini",
+      operation: "answer",
+      latencyMs: 12,
+      requestId: "req_procedural_first_negative",
+      usage: { input_tokens: 120, output_tokens: 80, total_tokens: 200 },
+    }));
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
+    const answer = await answerQuestionWithScope({
+      query: "What should a patient safety plan include?",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    expect(generateStructuredTextResult).toHaveBeenCalled();
+    expect(answer.routingReason).not.toContain("validated_routine_extractive_first");
+  });
+
+  it("keeps dose-class procedural queries on model synthesis under the procedural short-circuit", async () => {
+    const query = "What is the maximum lithium dose process?";
+    const { classifyRagQuery } = await import("../src/lib/clinical-search");
+    // Pin the classification this negative depends on: dose-risk classes must never be
+    // eligible for the routine procedural short-circuit.
+    expect(classifyRagQuery(query).queryClass).toBe("medication_dose_risk");
+
+    const answer = await answerFromTextSources(
+      query,
+      [
+        source({
+          id: "lithium-dose-1",
+          document_id: "lithium-doc",
+          title: "Lithium Therapy Guideline",
+          file_name: "lithium-therapy.pdf",
+          section_heading: "Dosing",
+          content:
+            "Lithium dosing follows the documented titration process with plasma level monitoring and clinical review before any dose change.",
+          similarity: 0.9,
+          hybrid_score: 0.9,
+          text_rank: 0.12,
+        }),
+      ],
+      {
+        answer: "The maximum lithium dose process is described in the cited dosing guidance.",
+        grounded: true,
+        confidence: "medium",
+        answerSections: [],
+        citations: [{ chunk_id: "lithium-dose-1" }],
+        quoteCards: [],
+        conflictsOrGaps: [],
+      },
+    );
+
+    expect(answer.routingReason).not.toContain("validated_routine_extractive_first");
+    expect(answer.modelUsed).not.toBeNull();
+    expect(answer.openAIRequestIds).toEqual(["req_answer_from_text_sources"]);
+  });
+
   it("does not gate-block a moderate score clustered across several distinct documents", async () => {
     // Regression: a topic with rich coverage (e.g. clozapine) returns many relevant
     // documents whose scores cluster tightly at a moderate value. A tiny spread there
