@@ -1992,6 +1992,48 @@ describe("RAG structured-output fallback", () => {
     expect(isCacheableGroundedGenerationFallback(answer)).toBe(false);
   });
 
+  it("prefers the safe single-chunk fallback candidate that carries the asked-for dose figure", async () => {
+    // E-3c PR-C: both chunks yield safe single-chunk extractive candidates, but
+    // only the lower-ranked one states the dose figure the query asks for. The
+    // first-safe-candidate rule used to ship the figure-less answer.
+    const answer = await answerFromTextSources(
+      "What is the usual quetiapine dose?",
+      [
+        source({
+          id: "quetiapine-advice-1",
+          document_id: "quetiapine-doc",
+          title: "Quetiapine Prescribing Guideline",
+          file_name: "quetiapine-prescribing-guideline.pdf",
+          section_heading: "Dose and administration",
+          content: "The usual quetiapine dose is taken once daily in the evening.",
+          similarity: 0.97,
+          hybrid_score: 0.97,
+          text_rank: 1.4,
+        }),
+        source({
+          id: "quetiapine-maximum-1",
+          document_id: "quetiapine-doc",
+          title: "Quetiapine Prescribing Guideline",
+          file_name: "quetiapine-prescribing-guideline.pdf",
+          section_heading: "Maximum dose",
+          content: "The maximum recommended quetiapine dose is 200 mg daily.",
+          similarity: 0.86,
+          hybrid_score: 0.86,
+          text_rank: 1.1,
+        }),
+      ],
+      new Error("OpenAI generation incomplete: max_output_tokens"),
+    );
+
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.unverifiedNumericTokens ?? []).toEqual([]);
+    expect(answer.answer.replace(/\*\*/g, "")).toContain("200 mg");
+    expect(new Set(answer.citations.map((citation) => citation.chunk_id))).toEqual(new Set(["quetiapine-maximum-1"]));
+  });
+
   it("never marks the generic source-review fallback as cacheable", async () => {
     const { isCacheableGroundedGenerationFallback } = await import("../src/lib/rag/rag");
 

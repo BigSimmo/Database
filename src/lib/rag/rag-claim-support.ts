@@ -212,7 +212,12 @@ function compatibleSafetyDimensions(claim: string, evidence: string) {
   return [...safetyDimensions(claim)].every((dimension) => evidenceDimensions.has(dimension));
 }
 
-function sourceEvidenceText(source: SearchResult) {
+// Exported so the extractive figure-promotion guard (rag-extractive-answer.ts) can check a
+// candidate fact's value atoms against the EXACT corpus this module assesses claims with.
+// Keep the two in lockstep: a promoted figure verified against a wider corpus (e.g. one that
+// includes adjacent_context) would pass numeric verification and then trip
+// claim_support_high_risk_gap here.
+export function sourceEvidenceText(source: SearchResult) {
   return [
     source.section_heading,
     source.content,
