@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { answerRouteBudgetMs, generationRecoveryReserveMs } from "../src/lib/rag/rag-route-budget";
 import type { RagAnswer, SearchResult } from "../src/lib/types";
 
 function retrievalRpcBaseName(name: string) {
@@ -2967,5 +2968,268 @@ describe("RAG structured-output fallback", () => {
     expect(search.telemetry.index_unit_count).toBe(0);
     expect(search.telemetry.index_unit_top_score).toBe(0);
     expect(search.telemetry.retrieval_strategy).toBe("hybrid");
+  });
+});
+
+describe("budget-aware generation deadlines", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Mirrors the "recovers lithium dosing" fixture above: a fast-routed dose query whose
+   * every generation attempt resolves truncated (max_output_tokens). The first attempt
+   * optionally burns fake wall-clock before resolving, so the remaining route budget can
+   * be pushed below the recovery reserve + retry viability floor. */
+  async function lithiumTruncatedGenerationAnswer(consumeFirstAttemptMs: number) {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    const waSource = (overrides: Partial<SearchResult>, publisherCode: "FSH" | "EMHS") =>
+      source({
+        ...overrides,
+        source_metadata: {
+          source_title: overrides.title ?? "Lithium guideline",
+          publisher:
+            publisherCode === "FSH" ? "Fiona Stanley Fremantle Hospitals Group" : "East Metropolitan Health Service",
+          publisher_code: publisherCode,
+          jurisdiction: "Australia/WA",
+          version: "1",
+          publication_date: null,
+          review_date: null,
+          uploaded_at: null,
+          indexed_at: null,
+          uploaded_by: null,
+          document_status: "current",
+          clinical_validation_status: "locally_reviewed",
+          extraction_quality: "good",
+        },
+      });
+    const sources = [
+      waSource(
+        {
+          id: "fsh-lithium-1",
+          document_id: "fsh-lithium",
+          title: "Lithium Therapy - Initiation and Continuation Guideline",
+          section_heading: "Initiation",
+          content:
+            "For lithium initiation in adults, start lithium carbonate at 250 mg at night and titrate according to the serum lithium concentration.",
+        },
+        "FSH",
+      ),
+      waSource(
+        {
+          id: "emhs-lithium-1",
+          document_id: "emhs-lithium",
+          title: "Lithium Clinical Guideline",
+          section_heading: "Target range",
+          content:
+            "The usual target serum lithium concentration is 0.6 to 0.8 mmol/L for maintenance treatment in adults.",
+        },
+        "EMHS",
+      ),
+      waSource(
+        {
+          id: "fsh-lithium-2",
+          document_id: "fsh-lithium",
+          title: "Lithium Therapy - Initiation and Continuation Guideline",
+          section_heading: "Monitoring after dose changes",
+          content:
+            "Measure the serum lithium concentration 12 hours after the previous dose and repeat it 5 to 7 days after a dose change.",
+        },
+        "FSH",
+      ),
+      waSource(
+        {
+          id: "emhs-lithium-2",
+          document_id: "emhs-lithium",
+          title: "Lithium Clinical Guideline",
+          section_heading: "Dose adjustment",
+          content:
+            "Use a lower lithium starting dose in older adults and people with impaired renal function, with closer serum monitoring.",
+        },
+        "EMHS",
+      ),
+      source({
+        id: "bmj-paediatric-depression",
+        document_id: "bmj-paediatric-depression",
+        title: "Depression in children",
+        content: "Psychological therapy is considered for depression in children and young people.",
+        source_metadata: {
+          source_title: "Depression in children",
+          publisher: "BMJ Best Practice",
+          publisher_code: "BMJ",
+          jurisdiction: "International",
+          version: null,
+          publication_date: null,
+          review_date: null,
+          uploaded_at: null,
+          indexed_at: null,
+          uploaded_by: null,
+          document_status: "current",
+          clinical_validation_status: "unverified",
+          extraction_quality: "good",
+        },
+      }),
+    ];
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: sources, error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    let requestIndex = 0;
+    const generateStructuredTextResult = vi.fn(async () => {
+      requestIndex += 1;
+      if (requestIndex === 1 && consumeFirstAttemptMs > 0) {
+        vi.setSystemTime(new Date(Date.now() + consumeFirstAttemptMs));
+      }
+      return {
+        text: "",
+        model: "gpt-5.4-mini",
+        operation: "answer",
+        latencyMs: 12,
+        requestId: `req_truncated_${requestIndex}`,
+        usage: { input_tokens: 100, output_tokens: 650, total_tokens: 750 },
+        status: "incomplete",
+        truncated: true,
+        incompleteReason: "max_output_tokens",
+      };
+    });
+
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
+    const answer = await answerQuestionWithScope({
+      query: "Lithium dosing",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+    return { answer, generateStructuredTextResult };
+  }
+
+  it("caps a generation attempt so source-backed recovery fits inside the route budget", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    // Stubbed far above the 25_000ms fast-route budget so the granted timeout can only
+    // come from the deadline: budget - 2_000ms recovery reserve = 23_000ms. Reverting the
+    // call site to the reserve-free requestTimeoutMs would grant the full 25_000ms.
+    vi.stubEnv("OPENAI_ANSWER_TIMEOUT_MS", "60000");
+    vi.stubEnv("RAG_SEARCH_CACHE_TTL_MS", "0");
+    vi.stubEnv("RAG_ANSWER_CACHE_TTL_MS", "0");
+
+    // Same retrieval fixture as the model-synthesis test above, which routes fast.
+    const clozapineSource = source({
+      id: "clozapine-monitoring-1",
+      document_id: "clozapine-doc",
+      title: "Medication guideline",
+      file_name: "medication-guideline.pdf",
+      page_number: 11,
+      section_heading: "Monitoring",
+      content:
+        "Medication point: • Copy of the Consent to Clozapine Treatment Form EMR0270. Medication point: • Prescribe initiation of Clozapine on the WA Adult Clozapine Initiation and Titration form. Medication point: • Ensure consumers complete the Clozapine Monitoring Form on initiation.",
+      similarity: 0.94,
+      hybrid_score: 0.94,
+      text_rank: 0,
+    });
+    const rpc = vi.fn(async (name: string) => {
+      if (retrievalRpcBaseName(name) === "match_document_chunks_text") return { data: [clozapineSource], error: null };
+      if (retrievalRpcBaseName(name) === "get_related_document_metadata") return { data: [], error: null };
+      return { data: [], error: null };
+    });
+    vi.doMock("@/lib/supabase/admin", () => ({
+      createAdminClient: () => ({
+        rpc,
+        from: vi.fn(() => new EmptyQuery()),
+      }),
+    }));
+    const grantedTimeoutsMs: number[] = [];
+    const generateStructuredTextResult = vi.fn(
+      async (_input: string, _schema: unknown, options?: { timeoutMs?: number }) => {
+        grantedTimeoutsMs.push(options?.timeoutMs ?? Number.NaN);
+        // Consume the entire granted window, then fail like a provider timeout. With the
+        // reserve subtracted this leaves 2_000ms of route budget for the recovery path;
+        // without it, recovery would start with the budget already fully spent.
+        vi.setSystemTime(new Date(Date.now() + (options?.timeoutMs ?? 0)));
+        throw new Error("OpenAI timed out. Trying source-only fallback response.");
+      },
+    );
+    vi.doMock("@/lib/openai", () => ({
+      embedTextWithTelemetry: vi.fn(async () => ({ embedding: [0.1, 0.2, 0.3], cacheHit: false })),
+      generateStructuredTextResult,
+    }));
+
+    const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
+    const answer = await answerQuestionWithScope({
+      query: "what monitoring is required for clozapine",
+      ownerId: undefined,
+      logQuery: false,
+      skipCache: true,
+    });
+
+    // Fake timers pin elapsed-at-call to exactly 0ms, so the received timeout must equal
+    // budget - reserve. This is the assertion that fails if generationRequestTimeoutMs is
+    // reverted to requestTimeoutMs at the generation call site.
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    expect(grantedTimeoutsMs).toEqual([answerRouteBudgetMs.fast - generationRecoveryReserveMs]);
+    expect(answer.latencyTimings?.route_budget_ms).toBe(answerRouteBudgetMs.fast);
+    // The attempt used its whole window, yet the reserve kept the source-backed recovery
+    // inside the route budget.
+    expect(answer.latencyTimings?.route_deadline_exceeded).toBe(false);
+    expect(answer.latencyTimings?.total_latency_ms).toBeLessThan(answerRouteBudgetMs.fast);
+    expect(answer.routingReason).toContain("generation_fallback:provider_timeout");
+    expect(answer.sources.length).toBeGreaterThan(0);
+  });
+
+  it("skips the truncation self-heal when the budget reserve would be breached", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
+    // Burn 20_000ms of the 25_000ms fast budget inside the first attempt before it
+    // resolves truncated: the 5_000ms left is below generationRecoveryReserveMs +
+    // minimumGenerationRetryMs (7_000ms), so the strong self-heal must be skipped
+    // instead of spending the recovery reserve on a guaranteed-discard retry.
+    const { answer, generateStructuredTextResult } = await lithiumTruncatedGenerationAnswer(20_000);
+
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(1);
+    // The skip is recorded without counting as a retry; the terminal truncation throw
+    // then lands on the existing source-backed recovery.
+    expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
+      "truncation_retry_skipped_budget_reserve:fast_max_output_tokens",
+      "generation_max_output_tokens",
+    ]);
+    expect(answer.latencyTimings?.answer_retry_count).toBe(1);
+    expect(answer.routingReason).toContain("generation_fallback:provider_incomplete_max_output_tokens");
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
+    expect(answer.routingMode).toBe("extractive");
+    expect(answer.grounded).toBe(true);
+    expect(answer.confidence).not.toBe("unsupported");
+    expect(answer.citations.length).toBeGreaterThan(0);
+    expect(answer.answer.replace(/\*\*/g, "")).toMatch(/lithium|250 mg/i);
+  });
+
+  it("keeps the truncation self-heal when the budget reserve still fits", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T00:00:00.000Z"));
+    // Identical truncated first attempt with no wall-clock consumed: the full budget
+    // remains, so the strong self-heal retry must still run.
+    const { answer, generateStructuredTextResult } = await lithiumTruncatedGenerationAnswer(0);
+
+    expect(generateStructuredTextResult).toHaveBeenCalledTimes(2);
+    expect(answer.latencyTimings?.answer_retry_reasons).toEqual([
+      "fast_max_output_tokens_retry_strong",
+      "strong_max_output_tokens",
+    ]);
+    expect(answer.latencyTimings?.answer_retry_count).toBe(2);
+    expect(answer.routingReason).toContain("source_backed_extractive_fallback");
   });
 });
