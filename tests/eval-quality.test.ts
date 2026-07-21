@@ -740,3 +740,59 @@ describe("eval quality reporting", () => {
     expect(retrievalCasesForProviderMode(cases, "openai")).toEqual(cases);
   });
 });
+
+describe("cross-region retrieval-exhausted carve-out (E-3b)", () => {
+  const exhaustedTimings = {
+    total_latency_ms: 13_352,
+    generation_latency_ms: 0,
+    route_budget_ms: 12_000,
+    route_deadline_exceeded: true,
+    route_budget_exhausted_by_retrieval: true,
+  };
+
+  it("keeps the strict gate in local/release contexts even when the flag is set", () => {
+    expect(
+      ragAnswerTimingDiagnostics({ routingMode: "extractive", latencyTimings: exhaustedTimings }).routeCeilingExceeded,
+    ).toBe(true);
+  });
+
+  it("suppresses the ceiling only for cross-region + runtime flag + zero generation", () => {
+    expect(
+      ragAnswerTimingDiagnostics(
+        { routingMode: "extractive", latencyTimings: exhaustedTimings },
+        { crossRegionRunner: true },
+      ).routeCeilingExceeded,
+    ).toBe(false);
+  });
+
+  it("still fails cross-region when the runtime flag is absent", () => {
+    expect(
+      ragAnswerTimingDiagnostics(
+        {
+          routingMode: "extractive",
+          latencyTimings: { ...exhaustedTimings, route_budget_exhausted_by_retrieval: false },
+        },
+        { crossRegionRunner: true },
+      ).routeCeilingExceeded,
+    ).toBe(true);
+  });
+
+  it("still fails cross-region when generation consumed time", () => {
+    expect(
+      ragAnswerTimingDiagnostics(
+        {
+          routingMode: "extractive",
+          latencyTimings: { ...exhaustedTimings, generation_latency_ms: 1 },
+        },
+        { crossRegionRunner: true },
+      ).routeCeilingExceeded,
+    ).toBe(true);
+  });
+
+  it("carries the flag through timings for report auditing", () => {
+    expect(
+      ragAnswerTimingDiagnostics({ routingMode: "extractive", latencyTimings: exhaustedTimings }).timings
+        .budgetExhaustedByRetrieval,
+    ).toBe(true);
+  });
+});
