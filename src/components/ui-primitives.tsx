@@ -166,6 +166,42 @@ export function AsyncButton({ busy, busyLabel, children, disabled, idleIcon, ...
   );
 }
 
+type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "aria-label" | "children"> & {
+  /**
+   * Required accessible name. Icon-only buttons carry no visible text, so the
+   * label is the only thing assistive tech can announce — making it a required
+   * prop closes the "unlabeled icon button" hole structurally, rather than
+   * relying on convention + a runtime axe scan that only reaches a few routes.
+   */
+  label: string;
+  /** Lucide icon rendered decoratively (aria-hidden) inside the button. */
+  icon: LucideIcon;
+  /** Size utility for the icon glyph; defaults to the 16px `size-icon-md` step. */
+  iconClassName?: string;
+};
+
+/**
+ * Accessible icon-only button. Guarantees the accessible name (`aria-label`), an
+ * `aria-hidden` icon glyph, a 44px tap target, and the shared focus ring. Pass a
+ * recipe like `toolbarButton`/`floatingControl` via `className` for chrome; the
+ * base stays colour-neutral so the glyph inherits `currentColor` from context.
+ */
+export function IconButton({ label, icon: Icon, className, iconClassName, type, ...props }: IconButtonProps) {
+  return (
+    <button
+      {...props}
+      type={type ?? "button"}
+      aria-label={label}
+      className={cn(
+        "grid size-tap shrink-0 place-items-center rounded-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50",
+        className,
+      )}
+    >
+      <Icon aria-hidden="true" className={cn("size-icon-md", iconClassName)} />
+    </button>
+  );
+}
+
 export type NoticeTone = "success" | "warning" | "danger" | "info" | "neutral";
 
 function noticeToneClass(tone: NoticeTone) {
@@ -210,14 +246,7 @@ export function InlineNotice({
     >
       <span className="min-w-0">{children}</span>
       {onDismiss && (
-        <button
-          type="button"
-          onClick={onDismiss}
-          aria-label={dismissLabel}
-          className="-m-2.5 grid h-tap w-tap shrink-0 place-items-center rounded-lg opacity-70 transition hover:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-        >
-          <X aria-hidden="true" className="h-4 w-4" />
-        </button>
+        <IconButton icon={X} label={dismissLabel} onClick={onDismiss} className="-m-2.5 opacity-70 hover:opacity-100" />
       )}
     </div>
   );

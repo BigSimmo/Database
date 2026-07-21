@@ -540,7 +540,7 @@ function MedicationResults({
               const rowClassName = cn(
                 "group grid w-full grid-cols-[minmax(16rem,1.15fr)_minmax(6.5rem,0.42fr)_minmax(8rem,0.48fr)_minmax(16rem,1fr)_2rem] items-center gap-2.5 px-4 py-2.5 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[color:var(--focus)]",
                 selected
-                  ? "bg-[color:var(--clinical-accent-soft)]/35 shadow-[inset_2px_0_0_var(--clinical-accent)] ring-1 ring-inset ring-[color:var(--clinical-accent)]/35"
+                  ? "bg-[color:var(--clinical-accent-soft)]/35 shadow-[var(--shadow-rail-active)] ring-1 ring-inset ring-[color:var(--clinical-accent)]/35"
                   : result.href
                     ? "hover:bg-[color:var(--surface-subtle)]"
                     : "cursor-default opacity-80",

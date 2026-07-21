@@ -107,7 +107,9 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
       <ModeHomeStatusNotice
         icon={ShieldAlert}
         title="Could not load services"
-        body="The services registry could not be loaded. Try again shortly."
+        body="The services registry could not be loaded."
+        actionLabel="Try again"
+        onAction={registry.refetch}
       />
     ) : !hasRegistryRecords ? (
       <ModeHomeStatusNotice
