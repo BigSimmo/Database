@@ -572,6 +572,22 @@ describe("monitoring evidence gate parity (run-#60 miss class)", () => {
     }
   });
 
+  it("refuses generic dose-range prose as monitoring evidence (CodeRabbit major)", () => {
+    const answer = extractiveAnswerFor("What monitoring is required for quetiapine?", [
+      figureChunk({
+        id: "dose-range-not-schedule-1",
+        section_heading: "Quetiapine",
+        // The dose range carries range/therapeutic/maintenance vocabulary and a
+        // mg unit-range figure, but no cadence or level signal — it must not be
+        // admitted as monitoring-schedule evidence.
+        content:
+          "Quetiapine monitoring requirements are described in the prescribing guideline. The therapeutic dose range is 300-450 mg daily.",
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).not.toContain("300-450 mg");
+  });
+
   it("refuses a bare schedule row from a multi-drug chunk (reviewer P3)", () => {
     const answer = extractiveAnswerFor("What monitoring is required for clozapine?", [
       figureChunk({

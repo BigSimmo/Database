@@ -342,6 +342,14 @@ function queryIntentTokens(query: string, intent: AnswerIntent) {
 // digit durations ("at 12 weeks") count as schedule evidence.
 const monitoringScheduleEvidenceSource = String.raw`monitor\w*|follow[-\s]?up|baseline|weekly|monthly|annual(?:ly)?|yearly|every|several\s+times\s+a\s+year|screen(?:ing|ed)?|levels?|blood tests?|bloods|fbcs?|ancs?|wbcs?|ecgs?|lfts?|renal|thyroid|metabolic|glucose|bsl|lipids|cholesterol|triglycerides|blood pressure|bp|pulse|weight|bmi|mmol\/l|mcg\/l|ng\/ml|range|target|therapeutic|maintenance|review\w*|\d+\s*(?:week|month|day|hour|year)s?`;
 const monitoringScheduleEvidencePattern = new RegExp(String.raw`\b(?:${monitoringScheduleEvidenceSource})\b`, "i");
+// The strict subset of the monitoring vocabulary that is an actual cadence or
+// level signal: dose-kind facts must carry one of these before they count as
+// monitoring evidence, so generic dose wording (range/therapeutic/maintenance
+// around a mg figure) cannot masquerade as a schedule.
+const monitoringCadenceOrLevelPattern = new RegExp(
+  String.raw`\b(?:monitor\w*|follow[-\s]?up|baseline|weekly|monthly|annual(?:ly)?|yearly|every|several\s+times\s+a\s+year|screen(?:ing|ed)?|review\w*|levels?|serum|trough|plasma|mmol\/l|mcg\/l|ng\/ml|\d+\s*(?:week|month|day|hour|year)s?)\b`,
+  "i",
+);
 
 /** Answer intent evidence pattern. */
 function answerIntentEvidencePattern(intent: AnswerIntent) {
@@ -820,6 +828,13 @@ function factSupportsAnswerIntent(
       // are classified as renal_limit (renal check triggers before monitoring), but are directly relevant
       // to monitoring schedule answers.
       if (kind !== "monitoring" && kind !== "dose" && kind !== "renal_limit") return false;
+      // A dose-kind fact must carry an actual cadence or level signal — the
+      // shared vocabulary alone would admit generic dose language
+      // ("The therapeutic dose range is 300-450 mg daily.") as monitoring
+      // evidence via range/therapeutic/maintenance tokens (CodeRabbit major).
+      // Level ranges like "Maintenance range is 0.6-0.8 mmol/L" stay admissible
+      // through their level units.
+      if (kind === "dose" && !monitoringCadenceOrLevelPattern.test(text)) return false;
       return monitoringScheduleEvidencePattern.test(text);
     case "red_result_action":
       if (kind !== "threshold_action" && kind !== "caveat") return false;
