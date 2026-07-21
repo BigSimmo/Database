@@ -76,7 +76,7 @@ structural change, not a single mixed PR.
 ### X3 · Decompose the monoliths — `IN PROGRESS`
 
 - **Outcome:** shrink the three files the maintainability ratchet caps but never reduces:
-  `src/lib/rag/rag.ts` (5,018), `src/components/ClinicalDashboard.tsx` (4,271),
+  `src/lib/rag/rag.ts` (5,018), `src/components/ClinicalDashboard.tsx` (was 4,271, now 4,157),
   `src/components/DocumentViewer.tsx` (was 3,164, now 1,733).
 - **Progress (#997):** extracted the evidence-gate predicates from `rag.ts` into
   `src/lib/rag/rag-evidence-gates.ts` (rag.ts 5,147 → 5,018), pure moves behind the existing
@@ -87,8 +87,14 @@ structural change, not a single mixed PR.
   behaviour-bearing `manual-tag-editor.tsx` (add/rename/delete manual labels), and
   `document-overview-landing.tsx`. The moves are verbatim (no logic changed); the container is
   now composition-focused — it retains the detail fetch, dynamic PDF loading, and state
-  orchestration (3,164 → 1,733, budget ratcheted to 1,733). `ClinicalDashboard.tsx` (4,271)
-  and `rag.ts` remain the open decomposition targets.
+  orchestration (3,164 → 1,733, budget ratcheted to 1,733).
+- **Progress (`ClinicalDashboard.tsx`):** the dashboard was already heavily decomposed (72
+  `clinical-dashboard/*` modules), so this is an incremental ratchet — extracted the
+  self-contained answer-thread turn leaf (`AnswerTurn` type, `maxVisiblePriorTurns`, and the
+  `PriorAnswerTurnSurface` component) into `clinical-dashboard/answer-thread-turn.tsx` as a
+  verbatim move (4,271 → 4,157, budget ratcheted to 4,157). The residual is a tightly-coupled
+  orchestrator core; further safe extractions are smaller, incremental units. `rag.ts` remains
+  the largest open target.
 - **Approach:** extract cohesive units behind the existing budgets; the components decompose
   into their `*/` sibling directories, and `rag.ts` is the natural seam now that X2 has landed.
 - **Risk:** HIGH (behavioural surface). One file per PR.
@@ -198,18 +204,18 @@ collaborators join — `AGENTS.md` + the PR template already carry that load.
 
 ## Progress summary
 
-| Item                           | Priority | Status                                      |
-| ------------------------------ | -------- | ------------------------------------------- |
-| N1 Dependabot grouping         | Now      | **DONE** (#985)                             |
-| N2 Dependency-report decision  | Now      | **DONE** (#986, enabled)                    |
-| X1 Import-boundary linter      | Next     | **DONE** (#986; service-role rule dropped)  |
-| X2 `src/lib` rag extraction    | Next     | **DONE** (#994)                             |
-| X3 Monolith decomposition      | Next     | IN PROGRESS (rag #997; DocumentViewer done) |
-| X4 SAST-blocking on parser     | Next     | **DONE** (gate + policy check)              |
-| X5 ACL-migration consolidation | Next     | PROVIDER-GATED (DB owner)                   |
-| X6 Coverage floors             | Next     | OPEN                                        |
-| L1 Archive one-shot scripts    | Later    | OPEN (index shipped)                        |
-| L2 Action-SHA uniformity       | Later    | **DONE** (#992)                             |
-| L3 Single gate manifest        | Later    | **DONE** (#1002)                            |
-| L4 Ledger rotation             | Later    | OPEN                                        |
-| L5 AI map / WCAG / RPO-RTO     | Later    | **DONE / SATISFIED** (#985)                 |
+| Item                           | Priority | Status                                                  |
+| ------------------------------ | -------- | ------------------------------------------------------- |
+| N1 Dependabot grouping         | Now      | **DONE** (#985)                                         |
+| N2 Dependency-report decision  | Now      | **DONE** (#986, enabled)                                |
+| X1 Import-boundary linter      | Next     | **DONE** (#986; service-role rule dropped)              |
+| X2 `src/lib` rag extraction    | Next     | **DONE** (#994)                                         |
+| X3 Monolith decomposition      | Next     | IN PROGRESS (rag #997; DocumentViewer + Dashboard done) |
+| X4 SAST-blocking on parser     | Next     | **DONE** (gate + policy check)                          |
+| X5 ACL-migration consolidation | Next     | PROVIDER-GATED (DB owner)                               |
+| X6 Coverage floors             | Next     | OPEN                                                    |
+| L1 Archive one-shot scripts    | Later    | OPEN (index shipped)                                    |
+| L2 Action-SHA uniformity       | Later    | **DONE** (#992)                                         |
+| L3 Single gate manifest        | Later    | **DONE** (#1002)                                        |
+| L4 Ledger rotation             | Later    | OPEN                                                    |
+| L5 AI map / WCAG / RPO-RTO     | Later    | **DONE / SATISFIED** (#985)                             |
