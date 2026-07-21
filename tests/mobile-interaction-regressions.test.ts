@@ -27,12 +27,14 @@ describe("mobile interaction regressions", () => {
     const differentialsHomeSource = source("src/components/clinical-dashboard/differentials-home.tsx");
 
     expect(presentationSource).toMatch(
-      /data-testid="differential-presentation-page"\s+className="[^"]*min-h-0[^"]*overflow-x-clip[^"]*sm:min-h-\[calc\(100dvh-4rem\)\]/,
+      /data-testid="differential-presentation-page"\s+className="[^"]*min-h-0[^"]*overflow-x-clip[^"]*sm:min-h-\[calc\(100dvh-var\(--shell-header-h\)\)\]/,
     );
     expect(favouritesSource).toMatch(
-      /data-testid="favourites-hub"\s+className="[^"]*min-h-0[^"]*overflow-x-clip[^"]*sm:min-h-\[calc\(100dvh-4rem\)\]/,
+      /data-testid="favourites-hub"\s+className="[^"]*min-h-0[^"]*overflow-x-clip[^"]*sm:min-h-\[calc\(100dvh-var\(--shell-header-h\)\)\]/,
     );
-    expect(favouritesSource).toContain('"grid min-h-0 min-w-0 overflow-x-clip sm:min-h-[calc(100dvh-4rem)]"');
+    expect(favouritesSource).toContain(
+      '"grid min-h-0 min-w-0 overflow-x-clip sm:min-h-[calc(100dvh-var(--shell-header-h))]"',
+    );
     // overflow-x-hidden would force overflow-y:auto and nest a scrollport under #main-content.
     expect(differentialsHomeSource).toMatch(
       /data-testid="differentials-search-results"[\s\S]*?className="[^"]*overflow-x-clip[^"]*"/,

@@ -99,7 +99,12 @@ function splitComparisonClaims(value: string) {
     .slice(0, 24);
 }
 
-function atomKey(atom: ClinicalValueAtom) {
+/**
+ * Canonical identity for a clinical value atom, shared with the extractive
+ * lead-figure promotion guard (rag-extractive-answer.ts) so promotion and
+ * claim-support agree on whether a figure is present in the evidence corpus.
+ */
+export function clinicalValueAtomKey(atom: ClinicalValueAtom) {
   return [
     atom.kind,
     atom.canonicalValue,
@@ -212,7 +217,14 @@ function compatibleSafetyDimensions(claim: string, evidence: string) {
   return [...safetyDimensions(claim)].every((dimension) => evidenceDimensions.has(dimension));
 }
 
-function sourceEvidenceText(source: SearchResult) {
+// Exported so the extractive figure-promotion guard (rag-extractive-answer.ts) can check a
+// candidate fact's value atoms against the EXACT corpus this module assesses claims with.
+// Keep the two in lockstep: a promoted figure verified against a wider corpus (e.g. one that
+// includes adjacent_context) would pass numeric verification and then trip
+// claim_support_high_risk_gap here. (Precision note: this corpus also includes
+// index_unit metadata that the numeric-verification corpus does not, so it is not a strict
+// subset — that sole divergence fails safe: the guard passes, the numeric gate then nukes.)
+export function sourceEvidenceText(source: SearchResult) {
   return [
     source.section_heading,
     source.content,
@@ -243,8 +255,8 @@ function sourceSupportsClaim(claim: string, source: SearchResult) {
   if (!compatibleSafetyDimensions(claim, evidence)) return false;
   if (!compatibleHighRiskTrigger(claim, evidence)) return false;
 
-  const evidenceAtoms = new Set(extractClinicalValueAtoms(evidence).map(atomKey));
-  if (extractClinicalValueAtoms(claim).some((atom) => !evidenceAtoms.has(atomKey(atom)))) return false;
+  const evidenceAtoms = new Set(extractClinicalValueAtoms(evidence).map(clinicalValueAtomKey));
+  if (extractClinicalValueAtoms(claim).some((atom) => !evidenceAtoms.has(clinicalValueAtomKey(atom)))) return false;
 
   const claimTopics = topicTokens(claim);
   const evidenceTopics = topicTokens(evidence);
