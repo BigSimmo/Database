@@ -29,7 +29,17 @@ const clinicalDocumentAliases: Record<string, string[]> = {
     "Active Community Patients in the Emergency Department",
     "Active Community Patients Emergency Department",
   ],
-  AdmissionCommunityPts: ["Admission of Community Patients", "Admission Community Patients"],
+  AdmissionCommunityPts: [
+    "Admission of Community Patients",
+    "Admission Community Patients",
+    // Ground-truth widening (user-approved 2026-07-21, eval baseline run #57 triage): the live
+    // corpus carries several legitimately on-point admission policies; the NMHS
+    // admission-to-discharge pair satisfies the admission expectation for the
+    // admission-discharge comparison cases. Deliberately EXCLUDES discharge-only documents
+    // (they must not satisfy the admission slot) and the HITH programme policy (too narrow).
+    "Admission to Discharge for Community Mental Health",
+    "Admission to Discharge for Mental Health Inpatients",
+  ],
   AgitationArousalPharmaMgt: [
     "Agitation and Arousal Pharmacological Management",
     "Pharmacological Management of Acute Agitation and Arousal",
