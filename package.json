@@ -105,8 +105,6 @@
     "check:supabase-project": "node scripts/run-tsx.mjs scripts/check-supabase-project.ts",
     "auth:set-administrator": "node scripts/run-tsx.mjs scripts/set-site-administrator.ts",
     "check:indexing": "node scripts/run-tsx.mjs scripts/check-indexing.ts",
-    "check:m13-migration": "node scripts/run-tsx.mjs scripts/check-m13-migration.ts",
-    "check:july8-live-batch": "node scripts/run-tsx.mjs scripts/check-july8-live-batch.ts",
     "check:type-scale": "node scripts/check-type-scale.mjs --strict",
     "check:icon-scale": "node scripts/check-icon-scale.mjs --strict",
     "check:design-system-contract": "node scripts/check-design-system-contract.mjs",

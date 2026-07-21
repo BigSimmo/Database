@@ -5,7 +5,7 @@ import {
   isR17IndexUniqueViolation,
   normalizeIndexDef,
   R17_PROBE_STAGE,
-} from "../scripts/check-july8-live-batch";
+} from "../scripts/archive/check-july8-live-batch";
 
 describe("check-july8-live-batch R17 index definition probe", () => {
   it("accepts the canonical partial unique index definition", () => {
