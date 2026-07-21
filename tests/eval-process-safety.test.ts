@@ -12,7 +12,7 @@ vi.mock("node:child_process", async (importOriginal) => {
         return { status: 0, stdout: "", stderr: "" };
       }
       return original.spawnSync(cmd, args, options);
-    })
+    }),
   };
 });
 
@@ -21,12 +21,22 @@ describe("run-eval-safe process ownership safety", () => {
     // Our spawned child process tree
     { pid: 1000, parentPid: 999, commandLine: "node scripts/run-tsx.mjs scripts/eval-quality.ts", createdAtMs: null },
     { pid: 1001, parentPid: 1000, commandLine: "node node_modules/next/dist/bin/next build", createdAtMs: null },
-    { pid: 1002, parentPid: 1001, commandLine: "node node_modules/next/dist/compiled/jest-worker/processchild.js", createdAtMs: null },
+    {
+      pid: 1002,
+      parentPid: 1001,
+      commandLine: "node node_modules/next/dist/compiled/jest-worker/processchild.js",
+      createdAtMs: null,
+    },
 
     // Unrelated processes running in the repository
     { pid: 2000, parentPid: 500, commandLine: "node node_modules/next/dist/bin/next dev", createdAtMs: null },
-    { pid: 2001, parentPid: 2000, commandLine: "node node_modules/vitest/vitest.mjs --reporter=dot", createdAtMs: null },
-    { pid: 3000, parentPid: 1, commandLine: "node some-other-repo/scripts/eval.js", createdAtMs: null }
+    {
+      pid: 2001,
+      parentPid: 2000,
+      commandLine: "node node_modules/vitest/vitest.mjs --reporter=dot",
+      createdAtMs: null,
+    },
+    { pid: 3000, parentPid: 1, commandLine: "node some-other-repo/scripts/eval.js", createdAtMs: null },
   ];
 
   it("correctly maps descendant PIDs including the root PID", () => {
@@ -56,7 +66,7 @@ describe("run-eval-safe process ownership safety", () => {
     mockedSpawnSync.mockClear();
 
     const killedCount = terminateOwnedProcessTree(1000, mockSnapshot);
-    
+
     expect(mockedSpawnSync).toHaveBeenCalledTimes(3);
     expect(killedCount).toBe(3);
 
