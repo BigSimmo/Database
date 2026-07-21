@@ -145,6 +145,9 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(clinicalDashboardSource).toContain(
       '"max-sm:pb-[var(--mobile-composer-reserve)] max-sm:[scroll-padding-bottom:var(--mobile-composer-reserve)] sm:mb-24"',
     );
+    expect(clinicalDashboardSource).toContain(
+      '"max-sm:pb-[var(--mobile-composer-reserve)] max-sm:[scroll-padding-bottom:var(--mobile-composer-reserve)] sm:mb-0"',
+    );
 
     expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
     expect(documentViewerSource).toContain('"max-sm:pb-3"');

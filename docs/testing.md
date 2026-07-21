@@ -62,5 +62,5 @@ Before opening a UI PR, confirm:
 - **States.** Handle loading / empty / error / disabled where they apply; async surfaces expose a retry, not a dead end.
 - **Accessibility** ([design-system §7](./design-system.md)): keyboard operable, visible focus, accessible names on icon controls, live regions for async status, and reduced motion honoured — scripted `scrollTo`/`scrollIntoView` go through `resolveScrollBehavior` (`src/lib/scroll-behavior.ts`), never a hard-coded `behavior: "smooth"`.
 - **Tests.** Add a `.dom.test.tsx` for changed component behaviour (see "Component tests" above) and update the E2E journeys for changed flows.
-- **Verify** ([design-system §9](./design-system.md)): `npm run verify:cheap`, then `npm run verify:ui` for UI/routing/styling changes, plus a manual dark-mode + forced-colors spot check on touched surfaces.
+- **Verify** ([design-system §9](./design-system.md)): run `npm run verify:cheap`, then `npm run verify:pr-local` before handoff; run `npm run ensure` before browser work and `npm run verify:ui` for UI/routing/styling changes, plus a manual dark-mode + forced-colors spot check on touched surfaces.
 - Architecture and state-ownership conventions: [`docs/frontend-architecture.md`](./frontend-architecture.md).
