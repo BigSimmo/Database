@@ -19,5 +19,9 @@ export async function generateMetadata({ params }: ServiceRouteProps): Promise<M
 
 export default async function ServiceRoute({ params }: ServiceRouteProps) {
   const { slug } = await params;
-  return <ServiceDetailClient slug={slug} />;
+  // Hand the public fixture record to the client so the detail view paints real
+  // content on first load instead of a centered spinner; the owner-aware record
+  // refreshes in place. Absent from the fixtures (owner-only slug) → null.
+  const fallbackRecord = getServiceRecord(slug);
+  return <ServiceDetailClient slug={slug} fallbackRecord={fallbackRecord} />;
 }
