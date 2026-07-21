@@ -572,6 +572,21 @@ describe("monitoring evidence gate parity (run-#60 miss class)", () => {
     }
   });
 
+  it("denies monitoring intent coverage to a dose-amount range in a token-free chunk (CodeRabbit major #2)", () => {
+    const answer = extractiveAnswerFor("What monitoring is required for quetiapine?", [
+      figureChunk({
+        id: "dose-range-coverage-guard-1",
+        section_heading: "Quetiapine",
+        // No monitoring token anywhere: the ONLY thing that could grant intent
+        // coverage is the mg dose range, which must not count as a monitoring
+        // figure at either the result level or the sentence level.
+        content: "Quetiapine prescribing information follows. The therapeutic dose range is 300-450 mg daily.",
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).not.toContain("300-450 mg");
+  });
+
   it("refuses generic dose-range prose as monitoring evidence (CodeRabbit major)", () => {
     const answer = extractiveAnswerFor("What monitoring is required for quetiapine?", [
       figureChunk({

@@ -350,6 +350,11 @@ const monitoringCadenceOrLevelPattern = new RegExp(
   String.raw`\b(?:monitor\w*|follow[-\s]?up|baseline|weekly|monthly|annual(?:ly)?|yearly|every|several\s+times\s+a\s+year|screen(?:ing|ed)?|review\w*|levels?|serum|trough|plasma|mmol\/l|mcg\/l|ng\/ml|\d+\s*(?:week|month|day|hour|year)s?)\b`,
   "i",
 );
+// Level/concentration ranges only, for the monitoring intent COVERAGE escapes:
+// dose-amount unit ranges ("300-450 mg") must not grant coverage — the wider
+// monitoringUnitRangeFigurePattern (which also matches mg/mcg dose ranges)
+// stays reserved for the corpus-guarded figure-promotion checks.
+const monitoringLevelRangeCoveragePattern = /\d+(?:\.\d+)?\s*[-–]\s*\d+(?:\.\d+)?\s*(?:mmol\/L|nmol\/L|mcg\/L|ng\/mL)/i;
 
 /** Answer intent evidence pattern. */
 function answerIntentEvidencePattern(intent: AnswerIntent) {
@@ -488,7 +493,7 @@ function resultCoversAnswerIntent(result: SearchResult, query: string, intent: A
   // monitor/level — the run-#60 miss class rejected such chunks wholesale here.
   const monitoringFigureCoverage =
     intent === "monitoring_schedule" &&
-    (monitoringIntervalFigurePattern.test(text) || monitoringUnitRangeFigurePattern.test(text));
+    (monitoringIntervalFigurePattern.test(text) || monitoringLevelRangeCoveragePattern.test(text));
   const intentCoverage =
     answerIntentEvidencePattern(intent).test(text) || maximumDoseCoverage || monitoringFigureCoverage;
   if (!intentCoverage) return false;
@@ -920,7 +925,7 @@ function factSentenceMatchesQueryFromResult(
     intentTokens.some((token) => queryTokenMatchesText(token, normalized)) ||
     (intent === "dose" && extractiveConcreteDosePattern.test(normalized)) ||
     (intent === "monitoring_schedule" &&
-      (monitoringIntervalFigurePattern.test(normalized) || monitoringUnitRangeFigurePattern.test(normalized)));
+      (monitoringIntervalFigurePattern.test(normalized) || monitoringLevelRangeCoveragePattern.test(normalized)));
   return answerIntentEvidencePattern(intent).test(normalized) && intentCovered;
 }
 
