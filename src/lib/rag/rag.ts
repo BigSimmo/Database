@@ -54,14 +54,17 @@ export {
 import {
   buildExtractiveAnswer,
   cleanAnswerSectionHeading,
+  extractiveAnswerCarriesIntentFigure,
   finalQualityGapAnswer,
   finalizeRagAnswerQuality,
   generatedAnswerQualityFailureReason,
   hasInvalidModelEvidenceIds,
   isOverExpandedSimpleGeneratedAnswer,
+  isSafeExtractiveFallbackCandidate,
   isSimpleDirectQuestion,
   isTemplateLikeGeneratedAnswer,
   isUnusableGeneratedAnswer,
+  retainCitedExtractiveFallbackEvidence,
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
 } from "@/lib/rag/rag-extractive-answer";
@@ -4637,34 +4640,24 @@ ${qualityRetryInstruction}`
         scoreExplanations: candidateArtifacts.scoreExplanations,
       } satisfies RagAnswer;
     };
-    const isSafeExtractiveFallbackCandidate = (candidate: RagAnswer) => {
-      if (!candidate.grounded || candidate.confidence === "unsupported") return false;
-      if (generatedAnswerQualityFailureReason(candidate, args.query, queryClass)) return false;
-      const verified = applyNumericVerification(cloneAnswer(candidate));
-      return (
-        verified.grounded &&
-        verified.confidence !== "unsupported" &&
-        (verified.unverifiedNumericTokens?.length ?? 0) === 0
-      );
-    };
-    const retainCitedExtractiveFallbackEvidence = <T extends RagAnswer>(candidate: T): T => {
-      const citedChunkIds = new Set(candidate.citations.map((citation) => citation.chunk_id));
-      return {
-        ...candidate,
-        sources: candidate.sources.filter((source) => citedChunkIds.has(source.id)),
-      };
-    };
     let extractiveFallbackAnswer = canRecoverGenerationErrorExtractively
       ? buildExtractiveFallbackCandidate(generationFallbackResults)
       : null;
     // Generated synthesis has already failed, so do not stitch dose or threshold figures
-    // across fallback chunks. Prefer the first individually complete candidate that passes
-    // every extractive and numeric safety gate.
+    // across fallback chunks. Prefer an individually complete candidate that passes every
+    // extractive and numeric safety gate — and among those, one whose answer carries the
+    // asked-for dose/monitoring figure, so a figure-less chunk that happens to rank first
+    // cannot displace a verbatim-supported dose or schedule.
     if (extractiveFallbackAnswer && (queryClass === "medication_dose_risk" || queryClass === "table_threshold")) {
+      const safeSingleChunkCandidates = generationFallbackResults
+        .map((result) => retainCitedExtractiveFallbackEvidence(buildExtractiveFallbackCandidate([result])))
+        .filter((candidate) => isSafeExtractiveFallbackCandidate(candidate, args.query, queryClass));
       extractiveFallbackAnswer =
-        generationFallbackResults
-          .map((result) => retainCitedExtractiveFallbackEvidence(buildExtractiveFallbackCandidate([result])))
-          .find(isSafeExtractiveFallbackCandidate) ?? extractiveFallbackAnswer;
+        safeSingleChunkCandidates.find((candidate) =>
+          extractiveAnswerCarriesIntentFigure(candidate.answer, args.query, queryClass),
+        ) ??
+        safeSingleChunkCandidates[0] ??
+        extractiveFallbackAnswer;
     }
     const extractiveFallbackQualityReason = extractiveFallbackAnswer
       ? generatedAnswerQualityFailureReason(extractiveFallbackAnswer, args.query, queryClass)

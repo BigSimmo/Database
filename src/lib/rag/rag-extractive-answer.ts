@@ -1,5 +1,5 @@
 import { boldHighYieldClinicalText } from "@/lib/answer-ranking";
-import { applyNumericVerification } from "@/lib/answer-verification";
+import { applyNumericVerification, extractClinicalValueAtoms } from "@/lib/answer-verification";
 import { citationFromResult as resultCitation, compactCitations } from "@/lib/citations";
 import { classifyRagQuery } from "@/lib/clinical-search";
 import { ragDeepMemoryVersion } from "@/lib/deep-memory";
@@ -23,6 +23,7 @@ import {
   sanitizeAnswerText,
   splitBalancedWords,
 } from "@/lib/rag/rag-answer-text";
+import { cloneAnswer } from "@/lib/rag/rag-cache";
 import { ragProviderMode } from "@/lib/rag/rag-provider";
 import {
   isLowYieldClinicalText,
@@ -39,7 +40,7 @@ import type {
   RagQueryClass,
   SearchResult,
 } from "@/lib/types";
-import { assessAndEnforceClaimSupport } from "@/lib/rag/rag-claim-support";
+import { assessAndEnforceClaimSupport, clinicalValueAtomKey, sourceEvidenceText } from "@/lib/rag/rag-claim-support";
 
 type AnswerIntent =
   | "dose"
@@ -366,6 +367,56 @@ const doseIntentEvidencePattern = new RegExp(
   String.raw`\b(?:doses?|dosing|dosage|${clinicalDoseUnitSource}|eGFR|renal|creatinine|daily|bd|tds|mane|nocte)\b`,
   "i",
 );
+
+// Interval/schedule tokens that make a monitoring fact carry its asked-for
+// schedule ("baseline", "annually", "every 3", "6 months"), plus unit-bearing
+// level ranges ("0.6-0.8 mmol/L") for target-level monitoring answers.
+// Alternation order is load-bearing: "every N unit" must precede bare
+// "every N" so exec() returns the full schedule, not a truncated "every 6".
+// Digit+unit intervals also yield value atoms, so atom identity catches
+// unit mismatches today — the full match keeps the promotion guard's
+// verbatim-corpus fallback equally honest if that coverage ever drifts.
+const monitoringIntervalFigurePattern =
+  /\b(?:baseline|weekly|monthly|annual(?:ly)?|every\s+\d+\s*(?:week|month|day|hour|year)s?|every\s+\d+|\d+\s*(?:week|month|day|hour|year)s?)\b/i;
+const monitoringUnitRangeFigurePattern =
+  /\d+(?:\.\d+)?\s*[-–]\s*\d+(?:\.\d+)?\s*(?:mmol\/L|mg|micrograms?|nmol\/L|mcg)/i;
+
+/**
+ * Whether extracted fact text carries the figure/schedule the intent asks for:
+ * a concrete dose value (or equivalent maximum-dose wording) for dose intent,
+ * an interval/schedule token or unit-bearing level range for monitoring intent.
+ * Other intents have no figure requirement and always return false.
+ */
+function factCarriesIntentFigure(intent: AnswerIntent, text: string) {
+  return intentFigureMatchText(intent, text) !== null;
+}
+
+/** The matched figure substring for the intent, or null — lets the promotion
+ * guard verify a zero-atom figure (e.g. "every 6 weeks") verbatim in the
+ * claim-support corpus rather than trusting it atom-free. */
+function intentFigureMatchText(intent: AnswerIntent, text: string) {
+  if (intent === "dose") {
+    return clinicalDoseValuePattern.exec(text)?.[0] ?? maximumDoseEquivalentPattern.exec(text)?.[0] ?? null;
+  }
+  if (intent === "monitoring_schedule") {
+    return monitoringIntervalFigurePattern.exec(text)?.[0] ?? monitoringUnitRangeFigurePattern.exec(text)?.[0] ?? null;
+  }
+  return null;
+}
+
+/**
+ * Whether an extractive answer's text carries the asked-for figure for a
+ * figure-seeking query (dose or monitoring-schedule intent). Used by the
+ * generation-fallback candidate preference in rag.ts so a safe single-chunk
+ * candidate that states the requested figure wins over an equally safe
+ * figure-less candidate. Non-figure intents return false, leaving the
+ * existing first-safe-candidate behaviour untouched.
+ */
+export function extractiveAnswerCarriesIntentFigure(answerText: string, query: string, queryClass: RagQueryClass) {
+  const intent = classifyAnswerIntent(query, queryClass);
+  if (intent !== "dose" && intent !== "monitoring_schedule") return false;
+  return factCarriesIntentFigure(intent, answerText.replace(/\*\*/g, ""));
+}
 
 /** Requires blood count evidence. */
 function requiresBloodCountEvidence(query: string) {
@@ -1045,6 +1096,66 @@ function buildFactSections(facts: ExtractedClinicalFact[], query: string) {
     .filter((section) => section.body && section.citation_chunk_ids.length > 0);
 }
 
+/**
+ * Nuke-proofing guard for lead-slot figure promotion: only promote a fact whose
+ * clinical value atoms ALL appear in the claim-support evidence corpus
+ * (sourceEvidenceText) of its citing chunk(s). Fact extraction reads
+ * adjacent_context and numeric verification accepts it too, but claim support
+ * does not — so a figure that lives only in adjacent context would pass numeric
+ * verification and then trip claim_support_high_risk_gap, nuking the whole
+ * answer. Facts with no value atoms instead require their figure tokens
+ * verbatim in the same corpus: schedule tokens like "baseline" or "annually"
+ * match the monitoring figure pattern yet yield no atom (reviewer P2), so the
+ * atom check alone would pass a figure that lives only in adjacent context and
+ * claim support would then nuke.
+ */
+function promotedFactFigureIsClaimSupportable(
+  fact: ExtractedClinicalFact,
+  results: SearchResult[],
+  intent: AnswerIntent,
+) {
+  const citingResults = results.filter((result) => fact.citationChunkIds.includes(result.id));
+  if (citingResults.length === 0) return false;
+  const factAtoms = extractClinicalValueAtoms(fact.text);
+  if (factAtoms.length === 0) {
+    const figureMatch = intentFigureMatchText(intent, fact.text);
+    if (!figureMatch) return false;
+    const normalizedFigure = figureMatch.toLowerCase().replace(/\s+/g, " ").trim();
+    return citingResults.some((result) =>
+      sourceEvidenceText(result).toLowerCase().replace(/\s+/g, " ").includes(normalizedFigure),
+    );
+  }
+  const corpusAtomKeys = new Set(
+    citingResults.flatMap((result) => extractClinicalValueAtoms(sourceEvidenceText(result)).map(clinicalValueAtomKey)),
+  );
+  return factAtoms.every((atom) => corpusAtomKeys.has(clinicalValueAtomKey(atom)));
+}
+
+/**
+ * Lead-slot figure guarantee for dose and monitoring-schedule answers: when no
+ * lead fact carries the asked-for figure/schedule but a later extracted fact
+ * does (and its figure survives the claim-support guard), surface that fact in
+ * the lead — dose swaps it into the last of its two lead slots; monitoring
+ * appends it as a second lead sentence. A lead that already carries a figure is
+ * returned unchanged, and other intents never reach this function.
+ */
+function promoteIntentFigureLeadFacts(
+  leadFacts: ExtractedClinicalFact[],
+  facts: ExtractedClinicalFact[],
+  intent: AnswerIntent,
+  results: SearchResult[],
+) {
+  if (leadFacts.some((fact) => factCarriesIntentFigure(intent, fact.text))) return leadFacts;
+  const promoted = facts
+    .slice(leadFacts.length)
+    .find(
+      (fact) =>
+        factCarriesIntentFigure(intent, fact.text) && promotedFactFigureIsClaimSupportable(fact, results, intent),
+    );
+  if (!promoted) return leadFacts;
+  return intent === "dose" ? [...leadFacts.slice(0, -1), promoted] : [...leadFacts, promoted];
+}
+
 /** Build fact synthesized answer. */
 function buildFactSynthesizedAnswer(args: {
   query: string;
@@ -1069,7 +1180,10 @@ function buildFactSynthesizedAnswer(args: {
     };
   }
 
-  const leadFacts = facts.slice(0, args.intent === "dose" ? 2 : 1);
+  let leadFacts = facts.slice(0, args.intent === "dose" ? 2 : 1);
+  if (args.intent === "dose" || args.intent === "monitoring_schedule") {
+    leadFacts = promoteIntentFigureLeadFacts(leadFacts, facts, args.intent, args.results);
+  }
   // Once the lead answer names the query entity, later lead sentences skip
   // their own entity prefix so the entity is not repeated in every sentence.
   // Derived exactly the way sentenceFromFact derives its prefix entity (from
@@ -1712,6 +1826,36 @@ export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: st
   if (isTemplateLikeGeneratedAnswer(answer)) return "template_like_answer";
   if (isOverExpandedSimpleGeneratedAnswer(query, queryClass, answer)) return "overexpanded_simple_answer";
   return null;
+}
+
+/**
+ * Whether an extractive fallback candidate is safe to ship in place of a failed
+ * generation: grounded and supported, clean of every final answer-quality gate,
+ * and numerically verified with zero unverified tokens. Pure — extracted from
+ * the rag.ts generation-fallback path so candidate selection stays testable in
+ * isolation.
+ */
+export function isSafeExtractiveFallbackCandidate(candidate: RagAnswer, query: string, queryClass: RagQueryClass) {
+  if (!candidate.grounded || candidate.confidence === "unsupported") return false;
+  if (generatedAnswerQualityFailureReason(candidate, query, queryClass)) return false;
+  const verified = applyNumericVerification(cloneAnswer(candidate));
+  return (
+    verified.grounded && verified.confidence !== "unsupported" && (verified.unverifiedNumericTokens?.length ?? 0) === 0
+  );
+}
+
+/**
+ * Narrows a fallback candidate's sources to the chunks its citations actually
+ * reference, so downstream claim support and numeric verification judge the
+ * candidate on exactly the evidence it cites. Pure — extracted from the rag.ts
+ * generation-fallback path.
+ */
+export function retainCitedExtractiveFallbackEvidence<T extends RagAnswer>(candidate: T): T {
+  const citedChunkIds = new Set(candidate.citations.map((citation) => citation.chunk_id));
+  return {
+    ...candidate,
+    sources: candidate.sources.filter((source) => citedChunkIds.has(source.id)),
+  };
 }
 
 /**
