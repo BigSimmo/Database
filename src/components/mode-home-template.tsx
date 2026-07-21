@@ -146,7 +146,7 @@ export function ModeHomeMain({
     <main
       data-testid={testId}
       className={cn(
-        "flex min-h-0 w-full flex-1 flex-col items-center bg-[color:var(--background)] px-0 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
+        "flex min-h-0 w-full flex-1 flex-col items-center bg-[color:var(--background)] px-0 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-6 sm:pb-[clamp(1.75rem,5vh,3.25rem)] lg:px-8",
         withoutJustifyUtilities(className),
         MODE_HOME_MAIN_ALIGN_CLASS[contentAlign],
       )}
