@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from "react"
 import { CircleAlert, Loader2, Minus, Plus, RefreshCw, RotateCw } from "lucide-react";
 
 import { Sheet } from "@/components/ui/sheet";
-import { cn, toolbarButton } from "@/components/ui-primitives";
+import { cn, IconButton, toolbarButton } from "@/components/ui-primitives";
 import { useViewerGestures } from "@/components/document-viewer/use-viewer-gestures";
 import { useSignedImageUrl } from "@/components/clinical-dashboard/use-signed-image-url";
 
@@ -114,7 +114,13 @@ export function ImageLightbox({
             }}
           />
         ) : failed ? (
-          <div className="grid place-items-center gap-2 p-6 text-center text-sm font-semibold text-[color:var(--warning)]">
+          // role=alert so a load failure that happens after the lightbox has
+          // already opened (e.g. an expired signed URL) is announced, not just
+          // silently swapped in beneath the still-open dialog.
+          <div
+            role="alert"
+            className="grid place-items-center gap-2 p-6 text-center text-sm font-semibold text-[color:var(--warning)]"
+          >
             <CircleAlert aria-hidden="true" className="h-6 w-6" />
             Image could not load.
             <button
@@ -127,7 +133,10 @@ export function ImageLightbox({
             </button>
           </div>
         ) : (
-          <div className="grid place-items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)]">
+          <div
+            role="status"
+            className="grid place-items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)]"
+          >
             <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />
             Loading image
           </div>
@@ -139,15 +148,13 @@ export function ImageLightbox({
           onPointerDown={(event) => event.stopPropagation()}
         >
           <div className="pointer-events-auto flex items-center gap-1 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] p-1 shadow-[var(--shadow-tight)] backdrop-blur-md">
-            <button
-              type="button"
+            <IconButton
+              icon={Minus}
+              label="Zoom out"
               onClick={() => zoomByFactor(1 / 1.25)}
               disabled={!url}
               className={toolbarButton}
-              aria-label="Zoom out"
-            >
-              <Minus aria-hidden="true" className="h-4 w-4" />
-            </button>
+            />
             <button
               type="button"
               onClick={() => {
@@ -160,24 +167,20 @@ export function ImageLightbox({
             >
               {Math.round(scale * 100)}%
             </button>
-            <button
-              type="button"
+            <IconButton
+              icon={Plus}
+              label="Zoom in"
               onClick={() => zoomByFactor(1.25)}
               disabled={!url}
               className={toolbarButton}
-              aria-label="Zoom in"
-            >
-              <Plus aria-hidden="true" className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
+            />
+            <IconButton
+              icon={RotateCw}
+              label="Rotate image 90 degrees"
               onClick={() => setRotation((current) => (current + 90) % 360)}
               disabled={!url}
               className={toolbarButton}
-              aria-label="Rotate image 90 degrees"
-            >
-              <RotateCw aria-hidden="true" className="h-4 w-4" />
-            </button>
+            />
           </div>
         </div>
       </div>

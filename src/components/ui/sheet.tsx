@@ -15,6 +15,38 @@ import { cn, toolbarButton } from "@/components/ui-primitives";
 
 export type SheetMobileSize = "content" | "viewport";
 
+// Stacked-overlay coordination. Every open Sheet registers a window keydown
+// listener and locks body scroll. Without coordination two open Sheets (e.g. an
+// image lightbox or table dialog opened over the mobile Evidence sheet) both
+// react to a single Escape — closing both — and their independent per-instance
+// scroll-lock save/restore is order-dependent (an out-of-order close unlocks the
+// page behind a still-open sheet or leaks `overflow:hidden`). This module-level
+// stack lets only the top-most Sheet handle Escape/Tab, and the stack length
+// doubles as a scroll-lock ref count so body scroll stays locked until the last
+// Sheet closes and the original overflow is restored exactly once.
+const openSheetStack: string[] = [];
+let bodyScrollLockPreviousOverflow = "";
+
+function isTopmostSheet(id: string) {
+  return openSheetStack[openSheetStack.length - 1] === id;
+}
+
+function pushSheet(id: string) {
+  if (openSheetStack.length === 0) {
+    bodyScrollLockPreviousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  openSheetStack.push(id);
+}
+
+function popSheet(id: string) {
+  const index = openSheetStack.lastIndexOf(id);
+  if (index !== -1) openSheetStack.splice(index, 1);
+  if (openSheetStack.length === 0) {
+    document.body.style.overflow = bodyScrollLockPreviousOverflow;
+  }
+}
+
 /**
  * Responsive overlay: a bottom sheet on mobile (rises from the bottom, safe-area
  * aware, drag-grip) and a centred dialog from `sm:` up. CSS-only animation, no
@@ -87,6 +119,7 @@ export function Sheet({
   const backdropPointerDownRef = useRef(false);
   const titleId = useId();
   const descId = useId();
+  const sheetId = useId();
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -131,8 +164,7 @@ export function Sheet({
 
     const explicitReturnElement = returnFocusRef?.current ?? null;
     const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    pushSheet(sheetId);
     const focusFrame = window.requestAnimationFrame(() => {
       const focusTarget =
         initialFocusRef?.current ??
@@ -142,6 +174,12 @@ export function Sheet({
     });
 
     function onKeyDown(event: KeyboardEvent) {
+      // Only the top-most open Sheet reacts, so a stacked overlay (lightbox /
+      // table dialog over the Evidence sheet) does not also close on one Escape
+      // or fight over the Tab focus trap. Lower sheets registered their listener
+      // earlier and fire first, so they self-suppress here without needing to
+      // stop propagation.
+      if (!isTopmostSheet(sheetId)) return;
       if (event.key === "Escape") {
         event.preventDefault();
         onCloseRef.current();
@@ -176,7 +214,7 @@ export function Sheet({
     return () => {
       window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      popSheet(sheetId);
       const restoreTarget = explicitReturnElement ?? previousActiveElement;
       window.requestAnimationFrame(() => {
         if (!restoreTarget?.isConnected) return;
@@ -192,7 +230,7 @@ export function Sheet({
         }, 50);
       });
     };
-  }, [open, initialFocusRef, returnFocusRef]);
+  }, [open, initialFocusRef, returnFocusRef, sheetId]);
 
   if (!open) return null;
 

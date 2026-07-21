@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import type { RegistryRecordKind, RegistrySourceStatus, RegistryValidationStatus } from "@/lib/registry-records";
 import type { ServiceRecord } from "@/lib/services";
@@ -18,6 +18,11 @@ export type RegistryRecordsState = {
   governance: Record<string, RegistryValidationStatus>;
 };
 
+/** Hook return: the list state plus a `refetch` that re-runs the request — e.g.
+ *  from a Retry control after a transient error, since the fetch key is the kind
+ *  (not a user value) and would otherwise only recover on a full page reload. */
+export type RegistryRecordsResult = RegistryRecordsState & { refetch: () => void };
+
 export type RegistryRecordGovernance = {
   sourceStatus: RegistrySourceStatus;
   validationStatus: RegistryValidationStatus;
@@ -32,6 +37,9 @@ export type RegistryRecordState = {
    *  so detail pages can render current badges rather than the fixture copy. */
   governance: RegistryRecordGovernance | null;
 };
+
+/** Hook return: the record state plus a `refetch` for Retry affordances. */
+export type RegistryRecordResult = RegistryRecordState & { refetch: () => void };
 
 const recordLoading: RegistryRecordState = {
   status: "loading",
@@ -64,11 +72,19 @@ export function countVerifiedRegistryRecords(state: RegistryRecordsState) {
 export function useRegistryRecords(
   kind: RegistryRecordKind,
   options: { enabled?: boolean } = {},
-): RegistryRecordsState {
+): RegistryRecordsResult {
   const enabled = options.enabled ?? true;
   const { authorizationHeader, markSessionExpired, status: authStatus } = useAuthSession();
   const [state, setState] = useState<RegistryRecordsKeyedState>(recordsState("loading", kind));
+  const [attempt, setAttempt] = useState(0);
   const visibleState: RegistryRecordsState = state.kind === kind ? state : recordsState("loading", kind);
+
+  // Re-run the request from a Retry control: reset to loading and bump a counter
+  // the effect depends on. Recovery otherwise required a full page reload.
+  const refetch = useCallback(() => {
+    setState(recordsState("loading", kind));
+    setAttempt((value) => value + 1);
+  }, [kind]);
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -119,16 +135,21 @@ export function useRegistryRecords(
     return () => {
       active = false;
     };
-  }, [enabled, kind, authStatus, authorizationHeader, markSessionExpired]);
+  }, [enabled, kind, authStatus, authorizationHeader, markSessionExpired, attempt]);
 
-  return visibleState;
+  return { ...visibleState, refetch };
 }
 
 /** Single owner-scoped registry record (detail pages). */
-export function useRegistryRecord(kind: RegistryRecordKind, slug: string): RegistryRecordState {
+export function useRegistryRecord(kind: RegistryRecordKind, slug: string): RegistryRecordResult {
   const { authorizationHeader, markSessionExpired, status: authStatus } = useAuthSession();
   const requestKey = `${kind}:${slug}`;
   const [state, setState] = useState<RegistryRecordState>(recordLoading);
+  const [attempt, setAttempt] = useState(0);
+  const refetch = useCallback(() => {
+    setState(recordLoading);
+    setAttempt((value) => value + 1);
+  }, []);
   // Reset to loading during render when the target record changes, instead of
   // synchronously inside the effect (react-hooks/set-state-in-effect).
   const [lastRequestKey, setLastRequestKey] = useState(requestKey);
@@ -184,7 +205,7 @@ export function useRegistryRecord(kind: RegistryRecordKind, slug: string): Regis
     return () => {
       active = false;
     };
-  }, [kind, slug, authStatus, authorizationHeader, markSessionExpired]);
+  }, [kind, slug, authStatus, authorizationHeader, markSessionExpired, attempt]);
 
-  return state;
+  return { ...state, refetch };
 }

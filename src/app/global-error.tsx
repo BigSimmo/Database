@@ -22,7 +22,10 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       <body
         style={{
           margin: 0,
-          minHeight: "100vh",
+          // dvh (not vh) matches the app-wide convention so the centred card
+          // stays within the visible viewport on mobile browsers with dynamic
+          // toolbars, rather than being pushed partly below the fold.
+          minHeight: "100dvh",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
