@@ -13,7 +13,7 @@ export function FormulationPageShell({ children, className }: { children: ReactN
       className={cn(
         // Phone shell owns dock clearance; avoid 100dvh min-height overflowing the
         // inset scrollport the way service/form detail pages used to.
-        "max-sm:min-h-0 bg-[color:var(--background)] px-3 py-4 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-4rem)] sm:px-5 sm:py-6 sm:pb-10 lg:px-7",
+        "max-sm:min-h-0 bg-[color:var(--background)] px-3 py-4 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-5 sm:py-6 sm:pb-10 lg:px-7",
         className,
       )}
     >
