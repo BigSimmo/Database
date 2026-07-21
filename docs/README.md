@@ -23,6 +23,7 @@ npm run docs:check-links
 ## Architecture
 
 - [frontend-architecture.md](frontend-architecture.md) — shell, routing, dashboard module structure
+- [wiring-conventions.md](wiring-conventions.md) — page/button wiring conventions and the dead-button / orphan-route gates
 - [deployment-architecture.md](deployment-architecture.md) — app/worker/Supabase deployment topology
 - [ingestion-state-machine.md](ingestion-state-machine.md) — ingestion job lifecycle and states
 - [design-system.md](design-system.md) — tokens, primitives, styling conventions

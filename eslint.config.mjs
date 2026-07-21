@@ -3,6 +3,24 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
 import requireLucideIconAria from "./eslint-rules/require-lucide-icon-aria.mjs";
+import requireButtonWiring from "./eslint-rules/require-button-wiring.mjs";
+
+// Shared `local` plugin object. ESLint flat config requires every config block
+// that references a plugin namespace to point at the *same* object, so the two
+// local rules below — which want different mockup-ignore scopes — share this one.
+const localRulesPlugin = {
+  rules: {
+    "require-lucide-icon-aria": requireLucideIconAria,
+    "require-button-wiring": requireButtonWiring,
+  },
+};
+
+// Design-scratch mockups (404 in production) are exempt from the local rules.
+// Match the repo's documented mockup surface precisely — the `/mockups/*`
+// routes, the `*-mockups/` component directories, and the `*-mockup(s).tsx`
+// singletons — instead of a broad `*mockup*` substring, which would also exempt
+// arbitrary production files whose name merely contains "mockup".
+const MOCKUP_IGNORES = ["src/app/mockups/**", "**/*-mockups/**", "**/*-mockups.tsx", "**/*-mockup.tsx"];
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -29,11 +47,23 @@ const eslintConfig = defineConfig([
   {
     files: ["**/*.{jsx,tsx}"],
     ignores: ["**/*mockup*", "**/mockups/**"],
-    plugins: {
-      local: { rules: { "require-lucide-icon-aria": requireLucideIconAria } },
-    },
+    plugins: { local: localRulesPlugin },
     rules: {
       "local/require-lucide-icon-aria": "error",
+    },
+  },
+  // A styled, labelled `<button type="button">` with no handler is a dead control
+  // (the "Language and region" globe class, fixed 2026-07-21). Require an explicit
+  // non-submit button to carry an onClick handler or an explicit disabled state.
+  // Scoped to production source (`src/**`): this is a product-UX concern, so test
+  // fixtures that render a bare <button> to exercise a slot are out of scope. The
+  // full mockup-ignore set exempts the `*-mockups/` design-scratch previews.
+  {
+    files: ["src/**/*.{js,jsx,ts,tsx}"],
+    ignores: MOCKUP_IGNORES,
+    plugins: { local: localRulesPlugin },
+    rules: {
+      "local/require-button-wiring": "error",
     },
   },
   // Import boundary: production source must not import design-scratch mockup

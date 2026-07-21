@@ -1852,7 +1852,9 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(mobileComparison.getByRole("button", { name: "Column filters unavailable" })).toBeDisabled();
     await expect(mobileComparison.getByText("Delirium", { exact: true }).first()).toBeVisible();
     await expect(mobileComparison.getByText("Substance intoxication", { exact: true }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open language and region settings" })).toBeVisible();
+    const languageControl = page.getByRole("button", { name: "Language and region settings (coming soon)" });
+    await expect(languageControl).toBeVisible();
+    await expect(languageControl).toHaveAttribute("aria-disabled", "true");
     await expect(page.getByRole("button", { name: "Start a new comparison" })).toBeVisible();
     await expect(page.getByTestId("global-search-input")).toHaveCount(0);
     await expect(page.getByText("Service details")).toHaveCount(0);
