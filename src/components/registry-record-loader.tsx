@@ -20,15 +20,20 @@ function StatePanel({
   body,
   kind,
   action,
+  onRetry,
 }: {
   icon: ReactNode;
   title: string;
   body: string;
   kind: RegistryRecordKind;
   action?: { href: string; label: string };
+  /** When set, the panel leads with a Retry button and keeps the link as a secondary escape. */
+  onRetry?: () => void;
 }) {
   const copy = kindCopy[kind];
   const primary = action ?? { href: copy.homeHref, label: copy.homeLabel };
+  const commandButton =
+    "inline-flex min-h-10 items-center justify-center rounded-lg bg-[color:var(--command)] px-4 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]";
   return (
     <main className="grid min-h-[60dvh] place-items-center px-4">
       <div className="w-full max-w-md rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-6 text-center shadow-[var(--shadow-soft)]">
@@ -37,12 +42,23 @@ function StatePanel({
         </span>
         <h1 className="mt-4 text-lg font-semibold text-[color:var(--text-heading)]">{title}</h1>
         <p className={cn("mt-2 text-sm leading-6", textMuted)}>{body}</p>
-        <Link
-          href={primary.href}
-          className="mt-5 inline-flex min-h-10 items-center justify-center rounded-lg bg-[color:var(--command)] px-4 text-sm font-semibold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--command-hover)]"
-        >
-          {primary.label}
-        </Link>
+        {onRetry ? (
+          <div className="mt-5 flex flex-col items-center gap-2">
+            <button type="button" onClick={onRetry} className={commandButton}>
+              Try again
+            </button>
+            <Link
+              href={primary.href}
+              className="text-sm font-semibold text-[color:var(--text-muted)] underline-offset-4 hover:underline"
+            >
+              {primary.label}
+            </Link>
+          </div>
+        ) : (
+          <Link href={primary.href} className={cn("mt-5", commandButton)}>
+            {primary.label}
+          </Link>
+        )}
       </div>
     </main>
   );
@@ -59,7 +75,7 @@ export function RegistryRecordLoader({
   fallbackRecord?: ServiceRecord | null;
   children: (record: ServiceRecord) => ReactNode;
 }) {
-  const { status, record, governance } = useRegistryRecord(kind, slug);
+  const { status, record, governance, refetch } = useRegistryRecord(kind, slug);
   const copy = kindCopy[kind];
 
   if (status === "loading") {
@@ -110,7 +126,8 @@ export function RegistryRecordLoader({
         kind={kind}
         icon={<ShieldAlert className="h-5 w-5" aria-hidden />}
         title="Could not load the record"
-        body="Something went wrong fetching this registry record. Try again shortly."
+        body="Something went wrong fetching this registry record."
+        onRetry={refetch}
       />
     );
   }

@@ -88,6 +88,10 @@ export function AccountSetupDialog({
   const [emailAttempted, setEmailAttempted] = useState(false);
   const busy = auth.status === "loading";
   const statusMessage = providerNotice ?? (emailAttempted ? auth.error : null);
+  // Only a submit error (not the SSO provider notice) marks the email field
+  // invalid and is associated to it, so assistive tech ties the alert to the
+  // control the user must correct.
+  const emailHasError = !providerNotice && Boolean(statusMessage);
   const isFavouritesIntent = intent === "favourites";
   const benefits = isFavouritesIntent ? favouritesAccountBenefits : accountBenefits;
   const title = isFavouritesIntent ? "Sign up to save favourites" : "Set up your workspace";
@@ -167,6 +171,8 @@ export function AccountSetupDialog({
                   autoCorrect="off"
                   spellCheck={false}
                   required
+                  aria-invalid={emailHasError || undefined}
+                  aria-describedby={emailHasError ? "account-setup-status" : undefined}
                   className={cn(
                     fieldControlWithIcon,
                     "h-10.5 focus:ring-2 focus:ring-[color:var(--focus)]/20 sm:h-tap",
@@ -265,6 +271,7 @@ export function AccountSetupDialog({
 
             {statusMessage ? (
               <p
+                id="account-setup-status"
                 role={providerNotice ? "status" : "alert"}
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
               >

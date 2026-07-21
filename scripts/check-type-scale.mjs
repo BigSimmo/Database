@@ -10,8 +10,11 @@
 //
 // Usage:
 //   node scripts/check-type-scale.mjs           report only, exit 0 (default)
-//   node scripts/check-type-scale.mjs --strict  exit 1 if any found (promote to a
-//                                               CI gate once the backlog is cleared)
+//   node scripts/check-type-scale.mjs --strict  exit 1 if any found. Already wired
+//                                               into `verify:cheap` with the backlog
+//                                               cleared to 0, so this is a hard zero
+//                                               gate (no baseline) — unlike the
+//                                               ratcheting design-system contract.
 
 import { readFileSync } from "node:fs";
 import { execSync } from "node:child_process";

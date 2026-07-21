@@ -700,8 +700,7 @@ function FavouritesTable({
                   data-testid={`favourite-row-${item.id}`}
                   className={cn(
                     "relative h-14 transition hover:bg-[color:var(--surface-subtle)]",
-                    selected &&
-                      "xl:bg-[color:var(--clinical-accent-soft)]/45 xl:shadow-[inset_3px_0_0_var(--clinical-accent)]",
+                    selected && "xl:bg-[color:var(--clinical-accent-soft)]/45 xl:shadow-[var(--shadow-rail-active)]",
                   )}
                 >
                   <td className="px-3.5 align-middle">
