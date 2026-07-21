@@ -47,6 +47,21 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: "151mb",
   },
   poweredByHeader: false,
+  images: {
+    // Prefer AVIF (~20-30% smaller than WebP), falling back to WebP, for any
+    // next/image output.
+    formats: ["image/avif", "image/webp"],
+    // Permit optimizing Supabase Storage signed URLs (private document/image
+    // previews) through next/image. Signed URLs are served from the project's
+    // *.supabase.co storage object endpoint; the path scope keeps this narrow.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/**",
+      },
+    ],
+  },
   turbopack: {
     root: projectRoot,
   },

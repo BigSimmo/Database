@@ -475,8 +475,22 @@ function MedicationRecordDetail({
   );
 }
 
-export function MedicationRecordPage({ slug }: { slug: string }) {
+export function MedicationRecordPage({
+  slug,
+  fallbackRecord,
+  fallbackGovernance,
+}: {
+  slug: string;
+  fallbackRecord?: MedicationRecord;
+  fallbackGovernance?: MedicationGovernance;
+}) {
   const { data, loading, error } = useMedicationDetail(slug);
+  // Content-first: render the SSR fallback immediately, then swap in the live
+  // (owner-aware) record once the hook resolves. Only fall back to the skeleton
+  // when there is no server record to show (owner-only slugs) and the fetch is
+  // still in flight; the error state applies only when nothing renderable exists.
+  const record = data?.record ?? fallbackRecord ?? null;
+  const governance = data?.governance ?? fallbackGovernance;
 
   return (
     <main className="min-h-[calc(100dvh-4rem)] text-[color:var(--text)]" data-testid={`medication-page-${slug}`}>
@@ -491,19 +505,19 @@ export function MedicationRecordPage({ slug }: { slug: string }) {
         </Link>
       </div>
       <div className="px-3 py-3 sm:px-6 lg:px-8">
-        {loading ? (
+        {record ? (
+          <MedicationRecordDetail record={record} governance={governance} />
+        ) : loading ? (
           <div className="mx-auto max-w-7xl">
             <LoadingPanel label="Loading medication reference…" variant="skeleton" lines={6} />
           </div>
-        ) : error || !data?.record ? (
+        ) : (
           <div className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] p-4 text-sm text-[color:var(--danger-text)]">
             <div className="flex items-start gap-2">
               <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
               <p>{error ?? "Medication not found."}</p>
             </div>
           </div>
-        ) : (
-          <MedicationRecordDetail record={data.record} governance={data.governance} />
         )}
       </div>
       <footer className="mx-auto max-w-7xl px-4 pb-4 text-center text-2xs font-medium text-[color:var(--text-muted)]">
