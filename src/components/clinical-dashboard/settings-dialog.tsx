@@ -49,6 +49,7 @@ import {
   fieldControlWithIcon,
   fieldIcon,
   floatingControl,
+  InlineNotice,
   primaryControl,
   toggleThumbSurface,
 } from "@/components/ui-primitives";
@@ -129,7 +130,6 @@ export function SettingsDialog({
   const savedCount = Object.values(accountData.favourites).reduce((total, items) => total + items.length, 0);
   const [settingsEmail, setSettingsEmail] = useState("");
   const [emailEntryOpen, setEmailEntryOpen] = useState(false);
-  const [settingsEmailAttempted, setSettingsEmailAttempted] = useState(false);
   const [accountNotice, setAccountNotice] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>("account");
   const [dataCounts, setDataCounts] = useState<{ recent: number; saved: number }>(() => readDataCounts());
@@ -220,7 +220,6 @@ export function SettingsDialog({
     event.preventDefault();
     if (!settingsEmail.trim()) return;
     setAccountNotice(null);
-    setSettingsEmailAttempted(true);
     await auth.signInWithEmail(settingsEmail.trim());
   }
 
@@ -442,6 +441,13 @@ export function SettingsDialog({
                             <input
                               ref={settingsEmailInputRef}
                               type="email"
+                              inputMode="email"
+                              autoComplete="email"
+                              enterKeyHint="go"
+                              autoCapitalize="none"
+                              autoCorrect="off"
+                              spellCheck={false}
+                              required
                               value={settingsEmail}
                               onChange={(event) => setSettingsEmail(event.target.value)}
                               placeholder="you@clinic.example"
@@ -488,16 +494,22 @@ export function SettingsDialog({
                       Accounts sync favourites and preferences across signed-in devices. Do not enter PHI.
                     </p>
 
-                    {(accountNotice || !auth.isConfigured || (settingsEmailAttempted && auth.error)) && (
-                      <p
-                        role="alert"
-                        className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-3 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
-                      >
+                    {auth.notice ? (
+                      // The auth context sets `notice` on a successful email submit
+                      // ("check your email…"); surface it as a success status so the
+                      // happy path is confirmed instead of the form sitting silent.
+                      <InlineNotice tone="success">{auth.notice}</InlineNotice>
+                    ) : null}
+                    {accountNotice || auth.error || !auth.isConfigured ? (
+                      // Show auth.error whenever present — not only after an email
+                      // attempt — so an OAuth sign-in failure is announced instead of
+                      // leaving the provider button looking dead.
+                      <InlineNotice tone={auth.error ? "danger" : "neutral"}>
                         {accountNotice ??
-                          (settingsEmailAttempted ? auth.error : null) ??
+                          auth.error ??
                           "Supabase browser authentication is not configured for account sign-in."}
-                      </p>
-                    )}
+                      </InlineNotice>
+                    ) : null}
                   </div>
                 ) : (
                   <SettingsClinicalContextStrip jurisdictionShort={jurisdictionShort} />

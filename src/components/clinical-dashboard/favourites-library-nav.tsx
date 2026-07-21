@@ -206,7 +206,7 @@ function SidebarRow({ entry }: { entry: SidebarEntry }) {
       className={cn(
         "flex min-h-tap w-full items-center gap-2.5 rounded-lg border px-2.5 text-left text-sm-minus font-semibold transition",
         entry.active
-          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[inset_2px_0_0_var(--clinical-accent)]"
+          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-rail-active)]"
           : "border-transparent text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
         focusRing,
       )}
@@ -274,7 +274,7 @@ export function FavouritesSidebar({
                     className={cn(
                       "relative grid h-tap w-tap place-items-center rounded-lg border transition",
                       entry.active
-                        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[inset_2px_0_0_var(--clinical-accent)]"
+                        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-rail-active)]"
                         : "border-transparent text-[color:var(--text-muted)] hover:border-[color:var(--border)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]",
                       focusRing,
                     )}

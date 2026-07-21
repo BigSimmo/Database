@@ -35,7 +35,10 @@ contract and the code — not reinvention. If a change genuinely needs a new dir
 - **Forced-colors and reduced-motion are first-class.** `globals.css` remaps all tokens under
   `@media (forced-colors: active)` and zeroes motion under `prefers-reduced-motion: reduce`.
   Never inline a style that defeats these. Every bespoke `transition`/`animate` needs
-  `motion-reduce:` handling or one of the pre-wired `--animate-*` tokens.
+  `motion-reduce:` handling or one of the pre-wired `--animate-*` tokens. Scripted
+  `scrollTo`/`scrollIntoView` must resolve `behavior` through `resolveScrollBehavior()`
+  (`src/lib/scroll-behavior.ts`) — a hard-coded `behavior: "smooth"` overrides the
+  reduced-motion CSS and ignores the preference.
 
 ### Legacy-hex migration table
 
@@ -104,7 +107,7 @@ Icon **glyphs** use the parallel `--spacing-icon-*` scale in `@theme`:
 - Radii come from `@theme`: `rounded-md` chips/pills · `rounded-lg` controls/cards/panels ·
   `rounded-xl`+ sheets/dialogs. Never pass a radius token through an arbitrary value
   (`rounded-[var(--radius-md)]` → `rounded-md`) — the plain utility is the same token.
-- Shadows/elevation: `--shadow-tight/soft/card/hover/elevated/lux/inset` and `--glow-primary/
+- Shadows/elevation: `--shadow-tight/soft/card/hover/elevated/lux/inset/rail-active` and `--glow-primary/
 soft`, all re-tuned per theme and removed under forced-colors. No literal `box-shadow` values
   in components.
 
@@ -127,6 +130,9 @@ rung — never a new number.
   safe-area padding, and dark-mode surfaces. Do not hand-roll `role="dialog"` overlays —
   the applications-launcher DetailDialog migration is the template for converting one.
 - Empty and loading states use `EmptyState` / `LoadingPanel`, not bespoke markup.
+- **Icon-only buttons use `IconButton`** (`ui-primitives.tsx`): its `label` prop is required and
+  renders `aria-label` + an `aria-hidden` glyph + a 44px tap target, so an unlabeled icon button
+  cannot be written by accident. Pass a recipe (`toolbarButton`, …) via `className` for chrome.
 - Composer-chrome caveat: the `answer-footer-search-*` / `desktop-home-search-*` classes are
   intentionally **unlayered** and beat Tailwind utilities on the same element — check the class
   body before adding a utility there (see "CSS cascade layering" in

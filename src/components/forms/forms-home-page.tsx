@@ -96,7 +96,9 @@ export function FormsHomePage() {
       <ModeHomeStatusNotice
         icon={ShieldAlert}
         title="Could not load forms"
-        body="The forms registry could not be loaded. Try again shortly."
+        body="The forms registry could not be loaded."
+        actionLabel="Try again"
+        onAction={registry.refetch}
       />
     ) : !hasRegistryRecords ? (
       <ModeHomeStatusNotice
