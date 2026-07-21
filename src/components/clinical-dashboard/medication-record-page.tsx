@@ -496,7 +496,10 @@ export function MedicationRecordPage({
   const governance = data?.governance ?? (error ? undefined : fallbackGovernance);
 
   return (
-    <main className="min-h-[calc(100dvh-4rem)] text-[color:var(--text)]" data-testid={`medication-page-${slug}`}>
+    <main
+      className="min-h-[calc(100dvh-var(--shell-header-h))] text-[color:var(--text)]"
+      data-testid={`medication-page-${slug}`}
+    >
       <div className="mx-auto max-w-7xl px-3 pt-3 sm:px-6 lg:px-8">
         <Link
           href={`/?mode=prescribing&q=${encodeURIComponent(slug)}`}

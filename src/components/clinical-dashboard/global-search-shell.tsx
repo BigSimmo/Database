@@ -726,9 +726,11 @@ function GlobalStandaloneSearchShellClient({
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
-            // Standalone mode homes keep the hero pill from sm up; phones get
-            // the compact bottom dock (only the answer home hero owns phones).
-            heroComposerBreakpoint="sm-up"
+            // Standalone mode homes keep the in-flow hero pill at every width,
+            // phones included — the composer sits in the middle of the hero and
+            // scrolls with the content, matching the answer home rather than
+            // docking to the bottom edge.
+            heroComposerBreakpoint="all"
             // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the header/composer to hand space back to content.
             hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
@@ -751,7 +753,7 @@ function GlobalStandaloneSearchShellClient({
             // Phone: keep a block formatting scrollport (not a column flex). A
             // flex-1 child overflowed past a sibling spacer without extending
             // scrollHeight, which parked long pages under the visible dock.
-            "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:min-h-0 max-sm:flex-1 max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-4rem)] sm:overflow-x-clip",
+            "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:min-h-0 max-sm:flex-1 max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:overflow-x-clip",
             // sm+: static desktop clearance; use var(--safe-area-bottom) so tests
             // can simulate insets without depending on env() in Chromium.
             !reservesFloatingComposer
@@ -771,7 +773,7 @@ function GlobalStandaloneSearchShellClient({
           */}
           <div data-testid="mobile-composer-reserve-pad" className="max-sm:pb-[var(--mobile-composer-reserve)]">
             <ClientHydrationBoundary
-              fallback={<div className="min-h-[calc(100dvh-4rem)] overflow-x-hidden" aria-hidden />}
+              fallback={<div className="min-h-[calc(100dvh-var(--shell-header-h))] overflow-x-hidden" aria-hidden />}
             >
               <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
             </ClientHydrationBoundary>
