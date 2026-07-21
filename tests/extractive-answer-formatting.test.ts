@@ -577,10 +577,13 @@ describe("monitoring evidence gate parity (run-#60 miss class)", () => {
       figureChunk({
         id: "dose-range-coverage-guard-1",
         section_heading: "Quetiapine",
-        // No monitoring token anywhere: the ONLY thing that could grant intent
-        // coverage is the mg dose range, which must not count as a monitoring
-        // figure at either the result level or the sentence level.
-        content: "Quetiapine prescribing information follows. The therapeutic dose range is 300-450 mg daily.",
+        // Genuinely token-free: no monitoring vocabulary at all, so the ONLY
+        // candidate coverage grantor is the mg dose range, which must not
+        // count as a monitoring figure at either the result level or the
+        // sentence level. (End-to-end this is defense-in-depth layered with
+        // the gate miss and the dose-kind cadence/level guard — the
+        // generic-vocabulary path is pinned by the neighbouring test.)
+        content: "Quetiapine prescribing information follows. 300-450 mg is listed for adults.",
       }),
     ]);
     const plain = (answer.answer ?? "").replace(/\*\*/g, "");
