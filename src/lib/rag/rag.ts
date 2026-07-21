@@ -65,6 +65,7 @@ import {
   sourceBackedGenerationTimeoutAnswer,
   strongReasoningEffortForQueryClass,
 } from "@/lib/rag/rag-extractive-answer";
+import { chooseValidatedExtractiveShortCircuit } from "@/lib/rag/rag-extractive-first";
 import {
   buildComparisonAnswer,
   buildComparisonEvidenceGapAnswer,
@@ -905,110 +906,6 @@ function applyConfidenceGate(
     },
     fallbackReason: `low_signal_${queryClass}_${route.mode}`,
   };
-}
-
-/**
- * Allow a score-blocked routine document-content query to use the deterministic
- * answer only when that answer independently passes the final safety gates.
- *
- * This is deliberately narrower than the normal extractive router: it cannot
- * recover medication, threshold, comparison, broad-summary, complex, or weakly
- * related queries. The retrieval diagnostic remains blocked so the UI still
- * presents the recovered answer with low-trust guidance.
- */
-function hasValidatedExtractiveCandidate(args: {
-  query: string;
-  queryClass: RagQueryClass;
-  results: SearchResult[];
-  routeReason: string;
-}) {
-  const candidate = finalizeRagAnswerQuality(
-    buildExtractiveAnswer({
-      query: args.query,
-      queryClass: args.queryClass,
-      results: args.results,
-      quoteCards: [],
-      documentBreakdown: [],
-      evidenceSummary: undefined,
-      sourceCoverage: undefined,
-      conflictsOrGaps: [],
-      visualEvidence: [],
-      bestSource: null,
-      smartPanel: undefined,
-      relatedDocuments: [],
-      routeReason: args.routeReason,
-      timings: undefined,
-    }),
-    args.query,
-    args.queryClass,
-  );
-
-  return (
-    candidate.grounded &&
-    candidate.confidence !== "unsupported" &&
-    candidate.citations.length > 0 &&
-    candidate.responseMode !== "evidence_gap" &&
-    !/final_quality_gate:/.test(candidate.routingReason ?? "")
-  );
-}
-
-/** Recover only routine, source-backed document lookups whose deterministic answer passes every final gate. */
-function hasValidatedRoutineExtractiveRecovery(args: {
-  query: string;
-  queryClass: RagQueryClass;
-  results: SearchResult[];
-  route: { mode: "unsupported" | "extractive" | "fast" | "strong"; reason: string };
-  sourceBacked: boolean;
-}) {
-  if (
-    args.queryClass !== "document_lookup" ||
-    args.route.mode !== "fast" ||
-    args.route.reason !== "strong_routine_retrieval" ||
-    !args.sourceBacked
-  ) {
-    return false;
-  }
-
-  return hasValidatedExtractiveCandidate({
-    query: args.query,
-    queryClass: args.queryClass,
-    results: args.results,
-    routeReason: `${args.route.reason}; validated_routine_extractive_recovery`,
-  });
-}
-
-/**
- * Generic LAI-management questions repeatedly time out in generation despite strong direct
- * source support. Skip that paid tail only when the question asks no specific clinical detail
- * and the deterministic answer independently passes the same final quality and grounding gates.
- */
-function hasValidatedGenericLaiManagementExtractiveAnswer(args: {
-  query: string;
-  queryClass: RagQueryClass;
-  results: SearchResult[];
-  route: { mode: "unsupported" | "extractive" | "fast" | "strong"; reason: string };
-  sourceBacked: boolean;
-}) {
-  const genericLaiManagementQuery = /^\s*how (?:are|should) long[- ]acting injectables? (?:be )?managed\??\s*$/i.test(
-    args.query,
-  );
-
-  if (
-    !genericLaiManagementQuery ||
-    args.queryClass !== "medication_dose_risk" ||
-    args.route.mode !== "fast" ||
-    args.route.reason !== "clinical_fast_grounded_synthesis" ||
-    !args.sourceBacked
-  ) {
-    return false;
-  }
-
-  return hasValidatedExtractiveCandidate({
-    query: args.query,
-    queryClass: args.queryClass,
-    results: args.results,
-    routeReason: `${args.route.reason}; validated_generic_lai_management_extractive_answer`,
-  });
 }
 
 /** Clamp confidence. */
@@ -3425,43 +3322,25 @@ async function answerQuestionWithScopeUncoalesced(
     results: answerInputResults,
     answerMode: routeFromRouting.mode,
   });
-  const validatedGenericLaiManagementExtractiveAnswer =
-    initialRetrievalDiagnostics.gateStatus === "passed" &&
-    hasValidatedGenericLaiManagementExtractiveAnswer({
-      query: args.query,
-      queryClass,
-      results: answerInputResults,
-      route: routeFromRouting,
-      sourceBacked: relevance.isSourceBacked,
-    });
-  const validatedRoutineExtractiveRecovery =
-    initialRetrievalDiagnostics.gateStatus === "blocked" &&
-    hasValidatedRoutineExtractiveRecovery({
-      query: args.query,
-      queryClass,
-      results: answerInputResults,
-      route: routeFromRouting,
-      sourceBacked: relevance.isSourceBacked,
-    });
-  const routeBeforeConfidenceGate = validatedGenericLaiManagementExtractiveAnswer
+  const validatedExtractiveShortCircuit = chooseValidatedExtractiveShortCircuit({
+    query: args.query,
+    queryClass,
+    results: answerInputResults,
+    route: routeFromRouting,
+    sourceBacked: relevance.isSourceBacked,
+    gateStatus: initialRetrievalDiagnostics.gateStatus,
+  });
+  const routeBeforeConfidenceGate = validatedExtractiveShortCircuit
     ? {
         ...routeFromRouting,
         mode: "extractive" as const,
         model: null,
-        reason: `${routeFromRouting.reason}; validated_generic_lai_management_extractive_answer`,
+        reason: `${routeFromRouting.reason}; ${validatedExtractiveShortCircuit.reasonMarker}`,
       }
-    : validatedRoutineExtractiveRecovery
-      ? {
-          ...routeFromRouting,
-          mode: "extractive" as const,
-          model: null,
-          reason: `${routeFromRouting.reason}; validated_routine_extractive_recovery`,
-        }
-      : routeFromRouting;
-  const gatedRoute =
-    validatedGenericLaiManagementExtractiveAnswer || validatedRoutineExtractiveRecovery
-      ? { route: routeBeforeConfidenceGate }
-      : applyConfidenceGate(routeBeforeConfidenceGate, queryClass, initialRetrievalDiagnostics);
+    : routeFromRouting;
+  const gatedRoute = validatedExtractiveShortCircuit
+    ? { route: routeBeforeConfidenceGate }
+    : applyConfidenceGate(routeBeforeConfidenceGate, queryClass, initialRetrievalDiagnostics);
   // In source-only mode (offline, or auto with no usable key) we never call the model. Route to
   // the deterministic extractive path when evidence is usable, but preserve the confidence gate's
   // "unsupported" decision so weak evidence still fails closed to a source-gap answer rather than
