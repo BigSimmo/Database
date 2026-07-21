@@ -18,6 +18,15 @@ updates:
       npm-development:
         dependency-type: "development"
         update-types: ["minor", "patch"]
+    # Hold the TypeScript major (7.x is the native Go port): typescript-eslint /
+    # eslint-config-next do not support the native port yet — their peer range
+    # caps typescript at <6.1.0, so a major bump breaks the type-aware lint gate.
+    # The repo keeps a separate @typescript/typescript6 for the compiler API.
+    # Remove this once the lint toolchain ships native-port support.
+    # Context: merged #1014 / closed #990.
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"

@@ -182,7 +182,7 @@
   "dependencies": {
     "@next/env": "16.2.10",
     "@supabase/ssr": "^0.12.3",
-    "@supabase/supabase-js": "^2.108.2",
+    "@supabase/supabase-js": "^2.110.7",
     "exceljs": "^4.4.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.25.0",
@@ -202,11 +202,13 @@
     "postcss": "^8.5.15",
     "esbuild": "0.28.1",
     "tmp": "^0.2.7",
-    "uuid": "^11.1.1"
+    "uuid": "^11.1.1",
+    "brace-expansion@1": "^1.1.16",
+    "brace-expansion@2": "^2.1.2"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
-    "@babel/parser": "^7.29.7",
+    "@babel/parser": "^8.0.4",
     "@next/bundle-analyzer": "^16.2.10",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/dom": "^10.4.1",
