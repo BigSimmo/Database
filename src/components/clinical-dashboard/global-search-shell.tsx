@@ -726,9 +726,11 @@ function GlobalStandaloneSearchShellClient({
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
-            // Standalone mode homes keep the hero pill from sm up; phones get
-            // the compact bottom dock (only the answer home hero owns phones).
-            heroComposerBreakpoint="sm-up"
+            // Standalone mode homes keep the in-flow hero pill at every width,
+            // phones included — the composer sits in the middle of the hero and
+            // scrolls with the content, matching the answer home rather than
+            // docking to the bottom edge.
+            heroComposerBreakpoint="all"
             // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the header/composer to hand space back to content.
             hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}

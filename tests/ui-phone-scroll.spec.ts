@@ -18,8 +18,11 @@ import { expect, test, type Page } from "playwright/test";
  * page.emulateMedia({ reducedMotion: "no-preference" }).
  */
 
-// Standalone mode homes share GlobalSearchShell's phone scroller and compact
-// bottom dock (list mirrors global-search-shell.tsx isStandaloneModeHome).
+// Standalone mode homes share GlobalSearchShell's phone scroller. They keep the
+// in-flow hero pill on phones (the composer sits in the hero and scrolls with the
+// content — no bottom dock), while the sticky header still collapses on scroll;
+// this sweep guards that the scroll geometry stays stable through that collapse.
+// (list mirrors global-search-shell.tsx isStandaloneModeHome).
 const modeHomeRoutes = [
   "/formulation",
   "/dsm",

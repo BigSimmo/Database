@@ -79,9 +79,11 @@ export function resolveShellVisibleMobileComposerReserve(input: {
     // DocumentViewer owns its dock; shell keeps only the hidden-size pad.
     return input.documentViewerOwnedRoute ? mobileComposerHiddenReserve : mobileComposerIdleReserve;
   }
-  // Standalone mode homes keep the hero composer from sm up but dock the
-  // compact pill on phones, so they reserve the same clearance as result docks.
-  if (input.isStandaloneModeHome) return mobileComposerVisibleReserve.shellDock;
+  // Standalone mode homes keep the in-flow hero pill at every width (phones
+  // included), so the composer sits in the content flow rather than docking to
+  // the bottom edge. Reserve only the idle content pad — matching the answer
+  // home hero — so no empty band opens below the pill.
+  if (input.isStandaloneModeHome) return mobileComposerIdleReserve;
   if (input.searchMode === "answer") return mobileComposerVisibleReserve.shellAnswer;
   if (input.differentialsCompareAddonActive) return mobileComposerVisibleReserve.differentialsCompare;
   return mobileComposerVisibleReserve.shellDock;

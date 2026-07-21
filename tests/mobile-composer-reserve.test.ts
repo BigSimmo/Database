@@ -41,7 +41,7 @@ describe("mobile composer reserve contract", () => {
     ).toBe(mobileComposerHiddenReserve);
   });
 
-  it("reserves compact dock clearance on standalone mode homes (phone dock, hero from sm up)", () => {
+  it("keeps only the idle content pad on standalone mode homes (in-flow hero pill, no dock)", () => {
     expect(
       resolveShellVisibleMobileComposerReserve({
         shouldShowSearchComposer: true,
@@ -50,7 +50,7 @@ describe("mobile composer reserve contract", () => {
         searchMode: "services",
         differentialsCompareAddonActive: false,
       }),
-    ).toBe(mobileComposerVisibleReserve.shellDock);
+    ).toBe(mobileComposerIdleReserve);
   });
 
   it("uses the compact dock reserve for every non-answer dashboard dock (mode homes included)", () => {
