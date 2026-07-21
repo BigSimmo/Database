@@ -1,4 +1,8 @@
-import { buildExtractiveAnswer, finalizeRagAnswerQuality } from "@/lib/rag/rag-extractive-answer";
+import {
+  buildExtractiveAnswer,
+  finalizeRagAnswerQuality,
+  isBareCrossReferenceAnswer,
+} from "@/lib/rag/rag-extractive-answer";
 import type { RagQueryClass, RetrievalConfidenceGateStatus, SearchResult } from "@/lib/types";
 
 /**
@@ -55,7 +59,12 @@ export function hasValidatedExtractiveCandidate(args: {
     candidate.confidence !== "unsupported" &&
     candidate.citations.length > 0 &&
     candidate.responseMode !== "evidence_gap" &&
-    !/final_quality_gate:/.test(candidate.routingReason ?? "")
+    !/final_quality_gate:/.test(candidate.routingReason ?? "") &&
+    // Governance-review hardening (PR-B P2): a cross-reference lead that shares query terms
+    // passes the overlap gate yet answers nothing ("Refer to the X procedure for..."). Screen
+    // it here so no short-circuit path can ship a redirect-only answer; the query then stays
+    // on model synthesis (or the existing fallback chain) instead.
+    !isBareCrossReferenceAnswer(candidate.answer ?? "")
   );
 }
 

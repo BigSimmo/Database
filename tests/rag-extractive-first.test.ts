@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   chooseValidatedExtractiveShortCircuit,
+  hasValidatedExtractiveCandidate,
   hasValidatedRoutineProceduralExtractiveAnswer,
   routineProceduralContentPattern,
 } from "../src/lib/rag/rag-extractive-first";
@@ -180,5 +181,24 @@ describe("chooseValidatedExtractiveShortCircuit", () => {
       ),
     ).toBeNull();
     expect(chooseValidatedExtractiveShortCircuit(proceduralArgs({ sourceBacked: false }))).toBeNull();
+  });
+});
+
+describe("cross-reference hardening (governance P2)", () => {
+  it("rejects a candidate whose lead is a query-overlapping bare cross-reference", () => {
+    const results = [
+      source({
+        content:
+          "Refer to the Patient Safety Planning Procedure for further information about what a patient safety plan should include.",
+      }),
+    ];
+    expect(
+      hasValidatedExtractiveCandidate({
+        query: "What should a patient safety plan include?",
+        queryClass: "document_lookup",
+        results,
+        routeReason: "strong_routine_retrieval",
+      }),
+    ).toBe(false);
   });
 });
