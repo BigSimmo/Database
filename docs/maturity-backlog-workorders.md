@@ -81,12 +81,14 @@ structural change, not a single mixed PR.
 - **Progress (#997):** extracted the evidence-gate predicates from `rag.ts` into
   `src/lib/rag/rag-evidence-gates.ts` (rag.ts 5,147 → 5,018), pure moves behind the existing
   budgets.
-- **Progress (`DocumentViewer.tsx`):** extracted the presentational leaf clusters into
+- **Progress (`DocumentViewer.tsx`):** extracted the cohesive leaf modules into
   `src/components/document-viewer/` — shared row `types.ts`, `source-panels.tsx` (summary
-  profile, high-yield summary, source images/tables, pinned evidence, indexed-text panel),
-  `manual-tag-editor.tsx`, and `document-overview-landing.tsx`. Pure moves; the container is
-  now composition-only (3,164 → 1,733, budget ratcheted to 1,733). `ClinicalDashboard.tsx`
-  (4,271) and `rag.ts` remain the open decomposition targets.
+  profile, high-yield summary, source images/tables, pinned evidence, indexed-text panel), the
+  behaviour-bearing `manual-tag-editor.tsx` (add/rename/delete manual labels), and
+  `document-overview-landing.tsx`. The moves are verbatim (no logic changed); the container is
+  now composition-focused — it retains the detail fetch, dynamic PDF loading, and state
+  orchestration (3,164 → 1,733, budget ratcheted to 1,733). `ClinicalDashboard.tsx` (4,271)
+  and `rag.ts` remain the open decomposition targets.
 - **Approach:** extract cohesive units behind the existing budgets; the components decompose
   into their `*/` sibling directories, and `rag.ts` is the natural seam now that X2 has landed.
 - **Risk:** HIGH (behavioural surface). One file per PR.
