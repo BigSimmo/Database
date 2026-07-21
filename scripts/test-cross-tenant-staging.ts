@@ -623,7 +623,7 @@ async function main() {
     // Ensure test users have administrator privileges for mutation routes
     await admin.auth.admin.updateUserById(sessionA.userId, { app_metadata: { site_role: "administrator" } });
     await admin.auth.admin.updateUserById(sessionB.userId, { app_metadata: { site_role: "administrator" } });
-    
+
     // Refresh sessions to get the new role claim in the JWT
     const sessionARefreshed = await signIn(clientA, config.userAEmail, config.userAPassword, "User A");
     const sessionBRefreshed = await signIn(clientB, config.userBEmail, config.userBPassword, "User B");
