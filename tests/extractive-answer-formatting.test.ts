@@ -5,7 +5,45 @@ import {
   sentenceFromFact,
   splitClinicalEvidenceSentences,
 } from "../src/lib/rag/rag-extractive-answer";
-import type { RagAnswer, SearchResult } from "../src/lib/types";
+import { classifyRagQuery } from "../src/lib/clinical-search";
+import type { RagAnswer, RagQueryClass, SearchResult } from "../src/lib/types";
+
+function extractiveAnswerFor(query: string, results: SearchResult[], queryClass?: RagQueryClass) {
+  return buildExtractiveAnswer({
+    query,
+    queryClass: queryClass ?? classifyRagQuery(query).queryClass,
+    results,
+    quoteCards: [],
+    documentBreakdown: [] as RagAnswer["documentBreakdown"],
+    evidenceSummary: undefined as unknown as RagAnswer["evidenceSummary"],
+    sourceCoverage: undefined as unknown as RagAnswer["sourceCoverage"],
+    conflictsOrGaps: [],
+    visualEvidence: [] as unknown as RagAnswer["visualEvidence"],
+    bestSource: undefined as unknown as RagAnswer["bestSource"],
+    smartPanel: undefined as unknown as RagAnswer["smartPanel"],
+    relatedDocuments: [] as unknown as RagAnswer["relatedDocuments"],
+    routeReason: "demo",
+    timings: undefined as unknown as RagAnswer["latencyTimings"],
+  });
+}
+
+function figureChunk(overrides: Partial<SearchResult>): SearchResult {
+  return {
+    id: "figure-chunk-1",
+    document_id: "figure-doc",
+    title: "Quetiapine Prescribing Guideline",
+    file_name: "Quetiapine Prescribing Guideline.pdf",
+    page_number: 2,
+    chunk_index: 1,
+    section_heading: "Dosing",
+    content: "",
+    image_ids: [],
+    similarity: 0.91,
+    hybrid_score: 0.95,
+    images: [],
+    ...overrides,
+  } as unknown as SearchResult;
+}
 
 describe("maximum-dose evidence", () => {
   it("accepts equivalent numeric limit wording without accepting an unrelated dose", () => {
@@ -323,5 +361,175 @@ describe("extractive answer end to end", () => {
     expect(plain).not.toMatch(/that for lithium/i);
     expect(plain).toMatch(/^For lithium, twice daily dosing should be spaced by 12 hours\./);
     expect(plain).toMatch(/For acute mania, IR product is 750 to 1000mg daily/);
+  });
+});
+
+// E-3c PR-C: dose and monitoring answers must carry the asked-for figure or
+// schedule in the lead whenever a cited chunk verbatim supports it. The fact
+// sorter orders same-priority facts shortest-first, so a terse figure-less
+// sentence used to displace the sentence holding the actual dose or interval.
+describe("figure-aware extractive lead selection", () => {
+  it("promotes the schedule-bearing monitoring fact into the lead over a shorter figure-less fact", () => {
+    const answer = extractiveAnswerFor("What metabolic monitoring is required for antipsychotics?", [
+      figureChunk({
+        id: "metabolic-chunk-1",
+        section_heading: "Metabolic monitoring",
+        content:
+          "Metabolic monitoring is required for all patients prescribed antipsychotics. Weight, blood pressure, fasting glucose and lipids are monitored at baseline, at 3 months, then annually.",
+      }),
+    ]);
+
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(answer.grounded).toBe(true);
+    expect(plain).toMatch(/baseline|annually/);
+    expect(plain).toMatch(/3 months/);
+  });
+
+  it("swaps the dose figure fact into the last dose lead slot when both lead slots are figure-less", () => {
+    const answer = extractiveAnswerFor("What is the quetiapine dose?", [
+      figureChunk({
+        id: "quetiapine-dose-chunk-1",
+        content:
+          "Quetiapine doses must be taken daily. Quetiapine doses should be reviewed daily. The maximum recommended quetiapine dose is 200 mg daily.",
+      }),
+    ]);
+
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(answer.grounded).toBe(true);
+    expect(plain).toContain("200 mg");
+    // The first lead slot keeps the top-ranked fact; only the last slot swaps.
+    expect(plain).toMatch(/^Quetiapine doses must be taken daily\./);
+  });
+
+  it("refuses promotion when the figure only exists in adjacent context outside the claim-support corpus", () => {
+    const answer = extractiveAnswerFor("What is the quetiapine dose?", [
+      figureChunk({
+        id: "quetiapine-adjacent-chunk-1",
+        content: "Quetiapine doses must be taken daily. Quetiapine doses should be reviewed daily.",
+        adjacent_context: "The maximum recommended quetiapine dose is 200 mg daily.",
+      }),
+    ]);
+
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(answer.grounded).toBe(true);
+    // The 200 mg figure passes numeric verification (adjacent context is part of
+    // that corpus) but not claim support, so promoting it would nuke the whole
+    // answer at the claim gate. The figure-less lead must stay.
+    expect(plain).not.toContain("200 mg");
+    expect(plain).toMatch(/^Quetiapine doses must be taken daily\./);
+  });
+
+  it("keeps non-dose, non-monitoring fact ordering byte-identical", () => {
+    const answer = extractiveAnswerFor("When is quetiapine contraindicated?", [
+      figureChunk({
+        id: "quetiapine-contraindication-chunk-1",
+        section_heading: "",
+        content:
+          "Quetiapine is contraindicated in known hypersensitivity. Quetiapine is contraindicated in patients already taking more than 200 mg daily of interacting sedatives.",
+      }),
+    ]);
+
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(answer.grounded).toBe(true);
+    // Contraindication intent has no figure requirement: the shorter lead fact
+    // must keep the single lead slot exactly as before.
+    expect(plain).toBe("Quetiapine is contraindicated in known hypersensitivity.");
+    expect(plain).not.toContain("200 mg");
+  });
+
+  it("leaves a dose lead that already carries its figure untouched", () => {
+    const answer = extractiveAnswerFor("What is the quetiapine dose?", [
+      figureChunk({
+        id: "quetiapine-figured-chunk-1",
+        content: "Quetiapine is started at 25 mg at night. The maximum recommended quetiapine dose is 200 mg daily.",
+      }),
+    ]);
+
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(answer.grounded).toBe(true);
+    expect(plain).toBe(
+      "Quetiapine is started at 25 mg at night. The maximum recommended quetiapine dose is 200 mg daily.",
+    );
+  });
+});
+
+describe("zero-atom figure promotion guard (reviewer P2)", () => {
+  const question = "What metabolic monitoring is required for antipsychotics?";
+  const leadOnly = "Metabolic monitoring is required for all patients prescribed antipsychotics.";
+  const intervalSentence = "Weight and fasting glucose are monitored for antipsychotic patients every 6 weeks.";
+
+  it("refuses an adjacent-context interval whose number matches corpus text with a different unit", () => {
+    const answer = extractiveAnswerFor(question, [
+      figureChunk({
+        id: "monitoring-guard-1",
+        section_heading: "Metabolic monitoring",
+        // The synopsis shares the bare number but not the unit, and carries no
+        // intent tokens so it can never be admitted as a competing fact. The
+        // "every 6 weeks" figure yields a 6/week quantity atom, so atom
+        // identity must refuse the 6/month corpus — and the interval pattern's
+        // full-match ordering keeps the verbatim fallback equally honest.
+        retrieval_synopsis: "Reviewed every 6 months",
+        content: leadOnly,
+        adjacent_context: intervalSentence,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).not.toMatch(/every 6 weeks/i);
+    expect(plain).not.toMatch(/every 6 months/i);
+  });
+
+  // Longer than leadOnly so it stays a promotion candidate instead of taking
+  // the shortest-first lead slot, and digit-free so it yields no value atom —
+  // exercising the guard's verbatim-corpus fallback rather than atom identity.
+  const annualSentence = "Weight and fasting glucose monitoring is repeated annually for all antipsychotic patients.";
+
+  it("promotes a truly zero-atom schedule token verbatim-supported by chunk content", () => {
+    const answer = extractiveAnswerFor(question, [
+      figureChunk({
+        id: "monitoring-guard-4",
+        section_heading: "Metabolic monitoring",
+        content: `${leadOnly} ${annualSentence}`,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).toMatch(/annually/i);
+  });
+
+  it("refuses a truly zero-atom schedule token that exists only in adjacent context", () => {
+    const answer = extractiveAnswerFor(question, [
+      figureChunk({
+        id: "monitoring-guard-5",
+        section_heading: "Metabolic monitoring",
+        content: leadOnly,
+        adjacent_context: annualSentence,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).not.toMatch(/annually/i);
+  });
+
+  it("promotes an atom-backed interval verbatim-supported by chunk content", () => {
+    const answer = extractiveAnswerFor(question, [
+      figureChunk({
+        id: "monitoring-guard-2",
+        section_heading: "Metabolic monitoring",
+        content: `${leadOnly} ${intervalSentence}`,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).toMatch(/every 6 weeks/i);
+  });
+
+  it("refuses the interval when it exists only in adjacent context", () => {
+    const answer = extractiveAnswerFor(question, [
+      figureChunk({
+        id: "monitoring-guard-3",
+        section_heading: "Metabolic monitoring",
+        content: leadOnly,
+        adjacent_context: intervalSentence,
+      }),
+    ]);
+    const plain = (answer.answer ?? "").replace(/\*\*/g, "");
+    expect(plain).not.toMatch(/every 6 weeks/i);
   });
 });
