@@ -97,8 +97,26 @@ async function main() {
 
     console.log("Applying role bootstrap (postgres)…");
     psql("postgres", rolesSql);
-    console.log("Applying storage scaffold (supabase_admin)…");
-    psql("supabase_admin", scaffoldSql);
+    const storageSchemaOwner = docker([
+      "exec",
+      "-i",
+      container,
+      "psql",
+      "-U",
+      "postgres",
+      "-d",
+      "postgres",
+      "-tA",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-c",
+      "select pg_catalog.pg_get_userbyid(nspowner) from pg_catalog.pg_namespace where nspname = 'storage';",
+    ]).trim();
+    if (!storageSchemaOwner) {
+      throw new Error("bare Supabase image does not expose an owner for the storage schema");
+    }
+    console.log("Applying storage scaffold as the discovered bare-image storage owner…");
+    psql(storageSchemaOwner, scaffoldSql);
     console.log("Replaying supabase/schema.sql from scratch (postgres)…");
     psql("postgres", schemaSql);
     const replaySeconds = ((Date.now() - startedAt) / 1000).toFixed(0);
