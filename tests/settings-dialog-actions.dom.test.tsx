@@ -146,7 +146,13 @@ describe("SettingsDialog — destructive and account actions", () => {
 
     const apple = screen.getByRole("button", { name: "Apple sign-in unavailable" });
     expect(apple).toBeDisabled();
-    expect(apple).toHaveAttribute("title", "Apple sign-in is unavailable. Continue with email, Google, or Microsoft.");
+    expect(apple).toHaveAttribute(
+      "title",
+      "Apple sign-in is unavailable. Continue with email, Google, or Microsoft — coming soon",
+    );
+    expect(apple).toHaveAccessibleDescription(
+      "Apple sign-in is unavailable. Continue with email, Google, or Microsoft.",
+    );
     expect(screen.getByRole("button", { name: "Google" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Microsoft" })).toBeEnabled();
   });

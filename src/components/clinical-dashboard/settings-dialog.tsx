@@ -1158,7 +1158,7 @@ function SettingsProviderRow({
       type="button"
       onClick={onClick}
       disabled={Boolean(disabledReason)}
-      title={disabledReason}
+      title={disabledReason ? `${disabledReason.replace(/\.$/, "")} — coming soon` : undefined}
       aria-label={label}
       aria-describedby={descriptionId}
       className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:opacity-75 disabled:shadow-none"

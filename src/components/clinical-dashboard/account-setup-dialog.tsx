@@ -191,7 +191,7 @@ export function AccountSetupDialog({
                   <ProviderButton key={provider} provider={provider} />
                 ))}
               </div>
-              <p id="account-social-sign-in-unavailable" className={cn("text-center text-xs leading-5", textMuted)}>
+              <p className={cn("text-center text-xs leading-5", textMuted)}>
                 Continue with email. Social sign-in is not available in this setup.
               </p>
             </div>
@@ -289,18 +289,22 @@ export function AccountSetupDialog({
 }
 
 function ProviderButton({ provider }: { provider: SsoProvider }) {
+  const descriptionId = `account-${provider.toLowerCase()}-sign-in-unavailable`;
+
   return (
     <button
       type="button"
       disabled
-      title={`${provider} sign-in is unavailable. Continue with email.`}
+      title={`${provider} sign-in is unavailable — coming soon`}
       aria-label={`${provider} sign-in unavailable`}
-      aria-describedby="account-social-sign-in-unavailable"
+      aria-describedby={descriptionId}
       className="flex min-h-tap min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:opacity-75 disabled:shadow-none min-[375px]:gap-2 min-[375px]:px-2 sm:text-sm"
     >
       <ProviderBrandIcon provider={provider} className="h-5 w-5" />
       <span className="min-w-0 text-2xs leading-none min-[375px]:text-xs sm:text-sm">{provider}</span>
-      <span className="sr-only"> sign-in unavailable</span>
+      <span id={descriptionId} className="sr-only">
+        {provider} sign-in is unavailable. Continue with email.
+      </span>
     </button>
   );
 }

@@ -43,7 +43,10 @@ describe("AuthPanel product truth", () => {
 
     const apple = screen.getByRole("button", { name: "Apple sign-in unavailable" });
     expect(apple).toBeDisabled();
-    expect(apple).toHaveAttribute("title", "Apple sign-in is unavailable. Continue with email, Google, or Microsoft.");
+    expect(apple).toHaveAttribute("title", "Apple sign-in is unavailable — coming soon");
+    expect(apple).toHaveAccessibleDescription(
+      "Apple sign-in is unavailable. Continue with email, Google, or Microsoft.",
+    );
     expect(screen.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Continue with Microsoft" })).toBeEnabled();
   });

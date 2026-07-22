@@ -222,7 +222,7 @@ export function AuthPanel() {
           <ProviderButton provider="Microsoft" onClick={() => chooseProvider("Microsoft")} />
         </div>
 
-        <p id="auth-apple-sign-in-unavailable" className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+        <p id="auth-apple-sign-in-unavailable" className="sr-only">
           Apple sign-in is unavailable. Continue with email, Google, or Microsoft.
         </p>
 
@@ -258,7 +258,7 @@ function ProviderButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title={disabled ? "Apple sign-in is unavailable. Continue with email, Google, or Microsoft." : undefined}
+      title={disabled ? "Apple sign-in is unavailable — coming soon" : undefined}
       aria-describedby={disabled ? "auth-apple-sign-in-unavailable" : undefined}
       className="flex min-h-tap w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:opacity-75 disabled:shadow-none"
     >

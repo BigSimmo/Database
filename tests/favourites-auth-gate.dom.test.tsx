@@ -153,7 +153,8 @@ describe("favourites auth gate DOM", () => {
     for (const provider of ["Apple", "Google", "Microsoft"]) {
       const button = screen.getByRole("button", { name: `${provider} sign-in unavailable` });
       expect(button).toBeDisabled();
-      expect(button).toHaveAttribute("title", `${provider} sign-in is unavailable. Continue with email.`);
+      expect(button).toHaveAttribute("title", `${provider} sign-in is unavailable — coming soon`);
+      expect(button).toHaveAccessibleDescription(`${provider} sign-in is unavailable. Continue with email.`);
     }
   });
 
