@@ -86,8 +86,11 @@ function renderDialog(identityOverrides: Record<string, unknown> = {}) {
 afterEach(async () => {
   cleanup();
   // Sheet cleanup restores focus in requestAnimationFrame and performs one
-  // defensive retry 50 ms later. Let both finish before jsdom removes document.
-  await new Promise((resolve) => window.setTimeout(resolve, 75));
+  // defensive retry 50 ms later. Queue our timer from the following frame so
+  // it cannot overtake that nested retry when the CI event loop is delayed.
+  await new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => window.setTimeout(resolve, 60));
+  });
   vi.clearAllMocks();
 });
 
