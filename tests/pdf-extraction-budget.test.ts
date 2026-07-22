@@ -252,11 +252,19 @@ describe("PDF extraction budgets", () => {
       "utf8",
     );
     vi.spyOn(PDFParse.prototype, "getText").mockResolvedValue({
-      pages: [{ num: 1, text: "Usable text still survives a malformed image entry." }],
-      text: "Usable text still survives a malformed image entry.",
+      pages: [{ num: 1, text: "Short fallback text." }],
+      text: "Short fallback text.",
     } as never);
     vi.spyOn(PDFParse.prototype, "getImage").mockResolvedValue({
-      pages: [{ pageNumber: 1, images: [{ data: undefined, width: 10, height: 20 }] }],
+      pages: [
+        {
+          pageNumber: 1,
+          images: [
+            { data: undefined, width: 10, height: 20 },
+            { data: new Uint8Array([1]), width: 10.5, height: 20 },
+          ],
+        },
+      ],
     } as never);
     vi.spyOn(PDFParse.prototype, "destroy").mockResolvedValue(undefined);
 
@@ -264,6 +272,7 @@ describe("PDF extraction budgets", () => {
     roots.push(...(extracted.temporaryPaths ?? []));
 
     expect(extracted.images).toEqual([]);
-    expect(extracted.pages[0]?.text).toContain("Usable text still survives");
+    expect(extracted.pages[0]?.text).toContain("Short fallback text");
+    expect(extracted.pages[0]?.needsOcr).toBe(true);
   });
 });

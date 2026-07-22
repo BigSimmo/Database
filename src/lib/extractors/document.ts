@@ -64,10 +64,10 @@ export function isUsableFallbackPdfImage(image: {
   return (
     Boolean(image.data?.byteLength) &&
     typeof image.width === "number" &&
-    Number.isFinite(image.width) &&
+    Number.isInteger(image.width) &&
     image.width > 0 &&
     typeof image.height === "number" &&
-    Number.isFinite(image.height) &&
+    Number.isInteger(image.height) &&
     image.height > 0
   );
 }
@@ -323,6 +323,7 @@ export async function extractPdf(
       for (const page of rawPages) budget.addPage(page.text);
 
       const images: ExtractedDocument["images"] = [];
+      const imageCountByPage = new Map<number, number>();
       // Extract one page at a time so aggregate limits can stop subsequent decoding, and
       // request only binary data to avoid holding a duplicate base64 representation.
       for (const rawPage of rawPages) {
@@ -333,6 +334,7 @@ export async function extractPdf(
           imageThreshold: 20,
         });
         for (const page of imageResult.pages) {
+          imageCountByPage.set(page.pageNumber, (imageCountByPage.get(page.pageNumber) ?? 0) + page.images.length);
           for (const [index, image] of page.images.entries()) {
             if (!isUsableFallbackPdfImage(image)) continue;
             budget.assertRenderDimensions(image.width, image.height);
@@ -365,12 +367,6 @@ export async function extractPdf(
       // below-threshold text as needsOcr so index_quality surfaces it (and the worker refuses
       // to mark an image-only PDF as fully indexed).
       const JS_FALLBACK_MIN_TEXT_CHARS = 40;
-      const imageCountByPage = new Map<number, number>();
-      for (const image of images) {
-        if (image.pageNumber === null) continue;
-        imageCountByPage.set(image.pageNumber, (imageCountByPage.get(image.pageNumber) ?? 0) + 1);
-      }
-
       const pages: ExtractedPage[] = rawPages.map((page) => {
         const textLength = page.text.trim().length;
         const hasImages = (imageCountByPage.get(page.pageNumber) ?? 0) > 0;
