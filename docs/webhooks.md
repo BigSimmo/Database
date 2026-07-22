@@ -132,18 +132,21 @@ the receiver's inert `503`). `net.http_post` is asynchronous, so it does not blo
 the write.
 
 > **Delivery is at-most-once.** `net.http_post` is fire-and-forget — it returns a
-> request id and does not retry on failure. So if the app is down, the secret is
-> mismatched, or the receiver 500s _before_ enqueueing, that single event is lost.
-> The receiver's "500 → provider retries" guarantee (§ above) is a property of a
-> **managed Supabase Database Webhook** (which has built-in retry), _not_ of this
-> raw trigger. The durability backstop for a missed event is the polling recovery
-> path (`hasIncompleteDocumentsWithoutOpenJobs` → `ingestion-recovery`, driven by
-> the Ingestion Autopilot) — but note that autopilot currently runs read-only
-> unless `INGESTION_AUTOPILOT_APPLY=true`. **If you need at-least-once delivery for
-> inserts made outside the app upload path, use the managed Database Webhook
-> (below) instead of this trigger, or enable the recovery apply path as the
-> backstop.** This trigger is a low-latency optimisation on top of that recovery
-> layer, not a replacement for it.
+> request id and does not retry on failure ([pg_net retries are still an open
+> feature request](https://github.com/supabase/pg_net/issues/110)). So if the app
+> is down, the secret is mismatched, or the receiver 500s _before_ enqueueing,
+> that single event is lost. The receiver's "500 → provider retries" wording only
+> holds against a caller that actually retries — **do not assume either the raw
+> trigger _or_ a managed Supabase Database Webhook provides that**: managed
+> webhooks are themselves a thin wrapper over pg_net, so they share the same
+> no-retry limitation today. The real durability backstop for a missed event is
+> the polling recovery path (`hasIncompleteDocumentsWithoutOpenJobs` →
+> `ingestion-recovery`, driven by the Ingestion Autopilot) — but note that
+> autopilot currently runs read-only unless `INGESTION_AUTOPILOT_APPLY=true`.
+> **If a document inserted outside the app upload path must never be dropped,
+> rely on the recovery path (enable `INGESTION_AUTOPILOT_APPLY=true`) or a
+> transactional outbox — not on webhook delivery.** This trigger is a low-latency
+> optimisation on top of that recovery layer, not a replacement for it.
 
 ```sql
 create or replace function public.notify_document_change_ingestion_webhook()
@@ -224,13 +227,13 @@ To request a reindex of an existing document, set
 `metadata.reindex_requested = true` on its row; the trigger POSTs, the receiver
 enqueues the job and clears the flag.
 
-**Managed alternative (recommended for durability).** A Supabase **Database
-Webhook** on `public.documents` (INSERT/UPDATE) pointed at the URL above with an
-`Authorization: Bearer <secret>` header has **built-in delivery retry**, so it —
-not the raw trigger — is the right choice when a missed event must not be dropped.
-Its trade-off is that it fires on _every_ update (the receiver then skips the
-non-actionable ones), whereas the SQL trigger above avoids that per-write POST
-churn by gating in SQL. It is still a committed migration only insofar as any
-schema object it adds must be reconciled the same way; the dashboard-created
-webhook itself is operator/live state and should be recorded in the drift
-allowlist if it appears in the inventory.
+**Managed alternative (dashboard convenience).** A Supabase **Database Webhook**
+on `public.documents` (INSERT/UPDATE) pointed at the URL above with an
+`Authorization: Bearer <secret>` header avoids writing the trigger SQL yourself.
+Its only real advantage over the committed migration is convenience — it does
+**not** buy you at-least-once delivery (it wraps pg_net, same no-retry limitation
+as the raw trigger; see the note above). Its trade-offs: it fires on _every_
+update (the receiver then skips the non-actionable ones, versus the SQL gating
+above), and the dashboard-created object is operator/live state that must be
+recorded in `supabase/drift-allowlist.json` if it appears in the drift inventory.
+For durability, rely on the recovery path, not this.
