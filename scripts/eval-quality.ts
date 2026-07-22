@@ -12,6 +12,7 @@ import {
   type GoldenRetrievalResult,
 } from "./eval-retrieval";
 import {
+  configuredCostRates,
   estimateCostUsd,
   loadAdminClient,
   percentile,
@@ -1137,7 +1138,11 @@ async function runRagQualityCases(args: {
       routingReason: answer.routingReason,
       timings,
       routeCeilingExceeded,
-      estimatedCostUsd: hasOpenAIUsage ? estimateCostUsd(openAIUsage) : null,
+      // A case with no provider call costs exactly $0 when rates are
+      // configured; null stays reserved for rates-unconfigured so the
+      // all-or-nothing total keeps meaning "cannot estimate" instead of being
+      // tripped by every extractive/unsupported case (issue #014).
+      estimatedCostUsd: hasOpenAIUsage ? estimateCostUsd(openAIUsage) : configuredCostRates() ? 0 : null,
       openAIRequestIds: openAIRequestIds.length > 0 ? openAIRequestIds : undefined,
       openAIUsage: hasOpenAIUsage ? openAIUsage : undefined,
     });
