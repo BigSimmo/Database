@@ -81,8 +81,12 @@ constant-time. Fails closed (`503`) when unset, `401` on a bad secret.
   clears that flag via `apply_document_metadata_patch`. The worker's own
   completion writes (also UPDATEs) never carry the flag, so they cannot retrigger
   an endless loop. If the clear itself fails, the receiver responds `500` (not
-  `2xx`) so Supabase retries delivery until the flag is actually cleared — the
-  idempotent enqueue means a retry cannot double-queue.
+  `2xx`), so a caller that _retries_ would re-deliver until the flag is cleared
+  (the idempotent enqueue means a retry cannot double-queue). But note neither
+  documented path retries (the raw `net.http_post` trigger and the UPDATE-only
+  managed webhook are both at-most-once — see the note below), so a failed clear
+  can leave `reindex_requested` stuck `true`; recover it with the clear-then-flip
+  shown below.
 - `checkIngestionMutationSafety` refuses while a job is already active, and the
   enqueue reports `already_active` instead of erroring on a lost race.
 
