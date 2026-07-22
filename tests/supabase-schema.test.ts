@@ -1221,6 +1221,12 @@ describe("Supabase Preview replay guards", () => {
       ]) {
         expect(functionBody).toContain(`perform 1 from public.${table} where document_id = v_document_id for update;`);
       }
+      for (const table of ["ingestion_jobs", "indexing_v3_agent_jobs"]) {
+        expect(functionBody).toContain(
+          `perform 1 from public.${table} where document_id = v_document_id for update nowait;`,
+        );
+      }
+      expect(functionBody).toContain("publication document % has active ingestion work");
       expect(functionBody.indexOf("for update;")).toBeLessThan(
         functionBody.indexOf("v_current_state_digest := public.document_publication_state_digest("),
       );
@@ -1228,6 +1234,8 @@ describe("Supabase Preview replay guards", () => {
       const guardStart = sql.indexOf("create or replace function public.guard_document_publication_transition(");
       const guardBody = sql.slice(guardStart, sql.indexOf("$$;", guardStart));
       expect(guardBody).toContain("perform 1 from public.document_chunks where document_id = old.id for update;");
+      expect(guardBody).toContain("perform 1 from public.ingestion_jobs where document_id = old.id for update nowait;");
+      expect(guardBody).toContain("public document transition has active ingestion work");
       expect(guardBody.indexOf("for update;")).toBeLessThan(
         guardBody.indexOf("v_current_state_digest := public.document_publication_state_digest("),
       );

@@ -13,7 +13,8 @@ values
   ('10000000-0000-4000-8000-000000000003', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Quarantine fixture', 'quarantine.pdf', 'application/pdf', 'fixtures/quarantine.pdf', 'indexed'),
   ('10000000-0000-4000-8000-000000000004', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Unapproved fixture', 'unapproved.pdf', 'application/pdf', 'fixtures/unapproved.pdf', 'indexed'),
   ('10000000-0000-4000-8000-000000000006', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Post-review mutation fixture', 'changed.pdf', 'application/pdf', 'fixtures/changed.pdf', 'indexed'),
-  ('10000000-0000-4000-8000-000000000007', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Generation filter fixture', 'generation.pdf', 'application/pdf', 'fixtures/generation.pdf', 'indexed');
+  ('10000000-0000-4000-8000-000000000007', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Generation filter fixture', 'generation.pdf', 'application/pdf', 'fixtures/generation.pdf', 'indexed'),
+  ('10000000-0000-4000-8000-000000000008', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Active ingestion fixture', 'active.pdf', 'application/pdf', 'fixtures/active.pdf', 'indexed');
 
 update public.documents
 set metadata = jsonb_build_object('index_generation_id', '20000000-0000-4000-8000-000000000001')
@@ -59,6 +60,9 @@ end $$;
 insert into public.document_labels (document_id, owner_id, label, label_type, source)
 values ('10000000-0000-4000-8000-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'publication fixture', 'custom', 'manual');
 
+insert into public.ingestion_jobs (document_id, status, stage)
+values ('10000000-0000-4000-8000-000000000008', 'pending', 'queued');
+
 insert into public.document_publication_approvals (
   document_id, expected_prior_owner_id, approving_operator_id, decision, reason, evidence_references,
   manifest_digest, reviewed_state_digest
@@ -67,7 +71,8 @@ values
   ('10000000-0000-4000-8000-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'approved', 'Approved publication fixture.', array['fixture:approved'], repeat('a', 64), public.document_publication_state_digest('10000000-0000-4000-8000-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')),
   ('10000000-0000-4000-8000-000000000002', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'keep_private', 'Private publication fixture.', array['fixture:private'], repeat('a', 64), public.document_publication_state_digest('10000000-0000-4000-8000-000000000002', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')),
   ('10000000-0000-4000-8000-000000000003', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'quarantine', 'Quarantine publication fixture.', array['fixture:quarantine'], repeat('a', 64), public.document_publication_state_digest('10000000-0000-4000-8000-000000000003', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')),
-  ('10000000-0000-4000-8000-000000000006', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'approved', 'Mutation protection fixture.', array['fixture:changed'], repeat('b', 64), public.document_publication_state_digest('10000000-0000-4000-8000-000000000006', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'));
+  ('10000000-0000-4000-8000-000000000006', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'approved', 'Mutation protection fixture.', array['fixture:changed'], repeat('b', 64), public.document_publication_state_digest('10000000-0000-4000-8000-000000000006', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')),
+  ('10000000-0000-4000-8000-000000000008', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'approved', 'Active ingestion protection fixture.', array['fixture:active'], repeat('c', 64), public.document_publication_state_digest('10000000-0000-4000-8000-000000000008', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'));
 
 select public.publish_approved_documents(
   jsonb_build_array(jsonb_build_object(
@@ -118,6 +123,29 @@ begin
     if sqlerrm = 'post-review document mutation unexpectedly published' then raise; end if;
     if sqlerrm not like 'publication document % changed after review' then raise; end if;
   end;
+
+  begin
+    perform public.publish_approved_documents(
+      jsonb_build_array(jsonb_build_object(
+        'document_id', '10000000-0000-4000-8000-000000000008',
+        'expected_owner_id', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        'expected_state_digest', (
+          select reviewed_state_digest from public.document_publication_approvals
+          where document_id = '10000000-0000-4000-8000-000000000008'
+        )
+      )),
+      repeat('c', 64),
+      1
+    );
+    raise exception 'active ingestion fixture unexpectedly published';
+  exception when others then
+    if sqlerrm = 'active ingestion fixture unexpectedly published' then raise; end if;
+    if sqlerrm not like 'publication document % has active ingestion work' then raise; end if;
+  end;
+  if exists (
+    select 1 from public.documents
+    where id = '10000000-0000-4000-8000-000000000008' and owner_id is null
+  ) then raise exception 'active ingestion fixture became public'; end if;
 
   begin
     update public.documents

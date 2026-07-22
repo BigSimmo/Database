@@ -200,6 +200,25 @@ begin
     perform 1 from public.document_index_quality where document_id = old.id for update;
     perform 1 from public.document_index_units where document_id = old.id for update;
 
+    begin
+      perform 1 from public.ingestion_jobs where document_id = old.id for update nowait;
+      perform 1 from public.indexing_v3_agent_jobs where document_id = old.id for update nowait;
+    exception when lock_not_available then
+      raise exception 'public document transition has active ingestion work';
+    end;
+    if exists (
+      select 1 from public.ingestion_jobs
+      where document_id = old.id and status in ('pending', 'processing')
+    ) or exists (
+      select 1 from public.indexing_v3_agent_jobs
+      where document_id = old.id
+        and status not in ('completed', 'needs_enrichment_artifacts')
+        and enrichment_status in ('pending', 'failed', 'processing')
+        and attempt_count < max_attempts
+    ) then
+      raise exception 'public document transition has active ingestion work';
+    end if;
+
     v_current_state_digest := public.document_publication_state_digest(old.id, old.owner_id);
     if v_current_state_digest is distinct from v_reviewed_state_digest then
       raise exception 'public document transition content changed after review';
@@ -298,6 +317,25 @@ begin
     perform 1 from public.document_embedding_fields where document_id = v_document_id for update;
     perform 1 from public.document_index_quality where document_id = v_document_id for update;
     perform 1 from public.document_index_units where document_id = v_document_id for update;
+
+    begin
+      perform 1 from public.ingestion_jobs where document_id = v_document_id for update nowait;
+      perform 1 from public.indexing_v3_agent_jobs where document_id = v_document_id for update nowait;
+    exception when lock_not_available then
+      raise exception 'publication document % has active ingestion work', v_document_id;
+    end;
+    if exists (
+      select 1 from public.ingestion_jobs
+      where document_id = v_document_id and status in ('pending', 'processing')
+    ) or exists (
+      select 1 from public.indexing_v3_agent_jobs
+      where document_id = v_document_id
+        and status not in ('completed', 'needs_enrichment_artifacts')
+        and enrichment_status in ('pending', 'failed', 'processing')
+        and attempt_count < max_attempts
+    ) then
+      raise exception 'publication document % has active ingestion work', v_document_id;
+    end if;
 
     select approval.id into v_approval_id
     from public.document_publication_approvals approval
