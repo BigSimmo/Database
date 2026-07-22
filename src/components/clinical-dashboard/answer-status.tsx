@@ -130,12 +130,12 @@ export function AnswerSkeleton() {
             <div className="h-3 w-24 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
             <div className="h-4 w-48 max-w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
           </div>
-          <div className="h-11 w-20 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
+          <div className="h-tap w-20 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        <div className="h-11 w-48 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
-        <div className="h-11 w-40 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
+        <div className="h-tap w-48 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
+        <div className="h-tap w-40 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="h-28 animate-skeleton-shimmer rounded-lg bg-[color:var(--surface-inset)]" />
