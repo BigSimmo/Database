@@ -18,10 +18,15 @@ contract and the code — not reinvention. If a change genuinely needs a new dir
   `src/app/globals.css` (`:root` + `.dark`). No raw Tailwind palette classes (`red-50`,
   `slate-200`, `bg-white`) and no hex values in components. **If you typed a hex or a Tailwind
   colour name in a component, you broke dark mode** — those values have no `.dark` override.
-  Sanctioned raw-colour exceptions are explicit and narrow: brand artwork, diagnostic-only
-  visualizations, generated OpenGraph artwork, emergency error fallbacks, the scoped
-  fixed-white Therapy patient sheet, and the scoped factsheet print sheet. `scripts/check-design-system-contract.mjs` owns the
-  path allowlist; adding a category requires documenting why semantic app tokens are wrong.
+  Sanctioned raw-colour exceptions are explicit and narrow: the token definitions in
+  `globals.css` itself, brand artwork, diagnostic-only visualizations, generated OpenGraph
+  artwork, emergency error fallbacks, the two pre-paint theme-colour values in
+  `src/lib/theme.ts` (read by the pre-hydration script before any CSS exists), the scoped
+  fixed-white Therapy patient sheet, and the scoped factsheet print sheet.
+  `RAW_COLOR_EXEMPTIONS` in `scripts/design-system-contract-utils.mjs` owns the path allowlist
+  and each entry's `scope`. Prefer a bounded scope over `whole-file` so unrelated colours in
+  the same file stay counted, and make a missing boundary fail closed; adding a category
+  requires documenting why semantic app tokens are wrong.
 - **Semantic vs categorical vs brand.** Three token families, never interchangeable:
   - Semantic triads (`--info/-soft/-border`, `--success-*`, `--warning-*`, `--danger-*`) mean
     something happened or matters clinically. Green is success-only; red is safety/danger-only.
