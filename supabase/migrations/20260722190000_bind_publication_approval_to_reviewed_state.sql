@@ -35,7 +35,10 @@ as $$
             select jsonb_agg(to_jsonb(i) - array['created_at', 'updated_at'] order by i.page_number nulls last, i.id)
             from public.document_images i
             where i.document_id = d.id
-              and public.is_committed_document_generation(i.index_generation_id, d.index_generation_id)
+              and (
+                nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '') is null
+                or public.is_committed_artifact_generation(i.metadata, d.metadata)
+              )
           ), '[]'::jsonb),
           'labels', coalesce((
             select jsonb_agg(to_jsonb(l) - array['owner_id', 'created_at', 'updated_at'] order by l.id)
@@ -49,10 +52,7 @@ as $$
             select jsonb_agg(to_jsonb(s) - array['owner_id', 'created_at', 'updated_at'] order by s.section_index, s.id)
             from public.document_sections s
             where s.document_id = d.id
-              and public.is_committed_artifact_generation(
-                coalesce(s.artifact_generation_id, s.index_generation_id),
-                d.metadata
-              )
+              and public.is_committed_artifact_generation(s.metadata, d.metadata)
           ), '[]'::jsonb),
           'memory_cards', coalesce((
             select jsonb_agg(
@@ -61,22 +61,29 @@ as $$
             )
             from public.document_memory_cards m
             where m.document_id = d.id
-              and public.is_committed_artifact_generation(
-                coalesce(m.artifact_generation_id, m.index_generation_id),
-                d.metadata
+              and (
+                nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '') is null
+                or public.is_committed_artifact_generation(m.metadata, d.metadata)
               )
           ), '[]'::jsonb),
           'chunks', coalesce((
             select jsonb_agg(to_jsonb(c) - array['embedding', 'search_tsv', 'created_at'] order by c.chunk_index, c.id)
             from public.document_chunks c
             where c.document_id = d.id
-              and public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
+              and (
+                public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)
+                or nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '') is null
+                or public.is_committed_artifact_generation(c.metadata, d.metadata)
+              )
           ), '[]'::jsonb),
           'table_facts', coalesce((
             select jsonb_agg(to_jsonb(f) - array['owner_id', 'search_tsv', 'created_at'] order by f.id)
             from public.document_table_facts f
             where f.document_id = d.id
-              and public.is_committed_document_generation(f.index_generation_id, d.index_generation_id)
+              and (
+                nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '') is null
+                or public.is_committed_artifact_generation(f.metadata, d.metadata)
+              )
           ), '[]'::jsonb),
           'embedding_fields', coalesce((
             select jsonb_agg(
@@ -85,7 +92,7 @@ as $$
             )
             from public.document_embedding_fields f
             where f.document_id = d.id
-              and public.is_committed_document_generation(f.index_generation_id, d.index_generation_id)
+              and public.is_committed_artifact_generation(f.metadata, d.metadata)
           ), '[]'::jsonb),
           'index_quality', coalesce((
             select to_jsonb(q) - array['owner_id', 'updated_at']
@@ -98,10 +105,7 @@ as $$
             )
             from public.document_index_units u
             where u.document_id = d.id
-              and public.is_committed_artifact_generation(
-                coalesce(u.artifact_generation_id, u.index_generation_id),
-                d.metadata
-              )
+              and public.is_committed_artifact_generation(u.metadata, d.metadata)
           ), '[]'::jsonb)
         )::text,
         'UTF8'

@@ -1191,6 +1191,19 @@ describe("Supabase Preview replay guards", () => {
       expect(sql).toContain("publication document % changed after review");
       expect(sql).toContain("'publication_reviewed_state_digest', v_expected_state_digest");
 
+      const digestStart = sql.indexOf("create or replace function public.document_publication_state_digest(");
+      const digestBody = sql.slice(digestStart, sql.indexOf("$$;", digestStart));
+      for (const tableAlias of ["i", "s", "m", "f", "u"]) {
+        expect(digestBody).toContain(`public.is_committed_artifact_generation(${tableAlias}.metadata, d.metadata)`);
+      }
+      expect(digestBody).toContain(
+        "public.is_committed_document_generation(c.index_generation_id, d.index_generation_id)",
+      );
+      expect(digestBody).toContain("public.is_committed_artifact_generation(c.metadata, d.metadata)");
+      expect(digestBody).not.toContain(
+        "public.is_committed_document_generation(f.index_generation_id, d.index_generation_id)",
+      );
+
       const functionStart = sql.indexOf("create or replace function public.publish_approved_documents(");
       const functionBody = sql.slice(functionStart, sql.indexOf("$$;", functionStart));
       for (const table of [

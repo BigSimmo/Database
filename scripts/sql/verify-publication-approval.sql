@@ -12,7 +12,49 @@ values
   ('10000000-0000-4000-8000-000000000002', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Private fixture', 'private.pdf', 'application/pdf', 'fixtures/private.pdf', 'indexed'),
   ('10000000-0000-4000-8000-000000000003', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Quarantine fixture', 'quarantine.pdf', 'application/pdf', 'fixtures/quarantine.pdf', 'indexed'),
   ('10000000-0000-4000-8000-000000000004', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Unapproved fixture', 'unapproved.pdf', 'application/pdf', 'fixtures/unapproved.pdf', 'indexed'),
-  ('10000000-0000-4000-8000-000000000006', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Post-review mutation fixture', 'changed.pdf', 'application/pdf', 'fixtures/changed.pdf', 'indexed');
+  ('10000000-0000-4000-8000-000000000006', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Post-review mutation fixture', 'changed.pdf', 'application/pdf', 'fixtures/changed.pdf', 'indexed'),
+  ('10000000-0000-4000-8000-000000000007', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'Generation filter fixture', 'generation.pdf', 'application/pdf', 'fixtures/generation.pdf', 'indexed');
+
+update public.documents
+set metadata = jsonb_build_object('index_generation_id', '20000000-0000-4000-8000-000000000001')
+where id = '10000000-0000-4000-8000-000000000007';
+
+-- Retrieval treats metadata as authoritative for table facts. Keep the typed
+-- field deliberately stale to prove the reviewed-state digest follows the row
+-- that can actually be served rather than silently excluding it.
+insert into public.document_table_facts (
+  id, owner_id, document_id, row_label, action, index_generation_id, metadata
+)
+values (
+  '30000000-0000-4000-8000-000000000001',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  '10000000-0000-4000-8000-000000000007',
+  'Metadata-committed row',
+  'Before review',
+  '20000000-0000-4000-8000-000000000002',
+  jsonb_build_object('index_generation_id', '20000000-0000-4000-8000-000000000001')
+);
+
+do $$
+declare
+  before_digest text;
+  after_digest text;
+begin
+  before_digest := public.document_publication_state_digest(
+    '10000000-0000-4000-8000-000000000007',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  );
+  update public.document_table_facts
+  set action = 'Changed after review'
+  where id = '30000000-0000-4000-8000-000000000001';
+  after_digest := public.document_publication_state_digest(
+    '10000000-0000-4000-8000-000000000007',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+  );
+  if before_digest = after_digest then
+    raise exception 'metadata-committed table fact was omitted from publication digest';
+  end if;
+end $$;
 
 insert into public.document_labels (document_id, owner_id, label, label_type, source)
 values ('10000000-0000-4000-8000-000000000001', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'publication fixture', 'custom', 'manual');
