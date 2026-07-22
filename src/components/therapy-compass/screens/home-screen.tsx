@@ -33,7 +33,7 @@ export function HomeScreen() {
     <ModeHomeMain testId="therapy-compass-home" contentAlign="startOnPhone">
       <ModeHomeTemplate
         testId="therapy-compass"
-        title="Therapy"
+        title="Therapy mode"
         subtitle={therapyCountCopy}
         icon={Search}
         actionsLabel="Therapy workflows"
