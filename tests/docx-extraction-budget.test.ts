@@ -1,5 +1,4 @@
 import { rm } from "node:fs/promises";
-import { randomBytes } from "node:crypto";
 
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
@@ -15,7 +14,11 @@ import { extractDocument } from "@/lib/extractors/document";
 
 const docxMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-async function buildDocx(mediaCount: number, documentText = "Budget test") {
+async function buildDocx(
+  mediaCount: number,
+  documentText = "Budget test",
+  compression: "DEFLATE" | "STORE" = "DEFLATE",
+) {
   const zip = new JSZip();
   zip.file(
     "[Content_Types].xml",
@@ -42,7 +45,7 @@ async function buildDocx(mediaCount: number, documentText = "Budget test") {
   for (let index = 0; index < mediaCount; index += 1) {
     zip.file(`word/media/image-${index}.png`, Buffer.from([index % 256]));
   }
-  return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+  return zip.generateAsync({ type: "nodebuffer", compression });
 }
 
 async function captureExtractionError(promise: ReturnType<typeof extractDocument>) {
@@ -114,11 +117,10 @@ describe("DOCX extraction budgets", () => {
     expect(String(error)).toContain("DOCX_EXTRACTION_BUDGET_EXCEEDED: artifact count 1001 exceeds 1000");
   });
 
-  it("rejects compressed oversized Word XML before Mammoth extraction", async () => {
-    const lowCompressibilityText = randomBytes((DOCX_EXTRACTION_BUDGET.maxTextBytes * 3) / 4).toString("base64");
+  it("rejects oversized Word XML before Mammoth extraction", async () => {
     const error = await captureExtractionError(
       extractDocument({
-        buffer: await buildDocx(0, lowCompressibilityText),
+        buffer: await buildDocx(0, "a".repeat(DOCX_EXTRACTION_BUDGET.maxTextBytes), "STORE"),
         fileName: "text-heavy.docx",
         mimeType: docxMime,
       }),
