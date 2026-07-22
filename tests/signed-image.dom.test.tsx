@@ -52,7 +52,9 @@ describe("SignedImage failure/retry (jsdom)", () => {
     await user.click(retry);
 
     const img = await screen.findByRole("img", { name: "Airway diagram" });
-    expect(img).toHaveAttribute("src", "/demo/airway.png");
+    // next/image serves the recovered URL through the optimizer, so assert the src
+    // encodes the freshly fetched signed URL rather than matching it raw.
+    expect(img.getAttribute("src")).toContain(`url=${encodeURIComponent("/demo/airway.png")}`);
     expect(screen.queryByText("Image preview failed.")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });

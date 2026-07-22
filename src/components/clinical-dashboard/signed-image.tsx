@@ -1,7 +1,6 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
+import Image from "next/image";
 import { memo, useEffect, useRef, useState } from "react";
 import { CircleAlert, Loader2, Maximize2 } from "lucide-react";
 
@@ -129,15 +128,24 @@ export const SignedImage = memo(function SignedImage({
       )}
     >
       {url ? (
-        <img
+        // Route the private preview through next/image so the optimizer resizes
+        // the (often multi-MB, full-resolution) Supabase scan down to this small
+        // thumbnail and transcodes it to AVIF/WebP. `fill` matches the fixed-aspect
+        // frame (a `relative` parent) and `sizes` caps the srcset to preview widths
+        // so the browser never fetches a full-width variant. The signed `?token=`
+        // query is optimizable because next.config `images.remotePatterns` pins the
+        // project host without a `search` restriction. Governance note: the optimizer
+        // fetches the signed URL server-side and caches the optimized bytes app-side
+        // (minimumCacheTTL) — called out in the PR clinical-governance preflight.
+        <Image
           src={url}
           alt={alt}
-          loading="lazy"
-          decoding="async"
+          fill
+          sizes="(max-width: 768px) 92vw, 320px"
           onLoad={() => setLoaded(true)}
           onError={handleImageError}
           className={cn(
-            "absolute inset-0 h-full w-full rounded-lg object-contain transition-opacity duration-300 motion-reduce:transition-none",
+            "rounded-lg object-contain transition-opacity duration-300 motion-reduce:transition-none",
             loaded ? "opacity-100" : "opacity-0",
           )}
         />
