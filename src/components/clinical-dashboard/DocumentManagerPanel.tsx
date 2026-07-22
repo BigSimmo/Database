@@ -19,7 +19,7 @@ import {
 } from "@/components/ui-primitives";
 import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
-import { MAX_UPLOAD_MB_CEILING, exceedsUploadSizeCeiling, uploadSizeLimitMessage } from "@/lib/upload-limits";
+import { exceedsClientUploadSize, getClientMaxUploadMb, uploadSizeLimitMessage } from "@/lib/upload-limits";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import type { ClinicalDocument, IngestionJob, ImportBatch } from "@/lib/types";
@@ -335,19 +335,19 @@ export function UploadPanel({
     for (let index = 0; index < files.length; index++) {
       const file = files[index];
       try {
-        // Pre-check the size before spending the transfer. The server caps every
-        // file at env.MAX_UPLOAD_MB, which its schema can never raise above
-        // MAX_UPLOAD_MB_CEILING, so an over-ceiling file is a guaranteed 413 —
-        // uploading it first only makes the clinician wait for the rejection.
-        // The rest of the batch still uploads, matching the server's per-file
-        // outcome semantics.
-        if (exceedsUploadSizeCeiling(file.size)) {
+        // Pre-check the size before spending the transfer. Prefer
+        // NEXT_PUBLIC_MAX_UPLOAD_MB (clamped to the ceiling) so a lowered
+        // operator limit matches the UI; the server still enforces
+        // env.MAX_UPLOAD_MB as the authority. The rest of the batch still
+        // uploads, matching the server's per-file outcome semantics.
+        const clientMaxUploadMb = getClientMaxUploadMb();
+        if (exceedsClientUploadSize(file.size)) {
           outcomes.push({
             kind: "failed",
             fileName: file.name,
             status: 413,
             code: "payload_too_large",
-            message: uploadSizeLimitMessage(MAX_UPLOAD_MB_CEILING),
+            message: uploadSizeLimitMessage(clientMaxUploadMb),
           });
           continue;
         }
@@ -424,7 +424,7 @@ export function UploadPanel({
         />
       </label>
       <p id={fileHintId} className={cn(textMuted, "mt-2 text-xs")}>
-        PDF only, up to {MAX_UPLOAD_MB_CEILING} MB per file.
+        PDF only, up to {getClientMaxUploadMb()} MB per file.
       </p>
       <div className="mt-3">
         <button
