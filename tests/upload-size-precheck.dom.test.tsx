@@ -9,8 +9,10 @@ import { MAX_UPLOAD_MB_CEILING } from "@/lib/upload-limits";
 // pre-check an over-ceiling file is transferred in full before the server
 // answers 413 — on a large guideline PDF over a clinic connection that is a
 // long wait for a guaranteed rejection. These tests pin that the pre-check
-// fires locally, that it does NOT swallow files the server might still accept,
-// and that a mixed batch still uploads its valid files.
+// fires locally (using NEXT_PUBLIC_MAX_UPLOAD_MB when set, else the ceiling),
+// that it does NOT swallow files the effective client limit still accepts,
+// and that a mixed batch still uploads its valid files. The server remains
+// the authority via env.MAX_UPLOAD_MB for anything that reaches /api/upload.
 
 type OpenedRequest = { method: string; url: string };
 
@@ -74,10 +76,15 @@ beforeEach(() => {
   FakeXhr.lastStatus = 200;
   FakeXhr.lastResponse = JSON.stringify({ document: { id: "doc-1" }, job: { id: "job-1" } });
   vi.stubGlobal("XMLHttpRequest", FakeXhr);
+  vi.unstubAllEnvs();
+  // Pin empty so default-limit assertions stay deterministic when the shell/CI
+  // already exports NEXT_PUBLIC_MAX_UPLOAD_MB (vi.unstubAllEnvs restores it).
+  vi.stubEnv("NEXT_PUBLIC_MAX_UPLOAD_MB", "");
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   vi.restoreAllMocks();
 });
 
@@ -125,5 +132,19 @@ describe("upload size pre-check", () => {
     expect(status).toHaveTextContent(`huge-guideline.pdf: File exceeds ${MAX_UPLOAD_MB_CEILING} MB upload limit.`);
     // Exactly one request: the oversized file never reached the network.
     expect(opened).toHaveLength(1);
+  });
+
+  it("honours a lowered NEXT_PUBLIC_MAX_UPLOAD_MB for the hint and pre-check", async () => {
+    vi.stubEnv("NEXT_PUBLIC_MAX_UPLOAD_MB", "50");
+    const { onUploaded } = renderPanel();
+
+    expect(screen.getByText("PDF only, up to 50 MB per file.")).toBeVisible();
+
+    selectFiles([fileOfSize("mid-guideline.pdf", 51)]);
+    submit();
+
+    expect(await screen.findByText(/mid-guideline\.pdf/)).toHaveTextContent("File exceeds 50 MB upload limit.");
+    expect(opened).toHaveLength(0);
+    expect(onUploaded).not.toHaveBeenCalled();
   });
 });
