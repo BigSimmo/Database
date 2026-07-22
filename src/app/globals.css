@@ -2572,6 +2572,28 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
+/* Safety plan generator (/safety-plan) print export.
+ * "Print / PDF" (and Cmd+P) should hand over the patient copy only, so the
+ * builder/editor chrome is removed and the patient-copy document header — which
+ * the global `header { display: none }` rule above would otherwise drop — is
+ * restored. Scoped to the tool so no other route's print behaviour changes. */
+@media print {
+  .safety-plan-tool [data-print-hide] {
+    display: none !important;
+  }
+
+  .safety-plan-tool [data-safety-plan-copy] {
+    display: block !important;
+    position: static !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .safety-plan-tool [data-safety-plan-copy] header {
+    display: grid !important;
+  }
+}
+
 /* iOS Safari bottom reserve transitions to match the composer's hide/show motion.
    Shell routes animate the inner reserve pad; dashboard/answer animates
    #main-content padding; DocumentViewer animates its own content pad. */

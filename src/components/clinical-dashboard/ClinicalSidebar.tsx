@@ -41,7 +41,7 @@ function useClientMounted() {
   );
 }
 import { Sheet } from "@/components/ui/sheet";
-import { type AppModeId, isAppModeId, isAppModeVisible } from "@/lib/app-modes";
+import { appModeDefinition, type AppModeId, isAppModeId, isAppModeVisible } from "@/lib/app-modes";
 import { type ResolvedTheme } from "@/lib/theme";
 
 export type SidebarIdentity = {
@@ -81,7 +81,12 @@ const sidebarToolItems = [
   { id: "formulation", label: "Formulation", icon: Network, href: "/formulation" },
   { id: "prescribing", label: "Medication", icon: Pill, href: "/?mode=prescribing" },
   { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
-  { id: "therapy-compass", label: "Therapy", icon: appModeIcons["therapy-compass"], href: "/therapy-compass" },
+  {
+    id: "therapy-compass",
+    label: appModeDefinition("therapy-compass").label,
+    icon: appModeIcons["therapy-compass"],
+    href: "/therapy-compass",
+  },
   { id: "factsheets", label: "Factsheets", icon: appModeIcons.factsheets, href: "/factsheets" },
 ] as const;
 
