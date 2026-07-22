@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { HomeScreen } from "@/components/therapy-compass/screens/home-screen";
 
 export const metadata: Metadata = {
-  title: "Therapy - Clinical KB",
+  title: "Therapy mode - Clinical KB",
   description:
     "Source-grounded therapy decision support: search, compare, recommend, pathways, brief interventions and patient sheets.",
 };
