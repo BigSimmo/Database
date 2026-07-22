@@ -51,7 +51,7 @@ function pathOnly(href: string) {
   return href.split(/[?#]/)[0] || "/";
 }
 
-const ROUTER_METHODS = new Set(["push", "replace", "prefetch"]);
+const ROUTER_METHODS = new Set(["push", "replace"]);
 const FUNCTION_NODE_TYPES = new Set([
   "ArrowFunctionExpression",
   "ClassMethod",
@@ -417,7 +417,7 @@ function collectNavigationTargets(source: string, filename = "fixture.tsx") {
     if (node.type === "JSXOpeningElement") {
       const elementName = jsxElementName(node);
       const binding = elementName ? resolveBinding(elementName, activeScope) : null;
-      const isLink = elementName === "a" || binding === "next-link";
+      const isLink = binding === "next-link";
       const isModeHomeTemplate = binding === "mode-home-template";
       const attributes = Array.isArray(node.attributes) ? node.attributes : [];
       for (const attributeValue of attributes) {
@@ -525,11 +525,13 @@ describe("route reachability", () => {
 
       const linked = <AppLink href="/aliased-link" />;
       const unboundLink = <Link href="/unbound-link-name" />;
+      const rawAnchor = <a href="/raw-anchor" />;
       go("/framework-redirect");
 
       function BoundRouter() {
         const router = useAppRouter();
         router.push("/bound-router");
+        router.prefetch("/prefetch-only");
         return null;
       }
 
