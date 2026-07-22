@@ -52,9 +52,12 @@ const nextConfig: NextConfig = {
     // Prefer AVIF (~20-30% smaller than WebP), falling back to WebP, for any
     // next/image output.
     formats: ["image/avif", "image/webp"],
-    // Cache optimized images for 5 minutes; must stay below the 600-second signed-URL
-    // TTL defined in src/app/api/{images,documents}/[id]/signed-url/route.ts so the
-    // optimizer does not serve cached private previews after authorization expires.
+    // Cache optimized images for at least 5 minutes. This is a floor on cache duration,
+    // not a ceiling; the actual cache TTL is max(minimumCacheTTL, upstream Cache-Control).
+    // Authorization for private previews is scoped at signed-URL issuance (owner-scoped
+    // token) and the optimizer caches by the full URL including the token, so a new token
+    // (issued by the client-side cache before the prior one expires) fetches fresh without
+    // receiving an authorization boost from the optimizer's cache.
     minimumCacheTTL: 300,
     // Permit optimizing Supabase Storage signed URLs (private document/image
     // previews) through next/image. Scoped to this app's exact production and

@@ -134,9 +134,10 @@ export const SignedImage = memo(function SignedImage({
         // frame (a `relative` parent) and `sizes` caps the srcset to preview widths
         // so the browser never fetches a full-width variant. The signed `?token=`
         // query is optimizable because next.config `images.remotePatterns` pins the
-        // project host without a `search` restriction. Governance note: the optimizer
-        // fetches the signed URL server-side and caches the optimized bytes app-side
-        // (minimumCacheTTL) — called out in the PR clinical-governance preflight.
+        // project host without a `search` restriction. Authorization: the signed URL's
+        // token is owner-scoped at issuance; the optimizer caches by the full URL
+        // (including token), so a new token fetches fresh. The client-side cache
+        // (signed-url-cache.ts) issues new tokens before expiry.
         <Image
           src={url}
           alt={alt}
