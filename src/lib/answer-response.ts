@@ -20,6 +20,11 @@ function clientSafetyWarning(warning: SafetyWarning): SafetyWarning {
       chunk_index: citation.chunk_index,
       ...(citation.similarity === undefined ? {} : { similarity: citation.similarity }),
       ...(citation.provenance === undefined ? {} : { provenance: citation.provenance }),
+      // Issue 9: keep governance provenance on safety-finding citations. Regular
+      // source citations already retain it (answer-client-payload `source_metadata:
+      // "client"`); dropping it here left the safety panel unable to badge outdated /
+      // review-due / unverified provenance for its citations.
+      ...(citation.source_metadata === undefined ? {} : { source_metadata: citation.source_metadata }),
     },
   };
 }

@@ -71,7 +71,7 @@ import {
   type SafetyFinding,
   type SafetyFindingKind,
 } from "@/lib/clinical-safety";
-import { normalizeSourceMetadata, sourceStatusLabel } from "@/lib/source-metadata";
+import { normalizeSourceMetadata, sourceStatusLabel, validationStatusLabel } from "@/lib/source-metadata";
 import { normalizeExtractedGlyphs, sourceTextForVerbatimQuote } from "@/lib/source-text-sanitizer";
 import type {
   AnswerSection,
@@ -868,6 +868,23 @@ function SafetyFindingRowIcon({ kind }: { kind: SafetyFindingKind }) {
   return <CircleAlert aria-hidden="true" className="h-5 w-5" />;
 }
 
+// Issue 9: governance provenance retained on safety-finding citations lets the safety
+// panel badge sources that are outdated, due for review, or not locally validated —
+// the same currency/validation signals shown for ordinary source citations. Current
+// and unknown-status sources add no badge (they carry no actionable caveat here).
+function safetyFindingGovernanceLabels(citation: SafetyFinding["citation"]): string[] {
+  const metadata = citation.source_metadata ? normalizeSourceMetadata(citation.source_metadata) : null;
+  if (!metadata) return [];
+  const labels: string[] = [];
+  if (metadata.document_status === "outdated" || metadata.document_status === "review_due") {
+    labels.push(sourceStatusLabel(metadata));
+  }
+  if (metadata.clinical_validation_status === "unverified") {
+    labels.push(validationStatusLabel(metadata));
+  }
+  return labels;
+}
+
 export function SafetyFindingsListContent({ findings }: { findings: SafetyFinding[] }) {
   if (findings.length === 0) return null;
 
@@ -908,6 +925,15 @@ export function SafetyFindingsListContent({ findings }: { findings: SafetyFindin
                 <span className="truncate">{formatCompactCitationLabel(finding.citation)}</span>
                 <ExternalLink aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
               </Link>
+              {safetyFindingGovernanceLabels(finding.citation).map((label) => (
+                <span
+                  key={label}
+                  data-testid="safety-finding-governance"
+                  className={cn(subtleStatusPill, "min-h-6 px-2 text-2xs", toneWarning)}
+                >
+                  {label}
+                </span>
+              ))}
             </div>
             <p className="mt-1.5 text-sm leading-5 text-[color:var(--text-heading)]">{finding.text}</p>
           </div>

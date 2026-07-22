@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { logger } from "../src/lib/logger";
 import {
   clipboardProvenanceLine,
   formatClinicalDate,
@@ -18,6 +19,50 @@ describe("source metadata helpers", () => {
     expect(sourceStatusLabel(metadata)).toBe("Review status unknown");
     expect(validationStatusLabel(metadata)).toBe("Not locally validated");
     expect(sourceProvenanceSummary(metadata)).toContain("Review status unknown");
+  });
+
+  it("traces unrecognized enum values via logger.warn while keeping the safe fallback, and stays silent for absent/blank inputs", () => {
+    // Issue 1: a present-but-unrecognized value (data-entry typo) is traced via
+    // logger.warn but must still coerce to the same safe fallback as before, so no
+    // downstream ranking/rendering behaviour changes. Absent/blank inputs are the
+    // legitimate default and must stay silent so the trace signal is not drowned.
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    try {
+      const metadata = normalizeSourceMetadata({
+        document_status: "revieww_due",
+        clinical_validation_status: "aproved",
+        extraction_quality: "gud",
+      });
+
+      // Return value is unchanged — the same safe fallbacks as before.
+      expect(metadata.document_status).toBe("unknown");
+      expect(metadata.clinical_validation_status).toBe("unverified");
+      expect(metadata.extraction_quality).toBe("unknown");
+
+      // Each unrecognized non-empty value is traced once, with its field + value.
+      expect(warnSpy).toHaveBeenCalledTimes(3);
+      expect(warnSpy).toHaveBeenCalledWith("source-metadata: unrecognized document_status", {
+        field: "document_status",
+        value: "revieww_due",
+      });
+      expect(warnSpy).toHaveBeenCalledWith("source-metadata: unrecognized clinical_validation_status", {
+        field: "clinical_validation_status",
+        value: "aproved",
+      });
+      expect(warnSpy).toHaveBeenCalledWith("source-metadata: unrecognized extraction_quality", {
+        field: "extraction_quality",
+        value: "gud",
+      });
+
+      // Absent (null / undefined) and blank/whitespace values are the legitimate
+      // default and never warn.
+      warnSpy.mockClear();
+      normalizeSourceMetadata(null);
+      normalizeSourceMetadata({ document_status: "", clinical_validation_status: "   " });
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it("formats dates using Australian date order", () => {
