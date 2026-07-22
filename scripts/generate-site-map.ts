@@ -73,6 +73,7 @@ const routeDescriptions: Record<string, string> = {
   "/medications": "Medication index redirect.",
   "/medications/[slug]": "Medication detail.",
   "/privacy": "Privacy and data-processing governance draft.",
+  "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
   "/services": "Services home and search surface.",
   "/services/[slug]": "Registry-backed service detail.",
   "/formulation": "Clinical formulation home and local mechanism search surface.",
@@ -85,7 +86,7 @@ const routeDescriptions: Record<string, string> = {
   "/specifiers/builder": "Structured diagnostic wording builder.",
   "/specifiers/compare": "Side-by-side psychiatric specifier comparison.",
   "/specifiers/map": "Psychiatric specifier family map.",
-  "/therapy-compass": "Therapy Compass home (source-grounded therapy decision support).",
+  "/therapy-compass": "Therapy mode home (source-grounded therapy decision support).",
   "/therapy-compass/search": "Therapy library search surface.",
   "/therapy-compass/recommend": "Recommend a therapy from a clinical question and constraints.",
   "/therapy-compass/compare": "Side-by-side therapy comparison.",
@@ -273,12 +274,14 @@ function renderModeRoutes() {
     factsheets: appModeHomeHref("factsheets", { query: "sertraline", focus: true, run: true }),
   };
 
-  return appModeDefinitions.map((mode) =>
-    bullet(
+  return appModeDefinitions.map((mode) => {
+    const modeName = mode.label.toLowerCase().endsWith(" mode") ? mode.label : `${mode.label} mode`;
+
+    return bullet(
       ("href" in mode ? mode.href : undefined) ?? appModeHomeHref(mode.id),
-      `${mode.label} mode. Search kind: \`${mode.search.kind}\`. Query example: \`${examples[mode.id]}\`.`,
-    ),
-  );
+      `${modeName}. Search kind: \`${mode.search.kind}\`. Query example: \`${examples[mode.id]}\`.`,
+    );
+  });
 }
 
 type ModePageIndexRow = {
