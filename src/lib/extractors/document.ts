@@ -72,6 +72,11 @@ export function isUsableFallbackPdfImage(image: {
   );
 }
 
+function isRecoverableFallbackPdfImageError(error: unknown) {
+  if (!(error instanceof Error)) return false;
+  return /^Image object .+(?:: (?:data field is empty or invalid|data buffer is empty)| not found)/.test(error.message);
+}
+
 export async function terminateProcessTree(child: ChildProcess) {
   const pid = child.pid;
   if (!pid) return;
@@ -324,15 +329,24 @@ export async function extractPdf(
 
       const images: ExtractedDocument["images"] = [];
       const imageCountByPage = new Map<number, number>();
+      const malformedImagePages = new Set<number>();
       // Extract one page at a time so aggregate limits can stop subsequent decoding, and
       // request only binary data to avoid holding a duplicate base64 representation.
       for (const rawPage of rawPages) {
-        const imageResult = await imageParser.getImage({
-          partial: [rawPage.pageNumber],
-          imageBuffer: true,
-          imageDataUrl: false,
-          imageThreshold: 20,
-        });
+        let imageResult: Awaited<ReturnType<PDFParse["getImage"]>>;
+        try {
+          imageResult = await imageParser.getImage({
+            partial: [rawPage.pageNumber],
+            imageBuffer: true,
+            imageDataUrl: false,
+            imageThreshold: 20,
+          });
+        } catch (imageError) {
+          if (!isRecoverableFallbackPdfImageError(imageError)) throw imageError;
+          imageCountByPage.set(rawPage.pageNumber, (imageCountByPage.get(rawPage.pageNumber) ?? 0) + 1);
+          malformedImagePages.add(rawPage.pageNumber);
+          continue;
+        }
         for (const page of imageResult.pages) {
           imageCountByPage.set(page.pageNumber, (imageCountByPage.get(page.pageNumber) ?? 0) + page.images.length);
           for (const [index, image] of page.images.entries()) {
@@ -375,6 +389,11 @@ export async function extractPdf(
       });
 
       const warnings = ["Used JavaScript PDF fallback; install Python PDF/OCR prerequisites for scanned PDFs."];
+      if (malformedImagePages.size > 0) {
+        warnings.push(
+          `malformed_fallback_images: skipped unusable image data on ${malformedImagePages.size} page(s); review or OCR sparse pages.`,
+        );
+      }
       const ocrNeededPages = pages.filter((page) => page.needsOcr).length;
       if (ocrNeededPages > 0) {
         warnings.push(`needs_ocr: ${ocrNeededPages} page(s) appear image-only and were not OCR'd by the JS fallback.`);

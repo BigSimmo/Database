@@ -275,4 +275,30 @@ describe("PDF extraction budgets", () => {
     expect(extracted.pages[0]?.text).toContain("Short fallback text");
     expect(extracted.pages[0]?.needsOcr).toBe(true);
   });
+
+  it("preserves text and OCR evidence when pdf-parse rejects malformed image data", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-pdf-rejected-image-test-"));
+    roots.push(root);
+    const fakeExtractor = path.join(root, "missing-dependency.py");
+    await writeFile(
+      fakeExtractor,
+      "import sys\nprint('PyMuPDF unavailable', file=sys.stderr)\nraise SystemExit(2)\n",
+      "utf8",
+    );
+    vi.spyOn(PDFParse.prototype, "getText").mockResolvedValue({
+      pages: [{ num: 1, text: "Short fallback text." }],
+      text: "Short fallback text.",
+    } as never);
+    vi.spyOn(PDFParse.prototype, "getImage").mockRejectedValue(
+      new Error("Image object img_p0_1: data field is empty or invalid. Available fields: width, height"),
+    );
+    vi.spyOn(PDFParse.prototype, "destroy").mockResolvedValue(undefined);
+
+    const extracted = await extractPdf(await createTextPdf(), { scriptPathOverride: fakeExtractor });
+    roots.push(...(extracted.temporaryPaths ?? []));
+
+    expect(extracted.images).toEqual([]);
+    expect(extracted.pages[0]).toMatchObject({ text: "Short fallback text.", needsOcr: true });
+    expect(extracted.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/^malformed_fallback_images:/)]));
+  });
 });
