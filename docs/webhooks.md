@@ -75,8 +75,8 @@ constant-time. Fails closed (`503`) when unset, `401` on a bad secret.
   _receiver_ does with an INSERT event; the **recommended trigger below does not
   send INSERT events** because the app upload route deletes its own just-created
   document if _its_ job insert loses the one-open-job race, so a webhook enqueue
-  winning that race would break the upload. Drive external inserts through the
-  `reindex_requested` flag instead (see Setup).
+  winning that race would break the upload. Drive external inserts through a
+  post-insert `reindex_requested` UPDATE instead (see Setup).
 - **UPDATE** acts only when `record.metadata.reindex_requested === true`, then
   clears that flag via `apply_document_metadata_patch`. The worker's own
   completion writes (also UPDATEs) never carry the flag, so they cannot retrigger
@@ -145,22 +145,22 @@ missing or the POST fails (it just does nothing, mirroring the receiver's inert
 > webhooks are themselves a thin wrapper over pg_net, so they share the same
 > no-retry limitation today.
 >
-> **There is no _automatic_ recovery for a dropped delivery.** A fresh insert
-> lands as `status = 'queued'` with no `ingestion_jobs` row, but the scheduled
-> Ingestion Autopilot's health check (`assessIngestionHealth`) only flags _failed_
-> or _stale-processing_ jobs — it never looks at queued documents that have no job
-> — so it reports healthy and never enqueues them, even with
-> `INGESTION_AUTOPILOT_APPLY=true`. The predicate that _does_ detect this case,
-> `hasIncompleteDocumentsWithoutOpenJobs`, is wired only into the **manual**
-> `scripts/reindex.ts` CLI, so recovery of a dropped-webhook insert is an operator
-> running that command on demand, not something that self-heals.
+> **There is no built-in recovery — automatic _or_ manual — for a dropped
+> delivery.** A fresh insert lands as `status = 'queued'` with no `ingestion_jobs`
+> row, and nothing sweeps that state: the scheduled Ingestion Autopilot's health
+> check (`assessIngestionHealth`) only flags _failed_ or _stale-processing_ jobs,
+> and the manual `scripts/reindex.ts` predicate `hasIncompleteDocumentsWithoutOpenJobs`
+> explicitly requires `queuedDocuments === 0` (`src/lib/reindex-pipeline.ts`), so a
+> stranded `queued`-without-job row matches neither — it stays unindexed.
 >
-> **So for a document inserted outside the app upload path that must never be
-> dropped, do not rely on webhook delivery at all** — ingest it through the app
-> upload route (which enqueues its job transactionally), or add a transactional
-> outbox / a scheduled sweep that enqueues `queued`/`reindex_requested` rows with
-> no open job. This trigger is a low-latency optimisation, not a delivery
-> guarantee.
+> **To recover a stranded row, flip its flag** — an `UPDATE` that sets
+> `metadata.reindex_requested = true` fires this trigger and enqueues it (the same
+> path external imports use, below). **So for a document that must never be left
+> unindexed, do not rely on webhook delivery alone** — ingest it through the app
+> upload route (which enqueues its job transactionally), drive it through the
+> insert-then-flag pattern below and confirm the job appears, or add a scheduled
+> sweep that flips `reindex_requested` on `queued` rows with no open job. This
+> trigger is a low-latency optimisation, not a delivery guarantee.
 
 ```sql
 create or replace function public.notify_document_change_ingestion_webhook()
@@ -179,8 +179,9 @@ begin
   -- it DELETES the document if that job insert loses a race against the one-open-
   -- job-per-document unique index (src/app/api/upload/route.ts). A webhook firing
   -- on INSERT could win that race and turn a normal upload into an intermittent
-  -- failure. Documents inserted outside the upload flow should set
-  -- metadata.reindex_requested = true (which also drives the loop-safe flag-clear).
+  -- failure. Documents inserted outside the upload flow are enqueued by a SEPARATE
+  -- UPDATE that flips metadata.reindex_requested to true (an INSERT with the flag
+  -- already set does NOT fire this AFTER UPDATE trigger). See docs below.
   --
   -- Compare the JSON value directly to the JSON boolean `true` — matches the
   -- receiver's strict `=== true` (a JSON string "true" is NOT actionable) and,
@@ -243,9 +244,17 @@ create trigger documents_ingestion_webhook
   for each row execute function public.notify_document_change_ingestion_webhook();
 ```
 
-To request a reindex of an existing document, set
-`metadata.reindex_requested = true` on its row; the trigger POSTs, the receiver
-enqueues the job and clears the flag.
+To reindex an existing document — or to index one inserted outside the app upload
+flow — issue an **`UPDATE` that flips `metadata.reindex_requested` to `true`**; the
+trigger POSTs, the receiver enqueues the job and clears the flag.
+
+> **Insert-then-flag, as two statements.** Because this is an `AFTER UPDATE`
+> trigger whose predicate requires the flag to _change_ from not-true to true, an
+> external writer that INSERTs a row with `reindex_requested` already set will
+> **not** fire it (no UPDATE occurred) and leaves a `queued` row with no job. Insert
+> the row first, then run a separate `UPDATE … SET metadata = metadata ||
+'{"reindex_requested": true}'::jsonb WHERE id = …`, and confirm an `ingestion_jobs`
+> row appears.
 
 **Managed alternative (dashboard convenience).** A Supabase **Database Webhook**
 on `public.documents` (INSERT/UPDATE) pointed at the URL above with an
