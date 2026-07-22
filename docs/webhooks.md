@@ -98,8 +98,8 @@ raw SQL applied to the live database — this repo's drift inventory
 (`supabase/drift-manifest.json`) covers functions and triggers, so creating them
 directly on live would diverge from `supabase/schema.sql` and **fail the next
 `check:drift`**, and a schema restore would omit the webhook entirely. The only
-operator-applied live state is the Vault secret (step 2) and the optional base-URL
-GUC (step 3).
+operator-applied live state is the Vault secret (step 2) and the per-environment
+base-URL GUC (step 3, required).
 
 **Landing the trigger (step 4) needs a local Supabase container** — the schema
 mirror + drift manifest are regenerated from a live replay, which cannot be done
@@ -121,10 +121,13 @@ hardcoding it:
 select vault.create_secret('<same-secret-as-the-env-var>', 'ingestion_webhook_secret');
 ```
 
-**3. (Non-production only) point the base URL at your environment** — production
-falls back to `https://psychiatry.tools` when this GUC is unset:
+**3. Point the base URL at _this_ environment (REQUIRED, every environment).**
+There is no production default — if this GUC is unset the trigger no-ops, so an
+un-configured staging/local replay can never post to production. Set it explicitly
+per environment (production included):
 
 ```sql
+-- production: 'https://psychiatry.tools'  ·  staging/local: that environment's host
 alter database postgres set app.ingestion_webhook_base_url = 'https://<env-host>';
 ```
 
@@ -204,10 +207,17 @@ begin
     return new;
   end if;
 
-  v_base_url := coalesce(
-    nullif(current_setting('app.ingestion_webhook_base_url', true), ''),
-    'https://psychiatry.tools'
-  );
+  -- REQUIRED, per environment. There is deliberately no production fallback: if
+  -- this GUC is unset the trigger no-ops (like a missing secret) rather than post
+  -- to a hardcoded host. A hardcoded prod default would make a staging/local
+  -- replay POST that environment's document row to the PRODUCTION receiver —
+  -- which is wired to a different Supabase project, so the row would fail to
+  -- enqueue and its metadata would cross environments. Each environment sets its
+  -- own base URL (step 3).
+  v_base_url := nullif(current_setting('app.ingestion_webhook_base_url', true), '');
+  if v_base_url is null then
+    return new;
+  end if;
 
   perform net.http_post(
     url := v_base_url || '/api/webhooks/supabase/document-change',
