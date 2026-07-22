@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 import { resolvePythonBin } from "@/lib/python-bin";
 import { assertExpectedSupabaseProjectConfig, checkSupabaseProjectConfig } from "@/lib/supabase/project";
+import { MAX_UPLOAD_MB_CEILING } from "@/lib/upload-limits";
 
 const envSchema = z.object({
   NEXT_PUBLIC_SUPABASE_URL: z.string().url().optional(),
@@ -189,7 +190,9 @@ const envSchema = z.object({
   RAG_QUERY_HASH_SECRET: z.string().min(16).optional(),
   SUPABASE_DOCUMENT_BUCKET: z.string().default("clinical-documents"),
   SUPABASE_IMAGE_BUCKET: z.string().default("clinical-images"),
-  MAX_UPLOAD_MB: z.coerce.number().int().positive().max(150).default(150),
+  // Capped at the ceiling the browser pre-checks against, so a configured limit
+  // can only ever be lower than what the client rejects up front.
+  MAX_UPLOAD_MB: z.coerce.number().int().positive().max(MAX_UPLOAD_MB_CEILING).default(MAX_UPLOAD_MB_CEILING),
   MAX_CONCURRENT_UPLOADS: z.coerce.number().int().positive().default(1),
   MAX_IN_FLIGHT_UPLOAD_MB: z.coerce.number().int().positive().default(151),
   MAX_IMPORT_JOBS_PER_RUN: z.coerce.number().int().positive().default(5),
