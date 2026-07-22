@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useId } from "react";
 import Link from "next/link";
 import { UploadCloud, Loader2, RefreshCw, Sparkles, ShieldCheck, ExternalLink } from "lucide-react";
 import {
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui-primitives";
 import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
+import { MAX_UPLOAD_MB_CEILING, exceedsUploadSizeCeiling, uploadSizeLimitMessage } from "@/lib/upload-limits";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import type { ClinicalDocument, IngestionJob, ImportBatch } from "@/lib/types";
@@ -299,6 +300,7 @@ export function UploadPanel({
   const [uploadPercent, setUploadPercent] = useState<number | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const fileHintId = useId();
 
   const displayStatus = status !== undefined ? status : localStatus;
   const changeStatus = setStatus || setLocalStatus;
@@ -333,6 +335,22 @@ export function UploadPanel({
     for (let index = 0; index < files.length; index++) {
       const file = files[index];
       try {
+        // Pre-check the size before spending the transfer. The server caps every
+        // file at env.MAX_UPLOAD_MB, which its schema can never raise above
+        // MAX_UPLOAD_MB_CEILING, so an over-ceiling file is a guaranteed 413 —
+        // uploading it first only makes the clinician wait for the rejection.
+        // The rest of the batch still uploads, matching the server's per-file
+        // outcome semantics.
+        if (exceedsUploadSizeCeiling(file.size)) {
+          outcomes.push({
+            kind: "failed",
+            fileName: file.name,
+            status: 413,
+            code: "payload_too_large",
+            message: uploadSizeLimitMessage(MAX_UPLOAD_MB_CEILING),
+          });
+          continue;
+        }
         changeStatus(
           files.length === 1 ? `Uploading ${file.name}...` : `Uploading ${index + 1} of ${files.length}: ${file.name}`,
         );
@@ -400,10 +418,14 @@ export function UploadPanel({
           accept=".pdf,application/pdf"
           multiple
           disabled={demoMode || !canUpload || uploading}
+          aria-describedby={fileHintId}
           onChange={() => changeStatus(null)}
           className="mt-2 block w-full text-xs font-medium text-[color:var(--text-muted)] file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border file:border-[color:var(--border)] file:bg-[color:var(--surface)] file:px-3 file:text-xs file:font-semibold file:text-[color:var(--text)] file:shadow-[var(--shadow-inset)] file:transition file:hover:bg-[color:var(--surface-subtle)] disabled:opacity-50"
         />
       </label>
+      <p id={fileHintId} className={cn(textMuted, "mt-2 text-xs")}>
+        PDF only, up to {MAX_UPLOAD_MB_CEILING} MB per file.
+      </p>
       <div className="mt-3">
         <button
           type="submit"

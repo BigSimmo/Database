@@ -31,6 +31,34 @@ async function main() {
     // ignore
   }
 
+  // Production-target guard (mirrors check-july8-live-batch). This is a live
+  // migration-verification probe whose PASS operator docs cite as proof the M13
+  // guard is applied before reindex cleanup. Without this check it would accept a
+  // staging target and greenlight while production (sjrfecxgysukkwxsowpy) is still
+  // stale, so refuse any non-production project before touching the RPC.
+  const { env, requireServerEnv } = await import("@/lib/env");
+  const { checkSupabaseProjectConfig, expectedSupabaseProject, formatSupabaseProjectCheck } =
+    await import("@/lib/supabase/project");
+  requireServerEnv();
+  const projectCheck = checkSupabaseProjectConfig(
+    {
+      NEXT_PUBLIC_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL,
+      SUPABASE_PROJECT_REF: env.SUPABASE_PROJECT_REF,
+      SUPABASE_PROJECT_NAME: env.SUPABASE_PROJECT_NAME,
+      SUPABASE_STAGING_PROJECT_REF: env.SUPABASE_STAGING_PROJECT_REF,
+      SUPABASE_STAGING_PROJECT_NAME: env.SUPABASE_STAGING_PROJECT_NAME,
+    },
+    { requireMetadata: true },
+  );
+  if (projectCheck.status === "missing" || projectCheck.status === "mismatch") {
+    throw new Error(formatSupabaseProjectCheck(projectCheck));
+  }
+  if (projectCheck.observed.environment !== "production") {
+    throw new Error(
+      `[M13 Migration] must target production ${expectedSupabaseProject.name} (${expectedSupabaseProject.ref}), not staging ${projectCheck.expected.ref}.`,
+    );
+  }
+
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const supabase = createAdminClient();
   const { data, error } = await supabase.rpc("search_schema_health");

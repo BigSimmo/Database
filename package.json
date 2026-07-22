@@ -94,6 +94,8 @@
     "check:document-label-coverage": "node scripts/run-tsx.mjs scripts/check-document-label-coverage.ts",
     "check:document-label-governance": "node scripts/run-tsx.mjs scripts/check-document-label-governance.ts",
     "check:retrieval-owner-migration": "node scripts/run-tsx.mjs scripts/check-retrieval-owner-migration.ts",
+    "check:m13-migration": "node scripts/run-tsx.mjs scripts/archive/check-m13-migration.ts",
+    "check:july8-live-batch": "node scripts/run-tsx.mjs scripts/archive/check-july8-live-batch.ts",
     "backfill:gold-labels": "node scripts/run-tsx.mjs scripts/backfill-gold-document-labels.ts",
     "backfill:smart-v2-labels": "npm run classify:documents -- --all-owners --limit 5000 --only-missing-smart-v2",
     "tags:backfill": "node scripts/run-tsx.mjs scripts/backfill-document-tags.ts",
@@ -199,6 +201,7 @@
   "overrides": {
     "postcss": "^8.5.15",
     "esbuild": "0.28.1",
+    "sharp": "0.35.3",
     "tmp": "^0.2.7",
     "uuid": "^11.1.1",
     "brace-expansion@1": "^1.1.16",
@@ -234,7 +237,7 @@
   },
   "allowScripts": {
     "esbuild@0.28.1": true,
-    "sharp@0.34.5": true,
+    "sharp@0.35.3": true,
     "unrs-resolver@1.12.2": true,
     "@eslint/eslintrc@3.3.6": true,
     "@humanwhocodes/module-importer@1.0.1": true,
