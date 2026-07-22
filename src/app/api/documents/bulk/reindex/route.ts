@@ -56,7 +56,6 @@ export async function POST(request: Request) {
     if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
 
     const results: Array<{ documentId: string; mode: string; ok: boolean; jobId?: string; error?: string }> = [];
-    let deleteRaceDetected = false;
 
     for (const document of documents) {
       try {
@@ -132,7 +131,6 @@ export async function POST(request: Request) {
           .single();
         if (jobError) {
           if (jobError.code === "23503") {
-            deleteRaceDetected = true;
             throw new Error("Document was deleted while reindexing. Refresh the document list and retry.");
           }
           // R17: same race as the single-document reindex route — a unique
@@ -194,14 +192,12 @@ export async function POST(request: Request) {
     }
 
     invalidateRagCachesForOwner(user.id);
-    return NextResponse.json(
-      {
-        ok: results.every((result) => result.ok),
-        results,
-        missingDocumentIds: documentIds.filter((id) => !documents.some((document) => document.id === id)),
-      },
-      { status: deleteRaceDetected ? 409 : 200 },
-    );
+    const missingDocumentIds = documentIds.filter((id) => !documents.some((document) => document.id === id));
+    return NextResponse.json({
+      ok: missingDocumentIds.length === 0 && results.every((result) => result.ok),
+      results,
+      missingDocumentIds,
+    });
   } catch (error) {
     if (error instanceof AuthenticationError) return unauthorizedResponse();
     if (error instanceof PublicApiError) return jsonError(error, error.status);

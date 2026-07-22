@@ -2528,12 +2528,76 @@ describe("private document API access", () => {
     expect(documentUpdates[1]?.filters).toContainEqual({ column: "updated_at", value: fence });
   });
 
-  it("returns 409 without rollback when deletion wins a bulk reindex race", async () => {
-    const document = {
+  it("returns a successful partial-result response when deletion wins one bulk reindex race", async () => {
+    const deletedDocument = {
       id: documentId,
       owner_id: userId,
       title: "Bulk Deleted During Reindex",
       file_name: "bulk-deleted.pdf",
+      source_path: null,
+      import_batch_id: null,
+      status: "failed",
+      error_message: "older failure",
+      page_count: 2,
+      chunk_count: 4,
+      image_count: 0,
+      metadata: {},
+    };
+    const queuedDocument = {
+      ...deletedDocument,
+      id: otherDocumentId,
+      title: "Bulk Reindex Survivor",
+      file_name: "bulk-survivor.pdf",
+    };
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok([deletedDocument, queuedDocument]);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "documents" && call.operation === "update") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "insert") {
+        const inserted = call.insertPayload as { document_id?: string };
+        return inserted.document_id === documentId
+          ? fail("ingestion_jobs_document_id_fkey", "23503")
+          : ok({ id: "surviving-job" });
+      }
+      return ok([]);
+    });
+    mockRuntime(client, { invalidateRagCachesForOwner: vi.fn() });
+    const { POST } = await import("../src/app/api/documents/bulk/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/documents/bulk/reindex", {
+        method: "POST",
+        body: JSON.stringify({ documentIds: [documentId, otherDocumentId], mode: "full" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await payload(response)).toMatchObject({
+      ok: false,
+      results: [
+        {
+          documentId,
+          ok: false,
+          error: "Document was deleted while reindexing. Refresh the document list and retry.",
+        },
+        {
+          documentId: otherDocumentId,
+          ok: true,
+          jobId: "surviving-job",
+        },
+      ],
+      missingDocumentIds: [],
+    });
+    expect(client.calls.filter((call) => call.table === "documents" && call.operation === "update")).toHaveLength(2);
+  });
+
+  it("returns missing document ids as a completed partial batch", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Bulk Reindex Available Document",
+      file_name: "bulk-available.pdf",
       source_path: null,
       import_batch_id: null,
       status: "failed",
@@ -2548,9 +2612,7 @@ describe("private document API access", () => {
       if (call.table === "import_batches") return ok([]);
       if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
       if (call.table === "documents" && call.operation === "update") return ok([]);
-      if (call.table === "ingestion_jobs" && call.operation === "insert") {
-        return fail("ingestion_jobs_document_id_fkey", "23503");
-      }
+      if (call.table === "ingestion_jobs" && call.operation === "insert") return ok({ id: "available-job" });
       return ok([]);
     });
     mockRuntime(client, { invalidateRagCachesForOwner: vi.fn() });
@@ -2559,22 +2621,16 @@ describe("private document API access", () => {
     const response = await POST(
       authenticatedRequest("/api/documents/bulk/reindex", {
         method: "POST",
-        body: JSON.stringify({ documentIds: [documentId], mode: "full" }),
+        body: JSON.stringify({ documentIds: [documentId, otherDocumentId], mode: "full" }),
       }),
     );
 
-    expect(response.status).toBe(409);
+    expect(response.status).toBe(200);
     expect(await payload(response)).toMatchObject({
       ok: false,
-      results: [
-        {
-          documentId,
-          ok: false,
-          error: "Document was deleted while reindexing. Refresh the document list and retry.",
-        },
-      ],
+      results: [{ documentId, ok: true, jobId: "available-job" }],
+      missingDocumentIds: [otherDocumentId],
     });
-    expect(client.calls.filter((call) => call.table === "documents" && call.operation === "update")).toHaveLength(1);
   });
 
   it("skips bulk rollback when a competing active job appears after the safety check", async () => {
