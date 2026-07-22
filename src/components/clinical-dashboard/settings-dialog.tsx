@@ -108,14 +108,17 @@ export function SettingsDialog({
   identity,
   onSignOut,
   onOpenGuide,
+  initialFocus = "close",
 }: {
   open: boolean;
   onClose: () => void;
   identity: SidebarIdentity;
   onSignOut: () => void;
   onOpenGuide: () => void;
+  initialFocus?: "close" | "guide";
 }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const guideButtonRef = useRef<HTMLButtonElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const settingsEmailInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -281,7 +284,7 @@ export function SettingsDialog({
       onClose={onClose}
       closeLabel="Close settings"
       labelledBy="account-settings-title"
-      initialFocusRef={closeButtonRef}
+      initialFocusRef={initialFocus === "guide" ? guideButtonRef : closeButtonRef}
       mobilePlacement="fullscreen"
       contentClassName="w-full max-w-none border-[color:var(--border-lux)] bg-[color:var(--background)] font-sans shadow-none max-lg:!pb-0 lg:max-w-[940px] lg:bg-[color:var(--surface-lux)] lg:shadow-[var(--shadow-lux)]"
       bodyClassName="p-0"
@@ -776,7 +779,9 @@ export function SettingsDialog({
                   primary guideline before acting.
                 </p>
                 <button
+                  ref={guideButtonRef}
                   type="button"
+                  data-settings-guide-trigger
                   onClick={() => {
                     onClose();
                     onOpenGuide();
@@ -785,7 +790,7 @@ export function SettingsDialog({
                   data-testid="settings-row-guide-help"
                 >
                   <BookOpen aria-hidden="true" className="h-4 w-4" />
-                  Open the clinical guide
+                  Guide & help
                 </button>
               </div>
             </SettingsSection>

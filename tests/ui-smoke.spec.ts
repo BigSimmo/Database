@@ -752,8 +752,21 @@ async function openMobileClinicalGuideMenu(page: Page) {
   await expect(menu.getByRole("button", { name: "New chat" })).toBeVisible();
   await expect(menu.getByPlaceholder("Search chats")).toBeVisible();
   await expect(menu.getByText("Recent chats", { exact: true })).toBeVisible();
-  await expect(menu.getByRole("link", { name: "Tools", exact: true })).toBeVisible();
-  await expect(menu.getByRole("button", { name: "Guide & help" })).toBeVisible();
+  const navigation = menu.getByRole("navigation", { name: "Navigation" });
+  await expect(navigation).toBeVisible();
+  expect(
+    await navigation
+      .getByRole("link")
+      .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
+  ).toEqual([
+    { name: "Answer", href: "/?mode=answer" },
+    { name: "Documents", href: "/?mode=documents" },
+    { name: "Services", href: "/services" },
+    { name: "Medications", href: "/?mode=prescribing" },
+    { name: "Factsheets", href: "/factsheets" },
+    { name: "Tools", href: "/?mode=tools" },
+  ]);
+  await expect(menu.getByRole("button", { name: /guide|theme|dark mode|light mode/i })).toHaveCount(0);
   await expect(menu.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
   await expect(menu.getByText("Guest")).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
@@ -784,24 +797,24 @@ async function waitForPersistedAnswerThread(page: Page, minPriorTurns = 1) {
 }
 
 async function openGuide(page: Page) {
-  const viewport = page.viewportSize();
   const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
-  const expandedGuide = page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Guide & help" });
-  const railGuide = page.getByRole("button", { name: "Guide and help", exact: true });
+  const viewport = page.viewportSize();
 
-  if (viewport && viewport.width >= 768) {
-    const trigger = (await expandedGuide.isVisible().catch(() => false)) ? expandedGuide : railGuide;
-    await expect(trigger).toBeVisible();
-    await expect(trigger).toBeEnabled();
-    await waitForReactEventHandler(trigger, "onClick");
-    await trigger.click();
-    await expect(dialog).toBeVisible({ timeout: uiAssertionTimeoutMs });
-  } else {
+  if (viewport && viewport.width < 768) {
     const menu = await openMobileClinicalGuideMenu(page);
-    await menu.getByRole("button", { name: "Guide & help" }).click();
-    await expect(dialog).toBeVisible();
+    await menu.getByRole("button", { name: "Settings", exact: true }).click();
+  } else {
+    const sidebar = page.locator("#clinical-tools-sidebar");
+    const settings = (await sidebar.isVisible().catch(() => false))
+      ? sidebar.getByRole("button", { name: "Settings", exact: true })
+      : page.getByRole("button", { name: "Settings", exact: true });
+    await expect(settings).toBeVisible();
+    await settings.click();
   }
 
+  const settings = accountSettingsDialog(page);
+  await expect(settings).toBeVisible({ timeout: uiAssertionTimeoutMs });
+  await settings.getByRole("button", { name: "Guide & help", exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("Ask and verify")).toBeVisible();
   await expect(dialog.getByText("Top source and citations")).toBeVisible();
@@ -1030,7 +1043,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=answer");
     await waitForDemoDashboardReady(page);
 
-    // No stored preference (PT-10): eight icon-only destinations demand recall,
+    // No stored preference (PT-10): the labelled navigation remains the default,
     // so first-run desktop shows the labelled sidebar; collapse is remembered.
     await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
     await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeVisible();
@@ -1096,20 +1109,35 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("#clinical-tools-sidebar")).toBeHidden();
     await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
 
-    for (const tool of [
+    const rail = page.getByLabel("Clinical Guide collapsed sidebar");
+    const scrollRegion = rail.getByTestId("collapsed-sidebar-scroll-region");
+    const navigation = rail.getByRole("navigation", { name: "Navigation" });
+    const library = rail.getByRole("navigation", { name: "Your library" });
+    await expect(rail.getByRole("button", { name: "New chat" })).toBeVisible();
+    await expect(rail.getByRole("button", { name: "Settings" })).toBeVisible();
+    await expect(scrollRegion.getByRole("button", { name: "New chat" })).toHaveCount(0);
+    await expect(scrollRegion.getByRole("button", { name: "Settings" })).toHaveCount(0);
+    expect(
+      await navigation
+        .getByRole("link")
+        .evaluateAll((links) =>
+          links.map((link) => ({ name: link.getAttribute("aria-label"), href: link.getAttribute("href") })),
+        ),
+    ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/services" },
-      // The rail speaks the catalogue-maturity badge as part of the Forms name.
-      { name: "Forms (Early access)", href: "/forms" },
-      // Demo mode still exposes Favourites via the account-library rail entry.
-      { name: "Favourites", href: "/favourites" },
-      { name: "Differentials", href: "/differentials" },
-      { name: "Medication", href: "/?mode=prescribing" },
+      { name: "Medications", href: "/?mode=prescribing" },
+      { name: "Factsheets", href: "/factsheets" },
       { name: "Tools", href: "/?mode=tools" },
-    ] as const) {
-      await expect(page.getByRole("link", { name: tool.name, exact: true })).toHaveAttribute("href", tool.href);
-    }
+    ]);
+    expect(
+      await library
+        .getByRole("link")
+        .evaluateAll((links) =>
+          links.map((link) => ({ name: link.getAttribute("aria-label"), href: link.getAttribute("href") })),
+        ),
+    ).toEqual([{ name: "Favourites", href: "/favourites" }]);
 
     await expectNoPageHorizontalOverflow(page);
   });
@@ -1122,7 +1150,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { path: "/?mode=answer", label: "Answer" },
       { path: "/?mode=documents", label: "Documents" },
       { path: "/favourites", label: "Favourites" },
-      { path: "/?mode=prescribing", label: "Medication" },
+      { path: "/?mode=prescribing", label: "Medications" },
     ] as const) {
       await gotoApp(page, route.path);
       if (route.path.includes("mode=answer")) {
@@ -3892,6 +3920,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
       expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await dialog.getByRole("button", { name: "Close guide" }).click();
       await expect(dialog).toBeHidden();
+      const restoredSettings = accountSettingsDialog(page);
+      await expect(restoredSettings).toBeVisible();
+      await expect(restoredSettings.getByRole("button", { name: "Guide & help", exact: true })).toBeFocused();
 
       const reopenedDialog = await openGuide(page);
       await tapOutsideActiveSurface(page);

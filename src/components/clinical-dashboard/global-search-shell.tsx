@@ -13,12 +13,10 @@ import {
   useState,
 } from "react";
 
-import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { ClinicalDashboard } from "@/components/ClinicalDashboard";
 import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import {
   ClinicalDesktopSidebar,
   ClinicalMobileSidebar,
@@ -36,7 +34,13 @@ import {
 import { readChromeCollapseBudget, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
-import { useTheme } from "@/components/clinical-dashboard/use-theme";
+import {
+  loadSettingsDialog,
+  prefetchAccountDialog,
+  SidebarAccountSetupDialog,
+  SidebarSettingsDialog,
+} from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
+import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
 import { ClientHydrationBoundary } from "@/components/client-hydration-boundary";
 import { cn } from "@/components/ui-primitives";
 import {
@@ -66,7 +70,6 @@ const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>
 ];
 // Re-apply focus shortly after the first frame to survive initial hydration remounts.
 const focusHydrationRetryDelayMs = 300;
-
 type GlobalSearchShellProps = {
   children: ReactNode;
   initialMode?: AppModeId;
@@ -305,7 +308,6 @@ function GlobalStandaloneSearchShellClient({
     }),
     [query, searchMode, commandScopes, removeCommandScope, clearCommandScopes],
   );
-  const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
@@ -472,6 +474,20 @@ function GlobalStandaloneSearchShellClient({
     openAccountSetup("default");
   }
 
+  const {
+    settingsInitialFocus,
+    openGuideFromSettings,
+    closeGuideWithRestore,
+    openSettingsWithDefaultFocus,
+    openAccountProfileWithDefaultFocus,
+  } = useSettingsGuideFlow({
+    openGuide,
+    closeGuide: () => setGuideOpen(false),
+    openSettings,
+    openAccountProfile,
+    setSettingsOpen,
+  });
+
   function navigateToMode(mode: AppModeId, options: SearchNavigationOptions = {}) {
     const nextOptions = { queryMode, scopeFilters, ...options };
     if (mode === "documents" && options.query?.trim()) {
@@ -598,8 +614,6 @@ function GlobalStandaloneSearchShellClient({
         "sm:min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         shouldShowDesktopSidebar &&
-          "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
-        shouldShowDesktopSidebar &&
           (effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]"),
       )}
       style={
@@ -623,11 +637,10 @@ function GlobalStandaloneSearchShellClient({
               onCollapsedChange={setSidebarCollapsed}
               onNewChat={startNewAnswerChat}
               onPickRecent={pickRecentQuery}
-              onOpenGuide={openGuide}
-              onOpenSettings={openSettings}
-              onOpenAccount={openAccountProfile}
-              theme={theme}
-              onToggleTheme={toggleTheme}
+              onOpenSettings={openSettingsWithDefaultFocus}
+              onOpenAccount={openAccountProfileWithDefaultFocus}
+              onPrefetchSettings={loadSettingsDialog}
+              onPrefetchAccount={prefetchAccountDialog}
               onPrefetchApplications={prefetchApplications}
             />
           </div>
@@ -781,15 +794,16 @@ function GlobalStandaloneSearchShellClient({
         </div>
       </div>
 
-      <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
-      <SettingsDialog
+      <GuideDialog open={guideOpen} onClose={closeGuideWithRestore} />
+      <SidebarSettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         identity={sidebarIdentity}
         onSignOut={auth.signOut}
-        onOpenGuide={openGuide}
+        onOpenGuide={openGuideFromSettings}
+        initialFocus={settingsInitialFocus}
       />
-      <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
+      <SidebarAccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
         // The workflow header keeps its menu trigger past md, so the drawer
@@ -802,11 +816,10 @@ function GlobalStandaloneSearchShellClient({
         onOpenChange={setMobileMenuOpen}
         onNewChat={startNewAnswerChat}
         onPickRecent={pickRecentQuery}
-        onOpenGuide={openGuide}
-        onOpenSettings={openSettings}
-        onOpenAccount={openAccountProfile}
-        theme={theme}
-        onToggleTheme={toggleTheme}
+        onOpenSettings={openSettingsWithDefaultFocus}
+        onOpenAccount={openAccountProfileWithDefaultFocus}
+        onPrefetchSettings={loadSettingsDialog}
+        onPrefetchAccount={prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
       />
     </div>
