@@ -80,6 +80,30 @@ describe("design-system contract helpers", () => {
     expect(reportFailure).not.toHaveBeenCalled();
   });
 
+  it("anchors the theme-color boundary on the declaration, not a passing mention", () => {
+    const reportFailure = vi.fn();
+    // A doc comment naming the constant sits ABOVE an unrelated raw colour. A
+    // bare "APP_THEME_COLORS" marker would anchor on that mention and mask
+    // everything from the comment through the block, silently swallowing the
+    // unrelated colour with no failure reported. Masking runs before comments
+    // are stripped, so comment-stripping does not rescue it.
+    const source = [
+      "// Pre-paint values live in APP_THEME_COLORS below.",
+      'export const UNRELATED_ACCENT = "#0f766e";',
+      "export const APP_THEME_COLORS = {",
+      '  light: "#ffffff",',
+      '  dark: "#060708",',
+      "} as const;",
+    ].join("\n");
+
+    const scoped = rawColorContractSource("src/lib/theme.ts", source, reportFailure);
+
+    expect(scoped).toContain("#0f766e");
+    expect(scoped).not.toContain("#ffffff");
+    expect(scoped).not.toContain("#060708");
+    expect(reportFailure).not.toHaveBeenCalled();
+  });
+
   it("fails closed when the pre-paint theme-color boundary disappears", () => {
     const reportFailure = vi.fn();
     // The constant was renamed/removed but the exemption still matches the path.
