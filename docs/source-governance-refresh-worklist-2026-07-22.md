@@ -29,7 +29,7 @@ very different classes:
 
 | Class                                 | Docs                                                           | Flag                                     | What it actually needs                                                                                                                                                                                                |
 | ------------------------------------- | -------------------------------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **BMJ published reference tier**      | **38 (64%)**                                                   | `clinical_validation_status: unverified` | **One policy decision**, not 38 clinical reviews — decide how third-party BMJ Best Practice content is attested (bulk attestation / a "third-party published" validation state / an ingestion default), then apply it |
+| **BMJ published reference tier**      | **38 (64%)**                                                   | `clinical_validation_status: unverified` | **One policy decision**, not 38 clinical reviews — decide how third-party BMJ Best Practice content is attested (bulk attestation via an explicit, auditable metadata update / a dedicated "third-party published" validation state). Do **not** silently default ingestion metadata to `current` or `approved`; preserve the third-party/unverified distinction until the approved policy is applied. |
 | **Local WA health-service documents** | **21** (FSH 7, NMHS 4, CAMHS 3, AKG 2, KEMH 2, RPBG 2, RKPG 1) | mostly `document_status: review_due`     | **Genuine periodic review** — real attestation work, but a tractable ~21 documents                                                                                                                                    |
 
 By flag combination: `val:unverified` 30 · `doc:review_due` 19 · both 8 · `doc:unknown` 1 ·
@@ -85,7 +85,7 @@ of these slots in one action.
 
 ## Suggested order of work
 
-1. **Decide the BMJ attestation policy** (clears ~64% of review-required documents in one action).
+1. **Decide the BMJ attestation policy** (clears ~64% of review-required documents in one action). Any chosen option must use an explicit, auditable metadata update and must preserve the third-party/unverified distinction until applied — never silently default ingestion metadata to `current` or `approved`.
 2. **Attest the local documents by visibility** — start with `Clozapine Management by GP (NMHS)` (22 slots,
    rank 1), then the FSH addiction/withdrawal document, then the remaining NMHS/AKG/CAMHS/KEMH items.
 3. **Re-read the warning rate** on the next canary to confirm the burn-down.
