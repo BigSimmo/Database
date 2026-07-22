@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // The settings surface owns the destructive privacy actions (clear recent
@@ -83,7 +83,11 @@ function renderDialog(identityOverrides: Record<string, unknown> = {}) {
   return { onSignOut };
 }
 
-afterEach(() => {
+afterEach(async () => {
+  cleanup();
+  // Sheet cleanup restores focus in requestAnimationFrame and performs one
+  // defensive retry 50 ms later. Let both finish before jsdom removes document.
+  await new Promise((resolve) => window.setTimeout(resolve, 75));
   vi.clearAllMocks();
 });
 
