@@ -35,11 +35,16 @@ describe("Therapy Compass production-mode wiring", () => {
       new URL("../src/components/therapy-compass/workspace.tsx", import.meta.url),
       "utf8",
     );
+    const sidebarSrc = readFileSync(
+      new URL("../src/components/clinical-dashboard/ClinicalSidebar.tsx", import.meta.url),
+      "utf8",
+    );
 
     expect(appModesSrc).toContain('label: "Therapy mode"');
     expect(appModesSrc).toContain('submitAriaLabel: "Open Therapy mode"');
     expect(homeSrc).toContain('title="Therapy mode"');
     expect(workspaceSrc).toContain("Therapy mode could not load");
+    expect(sidebarSrc).toContain('label: appModeDefinition("therapy-compass").label');
 
     for (const filename of therapyMetadataFiles) {
       const source = readFileSync(new URL(filename, import.meta.url), "utf8");

@@ -45,7 +45,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 - **PWA:** `docs/pwa.md` — install assets, privacy-first service worker/offline shell, lifecycle, security, and verification
 - **Home:** `src/app/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
-- **Modes (12):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, Therapy mode
+- **Modes (13):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, Therapy mode, Factsheets
 
 ### Product pages (`src/app/`)
 
