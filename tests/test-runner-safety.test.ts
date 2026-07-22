@@ -170,14 +170,15 @@ describe("provider-safe test environment", () => {
     expect(`${result.stdout}${result.stderr}`).toContain("Live provider tests are disabled");
   });
 
-  it("loads Next environment files before checking live-test permission", () => {
+  it("loads credentials from Next environment files without accepting persisted permission", () => {
     const runner = readFileSync(new URL("../scripts/run-live-tests.mjs", import.meta.url), "utf8");
+    const permissionSnapshot = "const providerTestPermission = process.env.ALLOW_PROVIDER_TESTS;";
+    const permissionCheck = "requireProviderTestPermission({ ALLOW_PROVIDER_TESTS: providerTestPermission });";
     expect(runner).toContain('import nextEnv from "@next/env";');
     expect(runner).toContain("const { loadEnvConfig } = nextEnv;");
-    expect(runner.indexOf("loadEnvConfig(projectRoot);")).toBeGreaterThanOrEqual(0);
-    expect(runner.indexOf("loadEnvConfig(projectRoot);")).toBeLessThan(
-      runner.indexOf("requireProviderTestPermission();"),
-    );
+    expect(runner.indexOf(permissionSnapshot)).toBeGreaterThanOrEqual(0);
+    expect(runner.indexOf(permissionSnapshot)).toBeLessThan(runner.indexOf("loadEnvConfig(projectRoot);"));
+    expect(runner.indexOf("loadEnvConfig(projectRoot);")).toBeLessThan(runner.indexOf(permissionCheck));
   });
 
   it("fails focused selection closed for a deleted or missing explicit source path", () => {
