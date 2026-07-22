@@ -37,15 +37,16 @@ import {
 } from "@/components/ui-primitives";
 
 /*
- * Patient Safety Plan generator — design-exploration mockup.
+ * Patient Safety Plan generator — Tools-page clinical tool.
  *
  * A clinician builds an evidence-based safety plan *with* the patient (the
  * Stanley-Brown Safety Planning Intervention, six prioritised steps), and a
  * live patient-facing preview updates as they type — ready to print, save as
  * PDF, or hand over. Sample content is seeded so the layout reads fully; every
- * field is editable. Australian English + AU crisis resources throughout, per
- * the Clinical KB (en-AU) voice. All chrome is token-driven so light/dark,
- * reduced-motion and forced-colors follow the shared design system.
+ * field is editable and "Clear all" empties the plan. Australian English + AU
+ * crisis resources throughout, per the Clinical KB (en-AU) voice. All chrome is
+ * token-driven so light/dark, reduced-motion and forced-colors follow the
+ * shared design system.
  */
 
 const focusRing =
@@ -188,6 +189,18 @@ const SEED_REASONS: Entry[] = [
   { id: "r4", primary: "Being there for my niece" },
 ];
 
+// Production default: a fresh plan starts blank so no sample/placeholder content
+// (including the non-working example crisis numbers) can reach a printed handover.
+// "Load example" restores the SEED content on demand for demos and training.
+const EMPTY_ENTRIES: Record<StepKey, Entry[]> = {
+  warning: [],
+  coping: [],
+  people: [],
+  support: [],
+  professional: [],
+  environment: [],
+};
+
 /* ---------- small building blocks ---------- */
 
 function AddRow({
@@ -324,7 +337,7 @@ function StepBuilderCard({
                 )}
                 aria-hidden="true"
               >
-                <CheckCheck className="size-icon-xs" />
+                <CheckCheck className="size-icon-xs" aria-hidden="true" />
               </span>
             ) : null}
           </div>
@@ -406,9 +419,9 @@ function PreviewStep({ def, entries }: { def: StepDef; entries: Entry[] }) {
 
 /* ---------- root ---------- */
 
-export function PatientSafetyPlanMockup() {
-  const [entries, setEntries] = useState<Record<StepKey, Entry[]>>(SEED);
-  const [reasons, setReasons] = useState<Entry[]>(SEED_REASONS);
+export function PatientSafetyPlan() {
+  const [entries, setEntries] = useState<Record<StepKey, Entry[]>>(EMPTY_ENTRIES);
+  const [reasons, setReasons] = useState<Entry[]>([]);
   const [patient, setPatient] = useState("");
   const [planDate, setPlanDate] = useState("");
   const [mobileTab, setMobileTab] = useState<"build" | "preview">("build");
@@ -469,7 +482,7 @@ export function PatientSafetyPlanMockup() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1600);
     } catch {
-      /* clipboard unavailable in some embeds — mockup-safe no-op */
+      /* clipboard unavailable in some embeds — safe no-op */
     }
   };
 
@@ -477,19 +490,44 @@ export function PatientSafetyPlanMockup() {
     if (typeof window !== "undefined") window.print();
   };
 
+  const loadExample = () => {
+    const hasContent =
+      Object.values(entries).some((rows) => rows.length > 0) ||
+      reasons.length > 0 ||
+      patient.trim() !== "" ||
+      planDate.trim() !== "";
+    if (hasContent && !window.confirm("Replace the current plan with the example content?")) return;
+    setEntries(SEED);
+    setReasons(SEED_REASONS);
+    // Clear the patient context so example content can never carry a real
+    // patient's name or date into the preview/print output.
+    setPatient("");
+    setPlanDate("");
+    setFinalised(false);
+  };
+
   const clearAll = () => {
-    setEntries({ warning: [], coping: [], people: [], support: [], professional: [], environment: [] });
+    setEntries(EMPTY_ENTRIES);
     setReasons([]);
+    setPatient("");
+    setPlanDate("");
     setFinalised(false);
   };
 
   return (
-    <div className="min-w-0 bg-[color:var(--background)] text-[color:var(--text)]">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className={cn(
+        "safety-plan-tool min-w-0 bg-[color:var(--background)] text-[color:var(--text)]",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
+      )}
+    >
       {/* Tool header */}
       <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-8">
           <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+            <span className="grid size-tap shrink-0 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <ShieldCheck className="size-icon-lg" aria-hidden="true" />
             </span>
             <div className="min-w-0">
@@ -536,7 +574,7 @@ export function PatientSafetyPlanMockup() {
               type="button"
               onClick={() => setFinalised(true)}
               disabled={!ready}
-              className={cn(primaryControl, "min-h-11 disabled:opacity-50")}
+              className={cn(primaryControl, "min-h-tap disabled:opacity-50")}
             >
               {finalised ? (
                 <Check className="size-icon-md" aria-hidden="true" />
@@ -550,7 +588,7 @@ export function PatientSafetyPlanMockup() {
       </header>
 
       {/* Mobile pane switch */}
-      <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:hidden">
+      <div data-print-hide className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:hidden">
         <div
           role="tablist"
           aria-label="Safety plan view"
@@ -583,6 +621,7 @@ export function PatientSafetyPlanMockup() {
         {/* ---------- Builder ---------- */}
         <div
           id="spg-panel-build"
+          data-print-hide
           role="tabpanel"
           aria-labelledby="spg-tab-build"
           className={cn("min-w-0 grid content-start gap-4", mobileTab === "build" ? "grid" : "hidden", "lg:grid")}
@@ -591,10 +630,16 @@ export function PatientSafetyPlanMockup() {
             <h2 className="text-sm font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
               Build the plan
             </h2>
-            <button type="button" onClick={clearAll} className={softButton}>
-              <RotateCcw className="size-icon-sm" aria-hidden="true" />
-              Clear all
-            </button>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={loadExample} className={softButton}>
+                <Sparkles className="size-icon-sm" aria-hidden="true" />
+                Load example
+              </button>
+              <button type="button" onClick={clearAll} className={softButton}>
+                <RotateCcw className="size-icon-sm" aria-hidden="true" />
+                Clear all
+              </button>
+            </div>
           </div>
 
           {/* Patient context */}
@@ -700,6 +745,7 @@ export function PatientSafetyPlanMockup() {
         {/* ---------- Preview ---------- */}
         <div
           id="spg-panel-preview"
+          data-safety-plan-copy
           role="tabpanel"
           aria-labelledby="spg-tab-preview"
           className={cn(
@@ -709,7 +755,7 @@ export function PatientSafetyPlanMockup() {
           )}
         >
           {/* Preview toolbar */}
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div data-print-hide className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-extrabold uppercase tracking-[0.06em] text-[color:var(--text-soft)]">
               Patient copy
             </h2>
@@ -732,6 +778,7 @@ export function PatientSafetyPlanMockup() {
           {finalised ? (
             <div
               role="status"
+              data-print-hide
               className={cn(
                 "mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm-minus font-bold",
                 toneSuccess,
@@ -823,12 +870,15 @@ export function PatientSafetyPlanMockup() {
             </footer>
           </article>
 
-          <p className="mt-3 flex items-center gap-1.5 px-1 text-2xs font-semibold text-[color:var(--text-soft)]">
+          <p
+            data-print-hide
+            className="mt-3 flex items-center gap-1.5 px-1 text-2xs font-semibold text-[color:var(--text-soft)]"
+          >
             <ChevronRight className="size-icon-xs text-[color:var(--clinical-accent)]" aria-hidden="true" />
-            Sample content shown — edit every field with your patient.
+            Confirm every contact and crisis number with your patient before printing or sharing this plan.
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

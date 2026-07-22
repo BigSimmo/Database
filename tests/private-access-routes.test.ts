@@ -841,7 +841,7 @@ describe("private document API access", () => {
     expect((await payload(response)).url).toContain("public/documents/guideline.pdf");
   });
 
-  it("recovers valid cookie auth when a stale bearer header is also present", async () => {
+  it("rejects an invalid bearer header even when a valid cookie is also present", async () => {
     const documents = [{ id: documentId, owner_id: userId, title: "Owned document" }];
     const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
     mockRuntime(client);
@@ -857,9 +857,10 @@ describe("private document API access", () => {
     );
     const body = await payload(response);
 
-    expect(response.status).toBe(200);
-    expect(body.documents).toEqual(documents.map((document) => ({ ...document, labels: [], summary: null })));
-    expect(client.auth.getUser).toHaveBeenCalledWith(token);
+    expect(response.status).toBe(401);
+    expect(body).toMatchObject({ code: "authentication_required" });
+    expect(client.auth.getUser).toHaveBeenCalledTimes(1);
+    expect(client.auth.getUser).toHaveBeenCalledWith("expired-token");
   });
 
   it("omits internal document list fields for anonymous callers", async () => {
@@ -3541,7 +3542,7 @@ describe("private document API access", () => {
     );
   });
 
-  it("degrades invalid bearer tokens to anonymous search scope", async () => {
+  it("rejects invalid bearer tokens instead of using anonymous search scope", async () => {
     const searchChunksWithTelemetry = vi.fn(async () => ({
       results: [],
       telemetry: {
@@ -3570,10 +3571,9 @@ describe("private document API access", () => {
       }),
     );
 
-    expect(response.status).toBe(200);
-    expect(searchChunksWithTelemetry).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerId: undefined, allowGlobalSearch: true }),
-    );
+    expect(response.status).toBe(401);
+    expect(await payload(response)).toMatchObject({ code: "authentication_required" });
+    expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
 
   it("rate limits anonymous answer bursts before generation", async () => {

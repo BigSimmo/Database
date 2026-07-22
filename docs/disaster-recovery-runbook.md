@@ -29,9 +29,16 @@ docker run -d --name kb-restore -e POSTGRES_PASSWORD=postgres -p 56543:5432 supa
 docker exec kb-restore pg_isready -U postgres   # wait until ready
 
 # 2. Storage scaffold (bare image ships an empty storage schema; the hosted
-#    platform provisions the real one). Run as supabase_admin.
+#    platform provisions the real one). Discover the local image owner instead
+#    of hard-coding a platform-reserved role; never use this scaffold on hosted.
 docker cp scripts/sql/drift-replay-scaffold.sql kb-restore:/tmp/scaffold.sql
-docker exec kb-restore psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -f /tmp/scaffold.sql
+storage_owner="$(
+  docker exec kb-restore psql -U postgres -d postgres -tAc \
+    "select pg_catalog.pg_get_userbyid(nspowner) from pg_catalog.pg_namespace where nspname = 'storage'"
+)"
+test -n "${storage_owner}"
+docker exec kb-restore psql -U "${storage_owner}" -d postgres -v ON_ERROR_STOP=1 -f /tmp/scaffold.sql
+unset storage_owner
 
 # 3. Replay the canonical schema as postgres (matches how live is administered)
 docker cp supabase/schema.sql kb-restore:/tmp/schema.sql

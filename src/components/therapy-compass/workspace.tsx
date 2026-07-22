@@ -26,7 +26,7 @@ function TherapyCompassDataError() {
   const b = useTcBindings();
   return (
     <section role="alert" aria-live="assertive" aria-busy={b.loading} className="tc-workspace-002">
-      <h1 className="tc-workspace-003">Therapy Compass could not load</h1>
+      <h1 className="tc-workspace-003">Therapy mode could not load</h1>
       <p className="tc-workspace-004">
         The therapy catalogue is unavailable. No results are being shown as a substitute.
       </p>
