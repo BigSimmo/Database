@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // DocumentViewer resolves a four-way shell state (loading / ready / auth-required
 // / error) that decides whether a source document is shown at all. The
@@ -78,7 +78,17 @@ function detailPayload() {
   } as never;
 }
 
+// In demo / local-no-auth mode every document is public, so the private-access
+// gate is deliberately inert and the sign-in shell can never render. Whichever
+// of those a runner happens to export would silently turn the gate assertion
+// into a no-op, so pin both off — this test is about the gate, not the mode.
+beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_DEMO_MODE", "false");
+  vi.stubEnv("NEXT_PUBLIC_LOCAL_NO_AUTH", "false");
+});
+
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.clearAllMocks();
 });
 
