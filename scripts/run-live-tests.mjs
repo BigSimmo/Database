@@ -2,15 +2,19 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import nextEnv from "@next/env";
 import { childProcessExitCode } from "./child-process-result.mjs";
 import { requireProviderTestPermission } from "./test-environment.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const vitestBin = path.join(projectRoot, "node_modules", "vitest", "vitest.mjs");
+const { loadEnvConfig } = nextEnv;
+const providerTestPermission = process.env.ALLOW_PROVIDER_TESTS;
+loadEnvConfig(projectRoot);
 
 try {
-  requireProviderTestPermission();
+  requireProviderTestPermission({ ALLOW_PROVIDER_TESTS: providerTestPermission });
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
