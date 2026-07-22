@@ -3389,6 +3389,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const images = page.locator("#source-images");
     const indexingDetails = page.getByTestId("indexing-details");
     const viewerNav = page.getByRole("navigation", { name: "Document viewer sections" }).first();
+    const clickViewerNav = async (name: "Images" | "Summary" | "Text") => {
+      const link = viewerNav.getByRole("link", { name });
+      await waitForReactEventHandler(link, "onClick");
+      await activateFocusedControl(page, link);
+    };
 
     await expect(indexedText).toBeVisible();
     for (const disclosure of [summary, images, indexingDetails]) {
@@ -3397,7 +3402,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     const summaryContent = summary.getByTestId("formatted-high-yield-summary");
     await expect(summaryContent).toBeHidden();
-    await viewerNav.getByRole("link", { name: "Images" }).click();
+    await clickViewerNav("Images");
     await expect(images).toHaveJSProperty("open", true);
     await page.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
     await page.emulateMedia({ media: "print" });
@@ -3407,15 +3412,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(summaryContent).toBeHidden();
     await expect(images).toHaveJSProperty("open", true);
 
-    await viewerNav.getByRole("link", { name: "Text" }).click();
+    await clickViewerNav("Text");
     await expect(indexedText).toBeInViewport();
     await expect(images).toHaveJSProperty("open", false);
 
-    await viewerNav.getByRole("link", { name: "Summary" }).click();
+    await clickViewerNav("Summary");
     await expect(summary).toHaveJSProperty("open", true);
     await expect(indexedText).toBeVisible();
 
-    await viewerNav.getByRole("link", { name: "Images" }).click();
+    await clickViewerNav("Images");
     await expect(images).toHaveJSProperty("open", true);
     await expect(summary).toHaveJSProperty("open", false);
 
