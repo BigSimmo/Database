@@ -322,3 +322,14 @@ object is operator/live state that must be recorded in
 `supabase/drift-allowlist.json` if it appears in the drift inventory. It adds
 **no** delivery guarantee — see the at-most-once note above for why neither path
 self-heals a dropped insert.
+
+> **Privacy: prefer the committed trigger for `public.documents`.** A managed
+> Database Webhook builds the POST body automatically and includes the **full
+> row** — both `record` and, on UPDATE, `old_record`
+> ([Supabase docs](https://supabase.com/docs/guides/database/webhooks#payload)).
+> Unlike the SQL trigger above (which sends only `id`/`owner_id`/`status`/the
+> reindex flag), this ships filenames, storage paths, content hashes, and the
+> prior row's metadata on every update. A mistyped or wrong-environment URL would
+> leak all of it. Because `documents` holds private clinical rows, use the
+> **committed minimal trigger** for this table; reserve the dashboard webhook for
+> non-sensitive tables where the full-row payload is acceptable.
