@@ -53,9 +53,10 @@ describe("SignedImage failure/retry (jsdom)", () => {
 
     const img = await screen.findByRole("img", { name: "Airway diagram" });
     // Private previews use unoptimized next/image, so src stays the direct URL
-    // and must not be rewritten through `/_next/image`.
-    expect(img.getAttribute("src")).toBe("/demo/airway.png");
-    expect(img.getAttribute("src")).not.toContain("/_next/image");
+    // (jsdom may absolutize it) and must not be rewritten through `/_next/image`.
+    const src = img.getAttribute("src") ?? "";
+    expect(src.endsWith("/demo/airway.png")).toBe(true);
+    expect(src).not.toContain("/_next/image");
     expect(screen.queryByText("Image preview failed.")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
