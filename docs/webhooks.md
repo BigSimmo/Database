@@ -43,6 +43,13 @@ https://psychiatry.tools/api/webhooks/railway?token=<RAILWAY_WEBHOOK_SECRET>
 Transient phases (`BUILDING`, `DEPLOYING`, `QUEUED`, …) are dropped to keep the
 channel quiet; the receiver answers `200 { "skipped": true }` for them.
 
+> Chat destination: this receiver forwards through `postChatNotification`, which
+> reads `SLACK_WEBHOOK_URL`/`DISCORD_WEBHOOK_URL` from **server env** — set them on
+> the Railway `Database` service, not only as GitHub repo secrets. With the token
+> set but no chat URL in server env the receiver authenticates and returns
+> `200 { "forwarded": false }`, so deploy alerts are silently undelivered. The
+> repo secrets in §2 cover only the GitHub CI-failure workflow.
+
 > Note: the receiver runs inside the app being deployed, so a notification about
 > a deploy that takes the app fully down may not be delivered. Pair it with an
 > external uptime monitor for hard-down detection.
