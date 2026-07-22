@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // DocumentViewer resolves a four-way shell state (loading / ready / auth-required
@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // must get the sign-in shell, never document content. The state is prop-drivable
 // via initialDetail / initialError, so these tests pin it without a network.
 
-const push = vi.fn();
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn(), back: vi.fn(), forward: vi.fn(), prefetch: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
@@ -51,19 +51,25 @@ vi.mock("@/components/document-viewer/pdf-canvas-viewer", () => ({
 }));
 
 import { DocumentViewer } from "@/components/DocumentViewer";
+import type { DocumentDetailPayload } from "@/lib/document-detail-contract";
 
 function detailPayload() {
   return {
     document: {
       id: "doc-1",
       title: "Clozapine titration guideline",
+      description: null,
       file_name: "clozapine-titration.pdf",
       file_type: "application/pdf",
+      file_size: 204800,
+      storage_path: "documents/doc-1/clozapine-titration.pdf",
       status: "indexed",
       page_count: 4,
       chunk_count: 8,
       image_count: 0,
+      error_message: null,
       updated_at: "2026-01-01T00:00:00.000Z",
+      created_at: "2026-01-01T00:00:00.000Z",
       labels: [],
       metadata: {},
       summary: null,
@@ -73,9 +79,17 @@ function detailPayload() {
     tableFacts: [],
     chunks: [],
     demoMode: true,
-    assetScope: "public",
-    window: { requestedPage: 1, effectivePage: 1, selectedChunkId: null },
-  } as never;
+    assetScope: "document",
+    window: {
+      requestedPage: 1,
+      effectivePage: 1,
+      selectedChunkId: null,
+      pages: { from: 1, to: 4, limit: 4, total: 4, hasBefore: false, hasAfter: false },
+      chunks: { offset: 0, limit: 8, total: 8, hasBefore: false, hasAfter: false, selectedChunkId: null },
+    },
+    pageWindow: { from: 1, to: 4, limit: 4, total: 4, hasBefore: false, hasAfter: false },
+    chunkWindow: { offset: 0, limit: 8, total: 8, hasBefore: false, hasAfter: false, selectedChunkId: null },
+  } satisfies DocumentDetailPayload;
 }
 
 // In demo / local-no-auth mode every document is public, so the private-access
@@ -116,8 +130,19 @@ describe("DocumentViewer — shell states", () => {
   it("shows the ready shell with the document identity when a detail payload is supplied", async () => {
     render(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={detailPayload()} />);
 
-    // The display title is smart-cased, so match on a distinctive word.
-    expect((await screen.findAllByText(/clozapine/i)).length).toBeGreaterThan(0);
+    // The display title is smart-cased from "Clozapine titration guideline" and
+    // rendered in the header h1. The exact filename is visible only inside the
+    // document actions sheet, opened by the "Open document actions" button.
+    const heading = await screen.findByRole("heading", { level: 1, name: "Clozapine Titration Guideline" });
+    expect(heading).toBeVisible();
+
+    // Open the document actions sheet and verify the exact filename is visible.
+    // There are two "Open document actions" buttons (header and floating composer);
+    // click the first one (header button) to open the actions sheet.
+    const actionsButtons = screen.getAllByRole("button", { name: "Open document actions" });
+    fireEvent.click(actionsButtons[0]);
+    expect(await screen.findByText("clozapine-titration.pdf")).toBeVisible();
+
     // A supplied payload must resolve to the ready shell — neither failure shell.
     expect(screen.queryByText("Source unavailable")).toBeNull();
     expect(screen.queryByText("Sign in required")).toBeNull();
