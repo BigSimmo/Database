@@ -47,9 +47,10 @@ describe("SignedImage", () => {
     const markup = renderToStaticMarkup(createElement(SignedImage, { endpoint: ENDPOINT, alt: "Airway diagram" }));
 
     expect(markup).toContain("<img");
-    // next/image rewrites the src through the optimizer (/_next/image?url=…), so
-    // assert the optimized URL encodes the seeded source rather than a raw src.
-    expect(markup).toContain(`/_next/image?url=${encodeURIComponent("/demo-documents/airway.png")}`);
+    // Private previews stay on a direct src (unoptimized) — never rewritten
+    // through the public `/_next/image` optimizer cache.
+    expect(markup).toContain('src="/demo-documents/airway.png"');
+    expect(markup).not.toContain("/_next/image");
     expect(markup).toContain('alt="Airway diagram"');
     // A seeded frame is active, not deferred.
     expect(markup).not.toContain("Image preview will load when visible");

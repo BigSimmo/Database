@@ -52,9 +52,10 @@ describe("SignedImage failure/retry (jsdom)", () => {
     await user.click(retry);
 
     const img = await screen.findByRole("img", { name: "Airway diagram" });
-    // next/image serves the recovered URL through the optimizer, so assert the src
-    // encodes the freshly fetched signed URL rather than matching it raw.
-    expect(img.getAttribute("src")).toContain(`url=${encodeURIComponent("/demo/airway.png")}`);
+    // Private previews use unoptimized next/image, so src stays the direct URL
+    // and must not be rewritten through `/_next/image`.
+    expect(img.getAttribute("src")).toBe("/demo/airway.png");
+    expect(img.getAttribute("src")).not.toContain("/_next/image");
     expect(screen.queryByText("Image preview failed.")).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });

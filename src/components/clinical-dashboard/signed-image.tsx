@@ -128,21 +128,16 @@ export const SignedImage = memo(function SignedImage({
       )}
     >
       {url ? (
-        // Route the private preview through next/image so the optimizer resizes
-        // the (often multi-MB, full-resolution) Supabase scan down to this small
-        // thumbnail and transcodes it to AVIF/WebP. `fill` matches the fixed-aspect
-        // frame (a `relative` parent) and `sizes` caps the srcset to preview widths
-        // so the browser never fetches a full-width variant. The signed `?token=`
-        // query is optimizable because next.config `images.remotePatterns` pins the
-        // project host without a `search` restriction. Authorization: the signed URL's
-        // token is owner-scoped at issuance; the optimizer caches by the full URL
-        // (including token), so a new token fetches fresh. The client-side cache
-        // (signed-url-cache.ts) issues new tokens before expiry.
+        // Keep next/image for fill/layout/sizes, but mark private signed previews
+        // `unoptimized` so bearer URLs never enter the unauthenticated
+        // `/_next/image` optimizer cache (stale-while-revalidate can outlive the
+        // signed token). Authorization stays on `/api/.../signed-url` issuance.
         <Image
           src={url}
           alt={alt}
           fill
           sizes="(max-width: 768px) 92vw, 320px"
+          unoptimized
           onLoad={() => setLoaded(true)}
           onError={handleImageError}
           className={cn(
