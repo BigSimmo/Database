@@ -27,6 +27,10 @@ function nonNegativeByteLength(byteLength: number) {
   return byteLength;
 }
 
+function declaredUncompressedByteLength(entry: unknown) {
+  return nonNegativeByteLength(Number((entry as DocxMediaBudgetEntry)._data?.uncompressedSize));
+}
+
 export class DocxExtractionBudgetTracker {
   private artifactCount = 0;
   private artifactBytes = 0;
@@ -74,6 +78,19 @@ export function assertDeclaredDocxMediaBudget(
   const budget = new DocxExtractionBudgetTracker(limits);
   budget.assertArtifactCount(entries.length);
   for (const entry of entries) {
-    budget.addArtifact(Number((entry as DocxMediaBudgetEntry)._data?.uncompressedSize));
+    budget.addArtifact(declaredUncompressedByteLength(entry));
+  }
+}
+
+export function assertDeclaredDocxTextBudget(
+  entries: readonly unknown[],
+  limits: DocxExtractionBudget = DOCX_EXTRACTION_BUDGET,
+) {
+  let sourceBytes = 0;
+  for (const entry of entries) {
+    sourceBytes += declaredUncompressedByteLength(entry);
+    if (!Number.isSafeInteger(sourceBytes) || sourceBytes > limits.maxTextBytes) {
+      budgetExceeded(`declared Word XML bytes exceed ${limits.maxTextBytes}`);
+    }
   }
 }

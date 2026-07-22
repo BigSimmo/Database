@@ -9,7 +9,11 @@ import { PDFParse } from "pdf-parse";
 import JSZip from "jszip";
 import { z } from "zod";
 import type { ExtractedDocument, ExtractedPage } from "@/lib/types";
-import { assertDeclaredDocxMediaBudget, DocxExtractionBudgetTracker } from "@/lib/extractors/docx-extraction-budget";
+import {
+  assertDeclaredDocxMediaBudget,
+  assertDeclaredDocxTextBudget,
+  DocxExtractionBudgetTracker,
+} from "@/lib/extractors/docx-extraction-budget";
 import {
   assertExtractedPdfBudget,
   isPdfExtractionResourceError,
@@ -419,15 +423,21 @@ export async function extractPdf(
 }
 
 async function extractDocx(buffer: Buffer) {
-  const raw = await mammoth.extractRawText({ buffer });
   const budget = new DocxExtractionBudgetTracker();
-  budget.assertText(raw.value || "");
   const zip = await JSZip.loadAsync(buffer);
+  const wordXml = Object.keys(zip.files)
+    .filter((name) => name.startsWith("word/") && name.endsWith(".xml"))
+    .map((name) => zip.files[name])
+    .filter((entry) => !entry.dir);
+  assertDeclaredDocxTextBudget(wordXml);
   const media = Object.keys(zip.files)
     .filter((name) => name.startsWith("word/media/"))
     .map((name) => [name, zip.files[name]] as const)
     .filter((entry) => !entry[1].dir);
   assertDeclaredDocxMediaBudget(media.map((entry) => entry[1]));
+
+  const raw = await mammoth.extractRawText({ buffer });
+  budget.assertText(raw.value || "");
 
   const tempRoot = await mkdtemp(path.join(tmpdir(), "clinical-kb-docx-"));
   const images: ExtractedDocument["images"] = [];

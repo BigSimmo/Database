@@ -1,10 +1,13 @@
 import { rm } from "node:fs/promises";
+import { randomBytes } from "node:crypto";
 
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 
 import {
   assertDeclaredDocxMediaBudget,
+  assertDeclaredDocxTextBudget,
+  DOCX_EXTRACTION_BUDGET,
   DocxExtractionBudgetTracker,
   type DocxExtractionBudget,
 } from "@/lib/extractors/docx-extraction-budget";
@@ -12,7 +15,7 @@ import { extractDocument } from "@/lib/extractors/document";
 
 const docxMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-async function buildDocx(mediaCount: number) {
+async function buildDocx(mediaCount: number, documentText = "Budget test") {
   const zip = new JSZip();
   zip.file(
     "[Content_Types].xml",
@@ -34,7 +37,7 @@ async function buildDocx(mediaCount: number) {
   zip.file(
     "word/document.xml",
     `<?xml version="1.0" encoding="UTF-8"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Budget test</w:t></w:r></w:p></w:body></w:document>`,
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>${documentText}</w:t></w:r></w:p></w:body></w:document>`,
   );
   for (let index = 0; index < mediaCount; index += 1) {
     zip.file(`word/media/image-${index}.png`, Buffer.from([index % 256]));
@@ -89,6 +92,12 @@ describe("DOCX extraction budgets", () => {
     ).toThrow("DOCX_EXTRACTION_BUDGET_EXCEEDED: aggregate artifact bytes exceed 6");
   });
 
+  it("preflights aggregate Word XML before Mammoth inflates it", () => {
+    expect(() =>
+      assertDeclaredDocxTextBudget([{ _data: { uncompressedSize: 2 } }, { _data: { uncompressedSize: 3 } }], limits),
+    ).toThrow("DOCX_EXTRACTION_BUDGET_EXCEEDED: declared Word XML bytes exceed 4");
+  });
+
   it("measures extracted text as UTF-8 bytes", () => {
     expect(() => new DocxExtractionBudgetTracker(limits).assertText("éé")).not.toThrow();
     expect(() => new DocxExtractionBudgetTracker(limits).assertText("ééa")).toThrow(
@@ -103,5 +112,21 @@ describe("DOCX extraction budgets", () => {
 
     expect(error).toBeInstanceOf(Error);
     expect(String(error)).toContain("DOCX_EXTRACTION_BUDGET_EXCEEDED: artifact count 1001 exceeds 1000");
+  });
+
+  it("rejects compressed oversized Word XML before Mammoth extraction", async () => {
+    const lowCompressibilityText = randomBytes((DOCX_EXTRACTION_BUDGET.maxTextBytes * 3) / 4).toString("base64");
+    const error = await captureExtractionError(
+      extractDocument({
+        buffer: await buildDocx(0, lowCompressibilityText),
+        fileName: "text-heavy.docx",
+        mimeType: docxMime,
+      }),
+    );
+
+    expect(error).toBeInstanceOf(Error);
+    expect(String(error)).toContain(
+      `DOCX_EXTRACTION_BUDGET_EXCEEDED: declared Word XML bytes exceed ${DOCX_EXTRACTION_BUDGET.maxTextBytes}`,
+    );
   });
 });
