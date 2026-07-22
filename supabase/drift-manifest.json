@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-20T08:31:04.870Z",
+  "generated_at": "2026-07-22T03:09:35.765Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "50da0978a164058f2bfe539a77c011902b52f91f6c006c67ed0ff7c700b464c5",
+  "schema_sha256": "4dfef34464628457daf82681fdf0c1e7a6beebd20fb24c84780cb4e4cce51fc7",
   "replay_seconds": 16,
   "snapshot": {
     "views": [
@@ -6157,6 +6157,18 @@
         "schema": "public",
         "permissive": "PERMISSIVE",
         "with_check": null
+      },
+      {
+        "cmd": "ALL",
+        "name": "document title words service role all",
+        "qual": "true",
+        "roles": [
+          "service_role"
+        ],
+        "table": "document_title_words",
+        "schema": "public",
+        "permissive": "PERMISSIVE",
+        "with_check": "true"
       },
       {
         "cmd": "SELECT",
