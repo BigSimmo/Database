@@ -74,6 +74,7 @@ jobs:
           build-args: |
             NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
             NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-ci-publishable-key
+            NEXT_PUBLIC_MAX_UPLOAD_MB=
 
   worker-image:
     runs-on: ubuntu-24.04
