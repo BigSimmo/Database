@@ -5060,6 +5060,12 @@ alter table public.document_title_words enable row level security;
 revoke all on table public.document_title_words from public, anon, authenticated;
 grant select, insert, update, delete on table public.document_title_words to service_role;
 
+-- Backend-only RLS policy: browser roles retain neither table privileges nor a
+-- matching policy, while service-role trigger and corrector access is explicit.
+drop policy if exists "document title words service role all" on public.document_title_words;
+create policy "document title words service role all" on public.document_title_words
+  for all to service_role using (true) with check (true);
+
 create or replace function public.sync_document_title_words()
 returns trigger
 language plpgsql

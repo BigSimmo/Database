@@ -219,6 +219,10 @@ const documentTitleWordScopeMigration = readFileSync(
   new URL("../supabase/migrations/20260719053533_enforce_public_title_word_scope.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const documentTitleWordsBackendPolicyMigration = readFileSync(
+  new URL("../supabase/migrations/20260722110000_explicit_document_title_words_backend_policy.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const publicTitleCorrectorMigration = readFileSync(
   new URL("../supabase/migrations/20260717171000_public_title_corrector.sql", import.meta.url),
   "utf8",
@@ -1441,6 +1445,26 @@ describe("Supabase Preview replay guards", () => {
     expect(tableBackedCorrectorIndex).toBeGreaterThan(initialPurgeIndex);
     expect(initialCorrectorMigration.slice(initialPurgeIndex, tableBackedCorrectorIndex)).toContain(
       "d.owner_id is null",
+    );
+  });
+
+  it("keeps document title words backend-only with an explicit service-role policy", () => {
+    for (const sql of [schema, documentTitleWordsBackendPolicyMigration]) {
+      expect(sql).toContain("alter table public.document_title_words enable row level security");
+      expect(sql).toContain("revoke all on table public.document_title_words from public, anon, authenticated");
+      expect(sql).toContain(
+        "grant select, insert, update, delete on table public.document_title_words to service_role",
+      );
+      expect(sql).toContain(
+        'drop policy if exists "document title words service role all" on public.document_title_words',
+      );
+      expect(sql).toContain(
+        'create policy "document title words service role all" on public.document_title_words for all to service_role using (true) with check (true)',
+      );
+    }
+
+    expect(documentTitleWordsBackendPolicyMigration).not.toMatch(
+      /create policy [^;]+ to (?:public|anon|authenticated)\b/i,
     );
   });
 
