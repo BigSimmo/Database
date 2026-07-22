@@ -71,9 +71,12 @@ constant-time. Fails closed (`503`) when unset, `401` on a bad secret.
 
 **When it enqueues (idempotent + loop-safe):**
 
-- **INSERT** of a not-yet-`indexed` document → enqueue. The app upload route also
-  enqueues, but the `ingestion_jobs` one-open-job-per-document unique index makes
-  the duplicate insert a benign no-op (`already_active`).
+- **INSERT** of a not-yet-`indexed` document → enqueue. Note this is what the
+  _receiver_ does with an INSERT event; the **recommended trigger below does not
+  send INSERT events** because the app upload route deletes its own just-created
+  document if _its_ job insert loses the one-open-job race, so a webhook enqueue
+  winning that race would break the upload. Drive external inserts through the
+  `reindex_requested` flag instead (see Setup).
 - **UPDATE** acts only when `record.metadata.reindex_requested === true`, then
   clears that flag via `apply_document_metadata_patch`. The worker's own
   completion writes (also UPDATEs) never carry the flag, so they cannot retrigger
@@ -125,11 +128,12 @@ falls back to `https://psychiatry.tools` when this GUC is unset:
 alter database postgres set app.ingestion_webhook_base_url = 'https://<env-host>';
 ```
 
-**4. Create the fail-safe trigger.** It fires only on the transitions the receiver
-acts on, reads the secret from Vault, and — critically — never aborts a document
-write if the secret is missing or the POST fails (it just does nothing, mirroring
-the receiver's inert `503`). `net.http_post` is asynchronous, so it does not block
-the write.
+**4. Create the fail-safe trigger.** It fires only on an explicit
+`reindex_requested` flip (an `AFTER UPDATE` trigger — **not** `INSERT`, to avoid
+racing the app upload route; see the comment in the function), reads the secret
+from Vault, and — critically — never aborts a document write if the secret is
+missing or the POST fails (it just does nothing, mirroring the receiver's inert
+`503`). `net.http_post` is asynchronous, so it does not block the write.
 
 > **Delivery is at-most-once.** `net.http_post` is fire-and-forget — it returns a
 > request id and does not retry on failure ([pg_net retries are still an open
@@ -166,25 +170,26 @@ security definer
 set search_path = public, extensions, vault, pg_temp
 as $$
 declare
-  v_secret     text;
-  v_base_url   text;
-  v_actionable boolean := false;
+  v_secret   text;
+  v_base_url text;
 begin
-  -- Match the receiver's policy so we never POST an event it would just skip:
-  --   * INSERT of a not-yet-indexed document, or
-  --   * an UPDATE where metadata.reindex_requested transitions to true.
-  if tg_op = 'INSERT' then
-    v_actionable := coalesce(new.status, '') is distinct from 'indexed';
-  elsif tg_op = 'UPDATE' then
-    -- Compare the JSON value directly to the JSON boolean `true` — matches the
-    -- receiver's strict `=== true` (a JSON string "true" is NOT actionable) and,
-    -- unlike `->> ... ::boolean`, never raises on a malformed value.
-    v_actionable := new.metadata->'reindex_requested' = 'true'::jsonb
-                    and new.metadata->'reindex_requested'
-                        is distinct from old.metadata->'reindex_requested';
-  end if;
-
-  if not v_actionable then
+  -- Fire ONLY on an explicit reindex request (metadata.reindex_requested flips to
+  -- true). The INSERT case is deliberately NOT handled here: the app upload route
+  -- inserts the document and then its own ingestion job in the same request, and
+  -- it DELETES the document if that job insert loses a race against the one-open-
+  -- job-per-document unique index (src/app/api/upload/route.ts). A webhook firing
+  -- on INSERT could win that race and turn a normal upload into an intermittent
+  -- failure. Documents inserted outside the upload flow should set
+  -- metadata.reindex_requested = true (which also drives the loop-safe flag-clear).
+  --
+  -- Compare the JSON value directly to the JSON boolean `true` — matches the
+  -- receiver's strict `=== true` (a JSON string "true" is NOT actionable) and,
+  -- unlike `->> ... ::boolean`, never raises on a malformed value.
+  if new.metadata->'reindex_requested' = 'true'::jsonb
+     and new.metadata->'reindex_requested' is distinct from old.metadata->'reindex_requested'
+  then
+    -- actionable
+  else
     return new;
   end if;
 
@@ -232,8 +237,9 @@ $$;
 revoke execute on function public.notify_document_change_ingestion_webhook() from public, anon, authenticated;
 
 drop trigger if exists documents_ingestion_webhook on public.documents;
+-- UPDATE only, by design — see the INSERT-race comment in the function above.
 create trigger documents_ingestion_webhook
-  after insert or update on public.documents
+  after update on public.documents
   for each row execute function public.notify_document_change_ingestion_webhook();
 ```
 
@@ -246,9 +252,12 @@ on `public.documents` (INSERT/UPDATE) pointed at the URL above with an
 `Authorization: Bearer <secret>` header avoids writing the trigger SQL yourself.
 Its only real advantage over the committed migration is convenience — it does
 **not** buy you at-least-once delivery (it wraps pg_net, same no-retry limitation
-as the raw trigger; see the note above). Its trade-offs: it fires on _every_
-update (the receiver then skips the non-actionable ones, versus the SQL gating
-above), and the dashboard-created object is operator/live state that must be
-recorded in `supabase/drift-allowlist.json` if it appears in the drift inventory.
-It adds **no** delivery guarantee — see the at-most-once note above for why neither
-path self-heals a dropped insert.
+as the raw trigger; see the note above). **Scope it to `UPDATE` only** — a managed
+webhook on `INSERT` re-introduces exactly the upload-race the SQL trigger avoids
+(the upload route deletes its document if a webhook enqueue beats its own job
+insert). Its other trade-offs: it fires on _every_ update (the receiver then skips
+the non-actionable ones, versus the SQL gating above), and the dashboard-created
+object is operator/live state that must be recorded in
+`supabase/drift-allowlist.json` if it appears in the drift inventory. It adds
+**no** delivery guarantee — see the at-most-once note above for why neither path
+self-heals a dropped insert.
