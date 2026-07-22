@@ -74,13 +74,18 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 
 ## One-shot / dated — archive candidates [one-shot]
 
-Completed migration/batch helpers kept only for provenance; retire to an `archive/` subfolder under
-`scripts/` once the underlying migration is confirmed live (work order L1):
+Completed migration/batch helpers kept only for provenance; retire to the `scripts/archive/`
+subfolder once the underlying migration is confirmed live (work order L1).
 
-`check-m13-migration.ts`, `check-july8-live-batch.ts`, `check-retrieval-owner-migration.ts`,
-`backfill-source-metadata.ts`, `backfill-text-normalization.ts`, `backfill-visual-intelligence.ts`,
-`backfill-document-tags.ts`, `backfill-enrichment.ts`, `derive-unknown-status.ts`,
-`reindex-image-generation-metadata.ts`, `measure-wrapped-dose-prevalence.ts`.
+**Already archived** (in `scripts/archive/`, still runnable as live-DB re-verification probes via
+`npm run check:m13-migration` / `npm run check:july8-live-batch`): `check-m13-migration.ts`,
+`check-july8-live-batch.ts`. Their `.test.ts` companion lives in `scripts/archive/` too so it stays
+out of the `tests/**` run.
+
+**Remaining candidates** (still in `scripts/`, retire once each is confirmed retired):
+`check-retrieval-owner-migration.ts`, `backfill-source-metadata.ts`, `backfill-text-normalization.ts`,
+`backfill-visual-intelligence.ts`, `backfill-document-tags.ts`, `backfill-enrichment.ts`,
+`derive-unknown-status.ts`, `reindex-image-generation-metadata.ts`, `measure-wrapped-dose-prevalence.ts`.
 
 ## Workflow planners [infra]
 

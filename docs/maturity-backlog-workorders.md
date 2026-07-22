@@ -76,7 +76,7 @@ structural change, not a single mixed PR.
 ### X3 · Decompose the monoliths — `IN PROGRESS`
 
 - **Outcome:** shrink the three files the maintainability ratchet caps but never reduces:
-  `src/lib/rag/rag.ts` (5,018), `src/components/ClinicalDashboard.tsx` (was 4,271, now 4,157),
+  `src/lib/rag/rag.ts` (5,018), `src/components/ClinicalDashboard.tsx` (was 4,271, now 4,140),
   `src/components/DocumentViewer.tsx` (was 3,164, now 1,733).
 - **Progress (#997):** extracted the evidence-gate predicates from `rag.ts` into
   `src/lib/rag/rag-evidence-gates.ts` (rag.ts 5,147 → 5,018), pure moves behind the existing
@@ -89,12 +89,15 @@ structural change, not a single mixed PR.
   now composition-focused — it retains the detail fetch, dynamic PDF loading, and state
   orchestration (3,164 → 1,733, budget ratcheted to 1,733).
 - **Progress (`ClinicalDashboard.tsx`):** the dashboard was already heavily decomposed (72
-  `clinical-dashboard/*` modules), so this is an incremental ratchet — extracted the
-  self-contained answer-thread turn leaf (`AnswerTurn` type, `maxVisiblePriorTurns`, and the
-  `PriorAnswerTurnSurface` component) into `clinical-dashboard/answer-thread-turn.tsx` as a
-  verbatim move (4,271 → 4,157, budget ratcheted to 4,157). The residual is a tightly-coupled
-  orchestrator core; further safe extractions are smaller, incremental units. `rag.ts` remains
-  the largest open target.
+  `clinical-dashboard/*` modules), so this is an incremental ratchet across several small PRs —
+  extracted the self-contained answer-thread turn leaf (`AnswerTurn` type, `maxVisiblePriorTurns`,
+  `PriorAnswerTurnSurface`) into `clinical-dashboard/answer-thread-turn.tsx` (#1034), then the
+  upload-view desktop-layout media-query store into the `useUploadDesktopLayout()` hook
+  (`clinical-dashboard/use-upload-desktop-layout.ts`, #1042). All verbatim moves (4,271 → 4,140,
+  budget ratcheted to 4,140); #1047 additionally hardened the regression guard that pins the
+  extracted hook's `useSyncExternalStore` wiring. The residual is a tightly-coupled orchestrator
+  core; further safe extractions are smaller, incremental units. `rag.ts` remains the largest open
+  target.
 - **Approach:** extract cohesive units behind the existing budgets; the components decompose
   into their `*/` sibling directories, and `rag.ts` is the natural seam now that X2 has landed.
 - **Risk:** HIGH (behavioural surface). One file per PR.
@@ -142,14 +145,31 @@ structural change, not a single mixed PR.
 
 ## Later — useful, non-essential
 
-### L1 · Archive one-shot scripts — `OPEN`
+### L1 · Archive one-shot scripts — `IN PROGRESS`
 
 - **Outcome:** `scripts/` shows live tooling, not historical residue.
 - **Approach:** once their migrations have shipped, move one-shots (`check:m13-migration`,
-  `check:july8-live-batch`, completed dated `backfill:*`) to an `archive/` subfolder under
-  `scripts/` and drop their `package.json` entries. Verify each migration is live before removing its checker.
-- **Risk:** low (but confirm each is truly retired). **Companion (done):** the discoverability half
-  of this item — a curated script map — ships now as
+  `check:july8-live-batch`, completed dated `backfill:*`) to `scripts/archive/`. Verify each
+  migration is live before archiving its checker.
+- **Progress (#1033, incidental):** `check-m13-migration.ts`, `check-july8-live-batch.ts`, and the
+  latter's `.test.ts` were moved into `scripts/archive/` (collateral of a knip fix — an orphaned
+  test referenced a deleted script). That PR also dropped the two `package.json` entries but left
+  five maintained operator docs (`launch-operator-runbook`, `operator-apply-july8-batch`,
+  `operator-backlog`, `process-hardening`, `tenancy-defense-in-depth-review`) still calling
+  `npm run check:july8-live-batch` / `check:m13-migration`, so the advisory `docs:check-scripts`
+  gate went red (6 stale references).
+- **Progress (this PR):** reconciled that aftermath. Both scripts are live-DB re-verification probes
+  (import-clean from `archive/`, no relative imports), so the two `package.json` entries were
+  restored pointing at `scripts/archive/` — the documented operator commands work again and
+  `docs:check-scripts` is green, with **no** operator-doc rewrites. `docs/scripts-index.md` now
+  records them as archived-but-runnable.
+- **Residual (OPEN):** (a) the completed `backfill:*` / `derive-unknown-status` /
+  `reindex-image-generation-metadata` / `measure-wrapped-dose-prevalence` one-shots still await a
+  per-script retirement confirmation before archiving; (b) `scripts/ci-change-scope.mjs` still lists
+  `check-m13-migration` in its DB-scope regex — now a dead alternation (the file moved to
+  `archive/`); harmless, deferred to avoid touching the CI classifier in a docs-scoped PR.
+- **Risk:** low (confirm each is truly retired before archiving). **Companion (done):** the
+  discoverability half — a curated script map — ships as
   [`docs/scripts-index.md`](scripts-index.md).
 
 ### L2 · Single-SHA-per-action uniformity — `DONE`
@@ -204,18 +224,18 @@ collaborators join — `AGENTS.md` + the PR template already carry that load.
 
 ## Progress summary
 
-| Item                           | Priority | Status                                                  |
-| ------------------------------ | -------- | ------------------------------------------------------- |
-| N1 Dependabot grouping         | Now      | **DONE** (#985)                                         |
-| N2 Dependency-report decision  | Now      | **DONE** (#986, enabled)                                |
-| X1 Import-boundary linter      | Next     | **DONE** (#986; service-role rule dropped)              |
-| X2 `src/lib` rag extraction    | Next     | **DONE** (#994)                                         |
-| X3 Monolith decomposition      | Next     | IN PROGRESS (rag #997; DocumentViewer + Dashboard done) |
-| X4 SAST-blocking on parser     | Next     | **DONE** (gate + policy check)                          |
-| X5 ACL-migration consolidation | Next     | PROVIDER-GATED (DB owner)                               |
-| X6 Coverage floors             | Next     | OPEN                                                    |
-| L1 Archive one-shot scripts    | Later    | OPEN (index shipped)                                    |
-| L2 Action-SHA uniformity       | Later    | **DONE** (#992)                                         |
-| L3 Single gate manifest        | Later    | **DONE** (#1002)                                        |
-| L4 Ledger rotation             | Later    | OPEN                                                    |
-| L5 AI map / WCAG / RPO-RTO     | Later    | **DONE / SATISFIED** (#985)                             |
+| Item                           | Priority | Status                                                                             |
+| ------------------------------ | -------- | ---------------------------------------------------------------------------------- |
+| N1 Dependabot grouping         | Now      | **DONE** (#985)                                                                    |
+| N2 Dependency-report decision  | Now      | **DONE** (#986, enabled)                                                           |
+| X1 Import-boundary linter      | Next     | **DONE** (#986; service-role rule dropped)                                         |
+| X2 `src/lib` rag extraction    | Next     | **DONE** (#994)                                                                    |
+| X3 Monolith decomposition      | Next     | IN PROGRESS (DocumentViewer #1025 + Dashboard #1034/#1042/#1047 done; rag.ts open) |
+| X4 SAST-blocking on parser     | Next     | **DONE** (gate + policy check)                                                     |
+| X5 ACL-migration consolidation | Next     | PROVIDER-GATED (DB owner)                                                          |
+| X6 Coverage floors             | Next     | OPEN                                                                               |
+| L1 Archive one-shot scripts    | Later    | IN PROGRESS (#1033 archived m13/july8; refs reconciled; backfills open)            |
+| L2 Action-SHA uniformity       | Later    | **DONE** (#992)                                                                    |
+| L3 Single gate manifest        | Later    | **DONE** (#1002)                                                                   |
+| L4 Ledger rotation             | Later    | OPEN                                                                               |
+| L5 AI map / WCAG / RPO-RTO     | Later    | **DONE / SATISFIED** (#985)                                                        |

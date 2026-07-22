@@ -94,6 +94,8 @@
     "check:document-label-coverage": "node scripts/run-tsx.mjs scripts/check-document-label-coverage.ts",
     "check:document-label-governance": "node scripts/run-tsx.mjs scripts/check-document-label-governance.ts",
     "check:retrieval-owner-migration": "node scripts/run-tsx.mjs scripts/check-retrieval-owner-migration.ts",
+    "check:m13-migration": "node scripts/run-tsx.mjs scripts/archive/check-m13-migration.ts",
+    "check:july8-live-batch": "node scripts/run-tsx.mjs scripts/archive/check-july8-live-batch.ts",
     "backfill:gold-labels": "node scripts/run-tsx.mjs scripts/backfill-gold-document-labels.ts",
     "backfill:smart-v2-labels": "npm run classify:documents -- --all-owners --limit 5000 --only-missing-smart-v2",
     "tags:backfill": "node scripts/run-tsx.mjs scripts/backfill-document-tags.ts",
