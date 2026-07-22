@@ -491,8 +491,18 @@ export function PatientSafetyPlan() {
   };
 
   const loadExample = () => {
+    const hasContent =
+      Object.values(entries).some((rows) => rows.length > 0) ||
+      reasons.length > 0 ||
+      patient.trim() !== "" ||
+      planDate.trim() !== "";
+    if (hasContent && !window.confirm("Replace the current plan with the example content?")) return;
     setEntries(SEED);
     setReasons(SEED_REASONS);
+    // Clear the patient context so example content can never carry a real
+    // patient's name or date into the preview/print output.
+    setPatient("");
+    setPlanDate("");
     setFinalised(false);
   };
 
