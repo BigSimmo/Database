@@ -55,6 +55,42 @@ describe("design-system contract helpers", () => {
     expect(reportFailure).not.toHaveBeenCalled();
   });
 
+  it("masks only the pre-paint theme-color constant, not the rest of theme.ts", () => {
+    const reportFailure = vi.fn();
+    const source = [
+      "export const APP_THEME_COLORS = {",
+      '  light: "#ffffff",',
+      '  dark: "#060708",',
+      "} as const satisfies Record<ResolvedTheme, string>;",
+      "",
+      "// A later, unrelated raw colour in this file must stay countable — the",
+      "// whole-file exemption this replaced would have hidden it.",
+      'export const UNRELATED_ACCENT = "#0f766e";',
+      'export const SCRIPT = `var c=d?"${APP_THEME_COLORS.dark}":"${APP_THEME_COLORS.light}";`;',
+    ].join("\n");
+
+    const scoped = rawColorContractSource("src/lib/theme.ts", source, reportFailure);
+
+    expect(scoped).not.toContain("#ffffff");
+    expect(scoped).not.toContain("#060708");
+    expect(scoped).toContain("#0f766e");
+    // The interpolating bootstrap script holds no literals of its own and must
+    // survive masking intact.
+    expect(scoped).toContain("APP_THEME_COLORS.dark");
+    expect(reportFailure).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the pre-paint theme-color boundary disappears", () => {
+    const reportFailure = vi.fn();
+    // The constant was renamed/removed but the exemption still matches the path.
+    const source = 'export const THEME_COLORS = { light: "#ffffff" };';
+
+    // Unmasked, so both literals are counted and the ratcheted baseline goes red
+    // rather than silently exempting the file.
+    expect(rawColorContractSource("src/lib/theme.ts", source, reportFailure)).toBe(source);
+    expect(reportFailure).toHaveBeenCalledWith("pre-paint theme-color boundary is missing");
+  });
+
   it("fails closed when a fixed-paper boundary disappears", () => {
     const reportFailure = vi.fn();
     const source = ".tc-app { color: #123456; }";

@@ -28,9 +28,12 @@ export const RAW_COLOR_EXEMPTIONS = [
     // Pre-paint / meta theme-color values: consumed as raw colours by the inline
     // pre-hydration theme script and the browser theme-color meta tag, before any
     // CSS (and therefore any token) is available, so they cannot be tokenised.
+    // Scoped to the APP_THEME_COLORS declaration rather than the whole file: only
+    // those two literals are un-tokenisable, so any other raw colour added to
+    // theme.ts later must stay visible to the ratcheting contract.
     category: "pre-paint theme color",
     pattern: /^src\/lib\/theme\.ts$/,
-    scope: "whole-file",
+    scope: "app-theme-colors",
   },
   {
     category: "printable Therapy paper",
@@ -177,6 +180,17 @@ export function rawColorContractSource(relativePath, source, reportFailure = () 
       return source;
     }
     return maskRanges(source, ranges);
+  }
+
+  if (exemption.scope === "app-theme-colors") {
+    // Anchored on the declaration keyword, not a bare identifier, so a later
+    // *reference* to APP_THEME_COLORS can never be mistaken for the boundary.
+    const range = balancedBlockRange(source, "export const APP_THEME_COLORS");
+    if (!range) {
+      reportFailure("pre-paint theme-color boundary is missing");
+      return source;
+    }
+    return maskRanges(source, [range]);
   }
 
   if (exemption.scope === "factsheet-print-sheet") {
