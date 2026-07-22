@@ -12,8 +12,42 @@ const loaderSrc = readFileSync(
   "utf8",
 );
 const dataDir = new URL("../public/therapy-compass-data/", import.meta.url);
+const therapyMetadataFiles = [
+  "../src/app/therapy-compass/page.tsx",
+  "../src/app/therapy-compass/search/page.tsx",
+  "../src/app/therapy-compass/recommend/page.tsx",
+  "../src/app/therapy-compass/compare/page.tsx",
+  "../src/app/therapy-compass/pathways/page.tsx",
+  "../src/app/therapy-compass/review/page.tsx",
+  "../src/app/therapy-compass/[slug]/page.tsx",
+  "../src/app/therapy-compass/[slug]/brief/page.tsx",
+  "../src/app/therapy-compass/[slug]/sheet/page.tsx",
+];
 
 describe("Therapy Compass production-mode wiring", () => {
+  it("uses Therapy mode for user-facing mode copy and page metadata", () => {
+    const appModesSrc = readFileSync(new URL("../src/lib/app-modes.ts", import.meta.url), "utf8");
+    const homeSrc = readFileSync(
+      new URL("../src/components/therapy-compass/screens/home-screen.tsx", import.meta.url),
+      "utf8",
+    );
+    const workspaceSrc = readFileSync(
+      new URL("../src/components/therapy-compass/workspace.tsx", import.meta.url),
+      "utf8",
+    );
+
+    expect(appModesSrc).toContain('label: "Therapy mode"');
+    expect(appModesSrc).toContain('submitAriaLabel: "Open Therapy mode"');
+    expect(homeSrc).toContain('title="Therapy mode"');
+    expect(workspaceSrc).toContain("Therapy mode could not load");
+
+    for (const filename of therapyMetadataFiles) {
+      const source = readFileSync(new URL(filename, import.meta.url), "utf8");
+      expect(source, filename).toContain("Therapy mode");
+      expect(source, filename).not.toContain("Therapy Compass");
+    }
+  });
+
   it("loads its dataset from a non-/mockups path (proxy.ts 404s every /mockups path in production)", () => {
     const base = loaderSrc.match(/const BASE = "([^"]+)"/)?.[1];
     expect(base).toBeTruthy();
