@@ -176,8 +176,12 @@ begin
   if tg_op = 'INSERT' then
     v_actionable := coalesce(new.status, '') is distinct from 'indexed';
   elsif tg_op = 'UPDATE' then
-    v_actionable := coalesce((new.metadata->>'reindex_requested')::boolean, false)
-                    and not coalesce((old.metadata->>'reindex_requested')::boolean, false);
+    -- Compare the JSON value directly to the JSON boolean `true` — matches the
+    -- receiver's strict `=== true` (a JSON string "true" is NOT actionable) and,
+    -- unlike `->> ... ::boolean`, never raises on a malformed value.
+    v_actionable := new.metadata->'reindex_requested' = 'true'::jsonb
+                    and new.metadata->'reindex_requested'
+                        is distinct from old.metadata->'reindex_requested';
   end if;
 
   if not v_actionable then
