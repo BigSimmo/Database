@@ -108,6 +108,7 @@ import {
   shorterPollDelay,
 } from "@/components/clinical-dashboard/clinical-dashboard-helpers";
 import { answerRecovery, errorCopy } from "@/lib/ui-copy";
+import { summarizeBulkReindexPayload } from "@/lib/bulk-reindex-results";
 import {
   type DocumentDrawerMode,
   type DocumentDrawerStatusFilter,
@@ -122,7 +123,6 @@ const FavouritesHub = dynamic(
   () => import("@/components/clinical-dashboard/favourites-hub").then((m) => m.FavouritesHub),
   { ssr: false },
 );
-
 const MedicationPrescribingWorkspace = dynamic(
   () =>
     import("@/components/clinical-dashboard/medication-prescribing-workspace").then(
@@ -2572,11 +2572,11 @@ export function ClinicalDashboard({
       const payload = await response.json().catch(() => ({}));
       if (!isAuthEpochCurrent(requestEpoch)) return;
       if (!response.ok) throw new Error(payload.error || errorCopy.bulkReindexFailed);
+      const summary = summarizeBulkReindexPayload(payload);
+      setBulkActionStatus(summary.message);
+      if (!summary.hasSuccessfulWork) return;
       setUserStartedIngestion(true);
       setIndexingActive(true);
-      setBulkActionStatus(
-        `${payload.results?.filter((result: { ok: boolean }) => result.ok).length ?? 0} selected documents updated.`,
-      );
       await refresh({ includeSetup: false, includeDashboardData: true, includeDocumentMeta: false });
     } catch (error) {
       if (isAbortError(error)) return;
