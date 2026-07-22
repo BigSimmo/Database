@@ -1463,9 +1463,24 @@ describe("Supabase Preview replay guards", () => {
       );
     }
 
-    expect(documentTitleWordsBackendPolicyMigration).not.toMatch(
-      /create policy [^;]+ to (?:public|anon|authenticated)\b/i,
+    // For schema, extract just the document_title_words ACL/policy block.
+    // For the migration, the whole file is already scoped to this table.
+    const schemaSegment = finalSqlSegment(
+      schema,
+      "alter table public.document_title_words enable row level security",
+      "create or replace function public.sync_document_title_words()",
     );
+    const migrationSegment = documentTitleWordsBackendPolicyMigration.toLowerCase();
+
+    for (const scopedSql of [schemaSegment, migrationSegment]) {
+      const policies = scopedSql.match(/create policy [^;]+ on public\.document_title_words[^;]*;/g);
+      expect(policies).toHaveLength(1);
+      expect(policies![0]).toContain(" to service_role ");
+      expect(scopedSql).not.toMatch(/create policy [^;]+ to (?:public|anon|authenticated)\b/i);
+      expect(scopedSql).not.toMatch(
+        /grant [^;]+ on table public\.document_title_words[^;]+ to (?:public|anon|authenticated)\b/i,
+      );
+    }
   });
 
   it("hardens registry cleanup without UUID casts or cross-registry collisions", () => {
