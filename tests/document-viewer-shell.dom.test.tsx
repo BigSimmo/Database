@@ -31,6 +31,17 @@ vi.mock("@/lib/supabase/client", () => ({
   }),
 }));
 
+// Every document request is gated on a local-project identity probe
+// (/api/local-project-id). No server answers it in a unit run, and when the
+// probe fails the viewer replaces the error under test with its own
+// "unsafe local project" message — which is exactly why this file passed on a
+// workstation with the dev server up and failed in CI. Stub it as a safe local
+// origin so the shell state, not the environment, decides the outcome.
+vi.mock("@/lib/local-project-identity", () => ({
+  readLocalProjectIdentity: async () => ({ localServer: { safeLocalOrigin: true } }),
+  unsafeLocalProjectMessage: () => "This local server does not belong to this project.",
+}));
+
 // The preview is next/dynamic-loaded and never mounts synchronously in jsdom;
 // it is mocked defensively so a late resolve cannot pull a real canvas into the
 // test environment. The shell state, not the raster preview, is under test.
@@ -72,31 +83,31 @@ afterEach(() => {
 });
 
 describe("DocumentViewer — shell states", () => {
-  it("shows the sign-in shell (never document content) when private access is required", () => {
+  it("shows the sign-in shell (never document content) when private access is required", async () => {
     render(
       <DocumentViewer documentId="doc-1" initialPage={1} initialError="Sign in to open private source documents." />,
     );
 
-    expect(screen.getByText("Sign in required")).toBeVisible();
+    expect(await screen.findByText("Sign in required")).toBeVisible();
     expect(screen.getByText("Sign in to open private source documents.")).toBeVisible();
     // The private-access gate must resolve to its own shell, not the generic
     // failure shell (which would read as "broken" rather than "sign in").
     expect(screen.queryByText("Source unavailable")).toBeNull();
   });
 
-  it("shows the unavailable shell with the failure reason for a generic load error", () => {
+  it("shows the unavailable shell with the failure reason for a generic load error", async () => {
     render(<DocumentViewer documentId="doc-1" initialPage={1} initialError="Document could not be loaded." />);
 
-    expect(screen.getByText("Source unavailable")).toBeVisible();
+    expect(await screen.findByText("Source unavailable")).toBeVisible();
     expect(screen.getByText("Document could not be loaded.")).toBeVisible();
     expect(screen.queryByText("Sign in required")).toBeNull();
   });
 
-  it("shows the ready shell with the document identity when a detail payload is supplied", () => {
+  it("shows the ready shell with the document identity when a detail payload is supplied", async () => {
     render(<DocumentViewer documentId="doc-1" initialPage={1} initialDetail={detailPayload()} />);
 
     // The display title is smart-cased, so match on a distinctive word.
-    expect(screen.getAllByText(/clozapine/i).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/clozapine/i)).length).toBeGreaterThan(0);
     // A supplied payload must resolve to the ready shell — neither failure shell.
     expect(screen.queryByText("Source unavailable")).toBeNull();
     expect(screen.queryByText("Sign in required")).toBeNull();
