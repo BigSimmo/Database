@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/env", () => ({
+  env: {
+    NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: undefined,
+    SUPABASE_PROJECT_REF: "sjrfecxgysukkwxsowpy",
+  },
+}));
+
 import { publicAccessContext } from "@/lib/public-api-access";
 import { AuthenticationError, getOptionalAuthenticatedUser, resolveOptionalAuthentication } from "@/lib/supabase/auth";
 
@@ -98,6 +106,60 @@ describe("optional authentication", () => {
       user: { id: "user-1" },
     });
     expect(client.auth.getUser).toHaveBeenCalledWith("valid-cookie-token");
+  });
+
+  it("prefers a current Supabase session cookie over a stale legacy access-token cookie", async () => {
+    const client = {
+      auth: {
+        getUser: vi.fn(async (token: string) =>
+          token === "current-cookie-token"
+            ? { data: { user: { id: "user-1", app_metadata: {} } }, error: null }
+            : { data: { user: null }, error: { message: "Invalid token" } },
+        ),
+      },
+    };
+    const currentSession = encodeURIComponent(
+      JSON.stringify({ access_token: "current-cookie-token", refresh_token: "refresh-token", type: "bearer" }),
+    );
+    const request = new Request("http://localhost/api/search", {
+      headers: {
+        cookie: `sb-access-token=expired-legacy-token; sb-sjrfecxgysukkwxsowpy-auth-token=${currentSession}`,
+      },
+    });
+
+    await expect(resolveOptionalAuthentication(request, client as never)).resolves.toMatchObject({
+      status: "valid",
+      user: { id: "user-1" },
+    });
+    expect(client.auth.getUser).toHaveBeenCalledTimes(1);
+    expect(client.auth.getUser).toHaveBeenCalledWith("current-cookie-token");
+  });
+
+  it("ignores a stale project's session cookie when the live legacy token is valid", async () => {
+    const client = {
+      auth: {
+        getUser: vi.fn(async (token: string) =>
+          token === "valid-legacy-token"
+            ? { data: { user: { id: "user-1", app_metadata: {} } }, error: null }
+            : { data: { user: null }, error: { message: "Invalid token" } },
+        ),
+      },
+    };
+    const staleSession = encodeURIComponent(
+      JSON.stringify({ access_token: "stale-project-token", refresh_token: "refresh-token", type: "bearer" }),
+    );
+    const request = new Request("http://localhost/api/search", {
+      headers: {
+        cookie: `sb-qjgitjyhxrwxsrydablr-auth-token=${staleSession}; sb-access-token=valid-legacy-token`,
+      },
+    });
+
+    await expect(resolveOptionalAuthentication(request, client as never)).resolves.toMatchObject({
+      status: "valid",
+      user: { id: "user-1" },
+    });
+    expect(client.auth.getUser).toHaveBeenCalledTimes(1);
+    expect(client.auth.getUser).toHaveBeenCalledWith("valid-legacy-token");
   });
 
   it("rejects a legacy session cookie that Supabase reports as invalid", async () => {

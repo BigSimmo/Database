@@ -317,6 +317,7 @@ function mockRuntime(
   vi.doUnmock("@/lib/demo-data");
   vi.doMock("@/lib/env", () => ({
     env: {
+      NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
       MAX_UPLOAD_MB: 150,
       MAX_CONCURRENT_UPLOADS: options.maxConcurrentUploads ?? 1,
       MAX_IN_FLIGHT_UPLOAD_MB: options.maxInFlightUploadMb ?? 151,
@@ -390,7 +391,7 @@ function authenticatedAuthTokenCookieRequest(path: string, init?: RequestInit) {
   return request(path, {
     ...init,
     headers: {
-      cookie: `sb-random-project-ref-auth-token=${encodeURIComponent(
+      cookie: `sb-sjrfecxgysukkwxsowpy-auth-token=${encodeURIComponent(
         JSON.stringify({
           access_token: token,
           refresh_token: "refresh-token",
