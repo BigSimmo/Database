@@ -658,6 +658,21 @@ describe("eval quality reporting", () => {
     expect(report.blocking_threshold_failures).toContain("RAG route_ceiling_failure_count 1 above 0");
   });
 
+  it("sums estimated cost across priced and zero-cost cases, going n/a only when a case cannot be estimated", () => {
+    // Issue #014: extractive/unsupported cases make no provider call and cost
+    // exactly $0 when rates are configured — they must not null the run total.
+    // null stays reserved for "rates unconfigured" (cannot estimate).
+    const priced = ragResult({ estimatedCostUsd: 0.002 });
+    const zeroCost = ragResult({ estimatedCostUsd: 0 });
+    const unpriced = ragResult({ estimatedCostUsd: null });
+
+    const summed = buildEvalQualityReport({ retrievalResults: [], ragResults: [priced, zeroCost] });
+    expect(summed.rag.summary.estimated_cost_usd).toBe(0.002);
+
+    const unknown = buildEvalQualityReport({ retrievalResults: [], ragResults: [priced, zeroCost, unpriced] });
+    expect(unknown.rag.summary.estimated_cost_usd).toBeNull();
+  });
+
   it("accepts an offline source-only result only when expected sources are retrieved and cited", () => {
     const sourceOnly = ragResult({
       grounded: false,
