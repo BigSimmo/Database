@@ -195,6 +195,62 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("scripted scrolls honour the reduced-motion preference", async ({ page }) => {
+    // ANIM-01 (WCAG 2.3.3): the scripted scrollTo/scrollIntoView calls resolve their
+    // behaviour through resolveScrollBehavior(), so a reduced-motion preference must
+    // turn them into instant ("auto") jumps instead of smooth animations. Record the
+    // behaviour argument every scroll call receives, then trigger a known one.
+    await page.addInitScript(() => {
+      const store: string[] = [];
+      (window as unknown as { __scrollBehaviors: string[] }).__scrollBehaviors = store;
+      const record = (behavior?: ScrollBehavior) => store.push(behavior ?? "auto");
+      const origScrollTo = Element.prototype.scrollTo;
+      Element.prototype.scrollTo = function scrollTo(this: Element, ...args: unknown[]) {
+        const options = args[0];
+        if (options && typeof options === "object" && "behavior" in options) {
+          record((options as ScrollToOptions).behavior);
+        }
+        return (origScrollTo as (...callArgs: unknown[]) => void).apply(this, args);
+      } as typeof Element.prototype.scrollTo;
+      const origScrollIntoView = Element.prototype.scrollIntoView;
+      Element.prototype.scrollIntoView = function scrollIntoView(this: Element, ...args: unknown[]) {
+        const options = args[0];
+        if (options && typeof options === "object" && "behavior" in options) {
+          record((options as ScrollIntoViewOptions).behavior);
+        }
+        return (origScrollIntoView as (...callArgs: unknown[]) => void).apply(this, args);
+      } as typeof Element.prototype.scrollIntoView;
+    });
+
+    const readBehaviours = () =>
+      page.evaluate(() => (window as unknown as { __scrollBehaviors: string[] }).__scrollBehaviors);
+    const resetBehaviours = () =>
+      page.evaluate(() => {
+        (window as unknown as { __scrollBehaviors: string[] }).__scrollBehaviors.length = 0;
+      });
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await mockMinimalDashboardApi(page);
+
+    // Reduced motion → every scripted scroll must be an instant "auto" jump.
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await gotoApp(page);
+    await expectDashboardUsable(page);
+    await resetBehaviours();
+    await page.getByRole("button", { name: "New chat" }).first().click();
+    await expect.poll(readBehaviours).not.toHaveLength(0);
+    const reduced = await readBehaviours();
+    expect(reduced, "reduced motion must not animate scripted scrolls").not.toContain("smooth");
+    expect(reduced.every((behaviour) => behaviour === "auto")).toBe(true);
+
+    // No preference → the same action animates smoothly.
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await resetBehaviours();
+    await page.getByRole("button", { name: "New chat" }).first().click();
+    await expect.poll(readBehaviours).not.toHaveLength(0);
+    expect(await readBehaviours(), "no-preference should animate scripted scrolls").toContain("smooth");
+  });
+
   test("mode menu dismisses when keyboard focus leaves its wrapper", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await mockMinimalDashboardApi(page);

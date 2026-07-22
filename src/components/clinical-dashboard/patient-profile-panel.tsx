@@ -5,7 +5,9 @@ import { useId, useState } from "react";
 
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
 import { cn, fieldControlPlain, fieldLabel, ToggleSwitch } from "@/components/ui-primitives";
+import { SCR_UMOL_PER_MGDL } from "@/lib/medication-patient-alerts";
 import type { AllergyClass, HepaticSeverity, ScrUnit } from "@/lib/medication-patient-alerts";
+import { PATIENT_PROFILE_NUMERIC_BOUNDS, PATIENT_PROFILE_SCR_UMOL_BOUNDS } from "@/lib/patient-profile-storage";
 
 const HEPATIC_OPTIONS: { value: HepaticSeverity; label: string }[] = [
   { value: "none", label: "None" },
@@ -48,14 +50,34 @@ function NumberField({
   value,
   onChange,
   testId,
+  min,
+  max,
 }: {
   label: string;
   unit?: string;
   value: number | null | undefined;
   onChange: (value: number | null) => void;
   testId?: string;
+  min: number;
+  max: number;
 }) {
   const id = useId();
+  const errorId = `${id}-error`;
+  const [text, setText] = useState(value == null ? "" : String(value));
+  const [syncedValue, setSyncedValue] = useState<number | null>(value ?? null);
+
+  // React-sanctioned "adjust state during render" reconciliation: when the stored
+  // value changes from outside this field (e.g. a cross-page store update), re-sync
+  // the buffer — but keep an in-progress out-of-range entry so its validation
+  // message stays visible. A profile Clear remounts the field via `key` instead
+  // (the stored value is already null there, so no prop change would fire here).
+  const parsed = parseNumber(text);
+  const outOfRange = parsed !== null && (parsed < min || parsed > max);
+  if ((value ?? null) !== syncedValue) {
+    setSyncedValue(value ?? null);
+    if (!outOfRange) setText(value == null ? "" : String(value));
+  }
+
   return (
     <div>
       <label htmlFor={id} className={fieldLabel}>
@@ -66,11 +88,33 @@ function NumberField({
         id={id}
         type="number"
         inputMode="decimal"
-        value={value ?? ""}
-        onChange={(event) => onChange(parseNumber(event.target.value))}
-        className={cn(fieldControlPlain, "nums")}
+        min={min}
+        max={max}
+        value={text}
+        onChange={(event) => {
+          const raw = event.target.value;
+          setText(raw);
+          // Commit only in-range numbers; an empty or out-of-range entry commits
+          // null so the alert engine treats it as a missing input (surfaced as
+          // "unassessed") rather than acting on a physiologically impossible value.
+          const next = parseNumber(raw);
+          onChange(next !== null && next >= min && next <= max ? next : null);
+        }}
+        aria-invalid={outOfRange || undefined}
+        aria-describedby={outOfRange ? errorId : undefined}
+        className={cn(fieldControlPlain, "nums", outOfRange && "border-[color:var(--danger-border)]")}
         data-testid={testId}
       />
+      {outOfRange ? (
+        <span
+          id={errorId}
+          role="alert"
+          className="mt-1 block text-2xs font-medium leading-4 text-[color:var(--danger)]"
+        >
+          Enter {min}–{max}
+          {unit ? ` ${unit}` : ""}.
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -85,9 +129,24 @@ export function PatientProfilePanel({
   defaultOpen?: boolean;
   className?: string;
 }) {
-  const { profile, updateField, toggleAllergy, clear, isEmpty } = usePatientProfile();
+  const { profile, updateField, setScrUnit, toggleAllergy, clear, isEmpty } = usePatientProfile();
   const [open, setOpen] = useState(defaultOpen ?? variant === "full");
+  // Bumped on Clear to remount the numeric fields, so an out-of-range entry that
+  // is showing a validation message (stored value already null) is reset too.
+  const [resetNonce, setResetNonce] = useState(0);
   const allergies = new Set(profile.allergies ?? []);
+
+  // Serum-creatinine validity bounds are canonical in µmol/L; convert to the
+  // active display unit (rounding inward so the field and the storage-layer
+  // check agree on the edge). Same conversion factor the alert engine uses.
+  const scrUnit = profile.scrUnit ?? "umol/L";
+  const scrBounds =
+    scrUnit === "mg/dL"
+      ? {
+          min: Math.ceil((PATIENT_PROFILE_SCR_UMOL_BOUNDS.min / SCR_UMOL_PER_MGDL) * 100) / 100,
+          max: Math.floor((PATIENT_PROFILE_SCR_UMOL_BOUNDS.max / SCR_UMOL_PER_MGDL) * 100) / 100,
+        }
+      : PATIENT_PROFILE_SCR_UMOL_BOUNDS;
 
   return (
     <details
@@ -119,39 +178,54 @@ export function PatientProfilePanel({
       <div className="space-y-3 border-t border-[color:var(--border)] p-3">
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
           <NumberField
+            key={`age-${resetNonce}`}
             label="Age"
             unit="years"
             value={profile.ageYears}
             onChange={(value) => updateField("ageYears", value)}
             testId="patient-age"
+            min={PATIENT_PROFILE_NUMERIC_BOUNDS.ageYears.min}
+            max={PATIENT_PROFILE_NUMERIC_BOUNDS.ageYears.max}
           />
           <NumberField
+            key={`egfr-${resetNonce}`}
             label="eGFR"
             unit="mL/min"
             value={profile.egfr}
             onChange={(value) => updateField("egfr", value)}
             testId="patient-egfr"
+            min={PATIENT_PROFILE_NUMERIC_BOUNDS.egfr.min}
+            max={PATIENT_PROFILE_NUMERIC_BOUNDS.egfr.max}
           />
           <NumberField
+            key={`crcl-${resetNonce}`}
             label="CrCl"
             unit="mL/min"
             value={profile.crcl}
             onChange={(value) => updateField("crcl", value)}
             testId="patient-crcl"
+            min={PATIENT_PROFILE_NUMERIC_BOUNDS.crcl.min}
+            max={PATIENT_PROFILE_NUMERIC_BOUNDS.crcl.max}
           />
           <NumberField
+            key={`qtc-${resetNonce}`}
             label="QTc"
             unit="ms"
             value={profile.qtc}
             onChange={(value) => updateField("qtc", value)}
             testId="patient-qtc"
+            min={PATIENT_PROFILE_NUMERIC_BOUNDS.qtc.min}
+            max={PATIENT_PROFILE_NUMERIC_BOUNDS.qtc.max}
           />
           <div className="col-span-2 sm:col-span-1">
             <NumberField
+              key={`scr-${resetNonce}-${scrUnit}`}
               label="Serum creatinine"
               value={profile.scr}
               onChange={(value) => updateField("scr", value)}
               testId="patient-scr"
+              min={scrBounds.min}
+              max={scrBounds.max}
             />
           </div>
           <fieldset className="col-span-2 min-w-0 sm:col-span-1">
@@ -164,7 +238,7 @@ export function PatientProfilePanel({
                     key={option.value}
                     type="button"
                     aria-pressed={active}
-                    onClick={() => updateField("scrUnit", option.value)}
+                    onClick={() => setScrUnit(option.value)}
                     className={cn(segmentBase, "flex-1", active ? segmentActive : segmentIdle)}
                   >
                     {option.label}
@@ -236,7 +310,10 @@ export function PatientProfilePanel({
           </span>
           <button
             type="button"
-            onClick={clear}
+            onClick={() => {
+              clear();
+              setResetNonce((nonce) => nonce + 1);
+            }}
             disabled={isEmpty}
             className="ml-auto inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-2.5 text-2xs font-semibold text-[color:var(--text-muted)] transition hover:border-[color:var(--border-strong)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50"
           >

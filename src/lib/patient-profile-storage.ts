@@ -11,6 +11,7 @@
 // `use-sidebar-collapsed.ts` — which shares state across the prescribing
 // workspace and detail pages without a hydration mismatch or setState-in-effect.
 
+import { SCR_UMOL_PER_MGDL } from "@/lib/medication-patient-alerts";
 import type { AllergyClass, HepaticSeverity, PatientProfile, ScrUnit } from "@/lib/medication-patient-alerts";
 
 export const PATIENT_PROFILE_STORAGE_KEY = "clinical-kb-patient-profile";
@@ -40,11 +41,57 @@ const ALLERGY_CLASSES: AllergyClass[] = [
   "fluoroquinolone",
 ];
 
-function numberOrNull(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+// Physiological input-VALIDITY bounds (inclusive). These are deliberately NOT the
+// clinical firing thresholds (RENAL_IMPAIRMENT_EGFR / QTC_PROLONGED_MS / the age
+// cut-offs live in medication-patient-alerts.ts and must never be relaxed here):
+// they only reject values that are physically impossible or a clear data-entry
+// error. An out-of-range entry is rejected to `null` — never clamped — so the
+// alert engine treats it as a missing input and surfaces a contraindication row
+// as "unassessed" rather than reading garbage as a false all-clear. Ranges
+// verified 2026-07-21 against clinical extremes: neonate age 0, anuric eGFR/CrCl
+// 0, short-QT syndrome ~250 ms, augmented renal clearance CrCl ~350, severe-AKI
+// creatinine ~2200 µmol/L.
+export const PATIENT_PROFILE_NUMERIC_BOUNDS = {
+  ageYears: { min: 0, max: 130 },
+  egfr: { min: 0, max: 250 },
+  crcl: { min: 0, max: 400 },
+  qtc: { min: 240, max: 800 },
+} as const;
+
+// Serum creatinine bounds are canonical in µmol/L; a mg/dL entry is normalised by
+// ×SCR_UMOL_PER_MGDL before the range check (the same conversion the alert engine
+// applies), so a single bound covers both units with no unit/bound mismatch.
+export const PATIENT_PROFILE_SCR_UMOL_BOUNDS = { min: 15, max: 3000 } as const;
+
+function boundedNumberOrNull(value: unknown, bounds: { min: number; max: number }): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= bounds.min && value <= bounds.max
+    ? value
+    : null;
 }
 
-function sanitize(raw: unknown): PatientProfile {
+// Convert a serum-creatinine value between display units, preserving the
+// underlying physiological quantity (µmol/L is canonical; the alert engine uses
+// the same ×SCR_UMOL_PER_MGDL factor). Used when the clinician toggles the
+// creatinine unit so the stored value follows the unit instead of being silently
+// reinterpreted on the new scale. Rounds to the display precision of the target
+// unit (integer µmol/L, 2 dp mg/dL). A null/non-finite value stays null.
+export function convertScrValue(value: number | null | undefined, from: ScrUnit, to: ScrUnit): number | null {
+  if (value == null || !Number.isFinite(value) || from === to) return value ?? null;
+  const umol = from === "mg/dL" ? value * SCR_UMOL_PER_MGDL : value;
+  const converted = to === "mg/dL" ? umol / SCR_UMOL_PER_MGDL : umol;
+  return to === "mg/dL" ? Math.round(converted * 100) / 100 : Math.round(converted);
+}
+
+// Returns the entered value (in its own unit) when its µmol/L-normalised
+// magnitude is physiologically valid, else null. The engine re-normalises the
+// raw value itself, so we only use the normalised figure for the range check.
+function scrOrNull(value: unknown, scrUnit: ScrUnit): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const umol = scrUnit === "mg/dL" ? value * SCR_UMOL_PER_MGDL : value;
+  return umol >= PATIENT_PROFILE_SCR_UMOL_BOUNDS.min && umol <= PATIENT_PROFILE_SCR_UMOL_BOUNDS.max ? value : null;
+}
+
+export function sanitizeProfile(raw: unknown): PatientProfile {
   if (!raw || typeof raw !== "object") return { ...EMPTY_PATIENT_PROFILE };
   const value = raw as Record<string, unknown>;
   const hepatic = HEPATIC_LEVELS.includes(value.hepatic as HepaticSeverity) ? (value.hepatic as HepaticSeverity) : null;
@@ -53,13 +100,13 @@ function sanitize(raw: unknown): PatientProfile {
     ? value.allergies.filter((item): item is AllergyClass => ALLERGY_CLASSES.includes(item as AllergyClass))
     : [];
   return {
-    ageYears: numberOrNull(value.ageYears),
-    egfr: numberOrNull(value.egfr),
-    crcl: numberOrNull(value.crcl),
-    scr: numberOrNull(value.scr),
+    ageYears: boundedNumberOrNull(value.ageYears, PATIENT_PROFILE_NUMERIC_BOUNDS.ageYears),
+    egfr: boundedNumberOrNull(value.egfr, PATIENT_PROFILE_NUMERIC_BOUNDS.egfr),
+    crcl: boundedNumberOrNull(value.crcl, PATIENT_PROFILE_NUMERIC_BOUNDS.crcl),
+    scr: scrOrNull(value.scr, scrUnit),
     scrUnit,
     hepatic,
-    qtc: numberOrNull(value.qtc),
+    qtc: boundedNumberOrNull(value.qtc, PATIENT_PROFILE_NUMERIC_BOUNDS.qtc),
     pregnant: value.pregnant === true,
     breastfeeding: value.breastfeeding === true,
     allergies,
@@ -82,7 +129,7 @@ export function getPatientProfileSnapshot(): PatientProfile {
   if (raw === cachedRaw) return cachedProfile;
   cachedRaw = raw;
   try {
-    cachedProfile = raw ? sanitize(JSON.parse(raw)) : { ...EMPTY_PATIENT_PROFILE };
+    cachedProfile = raw ? sanitizeProfile(JSON.parse(raw)) : { ...EMPTY_PATIENT_PROFILE };
   } catch {
     cachedProfile = { ...EMPTY_PATIENT_PROFILE };
   }

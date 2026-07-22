@@ -1138,11 +1138,19 @@ async function runRagQualityCases(args: {
       routingReason: answer.routingReason,
       timings,
       routeCeilingExceeded,
-      // A case with no provider call costs exactly $0 when rates are
-      // configured; null stays reserved for rates-unconfigured so the
-      // all-or-nothing total keeps meaning "cannot estimate" instead of being
-      // tripped by every extractive/unsupported case (issue #014).
-      estimatedCostUsd: hasOpenAIUsage ? estimateCostUsd(openAIUsage) : configuredCostRates() ? 0 : null,
+      // A case that never touched the provider costs exactly $0 when rates
+      // are configured; null stays reserved for "cannot estimate" — either
+      // rates unconfigured, or a provider call was attempted (request id,
+      // model, or generation time recorded) without usage metadata (e.g. a
+      // provider timeout), where real-but-unmeasured tokens must not be
+      // reported as $0 (issue #014 + review findings on PR #1050).
+      estimatedCostUsd: hasOpenAIUsage
+        ? estimateCostUsd(openAIUsage)
+        : openAIRequestIds.length > 0 || answer.modelUsed || generationLatencyMs > 0
+          ? null
+          : configuredCostRates()
+            ? 0
+            : null,
       openAIRequestIds: openAIRequestIds.length > 0 ? openAIRequestIds : undefined,
       openAIUsage: hasOpenAIUsage ? openAIUsage : undefined,
     });

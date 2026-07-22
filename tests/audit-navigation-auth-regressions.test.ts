@@ -174,7 +174,24 @@ describe("audit navigation and auth regressions", () => {
     for (const section of ["setup", "upload", "indexing", "quality"]) {
       expect(clinicalDashboardSource).toContain(`id="dashboard-${section}-section-heading"`);
     }
-    expect(clinicalDashboardSource).toContain("subscribeToUploadDesktopLayout");
+    // The viewport-driven region/tabpanel role is wired through the extracted hook, whose
+    // media-query subscription carries the guard with it.
+    expect(clinicalDashboardSource).toContain("useUploadDesktopLayout()");
+    // Assert the EXPORTED hook's return wires the media-query subscription through
+    // useSyncExternalStore with the () => false server snapshot, and that the call closes
+    // right after that snapshot. Scoping to the exported function body (not the whole file)
+    // plus the `return` anchor and trailing `)` means a stale/disconnected call elsewhere, a
+    // comment or string, a present-but-unused helper, a dropped SSR fallback, or a mutated
+    // snapshot such as `() => false || getUploadDesktopLayoutSnapshot()` all fail the guard.
+    const uploadDesktopHookSource = source("src/components/clinical-dashboard/use-upload-desktop-layout.ts");
+    const useUploadDesktopLayoutBody = sourceSegment(
+      uploadDesktopHookSource,
+      "export function useUploadDesktopLayout(",
+      "}",
+    );
+    expect(useUploadDesktopLayoutBody).toMatch(
+      /return\s+useSyncExternalStore\(\s*subscribeToUploadDesktopLayout,\s*getUploadDesktopLayoutSnapshot,\s*\(\)\s*=>\s*false\s*\)/,
+    );
     expect(clinicalDashboardSource).toContain('event.key === "ArrowRight"');
     expect(clinicalDashboardSource).toContain('event.key === "ArrowLeft"');
     expect(clinicalDashboardSource).toContain('event.key === "Home"');
