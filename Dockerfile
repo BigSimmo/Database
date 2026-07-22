@@ -11,6 +11,7 @@
 # production image:
 #   docker build \
 #     --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_... \
+#     --build-arg NEXT_PUBLIC_MAX_UPLOAD_MB=150 \
 #     -t clinical-kb-app .
 # Server-side secrets (SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY, ...) are
 # NEVER baked into the image — inject them at run time from the host's
@@ -33,8 +34,13 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ARG NEXT_PUBLIC_SUPABASE_URL=https://sjrfecxgysukkwxsowpy.supabase.co
 ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=placeholder-build-publishable-key
+# Optional browser upload-limit mirror (clamped client-side). Must be set at
+# build time to inline into the client bundle — runtime Railway vars alone are
+# not enough when operators lower MAX_UPLOAD_MB.
+ARG NEXT_PUBLIC_MAX_UPLOAD_MB=
 ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
 ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+ENV NEXT_PUBLIC_MAX_UPLOAD_MB=${NEXT_PUBLIC_MAX_UPLOAD_MB}
 # The repo build script allocates an 8 GiB heap; give the builder >= 10 GiB.
 RUN npm run build
 

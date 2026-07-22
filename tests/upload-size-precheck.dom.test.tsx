@@ -77,6 +77,9 @@ beforeEach(() => {
   FakeXhr.lastResponse = JSON.stringify({ document: { id: "doc-1" }, job: { id: "job-1" } });
   vi.stubGlobal("XMLHttpRequest", FakeXhr);
   vi.unstubAllEnvs();
+  // Pin empty so default-limit assertions stay deterministic when the shell/CI
+  // already exports NEXT_PUBLIC_MAX_UPLOAD_MB (vi.unstubAllEnvs restores it).
+  vi.stubEnv("NEXT_PUBLIC_MAX_UPLOAD_MB", "");
 });
 
 afterEach(() => {
