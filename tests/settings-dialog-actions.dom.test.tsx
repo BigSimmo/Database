@@ -8,25 +8,50 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // asserted without real storage or auth; useTheme/useAppPreferences run
 // unmocked in jsdom.
 
-const clearRecentQueries = vi.fn();
+const {
+  clearRecentQueries,
+  clearFavourites,
+  signInWithEmail,
+  mockRecentCount,
+  mockFavourites,
+} = vi.hoisted(() => {
+  let recentCount = 3;
+  let favouritesData = { medications: [{ id: "m1" }] };
+  return {
+    clearRecentQueries: vi.fn(),
+    clearFavourites: vi.fn(async () => true),
+    signInWithEmail: vi.fn(),
+    mockRecentCount: {
+      get: () => recentCount,
+      set: (count: number) => {
+        recentCount = count;
+      },
+    },
+    mockFavourites: {
+      get: () => favouritesData,
+      set: (data: { medications: Array<{ id: string }> }) => {
+        favouritesData = data;
+      },
+    },
+  };
+});
+
 vi.mock("@/lib/recent-query-storage", () => ({
   clearRecentQueries: () => clearRecentQueries(),
-  // Non-zero so the "Clear recent searches" action is enabled.
-  countRecentQueries: () => 3,
+  // Non-zero so the "Clear recent searches" action is enabled by default.
+  countRecentQueries: () => mockRecentCount.get(),
 }));
 
-const clearFavourites = vi.fn(async () => true);
 vi.mock("@/components/account-data-provider", () => ({
   useAccountData: () => ({
-    // One saved item so the "Clear saved items" action is enabled.
-    favourites: { medications: [{ id: "m1" }] },
+    // One saved item so the "Clear saved items" action is enabled by default.
+    favourites: mockFavourites.get(),
     clearFavourites,
     isSaved: () => false,
     setFavourite: vi.fn(async () => true),
   }),
 }));
 
-const signInWithEmail = vi.fn();
 vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => ({
     status: "signed_out",
@@ -75,6 +100,14 @@ describe("SettingsDialog — destructive and account actions", () => {
     expect(button).toBeEnabled();
     fireEvent.click(button);
     expect(clearRecentQueries).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables clear recent searches when there are no recent queries", () => {
+    mockRecentCount.set(0);
+    renderDialog();
+    const button = screen.getByRole("button", { name: "Clear recent searches" });
+    expect(button).toBeDisabled();
+    mockRecentCount.set(3); // Reset for other tests
   });
 
   it("clears saved items and confirms via a status notice", async () => {
