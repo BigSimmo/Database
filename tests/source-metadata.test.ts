@@ -20,6 +20,21 @@ describe("source metadata helpers", () => {
     expect(sourceProvenanceSummary(metadata)).toContain("Review status unknown");
   });
 
+  it("falls back to defaults for unrecognized enum values without changing the returned value", () => {
+    // Issue 1: a present-but-unrecognized value (data-entry typo) is traced via
+    // logger.warn but must still coerce to the same safe fallback as before, so no
+    // downstream ranking/rendering behaviour changes.
+    const metadata = normalizeSourceMetadata({
+      document_status: "revieww_due",
+      clinical_validation_status: "aproved",
+      extraction_quality: "gud",
+    });
+
+    expect(metadata.document_status).toBe("unknown");
+    expect(metadata.clinical_validation_status).toBe("unverified");
+    expect(metadata.extraction_quality).toBe("unknown");
+  });
+
   it("formats dates using Australian date order", () => {
     expect(formatClinicalDate("2026-05-18T10:00:00.000+08:00")).toBe("18/05/2026");
   });
