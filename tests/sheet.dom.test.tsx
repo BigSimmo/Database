@@ -15,7 +15,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  document.body.style.overflow = "";
+  // Guard teardown: unhandled rAF/setTimeout from Sheet focus scheduling can
+  // fire after Vitest tears down the jsdom environment under coverage workers.
+  if (typeof document !== "undefined" && document.body) {
+    document.body.style.overflow = "";
+  }
 });
 
 function Stacked({
