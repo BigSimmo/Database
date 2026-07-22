@@ -7,13 +7,18 @@ scratch (or "fixed" against design intent). All live mutations remain confirmati
 
 ## Advisor snapshot — 2026-07-20 (read-only, user-authorized)
 
-### Security: 1 INFO — by design, do not fix
+### Security: 1 INFO — repository remediation prepared 2026-07-22
 
-- `rls_enabled_no_policy` on `public.document_title_words`: **deliberate fail-closed
-  pattern** — RLS enabled, zero policies, all client roles revoked, service-role-only grants
-  (`supabase/schema.sql`, the `enable row level security` block for this table; a schema
-  comment was deliberately skipped to avoid drift-manifest churn — this entry is the record).
-  Adding policies would be a regression. Expected to reappear in every future advisor run.
+- The snapshot reported `rls_enabled_no_policy` on `public.document_title_words`. The table was
+  already fail-closed for browser roles: RLS was enabled, `public`, `anon`, and `authenticated`
+  had all table privileges revoked, and only `service_role` had direct DML grants.
+- `20260722110000_explicit_document_title_words_backend_policy.sql` records that design as an
+  explicit `service_role`-only `FOR ALL` policy. It grants no browser role access and leaves the
+  public-title synchronization trigger and service-role-only query corrector unchanged. This
+  should clear the no-policy advisor finding after an explicitly approved live migration apply.
+- The live project has not been inspected or changed as part of this repository remediation.
+  Continue to report the finding as live until the migration is applied and the advisor is rerun
+  with approval.
 
 Everything else clean: no RLS-disabled tables, no exposed SECURITY DEFINER functions (the
 `check:function-grants` guard enforces this offline on every PR), no auth misconfigurations

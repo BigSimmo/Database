@@ -458,7 +458,7 @@ function ActionPanel({
             Open official source
           </a>
         ) : (
-          <span className={cn(floatingControl, "min-h-11 w-full px-3 opacity-70")}>Source unavailable</span>
+          <span className={cn(floatingControl, "min-h-tap w-full px-3 opacity-70")}>Source unavailable</span>
         )}
         <button type="button" onClick={onCopy} className={cn(floatingControl, "min-h-tap w-full px-3")}>
           <Download className="h-4 w-4" aria-hidden />
@@ -567,7 +567,7 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
             role="status"
             aria-live="polite"
             className={cn(
-              "mb-3 flex min-h-11 items-center justify-between gap-3 rounded-lg border p-3 text-sm font-semibold shadow-[var(--shadow-inset)]",
+              "mb-3 flex min-h-tap items-center justify-between gap-3 rounded-lg border p-3 text-sm font-semibold shadow-[var(--shadow-inset)]",
               notice.includes("failed") || notice.includes("Nothing") ? toneWarning : toneSuccess,
             )}
           >
