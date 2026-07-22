@@ -141,6 +141,23 @@ describe("favourites auth gate DOM", () => {
     expect(screen.getByText("Saved favourites")).toBeVisible();
   });
 
+  it("describes the actual account persistence and disables unavailable social sign-in", () => {
+    render(<AccountSetupDialog open onClose={() => undefined} />);
+
+    expect(screen.getByRole("heading", { name: "What your account saves" })).toBeVisible();
+    expect(screen.getByText(/Recent questions stay in this browser session/i)).toBeVisible();
+    expect(screen.getByText("Account-scoped saves")).toBeVisible();
+    expect(screen.queryByText(/Everything syncs across your devices/i)).toBeNull();
+    expect(screen.queryByText(/never shared/i)).toBeNull();
+
+    for (const provider of ["Apple", "Google", "Microsoft"]) {
+      const button = screen.getByRole("button", { name: `${provider} sign-in unavailable` });
+      expect(button).toBeDisabled();
+      expect(button).toHaveAttribute("title", `${provider} sign-in is unavailable — coming soon`);
+      expect(button).toHaveAccessibleDescription(`${provider} sign-in is unavailable. Continue with email.`);
+    }
+  });
+
   it("blacks out Tools Saved workflows and Favourites shortcuts for guests", () => {
     authSession.status = "signed_out";
     render(<ApplicationsLauncherWorkspace canAccessFavourites={false} />);

@@ -229,12 +229,8 @@ export function SettingsDialog({
     setAccountNotice(null);
   }
 
-  async function chooseSettingsProvider(provider: "Apple" | "Google" | "Microsoft") {
+  async function chooseSettingsProvider(provider: "Google" | "Microsoft") {
     setAccountNotice(null);
-    if (provider === "Apple") {
-      setAccountNotice("Apple sign-in is not configured. Continue with email, Google, or Microsoft.");
-      return;
-    }
     await auth.signInWithOAuth(provider === "Google" ? "google" : "azure");
   }
 
@@ -478,7 +474,10 @@ export function SettingsDialog({
                     </div>
 
                     <div className="grid gap-2">
-                      <SettingsProviderRow provider="Apple" onClick={() => void chooseSettingsProvider("Apple")} />
+                      <SettingsProviderRow
+                        provider="Apple"
+                        disabledReason="Apple sign-in is unavailable. Continue with email, Google, or Microsoft."
+                      />
                       <SettingsProviderRow provider="Google" onClick={() => void chooseSettingsProvider("Google")} />
                       <SettingsProviderRow
                         provider="Microsoft"
@@ -1144,17 +1143,25 @@ function SettingsChip({ label }: { label: string }) {
 function SettingsProviderRow({
   provider,
   onClick,
+  disabledReason,
 }: {
   provider: "Apple" | "Google" | "Microsoft" | "email";
-  onClick: () => void;
+  onClick?: () => void;
+  disabledReason?: string;
 }) {
-  const label = provider === "email" ? "Use email instead" : provider;
+  const label =
+    provider === "email" ? "Use email instead" : disabledReason ? `${provider} sign-in unavailable` : provider;
+  const descriptionId = disabledReason ? `settings-provider-${provider.toLowerCase()}-unavailable` : undefined;
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+      disabled={Boolean(disabledReason)}
+      title={disabledReason ? `${disabledReason.replace(/\.$/, "")} — coming soon` : undefined}
+      aria-label={label}
+      aria-describedby={descriptionId}
+      className="flex min-h-12 w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:opacity-75 disabled:shadow-none"
     >
       {provider === "email" ? (
         <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
@@ -1164,7 +1171,14 @@ function SettingsProviderRow({
         <ProviderBrandMark provider={provider} />
       )}
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+      {disabledReason ? (
+        <span id={descriptionId} className="sr-only">
+          {disabledReason}
+        </span>
+      ) : null}
+      {!disabledReason ? (
+        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+      ) : null}
     </button>
   );
 }
