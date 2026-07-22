@@ -52,9 +52,15 @@ const nextConfig: NextConfig = {
     // Prefer AVIF (~20-30% smaller than WebP), falling back to WebP, for any
     // next/image output.
     formats: ["image/avif", "image/webp"],
-    // Permit optimizing Supabase Storage signed URLs (private document/image
-    // previews) through next/image. Scoped to this app's exact production and
-    // (when configured) staging project hostnames, not the wildcard *.supabase.co.
+    // Private signed document/image previews opt out of the optimizer at the
+    // component level (`SignedImage` sets `unoptimized`). Do not rely on
+    // `minimumCacheTTL` as an expiry cap for bearer URLs: it is a lower bound,
+    // and stale-while-revalidate can keep serving private bytes past the
+    // signed-URL lifetime without re-entering the authenticated signed-URL route.
+    // Permit optimizing other Supabase Storage URLs through next/image when a
+    // caller intentionally uses the optimizer. Scoped to this app's exact
+    // production and (when configured) staging project hostnames, not the
+    // wildcard *.supabase.co.
     remotePatterns: (() => {
       const allowedHostnames = [expectedSupabaseProject.ref + ".supabase.co"];
       const stagingRef = process.env.SUPABASE_STAGING_PROJECT_REF?.trim();

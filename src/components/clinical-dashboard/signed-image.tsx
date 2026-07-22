@@ -1,7 +1,6 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
-
+import Image from "next/image";
 import { memo, useEffect, useRef, useState } from "react";
 import { CircleAlert, Loader2, Maximize2 } from "lucide-react";
 
@@ -129,15 +128,20 @@ export const SignedImage = memo(function SignedImage({
       )}
     >
       {url ? (
-        <img
+        // Keep next/image for fill/layout/sizes, but mark private signed previews
+        // `unoptimized` so bearer URLs never enter the unauthenticated
+        // `/_next/image` optimizer cache (stale-while-revalidate can outlive the
+        // signed token). Authorization stays on `/api/.../signed-url` issuance.
+        <Image
           src={url}
           alt={alt}
-          loading="lazy"
-          decoding="async"
+          fill
+          sizes="(max-width: 768px) 92vw, 320px"
+          unoptimized
           onLoad={() => setLoaded(true)}
           onError={handleImageError}
           className={cn(
-            "absolute inset-0 h-full w-full rounded-lg object-contain transition-opacity duration-300 motion-reduce:transition-none",
+            "rounded-lg object-contain transition-opacity duration-300 motion-reduce:transition-none",
             loaded ? "opacity-100" : "opacity-0",
           )}
         />
