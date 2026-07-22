@@ -90,12 +90,23 @@ tables, or of type `DELETE` are skipped with `200`.
 ### Setup (operator-applied)
 
 The receiver is deployed but inert until a Supabase-side trigger actually calls
-it. The trigger below is **operator-applied**, not a committed migration, because
-it calls `net.http_post` per row (the secret must live in Supabase Vault, never in
-the repo) and adding a schema object requires regenerating `supabase/drift-manifest.json`
-against a live Supabase container (`npm run drift:manifest`). Apply it in the
-Supabase SQL editor, or fold it into a local migration and regenerate the drift
-manifest before committing.
+it. The trigger function/trigger below must ship as a **committed migration**, not
+raw SQL applied to the live database — this repo's drift inventory
+(`supabase/drift-manifest.json`) covers functions and triggers, so creating them
+directly on live would diverge from `supabase/schema.sql` and **fail the next
+`check:drift`**, and a schema restore would omit the webhook entirely. The only
+operator-applied live state is the Vault secret (step 2) and the optional base-URL
+GUC (step 3).
+
+**Landing the trigger (step 4) needs a local Supabase container** — the schema
+mirror + drift manifest are regenerated from a live replay, which cannot be done
+offline:
+
+- Add the SQL from step 4 as `supabase/migrations/<timestamp>_document_change_ingestion_webhook.sql`.
+- Reconcile it into `supabase/schema.sql` (the checker `check:function-grants`
+  reads the snapshot, and the `revoke execute … from public` below must appear there).
+- Regenerate the drift manifest with `npm run drift:manifest`, then apply the
+  migration to the live project through the normal deploy path.
 
 **1. Set the app env var** — `SUPABASE_INGESTION_WEBHOOK_SECRET` (min 16 chars) on
 the Railway `Database` + `worker` services.
@@ -118,7 +129,21 @@ alter database postgres set app.ingestion_webhook_base_url = 'https://<env-host>
 acts on, reads the secret from Vault, and — critically — never aborts a document
 write if the secret is missing or the POST fails (it just does nothing, mirroring
 the receiver's inert `503`). `net.http_post` is asynchronous, so it does not block
-the write:
+the write.
+
+> **Delivery is at-most-once.** `net.http_post` is fire-and-forget — it returns a
+> request id and does not retry on failure. So if the app is down, the secret is
+> mismatched, or the receiver 500s _before_ enqueueing, that single event is lost.
+> The receiver's "500 → provider retries" guarantee (§ above) is a property of a
+> **managed Supabase Database Webhook** (which has built-in retry), _not_ of this
+> raw trigger. The durability backstop for a missed event is the polling recovery
+> path (`hasIncompleteDocumentsWithoutOpenJobs` → `ingestion-recovery`, driven by
+> the Ingestion Autopilot) — but note that autopilot currently runs read-only
+> unless `INGESTION_AUTOPILOT_APPLY=true`. **If you need at-least-once delivery for
+> inserts made outside the app upload path, use the managed Database Webhook
+> (below) instead of this trigger, or enable the recovery apply path as the
+> backstop.** This trigger is a low-latency optimisation on top of that recovery
+> layer, not a replacement for it.
 
 ```sql
 create or replace function public.notify_document_change_ingestion_webhook()
@@ -199,8 +224,13 @@ To request a reindex of an existing document, set
 `metadata.reindex_requested = true` on its row; the trigger POSTs, the receiver
 enqueues the job and clears the flag.
 
-**Managed alternative.** If you prefer the dashboard, a Supabase **Database
+**Managed alternative (recommended for durability).** A Supabase **Database
 Webhook** on `public.documents` (INSERT/UPDATE) pointed at the URL above with an
-`Authorization: Bearer <secret>` header works too — but it fires on _every_ update
-(the receiver then skips the non-actionable ones), whereas the trigger above gates
-in SQL to avoid the per-write POST churn from the worker's own status writes.
+`Authorization: Bearer <secret>` header has **built-in delivery retry**, so it —
+not the raw trigger — is the right choice when a missed event must not be dropped.
+Its trade-off is that it fires on _every_ update (the receiver then skips the
+non-actionable ones), whereas the SQL trigger above avoids that per-write POST
+churn by gating in SQL. It is still a committed migration only insofar as any
+schema object it adds must be reconciled the same way; the dashboard-created
+webhook itself is operator/live state and should be recorded in the drift
+allowlist if it appears in the inventory.
