@@ -259,12 +259,21 @@ flow — issue an **`UPDATE` that flips `metadata.reindex_requested` to `true`**
 trigger POSTs, the receiver enqueues the job and clears the flag.
 
 > **Insert-then-flag, as two statements.** Because this is an `AFTER UPDATE`
-> trigger whose predicate requires the flag to _change_ from not-true to true, an
-> external writer that INSERTs a row with `reindex_requested` already set will
-> **not** fire it (no UPDATE occurred) and leaves a `queued` row with no job. Insert
-> the row first, then run a separate `UPDATE … SET metadata = metadata ||
-'{"reindex_requested": true}'::jsonb WHERE id = …`, and confirm an `ingestion_jobs`
-> row appears.
+> trigger whose predicate requires the flag to _change_ from not-true to true, the
+> two statements must be: (1) `INSERT` the row **with `reindex_requested` absent or
+> `false`**, then (2) a separate `UPDATE` that flips it to `true`. An `INSERT` with
+> the flag already `true` never fires the trigger (no UPDATE happened), and a later
+> `UPDATE` that sets it `true` again is a no-op `true → true` (not _distinct from_
+> the old value), so it will not fire either — both leave a `queued` row with no
+> job. Concretely:
+>
+> ```sql
+> update public.documents
+>   set metadata = metadata || '{"reindex_requested": true}'::jsonb
+>   where id = '<document-id>';
+> ```
+>
+> Then confirm an `ingestion_jobs` row appears for that document.
 
 **Managed alternative (dashboard convenience).** A Supabase **Database Webhook**
 on `public.documents` (INSERT/UPDATE) pointed at the URL above with an
