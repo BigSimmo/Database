@@ -1,3 +1,4 @@
+import { logger } from "@/lib/logger";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
 const knownStatuses = new Set(["current", "review_due", "outdated", "unknown"]);
@@ -8,8 +9,18 @@ function stringOrNull(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function enumOrDefault<T extends string>(value: unknown, allowed: Set<string>, fallback: T): T {
-  return typeof value === "string" && allowed.has(value) ? (value as T) : fallback;
+function enumOrDefault<T extends string>(value: unknown, allowed: Set<string>, fallback: T, field: string): T {
+  if (typeof value === "string" && allowed.has(value)) return value as T;
+  // A present-but-unrecognized string is a real data-entry defect (typo, renamed
+  // enum, malformed ingest) that would otherwise collapse into the fallback and be
+  // indistinguishable from a genuinely-absent value. Trace it so it is fixable.
+  // Absent / null / empty values are the legitimate default and stay silent — they
+  // are the common case and would drown the signal. The returned value is unchanged,
+  // so this is observability only: no ranking/retrieval behaviour changes.
+  if (typeof value === "string" && value.trim()) {
+    logger.warn(`source-metadata: unrecognized ${field}`, { field, value });
+  }
+  return fallback;
 }
 
 export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata {
@@ -31,9 +42,14 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
     uploaded_at: stringOrNull(value.uploaded_at),
     indexed_at: stringOrNull(value.indexed_at),
     uploaded_by: stringOrNull(value.uploaded_by),
-    document_status: enumOrDefault(value.document_status, knownStatuses, "unknown"),
-    clinical_validation_status: enumOrDefault(value.clinical_validation_status, knownValidation, "unverified"),
-    extraction_quality: enumOrDefault(value.extraction_quality, knownExtraction, "unknown"),
+    document_status: enumOrDefault(value.document_status, knownStatuses, "unknown", "document_status"),
+    clinical_validation_status: enumOrDefault(
+      value.clinical_validation_status,
+      knownValidation,
+      "unverified",
+      "clinical_validation_status",
+    ),
+    extraction_quality: enumOrDefault(value.extraction_quality, knownExtraction, "unknown", "extraction_quality"),
   };
 }
 

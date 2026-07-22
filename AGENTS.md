@@ -457,6 +457,10 @@ not, so anything worth remembering after a session ends belongs there.
   `docs/outstanding-issues.md` (no push unless the user asks or you are already handing off).
 - Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger
   before a session's context is lost — that is what keeps it a memory rather than a stale list.
+- A `SessionStart` hook (`.claude/hooks/issues-surface.sh`, wired in `.claude/settings.json`)
+  auto-surfaces the open items into context at the start of every session and, on a context reset
+  (`compact`/`resume`/`clear`), nudges a `/issues capture`. It is read-only — it never writes the
+  ledger. `/issues` is still the way to read the full list or mutate it.
 
 ## Codex GitHub review behavior
 
