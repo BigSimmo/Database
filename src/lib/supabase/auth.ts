@@ -11,6 +11,9 @@ export type AuthenticatedUser = {
   appMetadata: Record<string, unknown>;
 };
 
+export type OptionalAuthenticationResult =
+  { status: "absent" } | { status: "valid"; user: AuthenticatedUser } | { status: "invalid" };
+
 type AuthenticationRequirement = {
   administrator?: boolean;
 };
@@ -63,6 +66,11 @@ function extractCookieSessionAccessToken(request: Request): string | null {
   }
 
   return null;
+}
+
+function hasSessionCookie(request: Request): boolean {
+  const cookies = readCookies(request.headers.get("cookie"));
+  return [...cookies.keys()].some((name) => name === "sb-access-token" || /^sb-.+-auth-token(?:\.\d+)?$/.test(name));
 }
 
 function extractSessionAccessToken(request: Request): string | null {
@@ -124,23 +132,28 @@ async function getUserFromRequestCookies(request: Request): Promise<Authenticate
   return { id: data.user.id, appMetadata: data.user.app_metadata ?? {} };
 }
 
-async function resolveOptionalAuthenticatedUser(
+export async function resolveOptionalAuthentication(
   request: Request,
   supabase: AdminClient,
-): Promise<AuthenticatedUser | null> {
-  const bearerToken = extractBearerAccessToken(request);
-  if (bearerToken) {
+): Promise<OptionalAuthenticationResult> {
+  if (request.headers.has("authorization")) {
+    const bearerToken = extractBearerAccessToken(request);
+    if (!bearerToken) return { status: "invalid" };
+
     const bearerUser = await getUserFromAccessToken(supabase, bearerToken);
-    if (bearerUser) return bearerUser;
+    return bearerUser ? { status: "valid", user: bearerUser } : { status: "invalid" };
   }
 
   const cookieToken = extractCookieSessionAccessToken(request);
-  if (cookieToken && cookieToken !== bearerToken) {
+  if (cookieToken) {
     const cookieTokenUser = await getUserFromAccessToken(supabase, cookieToken);
-    if (cookieTokenUser) return cookieTokenUser;
+    return cookieTokenUser ? { status: "valid", user: cookieTokenUser } : { status: "invalid" };
   }
 
-  return getUserFromRequestCookies(request);
+  if (!hasSessionCookie(request)) return { status: "absent" };
+
+  const cookieUser = await getUserFromRequestCookies(request);
+  return cookieUser ? { status: "valid", user: cookieUser } : { status: "invalid" };
 }
 
 export async function requireAuthenticatedUser(
@@ -148,8 +161,13 @@ export async function requireAuthenticatedUser(
   supabase: AdminClient,
   requirement: AuthenticationRequirement = {},
 ): Promise<AuthenticatedUser> {
-  const user = await resolveOptionalAuthenticatedUser(request, supabase);
-  if (!user) throw new AuthenticationError();
+  const authentication = await resolveOptionalAuthentication(request, supabase);
+  if (authentication.status !== "valid") {
+    throw new AuthenticationError(
+      authentication.status === "invalid" ? "Invalid authentication credentials." : undefined,
+    );
+  }
+  const { user } = authentication;
   if (requirement.administrator && !isAdministratorAppMetadata(user.appMetadata)) {
     throw new PublicApiError("Administrator access required.", 403, { code: "administrator_required" });
   }
@@ -160,7 +178,11 @@ export async function getOptionalAuthenticatedUser(
   request: Request,
   supabase: AdminClient,
 ): Promise<AuthenticatedUser | null> {
-  return resolveOptionalAuthenticatedUser(request, supabase);
+  const authentication = await resolveOptionalAuthentication(request, supabase);
+  if (authentication.status === "invalid") {
+    throw new AuthenticationError("Invalid authentication credentials.");
+  }
+  return authentication.status === "valid" ? authentication.user : null;
 }
 
 // Retained for callers that only need a single token string.
