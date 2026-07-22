@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-22T03:09:35.765Z",
+  "generated_at": "2026-07-22T11:03:47.977Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "4dfef34464628457daf82681fdf0c1e7a6beebd20fb24c84780cb4e4cce51fc7",
-  "replay_seconds": 16,
+  "schema_sha256": "7e39786e6be70516c9a50b53192d33a49b82f189a8c3013b0f5ed2da346a1575",
+  "replay_seconds": 19,
   "snapshot": {
     "views": [
       {
@@ -1896,6 +1896,14 @@
             "default": null,
             "identity": "",
             "not_null": true,
+            "generated": ""
+          },
+          {
+            "name": "reviewed_state_digest",
+            "type": "text",
+            "default": null,
+            "identity": "",
+            "not_null": false,
             "generated": ""
           }
         ],
@@ -6525,6 +6533,11 @@
         "table": "document_publication_approvals"
       },
       {
+        "def": "CREATE TRIGGER document_publication_approvals_require_state_digest BEFORE INSERT ON public.document_publication_approvals FOR EACH ROW EXECUTE FUNCTION public.require_document_publication_approval_state_digest()",
+        "name": "document_publication_approvals_require_state_digest",
+        "table": "document_publication_approvals"
+      },
+      {
         "def": "CREATE TRIGGER document_sections_updated_at BEFORE UPDATE ON public.document_sections FOR EACH ROW EXECUTE FUNCTION public.set_updated_at()",
         "name": "document_sections_updated_at",
         "table": "document_sections"
@@ -6793,6 +6806,14 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
+        "def_hash": "d415a919cde34ea955dfbcea162c6289",
+        "signature": "public.document_publication_state_digest(uuid,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
         "def_hash": "4f3e6b143eba09bf1bed09b6ec9f71b8",
         "signature": "public.document_summary_text(uuid)"
       },
@@ -6848,7 +6869,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "2fef16fbe1d1e07658b5ce051f6e7d7a",
+        "def_hash": "03cd491adfb5390a52a5339cc96190a1",
         "signature": "public.guard_document_publication_transition()"
       },
       {
@@ -7104,7 +7125,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "406d621ed9ad3b052b9282e7e980813a",
+        "def_hash": "ae1bcb442fe7ee0536ad161e7226c505",
         "signature": "public.publish_approved_documents(jsonb,text,integer)"
       },
       {
@@ -7178,6 +7199,14 @@
         ],
         "def_hash": "baa8c0bda37cc561026baecdf1cca1c2",
         "signature": "public.request_indexing_v3_enrichment(uuid,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "a574c83b93f318a8ca10867dfc86941c",
+        "signature": "public.require_document_publication_approval_state_digest()"
       },
       {
         "acl": [
@@ -7729,6 +7758,11 @@
       {
         "def": "CHECK (((char_length(TRIM(BOTH FROM reason)) >= 3) AND (char_length(TRIM(BOTH FROM reason)) <= 2000)))",
         "name": "document_publication_approvals_reason_check",
+        "table": "document_publication_approvals"
+      },
+      {
+        "def": "CHECK (((reviewed_state_digest IS NULL) OR (reviewed_state_digest ~ '^[0-9a-f]{64}$'::text)))",
+        "name": "document_publication_approvals_reviewed_state_digest_format",
         "table": "document_publication_approvals"
       },
       {

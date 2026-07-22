@@ -120,6 +120,10 @@ const publicationApprovalMigration = readFileSync(
   new URL("../supabase/migrations/20260717131000_guard_document_publication_approval.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const publicationReviewedStateMigration = readFileSync(
+  new URL("../supabase/migrations/20260722190000_bind_publication_approval_to_reviewed_state.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const deleteDocumentIfIdleMigration = readFileSync(
   new URL("../supabase/migrations/20260717132000_delete_document_if_idle.sql", import.meta.url),
   "utf8",
@@ -1174,6 +1178,45 @@ describe("Supabase Preview replay guards", () => {
       expect(sql).toContain("for update;");
       expect(sql).toContain(
         "grant execute on function public.publish_approved_documents(jsonb, text, integer) to service_role;",
+      );
+    }
+  });
+
+  it("binds publication approval to canonical reviewed content under the document lock", () => {
+    for (const sql of [schema, publicationReviewedStateMigration]) {
+      expect(sql).toContain("reviewed_state_digest");
+      expect(sql).toContain("create or replace function public.document_publication_state_digest(");
+      expect(sql).toContain("publication approval requires a reviewed content/state digest");
+      expect(sql).toContain("v_current_state_digest := public.document_publication_state_digest(");
+      expect(sql).toContain("publication document % changed after review");
+      expect(sql).toContain("'publication_reviewed_state_digest', v_expected_state_digest");
+
+      const functionStart = sql.indexOf("create or replace function public.publish_approved_documents(");
+      const functionBody = sql.slice(functionStart, sql.indexOf("$$;", functionStart));
+      for (const table of [
+        "document_pages",
+        "document_images",
+        "document_labels",
+        "document_summaries",
+        "document_sections",
+        "document_memory_cards",
+        "document_chunks",
+        "document_table_facts",
+        "document_embedding_fields",
+        "document_index_quality",
+        "document_index_units",
+      ]) {
+        expect(functionBody).toContain(`perform 1 from public.${table} where document_id = v_document_id for update;`);
+      }
+      expect(functionBody.indexOf("for update;")).toBeLessThan(
+        functionBody.indexOf("v_current_state_digest := public.document_publication_state_digest("),
+      );
+
+      const guardStart = sql.indexOf("create or replace function public.guard_document_publication_transition(");
+      const guardBody = sql.slice(guardStart, sql.indexOf("$$;", guardStart));
+      expect(guardBody).toContain("perform 1 from public.document_chunks where document_id = old.id for update;");
+      expect(guardBody.indexOf("for update;")).toBeLessThan(
+        guardBody.indexOf("v_current_state_digest := public.document_publication_state_digest("),
       );
     }
   });
