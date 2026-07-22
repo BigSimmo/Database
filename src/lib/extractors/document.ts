@@ -22,6 +22,7 @@ import {
   PdfExtractionResourceError,
   type PdfExtractionBudget,
 } from "@/lib/extractors/pdf-extraction-budget";
+import { XlsxExtractionBudgetTracker } from "@/lib/extractors/xlsx-extraction-budget";
 import { resolvePythonBin } from "@/lib/python-bin";
 
 const extractedPageSchema = z.object({
@@ -493,18 +494,34 @@ async function extractDocx(buffer: Buffer) {
 async function extractXlsx(buffer: Buffer) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer as unknown as Parameters<typeof workbook.xlsx.load>[0]);
-  const pages = workbook.worksheets.map((sheet, index) => {
-    const rows: string[] = [];
+  const budget = new XlsxExtractionBudgetTracker();
+  budget.assertSheetCount(workbook.worksheets.length);
+  const pages: ExtractedPage[] = [];
+
+  for (const [index, sheet] of workbook.worksheets.entries()) {
+    const heading = `Sheet: ${sheet.name}`;
+    const textParts = [heading, "\n"];
+    budget.addText(heading);
+    budget.addText("\n");
+    let rowIndex = 0;
     sheet.eachRow({ includeEmpty: false }, (row) => {
+      budget.addRow(row.cellCount);
       const values = Array.isArray(row.values) ? row.values.slice(1) : [];
-      rows.push(values.map((value) => String(value ?? "")).join(","));
+      const rowText = values.map((value) => String(value ?? "")).join(",");
+      if (rowIndex > 0) {
+        budget.addText("\n");
+        textParts.push("\n");
+      }
+      budget.addText(rowText);
+      textParts.push(rowText);
+      rowIndex += 1;
     });
-    return {
+    pages.push({
       pageNumber: index + 1,
-      text: `Sheet: ${sheet.name}\n${rows.join("\n")}`,
+      text: textParts.join(""),
       ocrUsed: false,
-    };
-  });
+    });
+  }
 
   return { pages, images: [] } satisfies ExtractedDocument;
 }
