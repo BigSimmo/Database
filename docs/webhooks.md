@@ -139,14 +139,24 @@ the write.
 > holds against a caller that actually retries — **do not assume either the raw
 > trigger _or_ a managed Supabase Database Webhook provides that**: managed
 > webhooks are themselves a thin wrapper over pg_net, so they share the same
-> no-retry limitation today. The real durability backstop for a missed event is
-> the polling recovery path (`hasIncompleteDocumentsWithoutOpenJobs` →
-> `ingestion-recovery`, driven by the Ingestion Autopilot) — but note that
-> autopilot currently runs read-only unless `INGESTION_AUTOPILOT_APPLY=true`.
-> **If a document inserted outside the app upload path must never be dropped,
-> rely on the recovery path (enable `INGESTION_AUTOPILOT_APPLY=true`) or a
-> transactional outbox — not on webhook delivery.** This trigger is a low-latency
-> optimisation on top of that recovery layer, not a replacement for it.
+> no-retry limitation today.
+>
+> **There is no _automatic_ recovery for a dropped delivery.** A fresh insert
+> lands as `status = 'queued'` with no `ingestion_jobs` row, but the scheduled
+> Ingestion Autopilot's health check (`assessIngestionHealth`) only flags _failed_
+> or _stale-processing_ jobs — it never looks at queued documents that have no job
+> — so it reports healthy and never enqueues them, even with
+> `INGESTION_AUTOPILOT_APPLY=true`. The predicate that _does_ detect this case,
+> `hasIncompleteDocumentsWithoutOpenJobs`, is wired only into the **manual**
+> `scripts/reindex.ts` CLI, so recovery of a dropped-webhook insert is an operator
+> running that command on demand, not something that self-heals.
+>
+> **So for a document inserted outside the app upload path that must never be
+> dropped, do not rely on webhook delivery at all** — ingest it through the app
+> upload route (which enqueues its job transactionally), or add a transactional
+> outbox / a scheduled sweep that enqueues `queued`/`reindex_requested` rows with
+> no open job. This trigger is a low-latency optimisation, not a delivery
+> guarantee.
 
 ```sql
 create or replace function public.notify_document_change_ingestion_webhook()
@@ -236,4 +246,5 @@ as the raw trigger; see the note above). Its trade-offs: it fires on _every_
 update (the receiver then skips the non-actionable ones, versus the SQL gating
 above), and the dashboard-created object is operator/live state that must be
 recorded in `supabase/drift-allowlist.json` if it appears in the drift inventory.
-For durability, rely on the recovery path, not this.
+It adds **no** delivery guarantee — see the at-most-once note above for why neither
+path self-heals a dropped insert.
