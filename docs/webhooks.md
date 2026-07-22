@@ -181,9 +181,16 @@ missing or the POST fails (it just does nothing, mirroring the receiver's inert
 > (A scheduled sweep should do the same clear-then-flip, or target `queued` rows
 > with no open job directly.) **So for a document that must never be left
 > unindexed, do not rely on webhook delivery alone** — ingest it through the app
-> upload route (which enqueues its job transactionally), or use the insert-then-flag
-> pattern below and confirm the job appears. This trigger is a low-latency
-> optimisation, not a delivery guarantee.
+> upload route and confirm the job appears, or use the insert-then-flag pattern
+> below. Note the upload route is **not** fully transactional either: it inserts
+> the `documents` row and then the `ingestion_jobs` row as two separate calls,
+> deleting the document only if the job insert returns an error
+> (`src/app/api/upload/route.ts`). Under normal operation that rollback prevents
+> an orphan, but a process crash/timeout/kill _between_ the two inserts can still
+> strand the same `queued`-without-job row nothing sweeps. The only true
+> must-never-drop guarantees are an atomic enqueue (document + job in one
+> transaction/RPC) or a scheduled queued-without-job sweep. This trigger is a
+> low-latency optimisation, not a delivery guarantee.
 
 ```sql
 create or replace function public.notify_document_change_ingestion_webhook()
