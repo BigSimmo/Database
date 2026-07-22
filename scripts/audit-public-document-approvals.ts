@@ -28,11 +28,14 @@ async function main() {
   const approvalIds = documents
     .map((document) => String(document.metadata?.publication_approval_id ?? ""))
     .filter(Boolean);
-  const approvals = new Map<string, { document_id: string; manifest_digest: string; decision: string }>();
+  const approvals = new Map<
+    string,
+    { document_id: string; manifest_digest: string; reviewed_state_digest: string | null; decision: string }
+  >();
   for (let index = 0; index < approvalIds.length; index += PAGE_SIZE) {
     const { data, error } = await supabase
       .from("document_publication_approvals")
-      .select("id, document_id, manifest_digest, decision")
+      .select("id, document_id, manifest_digest, reviewed_state_digest, decision")
       .in("id", approvalIds.slice(index, index + PAGE_SIZE));
     if (error) throw new Error(error.message);
     for (const approval of data ?? []) approvals.set(approval.id, approval);
@@ -41,12 +44,15 @@ async function main() {
   const missing = documents.filter((document) => {
     const approvalId = String(document.metadata?.publication_approval_id ?? "");
     const digest = String(document.metadata?.publication_manifest_digest ?? "");
+    const reviewedStateDigest = String(document.metadata?.publication_reviewed_state_digest ?? "");
     const approval = approvals.get(approvalId);
     return (
       !approval ||
       approval.document_id !== document.id ||
       approval.decision !== "approved" ||
-      approval.manifest_digest !== digest
+      approval.manifest_digest !== digest ||
+      !approval.reviewed_state_digest ||
+      approval.reviewed_state_digest !== reviewedStateDigest
     );
   });
 

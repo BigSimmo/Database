@@ -900,6 +900,7 @@ export type Database = {
           id: string;
           manifest_digest: string;
           reason: string;
+          reviewed_state_digest: string | null;
         };
         Insert: {
           approved_at?: string;
@@ -911,6 +912,7 @@ export type Database = {
           id?: string;
           manifest_digest: string;
           reason: string;
+          reviewed_state_digest?: string | null;
         };
         Update: {
           approved_at?: string;
@@ -922,6 +924,7 @@ export type Database = {
           id?: string;
           manifest_digest?: string;
           reason?: string;
+          reviewed_state_digest?: string | null;
         };
         Relationships: [];
       };
@@ -2839,6 +2842,10 @@ export type Database = {
       retrieval_owner_matches_v2: {
         Args: { owner_filter: string; row_owner_id: string | null; include_public?: boolean };
         Returns: boolean;
+      };
+      document_publication_state_digest: {
+        Args: { p_document_id: string; p_expected_owner_id: string };
+        Returns: string;
       };
       publish_approved_documents: {
         Args: {

@@ -7816,7 +7816,10 @@ create table if not exists public.document_publication_approvals (
   reason text not null check (char_length(trim(reason)) between 3 and 2000),
   evidence_references text[] not null check (cardinality(evidence_references) > 0),
   manifest_digest text not null check (manifest_digest ~ '^[0-9a-f]{64}$'),
+  reviewed_state_digest text,
   approved_at timestamptz not null default now(),
+  constraint document_publication_approvals_reviewed_state_digest_format
+    check (reviewed_state_digest is null or reviewed_state_digest ~ '^[0-9a-f]{64}$'),
   unique (document_id, expected_prior_owner_id, manifest_digest)
 );
 
@@ -7848,6 +7851,67 @@ create trigger document_publication_approvals_immutable
 before update or delete on public.document_publication_approvals
 for each row execute function public.prevent_document_publication_approval_mutation();
 
+create or replace function public.document_publication_state_digest(
+  p_document_id uuid,
+  p_expected_owner_id uuid
+)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select encode(
+    extensions.digest(
+      convert_to(
+        jsonb_build_object(
+          'document', to_jsonb(d) - array['owner_id', 'created_at', 'updated_at', 'search_tsv', 'title_search_tsv'],
+          'pages', coalesce((select jsonb_agg(to_jsonb(p) - array['created_at', 'updated_at'] order by p.page_number, p.id) from public.document_pages p where p.document_id = d.id), '[]'::jsonb),
+          'images', coalesce((select jsonb_agg(to_jsonb(i) - array['created_at', 'updated_at'] order by i.page_number nulls last, i.id) from public.document_images i where i.document_id = d.id and (nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '') is null or public.is_committed_artifact_generation(i.metadata, d.metadata))), '[]'::jsonb),
+          'labels', coalesce((select jsonb_agg(to_jsonb(l) - array['owner_id', 'created_at', 'updated_at'] order by l.id) from public.document_labels l where l.document_id = d.id), '[]'::jsonb),
+          'summaries', coalesce((select jsonb_agg(to_jsonb(s) - array['owner_id', 'created_at', 'updated_at'] order by s.id) from public.document_summaries s where s.document_id = d.id), '[]'::jsonb),
+          'sections', coalesce((select jsonb_agg(to_jsonb(s) - array['owner_id', 'created_at', 'updated_at'] order by s.section_index, s.id) from public.document_sections s where s.document_id = d.id and public.is_committed_artifact_generation(s.metadata, d.metadata)), '[]'::jsonb),
+          'memory_cards', coalesce((select jsonb_agg(to_jsonb(m) - array['owner_id', 'embedding', 'search_tsv', 'created_at', 'updated_at'] order by m.id) from public.document_memory_cards m where m.document_id = d.id and (nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '') is null or public.is_committed_artifact_generation(m.metadata, d.metadata))), '[]'::jsonb),
+          'chunks', coalesce((select jsonb_agg(to_jsonb(c) - array['embedding', 'search_tsv', 'created_at'] order by c.chunk_index, c.id) from public.document_chunks c where c.document_id = d.id and (public.is_committed_document_generation(c.index_generation_id, d.index_generation_id) or nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '') is null or public.is_committed_artifact_generation(c.metadata, d.metadata))), '[]'::jsonb),
+          'table_facts', coalesce((select jsonb_agg(to_jsonb(f) - array['owner_id', 'search_tsv', 'created_at'] order by f.id) from public.document_table_facts f where f.document_id = d.id and (nullif(coalesce(d.metadata, '{}'::jsonb)->>'index_generation_id', '') is null or public.is_committed_artifact_generation(f.metadata, d.metadata))), '[]'::jsonb),
+          'embedding_fields', coalesce((select jsonb_agg(to_jsonb(f) - array['owner_id', 'embedding', 'search_tsv', 'created_at'] order by f.id) from public.document_embedding_fields f where f.document_id = d.id and public.is_committed_artifact_generation(f.metadata, d.metadata)), '[]'::jsonb),
+          'index_quality', coalesce((select to_jsonb(q) - array['owner_id', 'updated_at'] from public.document_index_quality q where q.document_id = d.id), '{}'::jsonb),
+          'index_units', coalesce((select jsonb_agg(to_jsonb(u) - array['owner_id', 'embedding', 'search_tsv', 'created_at', 'updated_at'] order by u.id) from public.document_index_units u where u.document_id = d.id and public.is_committed_artifact_generation(u.metadata, d.metadata)), '[]'::jsonb)
+        )::text,
+        'UTF8'
+      ),
+      'sha256'
+    ),
+    'hex'
+  )
+  from public.documents d
+  where d.id = p_document_id
+    and d.owner_id = p_expected_owner_id;
+$$;
+
+revoke all on function public.document_publication_state_digest(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.document_publication_state_digest(uuid, uuid) to service_role;
+
+create or replace function public.require_document_publication_approval_state_digest()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.reviewed_state_digest is null then
+    raise exception 'publication approval requires a reviewed content/state digest';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.require_document_publication_approval_state_digest() from public, anon, authenticated;
+
+drop trigger if exists document_publication_approvals_require_state_digest on public.document_publication_approvals;
+create trigger document_publication_approvals_require_state_digest
+before insert on public.document_publication_approvals
+for each row execute function public.require_document_publication_approval_state_digest();
+
 create or replace function public.guard_document_publication_transition()
 returns trigger
 language plpgsql
@@ -7856,6 +7920,8 @@ as $$
 declare
   v_approval_id uuid;
   v_manifest_digest text;
+  v_reviewed_state_digest text;
+  v_current_state_digest text;
 begin
   if tg_op = 'INSERT' then
     if new.owner_id is null then
@@ -7871,8 +7937,11 @@ begin
       raise exception 'public document transition has an invalid publication approval id';
     end;
     v_manifest_digest := lower(coalesce(new.metadata->>'publication_manifest_digest', ''));
+    v_reviewed_state_digest := lower(coalesce(new.metadata->>'publication_reviewed_state_digest', ''));
 
-    if v_approval_id is null or v_manifest_digest !~ '^[0-9a-f]{64}$' then
+    if v_approval_id is null
+      or v_manifest_digest !~ '^[0-9a-f]{64}$'
+      or v_reviewed_state_digest !~ '^[0-9a-f]{64}$' then
       raise exception 'public document transition requires publication approval evidence';
     end if;
 
@@ -7884,8 +7953,45 @@ begin
         and approval.expected_prior_owner_id = old.owner_id
         and approval.decision = 'approved'
         and approval.manifest_digest = v_manifest_digest
+        and approval.reviewed_state_digest = v_reviewed_state_digest
     ) then
-      raise exception 'public document transition approval does not match the document, prior owner, decision, and manifest';
+      raise exception 'public document transition approval does not match the reviewed document state';
+    end if;
+
+    perform 1 from public.document_pages where document_id = old.id for update;
+    perform 1 from public.document_images where document_id = old.id for update;
+    perform 1 from public.document_labels where document_id = old.id for update;
+    perform 1 from public.document_summaries where document_id = old.id for update;
+    perform 1 from public.document_sections where document_id = old.id for update;
+    perform 1 from public.document_memory_cards where document_id = old.id for update;
+    perform 1 from public.document_chunks where document_id = old.id for update;
+    perform 1 from public.document_table_facts where document_id = old.id for update;
+    perform 1 from public.document_embedding_fields where document_id = old.id for update;
+    perform 1 from public.document_index_quality where document_id = old.id for update;
+    perform 1 from public.document_index_units where document_id = old.id for update;
+
+    begin
+      perform 1 from public.ingestion_jobs where document_id = old.id for update nowait;
+      perform 1 from public.indexing_v3_agent_jobs where document_id = old.id for update nowait;
+    exception when lock_not_available then
+      raise exception 'public document transition has active ingestion work';
+    end;
+    if exists (
+      select 1 from public.ingestion_jobs
+      where document_id = old.id and status in ('pending', 'processing')
+    ) or exists (
+      select 1 from public.indexing_v3_agent_jobs
+      where document_id = old.id
+        and status not in ('completed', 'needs_enrichment_artifacts')
+        and enrichment_status in ('pending', 'failed', 'processing')
+        and attempt_count < max_attempts
+    ) then
+      raise exception 'public document transition has active ingestion work';
+    end if;
+
+    v_current_state_digest := public.document_publication_state_digest(old.id, old.owner_id);
+    if v_current_state_digest is distinct from v_reviewed_state_digest then
+      raise exception 'public document transition content changed after review';
     end if;
   end if;
   return new;
@@ -7914,6 +8020,8 @@ declare
   v_document public.documents%rowtype;
   v_document_id uuid;
   v_expected_owner_id uuid;
+  v_expected_state_digest text;
+  v_current_state_digest text;
   v_approval_id uuid;
   v_manifest_digest text := lower(trim(coalesce(p_manifest_digest, '')));
   v_count integer;
@@ -7947,10 +8055,17 @@ begin
     exception when invalid_text_representation then
       raise exception 'publication manifest contains an invalid document or owner id';
     end;
+    v_expected_state_digest := lower(coalesce(v_entry->>'expected_state_digest', ''));
     if v_document_id is null or v_expected_owner_id is null then
       raise exception 'publication manifest requires document_id and expected_owner_id';
     end if;
+    if v_expected_state_digest !~ '^[0-9a-f]{64}$' then
+      raise exception 'publication manifest requires expected_state_digest';
+    end if;
 
+    -- The parent lock serializes document/generation changes and conflicts with
+    -- FK key-share locks taken by new child rows. Existing artifact rows are
+    -- locked below before the canonical state digest is recomputed.
     select * into v_document
     from public.documents
     where id = v_document_id
@@ -7965,12 +8080,44 @@ begin
       raise exception 'publication document % is not indexed', v_document_id;
     end if;
 
+    perform 1 from public.document_pages where document_id = v_document_id for update;
+    perform 1 from public.document_images where document_id = v_document_id for update;
+    perform 1 from public.document_labels where document_id = v_document_id for update;
+    perform 1 from public.document_summaries where document_id = v_document_id for update;
+    perform 1 from public.document_sections where document_id = v_document_id for update;
+    perform 1 from public.document_memory_cards where document_id = v_document_id for update;
+    perform 1 from public.document_chunks where document_id = v_document_id for update;
+    perform 1 from public.document_table_facts where document_id = v_document_id for update;
+    perform 1 from public.document_embedding_fields where document_id = v_document_id for update;
+    perform 1 from public.document_index_quality where document_id = v_document_id for update;
+    perform 1 from public.document_index_units where document_id = v_document_id for update;
+
+    begin
+      perform 1 from public.ingestion_jobs where document_id = v_document_id for update nowait;
+      perform 1 from public.indexing_v3_agent_jobs where document_id = v_document_id for update nowait;
+    exception when lock_not_available then
+      raise exception 'publication document % has active ingestion work', v_document_id;
+    end;
+    if exists (
+      select 1 from public.ingestion_jobs
+      where document_id = v_document_id and status in ('pending', 'processing')
+    ) or exists (
+      select 1 from public.indexing_v3_agent_jobs
+      where document_id = v_document_id
+        and status not in ('completed', 'needs_enrichment_artifacts')
+        and enrichment_status in ('pending', 'failed', 'processing')
+        and attempt_count < max_attempts
+    ) then
+      raise exception 'publication document % has active ingestion work', v_document_id;
+    end if;
+
     select approval.id into v_approval_id
     from public.document_publication_approvals approval
     where approval.document_id = v_document_id
       and approval.expected_prior_owner_id = v_expected_owner_id
       and approval.decision = 'approved'
       and approval.manifest_digest = v_manifest_digest
+      and approval.reviewed_state_digest = v_expected_state_digest
     order by approval.approved_at desc, approval.id desc
     limit 1;
     if v_approval_id is null then
@@ -7990,6 +8137,11 @@ begin
       raise exception 'publication document % has mismatched artifact ownership', v_document_id;
     end if;
 
+    v_current_state_digest := public.document_publication_state_digest(v_document_id, v_expected_owner_id);
+    if v_current_state_digest is distinct from v_expected_state_digest then
+      raise exception 'publication document % changed after review', v_document_id;
+    end if;
+
     update public.document_labels set owner_id = null, updated_at = now() where document_id = v_document_id;
     update public.document_summaries set owner_id = null, updated_at = now() where document_id = v_document_id;
     update public.document_sections set owner_id = null, updated_at = now() where document_id = v_document_id;
@@ -8005,6 +8157,7 @@ begin
           'public_corpus', true,
           'publication_approval_id', v_approval_id,
           'publication_manifest_digest', v_manifest_digest,
+          'publication_reviewed_state_digest', v_expected_state_digest,
           'published_at', now()
         ),
         updated_at = now()
@@ -8014,6 +8167,7 @@ begin
       'document_id', v_document_id,
       'previous_owner_id', v_expected_owner_id,
       'approval_id', v_approval_id,
+      'reviewed_state_digest', v_expected_state_digest,
       'outcome', 'published'
     ));
   end loop;
