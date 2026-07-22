@@ -156,14 +156,23 @@ missing or the POST fails (it just does nothing, mirroring the receiver's inert
 > explicitly requires `queuedDocuments === 0` (`src/lib/reindex-pipeline.ts`), so a
 > stranded `queued`-without-job row matches neither — it stays unindexed.
 >
-> **To recover a stranded row, flip its flag** — an `UPDATE` that sets
-> `metadata.reindex_requested = true` fires this trigger and enqueues it (the same
-> path external imports use, below). **So for a document that must never be left
+> **To recover a stranded row, make the flag transition happen.** An `UPDATE` that
+> sets `metadata.reindex_requested = true` fires this trigger only when the value
+> actually _changes_ to true. A row stranded because the original flip's delivery
+> was lost already has the flag `true`, so setting it `true` again is a no-op
+> `true → true` that will **not** re-fire — you must **clear it, then set it**:
+>
+> ```sql
+> update public.documents set metadata = metadata || '{"reindex_requested": false}'::jsonb where id = '<id>';
+> update public.documents set metadata = metadata || '{"reindex_requested": true}'::jsonb  where id = '<id>';
+> ```
+>
+> (A scheduled sweep should do the same clear-then-flip, or target `queued` rows
+> with no open job directly.) **So for a document that must never be left
 > unindexed, do not rely on webhook delivery alone** — ingest it through the app
-> upload route (which enqueues its job transactionally), drive it through the
-> insert-then-flag pattern below and confirm the job appears, or add a scheduled
-> sweep that flips `reindex_requested` on `queued` rows with no open job. This
-> trigger is a low-latency optimisation, not a delivery guarantee.
+> upload route (which enqueues its job transactionally), or use the insert-then-flag
+> pattern below and confirm the job appears. This trigger is a low-latency
+> optimisation, not a delivery guarantee.
 
 ```sql
 create or replace function public.notify_document_change_ingestion_webhook()
