@@ -276,14 +276,14 @@ trigger POSTs, the receiver enqueues the job and clears the flag.
 > Then confirm an `ingestion_jobs` row appears for that document.
 
 **Managed alternative (dashboard convenience).** A Supabase **Database Webhook**
-on `public.documents` (INSERT/UPDATE) pointed at the URL above with an
-`Authorization: Bearer <secret>` header avoids writing the trigger SQL yourself.
-Its only real advantage over the committed migration is convenience — it does
-**not** buy you at-least-once delivery (it wraps pg_net, same no-retry limitation
-as the raw trigger; see the note above). **Scope it to `UPDATE` only** — a managed
-webhook on `INSERT` re-introduces exactly the upload-race the SQL trigger avoids
-(the upload route deletes its document if a webhook enqueue beats its own job
-insert). Its other trade-offs: it fires on _every_ update (the receiver then skips
+on `public.documents` scoped to **`UPDATE` events only** — do **not** tick
+`INSERT` — pointed at the URL above with an `Authorization: Bearer <secret>`
+header avoids writing the trigger SQL yourself. An `INSERT` webhook re-introduces
+exactly the upload-race the SQL trigger avoids (the upload route deletes its
+document if a webhook enqueue beats its own job insert), so `UPDATE`-only is not
+optional here. Its only real advantage over the committed migration is
+convenience — it does **not** buy you at-least-once delivery (it wraps pg_net,
+same no-retry limitation as the raw trigger; see the note above). Its other trade-offs: it fires on _every_ update (the receiver then skips
 the non-actionable ones, versus the SQL gating above), and the dashboard-created
 object is operator/live state that must be recorded in
 `supabase/drift-allowlist.json` if it appears in the drift inventory. It adds
