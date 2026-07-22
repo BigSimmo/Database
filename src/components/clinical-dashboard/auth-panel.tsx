@@ -4,7 +4,7 @@ import { type FormEvent, useState, useSyncExternalStore } from "react";
 import {
   ChevronRight,
   Clock3,
-  FileText,
+  Heart,
   LogOut,
   Mail,
   ShieldAlert,
@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 import { ProviderBrandIcon } from "@/components/clinical-dashboard/provider-brand-icons";
-import { AUTH_EMAIL_STORAGE_KEY, type OAuthProvider, useAuthSession } from "@/lib/supabase/client";
+import { AUTH_EMAIL_STORAGE_KEY, useAuthSession } from "@/lib/supabase/client";
 import {
   AsyncButton,
   cn,
@@ -65,7 +65,6 @@ export function AuthPanel() {
   const { status, error, notice, isConfigured, signInWithEmail, signInWithOAuth, signOut, session } = useAuthSession();
   const savedEmail = useSyncExternalStore(subscribeAuthEmail, getAuthEmailSnapshot, getServerAuthEmailSnapshot);
   const [draftEmail, setDraftEmail] = useState<string | null>(null);
-  const [providerNotice, setProviderNotice] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const email = draftEmail ?? savedEmail;
   const busy = status === "loading";
@@ -85,19 +84,11 @@ export function AuthPanel() {
       return;
     }
     setEmailError(null);
-    setProviderNotice(null);
     await signInWithEmail(trimmed);
   }
 
-  async function chooseProvider(provider: "Apple" | "Google" | "Microsoft") {
-    setProviderNotice(null);
-    const providerId: OAuthProvider | null =
-      provider === "Google" ? "google" : provider === "Microsoft" ? "azure" : null;
-    if (providerId) {
-      await signInWithOAuth(providerId);
-      return;
-    }
-    setProviderNotice(`${provider} sign-in is a placeholder for now. Continue with email to use this workspace.`);
+  async function chooseProvider(provider: "Google" | "Microsoft") {
+    await signInWithOAuth(provider === "Google" ? "google" : "azure");
   }
 
   if (!isConfigured) {
@@ -157,7 +148,7 @@ export function AuthPanel() {
             <p className={cn("mt-1 text-sm leading-5", textMuted)}>
               {isExpired
                 ? "Send a fresh link if this one failed or timed out."
-                : "Save searches, source history, and clinical defaults. Do not enter PHI."}
+                : "Save favourites and clinical defaults across signed-in devices. Do not enter PHI."}
             </p>
           </div>
         </div>
@@ -226,40 +217,58 @@ export function AuthPanel() {
         </div>
 
         <div className="grid gap-2">
-          <ProviderButton provider="Apple" onClick={() => chooseProvider("Apple")} />
+          <ProviderButton provider="Apple" disabled />
           <ProviderButton provider="Google" onClick={() => chooseProvider("Google")} />
           <ProviderButton provider="Microsoft" onClick={() => chooseProvider("Microsoft")} />
         </div>
 
+        <p id="auth-apple-sign-in-unavailable" className="text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+          Apple sign-in is unavailable. Continue with email, Google, or Microsoft.
+        </p>
+
         <div className="grid grid-cols-3 gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-subtle)] p-2 shadow-[var(--shadow-inset)]">
           <AuthBenefit icon={SlidersHorizontal} label="Clinical defaults" />
-          <AuthBenefit icon={Clock3} label="Source history" />
-          <AuthBenefit icon={FileText} label="Saved sources" />
+          <AuthBenefit icon={Heart} label="Saved favourites" />
+          <AuthBenefit icon={Clock3} label="Local recents" />
         </div>
 
         <p className="flex items-start gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
           <ShieldCheck aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
-          Accounts save preferences and search history. No PHI is required.
+          Accounts save favourites and preferences. Recent searches stay in this browser session. No PHI is required.
         </p>
 
         {notice && <InlineNotice tone="success">{notice}</InlineNotice>}
-        {providerNotice && <InlineNotice tone="info">{providerNotice}</InlineNotice>}
         {error && <InlineNotice tone="danger">{error}</InlineNotice>}
       </div>
     </form>
   );
 }
 
-function ProviderButton({ provider, onClick }: { provider: "Apple" | "Google" | "Microsoft"; onClick: () => void }) {
+function ProviderButton({
+  provider,
+  onClick,
+  disabled = false,
+}: {
+  provider: "Apple" | "Google" | "Microsoft";
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-tap w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+      disabled={disabled}
+      title={disabled ? "Apple sign-in is unavailable. Continue with email, Google, or Microsoft." : undefined}
+      aria-describedby={disabled ? "auth-apple-sign-in-unavailable" : undefined}
+      className="flex min-h-tap w-full items-center gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-left text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:opacity-75 disabled:shadow-none"
     >
       <ProviderMark provider={provider} />
-      <span className="min-w-0 flex-1 truncate">Continue with {provider}</span>
-      <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+      <span className="min-w-0 flex-1 truncate">
+        {disabled ? `${provider} sign-in unavailable` : `Continue with ${provider}`}
+      </span>
+      {!disabled ? (
+        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
+      ) : null}
     </button>
   );
 }

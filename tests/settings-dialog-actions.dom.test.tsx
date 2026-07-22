@@ -139,4 +139,15 @@ describe("SettingsDialog — destructive and account actions", () => {
 
     expect(signInWithEmail).toHaveBeenCalledWith("clinician@clinic.example");
   });
+
+  it("clearly disables unavailable Apple sign-in", () => {
+    renderDialog({ signedIn: false });
+    fireEvent.click(screen.getAllByRole("button", { name: "Sign in" })[0]);
+
+    const apple = screen.getByRole("button", { name: "Apple sign-in unavailable" });
+    expect(apple).toBeDisabled();
+    expect(apple).toHaveAttribute("title", "Apple sign-in is unavailable. Continue with email, Google, or Microsoft.");
+    expect(screen.getByRole("button", { name: "Google" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Microsoft" })).toBeEnabled();
+  });
 });

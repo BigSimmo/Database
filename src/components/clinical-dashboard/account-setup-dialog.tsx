@@ -1,7 +1,7 @@
 "use client";
 
 import { type FormEvent, useRef, useState } from "react";
-import { Clock3, FileText, Heart, LockKeyhole, Mail, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
+import { Clock3, Heart, LockKeyhole, Mail, ShieldCheck, SlidersHorizontal, X } from "lucide-react";
 
 import { BrandMark } from "@/components/clinical-dashboard/brand";
 import { ProviderBrandIcon, type SsoProvider } from "@/components/clinical-dashboard/provider-brand-icons";
@@ -19,8 +19,8 @@ import { useAuthSession } from "@/lib/supabase/client";
 
 const accountBenefits = [
   {
-    label: "Search history",
-    detail: "Pick up recent questions on any device.",
+    label: "Local recents",
+    detail: "Recent questions stay in this browser session.",
     icon: Clock3,
   },
   {
@@ -29,9 +29,9 @@ const accountBenefits = [
     icon: SlidersHorizontal,
   },
   {
-    label: "Saved sources",
-    detail: "Keep the guidelines you rely on close.",
-    icon: FileText,
+    label: "Saved favourites",
+    detail: "Reopen favourite clinical tools across signed-in devices.",
+    icon: Heart,
   },
 ] as const;
 
@@ -42,8 +42,8 @@ const favouritesAccountBenefits = [
     icon: Heart,
   },
   {
-    label: "Search history",
-    detail: "Pick up recent questions on any device.",
+    label: "Local recents",
+    detail: "Recent questions stay in this browser session.",
     icon: Clock3,
   },
   {
@@ -55,8 +55,8 @@ const favouritesAccountBenefits = [
 
 const securitySummary = [
   {
-    label: "Private workspace",
-    detail: "Your data stays private and is never shared.",
+    label: "Account-scoped saves",
+    detail: "Favourites and preferences are stored with your account.",
     icon: ShieldCheck,
   },
   {
@@ -84,35 +84,24 @@ export function AccountSetupDialog({
   const auth = useAuthSession();
   const emailInputRef = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState("");
-  const [providerNotice, setProviderNotice] = useState<string | null>(null);
   const [emailAttempted, setEmailAttempted] = useState(false);
   const busy = auth.status === "loading";
-  const statusMessage = providerNotice ?? (emailAttempted ? auth.error : null);
-  // Only a submit error (not the SSO provider notice) marks the email field
-  // invalid and is associated to it, so assistive tech ties the alert to the
-  // control the user must correct.
-  const emailHasError = !providerNotice && Boolean(statusMessage);
+  const statusMessage = emailAttempted ? auth.error : null;
+  const emailHasError = Boolean(statusMessage);
   const isFavouritesIntent = intent === "favourites";
   const benefits = isFavouritesIntent ? favouritesAccountBenefits : accountBenefits;
   const title = isFavouritesIntent ? "Sign up to save favourites" : "Set up your workspace";
   const subtitle = isFavouritesIntent
     ? "Create an account to save clinical favourites and access them across devices."
-    : "Sync source preferences, search history, and clinical defaults across devices.";
-  const benefitsHeading = isFavouritesIntent
-    ? "Favourites stay with your account"
-    : "Everything syncs across your devices";
+    : "Sync favourites and clinical defaults across signed-in devices. Recent searches stay in this browser session.";
+  const benefitsHeading = isFavouritesIntent ? "Favourites stay with your account" : "What your account saves";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedEmail = email.trim();
     if (!trimmedEmail) return;
-    setProviderNotice(null);
     setEmailAttempted(true);
     await auth.signInWithEmail(trimmedEmail);
-  }
-
-  function chooseProvider(provider: SsoProvider) {
-    setProviderNotice(`${provider} sign-in is not connected yet. Continue with email to set up this workspace.`);
   }
 
   return (
@@ -193,15 +182,18 @@ export function AccountSetupDialog({
             <div className="grid gap-3">
               <div className="flex items-center gap-3 text-xs font-medium text-[color:var(--text-soft)]">
                 <span className="h-px flex-1 bg-[color:var(--border)]" />
-                <span>or continue with</span>
+                <span>Social sign-in unavailable</span>
                 <span className="h-px flex-1 bg-[color:var(--border)]" />
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 {(["Apple", "Google", "Microsoft"] as const).map((provider) => (
-                  <ProviderButton key={provider} provider={provider} onClick={() => chooseProvider(provider)} />
+                  <ProviderButton key={provider} provider={provider} />
                 ))}
               </div>
+              <p id="account-social-sign-in-unavailable" className={cn("text-center text-xs leading-5", textMuted)}>
+                Continue with email. Social sign-in is not available in this setup.
+              </p>
             </div>
 
             <section
@@ -272,7 +264,7 @@ export function AccountSetupDialog({
             {statusMessage ? (
               <p
                 id="account-setup-status"
-                role={providerNotice ? "status" : "alert"}
+                role="alert"
                 className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] px-3 py-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
               >
                 {statusMessage}
@@ -296,15 +288,19 @@ export function AccountSetupDialog({
   );
 }
 
-function ProviderButton({ provider, onClick }: { provider: SsoProvider; onClick: () => void }) {
+function ProviderButton({ provider }: { provider: SsoProvider }) {
   return (
     <button
       type="button"
-      onClick={onClick}
-      className="flex min-h-tap min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] min-[375px]:gap-2 min-[375px]:px-2 sm:text-sm"
+      disabled
+      title={`${provider} sign-in is unavailable. Continue with email.`}
+      aria-label={`${provider} sign-in unavailable`}
+      aria-describedby="account-social-sign-in-unavailable"
+      className="flex min-h-tap min-w-0 items-center justify-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-1.5 text-xs font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--disabled)] disabled:opacity-75 disabled:shadow-none min-[375px]:gap-2 min-[375px]:px-2 sm:text-sm"
     >
       <ProviderBrandIcon provider={provider} className="h-5 w-5" />
       <span className="min-w-0 text-2xs leading-none min-[375px]:text-xs sm:text-sm">{provider}</span>
+      <span className="sr-only"> sign-in unavailable</span>
     </button>
   );
 }

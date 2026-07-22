@@ -835,10 +835,11 @@ async function expectAccountSetupSurface(setup: Locator) {
   await expect(setup.getByRole("heading", { name: "Set up your workspace" })).toBeVisible();
   await expect(setup.getByLabel("Email address")).toBeVisible();
   await expect(setup.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Apple" })).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Google" })).toBeVisible();
-  await expect(setup.getByRole("button", { name: "Microsoft" })).toBeVisible();
-  await expect(setup.getByRole("heading", { name: "Everything syncs across your devices" })).toBeVisible();
+  await expect(setup.getByRole("button", { name: "Apple sign-in unavailable" })).toBeDisabled();
+  await expect(setup.getByRole("button", { name: "Google sign-in unavailable" })).toBeDisabled();
+  await expect(setup.getByRole("button", { name: "Microsoft sign-in unavailable" })).toBeDisabled();
+  await expect(setup.getByRole("heading", { name: "What your account saves" })).toBeVisible();
+  await expect(setup.getByText(/Recent questions stay in this browser session/i)).toBeVisible();
   await expect(setup.getByRole("heading", { name: "Security summary" })).toBeVisible();
   await expect(setup.getByText("No PHI required")).toBeVisible();
   await expect(setup).toContainText("Do not enter patient-identifying information.");
