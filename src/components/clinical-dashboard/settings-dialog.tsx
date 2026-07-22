@@ -53,6 +53,7 @@ import {
   primaryControl,
   toggleThumbSurface,
 } from "@/components/ui-primitives";
+import { ProviderBrandMark } from "@/components/clinical-dashboard/provider-brand-icons";
 import { Sheet } from "@/components/ui/sheet";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ThemePreference } from "@/lib/theme";
@@ -1160,39 +1161,11 @@ function SettingsProviderRow({
           <Mail aria-hidden="true" className="h-4 w-4" />
         </span>
       ) : (
-        <SettingsProviderMark provider={provider} />
+        <ProviderBrandMark provider={provider} />
       )}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
     </button>
-  );
-}
-
-function SettingsProviderMark({ provider }: { provider: "Apple" | "Google" | "Microsoft" }) {
-  if (provider === "Microsoft") {
-    return (
-      <span
-        className="grid h-7 w-7 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
-        aria-hidden="true"
-      >
-        <span className="bg-[#f25022]" />
-        <span className="bg-[#7fba00]" />
-        <span className="bg-[#00a4ef]" />
-        <span className="bg-[#ffb900]" />
-      </span>
-    );
-  }
-
-  return (
-    <span
-      aria-hidden="true"
-      className={cn(
-        "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-base font-bold leading-none shadow-[var(--shadow-inset)]",
-        provider === "Apple" ? "text-[color:var(--text-heading)]" : "text-[#4285f4]",
-      )}
-    >
-      {provider === "Apple" ? "A" : "G"}
-    </span>
   );
 }
 

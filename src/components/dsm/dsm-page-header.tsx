@@ -37,7 +37,7 @@ export function DsmPageHeader({
               {eyebrow}
             </p>
             <div className="mt-1.5 flex min-w-0 items-start gap-3">
-              <span className="mt-0.5 hidden h-11 w-11 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:grid">
+              <span className="mt-0.5 hidden h-tap w-tap shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:grid">
                 <BookOpenCheck className="h-5 w-5" aria-hidden />
               </span>
               <div className="min-w-0">
