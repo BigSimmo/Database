@@ -3,7 +3,11 @@ import { rm } from "node:fs/promises";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 
-import { DocxExtractionBudgetTracker, type DocxExtractionBudget } from "@/lib/extractors/docx-extraction-budget";
+import {
+  assertDeclaredDocxMediaBudget,
+  DocxExtractionBudgetTracker,
+  type DocxExtractionBudget,
+} from "@/lib/extractors/docx-extraction-budget";
 import { extractDocument } from "@/lib/extractors/document";
 
 const docxMime = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -74,6 +78,15 @@ describe("DOCX extraction budgets", () => {
     expect(() => aggregate.addArtifact(1)).toThrow(
       "DOCX_EXTRACTION_BUDGET_EXCEEDED: aggregate artifact bytes exceed 6",
     );
+  });
+
+  it("preflights declared media sizes before entries are inflated", () => {
+    expect(() => assertDeclaredDocxMediaBudget([{ _data: { uncompressedSize: 5 } }], limits)).toThrow(
+      "DOCX_EXTRACTION_BUDGET_EXCEEDED: single artifact bytes 5 exceed 4",
+    );
+    expect(() =>
+      assertDeclaredDocxMediaBudget([{ _data: { uncompressedSize: 4 } }, { _data: { uncompressedSize: 3 } }], limits),
+    ).toThrow("DOCX_EXTRACTION_BUDGET_EXCEEDED: aggregate artifact bytes exceed 6");
   });
 
   it("measures extracted text as UTF-8 bytes", () => {

@@ -12,6 +12,10 @@ export type DocxExtractionBudget = {
   maxTextBytes: number;
 };
 
+type DocxMediaBudgetEntry = {
+  _data?: { uncompressedSize?: number };
+};
+
 function budgetExceeded(message: string): never {
   throw new Error(`DOCX_EXTRACTION_BUDGET_EXCEEDED: ${message}`);
 }
@@ -60,5 +64,16 @@ export class DocxExtractionBudgetTracker {
     }
     this.artifactCount = nextArtifactCount;
     this.artifactBytes = nextArtifactBytes;
+  }
+}
+
+export function assertDeclaredDocxMediaBudget(
+  entries: readonly unknown[],
+  limits: DocxExtractionBudget = DOCX_EXTRACTION_BUDGET,
+) {
+  const budget = new DocxExtractionBudgetTracker(limits);
+  budget.assertArtifactCount(entries.length);
+  for (const entry of entries) {
+    budget.addArtifact(Number((entry as DocxMediaBudgetEntry)._data?.uncompressedSize));
   }
 }

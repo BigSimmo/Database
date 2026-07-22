@@ -9,7 +9,7 @@ import { PDFParse } from "pdf-parse";
 import JSZip from "jszip";
 import { z } from "zod";
 import type { ExtractedDocument, ExtractedPage } from "@/lib/types";
-import { DocxExtractionBudgetTracker } from "@/lib/extractors/docx-extraction-budget";
+import { assertDeclaredDocxMediaBudget, DocxExtractionBudgetTracker } from "@/lib/extractors/docx-extraction-budget";
 import {
   assertExtractedPdfBudget,
   isPdfExtractionResourceError,
@@ -427,7 +427,7 @@ async function extractDocx(buffer: Buffer) {
     .filter((name) => name.startsWith("word/media/"))
     .map((name) => [name, zip.files[name]] as const)
     .filter((entry) => !entry[1].dir);
-  budget.assertArtifactCount(media.length);
+  assertDeclaredDocxMediaBudget(media.map((entry) => entry[1]));
 
   const tempRoot = await mkdtemp(path.join(tmpdir(), "clinical-kb-docx-"));
   const images: ExtractedDocument["images"] = [];
