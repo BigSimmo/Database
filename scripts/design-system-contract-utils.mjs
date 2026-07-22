@@ -25,6 +25,14 @@ export const RAW_COLOR_EXEMPTIONS = [
     scope: "whole-file",
   },
   {
+    // Pre-paint / meta theme-color values: consumed as raw colours by the inline
+    // pre-hydration theme script and the browser theme-color meta tag, before any
+    // CSS (and therefore any token) is available, so they cannot be tokenised.
+    category: "pre-paint theme color",
+    pattern: /^src\/lib\/theme\.ts$/,
+    scope: "whole-file",
+  },
+  {
     category: "printable Therapy paper",
     pattern: /^src\/components\/therapy-compass\/therapy-compass\.css$/,
     scope: "therapy-paper",

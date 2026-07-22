@@ -76,7 +76,7 @@ export function ModeHomeHero({
       className="grid justify-items-center gap-1.5 px-4 sm:gap-3 sm:px-0"
       aria-labelledby={`${testId ?? "mode-home"}-title`}
     >
-      <span className="mode-home-icon grid h-11 w-11 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-12 sm:w-12 lg:h-14 lg:w-14 lg:rounded-[1.15rem]">
+      <span className="mode-home-icon grid h-tap w-tap place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-12 sm:w-12 lg:h-14 lg:w-14 lg:rounded-[1.15rem]">
         <Icon className="h-5 w-5 sm:h-6 sm:w-6 lg:h-7 lg:w-7" aria-hidden="true" />
       </span>
       <div className="grid gap-1 sm:gap-1.5">
@@ -267,7 +267,7 @@ export function ModeHomeTemplate({
             const ActionIcon = action.icon;
             const content = (
               <>
-                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-11 sm:w-11 sm:rounded-xl">
+                <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-tap sm:w-tap sm:rounded-xl">
                   <ActionIcon className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true" />
                 </span>
                 <span className="min-w-0">
