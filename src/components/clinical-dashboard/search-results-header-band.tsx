@@ -191,7 +191,7 @@ export function SearchResultsEmptyState({
 
   return (
     <div className="rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-5 text-center shadow-[var(--shadow-inset)]">
-      <span className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
+      <span className="mx-auto grid h-tap w-tap place-items-center rounded-full bg-[color:var(--surface)] text-[color:var(--text-muted)]">
         <Search className="h-5 w-5" aria-hidden />
       </span>
       <p className="mt-3 text-sm font-extrabold text-[color:var(--text-heading)]">

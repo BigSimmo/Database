@@ -170,7 +170,7 @@ function SectionItems({
                   <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                 </Link>
               ) : (
-                <span className="inline-flex min-h-11 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-semibold text-[color:var(--text-muted)]">
+                <span className="inline-flex min-h-tap items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-semibold text-[color:var(--text-muted)]">
                   {item}
                 </span>
               )}
