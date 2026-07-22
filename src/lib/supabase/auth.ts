@@ -47,11 +47,8 @@ function extractBearerAccessToken(request: Request): string | null {
   return headerToken || null;
 }
 
-function extractCookieSessionAccessToken(request: Request): string | null {
+function extractCurrentCookieSessionAccessToken(request: Request): string | null {
   const cookies = readCookies(request.headers.get("cookie"));
-  const legacyAccessToken = cookies.get("sb-access-token")?.trim();
-  if (legacyAccessToken) return legacyAccessToken;
-
   for (const [name, value] of cookies.entries()) {
     if (!/^sb-.+-auth-token$/.test(name)) continue;
     if (!value) continue;
@@ -68,13 +65,25 @@ function extractCookieSessionAccessToken(request: Request): string | null {
   return null;
 }
 
-function hasSessionCookie(request: Request): boolean {
+function extractLegacyCookieSessionAccessToken(request: Request): string | null {
+  return readCookies(request.headers.get("cookie")).get("sb-access-token")?.trim() || null;
+}
+
+function hasCurrentSessionCookie(request: Request): boolean {
   const cookies = readCookies(request.headers.get("cookie"));
-  return [...cookies.keys()].some((name) => name === "sb-access-token" || /^sb-.+-auth-token(?:\.\d+)?$/.test(name));
+  return [...cookies.keys()].some((name) => /^sb-.+-auth-token(?:\.\d+)?$/.test(name));
+}
+
+function hasLegacySessionCookie(request: Request): boolean {
+  return readCookies(request.headers.get("cookie")).has("sb-access-token");
 }
 
 function extractSessionAccessToken(request: Request): string | null {
-  return extractBearerAccessToken(request) ?? extractCookieSessionAccessToken(request);
+  return (
+    extractBearerAccessToken(request) ??
+    extractCurrentCookieSessionAccessToken(request) ??
+    extractLegacyCookieSessionAccessToken(request)
+  );
 }
 
 async function getUserFromAccessToken(supabase: AdminClient, token: string): Promise<AuthenticatedUser | null> {
@@ -102,7 +111,7 @@ export function unauthorizedResponse(error?: AuthenticationError) {
 /**
  * Resolve the user from the `@supabase/ssr` cookie session. The
  * `sb-<ref>-auth-token` cookie it writes is base64-encoded (and chunked when
- * large), which `extractCookieSessionAccessToken`'s plain-JSON parser cannot read, so
+ * large), which `extractCurrentCookieSessionAccessToken`'s plain-JSON parser cannot read, so
  * this uses the ssr server client to decode + validate it. Returns null when
  * the public env is absent or no `sb-` cookie is present.
  */
@@ -144,16 +153,24 @@ export async function resolveOptionalAuthentication(
     return bearerUser ? { status: "valid", user: bearerUser } : { status: "invalid" };
   }
 
-  const cookieToken = extractCookieSessionAccessToken(request);
-  if (cookieToken) {
-    const cookieTokenUser = await getUserFromAccessToken(supabase, cookieToken);
-    return cookieTokenUser ? { status: "valid", user: cookieTokenUser } : { status: "invalid" };
+  const currentCookieToken = extractCurrentCookieSessionAccessToken(request);
+  if (currentCookieToken) {
+    const currentCookieUser = await getUserFromAccessToken(supabase, currentCookieToken);
+    return currentCookieUser ? { status: "valid", user: currentCookieUser } : { status: "invalid" };
   }
 
-  if (!hasSessionCookie(request)) return { status: "absent" };
+  if (hasCurrentSessionCookie(request)) {
+    const currentCookieUser = await getUserFromRequestCookies(request);
+    return currentCookieUser ? { status: "valid", user: currentCookieUser } : { status: "invalid" };
+  }
 
-  const cookieUser = await getUserFromRequestCookies(request);
-  return cookieUser ? { status: "valid", user: cookieUser } : { status: "invalid" };
+  const legacyCookieToken = extractLegacyCookieSessionAccessToken(request);
+  if (legacyCookieToken) {
+    const legacyCookieUser = await getUserFromAccessToken(supabase, legacyCookieToken);
+    return legacyCookieUser ? { status: "valid", user: legacyCookieUser } : { status: "invalid" };
+  }
+
+  return hasLegacySessionCookie(request) ? { status: "invalid" } : { status: "absent" };
 }
 
 export async function requireAuthenticatedUser(

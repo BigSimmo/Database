@@ -100,6 +100,33 @@ describe("optional authentication", () => {
     expect(client.auth.getUser).toHaveBeenCalledWith("valid-cookie-token");
   });
 
+  it("prefers a current Supabase session cookie over a stale legacy access-token cookie", async () => {
+    const client = {
+      auth: {
+        getUser: vi.fn(async (token: string) =>
+          token === "current-cookie-token"
+            ? { data: { user: { id: "user-1", app_metadata: {} } }, error: null }
+            : { data: { user: null }, error: { message: "Invalid token" } },
+        ),
+      },
+    };
+    const currentSession = encodeURIComponent(
+      JSON.stringify({ access_token: "current-cookie-token", refresh_token: "refresh-token", type: "bearer" }),
+    );
+    const request = new Request("http://localhost/api/search", {
+      headers: {
+        cookie: `sb-access-token=expired-legacy-token; sb-project-ref-auth-token=${currentSession}`,
+      },
+    });
+
+    await expect(resolveOptionalAuthentication(request, client as never)).resolves.toMatchObject({
+      status: "valid",
+      user: { id: "user-1" },
+    });
+    expect(client.auth.getUser).toHaveBeenCalledTimes(1);
+    expect(client.auth.getUser).toHaveBeenCalledWith("current-cookie-token");
+  });
+
   it("rejects a legacy session cookie that Supabase reports as invalid", async () => {
     const client = authClient({ data: { user: null }, error: { message: "Invalid token" } });
     const request = new Request("http://localhost/api/search", {
