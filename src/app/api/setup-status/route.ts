@@ -68,6 +68,11 @@ async function readSupabaseAvailability(supabase: AdminClient | null) {
   try {
     const health = await probeSupabaseHealth(supabase);
     if (!health.ok) {
+      if (health.failureKind !== "unavailable") {
+        supabaseOutageBackoffUntil = 0;
+        supabaseOutageDetail = null;
+        return null;
+      }
       supabaseOutageBackoffUntil = Date.now() + SETUP_STATUS_OUTAGE_CACHE_MS;
       supabaseOutageDetail = health.message;
       return health.message;

@@ -7,6 +7,71 @@ afterEach(() => {
 });
 
 describe("/api/setup-status", () => {
+  it("keeps schema diagnostics when the readiness probe reports a query failure", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const failedResult = async () => ({ error: { message: "relation is missing" }, data: [], count: 0 });
+    const select = vi.fn(() => ({
+      limit: vi.fn(failedResult),
+      order: vi.fn(() => ({ limit: vi.fn(failedResult) })),
+      in: vi.fn(failedResult),
+    }));
+    const from = vi.fn(() => ({ select }));
+    const createAdminClient = vi.fn(() => ({
+      from,
+      rpc: vi.fn(failedResult),
+      storage: { listBuckets: vi.fn(failedResult) },
+    }));
+    vi.doMock("@/lib/env", () => ({
+      env: {
+        NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
+        SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+        OPENAI_API_KEY: "openai-key",
+        SUPABASE_DOCUMENT_BUCKET: "clinical-documents",
+        SUPABASE_IMAGE_BUCKET: "clinical-images",
+        WORKER_POLL_MS: 1500,
+        HEALTH_DEEP_PROBE_SECRET: "operator-secret",
+      },
+      isDemoMode: () => false,
+      isLocalNoAuthMode: () => false,
+    }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient }));
+    vi.doMock("@/lib/supabase/auth", () => ({
+      AuthenticationError: class AuthenticationError extends Error {},
+      requireAuthenticatedUser: vi.fn(),
+    }));
+    vi.doMock("@/lib/supabase/health", () => ({
+      probeSupabaseHealth: vi.fn(async () => ({
+        ok: false,
+        failureKind: "query",
+        message: "Supabase health check failed.",
+        rawMessage: 'relation "public.import_batches" does not exist',
+      })),
+      isSupabaseUnavailableError: () => false,
+      formatSupabaseUnavailableError: (error: unknown) => String(error),
+    }));
+    vi.doMock("@/lib/supabase/project", () => ({
+      checkSupabaseProjectConfig: () => ({ status: "ready", detail: "Clinical KB Database target is configured." }),
+      formatSupabaseProjectCheck: () => "Clinical KB Database target is configured.",
+    }));
+    const { GET } = await import("../src/app/api/setup-status/route");
+
+    const response = await GET(
+      new Request("https://clinical.example/api/setup-status", {
+        headers: { "x-health-deep-token": "operator-secret" },
+      }),
+    );
+    const body = await response.json();
+    const schema = body.checks.find((item: { id: string }) => item.id === "schema");
+
+    expect(response.status).toBe(200);
+    expect(schema).toMatchObject({
+      status: "needs_setup",
+      detail: "Required tables or private storage buckets were not confirmed.",
+    });
+    expect(body.pollAfterMs).toBe(60_000);
+    expect(from).toHaveBeenCalledWith("documents");
+  });
+
   it("returns only coarse posture for anonymous production requests", async () => {
     vi.stubEnv("NODE_ENV", "production");
     const from = vi.fn(async () => ({ error: null, data: [], count: 0 }));

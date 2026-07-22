@@ -12,7 +12,14 @@ type SupabaseProbeClient = {
 };
 
 export type SupabaseHealthResult =
-  { ok: true; checkedAt: string } | { ok: false; checkedAt: string; message: string; rawMessage: string };
+  | { ok: true; checkedAt: string }
+  | {
+      ok: false;
+      checkedAt: string;
+      failureKind: "unavailable" | "query";
+      message: string;
+      rawMessage: string;
+    };
 
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -55,6 +62,7 @@ export async function probeSupabaseHealth(supabase: SupabaseProbeClient): Promis
     return {
       ok: false,
       checkedAt,
+      failureKind: isSupabaseUnavailableError(error) ? "unavailable" : "query",
       message: isSupabaseUnavailableError(error)
         ? formatSupabaseUnavailableError(error)
         : "Supabase health check failed.",
@@ -64,6 +72,7 @@ export async function probeSupabaseHealth(supabase: SupabaseProbeClient): Promis
     return {
       ok: false,
       checkedAt,
+      failureKind: isSupabaseUnavailableError(error) ? "unavailable" : "query",
       message: isSupabaseUnavailableError(error)
         ? formatSupabaseUnavailableError(error)
         : "Supabase health check failed.",

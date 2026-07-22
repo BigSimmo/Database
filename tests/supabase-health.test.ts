@@ -62,6 +62,7 @@ describe("Supabase health helpers", () => {
 
       await expect(probeSupabaseHealth(supabase)).resolves.toMatchObject({
         ok: false,
+        failureKind: "query",
         message: "Supabase health check failed.",
         rawMessage: message,
       });
@@ -77,6 +78,7 @@ describe("Supabase health helpers", () => {
 
     await expect(probeSupabaseHealth(supabase as never)).resolves.toMatchObject({
       ok: false,
+      failureKind: "query",
       message: "Supabase health check failed.",
       rawMessage: "credential validation failed",
     });
@@ -100,6 +102,7 @@ describe("Supabase health helpers", () => {
 
     await expect(probeSupabaseHealth(supabase)).resolves.toMatchObject({
       ok: false,
+      failureKind: "unavailable",
       message: "Supabase API is timing out with a 522 response.",
       rawMessage: message,
     });
