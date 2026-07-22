@@ -9,6 +9,7 @@ import { PDFParse } from "pdf-parse";
 import JSZip from "jszip";
 import { z } from "zod";
 import type { ExtractedDocument, ExtractedPage } from "@/lib/types";
+import { DocxExtractionBudgetTracker } from "@/lib/extractors/docx-extraction-budget";
 import {
   assertExtractedPdfBudget,
   isPdfExtractionResourceError,
@@ -419,16 +420,22 @@ export async function extractPdf(
 
 async function extractDocx(buffer: Buffer) {
   const raw = await mammoth.extractRawText({ buffer });
+  const budget = new DocxExtractionBudgetTracker();
+  budget.assertText(raw.value || "");
   const zip = await JSZip.loadAsync(buffer);
+  const media = Object.keys(zip.files)
+    .filter((name) => name.startsWith("word/media/"))
+    .map((name) => [name, zip.files[name]] as const)
+    .filter((entry) => !entry[1].dir);
+  budget.assertArtifactCount(media.length);
+
   const tempRoot = await mkdtemp(path.join(tmpdir(), "clinical-kb-docx-"));
   const images: ExtractedDocument["images"] = [];
 
   try {
-    const media = Object.keys(zip.files).filter((name) => name.startsWith("word/media/"));
-    for (const [index, name] of media.entries()) {
-      const file = zip.files[name];
-      if (file.dir) continue;
+    for (const [index, [name, file]] of media.entries()) {
       const bytes = await file.async("nodebuffer");
+      budget.addArtifact(bytes.byteLength);
       const ext = path.extname(name).toLowerCase() || ".png";
       // Map the actual media extension to its real MIME type. Previously every
       // non-jpg/webp extension (including .emf/.wmf/.tiff/.bmp/.gif vector and
