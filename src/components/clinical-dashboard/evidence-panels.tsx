@@ -830,7 +830,7 @@ export function ClinicalNotesChecklistPanel({
               Source
             </Link>
           ) : (
-            <span className="inline-flex min-h-11 items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-soft)]">
+            <span className="inline-flex min-h-tap items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--text-soft)]">
               <ExternalLink aria-hidden="true" className="h-3.5 w-3.5" />
               Source
             </span>

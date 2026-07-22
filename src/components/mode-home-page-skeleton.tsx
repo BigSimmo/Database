@@ -14,7 +14,7 @@ export function ModeHomePageSkeleton() {
       role="status"
       aria-label="Loading"
     >
-      <SkeletonBlock className="h-11 w-11 rounded-2xl sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
+      <SkeletonBlock className="h-tap w-tap rounded-2xl sm:h-12 sm:w-12 lg:h-14 lg:w-14" />
       <div className="grid w-full justify-items-center gap-2">
         <SkeletonBlock className="h-7 w-2/3 max-w-sm sm:h-9 lg:h-10" />
         <SkeletonBlock className="h-5 w-1/2 max-w-xs" />

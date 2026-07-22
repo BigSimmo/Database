@@ -425,7 +425,7 @@ export const PdfCanvasViewer = memo(function PdfCanvasViewer({
             </span>
           </label>
         ) : (
-          <div className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:flex-none sm:px-3">
+          <div className="flex min-h-tap min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-glass)] px-2 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur-md sm:flex-none sm:px-3">
             <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin text-[color:var(--clinical-accent)]" />
             <span className="hidden sm:inline">{error ? "Page unavailable" : "Loading pages"}</span>
             <span className="sm:hidden">{error ? "Unavailable" : "Loading"}</span>

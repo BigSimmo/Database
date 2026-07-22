@@ -516,7 +516,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
             role="status"
             aria-live="polite"
             className={cn(
-              "mb-3 flex min-h-11 items-center justify-between gap-3 rounded-lg border p-3 text-sm font-semibold shadow-[var(--shadow-inset)]",
+              "mb-3 flex min-h-tap items-center justify-between gap-3 rounded-lg border p-3 text-sm font-semibold shadow-[var(--shadow-inset)]",
               notice.includes("failed") || notice.includes("Nothing") ? toneWarning : toneSuccess,
             )}
           >

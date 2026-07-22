@@ -242,7 +242,7 @@ function ToolSearch({
         className,
       )}
     >
-      <span className="grid h-11 w-11 place-items-center rounded-full text-[color:var(--clinical-accent)]">
+      <span className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--clinical-accent)]">
         <Plus className="size-icon-lg" aria-hidden />
       </span>
       <label className="min-w-0">

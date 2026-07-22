@@ -89,3 +89,37 @@ export function ProviderBrandIcon({ provider, className }: { provider: SsoProvid
   if (provider === "Google") return <GoogleBrandIcon className={className} />;
   return <MicrosoftBrandIcon className={className} />;
 }
+
+/**
+ * Compact provider mark used in the settings sign-in list: Microsoft's four-colour
+ * grid and a lettered tile for Apple/Google. Distinct from {@link ProviderBrandIcon}
+ * (the full vendor logos); it lives here so its fixed brand colours sit with the
+ * other brand artwork. Decorative — the button always carries a visible label.
+ */
+export function ProviderBrandMark({ provider }: { provider: SsoProvider }) {
+  if (provider === "Microsoft") {
+    return (
+      <span
+        className="grid h-7 w-7 shrink-0 grid-cols-2 gap-0.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 shadow-[var(--shadow-inset)]"
+        aria-hidden="true"
+      >
+        <span className="bg-[#f25022]" />
+        <span className="bg-[#7fba00]" />
+        <span className="bg-[#00a4ef]" />
+        <span className="bg-[#ffb900]" />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-base font-bold leading-none shadow-[var(--shadow-inset)]",
+        provider === "Apple" ? "text-[color:var(--text-heading)]" : "text-[#4285f4]",
+      )}
+    >
+      {provider === "Apple" ? "A" : "G"}
+    </span>
+  );
+}

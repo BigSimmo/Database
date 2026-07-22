@@ -386,7 +386,7 @@ function SearchResultsHeader({
     <section className="flex items-start justify-between gap-3" aria-label="Document search results">
       <div className="min-w-0">
         <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+          <span className="grid h-tap w-tap shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
             <FileText aria-hidden="true" className="h-5 w-5" />
           </span>
           <div className="min-w-0">
@@ -971,7 +971,7 @@ function DocumentSearchResultsPanelImpl({
       ) : matches.length === 0 ? (
         recordMatchCount > 0 ? null : trimmedQuery && !shouldShowHome ? (
           <div className={cn(panelSubtle, "grid gap-3 p-5 text-center sm:p-6")}>
-            <span className="mx-auto grid h-11 w-11 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
+            <span className="mx-auto grid h-tap w-tap place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
               <FileText aria-hidden="true" className="h-5 w-5" />
             </span>
             <div>

@@ -147,7 +147,7 @@ export function AuthPanel() {
     >
       <div className="border-b border-[color:var(--border)]/70 p-4 sm:p-5">
         <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] ring-1 ring-[color:var(--border)]">
+          <span className="grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--surface-inset)] text-[color:var(--text-muted)] ring-1 ring-[color:var(--border)]">
             <UserRound aria-hidden="true" className="h-5 w-5" />
           </span>
           <div className="min-w-0">

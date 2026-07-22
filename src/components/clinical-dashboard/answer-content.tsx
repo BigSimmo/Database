@@ -509,7 +509,7 @@ function SourcePreviewContent({
           </button>
         ) : null}
       </div>
-      <div className="mt-3 flex min-h-11 flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-2 text-xs font-semibold">
+      <div className="mt-3 flex min-h-tap flex-wrap items-center justify-between gap-2 border-t border-[color:var(--border)] pt-2 text-xs font-semibold">
         <span
           className={cn(
             "inline-flex min-h-8 items-center gap-1.5",
