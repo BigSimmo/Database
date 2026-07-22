@@ -91,6 +91,7 @@ const launcherIconById: Record<string, LucideIcon> = {
   services: Users,
   forms: FileCheck2,
   "care-plans": ClipboardCheck,
+  "safety-plan": ClipboardList,
   monitoring: Waves,
   favourites: Star,
 };

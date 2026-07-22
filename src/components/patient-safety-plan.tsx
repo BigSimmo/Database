@@ -37,15 +37,16 @@ import {
 } from "@/components/ui-primitives";
 
 /*
- * Patient Safety Plan generator — design-exploration mockup.
+ * Patient Safety Plan generator — Tools-page clinical tool.
  *
  * A clinician builds an evidence-based safety plan *with* the patient (the
  * Stanley-Brown Safety Planning Intervention, six prioritised steps), and a
  * live patient-facing preview updates as they type — ready to print, save as
  * PDF, or hand over. Sample content is seeded so the layout reads fully; every
- * field is editable. Australian English + AU crisis resources throughout, per
- * the Clinical KB (en-AU) voice. All chrome is token-driven so light/dark,
- * reduced-motion and forced-colors follow the shared design system.
+ * field is editable and "Clear all" empties the plan. Australian English + AU
+ * crisis resources throughout, per the Clinical KB (en-AU) voice. All chrome is
+ * token-driven so light/dark, reduced-motion and forced-colors follow the
+ * shared design system.
  */
 
 const focusRing =
@@ -324,7 +325,7 @@ function StepBuilderCard({
                 )}
                 aria-hidden="true"
               >
-                <CheckCheck className="size-icon-xs" />
+                <CheckCheck className="size-icon-xs" aria-hidden="true" />
               </span>
             ) : null}
           </div>
@@ -406,7 +407,7 @@ function PreviewStep({ def, entries }: { def: StepDef; entries: Entry[] }) {
 
 /* ---------- root ---------- */
 
-export function PatientSafetyPlanMockup() {
+export function PatientSafetyPlan() {
   const [entries, setEntries] = useState<Record<StepKey, Entry[]>>(SEED);
   const [reasons, setReasons] = useState<Entry[]>(SEED_REASONS);
   const [patient, setPatient] = useState("");
@@ -469,7 +470,7 @@ export function PatientSafetyPlanMockup() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1600);
     } catch {
-      /* clipboard unavailable in some embeds — mockup-safe no-op */
+      /* clipboard unavailable in some embeds — safe no-op */
     }
   };
 
@@ -489,7 +490,7 @@ export function PatientSafetyPlanMockup() {
       <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-8">
           <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
+            <span className="grid size-tap shrink-0 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <ShieldCheck className="size-icon-lg" aria-hidden="true" />
             </span>
             <div className="min-w-0">
@@ -536,7 +537,7 @@ export function PatientSafetyPlanMockup() {
               type="button"
               onClick={() => setFinalised(true)}
               disabled={!ready}
-              className={cn(primaryControl, "min-h-11 disabled:opacity-50")}
+              className={cn(primaryControl, "min-h-tap disabled:opacity-50")}
             >
               {finalised ? (
                 <Check className="size-icon-md" aria-hidden="true" />
