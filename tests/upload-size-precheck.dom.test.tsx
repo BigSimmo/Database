@@ -140,9 +140,7 @@ describe("upload size pre-check", () => {
     selectFiles([fileOfSize("mid-guideline.pdf", 51)]);
     submit();
 
-    expect(await screen.findByText(/mid-guideline\.pdf/)).toHaveTextContent(
-      "File exceeds 50 MB upload limit.",
-    );
+    expect(await screen.findByText(/mid-guideline\.pdf/)).toHaveTextContent("File exceeds 50 MB upload limit.");
     expect(opened).toHaveLength(0);
     expect(onUploaded).not.toHaveBeenCalled();
   });

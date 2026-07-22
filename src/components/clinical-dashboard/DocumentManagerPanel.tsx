@@ -19,11 +19,7 @@ import {
 } from "@/components/ui-primitives";
 import { cleanDisplayTitle } from "@/components/clinical-dashboard/display-text";
 import { emptyStates, errorCopy } from "@/lib/ui-copy";
-import {
-  exceedsClientUploadSize,
-  getClientMaxUploadMb,
-  uploadSizeLimitMessage,
-} from "@/lib/upload-limits";
+import { exceedsClientUploadSize, getClientMaxUploadMb, uploadSizeLimitMessage } from "@/lib/upload-limits";
 import { StatusBadge } from "@/components/clinical-dashboard/badges";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import type { ClinicalDocument, IngestionJob, ImportBatch } from "@/lib/types";
