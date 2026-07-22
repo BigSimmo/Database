@@ -241,4 +241,29 @@ describe("PDF extraction budgets", () => {
       "This extracted text is deliberately longer than one byte.",
     );
   });
+
+  it("skips malformed image entries returned by the JavaScript fallback", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-pdf-malformed-image-test-"));
+    roots.push(root);
+    const fakeExtractor = path.join(root, "missing-dependency.py");
+    await writeFile(
+      fakeExtractor,
+      "import sys\nprint('PyMuPDF unavailable', file=sys.stderr)\nraise SystemExit(2)\n",
+      "utf8",
+    );
+    vi.spyOn(PDFParse.prototype, "getText").mockResolvedValue({
+      pages: [{ num: 1, text: "Usable text still survives a malformed image entry." }],
+      text: "Usable text still survives a malformed image entry.",
+    } as never);
+    vi.spyOn(PDFParse.prototype, "getImage").mockResolvedValue({
+      pages: [{ pageNumber: 1, images: [{ data: undefined, width: 10, height: 20 }] }],
+    } as never);
+    vi.spyOn(PDFParse.prototype, "destroy").mockResolvedValue(undefined);
+
+    const extracted = await extractPdf(await createTextPdf(), { scriptPathOverride: fakeExtractor });
+    roots.push(...(extracted.temporaryPaths ?? []));
+
+    expect(extracted.images).toEqual([]);
+    expect(extracted.pages[0]?.text).toContain("Usable text still survives");
+  });
 });

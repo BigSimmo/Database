@@ -56,6 +56,22 @@ export function parseExtractedDocumentPayload(raw: string): ExtractedDocument {
   return extractedDocumentSchema.parse(JSON.parse(raw));
 }
 
+export function isUsableFallbackPdfImage(image: {
+  data?: Uint8Array | null;
+  width?: number | null;
+  height?: number | null;
+}) {
+  return (
+    Boolean(image.data?.byteLength) &&
+    typeof image.width === "number" &&
+    Number.isFinite(image.width) &&
+    image.width > 0 &&
+    typeof image.height === "number" &&
+    Number.isFinite(image.height) &&
+    image.height > 0
+  );
+}
+
 export async function terminateProcessTree(child: ChildProcess) {
   const pid = child.pid;
   if (!pid) return;
@@ -318,6 +334,7 @@ export async function extractPdf(
         });
         for (const page of imageResult.pages) {
           for (const [index, image] of page.images.entries()) {
+            if (!isUsableFallbackPdfImage(image)) continue;
             budget.assertRenderDimensions(image.width, image.height);
             budget.assertArtifact(image.data.byteLength);
             const mimeType = "image/png";

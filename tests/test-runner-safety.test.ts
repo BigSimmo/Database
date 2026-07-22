@@ -170,6 +170,16 @@ describe("provider-safe test environment", () => {
     expect(`${result.stdout}${result.stderr}`).toContain("Live provider tests are disabled");
   });
 
+  it("loads Next environment files before checking live-test permission", () => {
+    const runner = readFileSync(new URL("../scripts/run-live-tests.mjs", import.meta.url), "utf8");
+    expect(runner).toContain('import nextEnv from "@next/env";');
+    expect(runner).toContain("const { loadEnvConfig } = nextEnv;");
+    expect(runner.indexOf("loadEnvConfig(projectRoot);")).toBeGreaterThanOrEqual(0);
+    expect(runner.indexOf("loadEnvConfig(projectRoot);")).toBeLessThan(
+      runner.indexOf("requireProviderTestPermission();"),
+    );
+  });
+
   it("fails focused selection closed for a deleted or missing explicit source path", () => {
     const result = spawnSync(process.execPath, ["scripts/test-focused.mjs", "--files", "src/missing-source.ts"], {
       cwd: path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
