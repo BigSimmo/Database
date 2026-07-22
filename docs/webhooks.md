@@ -87,12 +87,120 @@ Every write is owner-scoped (`owner_id`) — the app's single tenancy layer, sin
 the service-role client bypasses RLS. Events without an `owner_id`, on other
 tables, or of type `DELETE` are skipped with `200`.
 
-**Setup (Supabase).** Create a Database Webhook (or SQL trigger via
-`supabase_functions.http_request`) on `public.documents` for INSERT/UPDATE with:
+### Setup (operator-applied)
 
-- URL: `https://psychiatry.tools/api/webhooks/supabase/document-change`
-- HTTP header: `Authorization: Bearer <SUPABASE_INGESTION_WEBHOOK_SECRET>`
+The receiver is deployed but inert until a Supabase-side trigger actually calls
+it. The trigger below is **operator-applied**, not a committed migration, because
+it calls `net.http_post` per row (the secret must live in Supabase Vault, never in
+the repo) and adding a schema object requires regenerating `supabase/drift-manifest.json`
+against a live Supabase container (`npm run drift:manifest`). Apply it in the
+Supabase SQL editor, or fold it into a local migration and regenerate the drift
+manifest before committing.
+
+**1. Set the app env var** — `SUPABASE_INGESTION_WEBHOOK_SECRET` (min 16 chars) on
+the Railway `Database` + `worker` services.
+
+**2. Store the same secret in Supabase Vault** so the trigger can read it without
+hardcoding it:
+
+```sql
+select vault.create_secret('<same-secret-as-the-env-var>', 'ingestion_webhook_secret');
+```
+
+**3. (Non-production only) point the base URL at your environment** — production
+falls back to `https://psychiatry.tools` when this GUC is unset:
+
+```sql
+alter database postgres set app.ingestion_webhook_base_url = 'https://<env-host>';
+```
+
+**4. Create the fail-safe trigger.** It fires only on the transitions the receiver
+acts on, reads the secret from Vault, and — critically — never aborts a document
+write if the secret is missing or the POST fails (it just does nothing, mirroring
+the receiver's inert `503`). `net.http_post` is asynchronous, so it does not block
+the write:
+
+```sql
+create or replace function public.notify_document_change_ingestion_webhook()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, extensions, vault, pg_temp
+as $$
+declare
+  v_secret     text;
+  v_base_url   text;
+  v_actionable boolean := false;
+begin
+  -- Match the receiver's policy so we never POST an event it would just skip:
+  --   * INSERT of a not-yet-indexed document, or
+  --   * an UPDATE where metadata.reindex_requested transitions to true.
+  if tg_op = 'INSERT' then
+    v_actionable := coalesce(new.status, '') is distinct from 'indexed';
+  elsif tg_op = 'UPDATE' then
+    v_actionable := coalesce((new.metadata->>'reindex_requested')::boolean, false)
+                    and not coalesce((old.metadata->>'reindex_requested')::boolean, false);
+  end if;
+
+  if not v_actionable then
+    return new;
+  end if;
+
+  -- Fail SAFE: with no Vault secret the trigger no-ops rather than break the write.
+  select decrypted_secret into v_secret
+  from vault.decrypted_secrets
+  where name = 'ingestion_webhook_secret'
+  limit 1;
+
+  if nullif(v_secret, '') is null then
+    return new;
+  end if;
+
+  v_base_url := coalesce(
+    nullif(current_setting('app.ingestion_webhook_base_url', true), ''),
+    'https://psychiatry.tools'
+  );
+
+  perform net.http_post(
+    url := v_base_url || '/api/webhooks/supabase/document-change',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || v_secret
+    ),
+    body := jsonb_build_object(
+      'type', tg_op,
+      'table', tg_table_name,
+      'schema', tg_table_schema,
+      'record', to_jsonb(new),
+      'old_record', case when tg_op = 'UPDATE' then to_jsonb(old) else null end
+    ),
+    timeout_milliseconds := 5000
+  );
+
+  return new;
+exception
+  when others then
+    -- A notification failure must never abort the document write.
+    raise warning 'notify_document_change_ingestion_webhook failed: %', sqlerrm;
+    return new;
+end;
+$$;
+
+-- SECURITY DEFINER hardening: never callable directly by clients.
+revoke execute on function public.notify_document_change_ingestion_webhook() from public, anon, authenticated;
+
+drop trigger if exists documents_ingestion_webhook on public.documents;
+create trigger documents_ingestion_webhook
+  after insert or update on public.documents
+  for each row execute function public.notify_document_change_ingestion_webhook();
+```
 
 To request a reindex of an existing document, set
-`metadata.reindex_requested = true` on its row; the receiver enqueues the job and
-clears the flag.
+`metadata.reindex_requested = true` on its row; the trigger POSTs, the receiver
+enqueues the job and clears the flag.
+
+**Managed alternative.** If you prefer the dashboard, a Supabase **Database
+Webhook** on `public.documents` (INSERT/UPDATE) pointed at the URL above with an
+`Authorization: Bearer <secret>` header works too — but it fires on _every_ update
+(the receiver then skips the non-actionable ones), whereas the trigger above gates
+in SQL to avoid the per-write POST churn from the worker's own status writes.
