@@ -119,8 +119,33 @@ function maskRanges(source, ranges) {
 }
 
 function balancedBlockRange(source, marker) {
-  const start = source.indexOf(marker);
-  if (start < 0) return null;
+  // Find a valid occurrence of the marker, skipping false matches that are:
+  // 1. Followed by an identifier-continuation character (to avoid suffixed declarations)
+  // 2. Inside a line comment, block comment, or string literal
+  let candidateStart = 0;
+  while (true) {
+    candidateStart = source.indexOf(marker, candidateStart);
+    if (candidateStart < 0) return null;
+
+    // Check if the character after the marker is an identifier-continuation character
+    const charAfterMarker = source[candidateStart + marker.length];
+    const isIdentifierContinuation = charAfterMarker && /[A-Za-z0-9_$]/.test(charAfterMarker);
+    if (isIdentifierContinuation) {
+      candidateStart += 1;
+      continue;
+    }
+
+    // Check if this occurrence is inside a comment or string
+    if (isInsideCommentOrString(source, candidateStart)) {
+      candidateStart += 1;
+      continue;
+    }
+
+    // Valid match found
+    break;
+  }
+
+  const start = candidateStart;
   const openingBrace = source.indexOf("{", start);
   if (openingBrace < 0) return null;
 
@@ -158,6 +183,60 @@ function balancedBlockRange(source, marker) {
     if (depth === 0) return { start, end: index + 1 };
   }
   return null;
+}
+
+function isInsideCommentOrString(source, position) {
+  // Scan from the beginning to determine if position is inside a comment or string
+  let inLineComment = false;
+  let inBlockComment = false;
+  let inString = null;
+  let escaped = false;
+
+  for (let index = 0; index < position; index += 1) {
+    const character = source[index];
+
+    if (inLineComment) {
+      if (character === "\n") inLineComment = false;
+      continue;
+    }
+
+    if (inBlockComment) {
+      if (character === "*" && source[index + 1] === "/") {
+        inBlockComment = false;
+        index += 1;
+      }
+      continue;
+    }
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === inString) {
+        inString = null;
+      }
+      continue;
+    }
+
+    if (character === "/" && source[index + 1] === "/") {
+      inLineComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (character === "/" && source[index + 1] === "*") {
+      inBlockComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (character === '"' || character === "'" || character === "`") {
+      inString = character;
+    }
+  }
+
+  return inLineComment || inBlockComment || inString !== null;
 }
 
 function namedFunctionRange(relativePath, source, functionName) {

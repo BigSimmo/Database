@@ -115,6 +115,14 @@ describe("design-system contract helpers", () => {
     expect(reportFailure).toHaveBeenCalledWith("pre-paint theme-color boundary is missing");
   });
 
+  it("does not mistake a renamed/suffixed declaration for the real APP_THEME_COLORS boundary", () => {
+    const reportFailure = vi.fn();
+    const source = 'export const APP_THEME_COLORS_V2 = { light: "#ffffff" };';
+
+    expect(rawColorContractSource("src/lib/theme.ts", source, reportFailure)).toBe(source);
+    expect(reportFailure).toHaveBeenCalledWith("pre-paint theme-color boundary is missing");
+  });
+
   it("fails closed when a fixed-paper boundary disappears", () => {
     const reportFailure = vi.fn();
     const source = ".tc-app { color: #123456; }";
