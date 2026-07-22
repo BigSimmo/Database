@@ -60,6 +60,11 @@ const frontendVisibleWarningCodes = new Set<SourceGovernanceWarning["code"]>([
   // validated" is a clinically material caveat, not routine review metadata.
   "unverified_source",
   "registry_record_source",
+  // A source past its review date is a material currency caveat: guidance may have
+  // moved on. Surfacing the badge keeps the governance notice consistent with the
+  // review-due language already emitted in the render-policy copy text
+  // (answer-render-policy.buildWarnings), which the badge list previously suppressed.
+  "review_due_source",
 ]);
 
 function isLocalMetadataText(value: string) {
