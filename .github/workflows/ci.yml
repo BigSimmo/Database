@@ -240,6 +240,11 @@ jobs:
       - name: Design-system contract
         run: npm run check:design-system-contract
 
+      # Prevent hosted SQL/tooling from assuming a platform-reserved role while
+      # byte-pinning the single immutable historical migration exception.
+      - name: Hosted migration-role guard
+        run: npm run check:migration-role
+
       # Fails if a SECURITY DEFINER public function is left executable by
       # PUBLIC/anon (privilege-escalation / cross-tenant read surface).
       - name: Function-grant guard
