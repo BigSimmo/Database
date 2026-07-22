@@ -28,7 +28,7 @@ test.describe("Tools task directory mockup (Concept 4) @mockup", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Task directory" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Assess" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Coordinate" })).toBeVisible();
-    await expect(page.getByTestId("tools-visible-count")).toContainText("Showing 7 of 7 tools");
+    await expect(page.getByTestId("tools-visible-count")).toContainText("Showing 8 of 8 tools");
     await expectNoHorizontalOverflow(page);
   });
 
@@ -40,7 +40,7 @@ test.describe("Tools task directory mockup (Concept 4) @mockup", () => {
     await search.fill("medication");
     await expect(page.getByLabel("Open Medication Prescribing")).toBeVisible();
     await expect(page.getByLabel("Open Documents")).toHaveCount(0);
-    await expect(page.getByTestId("tools-visible-count")).toContainText("Showing 1 of 7 tools");
+    await expect(page.getByTestId("tools-visible-count")).toContainText("Showing 1 of 8 tools");
 
     await search.fill("zzzzznotarealtool");
     await expect(page.getByTestId("tools-empty-state")).toBeVisible();
@@ -54,12 +54,12 @@ test.describe("Tools task directory mockup (Concept 4) @mockup", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await goto(page, PATH);
 
-    // Clinical = reference/assessment/care (4), Admin = coordination/personal (3).
-    await expect(page.getByRole("button", { name: /Clinical/ })).toContainText("4");
+    // Clinical = reference/assessment/care (5, incl. Safety plan), Admin = coordination/personal (3).
+    await expect(page.getByRole("button", { name: /Clinical/ })).toContainText("5");
     await expect(page.getByRole("button", { name: /Admin/ })).toContainText("3");
 
     await page.getByRole("button", { name: /Admin/ }).click();
-    await expect(page.getByTestId("tools-visible-count")).toContainText("Showing 3 of 7 tools");
+    await expect(page.getByTestId("tools-visible-count")).toContainText("Showing 3 of 8 tools");
     await expect(page.getByLabel("Open Services").first()).toBeVisible();
     await expect(page.getByLabel("Open Differentials")).toHaveCount(0);
     await expectNoHorizontalOverflow(page);

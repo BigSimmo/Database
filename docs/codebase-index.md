@@ -62,6 +62,7 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 | `/medications`, `/medications/[slug]`                                                                     | `src/app/medications/`                 |
 | `/privacy`                                                                                                | `src/app/privacy/page.tsx`             |
 | `/reference/colour-coding`                                                                                | `src/app/reference/`                   |
+| `/safety-plan`                                                                                            | `src/app/safety-plan/page.tsx`         |
 | `/services`, `/services/[slug]`                                                                           | `src/app/services/`                    |
 | `/therapy-compass`                                                                                        | `src/app/therapy-compass/`             |
 | `/tools`                                                                                                  | `src/app/tools/`                       |

@@ -73,6 +73,7 @@ const routeDescriptions: Record<string, string> = {
   "/medications": "Medication index redirect.",
   "/medications/[slug]": "Medication detail.",
   "/privacy": "Privacy and data-processing governance draft.",
+  "/safety-plan": "Patient safety plan generator (Stanley-Brown six steps) — a Tools-page clinical tool.",
   "/services": "Services home and search surface.",
   "/services/[slug]": "Registry-backed service detail.",
   "/formulation": "Clinical formulation home and local mechanism search surface.",
