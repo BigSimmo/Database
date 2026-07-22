@@ -85,7 +85,7 @@ of these slots in one action.
 
 ## Suggested order of work
 
-1. **Decide the BMJ attestation policy** (clears ~64% of review-required documents in one action). Any chosen option must use an explicit, auditable metadata update and must preserve the third-party/unverified distinction until applied — never silently default ingestion metadata to `current` or `approved`.
+1. **Decide the BMJ attestation policy** (clears ~64% of review-required documents in one action) — any chosen option must be an explicit, auditable metadata update that never silently defaults to `current`/`approved` and preserves the third-party/unverified distinction; this remains open debt (ledger #022) until the approved policy is implemented, not merely decided.
 2. **Attest the local documents by visibility** — start with `Clozapine Management by GP (NMHS)` (22 slots,
    rank 1), then the FSH addiction/withdrawal document, then the remaining NMHS/AKG/CAMHS/KEMH items.
 3. **Re-read the warning rate** on the next canary to confirm the burn-down.
