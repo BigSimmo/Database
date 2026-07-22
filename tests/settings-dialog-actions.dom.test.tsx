@@ -8,13 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 // asserted without real storage or auth; useTheme/useAppPreferences run
 // unmocked in jsdom.
 
-const {
-  clearRecentQueries,
-  clearFavourites,
-  signInWithEmail,
-  mockRecentCount,
-  mockFavourites,
-} = vi.hoisted(() => {
+const { clearRecentQueries, clearFavourites, signInWithEmail, mockRecentCount, mockFavourites } = vi.hoisted(() => {
   let recentCount = 3;
   let favouritesData = { medications: [{ id: "m1" }] };
   return {
