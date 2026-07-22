@@ -201,6 +201,7 @@
   "overrides": {
     "postcss": "^8.5.15",
     "esbuild": "0.28.1",
+    "sharp": "0.35.3",
     "tmp": "^0.2.7",
     "uuid": "^11.1.1",
     "brace-expansion@1": "^1.1.16",
@@ -236,7 +237,7 @@
   },
   "allowScripts": {
     "esbuild@0.28.1": true,
-    "sharp@0.34.5": true,
+    "sharp@0.35.3": true,
     "unrs-resolver@1.12.2": true,
     "@eslint/eslintrc@3.3.6": true,
     "@humanwhocodes/module-importer@1.0.1": true,
