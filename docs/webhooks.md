@@ -245,12 +245,25 @@ begin
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || v_secret
     ),
+    -- Minimal payload by design. The receiver reads only id / owner_id / status /
+    -- metadata.reindex_requested and then reloads the authoritative row by id, so
+    -- the full row is never needed. Sending `to_jsonb(new)` (plus `old_record`)
+    -- would ship file names, storage paths, and content hashes to whatever host
+    -- app.ingestion_webhook_base_url resolves to — needlessly widening what a
+    -- mistyped/wrong-environment GUC could leak. Send the four fields it uses and
+    -- omit old_record entirely.
     body := jsonb_build_object(
       'type', tg_op,
       'table', tg_table_name,
       'schema', tg_table_schema,
-      'record', to_jsonb(new),
-      'old_record', case when tg_op = 'UPDATE' then to_jsonb(old) else null end
+      'record', jsonb_build_object(
+        'id', new.id,
+        'owner_id', new.owner_id,
+        'status', new.status,
+        'metadata', jsonb_build_object(
+          'reindex_requested', new.metadata -> 'reindex_requested'
+        )
+      )
     ),
     timeout_milliseconds := 5000
   );
