@@ -52,15 +52,23 @@ export async function probeSupabaseHealth(supabase: SupabaseProbeClient): Promis
   try {
     const { error } = await supabase.from("import_batches").select("id").limit(1);
     if (!error) return { ok: true, checkedAt };
-    if (isSupabaseUnavailableError(error)) {
-      return { ok: false, checkedAt, message: formatSupabaseUnavailableError(error), rawMessage: errorMessage(error) };
-    }
-    return { ok: true, checkedAt };
+    return {
+      ok: false,
+      checkedAt,
+      message: isSupabaseUnavailableError(error)
+        ? formatSupabaseUnavailableError(error)
+        : "Supabase health check failed.",
+      rawMessage: errorMessage(error),
+    };
   } catch (error) {
-    if (isSupabaseUnavailableError(error)) {
-      return { ok: false, checkedAt, message: formatSupabaseUnavailableError(error), rawMessage: errorMessage(error) };
-    }
-    throw error;
+    return {
+      ok: false,
+      checkedAt,
+      message: isSupabaseUnavailableError(error)
+        ? formatSupabaseUnavailableError(error)
+        : "Supabase health check failed.",
+      rawMessage: errorMessage(error),
+    };
   }
 }
 
