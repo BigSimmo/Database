@@ -33,14 +33,17 @@ export function getClientMaxUploadMb(): number {
   return Math.min(parsed, MAX_UPLOAD_MB_CEILING);
 }
 
-/** True when a file exceeds the effective client pre-check limit. */
+/**
+ * True when a file exceeds the effective client pre-check limit.
+ *
+ * This is deliberately the only size predicate exported: with the public env
+ * unset it falls back to the ceiling, so it subsumes the absolute
+ * "larger than any limit the server can accept" check. Keeping a second,
+ * ceiling-only predicate alongside it would let a call site silently bypass a
+ * lowered operator limit.
+ */
 export function exceedsClientUploadSize(sizeInBytes: number): boolean {
   return sizeInBytes > getClientMaxUploadMb() * BYTES_PER_MB;
-}
-
-/** True when a file is larger than any limit the server can be configured to accept. */
-export function exceedsUploadSizeCeiling(sizeInBytes: number): boolean {
-  return sizeInBytes > MAX_UPLOAD_MB_CEILING * BYTES_PER_MB;
 }
 
 /**
