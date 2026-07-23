@@ -1096,9 +1096,7 @@ test.describe("Clinical KB tools launcher", () => {
       expect(geometry.paddingBottom, route.path).toBeGreaterThanOrEqual(safeAreaBottom - 1);
       expect(geometry.pillBottom, route.path).not.toBeNull();
       // Pill sits above the safe-area pad; do not require exact px (borders/gaps).
-      expect(geometry.pillBottom!, route.path).toBeLessThanOrEqual(
-        geometry.viewportHeight - safeAreaBottom + 2,
-      );
+      expect(geometry.pillBottom!, route.path).toBeLessThanOrEqual(geometry.viewportHeight - safeAreaBottom + 2);
     }
   });
 
