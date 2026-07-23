@@ -24,7 +24,7 @@ The repository exposes seven offline-first workflow planners. Each planner inspe
 - Use `-- --files pathA,pathB` to plan an explicit proposed change before editing.
 - Use `workflow:triage -- --log <path>` to classify a captured failure.
 - Use lifecycle phase `reconcile` for broad multi-worktree work. It selects the report-only
-  `npm run reconcile:preflight` locally and keeps `git fetch --prune origin` approval-gated. Add
+  `node scripts/reconciliation-preflight.mjs` locally and keeps `git fetch --prune origin` approval-gated. Add
   `-- --include-processes` to the preflight only when process ownership may block cleanup; it never
   serializes raw command lines.
 

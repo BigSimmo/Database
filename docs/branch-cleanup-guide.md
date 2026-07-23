@@ -17,7 +17,7 @@ For historical cleanup snapshots (frozen branch inventories and progress logs), 
 
 Before deleting anything:
 
-For broad multi-worktree reconciliation, first run `npm run reconcile:preflight` and follow
+For broad multi-worktree reconciliation, first run `node scripts/reconciliation-preflight.mjs` and follow
 [`docs/reconciliation-playbook.md`](reconciliation-playbook.md). The preflight is report-only and
 does not replace the fetch/approval and per-branch content proof below.
 
@@ -66,7 +66,7 @@ does not replace the fetch/approval and per-branch content proof below.
 Delete a branch only when the cherry-pick-aware log is empty, or when the branch is deliberately rejected as not useful after review.
 
 Never print raw process command lines while checking whether a worktree is active. Use PID/name/start
-metadata or `npm run reconcile:preflight -- --include-processes`; command-line arguments can contain
+metadata or `node scripts/reconciliation-preflight.mjs --include-processes`; command-line arguments can contain
 credentials.
 
 ## Recommended Cleanup Order

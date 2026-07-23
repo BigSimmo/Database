@@ -8,7 +8,7 @@ The cloud-chat reconciliation postmortem and complete issue/fix matrix are in
 [`docs/archive/cloud-chat-reconciliation-postmortem-2026-07-23.md`](archive/cloud-chat-reconciliation-postmortem-2026-07-23.md).
 The reusable procedure is [`docs/reconciliation-playbook.md`](reconciliation-playbook.md).
 
-- `npm run reconcile:preflight` is an explicit, report-only inventory for broad reconciliation and
+- `node scripts/reconciliation-preflight.mjs` is an explicit, report-only inventory for broad reconciliation and
   cleanup. It uses cached Git refs, never fetches, and reports primary/worktree dirty state,
   detached worktrees, ahead/behind counts, and operation markers. Add `-- --include-processes` only
   when ownership could block cleanup; that path emits metadata/counts and never raw command lines.

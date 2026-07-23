@@ -107,7 +107,9 @@ describe("productivity workflow planning", () => {
   it("keeps reconciliation inventory local and gates the remote refresh", () => {
     const plan = buildWorkflowPlan("lifecycle", [], { phase: "reconcile" });
 
-    expect(plan.localChecks.map((item: { command: string }) => item.command)).toEqual(["npm run reconcile:preflight"]);
+    expect(plan.localChecks.map((item: { command: string }) => item.command)).toEqual([
+      "node scripts/reconciliation-preflight.mjs",
+    ]);
     expect(plan.approvalRequired.map((item: { command: string }) => item.command)).toEqual([
       "git fetch --prune origin",
     ]);

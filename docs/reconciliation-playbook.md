@@ -8,7 +8,7 @@ focused verification path.
 
 ```powershell
 npm run workflow:lifecycle -- --phase reconcile --write-evidence
-npm run reconcile:preflight
+node scripts/reconciliation-preflight.mjs
 ```
 
 The preflight is local, read-only, and cached-ref-only. It inventories the primary checkout,
@@ -18,7 +18,7 @@ fetches, scans providers, deletes anything, or treats a preserved branch as appr
 When process ownership may block cleanup, add the explicit process check:
 
 ```powershell
-npm run reconcile:preflight -- --include-processes
+node scripts/reconciliation-preflight.mjs --include-processes
 ```
 
 That check emits counts and process metadata only. It must never print or persist raw command lines;
@@ -30,7 +30,7 @@ After explicit GitHub authorization:
 
 ```powershell
 git fetch --prune origin
-npm run reconcile:preflight -- --strict
+node scripts/reconciliation-preflight.mjs --strict
 ```
 
 Do not claim remote freshness from a cached `origin/main`. Do not fetch implicitly inside a normal

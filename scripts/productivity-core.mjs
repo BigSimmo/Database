@@ -243,7 +243,7 @@ export function buildWorkflowPlan(workflow, files = [], options = {}) {
         : phase === "reconcile"
           ? [
               check(
-                "npm run reconcile:preflight",
+                "node scripts/reconciliation-preflight.mjs",
                 "Inventory cached base, primary checkout, worktrees, dirty state, and Git operations without fetching.",
               ),
             ]
