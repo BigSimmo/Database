@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { boldHighYieldClinicalText, rankAnswerEvidence } from "../src/lib/answer-ranking";
+import { buildCrossDocumentSynthesisPlan } from "../src/lib/cross-document-synthesis";
 import { parseAnswerJson } from "../src/lib/rag/rag";
 import type { SearchResult } from "../src/lib/types";
 
@@ -198,6 +199,86 @@ describe("answer evidence ranking", () => {
 
     expect(ranking.rankedResults.map((item) => item.id)).toEqual(["higher-rank", "lower-rank"]);
     expect(ranking.scoresByChunkId.get("higher-rank")).toBe(ranking.scoresByChunkId.get("lower-rank"));
+  });
+
+  it("retains both admission and discharge evidence through deterministic comparison packing", () => {
+    // Replays the document/order/score shape from current-main canary run 30009207429.
+    // If this stays green while a live answer omits Admission of Community Patients,
+    // the loss occurred after deterministic ranking/packing and must not be "fixed"
+    // with a speculative retrieval-score or comparator change.
+    const ranking = rankAnswerEvidence("Compare admission and discharge requirements", [
+      result({
+        id: "combined-policy",
+        document_id: "combined-policy-doc",
+        title: "Referral, Admission And Discharge - Mental Health Hospital In The Home",
+        file_name: "referral-admission-discharge.pdf",
+        content: "Referral procedure, consultant acceptance and patient-flow allocation.",
+        hybrid_score: 0.2898,
+        score_explanation: { rankScore: 1.5365 } as NonNullable<SearchResult["score_explanation"]>,
+      }),
+      result({
+        id: "discharge-community",
+        document_id: "discharge-community-doc",
+        title: "Discharge Planning For Community Patients",
+        file_name: "discharge-planning-community-patients.pdf",
+        content: "Relapse and admission principles set expectations for community treatment and discharge planning.",
+        hybrid_score: 0.3892,
+        score_explanation: { rankScore: 1.1365 } as NonNullable<SearchResult["score_explanation"]>,
+      }),
+      result({
+        id: "discharge-community-sibling",
+        document_id: "discharge-community-doc",
+        title: "Discharge Planning For Community Patients",
+        file_name: "discharge-planning-community-patients.pdf",
+        content: "Community staff document the discharge plan and ongoing care arrangements.",
+        hybrid_score: 0.3882,
+        score_explanation: { rankScore: 1.0204 } as NonNullable<SearchResult["score_explanation"]>,
+      }),
+      result({
+        id: "admission-community",
+        document_id: "admission-community-doc",
+        title: "Admission Of Community Patients",
+        file_name: "Admission of Community Patients (AKG).pdf",
+        content:
+          "The patient-flow framework covers police assistance, escorted admissions and high-observation bed capacity.",
+        hybrid_score: 0.376,
+        score_explanation: { rankScore: 1.3325 } as NonNullable<SearchResult["score_explanation"]>,
+      }),
+      result({
+        id: "admission-community-sibling",
+        document_id: "admission-community-doc",
+        title: "Admission Of Community Patients",
+        file_name: "Admission of Community Patients (AKG).pdf",
+        content:
+          "The patient-flow framework covers police assistance, escorted admissions and high-observation bed capacity.",
+        hybrid_score: 0.3757,
+        score_explanation: { rankScore: 1.3082 } as NonNullable<SearchResult["score_explanation"]>,
+      }),
+      result({
+        id: "patient-discharge",
+        document_id: "patient-discharge-doc",
+        title: "Patient Discharge Policy And Procedure",
+        content: "Discharge requirements include clinical handover, referral and documented follow-up.",
+        hybrid_score: 0.2847,
+        score_explanation: { rankScore: 0.9318 } as NonNullable<SearchResult["score_explanation"]>,
+      }),
+      result({
+        id: "falls-distractor",
+        document_id: "falls-doc",
+        title: "Falls Prevention And Management",
+        content: "Rehabilitation discharge planning and progress notes are documented after medical review.",
+        hybrid_score: 0.2361,
+        score_explanation: { rankScore: 0.6534 } as NonNullable<SearchResult["score_explanation"]>,
+      }),
+    ]);
+
+    const packed = buildCrossDocumentSynthesisPlan(
+      "Compare admission and discharge requirements",
+      ranking.rankedResults,
+      "comparison",
+    ).results.slice(0, 5);
+    expect(packed.some((item) => item.document_id === "admission-community-doc")).toBe(true);
+    expect(packed.some((item) => /discharge/i.test(`${item.title} ${item.content}`))).toBe(true);
   });
 });
 
