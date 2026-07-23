@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-22T11:50:53.425Z",
+  "generated_at": "2026-07-23T23:41:25.333Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "d0cd017793cb2ffeb5e50462377c06d0f574fe6b6a295da9f32af404076b245b",
-  "replay_seconds": 15,
+  "schema_sha256": "b00b143ba74e98525ba17f032245c05a7befff9adbc07c612f0f8de29855bc51",
+  "replay_seconds": 16,
   "snapshot": {
     "views": [
       {
@@ -6548,6 +6548,11 @@
         "table": "document_title_words"
       },
       {
+        "def": "CREATE TRIGGER documents_ingestion_webhook AFTER UPDATE OF metadata ON public.documents FOR EACH ROW EXECUTE FUNCTION public.notify_document_change_ingestion_webhook()",
+        "name": "documents_ingestion_webhook",
+        "table": "documents"
+      },
+      {
         "def": "CREATE TRIGGER documents_require_publication_approval BEFORE INSERT OR UPDATE ON public.documents FOR EACH ROW EXECUTE FUNCTION public.guard_document_publication_transition()",
         "name": "documents_require_publication_approval",
         "table": "documents"
@@ -7103,6 +7108,14 @@
         ],
         "def_hash": "8248e8d1aec23bbad35aca0ddc4dc94d",
         "signature": "public.match_documents_for_query(text,integer,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "2cea59a50141b1479ad8a3d493f80189",
+        "signature": "public.notify_document_change_ingestion_webhook()"
       },
       {
         "acl": [
