@@ -169,7 +169,7 @@ jobs:
           fi
           mkdir -p .local/eval-canary
           set -o pipefail
-          npm run eval:quality -- --rag-only --limit "$ANSWER_CASE_LIMIT" --fail-on-threshold 2>&1 | tee .local/eval-canary/answer-quality.log
+          npm run eval:quality -- --rag-only --limit "$ANSWER_CASE_LIMIT" --output-dir .local/eval-canary/quality-reports --fail-on-threshold 2>&1 | tee .local/eval-canary/answer-quality.log
 
       # Phase E baseline/paired-run instrument: the five answer-quality metrics (relevance,
       # readability, artifact leaks, intent coverage, fail-closed) + per-intent structural

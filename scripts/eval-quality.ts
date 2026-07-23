@@ -118,6 +118,22 @@ export type QualityFailureCategory =
 
 export type EvalQualityReport = ReturnType<typeof buildEvalQualityReport>;
 
+export type EvalQualityRunContext = {
+  git_sha: string | null;
+  github_run_id: string | null;
+  github_run_attempt: string | null;
+  latency_context: string;
+};
+
+export function evalQualityRunContext(env: Record<string, string | undefined> = process.env): EvalQualityRunContext {
+  return {
+    git_sha: env.EVAL_GIT_SHA?.trim() || env.GITHUB_SHA?.trim() || null,
+    github_run_id: env.GITHUB_RUN_ID?.trim() || null,
+    github_run_attempt: env.GITHUB_RUN_ATTEMPT?.trim() || null,
+    latency_context: env.EVAL_LATENCY_CONTEXT?.trim() || "default",
+  };
+}
+
 export type SourceMetadataDebtAcceptance = {
   path?: string;
   accepted_by: string;
@@ -703,6 +719,7 @@ export function buildEvalQualityReport(args: {
 
   return {
     generated_at: args.generatedAt ?? new Date().toISOString(),
+    run_context: evalQualityRunContext(),
     provider: {
       ...providerEvidence,
       passed:

@@ -31,6 +31,7 @@ describe("eval canary workflow input", () => {
     expect(workflow).toContain("set -o pipefail");
     expect(workflow).toContain("tee .local/eval-canary/golden-retrieval.log");
     expect(workflow).toContain("tee .local/eval-canary/answer-quality.log");
+    expect(workflow).toContain("--output-dir .local/eval-canary/quality-reports");
     expect(workflow).toContain(
       "await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/productivity-core.mjs`).href)",
     );
