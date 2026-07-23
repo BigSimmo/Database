@@ -102,6 +102,10 @@ jobs:
           # Empty ref = checkout's default (the triggering sha) — schedule runs unaffected.
           ref: ${{ github.event.inputs.ref || '' }}
 
+      - name: Record evaluated Git SHA
+        shell: bash
+        run: echo "EVAL_GIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
       # Fail loudly on a malformed override: resolveRankingConfig (src/lib/ranking-config.ts)
       # silently falls back to production defaults on bad JSON, which would turn a staged-weights
       # eval into an accidental baseline and corrupt the pair comparison.
