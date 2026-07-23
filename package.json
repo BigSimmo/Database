@@ -16,6 +16,7 @@
     "guard:push": "node scripts/guard-push.mjs",
     "guard:push:self-test": "node scripts/guard-push.mjs --self-test",
     "check:base-freshness": "node scripts/check-base-freshness.mjs",
+    "reconcile:preflight": "node scripts/reconciliation-preflight.mjs",
     "ensure": "node scripts/ensure-local-server.mjs",
     "build": "node scripts/run-heavy.mjs --npm-script build:internal",
     "build:internal": "node scripts/guard-next-build.mjs && node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build --webpack && node scripts/check-client-bundle-secrets.mjs",

@@ -234,10 +234,20 @@ export function buildWorkflowPlan(workflow, files = [], options = {}) {
     );
   } else if (workflow === "lifecycle") {
     const phase = options.phase || "status";
-    if (!new Set(["status", "start", "handoff", "landed", "cleanup"]).has(phase)) {
+    if (!new Set(["status", "start", "reconcile", "handoff", "landed", "cleanup"]).has(phase)) {
       throw new Error(`Unknown lifecycle phase: ${phase}`);
     }
-    localChecks = phase === "handoff" ? [check("npm run verify:pr-local", "Complete the local handoff gate.")] : [];
+    localChecks =
+      phase === "handoff"
+        ? [check("npm run verify:pr-local", "Complete the local handoff gate.")]
+        : phase === "reconcile"
+          ? [
+              check(
+                "npm run reconcile:preflight",
+                "Inventory cached base, primary checkout, worktrees, dirty state, and Git operations without fetching.",
+              ),
+            ]
+          : [];
     approvalRequired =
       phase === "handoff"
         ? [
@@ -251,11 +261,20 @@ export function buildWorkflowPlan(workflow, files = [], options = {}) {
                 "GitHub interaction requires explicit user authorization.",
               ),
             ]
-          : [];
+          : phase === "reconcile"
+            ? [check("git fetch --prune origin", "Refresh remote truth only after explicit GitHub authorization.")]
+            : [];
     proof.push(
       "Verify branch and worktree state at every transition.",
       "Use content equality for squash-merge proof before cleanup.",
     );
+    if (phase === "reconcile") {
+      proof.push(
+        "Use a dedicated clean integration worktree; never integrate from a dirty primary checkout.",
+        "Filter candidates by ownership, open PRs, ledger, and ancestry before expensive patch comparison.",
+        "Preserve unmerged content before cleanup and never print raw process command lines.",
+      );
+    }
   }
 
   if (localChecks.some((item) => PROVIDER_COMMAND_PATTERN.test(item.command))) {

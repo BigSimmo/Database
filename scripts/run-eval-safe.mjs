@@ -35,7 +35,7 @@ function toDateOrDefault(rawValue) {
   return null;
 }
 
-export function listRepoNodeProcesses() {
+export function listRepoNodeProcesses(workspaceRoot = projectRoot) {
   if (!isWindows) return [];
 
   const command = [
@@ -46,7 +46,10 @@ export function listRepoNodeProcesses() {
     "  $_.Name -like 'node*' -and",
     "  $_.CommandLine -and",
     "  $_.CommandLine.ToLowerInvariant().Contains($root)",
-    "} | Select-Object ProcessId, ParentProcessId, CommandLine, CreationDate",
+    // CommandLine is used only for the in-process workspace filter. Do not
+    // serialize it across the PowerShell boundary: CLI arguments can contain
+    // credentials, and descendant cleanup needs only process metadata.
+    "} | Select-Object ProcessId, ParentProcessId, CreationDate",
     "$matches | ConvertTo-Json -Compress",
   ];
 
@@ -55,7 +58,7 @@ export function listRepoNodeProcesses() {
     ["-NoProfile", "-NoLogo", "-NonInteractive", "-Command", command.join("\n")],
     {
       encoding: "utf8",
-      env: { ...process.env, RUN_EVAL_GUARD_REPO_ROOT: projectRoot },
+      env: { ...process.env, RUN_EVAL_GUARD_REPO_ROOT: workspaceRoot },
       cwd: projectRoot,
       windowsHide: true,
     },
@@ -71,7 +74,6 @@ export function listRepoNodeProcesses() {
     return rows.map((item) => ({
       pid: Number.parseInt(item?.ProcessId ?? "0", 10),
       parentPid: Number.parseInt(item?.ParentProcessId ?? "0", 10),
-      commandLine: String(item?.CommandLine ?? ""),
       createdAtMs: toDateOrDefault(item?.CreationDate ?? ""),
     }));
   } catch {

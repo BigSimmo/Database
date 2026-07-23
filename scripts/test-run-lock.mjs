@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:f
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { redactSensitiveText } from "./sensitive-text.mjs";
 
 const tokenEnvironmentKey = "CLINICAL_KB_HEAVY_LOCK_TOKEN";
 const pathEnvironmentKey = "CLINICAL_KB_HEAVY_LOCK_PATH";
@@ -104,10 +105,11 @@ export function acquireHeavyRunLock({
     try {
       mkdirSync(lockPath);
       const token = randomUUID();
+      const safeCommand = redactSensitiveText(command);
       const owner = {
         pid: processId,
         token,
-        command,
+        command: safeCommand,
         worktree: path.resolve(projectRoot),
         repositoryIdentity: normalizeIdentity(repositoryIdentity),
         startedAt: new Date().toISOString(),
@@ -134,7 +136,7 @@ export function acquireHeavyRunLock({
       const owner = readOwner(lockPath);
       if (owner && processIsAlive(owner.pid)) {
         throw new Error(
-          `Another Database heavyweight command is active (PID ${owner.pid}, worktree ${owner.worktree ?? "unknown"}, started ${owner.startedAt ?? "unknown"}): ${owner.command ?? "unknown command"}`,
+          `Another Database heavyweight command is active (PID ${owner.pid}, worktree ${owner.worktree ?? "unknown"}, started ${owner.startedAt ?? "unknown"}): ${redactSensitiveText(owner.command ?? "unknown command")}`,
         );
       }
       if (!owner && !lockIsOldEnoughToRecover(lockPath)) {

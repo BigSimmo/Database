@@ -2,10 +2,34 @@
 
 This document turns the current process review into phased, durable repo practice. It separates changes that already take effect from work that should stay explicit until it is implemented.
 
+## Multi-worktree reconciliation hardening (2026-07-23)
+
+The cloud-chat reconciliation postmortem and complete issue/fix matrix are in
+[`docs/archive/cloud-chat-reconciliation-postmortem-2026-07-23.md`](archive/cloud-chat-reconciliation-postmortem-2026-07-23.md).
+The reusable procedure is [`docs/reconciliation-playbook.md`](reconciliation-playbook.md).
+
+- `npm run reconcile:preflight` is an explicit, report-only inventory for broad reconciliation and
+  cleanup. It uses cached Git refs, never fetches, and reports primary/worktree dirty state,
+  detached worktrees, ahead/behind counts, and operation markers. Add `-- --include-processes` only
+  when ownership could block cleanup; that path emits metadata/counts and never raw command lines.
+- `workflow:lifecycle -- --phase reconcile` selects the preflight locally and lists remote fetch as
+  a separate approval-required action.
+- Candidate filtering is cheap-first: owner/open-PR/review-ledger/ancestry before patch comparison;
+  `merge-tree` remains a last resort. This avoids repeating the slow all-ref sweep that dominated the
+  historical reconciliation.
+- Heavy verification remains serialized. Inspect the lock/process/artifact state before retrying,
+  never rerun an unchanged pass, and record interrupted aggregate suites as incomplete.
+- `scripts/test-run-lock.mjs` redacts credential-bearing command text before it reaches `owner.json`
+  or a contention error. `scripts/run-eval-safe.mjs` uses command lines only inside its workspace
+  filter and serializes PID/parent/start metadata only.
+
 ## Repository cleanup follow-ups (2026-07-19)
 
 - **ModeHomeMain vertical alignment (fixed in #938):** commit `39d14a51` made standalone mode homes a `flex-1 justify-center` shell. That centres short empty homes correctly, but when differentials (and any tall results view) reused the same wrapper, the top of the content was clipped above the phone scrollport — white gap under the header, Best Answer unreachable, first visible list card looking like rank “2”. Prefer `ModeHomeMain`’s `contentAlign` prop (`center` | `start` | `startOnPhone`); never pass `justify-*` via `className` (`cn()` does not merge Tailwind). Guards: `tests/mode-home-main-align.test.ts` plus the narrow-viewport Best Answer fold assertion in `tests/ui-tools.spec.ts`.
-- **High-priority local process ownership:** `scripts/run-eval-safe.mjs` still scans for and terminates residual repository processes through `cleanupResidualEvaluationProcesses()`. A superseded RAG safety worktree contained a narrower child-owned `terminateOwnedProcessTree(child.pid)` approach plus a regression test proving unrelated Vitest, Playwright, and Next processes remain untouched. Do not cherry-pick that stale worktree wholesale; isolate this process-ownership fix on current `main`, then verify it statically without starting a provider-backed evaluation. Modifying or exercising the eval workflow remains approval-gated.
+- **Local process ownership (resolved):** `scripts/run-eval-safe.mjs` now terminates only the spawned
+  child and its descendant tree through `terminateOwnedProcessTree(child.pid)`; focused tests prove
+  unrelated Vitest, Playwright, and Next processes are not targeted. Repository discovery remains
+  Node-filtered. Process command lines are no longer serialized out of the Windows inventory.
 - **Provider-gated RAG safety ideas (closed obsolete — outstanding-issues #004):** the same stale worktree contained conservative answer-quality thresholds, an evaluation cost-cap preflight, production-safety validation, deep-health assessment, and citation/vector proof tests. Its 754-line retrieval migration and route changes conflicted with the later public-title privacy and migration chain and must not be replayed. This item is now resolved: the rescue source is unrecoverable (pruned across all reachable refs), the answer-quality thresholds and deep-health assessment already shipped on current `main` (#585/#587), and the only genuinely-missing piece — the evaluation cost-cap preflight — was dropped rather than re-filed. No rescope action remains.
 - **Semantic reranking rollout debt:** PR #901 keeps `RAG_SEMANTIC_RERANK_ENABLED=false`. Do not enable it until the provider-backed 36/36 retrieval-quality gate and an ambiguity-focused canary are explicitly approved and recorded.
 

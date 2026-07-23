@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 import { spawnSync } from "node:child_process";
 import { getDescendantPids, terminateOwnedProcessTree, isWindows } from "../scripts/run-eval-safe.mjs";
@@ -19,24 +20,14 @@ vi.mock("node:child_process", async (importOriginal) => {
 describe("run-eval-safe process ownership safety", () => {
   const mockSnapshot = [
     // Our spawned child process tree
-    { pid: 1000, parentPid: 999, commandLine: "node scripts/run-tsx.mjs scripts/eval-quality.ts", createdAtMs: null },
-    { pid: 1001, parentPid: 1000, commandLine: "node node_modules/next/dist/bin/next build", createdAtMs: null },
-    {
-      pid: 1002,
-      parentPid: 1001,
-      commandLine: "node node_modules/next/dist/compiled/jest-worker/processchild.js",
-      createdAtMs: null,
-    },
+    { pid: 1000, parentPid: 999, createdAtMs: null },
+    { pid: 1001, parentPid: 1000, createdAtMs: null },
+    { pid: 1002, parentPid: 1001, createdAtMs: null },
 
     // Unrelated processes running in the repository
-    { pid: 2000, parentPid: 500, commandLine: "node node_modules/next/dist/bin/next dev", createdAtMs: null },
-    {
-      pid: 2001,
-      parentPid: 2000,
-      commandLine: "node node_modules/vitest/vitest.mjs --reporter=dot",
-      createdAtMs: null,
-    },
-    { pid: 3000, parentPid: 1, commandLine: "node some-other-repo/scripts/eval.js", createdAtMs: null },
+    { pid: 2000, parentPid: 500, createdAtMs: null },
+    { pid: 2001, parentPid: 2000, createdAtMs: null },
+    { pid: 3000, parentPid: 1, createdAtMs: null },
   ];
 
   it("correctly maps descendant PIDs including the root PID", () => {
@@ -78,5 +69,14 @@ describe("run-eval-safe process ownership safety", () => {
     expect(calledPids).not.toContain("2000");
     expect(calledPids).not.toContain("2001");
     expect(calledPids).not.toContain("3000");
+  });
+
+  it("filters by command line without serializing command-line values", () => {
+    const source = readFileSync(new URL("../scripts/run-eval-safe.mjs", import.meta.url), "utf8");
+
+    expect(source).toContain("$_.CommandLine.ToLowerInvariant().Contains($root)");
+    expect(source).toContain("Select-Object ProcessId, ParentProcessId, CreationDate");
+    expect(source).not.toContain("Select-Object ProcessId, ParentProcessId, CommandLine");
+    expect(source).not.toContain("commandLine: String(item?.CommandLine");
   });
 });

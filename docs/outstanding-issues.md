@@ -27,7 +27,7 @@ Durable, cross-session memory of everything still outstanding for this repo: ope
 - Resolving an item moves its row to **Resolved / archive** with the date and a one-line outcome —
   rows are archived, not deleted, so the history stays auditable.
 
-<!-- issues:next-id=049 -->
+<!-- issues:next-id=050 -->
 
 ## Open items
 
@@ -88,3 +88,4 @@ Move resolved rows here with the resolution date and a one-line outcome. Keep th
 | #046 | issue | DOCX extraction lacked explicit resource budgets                 | PR #1085 added pre-inflate declared-size checks and post-read fail-safes for artifact count, per-artifact bytes, aggregate media, Word XML and extracted UTF-8 text.                                                                                                                                                                                                                                                                           | 2026-07-22 |
 | #047 | issue | XLSX extraction could construct unbounded results                | PR #1086 bounds worksheets, non-empty rows, rendered cells and UTF-8 output while preserving sparse-column rendering.                                                                                                                                                                                                                                                                                                                          | 2026-07-22 |
 | #048 | issue | Account copy overstated sync/privacy and enabled unavailable SSO | PR #1087 now maps copy to actual favourites/preferences persistence, identifies browser-session recents, removes the contradictory "never shared" claim and clearly disables unavailable providers using the accessible placeholder contract.                                                                                                                                                                                                  | 2026-07-22 |
+| #049 | issue | Process diagnostic exposed a Cursor worker API key               | The exact worker was stopped, the key was revoked server-side, both local encrypted worker-secret records were removed, and authorized repository/backup scans found no plaintext copy. Follow-up guardrails now prevent repository process inventory from serializing command lines and redact heavyweight-lock command text before persistence or errors.                                                                                    | 2026-07-23 |

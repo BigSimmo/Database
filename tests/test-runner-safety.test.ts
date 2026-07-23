@@ -12,6 +12,7 @@ import {
   requireProviderTestPermission,
 } from "../scripts/test-environment.mjs";
 import { acquireHeavyRunLock } from "../scripts/test-run-lock.mjs";
+import { redactSensitiveText } from "../scripts/sensitive-text.mjs";
 
 const temporaryDirectories: string[] = [];
 
@@ -114,6 +115,61 @@ describe("repository-wide heavyweight lock", () => {
     stale.release();
     expect(readFileSync(path.join(replacement.path, "owner.json"), "utf8")).toContain(replacement.owner.token);
     replacement.release();
+  });
+
+  it("never persists or repeats credentials embedded in a command", () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-secret-lock-");
+    const repositoryIdentity = path.join(baseDirectory, "shared.git");
+    const exposed = ["crsr", "example_worker_credential_123456789"].join("_");
+    const openAiExample = ["sk", "example-secret-123456"].join("-");
+    const first = acquireHeavyRunLock({
+      projectRoot: path.join(baseDirectory, "worktree-a"),
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      command: `worker --api-key ${exposed} OPENAI_API_KEY=${openAiExample}`,
+    });
+
+    try {
+      const ownerText = readFileSync(path.join(first.path, "owner.json"), "utf8");
+      expect(ownerText).not.toContain(exposed);
+      expect(ownerText).not.toContain(openAiExample);
+      expect(ownerText).toContain("[REDACTED]");
+      expect(() =>
+        acquireHeavyRunLock({
+          projectRoot: path.join(baseDirectory, "worktree-b"),
+          repositoryIdentity,
+          baseDirectory,
+          environment: {},
+          command: "second",
+        }),
+      ).toThrow(/\[REDACTED\]/);
+    } finally {
+      first.release();
+    }
+  });
+});
+
+describe("sensitive diagnostic text", () => {
+  it("redacts CLI flags, environment assignments, bearer values, URLs, and JWTs", () => {
+    const jwt = "eyJabcdefghijk.abcdefghijklmnop.abcdefghijklmnop";
+    const cursorExample = ["crsr", "example_1234567890"].join("_");
+    const otherCursorExample = ["crsr", "other_1234567890"].join("_");
+    const value = [
+      `agent --api-key ${cursorExample}`,
+      `CURSOR_API_KEY=${otherCursorExample}`,
+      "Authorization: Bearer bearer-value-123456",
+      "https://worker:password-value@example.com/path",
+      jwt,
+    ].join(" ");
+    const redacted = redactSensitiveText(value);
+
+    expect(redacted).not.toContain(cursorExample);
+    expect(redacted).not.toContain(otherCursorExample);
+    expect(redacted).not.toContain("bearer-value-123456");
+    expect(redacted).not.toContain("password-value");
+    expect(redacted).not.toContain(jwt);
+    expect(redacted.match(/\[REDACTED\]/g)?.length).toBeGreaterThanOrEqual(5);
   });
 });
 
