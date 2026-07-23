@@ -1065,7 +1065,7 @@ test.describe("Clinical KB tools launcher", () => {
 
     for (const route of [
       { path: "/forms?q=transport&run=1", resultsTestId: "form-search-mobile-results" },
-      { path: "/differentials?q=chest+pain&run=1", resultsTestId: "differentials-search-results" },
+      { path: "/differentials?q=acute+confusion&run=1", resultsTestId: "differentials-search-results" },
     ] as const) {
       await gotoLauncher(page, route.path);
       await expect(page.getByTestId(route.resultsTestId)).toBeVisible({ timeout: 20_000 });
