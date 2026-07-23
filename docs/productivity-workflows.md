@@ -12,7 +12,7 @@ The repository exposes seven offline-first workflow planners. Each planner inspe
 | `npm run workflow:design-sweep`                 | Plan the live route, breakpoint, accessibility, and Chromium sweep.                    |
 | `npm run workflow:rag-lab`                      | Select focused retrieval tests, offline RAG evaluation, and gated live evaluations.    |
 | `npm run workflow:operator-closeout`            | Inventory and deduplicate pending operator or confirmation-required actions.           |
-| `npm run workflow:lifecycle -- --phase <phase>` | Plan `status`, `start`, `handoff`, `landed`, or `cleanup` lifecycle work.              |
+| `npm run workflow:lifecycle -- --phase <phase>` | Plan `status`, `start`, `reconcile`, `handoff`, `landed`, or `cleanup` lifecycle work. |
 
 ## Safe execution
 
@@ -23,6 +23,10 @@ The repository exposes seven offline-first workflow planners. Each planner inspe
 - Add `-- --json` for machine-readable output.
 - Use `-- --files pathA,pathB` to plan an explicit proposed change before editing.
 - Use `workflow:triage -- --log <path>` to classify a captured failure.
+- Use lifecycle phase `reconcile` for broad multi-worktree work. It selects the report-only
+  `node scripts/reconciliation-preflight.mjs` locally and keeps `git fetch --prune origin` approval-gated. Add
+  `--include-processes` to the preflight only when process ownership may block cleanup; it never
+  serializes raw command lines.
 
 The existing shared `workflow:run`, `workflow:status`, `workflow:verify`, `workflow:deps`, `workflow:clean-state`, `workflow:export`, and `workflow:handoff` commands now resolve their shared implementation through the repository's Git common directory. This keeps them portable in linked and detached Codex worktrees. Set `CODEX_LOCAL_WORKFLOW_ROOT` only when the shared tools live somewhere non-standard.
 

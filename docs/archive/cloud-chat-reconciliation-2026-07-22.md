@@ -2,6 +2,10 @@
 
 This record closes the Database cloud-chat reconciliation against protected `origin/main`. It distinguishes landed work from duplicates, rejected patches, provider-gated follow-up, and retained post-freeze work. An archive or branch being preserved does not mean its content is approved.
 
+The final cleanup, credential-containment follow-up, full issue matrix, causes of delay, and future
+guardrails are recorded in the
+[2026-07-23 reconciliation postmortem](cloud-chat-reconciliation-postmortem-2026-07-23.md).
+
 ## Canonical integration result
 
 - Implementation endpoint before this record: `origin/main` at `05dc52fd8408a65117e22a6236e43252203bea92` (PR #1087).
@@ -9,6 +13,12 @@ This record closes the Database cloud-chat reconciliation against protected `ori
 - Retrieval/ranking changes adopted: none.
 - Live RAG/OpenAI spend: `$0` of the authorised `$15` multi-run budget. Offline evidence was sufficient because no surviving reconciliation change altered retrieval, ranking, or answer generation.
 - Production provider mutations: none. The live title-word drift comparison was read-only and found the merged schema already represented; no Supabase migration apply or Railway deployment was needed.
+
+Final completion after this record landed: PR #1088 merged as
+`5047beea6e6192af46ec79b309979a4eec76ede0`; the primary checkout, local `main`, and
+`origin/main` were clean and tree-identical. Obsolete reconciliation worktrees/branches were removed
+only after verified bundle and content proof; active, dirty, secret-bearing, and post-freeze work was
+retained.
 
 ## Preserved recovery evidence
 
@@ -115,3 +125,8 @@ Newer Cursor/Claude/Run-PR worktrees appeared after the original bundle snapshot
 Every implementation PR used a red reproducer or exact content proof, focused checks, `verify:cheap`, PR-local handoff evidence where selected, hosted required checks, and zero actionable review threads. Database PRs additionally used disposable replay/drift/ACL/owner-scope guards. UI PRs used identity-verified local servers and Chromium UI gates.
 
 The final forced-offline aggregate proved Node/npm runtime compatibility, lint, type-check, the production build/client-bundle secret scan, 364 passing Vitest files (3,222 passed and one skipped), 29 guarded SECURITY DEFINER functions, 40 owner-scoped API files, 36 RAG fixtures, and 307 offline RAG contract tests. The local full Playwright matrix exceeded its 30-minute wrapper limit while still progressing through WebKit. One retained Firefox failure artifact from that interrupted run was rechecked in isolation and passed (1/1); every implementation PR's hosted required/browser checks was green on its final head. The interrupted local matrix is recorded as incomplete rather than passed and was not repeatedly rerun. No live provider evaluation or production mutation was needed; RAG spend remained $0 of the authorised $15 total budget.
+
+After completion, a process diagnostic exposed the private Cursor worker key supplied on its command
+line. The exact worker was stopped, the key was revoked in Cursor, its two local encrypted secret
+records were removed, and authorized repository/backup scans found no plaintext copy. The credential
+value is intentionally absent from all incident documentation.

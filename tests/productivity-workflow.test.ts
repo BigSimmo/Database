@@ -104,6 +104,18 @@ describe("productivity workflow planning", () => {
     );
   });
 
+  it("keeps reconciliation inventory local and gates the remote refresh", () => {
+    const plan = buildWorkflowPlan("lifecycle", [], { phase: "reconcile" });
+
+    expect(plan.localChecks.map((item: { command: string }) => item.command)).toEqual([
+      "node scripts/reconciliation-preflight.mjs",
+    ]);
+    expect(plan.approvalRequired.map((item: { command: string }) => item.command)).toEqual([
+      "git fetch --prune origin",
+    ]);
+    expect(plan.proof.join(" ")).toContain("never print raw process command lines");
+  });
+
   it("classifies common failure signatures", () => {
     expect(analyzeFailureText("Error: Cannot find module 'workflow-status.mjs'").category).toBe("environment");
     expect(analyzeFailureText("OPENAI_API_KEY missing").category).toBe("provider-or-configuration");
