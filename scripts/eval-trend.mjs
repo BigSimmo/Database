@@ -158,12 +158,22 @@ export function buildAnswerQualityVariabilityRows(payloads) {
     const providerSignatures = fingerprints.map(({ provider }) => stableSignature(provider));
     const latencySignatures = fingerprints.map(({ latency }) => stableSignature(latency));
     const repeatedContentFailure =
-      allEqual(contentSignatures) && fingerprints.every(({ content }) => content.categories.length > 0);
-    let classification = "stable";
-    if (!allEqual(contentSignatures)) classification = sameTree ? "same_tree_content_variability" : "content_change";
-    else if (repeatedContentFailure) classification = "repeated_content_failure";
-    else if (!allEqual(providerSignatures)) classification = "provider_route_variability";
-    else if (!allEqual(latencySignatures)) classification = "latency_variability";
+      matches.length > 1 &&
+      allEqual(contentSignatures) &&
+      fingerprints.every(({ content }) => content.categories.length > 0);
+    let classification =
+      matches.length === 1
+        ? fingerprints[0].content.categories.length > 0
+          ? "observed_content_failure"
+          : fingerprints[0].latency.latencyFailure || fingerprints[0].latency.routeCeilingExceeded
+            ? "observed_latency_failure"
+            : "single_run"
+        : "stable";
+    if (matches.length > 1 && !allEqual(contentSignatures)) {
+      classification = sameTree ? "same_tree_content_variability" : "content_change";
+    } else if (repeatedContentFailure) classification = "repeated_content_failure";
+    else if (matches.length > 1 && !allEqual(providerSignatures)) classification = "provider_route_variability";
+    else if (matches.length > 1 && !allEqual(latencySignatures)) classification = "latency_variability";
 
     return {
       case: caseId,
