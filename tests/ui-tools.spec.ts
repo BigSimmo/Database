@@ -607,7 +607,7 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/services", testId: "services-home" },
       { path: "/forms", testId: "forms-home" },
       { path: "/differentials", testId: "differentials-home" },
-      { path: "/factsheets", testId: "factsheets-home" },
+      { path: "/factsheets", testId: "factsheets-home-main" },
       { path: "/favourites", testId: "favourites-hub" },
       { path: "/tools", testId: "tools-home" },
     ] as const) {
