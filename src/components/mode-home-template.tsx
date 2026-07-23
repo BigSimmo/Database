@@ -73,6 +73,7 @@ export function ModeHomeHero({
   // hero still fits a phone viewport without scrolling.
   return (
     <section
+      data-testid={testId}
       className="grid justify-items-center gap-1.5 px-4 sm:gap-3 sm:px-0"
       aria-labelledby={`${testId ?? "mode-home"}-title`}
     >
