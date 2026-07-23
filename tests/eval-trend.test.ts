@@ -97,6 +97,18 @@ const answerReport = (label: string, sha: string, result: Record<string, unknown
 });
 
 describe("eval-trend answer-quality variability", () => {
+  it("does not call a single observed failure repeated", () => {
+    const failed = answerResult({ failures: ["citation count below required minimum"], citations: 1 });
+    expect(buildAnswerQualityVariabilityRows([answerReport("first-run", "same-sha", failed)])[0]).toMatchObject({
+      classification: "observed_content_failure",
+      same_tree: false,
+      runs: 1,
+    });
+    expect(buildAnswerQualityVariabilityRows([answerReport("first-run", "same-sha", answerResult())])[0]).toMatchObject(
+      { classification: "single_run", runs: 1 },
+    );
+  });
+
   it("marks pass-to-content-failure changes on the same tree as variability, not a deterministic regression", () => {
     const rows = buildAnswerQualityVariabilityRows([
       answerReport("baseline", "same-sha", answerResult()),
