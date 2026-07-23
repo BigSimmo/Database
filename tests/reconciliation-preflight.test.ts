@@ -1,7 +1,11 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { classifyReconciliationState, parseWorktreePorcelain } from "../scripts/reconciliation-preflight.mjs";
+import {
+  classifyReconciliationState,
+  collectProcessDiagnostics,
+  parseWorktreePorcelain,
+} from "../scripts/reconciliation-preflight.mjs";
 
 describe("reconciliation preflight", () => {
   it("parses clean, detached, locked, and prunable worktree records", () => {
@@ -61,6 +65,41 @@ describe("reconciliation preflight", () => {
       "primary-base-mismatch",
       "preserve-dirty-worktrees",
     ]);
+  });
+
+  it("fails closed on unreadable worktree state without calling it an active Git operation", () => {
+    const result = classifyReconciliationState({
+      baseRef: "origin/main",
+      baseCommit: "base123",
+      worktrees: [
+        {
+          path: "C:/repo",
+          head: "base123",
+          branch: "main",
+          statusEntries: null,
+          operations: [],
+          inspectionErrors: ["status-unreadable", "git-directory-unresolved"],
+        },
+      ],
+    });
+
+    expect(result.blocking).toBe(true);
+    expect(result.totals).toMatchObject({ activeOperations: 0, inspectionFailures: 1 });
+    expect(result.findings.map((item) => item.code)).toEqual(["worktree-inspection-failed"]);
+  });
+
+  it("checks process ownership across every registered worktree", () => {
+    let inspectedRoots: string[] = [];
+    const diagnostics = collectProcessDiagnostics(
+      [{ path: "C:/repo" }, { path: "C:/repo-task" }],
+      (roots: string[]) => {
+        inspectedRoots = roots;
+        return [{ pid: 123, parentPid: 1, createdAtMs: null }];
+      },
+    );
+
+    expect(inspectedRoots).toEqual(["C:/repo", "C:/repo-task"]);
+    expect(diagnostics).toEqual({ matchingWorktreeNodeProcesses: 1, rawCommandLinesSerialized: false });
   });
 
   it("emits parseable metadata-only JSON without fetching", () => {

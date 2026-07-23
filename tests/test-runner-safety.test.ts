@@ -155,9 +155,11 @@ describe("sensitive diagnostic text", () => {
     const jwt = "eyJabcdefghijk.abcdefghijklmnop.abcdefghijklmnop";
     const cursorExample = ["crsr", "example_1234567890"].join("_");
     const otherCursorExample = ["crsr", "other_1234567890"].join("_");
+    const supabaseSecretExample = ["sb", "secret", "example_1234567890"].join("_");
     const value = [
       `agent --api-key ${cursorExample}`,
       `CURSOR_API_KEY=${otherCursorExample}`,
+      `supabase --token ${supabaseSecretExample}`,
       "Authorization: Bearer bearer-value-123456",
       "https://worker:password-value@example.com/path",
       jwt,
@@ -166,10 +168,11 @@ describe("sensitive diagnostic text", () => {
 
     expect(redacted).not.toContain(cursorExample);
     expect(redacted).not.toContain(otherCursorExample);
+    expect(redacted).not.toContain(supabaseSecretExample);
     expect(redacted).not.toContain("bearer-value-123456");
     expect(redacted).not.toContain("password-value");
     expect(redacted).not.toContain(jwt);
-    expect(redacted.match(/\[REDACTED\]/g)?.length).toBeGreaterThanOrEqual(5);
+    expect(redacted.match(/\[REDACTED\]/g)?.length).toBeGreaterThanOrEqual(6);
   });
 });
 

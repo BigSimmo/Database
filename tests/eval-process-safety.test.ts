@@ -74,7 +74,8 @@ describe("run-eval-safe process ownership safety", () => {
   it("filters by command line without serializing command-line values", () => {
     const source = readFileSync(new URL("../scripts/run-eval-safe.mjs", import.meta.url), "utf8");
 
-    expect(source).toContain("$_.CommandLine.ToLowerInvariant().Contains($root)");
+    expect(source).toContain("RUN_EVAL_GUARD_REPO_ROOTS_JSON");
+    expect(source).toContain("$commandLine.Contains($root)");
     expect(source).toContain("Select-Object ProcessId, ParentProcessId, CreationDate");
     expect(source).not.toContain("Select-Object ProcessId, ParentProcessId, CommandLine");
     expect(source).not.toContain("commandLine: String(item?.CommandLine");

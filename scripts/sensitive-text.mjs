@@ -20,7 +20,7 @@ const secretEnvironmentPattern =
 const authorizationPattern = /\b(Bearer|Basic)\s+[A-Za-z0-9+/=._-]{8,}/gi;
 const jwtPattern = /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g;
 const knownTokenPattern =
-  /\b(?:crsr_|sk-|ghp_|gho_|ghu_|ghs_|github_pat_|xox[baprs]-|rk_live_|pk_live_)[A-Za-z0-9._-]{8,}\b/gi;
+  /\b(?:crsr_|sk-|sb_secret_|ghp_|gho_|ghu_|ghs_|github_pat_|xox[baprs]-|rk_live_|pk_live_)[A-Za-z0-9._-]{8,}\b/gi;
 const urlCredentialPattern = /(\bhttps?:\/\/[^/\s:@]+:)[^@\s/]+@/gi;
 
 /**

@@ -10,7 +10,7 @@ The reusable procedure is [`docs/reconciliation-playbook.md`](reconciliation-pla
 
 - `node scripts/reconciliation-preflight.mjs` is an explicit, report-only inventory for broad reconciliation and
   cleanup. It uses cached Git refs, never fetches, and reports primary/worktree dirty state,
-  detached worktrees, ahead/behind counts, and operation markers. Add `-- --include-processes` only
+  detached worktrees, ahead/behind counts, and operation markers. Add `--include-processes` only
   when ownership could block cleanup; that path emits metadata/counts and never raw command lines.
 - `workflow:lifecycle -- --phase reconcile` selects the preflight locally and lists remote fetch as
   a separate approval-required action.

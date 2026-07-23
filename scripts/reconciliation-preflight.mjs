@@ -35,6 +35,14 @@ function git(args, cwd = repositoryRoot, { allowFailure = false } = {}) {
   }
 }
 
+function tryGit(args, cwd) {
+  try {
+    return { ok: true, output: git(args, cwd) };
+  } catch {
+    return { ok: false, output: "" };
+  }
+}
+
 export function parseWorktreePorcelain(text) {
   const worktrees = [];
   let current;
@@ -66,6 +74,7 @@ export function classifyReconciliationState({ baseCommit, baseRef, worktrees }) 
   const primary = worktrees[0];
   const dirtyWorktrees = worktrees.filter((item) => item.statusEntries > 0);
   const operationWorktrees = worktrees.filter((item) => item.operations.length > 0);
+  const unreadableWorktrees = worktrees.filter((item) => item.inspectionErrors?.length > 0);
   const findings = [];
 
   if (!baseCommit) {
@@ -92,6 +101,13 @@ export function classifyReconciliationState({ baseCommit, baseRef, worktrees }) 
       detail: `${operationWorktrees.length} worktree(s) have an active Git operation.`,
     });
   }
+  if (unreadableWorktrees.length > 0) {
+    findings.push({
+      code: "worktree-inspection-failed",
+      severity: "blocker",
+      detail: `${unreadableWorktrees.length} worktree(s) could not be inspected completely.`,
+    });
+  }
   if (dirtyWorktrees.length > 0) {
     findings.push({
       code: "preserve-dirty-worktrees",
@@ -109,6 +125,7 @@ export function classifyReconciliationState({ baseCommit, baseRef, worktrees }) 
       dirty: dirtyWorktrees.length,
       detached: worktrees.filter((item) => item.detached).length,
       activeOperations: operationWorktrees.length,
+      inspectionFailures: unreadableWorktrees.length,
     },
     integrationBase: "dedicated-worktree-required",
     blocking: findings.some((item) => item.severity === "blocker"),
@@ -130,15 +147,23 @@ function resolveBaseRef(explicitBaseRef) {
 }
 
 function inspectWorktree(item, baseRef, baseCommit) {
-  const statusText = git(["status", "--porcelain=v1", "--untracked-files=normal"], item.path, { allowFailure: true });
-  const gitDirectory = git(["rev-parse", "--path-format=absolute", "--git-dir"], item.path, { allowFailure: true });
-  const operations = gitDirectory
-    ? operationMarkers.filter((marker) => existsSync(path.join(gitDirectory, marker)))
-    : ["unresolved-git-directory"];
-  const counts = baseCommit
-    ? git(["rev-list", "--left-right", "--count", `${baseRef}...${item.head}`], item.path, { allowFailure: true })
-    : "";
-  const [behind = 0, ahead = 0] = counts.split(/\s+/).map((value) => Number.parseInt(value, 10) || 0);
+  const statusResult = tryGit(["status", "--porcelain=v1", "--untracked-files=normal"], item.path);
+  const gitDirectoryResult = tryGit(["rev-parse", "--path-format=absolute", "--git-dir"], item.path);
+  const countsResult = baseCommit
+    ? tryGit(["rev-list", "--left-right", "--count", `${baseRef}...${item.head}`], item.path)
+    : { ok: true, output: "" };
+  const inspectionErrors = [];
+  if (!statusResult.ok) inspectionErrors.push("status-unreadable");
+  if (!gitDirectoryResult.ok || !gitDirectoryResult.output) inspectionErrors.push("git-directory-unresolved");
+  if (baseCommit && !countsResult.ok) inspectionErrors.push("divergence-unreadable");
+  const operations = gitDirectoryResult.ok
+    ? operationMarkers.filter((marker) => existsSync(path.join(gitDirectoryResult.output, marker)))
+    : [];
+  const parsedCounts = countsResult.ok
+    ? countsResult.output.split(/\s+/).map((value) => Number.parseInt(value, 10))
+    : [];
+  const behind = Number.isFinite(parsedCounts[0]) ? parsedCounts[0] : null;
+  const ahead = Number.isFinite(parsedCounts[1]) ? parsedCounts[1] : null;
   return {
     path: path.resolve(item.path),
     head: item.head ?? null,
@@ -146,10 +171,23 @@ function inspectWorktree(item, baseRef, baseCommit) {
     detached: Boolean(item.detached),
     locked: item.locked ?? null,
     prunable: item.prunable ?? null,
-    statusEntries: statusText ? statusText.split(/\r?\n/).filter(Boolean).length : 0,
+    statusEntries: statusResult.ok ? statusResult.output.split(/\r?\n/).filter(Boolean).length : null,
     operations,
+    inspectionErrors,
     behind,
     ahead,
+  };
+}
+
+/**
+ * @param {Array<{ path: string }>} worktrees
+ * @param {(roots: string[]) => Array<{ pid: number, parentPid: number, createdAtMs: number | null }>} [listProcesses]
+ */
+export function collectProcessDiagnostics(worktrees, listProcesses = listRepoNodeProcesses) {
+  const roots = worktrees.map((item) => item.path).filter(Boolean);
+  return {
+    matchingWorktreeNodeProcesses: listProcesses(roots).length,
+    rawCommandLinesSerialized: false,
   };
 }
 
@@ -164,10 +202,7 @@ export function collectReconciliationState({ baseRef: explicitBaseRef, includePr
     cachedRefsOnly: true,
     fetched: false,
     processDiagnostics: includeProcesses
-      ? {
-          matchingPrimaryNodeProcesses: listRepoNodeProcesses(summary.primaryPath ?? repositoryRoot).length,
-          rawCommandLinesSerialized: false,
-        }
+      ? collectProcessDiagnostics(worktrees)
       : { skipped: true, rawCommandLinesSerialized: false },
     ...summary,
   };
@@ -186,7 +221,7 @@ function render(result) {
     console.log("Process check: skipped (add --include-processes when ownership could block cleanup).");
   } else {
     console.log(
-      `Process check: ${result.processDiagnostics.matchingPrimaryNodeProcesses} primary-checkout Node process(es); ` +
+      `Process check: ${result.processDiagnostics.matchingWorktreeNodeProcesses} registered-worktree Node process(es); ` +
         "raw command lines were not serialized.",
     );
   }
