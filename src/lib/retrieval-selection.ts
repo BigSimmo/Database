@@ -372,8 +372,7 @@ export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): 
     medicationEvidenceIntent.asksAmount || medicationEvidenceIntent.asksRoute || medicationEvidenceIntent.asksFrequency;
   const asksDoseAmount = medicationEvidenceIntent.asksAmount;
   const asksMedicationMonitoring =
-    (queryClass === "medication_dose_risk" || queryClass === "table_threshold") &&
-    /\b(?:monitor\w*|baseline|blood|level)\b/.test(normalizedQuery);
+    queryClass === "medication_dose_risk" && /\b(?:monitor\w*|baseline|blood|level)\b/.test(normalizedQuery);
   const clinicalSubjectTokens = asksMedicationMonitoring
     ? medicationMonitoringQuerySubjectTokens(query)
     : medicationDoseQuerySubjectTokens(query);
@@ -421,7 +420,7 @@ export function buildRetrievalIntent(query: string, queryClass: RagQueryClass): 
     if (medicationEvidenceIntent.asksRoute) requiredTermSignals.push("route");
   }
   if (
-    (queryClass === "medication_dose_risk" || queryClass === "table_threshold") &&
+    queryClass === "medication_dose_risk" &&
     (asksDoseRoute || asksMedicationMonitoring) &&
     clinicalSubjectTokens.length > 0
   ) {

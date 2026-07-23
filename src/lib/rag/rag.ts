@@ -143,7 +143,6 @@ import {
   isMedicationDoseEvidenceQuery,
   medicationDoseEvidenceQueryIntent,
   medicationDoseQueryContext,
-  medicationMonitoringQuerySubjectTokens,
   normalizedClinicalSearchTokens,
   rankClinicalResults,
 } from "@/lib/clinical-search";
@@ -183,7 +182,6 @@ import {
   buildIndexingQuality,
   collectMemoryCards,
   deriveConfidence,
-  evidenceTextForGate,
   fallbackReasonFromRouting,
   isProviderGenerationDegraded,
   machineReadableFallbackAnswer,
@@ -1920,24 +1918,6 @@ export function evaluateEvidenceCoverageGate(
           hasPropertyTerms &&
           (hasStructuredThreshold || sourceImageSatisfied || hasVisualUnit || strongestScore >= 0.62),
         reason: hasPropertyTerms ? "patient_property_restricted_items_gate" : "missing_patient_property_terms",
-        strategy: "text_fast_path",
-        sourceImageRequired,
-        sourceImageSatisfied,
-      };
-    }
-    const monitoringSubjectTokens = medicationMonitoringQuerySubjectTokens(query);
-    const hasStructuredThresholdSubject =
-      monitoringSubjectTokens.length === 0 ||
-      top.some((result) => {
-        if (!hasStructuredThresholdEvidence(result)) return false;
-        const resultTokens = new Set(normalizedClinicalSearchTokens(evidenceTextForGate(result)));
-        const matchedSubjectTokens = monitoringSubjectTokens.filter((token) => resultTokens.has(token)).length;
-        return matchedSubjectTokens >= Math.min(2, monitoringSubjectTokens.length);
-      });
-    if (hasStructuredThreshold && !hasStructuredThresholdSubject) {
-      return {
-        accepted: false,
-        reason: "missing_structured_threshold_subject_evidence",
         strategy: "text_fast_path",
         sourceImageRequired,
         sourceImageSatisfied,
