@@ -719,6 +719,49 @@ describe("retrieval query variants", () => {
     ).toMatchObject({ accepted: true, reason: "clozapine_blood_action_structured_threshold" });
   });
 
+  it("requires medication-subject evidence on a structured monitoring threshold fast gate", () => {
+    const query = "What lithium level range is used for maintenance monitoring?";
+
+    expect(
+      evaluateEvidenceCoverageGate(
+        query,
+        [
+          result({
+            title: "Clozapine monitoring table",
+            content: "Structured monitoring threshold table.",
+            similarity: 0.82,
+            table_facts: [
+              tableFact({ clinical_parameter: "ANC", threshold_value: "< 1.5", action: "Withhold clozapine." }),
+            ],
+          }),
+        ],
+        "table_threshold",
+      ),
+    ).toMatchObject({ accepted: false, reason: "missing_structured_threshold_subject_evidence" });
+
+    expect(
+      evaluateEvidenceCoverageGate(
+        query,
+        [
+          result({
+            title: "Lithium monitoring",
+            content: "Lithium maintenance monitoring range.",
+            similarity: 0.72,
+            table_facts: [
+              tableFact({
+                table_title: "Lithium level monitoring",
+                clinical_parameter: "Maintenance range",
+                threshold_value: "0.6-0.8 mmol/L",
+                action: "Review the lithium level.",
+              }),
+            ],
+          }),
+        ],
+        "table_threshold",
+      ),
+    ).toMatchObject({ accepted: true, reason: "structured_threshold_evidence_gate" });
+  });
+
   it("requires both route and numeric dose evidence for dose-route fast gates", () => {
     expect(
       evaluateEvidenceCoverageGate(

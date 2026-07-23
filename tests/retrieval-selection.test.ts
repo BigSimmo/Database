@@ -309,6 +309,15 @@ describe("retrieval source selection", () => {
     );
   });
 
+  it("keeps the medication subject required for monitoring range retrieval", () => {
+    const intent = buildRetrievalIntent(
+      "What lithium level range is used for maintenance monitoring?",
+      "table_threshold",
+    );
+
+    expect(intent.requiredTermSignals).toContain("clinical_subject");
+  });
+
   it("promotes exact source-table image evidence for clozapine ANC visual requests", () => {
     const selection = selectRetrievalEvidence({
       query: "Show the source table image for the clozapine ANC monitoring table.",
