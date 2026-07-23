@@ -3311,7 +3311,11 @@ export function ClinicalDashboard({
     <div
       className={cn(
         appBackdrop,
-        "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] md:grid md:grid-cols-[5.25rem_minmax(0,1fr)] md:overflow-hidden",
+        // Phone shell height comes from inset-0 alone, never 100dvh: iOS Safari
+        // re-resolves dvh lazily when its toolbar collapses/expands, leaving a
+        // white dead band under the clipped shell (and under the search dock).
+        // Fixed insets track the live viewport; sm+ keeps the dvh-sized shell.
+        "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] max-sm:fixed max-sm:inset-0 max-sm:h-auto max-sm:min-h-0 max-sm:overflow-hidden md:grid md:grid-cols-[5.25rem_minmax(0,1fr)] md:overflow-hidden",
         "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
         sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
@@ -3446,9 +3450,9 @@ export function ClinicalDashboard({
                   // bottom-clamp guard in use-hide-on-scroll prevents false reveals.
                   "max-sm:pb-[var(--mobile-composer-reserve)] max-sm:[scroll-padding-bottom:var(--mobile-composer-reserve)] sm:mb-24"
               : hasMobileBottomSearch
-                ? // Phones dock the compact composer on every non-answer view
-                  // (mode homes included), so they always reserve dock
-                  // clearance; sm+ keeps the in-flow hero/sticky composers.
+                ? // Phones dock the compact composer on non-answer result views
+                  // (answer home keeps the in-flow hero). Reserve dock clearance
+                  // on phones; sm+ keeps the in-flow hero/sticky composers.
                   "max-sm:pb-[var(--mobile-composer-reserve)] max-sm:[scroll-padding-bottom:var(--mobile-composer-reserve)] sm:mb-0"
                 : "mb-0",
           )}
