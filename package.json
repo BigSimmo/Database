@@ -181,14 +181,14 @@
     "drift:manifest": "node scripts/run-tsx.mjs scripts/generate-drift-manifest.ts"
   },
   "dependencies": {
-    "@next/env": "16.2.10",
+    "@next/env": "16.2.11",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",
     "exceljs": "^4.4.0",
     "jszip": "^3.10.1",
     "lucide-react": "^1.25.0",
     "mammoth": "^1.12.0",
-    "next": "^16.2.10",
+    "next": "^16.2.11",
     "openai": "^6.48.0",
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^6.1.200",
