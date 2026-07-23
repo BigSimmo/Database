@@ -140,9 +140,11 @@ What it does, in order:
    corpus. This is the eval CI never runs on PRs (it needs live Supabase +
    OpenAI keys); the canary makes it a standing weekly guard instead of a
    manual pre-merge step that can be skipped.
-3. `npm run eval:quality -- --rag-only --limit 8 --fail-on-threshold` — a
-   small answer-quality subset (grounding, citations, unsupported-correctness)
-   to bound OpenAI spend while still catching generation-side regressions.
+3. `npm run eval:quality -- --rag-only --limit 44 --fail-on-threshold` — the
+   full committed answer-quality set (grounding, citations,
+   unsupported-correctness). The workflow writes the structured JSON and
+   Markdown reports into the `eval-canary-output` artifact with the tested Git
+   SHA and run identity.
 
 Failing loudly:
 
@@ -174,7 +176,14 @@ Operational notes:
   scheduled run's OpenAI rate limit mid-run.
 - Evals write telemetry rows (`rag_queries`) but mutate no content.
 - Cost bound: 36 committed retrieval cases plus any captured cases (embedding
-  calls only on forced-vector probes) + 8 generated answers per week.
+  calls only on forced-vector probes) + 44 generated answers per week.
+- To compare two or more downloaded structured answer reports without treating
+  raw millisecond jitter as a content regression, run
+  `npm run eval:trend -- --answer-quality <oldest-report.json> <newest-report.json>`.
+  Add `--case <case-id>` for the per-run route, latency, and diagnostic
+  signature of one case. A `same_tree_content_variability` result means the
+  reports share a Git SHA but differ in content/citation outcomes; provider and
+  latency-threshold variability are reported separately.
 - **The schedule only runs from `main`.** After merging, trigger one
   `workflow_dispatch` run and confirm it goes green before trusting the
   weekly cadence (repo gate for this workflow).

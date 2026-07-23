@@ -4,6 +4,7 @@ import {
   buildEvalQualityReport,
   configureEvalProviderEnvironment,
   deliveredGroundedAfterSourceGovernancePolicy,
+  evalQualityRunContext,
   qualityFailureCategory,
   ragAnswerTimingDiagnostics,
   renderEvalQualityMarkdown,
@@ -13,6 +14,31 @@ import {
   type RagQualityResult,
 } from "../scripts/eval-quality";
 import { evaluateGoldenRetrievalCase, type GoldenRetrievalResult } from "../scripts/eval-retrieval";
+
+describe("eval quality run context", () => {
+  it("records stable run identity without requiring GitHub Actions", () => {
+    expect(
+      evalQualityRunContext({
+        EVAL_GIT_SHA: " candidate-sha ",
+        GITHUB_SHA: "ignored-fallback",
+        GITHUB_RUN_ID: "123",
+        GITHUB_RUN_ATTEMPT: "2",
+        EVAL_LATENCY_CONTEXT: "cross-region-runner",
+      }),
+    ).toEqual({
+      git_sha: "candidate-sha",
+      github_run_id: "123",
+      github_run_attempt: "2",
+      latency_context: "cross-region-runner",
+    });
+    expect(evalQualityRunContext({})).toEqual({
+      git_sha: null,
+      github_run_id: null,
+      github_run_attempt: null,
+      latency_context: "default",
+    });
+  });
+});
 
 function retrievalResult(overrides: Partial<GoldenRetrievalResult> = {}): GoldenRetrievalResult {
   const base: GoldenRetrievalResult = {
