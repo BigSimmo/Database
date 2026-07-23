@@ -140,11 +140,13 @@ What it does, in order:
    corpus. This is the eval CI never runs on PRs (it needs live Supabase +
    OpenAI keys); the canary makes it a standing weekly guard instead of a
    manual pre-merge step that can be skipped.
-3. `npm run eval:quality -- --rag-only --limit 44 --fail-on-threshold` — the
-   full committed answer-quality set (grounding, citations,
-   unsupported-correctness). The workflow writes the structured JSON and
-   Markdown reports into the `eval-canary-output` artifact with the tested Git
-   SHA and run identity.
+3. The answer-quality step runs `eval:quality` with `--rag-only --limit 44`,
+   supplies `.local/eval-canary/golden-retrieval.json` through
+   `--source-governance-results`, and enables `--fail-on-threshold`. The
+   separate retrieval artifact populates the Source Governance table without
+   rerunning retrieval or changing answer-gate thresholds. The workflow writes
+   the structured JSON and Markdown reports into the `eval-canary-output`
+   artifact with the tested Git SHA and run identity.
 
 Failing loudly:
 
