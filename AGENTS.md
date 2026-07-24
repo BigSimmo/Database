@@ -454,6 +454,14 @@ Run the matching planner command in `docs/productivity-workflows.md` without sid
 **recommendation**, and **issue** for this repo. Chat context resets between sessions; that file does
 not, so anything worth remembering after a session ends belongs there.
 
+`docs/outstanding-issues.md` is the single universal task ledger. Its active queue owns dependency
+order, acuity, required capability, timing, effort, approvals, success criteria, verification, and
+stop rules; the same file preserves evidence, decisions, and resolution history. Detailed provider
+runbooks may remain in `docs/operator-backlog.md`, but every provider action still recommended must
+also appear in the active queue. Update the affected sections together when work is completed,
+dropped, superseded, or materially re-scoped. Never copy completed, stale, duplicate, speculative,
+or rejected work back into the active queue.
+
 - When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): read
   `docs/outstanding-issues.md` and state the open items back, grouped by priority. A plain `/issues`
   is read-only — it mutates and commits nothing.

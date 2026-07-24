@@ -3,11 +3,11 @@ name: issues
 description: Track and recall all outstanding tasks, recommendations, and issues for this repo as durable cross-session memory. Use when the user types "/issues" (state the open items back), or asks to add/close/update/capture an outstanding task, recommendation, or issue. The memory lives in docs/outstanding-issues.md; a plain "/issues" is read-only.
 ---
 
-# issues — the outstanding-work memory
+# issues — the universal task ledger
 
-`docs/outstanding-issues.md` is the durable, cross-session memory of everything still outstanding:
-open **tasks**, **recommendations** not yet acted on, and **issues** not yet resolved. Chat context
-resets; that file does not. This skill reads it back and keeps it current.
+`docs/outstanding-issues.md` is the single durable, cross-session ledger. Its **Prioritised queue**
+is the authoritative list of work still recommended; the evidence register and resolved archive in
+the same file preserve supporting detail and history. Chat context resets; that file does not.
 
 **The ledger is the source of truth, not chat memory.** Never answer `/issues` from conversation
 recall — always read the file first, so the answer is correct even in a fresh session.
@@ -20,25 +20,27 @@ recall — always read the file first, so the answer is correct even in a fresh 
 ## Default: `/issues` (read-only)
 
 1. Read `docs/outstanding-issues.md`.
-2. State the **open items** back, grouped by priority (P1 → P3), each as
-   `#ID · type · summary — next action (source)`.
-3. End with a one-line count, e.g. `5 open: 0×P1, 3×P2, 2×P3 · 0 resolved this session`.
+2. State the **Prioritised queue** back in execution order. Include source/ID, outcome, acuity,
+   timing, dependency or approval, and stop rule concisely.
+3. End with counts by acuity (`A1`, `A2`, `A3`, `Optional`) and the total active rows.
 4. Do **not** mutate the file or commit on a plain read.
 
-If a filter is given, narrow step 2: `/issues P1` (by priority), `/issues issues` / `/issues recs`
-/ `/issues tasks` (by type), `/issues <keyword>` (summary/detail substring match).
+If a filter is given, narrow step 2: `/issues A2`, `/issues Optional`, `/issues <ID/source>`, or
+`/issues <keyword>` (queue outcome/evidence substring match).
 
 ## Mutating subcommands
 
 Parse the intent from natural language too — the exact syntax is a convenience, not a requirement.
 
-- **`/issues add <text>`** — append a row to **Open items**. Infer `Pri`/`Type` from the text
-  (ask only if genuinely ambiguous; default `P2`/`task`). Allocate the ID from the
-  `<!-- issues:next-id=NNN -->` marker, then bump that marker. Fill `Source` with
-  `session <today>` unless the user names one; `Added` is today's date.
-- **`/issues done <id> [outcome]`** — move that row from **Open items** to **Resolved / archive**
-  with today's date and a one-line outcome. Archive, never delete.
-- **`/issues update <id> <text>`** — edit an open row's summary or next action in place.
+- **`/issues add <text>`** — add one row to the **Prioritised queue** with order, source/ID,
+  outcome, acuity, capability, timing, effort, dependencies/approvals, and success/stop rule. Add a
+  supporting evidence-register row when the task needs a durable issue ID. Allocate that ID from
+  `<!-- issues:next-id=NNN -->`, bump the marker, and use `session <today>` as the source when none
+  is supplied.
+- **`/issues done <id-or-source> [outcome]`** — remove the active queue row and move/update its
+  evidence row under **Resolved / archive** with today's date and a one-line outcome. Archive,
+  never erase evidence.
+- **`/issues update <id-or-source> <text>`** — update the queue row and its evidence row together.
 - **`/issues capture`** — scan the current session for recommendations, follow-ups, deferrals, and
   unfixed problems that surfaced but were not recorded. Propose them as a numbered list and add the
   confirmed ones (dedupe against existing rows first — do not re-add something already tracked).
@@ -52,7 +54,10 @@ paragraph; put the smallest next action in **Detail / next action**.
 
 ## Writing rules
 
-- Keep the table format and column order exactly as in `docs/outstanding-issues.md`. One row per item.
+- Keep the queue and evidence table formats exactly as in `docs/outstanding-issues.md`. One queue
+  row per active work order.
+- Renumber the active queue when sequencing changes; evidence IDs remain monotonic and never change.
+- An evidence-register row is not active work unless it also appears in the Prioritised queue.
 - IDs are monotonic and never reused — always allocate from the `issues:next-id` marker and bump it.
 - Escape `|` inside cell text (write `\|`) so the markdown table stays intact.
 - Respect the repo's RAG/clinical/privacy flagging rules if an item _itself_ touches a protected
@@ -60,8 +65,8 @@ paragraph; put the smallest next action in **Detail / next action**.
 
 ## Persist the memory (commit)
 
-After any mutation, stage and commit **only** `docs/outstanding-issues.md` so the memory survives the
-ephemeral container and other worktrees:
+After a ledger-only mutation, stage and commit **only** `docs/outstanding-issues.md` so the memory
+survives the ephemeral container and other worktrees:
 
 ```
 git add docs/outstanding-issues.md

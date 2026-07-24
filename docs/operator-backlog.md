@@ -1,8 +1,12 @@
 # Operator backlog
 
-Single source of truth for **human-only / provider-gated actions** that cannot be done from a coding
+Detailed register for **human-only / provider-gated actions** that cannot be done from a coding
 session (they touch Supabase, Railway, OpenAI, or GitHub settings, per the AGENTS.md provider boundary).
-This exists so that launch-blocking state lives in the repo instead of chat memory.
+The universal task ledger remains `outstanding-issues.md`.
+
+The deduplicated execution order is in [`outstanding-issues.md`](outstanding-issues.md). Supabase work
+in its active queue targets only `Clinical KB Database` (`sjrfecxgysukkwxsowpy`); this register must
+not reintroduce work for another Supabase project.
 
 **How to use:** work top to bottom; each row links to the detailed runbook. `Status` values are
 `⏳ pending`, `🔎 verify` (may already be done — confirm before repeating), `✅ done`, `—` (n/a).
@@ -17,15 +21,13 @@ Findings inventory for handover: [audit-handover-2026-07-14.md](audit-handover-2
 
 ## Launch-gating actions
 
-| Action                                                                     | Status     | Blocked by           | Verify command                                                                                              | Runbook                                                                                                                                                                         |
-| -------------------------------------------------------------------------- | ---------- | -------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Apply July-8 migration batch (a–g) to live                                 | ✅ done    | —                    | `SUPABASE_ENVIRONMENT=production npm run check:july8-live-batch` (2026-07-13: 6 live, apply=no-op)          | [operator-apply-july8-batch.md](operator-apply-july8-batch.md)                                                                                                                  |
-| Apply drift-codify forward migration (step 1h)                             | ✅ done    | —                    | Applied and drift/readiness verified 2026-07-13; verify only unless new reviewed drift is found             | [database-drift-detection.md](database-drift-detection.md)                                                                                                                      |
-| Apply repo-ahead migrations to live (post-2026-07-13)                      | ✅ done    | —                    | Zero unsafe title-word rows; `npm run check:drift`; then `eval:retrieval:quality` (36/36) for the corrector | [deploy-corrector-public-titles.md](deploy-corrector-public-titles.md) · [operator-apply-performance-latency-remediation.md](operator-apply-performance-latency-remediation.md) |
-| Full release gate (bounded OpenAI spend)                                   | ⏳ pending | migrations 1 applied | `npm run verify:release`; `npm run eval:quality -- --rag-only`                                              | [launch-operator-runbook.md §2](launch-operator-runbook.md)                                                                                                                     |
-| Provision staging Supabase project (`Clinical KB Staging`, ap-southeast-2) | ⏳ pending | —                    | `npm run check:indexing` after `db push`                                                                    | [staging-setup.md](staging-setup.md)                                                                                                                                            |
-| Staging soak + rollback rehearsal on Railway                               | ⏳ pending | staging provisioned  | `scripts/soak-test.ts --confirm-staging` (answer p95 ≤ 25 s)                                                | [launch-operator-runbook.md §4](launch-operator-runbook.md) · [capacity-review.md](capacity-review.md)                                                                          |
-| Production deploy to Railway                                               | ✅ done    | —                    | App deployment recorded live 2026-07-14; re-verify with `GET /api/health` and deployment readiness          | [deployment-architecture.md](deployment-architecture.md)                                                                                                                        |
+| Action                                                | Status     | Blocked by           | Verify command                                                                                              | Runbook                                                                                                                                                                         |
+| ----------------------------------------------------- | ---------- | -------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Apply July-8 migration batch (a–g) to live            | ✅ done    | —                    | `SUPABASE_ENVIRONMENT=production npm run check:july8-live-batch` (2026-07-13: 6 live, apply=no-op)          | [operator-apply-july8-batch.md](operator-apply-july8-batch.md)                                                                                                                  |
+| Apply drift-codify forward migration (step 1h)        | ✅ done    | —                    | Applied and drift/readiness verified 2026-07-13; verify only unless new reviewed drift is found             | [database-drift-detection.md](database-drift-detection.md)                                                                                                                      |
+| Apply repo-ahead migrations to live (post-2026-07-13) | ✅ done    | —                    | Zero unsafe title-word rows; `npm run check:drift`; then `eval:retrieval:quality` (36/36) for the corrector | [deploy-corrector-public-titles.md](deploy-corrector-public-titles.md) · [operator-apply-performance-latency-remediation.md](operator-apply-performance-latency-remediation.md) |
+| Full release gate (bounded OpenAI spend)              | ⏳ pending | migrations 1 applied | `npm run verify:release`; `npm run eval:quality -- --rag-only`                                              | [launch-operator-runbook.md §2](launch-operator-runbook.md)                                                                                                                     |
+| Production deploy to Railway                          | ✅ done    | —                    | App deployment recorded live 2026-07-14; re-verify with `GET /api/health` and deployment readiness          | [deployment-architecture.md](deployment-architecture.md)                                                                                                                        |
 
 ## Post-deploy actions
 
