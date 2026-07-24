@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { AuthProvider } from "@/lib/supabase/client";
 import { AccountDataProvider } from "@/components/account-data-provider";
 import { PwaLifecycle } from "@/components/pwa-lifecycle";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { resolveMetadataBase } from "@/lib/metadata-base";
-import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
+import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT, THEME_COOKIE_NAME } from "@/lib/theme";
 import { MobileKeyboardProvider } from "@/components/use-mobile-keyboard";
 import "./globals.css";
 
@@ -80,10 +80,15 @@ export default async function RootLayout({
   // silent runtime failure: theme flash returns). Reading headers() opts the app
   // into dynamic rendering — inherent to nonce-based CSP.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const cookieStore = await cookies();
+  const clinicalTheme = cookieStore.get(THEME_COOKIE_NAME)?.value;
+  const isDark = clinicalTheme === "dark";
+  const themeClass = isDark ? "dark" : "";
+
   return (
     <html
       lang="en-AU"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${themeClass}`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
@@ -104,7 +109,6 @@ export default async function RootLayout({
         />
         <a
           href="#main-content"
-          suppressHydrationWarning
           className="sr-only focus:not-sr-only focus:fixed focus:left-[max(0.75rem,env(safe-area-inset-left))] focus:top-[max(0.75rem,env(safe-area-inset-top))] focus:z-[100] focus:rounded-lg focus:border focus:border-[color:var(--border-lux)] focus:bg-[color:var(--surface-raised)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[color:var(--text)] focus:shadow-[var(--shadow-elevated)]"
         >
           Skip to main content
