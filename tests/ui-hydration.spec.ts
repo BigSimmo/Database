@@ -8,6 +8,7 @@ test.describe("React Hydration Safety", () => {
       text.includes("Warning: Text content did not match") ||
       text.includes("Warning: Expected server HTML to contain") ||
       (text.includes("Warning: Prop") && text.includes("did not match")) ||
+      text.includes("A tree hydrated but some attributes") ||
       text.includes("Hydration failed because") ||
       text.includes("There was an error while hydrating") ||
       /Minified React error #(?:418|423|425)\b/.test(text);
@@ -24,7 +25,8 @@ test.describe("React Hydration Safety", () => {
     });
 
     // Navigate to the dashboard, ensuring we load it from the server
-    await page.goto("/");
+    const response = await page.goto("/");
+    expect(response?.ok()).toBe(true);
 
     // Wait for the hydration and initial load to finish
     await page.waitForLoadState("networkidle");
