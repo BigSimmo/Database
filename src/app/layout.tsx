@@ -6,7 +6,7 @@ import { AccountDataProvider } from "@/components/account-data-provider";
 import { PwaLifecycle } from "@/components/pwa-lifecycle";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { resolveMetadataBase } from "@/lib/metadata-base";
-import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
+import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT, THEME_COOKIE_NAME } from "@/lib/theme";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -77,7 +77,7 @@ export default async function RootLayout({
   // into dynamic rendering — inherent to nonce-based CSP.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
   const cookieStore = await cookies();
-  const clinicalTheme = cookieStore.get("clinical-theme")?.value;
+  const clinicalTheme = cookieStore.get(THEME_COOKIE_NAME)?.value;
   const isDark = clinicalTheme === "dark";
   const themeClass = isDark ? "dark" : "";
 
