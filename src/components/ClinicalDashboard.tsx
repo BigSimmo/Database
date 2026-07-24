@@ -3114,7 +3114,7 @@ export function ClinicalDashboard({
     ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
-  const heroOwnsPhoneComposer = showDesktopHomeComposer || showAnswerHome;
+  const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId);
   // Hidden dock pad must stay at 0.75rem — Safari toolbar safe-area recreates a blank band.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
