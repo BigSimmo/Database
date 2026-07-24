@@ -314,19 +314,21 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
 ## Key config files
 
-| File                                | Role                                        |
-| ----------------------------------- | ------------------------------------------- |
-| `package.json`                      | Scripts, deps, Node 24 / npm 11             |
-| `.env.example`                      | Full env template                           |
-| `next.config.ts`                    | CSP, security headers, build config         |
-| `tsconfig.json`                     | Strict TS; excludes `supabase/functions/**` |
-| `eslint.config.mjs`                 | Lint scope                                  |
-| `AGENTS.md`                         | Agent rules, verification gates, shortcuts  |
-| `.github/workflows/ci.yml`          | CI pipeline                                 |
-| `docs/process-hardening.md`         | Verification pyramid                        |
-| `docs/clinical-governance.md`       | Clinical safety governance                  |
-| `docs/reindex-runbook.md`           | Reindex operations                          |
-| `docs/retrieval-quality-runbook.md` | Retrieval tuning                            |
+| File                                   | Role                                           |
+| -------------------------------------- | ---------------------------------------------- |
+| `package.json`                         | Scripts, deps, Node 24 / npm 11                |
+| `.env.example`                         | Full env template                              |
+| `next.config.ts`                       | CSP, security headers, build config            |
+| `tsconfig.json`                        | Strict TS; excludes `supabase/functions/**`    |
+| `eslint.config.mjs`                    | Lint scope                                     |
+| `AGENTS.md`                            | Agent rules, verification gates, shortcuts     |
+| `.github/workflows/ci.yml`             | CI pipeline                                    |
+| `.github/workflows/pr-branch-sync.yml` | Auto-update open PR branches when `main` moves |
+| `scripts/sync-open-pr-branches.mjs`    | Local dry-run/apply helper for PR branch sync  |
+| `docs/process-hardening.md`            | Verification pyramid                           |
+| `docs/clinical-governance.md`          | Clinical safety governance                     |
+| `docs/reindex-runbook.md`              | Reindex operations                             |
+| `docs/retrieval-quality-runbook.md`    | Retrieval tuning                               |
 
 ---
 
