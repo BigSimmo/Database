@@ -1104,7 +1104,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       // The rail speaks the catalogue-maturity badge as part of the Forms name.
       { name: "Forms (Early access)", href: "/forms" },
       { name: "Tools", href: "/?mode=tools" },
-      { name: "Therapy mode", href: "/therapy-compass" },
+      { name: "Therapy", href: "/therapy-compass" },
       // Demo mode still exposes Favourites via the account-library rail entry.
       { name: "Favourites", href: "/favourites" },
     ] as const) {
@@ -1126,7 +1126,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { path: "/?mode=documents", label: "Documents" },
       { path: "/favourites", label: "Favourites" },
       { path: "/?mode=tools", label: "Tools" },
-      { path: "/therapy-compass", label: "Therapy mode" },
+      { path: "/therapy-compass", label: "Therapy" },
     ] as const) {
       await gotoApp(page, route.path);
       if (route.path.includes("mode=answer")) {
