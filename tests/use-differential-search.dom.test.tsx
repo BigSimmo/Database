@@ -163,4 +163,45 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
     await flushMicrotasks();
     expect(result.current.status).toBe("ready");
   });
+
+  it("clears the search LRU on 401 so prior authorized hits cannot resurface", async () => {
+    const diagnosisMatch = {
+      record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
+      score: 12,
+      reasons: ["title"],
+    };
+    fetchMock.mockImplementation((_input) => {
+      const url = String(_input);
+      if (url.includes("kind=diagnosis")) {
+        return Promise.resolve(jsonResponse({ matches: [diagnosisMatch], demoMode: false }));
+      }
+      return Promise.resolve(jsonResponse({ matches: [], demoMode: false }));
+    });
+
+    const { result, rerender } = renderHook(({ q }) => useDifferentialSearch(q), {
+      initialProps: { q: "depression" },
+    });
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ error: "unauthorized" }, 401)));
+    rerender({ q: "anxiety" });
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("unauthorized");
+    expect(authSession.markSessionExpired).toHaveBeenCalled();
+
+    // Same identity + prior query must not resurrect the pre-401 cache entry.
+    fetchMock.mockClear();
+    fetchMock.mockImplementation(() => Promise.resolve(jsonResponse({ error: "unauthorized" }, 401)));
+    rerender({ q: "depression" });
+    expect(result.current.status).toBe("loading");
+    expect(result.current.matches.diagnoses).toEqual([]);
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("unauthorized");
+    expect(fetchMock).toHaveBeenCalled();
+  });
 });

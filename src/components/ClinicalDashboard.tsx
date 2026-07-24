@@ -3832,8 +3832,8 @@ export function ClinicalDashboard({
               {activeModeResultKind === "answer" && answer && (
                 <RelatedDocumentsPanel
                   documents={relatedDocuments}
-                  onScopeDocument={scopeOnlyDocument}
-                  onTagSearch={handleTagSearch}
+                  onScopeDocument={handleScopeDocument}
+                  onTagSearch={handleDocumentTagSearch}
                 />
               )}
               {(documentsDrawerOpen || uploadDrawerOpen) && (

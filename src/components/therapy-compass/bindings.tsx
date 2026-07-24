@@ -273,12 +273,13 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const searchResults = useMemo(() => {
     const liveQuery = search.query.trim();
     const deferredQuery = deferredSearch.query.trim();
-    // Cleared live query should browse the library immediately (empty query scores all).
-    if (!liveQuery && deferredQuery) {
-      return searchTherapies(therapies, { ...deferredSearch, query: "" });
+    // Cleared live query should browse with live filters immediately (avoid stale
+    // deferred tags/flags from the previous term).
+    if (!liveQuery) {
+      return searchTherapies(therapies, search);
     }
     // First keystrokes: deferred may still be empty — never dump the full library.
-    if (!deferredQuery && liveQuery) return [];
+    if (!deferredQuery) return [];
     return searchTherapies(therapies, deferredSearch);
   }, [therapies, deferredSearch, search]);
   const compareTherapies = useMemo(

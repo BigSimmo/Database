@@ -3,6 +3,7 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -120,6 +121,7 @@ export function Sheet({
   // Focus-restore schedules rAF + setTimeout after close; keep handles so a later
   // cleanup (or jsdom teardown) can cancel them before they touch `document`.
   const restoreFocusCleanupRef = useRef<(() => void) | null>(null);
+  const isMountedRef = useRef(false);
   const titleId = useId();
   const descId = useId();
   const sheetId = useId();
@@ -128,8 +130,13 @@ export function Sheet({
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  useEffect(() => {
+  // Layout cleanup runs before passive effect cleanups on unmount, so the open
+  // effect can skip scheduling focus restoration when the whole Sheet is gone
+  // (avoids order-dependent sibling effect races and jsdom teardown flakes).
+  useLayoutEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       restoreFocusCleanupRef.current?.();
     };
   }, []);
@@ -225,15 +232,17 @@ export function Sheet({
       window.removeEventListener("keydown", onKeyDown);
       popSheet(sheetId);
       restoreFocusCleanupRef.current?.();
+      // Component unmount (not merely open→false): skip focus restore entirely.
+      if (!isMountedRef.current) return;
       const restoreTarget = explicitReturnElement ?? previousActiveElement;
       let cancelled = false;
       let retryTimeoutId: number | undefined;
       const restoreFrame = window.requestAnimationFrame(() => {
-        if (cancelled || !restoreTarget?.isConnected) return;
+        if (cancelled || !isMountedRef.current || !restoreTarget?.isConnected) return;
         restoreTarget.focus({ preventScroll: true });
         retryTimeoutId = window.setTimeout(() => {
           // jsdom may already be torn down when this fires after a fast test exit.
-          if (cancelled || typeof document === "undefined") return;
+          if (cancelled || !isMountedRef.current || typeof document === "undefined") return;
           if (
             restoreTarget.isConnected &&
             document.activeElement !== restoreTarget &&

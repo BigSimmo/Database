@@ -159,6 +159,9 @@ export function useDifferentialSearch(query: string): DifferentialSearchState {
           if (diagnosisResponse.status === 401 || presentationResponse.status === 401) {
             if (authStatus === "loading") return;
             if (authStatus === "authenticated") markSessionExpired();
+            // Session is invalid for this client identity — drop every cached hit so
+            // a later retype of any prior query cannot resurrect authorized matches.
+            differentialSearchCache.clear();
             setState({ status: "unauthorized", matches: emptyDifferentialMatches, demoMode: false });
             return;
           }

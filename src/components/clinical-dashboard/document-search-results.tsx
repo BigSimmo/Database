@@ -880,7 +880,13 @@ function DocumentSearchResultsPanelImpl({
   // Progressive reveal so large libraries do not mount every card on first paint.
   // Reset the window whenever the sorted result set identity changes (query/filter/sort),
   // but expand far enough that an explicit selection stays visible in the list.
-  const resultsSignature = `${trimmedQuery}\0${sortValue}\0${effectiveResultType}\0${activeFacetKeys.join(",")}\0${sortedMatches.length}`;
+  const resultsSignature = [
+    trimmedQuery,
+    sortValue,
+    effectiveResultType,
+    activeFacetKeys.join(","),
+    sortedMatches.map((document) => document.document_id).join(","),
+  ].join("\0");
   const selectedIndex = selectedDocumentId
     ? sortedMatches.findIndex((document) => document.document_id === selectedDocumentId)
     : -1;
