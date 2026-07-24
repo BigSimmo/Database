@@ -431,10 +431,23 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(menu).toBeVisible();
     await menu.getByRole("menuitem", { name: "Add document" }).click();
     await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
-    await expect(page.getByRole("dialog", { name: "Sources" })).toBeVisible();
+    const sourcesDialog = page.getByRole("dialog", { name: "Sources" });
+    await expect(sourcesDialog).toBeVisible();
     await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only" })).toContainText(
       "Upload and indexing tools are admin-only. Use Sources to open indexed documents.",
     );
+    await sourcesDialog.getByRole("button", { name: "Close Sources" }).click();
+    await expect(sourcesDialog).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const activeElement = document.activeElement;
+          return activeElement instanceof HTMLElement
+            ? `${activeElement.tagName}:${activeElement.getAttribute("aria-label") ?? activeElement.textContent?.trim() ?? ""}:${activeElement.getClientRects().length > 0 ? "visible" : "hidden"}`
+            : "none";
+        }),
+      )
+      .toBe("BUTTON:Open documents options:visible");
   });
 
   test("Therapy Compass preserves focus, selection, tap targets, and fixed paper tokens", async ({

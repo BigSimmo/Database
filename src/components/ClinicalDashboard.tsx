@@ -3249,7 +3249,11 @@ export function ClinicalDashboard({
 
     const returnTarget = documentsDrawerReturnFocusRef.current;
     window.requestAnimationFrame(() => {
-      if (returnTarget?.isConnected) returnTarget.focus({ preventScroll: true });
+      const fallbackTarget = Array.from(
+        document.querySelectorAll<HTMLElement>('button[aria-haspopup="menu"][aria-label$=" options"]'),
+      ).find((element) => element.isConnected && element.getClientRects().length > 0);
+      const focusTarget = returnTarget?.isConnected ? returnTarget : fallbackTarget;
+      focusTarget?.focus({ preventScroll: true });
     });
   });
   const handleOpenSourcePdfBrowser = useEventCallback(openSourcePdfBrowser);
