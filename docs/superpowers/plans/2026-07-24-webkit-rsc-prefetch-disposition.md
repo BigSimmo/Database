@@ -39,10 +39,12 @@
 ### Task 1: Reproduce and discriminate the WebKit failure
 
 **Files:**
+
 - Inspect: `tests/ui-route-coverage.spec.ts`
 - Evidence only: ignored `.local/workflow-evidence/` and Playwright terminal output
 
 **Interfaces:**
+
 - Consumes: `blockExternalRequests(page, problems)`, `problemsByPage`, and the existing unfiltered `page.on("pageerror", ...)` listener.
 - Produces: one of two evidence states:
   - `harness-proven`: broad local interception fails and the same test without that interception passes.
@@ -121,10 +123,12 @@ Restore only the temporary omission so the next diff begins from the current-mai
 **Condition:** Execute this task only when Task 1 produced `harness-proven`.
 
 **Files:**
+
 - Modify: `tests/ui-route-coverage.spec.ts`
 - Test: `tests/ui-route-coverage.spec.ts`
 
 **Interfaces:**
+
 - Consumes: Playwright's `baseURL` fixture and `page.route(RegExp, handler)` API.
 - Produces: `externalHttpUrlPattern(baseURL: string): RegExp` and `blockExternalRequests(page: Page, problems: string[], baseURL: string): Promise<void>`.
 
@@ -147,9 +151,7 @@ test("external request guard blocks and records cross-origin HTTP", async ({ pag
   });
 
   expect(outcome).toBe("blocked");
-  expect(problems?.splice(0)).toEqual([
-    "external GET https://example.invalid/route-coverage-acl-probe",
-  ]);
+  expect(problems?.splice(0)).toEqual(["external GET https://example.invalid/route-coverage-acl-probe"]);
 });
 ```
 
@@ -248,10 +250,12 @@ Expected: one commit containing only the spec correction and focused proof.
 ### Task 3: Disposition #024 without touching #065
 
 **Files:**
+
 - Modify: `docs/outstanding-issues.md`
 - Verify unchanged: every row containing `#065`
 
 **Interfaces:**
+
 - Consumes: Task 1's evidence state and Task 2's focused results when applicable.
 - Produces: an auditable #024 archive row or a bounded native-Safari impact plan.
 
@@ -316,10 +320,12 @@ Expected: one documentation commit with no #065 change.
 ### Task 4: Widen verification only after the focused WebKit proof
 
 **Files:**
+
 - Test: `tests/ui-route-coverage.spec.ts`
 - Verify: repository-wide offline checks selected by the flightplan
 
 **Interfaces:**
+
 - Consumes: the final committed #024 path.
 - Produces: focused WebKit evidence, required Chromium evidence, and offline handoff evidence.
 
