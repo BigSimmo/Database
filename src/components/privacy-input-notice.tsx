@@ -18,8 +18,6 @@ export function PrivacyInputNotice({
   testId?: string;
   returnMode?: AppModeId;
 }) {
-  const privacyHref = returnMode ? `/privacy?from=${returnMode}` : "/privacy";
-
   return (
     <p
       role="note"
@@ -36,7 +34,7 @@ export function PrivacyInputNotice({
       <ShieldAlert className="h-3 w-3 shrink-0 text-[color:var(--warning)]" aria-hidden />
       <span>Do not enter patient-identifiable information.</span>
       <Link
-        href={privacyHref}
+        href={returnMode ? `/privacy?from=${returnMode}` : "/privacy"}
         className="inline-flex min-h-tap items-center rounded-sm font-medium underline decoration-[color:var(--border-strong)] underline-offset-2 transition-colors hover:text-[color:var(--clinical-accent)] hover:decoration-current focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-0"
       >
         Privacy and data processing
