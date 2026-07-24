@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Square,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 
 import {
   answerProgressDisplayMessage,

@@ -11,11 +11,13 @@ export function useClientTime({ fallback = 0, updateInterval }: { fallback?: num
   const [time, setTime] = useState(fallback);
 
   useEffect(() => {
-    setTime(Date.now());
-    if (updateInterval && updateInterval > 0) {
-      const interval = window.setInterval(() => setTime(Date.now()), updateInterval);
-      return () => window.clearInterval(interval);
-    }
+    const update = () => setTime(Date.now());
+    const frame = window.requestAnimationFrame(update);
+    const interval = updateInterval && updateInterval > 0 ? window.setInterval(update, updateInterval) : null;
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (interval != null) window.clearInterval(interval);
+    };
   }, [updateInterval]);
 
   return time;

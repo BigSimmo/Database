@@ -303,8 +303,6 @@ export function DocumentViewer({
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
   // Phone-only hide-on-scroll for the bottom composer: never hide while the
-  // mobile actions sheet is open or while focus sits inside the composer
-  // (keyboard users must not tab into invisible controls).
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -333,27 +331,21 @@ export function DocumentViewer({
     resetKey: `${documentId}:${activePage}:${activeChunkId ?? ""}`,
   });
   const composerScrollHidden = scrollHidden && !mobileActionsOpen && !composerChromeFocused;
-  // Read localStorage after mount to prevent hydration mismatch.
   const [useNativePdfViewer, setUseNativePdfViewer] = useState(getDefaultPdfViewerMode);
   const [hasExplicitPdfViewerMode, setHasExplicitPdfViewerMode] = useState(false);
   const [viewerModeInitialized, setViewerModeInitialized] = useState(false);
-
   useEffect(() => {
-    const initialMode = getInitialPdfViewerMode();
-    if (initialMode.hasExplicitPdfViewerMode) {
+    const frame = window.requestAnimationFrame(() => {
+      const initialMode = getInitialPdfViewerMode();
       setUseNativePdfViewer(initialMode.useNativePdfViewer);
-      setHasExplicitPdfViewerMode(true);
-    }
-    setViewerModeInitialized(true);
+      setHasExplicitPdfViewerMode(initialMode.hasExplicitPdfViewerMode);
+      setViewerModeInitialized(true);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
   const generatedSummaryRef = useRef<HTMLElement | null>(null);
   const summaryAbortRef = useRef<AbortController | null>(null);
-  useEffect(
-    () => () => {
-      summaryAbortRef.current?.abort();
-    },
-    [],
-  );
+  useEffect(() => () => summaryAbortRef.current?.abort(), []);
   const {
     status: authStatus,
     session,
