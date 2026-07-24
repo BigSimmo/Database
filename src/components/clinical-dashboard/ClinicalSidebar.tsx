@@ -94,11 +94,22 @@ const sidebarAccountLibraryItems = [
   { id: "favourites" as const, label: "Favourites", icon: Heart, href: "/favourites" },
 ] as const;
 
-// Drop any tool whose id is a dev-only app mode from the production nav. Non-mode
-// entries (answer, documents, prescribing, tools) are query-param destinations,
-// not app modes, so they always stay. NODE_ENV is inlined into the client bundle,
-// so this resolves at build time.
-const visibleSidebarToolItems = sidebarToolItems.filter((item) => !isAppModeId(item.id) || isAppModeVisible(item.id));
+const primarySidebarToolIds = new Set<(typeof sidebarToolItems)[number]["id"]>([
+  "answer",
+  "documents",
+  "services",
+  "forms",
+  "tools",
+  "therapy-compass",
+]);
+
+// Keep the persistent sidebar intentionally short. Secondary catalogues and
+// specialist workspaces remain reachable through the MODE picker, search, and
+// the Tools hub, but they should not all appear in the left rail. Still honour
+// app-mode visibility so dev-only modes cannot leak into production nav.
+const visibleSidebarToolItems = sidebarToolItems.filter(
+  (item) => primarySidebarToolIds.has(item.id) && (!isAppModeId(item.id) || isAppModeVisible(item.id)),
+);
 
 function sidebarItemBadge(item: (typeof sidebarToolItems)[number]): string | undefined {
   return "badge" in item ? item.badge : undefined;
