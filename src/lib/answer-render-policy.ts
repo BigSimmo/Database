@@ -745,7 +745,8 @@ export function buildAnswerRenderModel(
   const rawQuotes = answer.quoteCards ?? answer.smartPanel?.quotes ?? [];
   const rawVisualEvidence = answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? [];
   const rawRelatedDocuments = answer.relatedDocuments ?? answer.smartPanel?.relatedDocuments ?? [];
-  const visualLimit = hasDirectVisualNeed(answer) || trust === "high" ? caps.visual : 0;
+  const visualLimit =
+    isAnswerSourceBacked(answer) && (hasDirectVisualNeed(answer) || trust === "high") ? caps.visual : 0;
   const quoteCards = dedupeQuotes(rawQuotes, primarySources, caps.quotes);
   const visualEvidence = dedupeVisualEvidence(rawVisualEvidence, primarySources, visualLimit);
   const tables = buildCanonicalTables(visualEvidence);
