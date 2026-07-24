@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -11,6 +14,10 @@ import {
   resolveMobileComposerReserve,
   resolveShellVisibleMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
+
+function source(relativePath: string): string {
+  return readFileSync(resolve(process.cwd(), relativePath), "utf8");
+}
 
 describe("mobile composer reserve contract", () => {
   it("collapses to zero hidden pad without Safari toolbar safe-area", () => {
@@ -54,7 +61,7 @@ describe("mobile composer reserve contract", () => {
     ).toBe(mobileComposerIdleReserve);
   });
 
-  it("uses the compact dock reserve for every non-answer dashboard dock (mode homes included)", () => {
+  it("uses the compact dock reserve for non-answer dashboard docks when the hero does not own phones", () => {
     for (const searchMode of ["documents", "services", "forms", "tools", "favourites"]) {
       expect(
         resolveDashboardVisibleMobileComposerReserve({
@@ -64,6 +71,56 @@ describe("mobile composer reserve contract", () => {
         }),
       ).toBe(mobileComposerVisibleReserve.dashboardDock);
     }
+  });
+
+  it("keeps only the idle content pad when the dashboard hero owns the phone composer", () => {
+    expect(
+      resolveDashboardVisibleMobileComposerReserve({
+        searchMode: "documents",
+        hasAnswerFollowUps: false,
+        differentialsCompareAddonActive: false,
+        heroOwnsPhoneComposer: true,
+      }),
+    ).toBe(mobileComposerIdleReserve);
+    expect(
+      resolveDashboardVisibleMobileComposerReserve({
+        searchMode: "tools",
+        hasAnswerFollowUps: false,
+        differentialsCompareAddonActive: false,
+        heroOwnsPhoneComposer: true,
+      }),
+    ).toBe(mobileComposerIdleReserve);
+    expect(
+      resolveDashboardVisibleMobileComposerReserve({
+        searchMode: "answer",
+        hasAnswerFollowUps: false,
+        differentialsCompareAddonActive: false,
+        heroOwnsPhoneComposer: true,
+      }),
+    ).toBe(mobileComposerIdleReserve);
+  });
+
+  it("derives hero phone ownership from the mounted hero slot, not answer-home alone", () => {
+    // Answer-home + !canRunSearch keeps showAnswerHome true while the hero slot
+    // is unset (showDesktopHomeComposer requires !error). Ownership must follow
+    // the slot so the dock reserve stays and the fixed composer cannot cover the
+    // setup/error message.
+    const dashboard = source("src/components/ClinicalDashboard.tsx");
+    const header = source("src/components/clinical-dashboard/master-search-header.tsx");
+    expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
+    expect(dashboard).toContain("const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId);");
+    expect(dashboard).not.toContain("const heroOwnsPhoneComposer = showDesktopHomeComposer || showAnswerHome;");
+    expect(header).toContain(
+      'const heroComposerOwnsPhones = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
+    );
+    expect(
+      resolveDashboardVisibleMobileComposerReserve({
+        searchMode: "answer",
+        hasAnswerFollowUps: false,
+        differentialsCompareAddonActive: false,
+        heroOwnsPhoneComposer: false,
+      }),
+    ).toBe(mobileComposerVisibleReserve.dashboardAnswer);
   });
 
   it("keeps the answer dock reserve compact, growing only for the follow-up chip row", () => {

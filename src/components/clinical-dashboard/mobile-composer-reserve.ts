@@ -58,7 +58,15 @@ export function resolveDashboardVisibleMobileComposerReserve(input: {
   searchMode: string;
   hasAnswerFollowUps: boolean;
   differentialsCompareAddonActive: boolean;
+  /** Hero owns the phone composer (no fixed bottom dock) — match shell idle pad. */
+  heroOwnsPhoneComposer?: boolean;
 }): string {
+  // Mode homes / answer home keep the in-flow hero pill on phones, so there is
+  // no floating dock to clear — only the idle content pad (same as standalone
+  // shell mode homes). Using the dock reserve here opens a blank bottom band.
+  if (input.heroOwnsPhoneComposer) {
+    return mobileComposerIdleReserve;
+  }
   if (input.searchMode === "answer") {
     return input.hasAnswerFollowUps
       ? mobileComposerVisibleReserve.dashboardAnswerWithFollowUps

@@ -3092,7 +3092,7 @@ export function ClinicalDashboard({
   const showDesktopHomeComposer =
     !error &&
     (activeModeResultKind === "tools" ||
-      activeModeResultKind === "favourites" ||
+      (activeModeResultKind === "favourites" && favouritesAccessible) ||
       (!loading &&
         (showAnswerHome ||
           (searchMode === "documents" &&
@@ -3114,6 +3114,7 @@ export function ClinicalDashboard({
     ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
+  const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId);
   // Hidden dock pad must stay at 0rem — Safari toolbar safe-area recreates a blank band.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
@@ -3121,6 +3122,7 @@ export function ClinicalDashboard({
       searchMode,
       hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
       differentialsCompareAddonActive,
+      heroOwnsPhoneComposer,
     }),
   );
   const renderDegradedNotice = () => (
@@ -3400,10 +3402,9 @@ export function ClinicalDashboard({
             differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
-          // Only the answer home ("How can I help?") keeps the in-flow hero
-          // pill + privacy notice on phones; every other mode home docks the
-          // compact pill to the bottom edge below sm.
-          heroComposerBreakpoint={showAnswerHome ? "all" : "sm-up"}
+          // Mode homes keep the composer in the centred hero at every breakpoint,
+          // sharing the phone/tablet structure instead of switching to a bottom dock.
+          heroComposerBreakpoint={heroOwnsPhoneComposer ? "all" : "sm-up"}
           // Answer view: the header overlays the scrolling <main> at every width
           // (main reserves matching top padding) so content frosts under the
           // glass bar, and it slides away/returns with scroll direction. Other
