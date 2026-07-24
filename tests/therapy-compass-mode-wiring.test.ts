@@ -13,15 +13,15 @@ const loaderSrc = readFileSync(
 );
 const dataDir = new URL("../public/therapy-compass-data/", import.meta.url);
 const therapyMetadataFiles = [
-  "../src/app/therapy-compass/page.tsx",
-  "../src/app/therapy-compass/search/page.tsx",
-  "../src/app/therapy-compass/recommend/page.tsx",
-  "../src/app/therapy-compass/compare/page.tsx",
-  "../src/app/therapy-compass/pathways/page.tsx",
-  "../src/app/therapy-compass/review/page.tsx",
-  "../src/app/therapy-compass/[slug]/page.tsx",
-  "../src/app/therapy-compass/[slug]/brief/page.tsx",
-  "../src/app/therapy-compass/[slug]/sheet/page.tsx",
+  "../src/app/(search-app)/therapy-compass/page.tsx",
+  "../src/app/(search-app)/therapy-compass/search/page.tsx",
+  "../src/app/(search-app)/therapy-compass/recommend/page.tsx",
+  "../src/app/(search-app)/therapy-compass/compare/page.tsx",
+  "../src/app/(search-app)/therapy-compass/pathways/page.tsx",
+  "../src/app/(search-app)/therapy-compass/review/page.tsx",
+  "../src/app/(search-app)/therapy-compass/[slug]/page.tsx",
+  "../src/app/(search-app)/therapy-compass/[slug]/brief/page.tsx",
+  "../src/app/(search-app)/therapy-compass/[slug]/sheet/page.tsx",
 ];
 
 describe("Therapy Compass production-mode wiring", () => {
@@ -80,7 +80,7 @@ describe("Therapy Compass production-mode wiring", () => {
   });
 
   it("honors run-enabled deep links by routing to the in-tool search instead of landing on Home", () => {
-    const routeSrc = readFileSync(new URL("../src/app/therapy-compass/page.tsx", import.meta.url), "utf8");
+    const routeSrc = readFileSync(new URL("../src/app/(search-app)/therapy-compass/page.tsx", import.meta.url), "utf8");
     const bindingsSrc = readFileSync(
       new URL("../src/components/therapy-compass/bindings.tsx", import.meta.url),
       "utf8",
