@@ -89,7 +89,7 @@ Reuse the app image; only the environment variables differ.
    injects `$PORT`). Set the app service's healthcheck to `/api/health/ready`
    (matches `railway.app.json`), restart policy to `ON_FAILURE`, and one
    replica pinned to `southeast-asia` with no scale-to-zero. Use `GET
-   /api/health` only as a manual liveness smoke check.
+/api/health` only as a manual liveness smoke check.
 
 4. **No worker:** this staging environment intentionally has no ingestion
    service. The tenancy harness inserts and removes its synthetic lexical rows
