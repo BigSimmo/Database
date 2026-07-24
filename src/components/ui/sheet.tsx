@@ -254,6 +254,7 @@ export function Sheet({
         restoreTarget.focus({ preventScroll: true });
         restoreTimers.timeout = window.setTimeout(() => {
           restoreTimers.timeout = null;
+          if (typeof document === "undefined") return;
           if (
             typeof document === "undefined" ||
             !restoreTarget.isConnected ||
