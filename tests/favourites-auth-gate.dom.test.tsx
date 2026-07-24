@@ -50,11 +50,8 @@ function sidebarProps(showAccountLibrary: boolean) {
     showAccountLibrary,
     onNewChat: () => undefined,
     onPickRecent: () => undefined,
-    onOpenGuide: () => undefined,
     onOpenSettings: () => undefined,
     onOpenAccount: () => undefined,
-    theme: "light" as const,
-    onToggleTheme: () => undefined,
   };
 }
 
@@ -89,21 +86,30 @@ describe("favourites auth gate DOM", () => {
     authSession.error = null;
   });
 
-  it("shows Your library with Favourites only when showAccountLibrary is true", () => {
+  it("keeps the six canonical navigation entries separate from conditional Favourites", () => {
     const { rerender } = render(<ClinicalSidebarContent {...sidebarProps(false)} />);
 
     expect(screen.queryByRole("navigation", { name: "Your library" })).toBeNull();
+    const navigation = within(screen.getByRole("navigation", { name: "Navigation" }));
     expect(
-      within(screen.getByRole("navigation", { name: "Tools" })).getByRole("link", { name: "Answer" }),
-    ).toBeTruthy();
+      navigation.getAllByRole("link").map((link) => ({ name: link.textContent, href: link.getAttribute("href") })),
+    ).toEqual([
+      { name: "Answer", href: "/?mode=answer" },
+      { name: "Documents", href: "/?mode=documents" },
+      { name: "Services", href: "/services" },
+      { name: "Medications", href: "/?mode=prescribing" },
+      { name: "Factsheets", href: "/factsheets" },
+      { name: "Tools", href: "/?mode=tools" },
+    ]);
     expect(screen.queryByRole("link", { name: "Favourites" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /guide|theme|dark mode|light mode/i })).toBeNull();
 
     rerender(<ClinicalSidebarContent {...sidebarProps(true)} />);
 
     expect(screen.getByRole("navigation", { name: "Your library" })).toBeVisible();
     expect(screen.getByRole("link", { name: "Favourites" })).toHaveAttribute("href", "/favourites");
     expect(
-      within(screen.getByRole("navigation", { name: "Tools" })).queryByRole("link", { name: "Favourites" }),
+      within(screen.getByRole("navigation", { name: "Navigation" })).queryByRole("link", { name: "Favourites" }),
     ).toBeNull();
   });
 

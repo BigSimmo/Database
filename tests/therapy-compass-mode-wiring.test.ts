@@ -44,7 +44,7 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(appModesSrc).toContain('submitAriaLabel: "Open Therapy mode"');
     expect(homeSrc).toContain('title="Therapy mode"');
     expect(workspaceSrc).toContain("Therapy mode could not load");
-    expect(sidebarSrc).toContain('label: appModeDefinition("therapy-compass").label');
+    expect(sidebarSrc).not.toContain('id: "therapy-compass"');
 
     for (const filename of therapyMetadataFiles) {
       const source = readFileSync(new URL(filename, import.meta.url), "utf8");
