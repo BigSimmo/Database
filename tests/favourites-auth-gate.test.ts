@@ -29,14 +29,26 @@ describe("favourites auth gate", () => {
     expect(sidebar).toContain('aria-label="Your library"');
     expect(sidebar).toContain("showAccountLibrary");
     expect(sidebar).toContain("primarySidebarToolIds");
-    expect(sidebar).toContain('"therapy-compass"');
     expect(sidebar).not.toMatch(/const sidebarToolItems = \[[\s\S]*\{ id: "favourites", label: "Favourites"/);
-    expect(sidebar).not.toMatch(/primarySidebarToolIds[\s\S]*"differentials"/);
-    expect(sidebar).not.toMatch(/primarySidebarToolIds[\s\S]*"dsm"/);
-    expect(sidebar).not.toMatch(/primarySidebarToolIds[\s\S]*"specifiers"/);
-    expect(sidebar).not.toMatch(/primarySidebarToolIds[\s\S]*"formulation"/);
-    expect(sidebar).not.toMatch(/primarySidebarToolIds[\s\S]*"prescribing"/);
-    expect(sidebar).not.toMatch(/primarySidebarToolIds[\s\S]*"factsheets"/);
+
+    // Constrain to the Set initializer so later activeMode/href mentions of
+    // specialist modes (e.g. differentials) do not false-fail the exclusion check.
+    const primarySidebarInitializer = sidebar.match(
+      /const primarySidebarToolIds = new Set<\(typeof sidebarToolItems\)\[number\]\["id"\]>\(\[([\s\S]*?)\]\);/,
+    )?.[1];
+    expect(primarySidebarInitializer).toBeTruthy();
+    const primarySidebarIds = [...(primarySidebarInitializer ?? "").matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+    expect(primarySidebarIds).toEqual([
+      "answer",
+      "documents",
+      "services",
+      "forms",
+      "tools",
+      "therapy-compass",
+    ]);
+    for (const excludedId of ["differentials", "dsm", "specifiers", "formulation", "prescribing", "factsheets"]) {
+      expect(primarySidebarIds).not.toContain(excludedId);
+    }
 
     expect(shell).toContain("showAccountLibrary={favouritesAccessible}");
     expect(shell).toContain("canAccessFavourites={favouritesAccessible}");
