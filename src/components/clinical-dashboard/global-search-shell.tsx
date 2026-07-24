@@ -273,14 +273,12 @@ function GlobalStandaloneSearchShellClient({
       ? requestedMode
       : initialSearchMode;
   const [query, setQuery] = useState(requestedQuery);
-  // The search string / pathname we last synced into local state, so the render
-  // sync below only reacts to genuine navigations. Seeded with the current values
-  // so the initial mount is a no-op — the state above is already derived from the URL.
-  // Pathname must be tracked separately: with the shared `(search-app)` layout,
-  // navigating /services → /dsm keeps an empty query string, and a params-only
-  // gate would leave searchMode stuck on the previous mode.
-  const lastSyncedSearchParamsRef = useRef(searchParamString);
-  const lastSyncedPathnameRef = useRef(pathname);
+  // Previous URL snapshot for during-render sync (React "adjusting state when a
+  // prop changes"). Pathname must be tracked separately: with the shared
+  // `(search-app)` layout, /services → /dsm keeps an empty query string, and a
+  // params-only gate would leave searchMode stuck on the previous mode.
+  const [syncedSearchParamString, setSyncedSearchParamString] = useState(searchParamString);
+  const [syncedPathname, setSyncedPathname] = useState(pathname);
   const [searchMode, setSearchMode] = useState<AppModeId>(resolvedSearchMode);
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>(
     () => readSearchNavigationContext(searchParams).queryMode,
@@ -296,9 +294,9 @@ function GlobalStandaloneSearchShellClient({
   const [commandScopes, setCommandScopes] = useState<string[]>([]);
   const removeCommandScope = useCallback(
     (scopeId: string) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
-    [],
+    [setCommandScopes],
   );
-  const clearCommandScopes = useCallback(() => setCommandScopes([]), []);
+  const clearCommandScopes = useCallback(() => setCommandScopes([]), [setCommandScopes]);
   const searchCommandContextValue = useMemo(
     () => ({
       query,
@@ -377,13 +375,11 @@ function GlobalStandaloneSearchShellClient({
   // pathname-only moves like /services → /dsm. React discards this render and
   // immediately re-renders with the updated state (see "adjusting state when a
   // prop changes"). Typing never changes the URL, so a URL-gated sync cannot
-  // clobber in-progress input; the initial mount is a no-op because the refs are
-  // seeded to the current URL and state is already derived from it.
-  const searchParamsChanged = lastSyncedSearchParamsRef.current !== searchParamString;
-  const pathnameChanged = lastSyncedPathnameRef.current !== pathname;
-  if (searchParamsChanged || pathnameChanged) {
-    lastSyncedSearchParamsRef.current = searchParamString;
-    lastSyncedPathnameRef.current = pathname;
+  // clobber in-progress input; the initial mount is a no-op because synced*
+  // state is seeded from the current URL.
+  if (searchParamString !== syncedSearchParamString || pathname !== syncedPathname) {
+    setSyncedSearchParamString(searchParamString);
+    setSyncedPathname(pathname);
     setSearchMode(resolvedSearchMode);
     setQuery(currentUrlHasQuery ? requestedQuery : "");
     const nextSearchContext = readSearchNavigationContext(new URLSearchParams(searchParamString));
