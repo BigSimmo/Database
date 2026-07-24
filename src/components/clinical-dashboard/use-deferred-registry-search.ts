@@ -11,7 +11,8 @@ export type DeferredRegistrySearchMatch = FormSearchMatch | ServiceSearchMatch;
 /**
  * Owner-scoped registry fetch + deferred client ranking for services/forms modes.
  * Input `query` stays live for the composer; ranking uses `useDeferredValue` so
- * keystrokes stay responsive over large catalogues.
+ * keystrokes stay responsive over large catalogues. A cleared live query drops
+ * record matches immediately so deferred lag cannot keep stale hits on screen.
  */
 export function useDeferredRegistrySearch(
   searchMode: string,
@@ -25,14 +26,24 @@ export function useDeferredRegistrySearch(
     enabled: searchMode === "services" || searchMode === "forms",
   });
   const deferredQuery = useDeferredValue(query);
-  const serviceSearchMatches = useMemo(
-    () => (searchMode === "services" ? rankServiceRecords(registryRecords.records, deferredQuery) : []),
-    [deferredQuery, searchMode, registryRecords.records],
-  );
-  const formSearchMatches = useMemo(
-    () => (searchMode === "forms" ? rankFormRecords(registryRecords.records, deferredQuery) : []),
-    [deferredQuery, searchMode, registryRecords.records],
-  );
+  const liveQuery = query.trim();
+
+  const serviceSearchMatches = useMemo(() => {
+    if (searchMode !== "services") return [];
+    // Cleared composer: drop matches immediately (do not wait on deferred lag).
+    if (!liveQuery) return [];
+    // First keystrokes may leave deferred empty — avoid empty-query "all records" ranking.
+    if (!deferredQuery.trim()) return [];
+    return rankServiceRecords(registryRecords.records, deferredQuery);
+  }, [deferredQuery, liveQuery, searchMode, registryRecords.records]);
+
+  const formSearchMatches = useMemo(() => {
+    if (searchMode !== "forms") return [];
+    if (!liveQuery) return [];
+    if (!deferredQuery.trim()) return [];
+    return rankFormRecords(registryRecords.records, deferredQuery);
+  }, [deferredQuery, liveQuery, searchMode, registryRecords.records]);
+
   const recordSearchMatches = useMemo(
     () => (searchMode === "forms" ? formSearchMatches : searchMode === "services" ? serviceSearchMatches : []),
     [searchMode, formSearchMatches, serviceSearchMatches],

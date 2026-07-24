@@ -545,11 +545,13 @@ export function ServicesNavigatorPage() {
     [registry.records, registry.status],
   );
   const matches = useMemo(() => {
+    // Cleared live query should restore the full catalogue immediately, even if
+    // deferredQuery still holds the previous term for a frame.
+    if (!query.trim()) return searchableRecords;
     const ranked = rankServiceRecords(searchableRecords, deferredQuery);
     if (ranked.length) return ranked.map((match) => match.service);
     // Deferred empty while the live query has text means ranking is lagging —
     // never dump the full catalogue as if the box were cleared.
-    if (!deferredQuery.trim()) return query.trim() ? [] : searchableRecords;
     return [];
   }, [deferredQuery, query, searchableRecords]);
   const scopedMatches = useMemo(() => {

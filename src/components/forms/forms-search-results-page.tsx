@@ -621,10 +621,14 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const [refineOpen, setRefineOpen] = useState(false);
   const refinePanelId = useId();
   const deferredQuery = useDeferredValue(query);
-  const matches = useMemo(
-    () => (registryReady ? rankFormRecords(registry.records, deferredQuery) : []),
-    [registryReady, registry.records, deferredQuery],
-  );
+  const matches = useMemo(() => {
+    if (!registryReady) return [];
+    // Cleared query: no form matches (page usually remounts, but keep lag-safe).
+    if (!query.trim()) return [];
+    // Deferred empty while live has text: wait — do not rank as empty-query "all forms".
+    if (!deferredQuery.trim()) return [];
+    return rankFormRecords(registry.records, deferredQuery);
+  }, [registryReady, registry.records, deferredQuery, query]);
   const scopedMatches = useMemo(() => {
     const scopes = command?.commandScopes ?? [];
     if (!scopes.length) return matches;
