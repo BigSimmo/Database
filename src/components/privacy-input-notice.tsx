@@ -2,11 +2,22 @@ import Link from "next/link";
 import { ShieldAlert } from "lucide-react";
 
 import { cn, textMuted } from "@/components/ui-primitives";
+import type { AppModeId } from "@/lib/app-modes";
 
 // Compact APP-5 privacy notice shown beside clinical input controls (query
 // composer, document upload). Deliberately one quiet 11px line — the wording
 // and the /privacy link are governance copy (PIA-5) and must stay intact.
-export function PrivacyInputNotice({ className, id, testId }: { className?: string; id?: string; testId?: string }) {
+export function PrivacyInputNotice({
+  className,
+  id,
+  testId,
+  returnMode,
+}: {
+  className?: string;
+  id?: string;
+  testId?: string;
+  returnMode?: AppModeId;
+}) {
   return (
     <p
       role="note"
@@ -23,7 +34,7 @@ export function PrivacyInputNotice({ className, id, testId }: { className?: stri
       <ShieldAlert className="h-3 w-3 shrink-0 text-[color:var(--warning)]" aria-hidden />
       <span>Do not enter patient-identifiable information.</span>
       <Link
-        href="/privacy"
+        href={returnMode ? `/privacy?from=${returnMode}` : "/privacy"}
         className="inline-flex min-h-tap items-center rounded-sm font-medium underline decoration-[color:var(--border-strong)] underline-offset-2 transition-colors hover:text-[color:var(--clinical-accent)] hover:decoration-current focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-0"
       >
         Privacy and data processing
