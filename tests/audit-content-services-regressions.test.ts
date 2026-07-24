@@ -123,7 +123,7 @@ describe("content and services audit regressions", () => {
     expect(formDetailSource).not.toMatch(/\b\d+\s+pages?\b|\bReview due\b/i);
     expect(formDetailSource).not.toContain("01 May 2026");
     expect(formDetailSource).not.toMatch(/5\(2\)|Admission order|Treatment order/);
-    expect(formDetailSource).toContain("Full pathway unavailable");
+    expect(formDetailSource).toContain("Open official source / pathway");
     expect(normalizedFormDetailSource).toContain(
       'label: "Source currency", value: displayText(form.source?.reviewed, "Review locally")',
     );
