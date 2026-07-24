@@ -406,6 +406,10 @@ function MedicationResults({
   "query" | "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning"
 >) {
   const command = useSearchCommand();
+  // Debounced + aborted fetches (see useMedicationCatalog) stop keystroke storms.
+  // Keep the full catalogue payload here: Safety/Monitoring chips and patient
+  // alerts need sections/stats/quick that `fields=index` strips. Cross-mode
+  // identity consumers still use `fields=index`.
   const catalog = useMedicationCatalog(query);
   const { profile, isEmpty: profileEmpty } = usePatientProfile();
   const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");

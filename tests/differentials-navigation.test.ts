@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 
-import { GET as redirectPresentations } from "@/app/differentials/presentations/route";
+import { GET as redirectPresentations } from "@/app/(search-app)/differentials/presentations/route";
 import { differentialRouteWithQuery, differentialSelectedCompareHref } from "@/lib/differentials-navigation";
 
 describe("differentials navigation", () => {

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { resolveClientDemoMode, resolveUploadReadOnlyMode } from "@/lib/client-env";
 
-const routeSource = readFileSync(new URL("../src/app/favourites/page.tsx", import.meta.url), "utf8");
+const routeSource = readFileSync(new URL("../src/app/(search-app)/favourites/page.tsx", import.meta.url), "utf8");
 const librarySource = readFileSync(
   new URL("../src/components/clinical-dashboard/favourites-command-library-page.tsx", import.meta.url),
   "utf8",

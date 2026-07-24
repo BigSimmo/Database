@@ -29,9 +29,10 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
   const [documentMatches, setDocumentMatches] = useState<DocumentMatch[]>([]);
   const [evidenceQuery, setEvidenceQuery] = useState<string | null>(null);
   const searchRequestSeqRef = useRef(0);
+  const searchAbortRef = useRef<AbortController | null>(null);
 
   const runSearch = useCallback(
-    async (searchText: string) => {
+    async (searchText: string, signal?: AbortSignal) => {
       const normalized = searchText.trim();
       if (!normalized) return;
       const requestId = ++searchRequestSeqRef.current;
@@ -43,6 +44,7 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(differentialsSearchRequestBody(new URLSearchParams(searchParamString), normalized)),
+          signal,
         });
 
         if (requestId !== searchRequestSeqRef.current) return;
@@ -55,7 +57,8 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
         if (requestId !== searchRequestSeqRef.current) return;
         setEvidenceQuery(normalized);
         setDocumentMatches(payload.documentMatches ?? []);
-      } catch {
+      } catch (error) {
+        if (signal?.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
         if (requestId !== searchRequestSeqRef.current) return;
         setDocumentMatches([]);
       } finally {
@@ -66,10 +69,16 @@ export function DifferentialsHomePage({ query = "", autoRunSearch = false }: Dif
   );
 
   useEffect(() => {
-    if (autoRunSearch && trimmedQuery) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      void runSearch(trimmedQuery);
-    }
+    if (!autoRunSearch || !trimmedQuery) return undefined;
+    searchAbortRef.current?.abort();
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void runSearch(trimmedQuery, controller.signal);
+    return () => {
+      controller.abort();
+      if (searchAbortRef.current === controller) searchAbortRef.current = null;
+    };
   }, [autoRunSearch, trimmedQuery, runSearch]);
 
   const navigateToSearch = useCallback(

@@ -16,5 +16,6 @@ When invoked:
 7. Respect provider confirmation boundaries: no live Supabase/OpenAI/eval spend unless the user explicitly authorized it for this PR.
 8. Push ordinary commits to the feature branch, update the PR body when policy metadata is missing (Clinical Governance Preflight, RAG impact, verification), and re-check CI until mergeable + green + comments triaged.
 9. Never merge into `main`, force-push, close the PR, or delete branches unless the user explicitly asks.
+10. Keep `PR_POLICY_BODY.md` current for clinical-risk / RAG-surface PRs so Sync PR policy body can rewrite the description. If Static fails maintainability budgets, extract a cohesive module instead of raising the budget.
 
 Report before/after: merge state, CI, threads fixed vs left open, commits pushed, and any remaining human decision.

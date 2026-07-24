@@ -13,15 +13,24 @@ export function allowRateLimitInMemoryFallbackOnUnavailable() {
 // when the durable limiter is unavailable. A per-process Map gives N× the intended limit across N
 // horizontally-scaled instances during a limiter outage — unacceptable for expensive/abusable
 // paths: `answer` (paid provider generation) and `document_upload` (storage writes + ingestion
-// cost). Local-no-auth dev keeps the in-memory fallback for single-instance usability.
+// cost).
 function failsClosedOnLimiterUnavailable(bucket: ApiRateLimitBucket) {
   return bucket === "answer" || bucket === "document_upload";
+}
+
+/** Production multi-instance deploys fail closed for expensive buckets. Single-instance
+ *  local/dev (including secret-backed cloud agents) keeps the in-memory fallback so Answer
+ *  remains usable when the durable rate-limit RPC is misconfigured or unavailable. */
+function mustFailClosedOnLimiterUnavailable(bucket: ApiRateLimitBucket) {
+  if (!failsClosedOnLimiterUnavailable(bucket)) return false;
+  if (isLocalNoAuthMode() || process.env.NODE_ENV !== "production") return false;
+  return true;
 }
 
 function allowAnonymousRateLimitFallback(bucket: ApiRateLimitBucket, allowInMemoryFallbackOnUnavailable?: boolean) {
   // Fail-closed buckets must not fall back to a per-instance limiter in a distributed production
   // runtime. If the durable limiter is unavailable, fail closed before any expensive work starts.
-  if (failsClosedOnLimiterUnavailable(bucket) && !isLocalNoAuthMode()) return false;
+  if (mustFailClosedOnLimiterUnavailable(bucket)) return false;
   if (allowInMemoryFallbackOnUnavailable) return true;
 
   // Anonymous public read/search paths must stay reachable if the durable limiter
@@ -191,10 +200,9 @@ export async function consumeSubjectApiRateLimit(args: {
   windowSeconds?: number;
   allowInMemoryFallbackOnUnavailable?: boolean;
 }): Promise<ApiRateLimitResult> {
-  const allowInMemoryFallbackOnUnavailable =
-    failsClosedOnLimiterUnavailable(args.bucket) && !isLocalNoAuthMode()
-      ? false
-      : args.allowInMemoryFallbackOnUnavailable;
+  const allowInMemoryFallbackOnUnavailable = mustFailClosedOnLimiterUnavailable(args.bucket)
+    ? false
+    : args.allowInMemoryFallbackOnUnavailable;
 
   if (args.subject.kind === "owner") {
     return consumeApiRateLimit({

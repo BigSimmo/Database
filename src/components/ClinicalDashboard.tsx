@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
 import {
   CircleAlert,
   BookOpen,
@@ -101,6 +100,8 @@ import {
   hasActiveIndexingWork,
   hasNonProductionSupabaseApiKeyFallback,
   isAbortError,
+  releaseOwnedAbortController,
+  replaceOwnedAbortController,
   mergeDocumentRefresh,
   normalizeNavigationHash,
   setupNeedsSlowRecheck,
@@ -115,42 +116,16 @@ import {
   type DocumentPagination,
   type LabelReviewMutationBody,
 } from "@/components/clinical-dashboard/dashboard-contracts";
-const DifferentialsHome = dynamic(
-  () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
-  { ssr: false },
-);
-const FavouritesHub = dynamic(
-  () => import("@/components/clinical-dashboard/favourites-hub").then((m) => m.FavouritesHub),
-  { ssr: false },
-);
-const MedicationPrescribingWorkspace = dynamic(
-  () =>
-    import("@/components/clinical-dashboard/medication-prescribing-workspace").then(
-      (m) => m.MedicationPrescribingWorkspace,
-    ),
-  { ssr: false },
-);
-const DocumentDrawer = dynamic(
-  () => import("@/components/clinical-dashboard/document-admin").then((m) => m.DocumentDrawer),
-  { ssr: false },
-);
-
-// Results surfaces load lazily. Preload the primary answer surface after hydration so a cold
-// browser does not finish a fast/cached answer before the result UI chunk is available.
-const loadStagedAnswerResultSurface = () =>
-  import("@/components/clinical-dashboard/answer-result-surface").then((m) => m.StagedAnswerResultSurface);
-const StagedAnswerResultSurface = dynamic(loadStagedAnswerResultSurface, {
-  ssr: false,
-  loading: () => <AnswerSkeleton />,
-});
-const RelatedDocumentsPanel = dynamic(
-  () => import("@/components/clinical-dashboard/document-results").then((m) => m.RelatedDocumentsPanel),
-  { ssr: false },
-);
-const DocumentSearchResultsPanel = dynamic(
-  () => import("@/components/clinical-dashboard/document-search-results").then((m) => m.DocumentSearchResultsPanel),
-  { ssr: false },
-);
+import {
+  DifferentialsHome,
+  DocumentDrawer,
+  DocumentSearchResultsPanel,
+  FavouritesHub,
+  loadStagedAnswerResultSurface,
+  MedicationPrescribingWorkspace,
+  RelatedDocumentsPanel,
+  StagedAnswerResultSurface,
+} from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
 import { clearLegacyRecentQueries, demoRecentQueryOwnerId, recentQueryStorageKey } from "@/lib/recent-query-storage";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
@@ -2007,14 +1982,12 @@ export function ClinicalDashboard({
     };
     // A newer search already invalidated any prior request via requestId; abort
     // its network work too so the server stops generating, then own the signal.
-    searchAbortRef.current?.abort();
-    const abortController = new AbortController();
+    const abortController = replaceOwnedAbortController(searchAbortRef);
     const authRequest = registerAuthRequest(abortController);
     requestIsCurrent = () =>
       requestId === searchRequestSeqRef.current &&
       isAuthEpochCurrent(authRequest.epoch) &&
       !abortController.signal.aborted;
-    searchAbortRef.current = abortController;
     setLoading(true);
     setError(null);
     setSearchRelevance(null);
@@ -2193,7 +2166,7 @@ export function ClinicalDashboard({
       answerWatchdog.cancel();
       authRequest.release();
       answerTimedOutRef.current = false;
-      if (searchAbortRef.current === abortController) searchAbortRef.current = null;
+      releaseOwnedAbortController(searchAbortRef, abortController);
       if (requestIsCurrent()) {
         setLoading(false);
         setAnswerProgress(null);
@@ -2507,23 +2480,29 @@ export function ClinicalDashboard({
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() }));
     if (updateUrl) updateDocumentSearchUrl(trimmedSearchText, targetMode, filtersOverride);
 
+    const abortController = replaceOwnedAbortController(searchAbortRef);
     const requestId = ++searchRequestSeqRef.current;
-
     try {
       const shortcutQueryMode = appModeQueryMode(targetMode, queryMode);
       const payload = await runWithRetries(() =>
-        requestSourceLibrarySearch(trimmedSearchText, sourceLibraryMode, filtersOverride, shortcutQueryMode),
+        requestSourceLibrarySearch(
+          trimmedSearchText,
+          sourceLibraryMode,
+          filtersOverride,
+          shortcutQueryMode,
+          abortController.signal,
+        ),
       );
-      if (requestId === searchRequestSeqRef.current) {
-        applySearchResult(payload);
-      }
+      if (requestId === searchRequestSeqRef.current) applySearchResult(payload);
     } catch (requestError) {
+      if (abortController.signal.aborted || isAbortError(requestError)) return;
       if (requestId === searchRequestSeqRef.current) {
         setError(requestError instanceof Error ? requestError.message : "Document search failed");
         setErrorKind(null);
         setLastFailedQuery(null);
       }
     } finally {
+      releaseOwnedAbortController(searchAbortRef, abortController);
       if (requestId === searchRequestSeqRef.current) {
         setLoading(false);
         setAnswerProgress(null);

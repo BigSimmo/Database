@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import GlobalError from "@/app/global-error";
-import ServicesDetailError from "@/app/services/[slug]/error";
+import ServicesDetailError from "@/app/(search-app)/services/[slug]/error";
 import { RouteErrorBoundary } from "@/components/route-error-boundary";
 
 // Guards the fragility fix: every App Router `error.tsx` renders a recovery
