@@ -97,6 +97,17 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
     answer: "For red-range blood results, withhold clozapine and contact the monitoring service.",
     grounded: true,
     confidence: "high",
+    relevance: {
+      verdict: "direct",
+      label: "Direct source support",
+      matchedTerms: ["clozapine", "monitoring"],
+      missingTerms: [],
+      directSourceCount: 1,
+      weakSourceCount: 0,
+      score: 0.95,
+      supportReason: "A direct source supports the answer.",
+      isSourceBacked: true,
+    },
     citations: [citation()],
     sources: [baseSource],
     answerSections: [
@@ -276,6 +287,19 @@ describe("answer render policy", () => {
     );
     expect(model.warnings).toContain("A retrieved source is due for review.");
     expect(model.warnings).not.toContain("A supporting source is due for review.");
+  });
+
+  it("fails closed when answer relevance metadata is absent", () => {
+    const model = buildAnswerRenderModel(
+      answer({
+        relevance: undefined,
+        smartPanel: undefined,
+      }),
+    );
+
+    expect(model.trust).toBe("low");
+    expect(model.allowedBlocks).not.toContain("quoteCards");
+    expect(model.allowedBlocks).not.toContain("relatedDocuments");
   });
 
   it("does not render high trust for high-risk claims supported only by unverified evidence", () => {

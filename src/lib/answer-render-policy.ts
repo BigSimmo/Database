@@ -139,10 +139,13 @@ function answerRelevance(answer: RagAnswer): EvidenceRelevance | undefined {
   return answer.relevance ?? answer.smartPanel?.relevance;
 }
 
+export function isAnswerSourceBacked(answer: RagAnswer): boolean {
+  return answerRelevance(answer)?.isSourceBacked === true;
+}
+
 function deriveTrust(answer: RagAnswer): AnswerRenderTrust {
-  const relevance = answerRelevance(answer);
   const retrievalBlocked = answer.retrievalDiagnostics?.gateStatus === "blocked";
-  const sourceBacked = relevance?.isSourceBacked !== false;
+  const sourceBacked = isAnswerSourceBacked(answer);
   const hasFaithfulnessWarning = Boolean(answer.faithfulnessWarning || answer.unverifiedNumericTokens?.length);
   const evidenceGap = answer.responseMode === "evidence_gap";
 
