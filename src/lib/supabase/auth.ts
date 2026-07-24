@@ -105,8 +105,7 @@ function hasCurrentSessionCookie(request: Request): boolean {
   return [...cookies.entries()].some(
     ([name, value]) =>
       cookieValueIsPresented(value) &&
-      (name === cookieName ||
-        (name.startsWith(`${cookieName}.`) && /^\d+$/.test(name.slice(cookieName.length + 1)))),
+      (name === cookieName || (name.startsWith(`${cookieName}.`) && /^\d+$/.test(name.slice(cookieName.length + 1)))),
   );
 }
 

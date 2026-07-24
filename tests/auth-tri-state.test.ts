@@ -172,7 +172,6 @@ describe("optional authentication", () => {
     expect(client.auth.getUser).toHaveBeenCalledWith("valid-legacy-token");
   });
 
-
   it("falls through blank current session cookies to a valid legacy token", async () => {
     const client = {
       auth: {
