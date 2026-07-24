@@ -39,6 +39,23 @@ describe("drift manifest freshness (offline half of check:drift)", () => {
   });
 });
 
+describe("local drift replay container safety", () => {
+  const generator = read("scripts/generate-drift-manifest.ts");
+
+  it("uses an immutable cached image and binds scratch Postgres to loopback", () => {
+    expect(generator).toContain("@sha256:");
+    expect(generator).toContain('"--pull=never"');
+    expect(generator).toContain("127.0.0.1");
+  });
+
+  it("owns scratch containers per worktree before removing them", () => {
+    expect(generator).toContain("DRIFT_OWNER_LABEL");
+    expect(generator).toContain("assertOwnedContainer");
+    expect(generator).toContain("worktreeIdentity");
+    expect(generator).toContain("process.pid");
+  });
+});
+
 describe("schema_drift_snapshot definition parity (migration vs schema.sql)", () => {
   const extract = (text: string) => {
     const start = text.indexOf("create or replace function public.schema_drift_snapshot()");
