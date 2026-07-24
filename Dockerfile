@@ -60,6 +60,7 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
 COPY public ./public
 COPY --from=build /app/src/lib/security-headers.ts ./src/lib/security-headers.ts
+COPY --from=build /app/src/lib/supabase/project.ts ./src/lib/supabase/project.ts
 COPY package.json next.config.ts ./
 USER node
 EXPOSE 3000
