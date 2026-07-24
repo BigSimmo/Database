@@ -499,6 +499,12 @@ function clinicalNoteHasDistinctDetail(row: ClinicalNotesRow) {
   return Boolean(detail) && detail !== title;
 }
 
+function clinicalNotesTableEvidenceCount(answer: RagAnswer) {
+  return (answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? []).filter(
+    (item) => item.accessibleTableMarkdown || item.tableRows?.length,
+  ).length;
+}
+
 function clinicalNotesRowsForTab(
   sections: ClinicalDetailSection[],
   tab: ClinicalNotesTabId,
@@ -661,10 +667,7 @@ export function ClinicalNotesChecklistPanel({
   const notesPanelId = `${tabBaseId}-panel`;
   const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : defaultTab;
   const rows = clinicalNotesRowsForTab(detailSections, activeTab, sourceLinks, bestSource);
-  const tableEvidenceCount = visualEvidence.filter(
-    (item) => item.accessibleTableMarkdown || item.tableRows?.length,
-  ).length;
-  const [added, setAdded] = useState(false);
+  const tableEvidenceCount = clinicalNotesTableEvidenceCount(renderableAnswer);
   const warningRows = clinicalNotesRowsForTab(detailSections, "safety", sourceLinks, bestSource);
   const warningCount = warningRows.filter((row) => row.tone === "warn").length || warningRows.length;
 
@@ -881,12 +884,17 @@ export function ClinicalNotesChecklistPanel({
           </button>
           <button
             type="button"
-            onClick={() => setAdded(true)}
-            className="inline-flex min-h-tap items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
+            aria-disabled="true"
+            aria-describedby="clinical-notes-add-unavailable"
+            title="Add to favourites — coming soon"
+            className="inline-flex min-h-tap cursor-not-allowed items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)] opacity-60"
           >
             <Plus aria-hidden="true" className="h-3.5 w-3.5" />
-            {added ? "Added" : "Add"}
+            Add
           </button>
+          <span id="clinical-notes-add-unavailable" className="sr-only">
+            Adding clinical notes to favourites is coming soon.
+          </span>
         </div>
       </div>
     </section>
