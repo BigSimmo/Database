@@ -1,18 +1,7 @@
 .tc-root {
   min-height: calc(100dvh - var(--shell-header-h));
-  background: var(--surface-chrome);
-  color: var(--text);
-}
-
-/*
- * The home route renders ModeHomeMain, which owns a full-height --background
- * (white) canvas exactly like every other mode home. The workspace shell must
- * not paint its grey --surface-chrome behind it: on phones ModeHomeMain is only
- * content-height, so the chrome showed through below the fold as a mismatched
- * grey block. Match the other mode homes by using --background on home.
- */
-.tc-root.tc-root--home {
   background: var(--background);
+  color: var(--text);
 }
 
 .tc-root .tc-main {
@@ -1054,6 +1043,7 @@
   z-index: 20;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 18px;
   padding: 14px 40px;
   background: var(--surface-glass);
@@ -1064,8 +1054,11 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  flex: 1;
+  flex: 0 1 auto;
+  width: fit-content;
+  max-width: 100%;
   min-width: 0;
+  margin-inline: auto;
   overflow-x: auto;
   padding-bottom: 2px;
 }
@@ -1294,7 +1287,7 @@
 }
 .tc-root .tc-workspace-006 {
   min-height: calc(100dvh - var(--shell-header-h));
-  background: var(--surface-chrome);
+  background: var(--background);
   color: var(--text);
 }
 .tc-root .tc-screens-brief-screen-001 {
