@@ -107,10 +107,13 @@ describe("Sheet stacked-overlay coordination", () => {
         <p>Solo body</p>
       </Sheet>,
     );
+    await vi.runAllTimersAsync();
+    const restoreFrameSpy = vi.spyOn(window, "requestAnimationFrame");
 
-    // Unmount while open: the open-effect cleanup schedules rAF + 50ms retry,
-    // then the unmount cleanup must cancel both before they can touch `document`.
+    // Unmount while open: no restore callback should be scheduled after the
+    // mount cleanup has started tearing down the component.
     unmount();
+    expect(restoreFrameSpy).not.toHaveBeenCalled();
     await vi.runAllTimersAsync();
     expect(vi.getTimerCount()).toBe(0);
     vi.useRealTimers();

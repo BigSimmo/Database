@@ -111,6 +111,21 @@ describe("PatientSafetyPlan privacy contract", () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
+  it("keeps unadded draft text dirty after loading and clearing the example", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(<PatientSafetyPlan />);
+    fireEvent.change(screen.getByLabelText("e.g. Not sleeping for a couple of nights"), {
+      target: { value: "Not sleeping" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Load example" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+
+    expect(confirmSpy).toHaveBeenCalledOnce();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
   it("navigates back without confirmation when the safety plan is empty", () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 

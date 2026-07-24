@@ -124,6 +124,7 @@ export function Sheet({
     frame: null,
     timeout: null,
   });
+  const unmountingRef = useRef(false);
   const titleId = useId();
   const descId = useId();
   const sheetId = useId();
@@ -133,8 +134,10 @@ export function Sheet({
   }, [onClose]);
 
   useEffect(() => {
+    unmountingRef.current = false;
     const restoreTimers = restoreTimersRef.current;
     return () => {
+      unmountingRef.current = true;
       if (restoreTimers.frame != null) {
         window.cancelAnimationFrame(restoreTimers.frame);
         restoreTimers.frame = null;
@@ -244,6 +247,7 @@ export function Sheet({
       if (restoreTimers.timeout != null) {
         window.clearTimeout(restoreTimers.timeout);
       }
+      if (unmountingRef.current) return;
       // Focus restore is best-effort. Under Vitest coverage workers the jsdom
       // `document` can be torn down before this rAF/setTimeout pair fires; bare
       // `document` access then becomes an unhandled ReferenceError that fails

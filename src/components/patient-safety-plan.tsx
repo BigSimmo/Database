@@ -535,7 +535,6 @@ export function PatientSafetyPlan() {
     if (hasContent && !window.confirm("Replace the current plan with the example content?")) return;
     setEntries(SEED);
     setReasons(SEED_REASONS);
-    setDraftDirtyByRow({});
     // Clear the plan date so example content cannot look like a current handover.
     setPlanDate("");
     setFinalised(false);
