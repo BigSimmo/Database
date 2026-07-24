@@ -48,35 +48,26 @@ if [ "${total:-0}" -eq 0 ]; then
   exit 0
 fi
 
-group() { printf '%s\n' "$rows" | awk -F'\t' -v p="$1" '$2==p'; }
-count() { printf '%s' "$1" | grep -c . || true; }
-p1="$(group P1)"; p2="$(group P2)"; p3="$(group P3)"
-c1="$(count "$p1")"; c2="$(count "$p2")"; c3="$(count "$p3")"
+c1="$(printf '%s\n' "$rows" | awk -F'\t' '$2=="P1" { count++ } END { print count+0 }')"
+c2="$(printf '%s\n' "$rows" | awk -F'\t' '$2=="P2" { count++ } END { print count+0 }')"
+c3="$(printf '%s\n' "$rows" | awk -F'\t' '$2=="P3" { count++ } END { print count+0 }')"
 
 echo "[issues] Universal task ledger — ${total} recommended (${c1}×P1, ${c2}×P2, ${c3}×P3). Source of truth: docs/outstanding-issues.md · read the full queue with /issues."
 
-print_group() { # $1=rows  $2=max-to-list
-  local data="$1" limit="$2" shown=0 more=0 ord acu src out cls
-  [ -z "$data" ] && return 0
-  while IFS=$'\t' read -r ord acu src out cls; do
-    [ -z "$ord" ] && continue
-    if [ "$shown" -lt "$limit" ]; then
-      echo "  ${ord}. ${acu} ${src} — ${out} (${cls})"
-      shown=$((shown + 1))
-    else
-      more=$((more + 1))
-    fi
-  done <<EOF
-$data
+shown=0
+more=0
+while IFS=$'\t' read -r ord acu src out cls; do
+  [ -z "$ord" ] && continue
+  if [ "$shown" -lt 10 ]; then
+    echo "  ${ord}. ${acu} ${src} — ${out} (${cls})"
+    shown=$((shown + 1))
+  else
+    more=$((more + 1))
+  fi
+done <<EOF
+$rows
 EOF
-  [ "$more" -gt 0 ] && echo "  … +${more} more at this priority (see /issues)"
-  return 0
-}
-
-# Preserve queue order inside each acuity. P1 is listed in full, P2 up to 8, P3 as a count.
-[ "$c1" -gt 0 ] && print_group "$p1" 999
-[ "$c2" -gt 0 ] && print_group "$p2" 8
-[ "$c3" -gt 0 ] && echo "  ${c3} × P3 (nice-to-have / revisit-when) — see /issues"
+[ "$more" -gt 0 ] && echo "  … +${more} more in queue order (see /issues)"
 
 # --- capture reminder ---------------------------------------------------------
 case "$source_val" in
