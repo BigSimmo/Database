@@ -458,7 +458,7 @@ export function AccessibleTable({
         portal
         testId="table-fullscreen-dialog"
         contentClassName="sm:max-w-none"
-        bodyClassName="p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-3"
+        bodyClassName="py-3 pb-[max(1rem,env(safe-area-inset-bottom))] modal-landscape-container sm:p-3"
       >
         <div>
           {lowConfidence ? (

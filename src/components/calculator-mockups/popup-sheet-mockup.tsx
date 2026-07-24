@@ -105,7 +105,7 @@ export function CalculatorSheet({
         className="absolute inset-0 animate-overlay-in bg-[color:var(--neutral-950)]/55 backdrop-blur-[2px]"
       />
       <div className="relative flex max-h-[92dvh] w-full animate-sheet-up flex-col overflow-hidden rounded-t-xl border border-[color:var(--border-strong)] bg-[color:var(--background)] shadow-[var(--shadow-lux)] sm:max-w-3xl sm:animate-dialog-rise sm:rounded-xl">
-        <header className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-3">
+        <header className="modal-landscape-container grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface)] py-3">
           <span className="grid size-9 shrink-0 place-items-center rounded-md border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
             <Icon className="size-icon-md" aria-hidden="true" />
           </span>
@@ -145,7 +145,7 @@ export function CalculatorSheet({
         </header>
 
         {/* Live strip pinned under the header while items scroll */}
-        <div className="grid shrink-0 gap-1.5 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)] px-4 py-2.5 backdrop-blur-md">
+        <div className="modal-landscape-container grid shrink-0 gap-1.5 border-b border-[color:var(--border)] bg-[color:var(--surface-glass)] py-2.5 backdrop-blur-md">
           <div className="flex items-center justify-between gap-2">
             <span className="font-mono text-lg font-extrabold tabular-nums text-[color:var(--text-heading)]">
               {derived.started ? derived.score : "—"}
@@ -159,7 +159,7 @@ export function CalculatorSheet({
           <ScoreBandBar calc={calc} score={derived.score} started={derived.started} />
         </div>
 
-        <div ref={scrollRef} className="grid min-h-0 flex-1 content-start gap-4 overflow-y-auto p-4">
+        <div ref={scrollRef} className="modal-landscape-container grid min-h-0 flex-1 content-start gap-4 overflow-y-auto py-4">
           <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)] p-2.5 text-sm-minus font-semibold leading-5 text-[color:var(--info)]">
             <Info className="mt-0.5 size-icon-md shrink-0" aria-hidden="true" />
             {calc.indication}

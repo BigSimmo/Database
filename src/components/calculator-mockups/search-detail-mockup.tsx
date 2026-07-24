@@ -266,9 +266,9 @@ export function CalculatorSearchHome({
         </button>
       </form>
 
-      <div
-        className="flex justify-start gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-center [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        aria-label="Filter by domain"
+      <nav
+        aria-label="Filter calculators"
+        className="flex justify-start gap-2 overflow-x-auto overscroll-x-contain pb-1 sm:flex-wrap sm:justify-center [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)] sm:[mask-image:none]"
       >
         {filterChips.map((chip) => {
           const active = domain === chip.id;
@@ -290,7 +290,7 @@ export function CalculatorSearchHome({
             </button>
           );
         })}
-      </div>
+      </nav>
 
       {!trimmed && inProgress.length ? (
         <section aria-label="Continue this session" className="grid gap-2">
@@ -298,7 +298,7 @@ export function CalculatorSearchHome({
             <History className="size-icon-xs" aria-hidden="true" />
             Continue this session
           </p>
-          <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex gap-2 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)]">
             {inProgress.map(({ calc, derived }) => (
               <button
                 key={calc.id}
