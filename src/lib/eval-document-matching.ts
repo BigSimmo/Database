@@ -32,13 +32,9 @@ const clinicalDocumentAliases: Record<string, string[]> = {
   AdmissionCommunityPts: [
     "Admission of Community Patients",
     "Admission Community Patients",
-    // Ground-truth widening (user-approved 2026-07-21, eval baseline run #57 triage): the live
-    // corpus carries several legitimately on-point admission policies; the NMHS
-    // admission-to-discharge pair satisfies the admission expectation for the
-    // admission-discharge comparison cases. Deliberately EXCLUDES discharge-only documents
-    // (they must not satisfy the admission slot) and the HITH programme policy (too narrow).
-    "Admission to Discharge for Community Mental Health",
-    "Admission to Discharge for Mental Health Inpatients",
+    // Deliberately EXCLUDES admission-to-discharge and discharge-only documents. Those titles
+    // remain on the Discharge alias list; listing them here too let one retrieved source fill
+    // both comparison slots and make allHit true (#030). Keep this side admission-only.
   ],
   AgitationArousalPharmaMgt: [
     "Agitation and Arousal Pharmacological Management",
@@ -62,6 +58,8 @@ const clinicalDocumentAliases: Record<string, string[]> = {
   ],
   CommunityHomeVisit: ["Community Home Visit", "Home Visit", "Community Visits"],
   Discharge: [
+    // Admission-to-discharge titles are Discharge-slot only (#030). Do not re-add them under
+    // AdmissionCommunityPts — a single dual-listed doc would false-pass multi-slot coverage.
     "Admission to Discharge for Mental Health Inpatients",
     "Admission to Discharge for Community Mental Health",
     "Referral Admission and Discharge Mental Health Hospital in the Home",
