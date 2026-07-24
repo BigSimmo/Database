@@ -36,7 +36,8 @@ async function auditExtractJson(file: string): Promise<FormattingIssue[]> {
     const structuredConfidence = numberValue(meta.structured_extraction_confidence);
     const ocrDensity = numberValue(meta.ocr_text_density);
 
-    if (sourceKind === "table_crop" && !Array.isArray(meta.table_rows)) {
+    const hasStructuredTableRows = Array.isArray(meta.table_rows) && meta.table_rows.length > 0;
+    if (sourceKind === "table_crop" && !hasStructuredTableRows) {
       // Only fail when structured extraction was expected (high confidence or no explicit
       // fallback marker). Image-only table fallbacks emit a warning instead.
       const expectedStructured = structuredConfidence !== null && structuredConfidence >= 0.58;

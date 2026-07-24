@@ -73,4 +73,37 @@ describe("formatting fixture audit", () => {
     expect(result.stdout).toContain("WARNING");
     expect(result.stdout).toContain("table crop missing structured table rows");
   });
+
+  it("fails high-confidence table crops with empty structured row arrays", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "formatting-audit-"));
+    const fixture = path.join(dir, "extract-empty-table-rows.json");
+    await writeFile(
+      fixture,
+      JSON.stringify({
+        images: [
+          {
+            sourceKind: "table_crop",
+            width: 800,
+            height: 600,
+            metadata: {
+              table_rows: [],
+              crop_completeness: 0.95,
+              structured_extraction_confidence: 0.82,
+              ocr_text_density: 0.35,
+            },
+          },
+        ],
+      }),
+      "utf8",
+    );
+
+    const result = spawnSync("node", ["scripts/run-tsx.mjs", "scripts/audit-formatting-fixtures.ts", fixture], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toContain("FAIL");
+    expect(result.stdout).toContain("table crop missing structured table rows");
+  });
 });
