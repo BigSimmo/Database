@@ -280,6 +280,7 @@
      header height and those page-fill floors cannot silently drift apart. */
   --shell-header-h: 4rem;
   /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
+  --keyboard-height: 0px;
   --phone-dock-hidden-pad: 0rem;
   --phone-dock-differentials-compare-clearance: 12.5rem;
   --phone-dock-differentials-compare-compact-clearance: 12.25rem;
@@ -1811,7 +1812,7 @@ summary::-webkit-details-marker {
     bottom: 0;
     width: 100%;
     max-width: none;
-    transform: none;
+    transform: translateY(calc(-1 * var(--keyboard-height, 0px)));
     padding-inline: max(0.75rem, var(--safe-area-left)) max(0.75rem, var(--safe-area-right));
     padding-top: 0.5rem;
     padding-bottom: max(0.5rem, var(--safe-area-bottom));

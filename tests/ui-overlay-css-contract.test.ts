@@ -66,6 +66,8 @@ describe("overlay and global CSS contracts", () => {
 
   it("keeps hidden phone composers from reserving or painting a bottom white band", () => {
     expect(globalStylesSource).toMatch(/--phone-dock-hidden-pad:\s*0rem;/);
+    expect(globalStylesSource).toMatch(/--keyboard-height:\s*0px;/);
+    expect(globalStylesSource).toContain("transform: translateY(calc(-1 * var(--keyboard-height, 0px)))");
     expect(globalStylesSource).not.toContain("--phone-dock-hidden-pad: 0.75rem");
     expect(read("src/components/clinical-dashboard/mobile-composer-reserve.ts")).toContain(
       'export const mobileComposerHiddenReserve = "0rem"',

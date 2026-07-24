@@ -83,12 +83,15 @@ describe("mobile composer reserve contract", () => {
     ).toBe(mobileComposerVisibleReserve.dashboardAnswerWithFollowUps);
     expect(mobileComposerVisibleReserve.dashboardAnswer).toContain("var(--safe-area-bottom)");
     expect(mobileComposerVisibleReserve.dashboardAnswerWithFollowUps).toContain("var(--safe-area-bottom)");
+    expect(mobileComposerVisibleReserve.dashboardAnswer).toContain("var(--keyboard-height, 0px)");
+    expect(mobileComposerVisibleReserve.dashboardAnswerWithFollowUps).toContain("var(--keyboard-height, 0px)");
   });
 
   it("keeps differentials compare clearance shared across hosts", () => {
     expect(mobileComposerVisibleReserve.differentialsCompare).toBe(mobileComposerDifferentialsCompareReserve);
     expect(mobileComposerDifferentialsCompareReserve).toContain("12.5rem");
     expect(mobileComposerDifferentialsCompareReserve).toContain("var(--safe-area-bottom)");
+    expect(mobileComposerDifferentialsCompareReserve).toContain("var(--keyboard-height, 0px)");
     expect(mobileComposerDifferentialsCompareReserve).not.toContain("env(safe-area-inset-bottom)");
     expect(
       resolveDashboardVisibleMobileComposerReserve({
