@@ -154,4 +154,58 @@ describe.runIf(hasPyMuPDF)("Python PDF table extraction", () => {
     expect(tableCrop?.metadata?.table_role).toBe("admin");
     expect(tableCrop?.metadata?.accessible_table_markdown).toContain("Published date");
   });
+
+  // #076 deliberately-red contract: page-edge table crops currently omit the on-page
+  // remnant of a straddling final row at the pymupdf_find_tables stage. it.fails keeps
+  // CI green while the defect remains; flip to it() once geometry is fixed.
+  it.fails(
+    "includes on-page remnant geometry for a table row that straddles the page bottom (#076)",
+    async () => {
+      const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-page-edge-crop-"));
+      const imageDir = path.join(root, "images");
+      const jsonPath = path.join(root, "extract.json");
+      await mkdir(imageDir, { recursive: true });
+
+      const fixturePath = path.join(
+        process.cwd(),
+        "worker",
+        "python",
+        "fixtures",
+        "malformed-table-crop-page-edge.pdf",
+      );
+      const result = spawnSync(
+        pythonBin,
+        [path.join(process.cwd(), "worker", "python", "extract_pdf_assets.py"), fixturePath, imageDir, jsonPath],
+        { cwd: process.cwd(), encoding: "utf8" },
+      );
+
+      expect(result.status).toBe(0);
+      const payload = JSON.parse(await readFile(jsonPath, "utf8")) as {
+        images: Array<{
+          sourceKind?: string;
+          bbox?: number[];
+          metadata?: Record<string, unknown>;
+        }>;
+        warnings?: string[];
+      };
+      const tableCrop = payload.images.find((image) => image.sourceKind === "table_crop");
+      expect(tableCrop).toBeTruthy();
+
+      const pageHeight = Number(tableCrop?.metadata?.page_height);
+      const clip = (tableCrop?.bbox ?? tableCrop?.metadata?.clip_bbox) as number[] | undefined;
+      expect(clip).toEqual(expect.any(Array));
+      // Stage: pymupdf_find_tables → save_page_crop. Expected geometry: clip bottom
+      // reaches the page edge so the on-page remnant (y≈824..841.89) is retained.
+      expect(Number(clip?.[3])).toBeGreaterThanOrEqual(pageHeight - 1);
+
+      const rows = (tableCrop?.metadata?.table_rows as string[][] | undefined) ?? [];
+      const hasScoreRow = rows.some((row) => String(row?.[0] ?? "").trim() === "5");
+      const cropCompleteness = Number(tableCrop?.metadata?.crop_completeness);
+      const incomplete =
+        Number.isFinite(cropCompleteness) && cropCompleteness < 0.99
+          ? true
+          : (payload.warnings ?? []).some((warning) => /crop/i.test(warning) && /incomplete/i.test(warning));
+      expect(hasScoreRow || incomplete).toBe(true);
+    },
+  );
 });
