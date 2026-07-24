@@ -80,6 +80,16 @@ if [ "${queue_total:-0}" -gt 0 ]; then
   done
 fi
 
+# Keep the priority summary complementary to the queue instead of repeating
+# the same recommended IDs in both sections.
+queued_ids=" $(printf '%s\n' "$queue_rows" | grep -oE '#[0-9]+' | tr '\n' ' ' || true)"
+unqueued_rows="$(printf '%s\n' "$rows" | awk -F'\t' -v queued="$queued_ids" '
+  index(queued, " " $2 " ") == 0
+' || true)"
+ungroup() { printf '%s\n' "$unqueued_rows" | awk -F'\t' -v p="$1" '$1==p'; }
+u1="$(ungroup P1)"; u2="$(ungroup P2)"; u3="$(ungroup P3)"
+uc1="$(count "$u1")"; uc2="$(count "$u2")"; uc3="$(count "$u3")"
+
 print_group() { # $1=rows  $2=max-to-list
   local data="$1" limit="$2" shown=0 more=0 pri id typ sum
   [ -z "$data" ] && return 0
@@ -99,9 +109,9 @@ EOF
 }
 
 # P1 = do-next, list all. P2 = should-do, list up to 8. P3 = collapse to a count.
-[ "$c1" -gt 0 ] && print_group "$p1" 999
-[ "$c2" -gt 0 ] && print_group "$p2" 8
-[ "$c3" -gt 0 ] && echo "  ${c3} × P3 (nice-to-have / revisit-when) — see /issues"
+[ "$uc1" -gt 0 ] && print_group "$u1" 999
+[ "$uc2" -gt 0 ] && print_group "$u2" 8
+[ "$uc3" -gt 0 ] && echo "  ${uc3} × P3 (nice-to-have / revisit-when) — see /issues"
 
 # --- capture reminder ---------------------------------------------------------
 case "$source_val" in

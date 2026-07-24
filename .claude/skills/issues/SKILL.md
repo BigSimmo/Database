@@ -26,8 +26,9 @@ recall — always read the file first, so the answer is correct even in a fresh 
 4. End with a one-line open/recommended count.
 5. Do **not** mutate the file or commit on a plain read.
 
-If a filter is given, narrow step 2: `/issues P1` (by priority), `/issues issues` / `/issues recs`
-/ `/issues tasks` (by type), `/issues <keyword>` (summary/detail substring match).
+If a filter is given, filter the open items before rendering steps 2–3, then show only matching
+queued tasks and matching non-queued items: `/issues P1` (by priority), `/issues issues` /
+`/issues recs` / `/issues tasks` (by type), `/issues <keyword>` (summary/detail substring match).
 
 ## Mutating subcommands
 
