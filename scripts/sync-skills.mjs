@@ -18,10 +18,15 @@ function ensureYamlManifest(skill, aliasTarget) {
       shortDesc = shortDesc.slice(0, 61) + "...";
     }
 
-    const promptSkill = aliasTarget || skill.name;
+    // Alias manifests must mention the declared alias name so check:skills /
+    // database-skills tests accept them, while still directing agents to the
+    // canonical target skill.
+    const defaultPrompt = aliasTarget
+      ? `Run $${skill.name} (alias for $${aliasTarget})`
+      : `Run $${skill.name}`;
     const yaml = `name: "${skill.name}"
 short_description: "${shortDesc}"
-default_prompt: "Run $${promptSkill}"
+default_prompt: "${defaultPrompt}"
 allow_implicit_invocation: ${aliasTarget ? "false" : "true"}
 `;
     fs.writeFileSync(metadataFile, yaml, "utf8");
