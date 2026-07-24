@@ -117,6 +117,9 @@ export function Sheet({
   // Otherwise a press that begins on the panel and ends on the backdrop would
   // synthesize a click on the common ancestor and accidentally close the sheet.
   const backdropPointerDownRef = useRef(false);
+  // Focus-restore schedules rAF + setTimeout after close; keep handles so a later
+  // cleanup (or jsdom teardown) can cancel them before they touch `document`.
+  const restoreFocusCleanupRef = useRef<(() => void) | null>(null);
   const titleId = useId();
   const descId = useId();
   const sheetId = useId();
@@ -124,6 +127,12 @@ export function Sheet({
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  useEffect(() => {
+    return () => {
+      restoreFocusCleanupRef.current?.();
+    };
+  }, []);
 
   // Swipe-to-dismiss for the mobile bottom sheet: dragging the grip down past a
   // threshold closes the sheet; a shorter drag snaps back. Grip-initiated only,
@@ -215,11 +224,16 @@ export function Sheet({
       window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", onKeyDown);
       popSheet(sheetId);
+      restoreFocusCleanupRef.current?.();
       const restoreTarget = explicitReturnElement ?? previousActiveElement;
-      window.requestAnimationFrame(() => {
-        if (!restoreTarget?.isConnected) return;
+      let cancelled = false;
+      let retryTimeoutId: number | undefined;
+      const restoreFrame = window.requestAnimationFrame(() => {
+        if (cancelled || !restoreTarget?.isConnected) return;
         restoreTarget.focus({ preventScroll: true });
-        window.setTimeout(() => {
+        retryTimeoutId = window.setTimeout(() => {
+          // jsdom may already be torn down when this fires after a fast test exit.
+          if (cancelled || typeof document === "undefined") return;
           if (
             restoreTarget.isConnected &&
             document.activeElement !== restoreTarget &&
@@ -229,6 +243,12 @@ export function Sheet({
           }
         }, 50);
       });
+      restoreFocusCleanupRef.current = () => {
+        cancelled = true;
+        window.cancelAnimationFrame(restoreFrame);
+        if (retryTimeoutId !== undefined) window.clearTimeout(retryTimeoutId);
+        restoreFocusCleanupRef.current = null;
+      };
     };
   }, [open, initialFocusRef, returnFocusRef, sheetId]);
 
