@@ -102,6 +102,10 @@ jobs:
           # Empty ref = checkout's default (the triggering sha) — schedule runs unaffected.
           ref: ${{ github.event.inputs.ref || '' }}
 
+      - name: Record evaluated Git SHA
+        shell: bash
+        run: echo "EVAL_GIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
       # Fail loudly on a malformed override: resolveRankingConfig (src/lib/ranking-config.ts)
       # silently falls back to production defaults on bad JSON, which would turn a staged-weights
       # eval into an accidental baseline and corrupt the pair comparison.
@@ -169,7 +173,7 @@ jobs:
           fi
           mkdir -p .local/eval-canary
           set -o pipefail
-          npm run eval:quality -- --rag-only --limit "$ANSWER_CASE_LIMIT" --fail-on-threshold 2>&1 | tee .local/eval-canary/answer-quality.log
+          npm run eval:quality -- --rag-only --limit "$ANSWER_CASE_LIMIT" --source-governance-results .local/eval-canary/golden-retrieval.json --output-dir .local/eval-canary/quality-reports --fail-on-threshold 2>&1 | tee .local/eval-canary/answer-quality.log
 
       # Phase E baseline/paired-run instrument: the five answer-quality metrics (relevance,
       # readability, artifact leaks, intent coverage, fail-closed) + per-intent structural

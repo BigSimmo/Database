@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildCaseTrend, buildTrendRows } from "../scripts/eval-trend.mjs";
+import {
+  buildAnswerQualityCaseTrend,
+  buildAnswerQualityVariabilityRows,
+  buildCaseTrend,
+  buildTrendRows,
+} from "../scripts/eval-trend.mjs";
 
 const payload = (overrides: Record<string, unknown> = {}) => ({
   label: "run-a.json",
@@ -56,5 +61,117 @@ describe("eval-trend aggregation", () => {
     expect(trend[0]).toMatchObject({ found: true, rr_at_10: 0.2, strategy: "text_fast_path", passed: true });
     const missing = buildCaseTrend([payload()], "not-a-case");
     expect(missing[0]).toMatchObject({ found: false, rr_at_10: null, passed: null });
+  });
+});
+
+const answerResult = (overrides: Record<string, unknown> = {}) => ({
+  id: "neuroleptic-side-effect-escalation",
+  failures: [],
+  grounded: true,
+  expectedHit: true,
+  citations: 3,
+  missingFiles: [],
+  sourceDangerWarningCount: 0,
+  unverifiedNumericTokenCount: 0,
+  hasFaithfulnessWarning: false,
+  route: "fast",
+  latencyRoute: "fast",
+  routingReason: "clinical_risk_or_complex_query",
+  model: "gpt-test",
+  openAIRequestIds: ["req-test"],
+  routeCeilingExceeded: false,
+  latencyMs: 1200,
+  timings: {
+    routeDeadlineExceeded: false,
+    budgetExhaustedByRetrieval: false,
+  },
+  ...overrides,
+});
+
+const answerReport = (label: string, sha: string, result: Record<string, unknown>) => ({
+  label,
+  payload: {
+    run_context: { git_sha: sha },
+    rag: { results: [result] },
+  },
+});
+
+describe("eval-trend answer-quality variability", () => {
+  it("does not call a single observed failure repeated", () => {
+    const failed = answerResult({ failures: ["citation count below required minimum"], citations: 1 });
+    expect(buildAnswerQualityVariabilityRows([answerReport("first-run", "same-sha", failed)])[0]).toMatchObject({
+      classification: "observed_content_failure",
+      same_tree: false,
+      runs: 1,
+    });
+    expect(buildAnswerQualityVariabilityRows([answerReport("first-run", "same-sha", answerResult())])[0]).toMatchObject(
+      { classification: "single_run", runs: 1 },
+    );
+  });
+
+  it("marks pass-to-content-failure changes on the same tree as variability, not a deterministic regression", () => {
+    const rows = buildAnswerQualityVariabilityRows([
+      answerReport("baseline", "same-sha", answerResult()),
+      answerReport(
+        "confirmation",
+        "same-sha",
+        answerResult({ failures: ["citation count below required minimum"], citations: 1 }),
+      ),
+    ]);
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        case: "neuroleptic-side-effect-escalation",
+        classification: "same_tree_content_variability",
+        same_tree: true,
+        runs: 2,
+      }),
+    ]);
+  });
+
+  it("separates latency and provider-route variability from content changes", () => {
+    const latencyRows = buildAnswerQualityVariabilityRows([
+      answerReport("baseline", "same-sha", answerResult()),
+      answerReport(
+        "slow",
+        "same-sha",
+        answerResult({
+          failures: ["route latency ceiling exceeded: 5000ms total"],
+          routeCeilingExceeded: true,
+          latencyMs: 5000,
+          timings: { routeDeadlineExceeded: true, budgetExhaustedByRetrieval: false },
+        }),
+      ),
+    ]);
+    expect(latencyRows[0]).toMatchObject({ classification: "latency_variability", same_tree: true });
+
+    const providerRows = buildAnswerQualityVariabilityRows([
+      answerReport("baseline", "same-sha", answerResult()),
+      answerReport(
+        "fallback",
+        "same-sha",
+        answerResult({
+          route: "extractive",
+          latencyRoute: "fallback",
+          routingReason: "generation_fallback:provider_timeout",
+          model: null,
+        }),
+      ),
+    ]);
+    expect(providerRows[0]).toMatchObject({ classification: "provider_route_variability", same_tree: true });
+  });
+
+  it("identifies a repeated content failure and emits stable per-case signatures", () => {
+    const failed = answerResult({ failures: ["citation count below required minimum"], citations: 1 });
+    const payloads = [answerReport("run-a", "same-sha", failed), answerReport("run-b", "same-sha", failed)];
+    expect(buildAnswerQualityVariabilityRows(payloads)[0]).toMatchObject({
+      classification: "repeated_content_failure",
+      same_tree: true,
+    });
+
+    const trend = buildAnswerQualityCaseTrend(payloads, "neuroleptic-side-effect-escalation");
+    expect(trend[0]).toMatchObject({ found: true, passed: false, git_sha: "same-sha" });
+    expect(trend[0].diagnostic_signature).toMatch(/^[a-f0-9]{16}$/);
+    expect(trend[1].diagnostic_signature).toBe(trend[0].diagnostic_signature);
   });
 });

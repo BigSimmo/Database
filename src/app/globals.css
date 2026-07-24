@@ -279,7 +279,7 @@
      header height and those page-fill floors cannot silently drift apart. */
   --shell-header-h: 4rem;
   /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
-  --phone-dock-hidden-pad: 0.75rem;
+  --phone-dock-hidden-pad: 0rem;
   --phone-dock-differentials-compare-clearance: 12.5rem;
   --phone-dock-differentials-compare-compact-clearance: 12.25rem;
   /* Radius tokens are the single source of truth in @theme above (they also
@@ -854,17 +854,19 @@ summary::-webkit-details-marker {
   z-index: 0;
   height: var(--footer-scrim-height);
   overflow: hidden;
+  /* Bottom of the scrim must reach near-opaque so the safe-area band under the
+     pill reads as continuous dock chrome (edge-to-edge), not a white strip. */
   background: linear-gradient(
     180deg,
     transparent 0%,
-    color-mix(in srgb, var(--background) 8%, transparent) 38%,
-    color-mix(in srgb, var(--background) 18%, transparent) 68%,
-    color-mix(in srgb, var(--background) 32%, transparent) 88%,
-    color-mix(in srgb, var(--background) 42%, transparent) 100%
+    color-mix(in srgb, var(--background) 12%, transparent) 32%,
+    color-mix(in srgb, var(--background) 48%, transparent) 62%,
+    color-mix(in srgb, var(--background) 82%, transparent) 84%,
+    var(--background) 100%
   );
   backdrop-filter: blur(2px) saturate(130%);
-  mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 45%) 28%, black 55%, black 100%);
-  -webkit-mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 45%) 28%, black 55%, black 100%);
+  mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 55%) 28%, black 52%, black 100%);
+  -webkit-mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 55%) 28%, black 52%, black 100%);
 }
 
 .answer-footer-search-dock .answer-footer-search-backdrop::before,
@@ -905,9 +907,9 @@ summary::-webkit-details-marker {
     background: linear-gradient(
       180deg,
       transparent 0%,
-      color-mix(in srgb, var(--background) 45%, transparent) 40%,
-      color-mix(in srgb, var(--background) 78%, transparent) 72%,
-      color-mix(in srgb, var(--background) 92%, transparent) 100%
+      color-mix(in srgb, var(--background) 45%, transparent) 36%,
+      color-mix(in srgb, var(--background) 82%, transparent) 68%,
+      var(--background) 100%
     );
   }
 
@@ -950,9 +952,9 @@ summary::-webkit-details-marker {
     background: linear-gradient(
       180deg,
       transparent 0%,
-      color-mix(in srgb, var(--background) 50%, transparent) 42%,
-      color-mix(in srgb, var(--background) 82%, transparent) 74%,
-      color-mix(in srgb, var(--background) 94%, transparent) 100%
+      color-mix(in srgb, var(--background) 50%, transparent) 36%,
+      color-mix(in srgb, var(--background) 86%, transparent) 72%,
+      var(--background) 100%
     );
   }
 
@@ -1794,7 +1796,11 @@ summary::-webkit-details-marker {
       0 8px 22px rgb(16 24 40 / 8%);
   }
 
-  /* Edge-to-edge phone dock: full-width footer, progressive scrim, inset pill. */
+  /* Edge-to-edge phone dock: full-width footer flush to the glass. The pill is
+     inset via padding-bottom only — never by a non-zero `bottom` offset (that
+     reintroduces a white strip under the bar). Form background paints the
+     safe-area pad so it reads as dock chrome, not empty page margin. */
+  .answer-footer-search-dock.answer-footer-search-edge,
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge,
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge {
     left: 0;
@@ -1806,15 +1812,24 @@ summary::-webkit-details-marker {
     padding-inline: max(0.75rem, var(--safe-area-left)) max(0.75rem, var(--safe-area-right));
     padding-top: 0.5rem;
     padding-bottom: max(0.5rem, var(--safe-area-bottom));
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--background) 72%, transparent) 42%,
+      color-mix(in srgb, var(--background) 94%, transparent) 72%,
+      var(--background) 100%
+    );
   }
 
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact,
-  .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge.document-mobile-search-compact {
+  .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge.document-mobile-search-compact,
+  .answer-footer-search-dock.answer-footer-search-edge.document-mobile-search-compact {
     padding-bottom: max(0.45rem, var(--safe-area-bottom));
   }
 
   /* Must beat the edge-to-edge dock rule above (transform: none) so scroll-hide
      actually slides the bar off-screen once data-scroll-hidden is set. */
+  .answer-footer-search-dock.answer-footer-search-edge[data-scroll-hidden="true"],
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-scroll-hidden="true"],
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-scroll-hidden="true"] {
     transform: translateY(calc(100% + env(safe-area-inset-bottom)));
@@ -2223,6 +2238,16 @@ html[data-motion="reduced"] .pwa-notice-card {
 
     .mobile-popover-scroll {
       max-height: min(70dvh, 28rem);
+    }
+  }
+
+  /* Phones: ClinicalDashboard pins with fixed inset-0 utilities. Do not keep a
+     dvh height clamp here — it recreates the Safari toolbar dead band under
+     the shell even when inset-0 is present if height still resolves to dvh. */
+  @media (max-width: 639px) {
+    .mobile-app-shell {
+      min-height: 0;
+      height: auto;
     }
   }
 

@@ -4,15 +4,42 @@ import {
   buildEvalQualityReport,
   configureEvalProviderEnvironment,
   deliveredGroundedAfterSourceGovernancePolicy,
+  evalQualityRunContext,
   qualityFailureCategory,
   ragAnswerTimingDiagnostics,
   renderEvalQualityMarkdown,
   retrievalCasesForProviderMode,
+  sourceGovernanceResultsFromArtifact,
   sourceGovernanceDangerFailuresForAnswer,
   sourceWarningsForRagQualityAnswer,
   type RagQualityResult,
 } from "../scripts/eval-quality";
 import { evaluateGoldenRetrievalCase, type GoldenRetrievalResult } from "../scripts/eval-retrieval";
+
+describe("eval quality run context", () => {
+  it("records stable run identity without requiring GitHub Actions", () => {
+    expect(
+      evalQualityRunContext({
+        EVAL_GIT_SHA: " candidate-sha ",
+        GITHUB_SHA: "ignored-fallback",
+        GITHUB_RUN_ID: "123",
+        GITHUB_RUN_ATTEMPT: "2",
+        EVAL_LATENCY_CONTEXT: "cross-region-runner",
+      }),
+    ).toEqual({
+      git_sha: "candidate-sha",
+      github_run_id: "123",
+      github_run_attempt: "2",
+      latency_context: "cross-region-runner",
+    });
+    expect(evalQualityRunContext({})).toEqual({
+      git_sha: null,
+      github_run_id: null,
+      github_run_attempt: null,
+      latency_context: "default",
+    });
+  });
+});
 
 function retrievalResult(overrides: Partial<GoldenRetrievalResult> = {}): GoldenRetrievalResult {
   const base: GoldenRetrievalResult = {
@@ -227,6 +254,42 @@ describe("eval quality reporting", () => {
         expect.stringContaining("RAG numeric_grounding_failure_rate"),
         expect.stringContaining("RAG source_governance_danger_failure_rate"),
       ]),
+    );
+  });
+
+  it("reports governance from a separate retrieval artifact without enabling retrieval gates", () => {
+    const governanceResult = retrievalResult({
+      topResults: [
+        {
+          ...retrievalResult().topResults[0],
+          document_status: "outdated",
+          clinical_validation_status: "unverified",
+          extraction_quality: "poor",
+        },
+      ],
+    });
+    const parsedResults = sourceGovernanceResultsFromArtifact({ results: [governanceResult] });
+    const report = buildEvalQualityReport({
+      generatedAt: "2026-07-24T00:00:00.000Z",
+      retrievalResults: [],
+      sourceGovernanceResults: parsedResults,
+      ragResults: [],
+    });
+
+    expect(report.retrieval.summary.case_count).toBe(0);
+    expect(report.retrieval.source_governance).toMatchObject({
+      total_top_results: 1,
+      stale_top_results: 1,
+      unverified_top_results: 1,
+      poor_extraction_top_results: 1,
+      review_required_top_results: 1,
+    });
+    expect(report.threshold_failures).not.toEqual(expect.arrayContaining([expect.stringContaining("top-result")]));
+  });
+
+  it("rejects a malformed source-governance retrieval artifact", () => {
+    expect(() => sourceGovernanceResultsFromArtifact({ results: [{ id: "missing-top-results" }] })).toThrow(
+      "topResults must be an array",
     );
   });
 

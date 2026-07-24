@@ -345,17 +345,16 @@ function GlobalStandaloneSearchShellClient({
     !isDifferentialPresentationWorkflow &&
     (!isInfoPage || isToolDetailWithFooterSearch(pathname));
   const reservesFloatingComposer = shouldShowSearchComposer && !isStandaloneModeHome;
-  // Standalone mode homes keep the hero composer from sm up but dock the
-  // compact pill on phones, so they reserve dock clearance too. Document viewer
-  // routes own their own floating composer, so the shell keeps only a small pad
-  // and lets DocumentViewer manage visible-dock clearance.
+  // Standalone mode homes keep the in-flow hero pill at every width (no phone
+  // dock reserve). Document viewer routes own their own floating composer, so
+  // the shell keeps only a small pad and lets DocumentViewer manage clearance.
   // Release the large bottom reserve only when the phone bottom composer is
   // actually hidden (MasterSearchHeader's bottomComposerHidden). Header-only
   // scroll-hide, pinned compare addons, open menus/sheets, and composer focus
   // keep the full reserve so content does not slide under a still-visible dock.
   // Safari's bottom safe-area inset includes its translucent browser toolbar.
   // Reusing that inset after the app composer hides recreates a toolbar-sized
-  // blank band, so the hidden state intentionally keeps only a small content
+  // blank band, so the hidden state intentionally keeps no artificial content
   // pad. Interactive composer chrome still receives the full inset above.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,

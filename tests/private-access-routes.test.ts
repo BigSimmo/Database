@@ -1498,6 +1498,46 @@ describe("private document API access", () => {
     expect(client.storageMocks.remove).not.toHaveBeenCalled();
   });
 
+  it("does not mint Official/Trusted publisher_code from a spoofable upload filename", async () => {
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "insert") {
+        const inserted = call.insertPayload as {
+          id: string;
+          file_name: string;
+          metadata: Record<string, unknown>;
+        };
+        return ok({ id: inserted.id, file_name: inserted.file_name, metadata: inserted.metadata });
+      }
+      if (call.table === "ingestion_jobs" && call.operation === "insert") {
+        return ok({ id: "job-1", document_id: documentId });
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/upload/route");
+    const formData = new FormData();
+    formData.set("file", new File(["%PDF-1.7\n%%EOF"], "WACHS-anything.pdf", { type: "application/pdf" }));
+    formData.set("title", "WACHS lithium spoof");
+
+    const response = await POST(
+      authenticatedRequest("/api/upload", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+    const documentInsert = client.calls.find((call) => call.table === "documents" && call.operation === "insert");
+    const inserted = documentInsert?.insertPayload as {
+      file_name: string;
+      metadata: Record<string, unknown>;
+    };
+
+    expect(response.status).toBe(201);
+    expect(inserted.file_name).toBe("WACHS-anything.pdf");
+    expect(inserted.metadata.publisher_code).toBeNull();
+    expect(inserted.metadata.publisher).toBeNull();
+    expect(inserted.metadata.jurisdiction).toBe("Australia/WA");
+  });
+
   it("assigns a smart unique title when a different document has the same upload name", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select" && call.maybeSingle) {

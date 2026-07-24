@@ -607,6 +607,7 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/services", testId: "services-home" },
       { path: "/forms", testId: "forms-home" },
       { path: "/differentials", testId: "differentials-home" },
+      { path: "/factsheets", testId: "factsheets-home-main" },
       { path: "/favourites", testId: "favourites-hub" },
       { path: "/tools", testId: "tools-home" },
     ] as const) {
@@ -883,7 +884,9 @@ test.describe("Clinical KB tools launcher", () => {
           expect(metrics?.formCenterY ?? 0).toBeGreaterThan(viewport.height * 0.72);
           await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
           if (route.compactBottomSearch) {
-            expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(viewport.height - 48);
+            // Edge-to-edge dock: the form itself must sit flush to the viewport
+            // bottom (safe-area is padding inside the form, not a `bottom` gap).
+            expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(viewport.height - 2);
           }
         } else {
           expect(metrics?.position).toBe("sticky");
@@ -1051,6 +1054,50 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByText(/PSOLIS Transport|View full pathway|Source verified/)).toHaveCount(0);
     await expect(visibleGlobalSearchInput(page)).toHaveValue("transport");
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("phone bottom search dock stays edge-to-edge with safe-area padding inside the form", async ({ page }) => {
+    // Guards the white-strip regression: a non-zero CSS `bottom` on the dock
+    // (or a 100dvh shell dead band) leaves blank page chrome under the pill.
+    // Safe-area must be padding inside a form flush to the viewport bottom.
+    await page.setViewportSize({ width: 390, height: 844 });
+    const safeAreaBottom = 34;
+
+    for (const route of [
+      { path: "/forms?q=transport&run=1", resultsTestId: "form-search-mobile-results" },
+      { path: "/differentials?q=acute+confusion&run=1", resultsTestId: "differentials-search-results" },
+    ] as const) {
+      await gotoLauncher(page, route.path);
+      await expect(page.getByTestId(route.resultsTestId)).toBeVisible({ timeout: 20_000 });
+      const dock = page.locator("form.answer-footer-search-dock");
+      await expect(dock, route.path).toBeVisible();
+      await expect(dock, route.path).not.toHaveAttribute("data-scroll-hidden", "true");
+
+      await page.evaluate((inset) => {
+        document.documentElement.style.setProperty("--safe-area-bottom", `${inset}px`);
+      }, safeAreaBottom);
+
+      const geometry = await dock.evaluate((node) => {
+        const style = window.getComputedStyle(node);
+        const formRect = node.getBoundingClientRect();
+        const pill = node.querySelector(".answer-footer-search-pill");
+        const pillRect = pill?.getBoundingClientRect();
+        return {
+          bottomCss: style.bottom,
+          paddingBottom: Number.parseFloat(style.paddingBottom),
+          formBottom: formRect.bottom,
+          pillBottom: pillRect?.bottom ?? null,
+          viewportHeight: window.innerHeight,
+        };
+      });
+
+      expect(geometry.bottomCss, route.path).toBe("0px");
+      expect(Math.abs(geometry.formBottom - geometry.viewportHeight), route.path).toBeLessThanOrEqual(1);
+      expect(geometry.paddingBottom, route.path).toBeGreaterThanOrEqual(safeAreaBottom - 1);
+      expect(geometry.pillBottom, route.path).not.toBeNull();
+      // Pill sits above the safe-area pad; do not require exact px (borders/gaps).
+      expect(geometry.pillBottom!, route.path).toBeLessThanOrEqual(geometry.viewportHeight - safeAreaBottom + 2);
+    }
   });
 
   test("phone bottom search dock hides while scrolling down on search results", async ({ page }) => {
@@ -2138,6 +2185,53 @@ test.describe("Responsive layout guards", () => {
     expect(resultBox).not.toBeNull();
     expect(dockBox).not.toBeNull();
     expect(resultBox!.y + resultBox!.height).toBeLessThanOrEqual(dockBox!.y + 2);
+  });
+
+  test("safety-plan working content stays local until an explicit export", async ({ page }) => {
+    const appRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.resourceType() === "fetch" || request.resourceType() === "xhr") appRequests.push(request.url());
+    });
+
+    await page.goto("/safety-plan");
+    await expect(page.getByLabel(/Patient \(name or initials\)/i)).toHaveCount(0);
+    await expect(page.getByText(/kept only in this browser tab/i)).toBeVisible();
+    await expect(
+      page.getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i),
+    ).toBeVisible();
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & { __copiedPlan?: string; __printCalled?: boolean };
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (value: string) => {
+            testWindow.__copiedPlan = value;
+          },
+        },
+      });
+      window.print = () => {
+        testWindow.__printCalled = true;
+      };
+    });
+    appRequests.length = 0;
+
+    await page.getByLabel("e.g. Not sleeping for a couple of nights").fill("Not sleeping");
+    await page.getByRole("button", { name: "Add" }).first().click();
+    await page.getByRole("button", { name: "Copy" }).click();
+
+    await expect
+      .poll(() => page.evaluate(() => (window as typeof window & { __copiedPlan?: string }).__copiedPlan))
+      .toContain("Not sleeping");
+    expect(await page.evaluate(() => (window as typeof window & { __copiedPlan?: string }).__copiedPlan)).not.toMatch(
+      /^For:/m,
+    );
+
+    await page.getByRole("button", { name: "Print / PDF" }).click();
+    await expect
+      .poll(() => page.evaluate(() => (window as typeof window & { __printCalled?: boolean }).__printCalled))
+      .toBe(true);
+    expect(appRequests).toEqual([]);
   });
 
   test("differentials recent work remains touch-sized inside its mobile scroll row", async ({ page }) => {

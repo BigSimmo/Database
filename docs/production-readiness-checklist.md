@@ -1,14 +1,15 @@
 # Clinical KB Production Readiness Checklist (Executable Today)
 
 **Status: reusable release-candidate checklist, not an outstanding-task ledger.** Live/provider-gated
-actions and their current status are tracked only in [`operator-backlog.md`](operator-backlog.md).
+action detail is indexed in [`operator-backlog.md`](operator-backlog.md); canonical task status is
+tracked only in [`outstanding-issues.md`](outstanding-issues.md).
 Unchecked boxes below are rerun per release candidate; they do not imply abandoned repository work.
 
 This is the runbook to make the app publishable in one focused pass.
 
 Last reviewed: 2026-07-10. Applies to any feature branch or release candidate.
 
-- Runtime target: Next.js 16.2.10, Node 24.x, npm 11.x.
+- Runtime target: Next.js 16.2.11, Node 24.x, npm 11.x.
 - Supabase target: `sjrfecxgysukkwxsowpy` (`Clinical KB Database`).
 
 ## Immediate completion targets

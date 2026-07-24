@@ -450,21 +450,26 @@ Run the matching planner command in `docs/productivity-workflows.md` without sid
 
 ## Outstanding-work memory (`/issues`)
 
-`docs/outstanding-issues.md` is the durable, cross-session memory of every outstanding **task**,
-**recommendation**, and **issue** for this repo. Chat context resets between sessions; that file does
-not, so anything worth remembering after a session ends belongs there.
+`docs/outstanding-issues.md` is the single universal, durable, cross-session ledger for every
+outstanding **task**, **recommendation**, and **issue** in this repo. It owns evidence, resolution
+history, recommended order, acuity, capability, timing, effort, approvals, verification, and stop
+rules. Chat context resets; this file does not, so anything worth remembering belongs there.
+Detailed runbooks such as `docs/operator-backlog.md` may support a task but must not become a second
+status ledger. Update the universal ledger when work completes, is dropped, becomes stale, or is
+materially re-scoped. Never restore completed, duplicate, speculative, superseded, or rejected work
+to the recommended queue.
 
 - When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): read
-  `docs/outstanding-issues.md` and state the open items back, grouped by priority. A plain `/issues`
-  is read-only — it mutates and commits nothing.
+  `docs/outstanding-issues.md`, state the recommended queue in order, then summarize other open
+  items by priority. A plain `/issues` is read-only — it mutates and commits nothing.
 - `/issues add|done|update|capture …` mutate the ledger; each mutation commits **only**
   `docs/outstanding-issues.md` (no push unless the user asks or you are already handing off).
 - Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger
   before a session's context is lost — that is what keeps it a memory rather than a stale list.
 - A `SessionStart` hook (`.claude/hooks/issues-surface.sh`, wired in `.claude/settings.json`)
-  auto-surfaces the open items into context at the start of every session and, on a context reset
-  (`compact`/`resume`/`clear`), nudges a `/issues capture`. It is read-only — it never writes the
-  ledger. `/issues` is still the way to read the full list or mutate it.
+  auto-surfaces the recommended queue plus open-item counts at the start of every session and, on a
+  context reset (`compact`/`resume`/`clear`), nudges a `/issues capture`. It is read-only — it never
+  writes the ledger. `/issues` is still the way to read the full list or mutate it.
 
 ## Codex GitHub review behavior
 

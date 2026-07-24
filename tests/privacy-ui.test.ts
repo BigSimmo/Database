@@ -34,7 +34,10 @@ describe("privacy UI", () => {
     }
     // JSX drops a newline adjacent to a tag, so the space after the bolded
     // phrase must be explicit or this renders as "systemand".
-    expect(markup).toContain("not a patient-record system</strong> and does not ask for patient data");
+    expect(markup).toContain("not a patient-record system</strong> and its provider-backed features");
+    expect(markup).toContain("deliberately omits a patient-identifier field");
+    expect(markup).toContain("Safety-plan working content has no Clinical KB retention");
+    expect(markup).toContain("Clipboard, print, and PDF copies are outside the app");
     expect(markup).toContain("Generated answer text is also omitted from durable query logs by default");
     expect(markup).toContain("application service in Singapore");
     expect(markup).toContain("Railway in Singapore");

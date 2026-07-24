@@ -38,6 +38,7 @@ export type EvalQualityProviderMode = "openai" | "offline";
 
 type EvalQualityArgs = {
   fixture: string;
+  sourceGovernanceResults?: string;
   ownerEmail?: string;
   ownerId?: string;
   limit?: number;
@@ -117,6 +118,22 @@ export type QualityFailureCategory =
   | "other";
 
 export type EvalQualityReport = ReturnType<typeof buildEvalQualityReport>;
+
+export type EvalQualityRunContext = {
+  git_sha: string | null;
+  github_run_id: string | null;
+  github_run_attempt: string | null;
+  latency_context: string;
+};
+
+export function evalQualityRunContext(env: Record<string, string | undefined> = process.env): EvalQualityRunContext {
+  return {
+    git_sha: env.EVAL_GIT_SHA?.trim() || env.GITHUB_SHA?.trim() || null,
+    github_run_id: env.GITHUB_RUN_ID?.trim() || null,
+    github_run_attempt: env.GITHUB_RUN_ATTEMPT?.trim() || null,
+    latency_context: env.EVAL_LATENCY_CONTEXT?.trim() || "default",
+  };
+}
 
 export type SourceMetadataDebtAcceptance = {
   path?: string;
@@ -277,6 +294,7 @@ function parseArgs(argv: string[]): EvalQualityArgs {
     index += 1;
 
     if (token === "--fixture") args.fixture = value;
+    if (token === "--source-governance-results") args.sourceGovernanceResults = value;
     if (token === "--owner-email") args.ownerEmail = value;
     if (token === "--owner-id") args.ownerId = value;
     if (token === "--limit") args.limit = Number.parseInt(value, 10);
@@ -581,6 +599,7 @@ function summarizeRagQualityResults(results: RagQualityResult[], providerMode: E
 export function buildEvalQualityReport(args: {
   generatedAt?: string;
   retrievalResults: GoldenRetrievalResult[];
+  sourceGovernanceResults?: GoldenRetrievalResult[];
   ragResults: RagQualityResult[];
   sourceMetadataDebtAcceptance?: SourceMetadataDebtAcceptance;
   providerMode?: EvalQualityProviderMode;
@@ -588,7 +607,11 @@ export function buildEvalQualityReport(args: {
   const providerMode = args.providerMode ?? "openai";
   const retrievalSummary = summarizeGoldenRetrievalResults(args.retrievalResults);
   const ragSummary = summarizeRagQualityResults(args.ragResults, providerMode);
-  const governance = topResultGovernanceCounts(args.retrievalResults);
+  // `--rag-only` intentionally leaves retrieval metrics and gates empty. The
+  // canary can still supply the preceding golden-retrieval artifact so this
+  // report renders its source-governance metadata without rerunning retrieval
+  // or changing the answer gate's pass/fail contract.
+  const governance = topResultGovernanceCounts(args.sourceGovernanceResults ?? args.retrievalResults);
   const thresholdFailures: string[] = [];
   const providerEvidence = {
     mode: providerMode,
@@ -703,6 +726,7 @@ export function buildEvalQualityReport(args: {
 
   return {
     generated_at: args.generatedAt ?? new Date().toISOString(),
+    run_context: evalQualityRunContext(),
     provider: {
       ...providerEvidence,
       passed:
@@ -1178,6 +1202,32 @@ function asRecord(value: unknown, label: string) {
   return value as Record<string, unknown>;
 }
 
+export function sourceGovernanceResultsFromArtifact(value: unknown): GoldenRetrievalResult[] {
+  const artifact = asRecord(value, "source governance results artifact");
+  if (!Array.isArray(artifact.results)) {
+    throw new Error("source governance results artifact results must be an array.");
+  }
+
+  return artifact.results.map((result, resultIndex) => {
+    const record = asRecord(result, `source governance results[${resultIndex}]`);
+    if (typeof record.id !== "string" || !record.id.trim()) {
+      throw new Error(`source governance results[${resultIndex}] id must be a non-empty string.`);
+    }
+    if (!Array.isArray(record.topResults)) {
+      throw new Error(`source governance results[${resultIndex}] topResults must be an array.`);
+    }
+    record.topResults.forEach((topResult, topResultIndex) => {
+      asRecord(topResult, `source governance results[${resultIndex}].topResults[${topResultIndex}]`);
+    });
+    return record as unknown as GoldenRetrievalResult;
+  });
+}
+
+async function loadSourceGovernanceResults(path: string) {
+  const parsed = JSON.parse(await readFile(path, "utf8")) as unknown;
+  return sourceGovernanceResultsFromArtifact(parsed);
+}
+
 function requiredString(record: Record<string, unknown>, key: string) {
   const value = record[key];
   if (typeof value !== "string" || !value.trim()) throw new Error(`source metadata debt ${key} is required.`);
@@ -1239,12 +1289,16 @@ async function main() {
   const sourceMetadataDebtAcceptance = args.sourceMetadataDebt
     ? await loadSourceMetadataDebtAcceptance(args.sourceMetadataDebt)
     : undefined;
+  const sourceGovernanceResults = args.sourceGovernanceResults
+    ? await loadSourceGovernanceResults(args.sourceGovernanceResults)
+    : undefined;
 
   const ownerId = await resolveEvalOwnerId(supabase, args);
   const retrievalResults = args.ragOnly ? [] : await runRetrievalQualityCases({ ...args, ownerId, supabase });
   const ragResults = args.retrievalOnly ? [] : await runRagQualityCases({ ...args, ownerId, supabase });
   const report = buildEvalQualityReport({
     retrievalResults,
+    sourceGovernanceResults,
     ragResults,
     sourceMetadataDebtAcceptance,
     providerMode: args.providerMode,

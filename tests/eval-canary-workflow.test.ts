@@ -18,6 +18,11 @@ describe("eval canary workflow input", () => {
     expect(workflow).not.toMatch(/run:.*github\.event\.inputs\.answer_case_limit/);
   });
 
+  it("records the actual checked-out tree for optional-ref comparisons", () => {
+    expect(workflow).toContain("ref: ${{ github.event.inputs.ref || '' }}");
+    expect(workflow).toContain('echo "EVAL_GIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"');
+  });
+
   it("distinguishes provider outages from retrieval regressions in the failure issue", () => {
     expect(workflow).toContain('title: "Eval canary failure: weekly evaluation did not complete"');
     expect(workflow).toContain("Resolve provider quota/auth/config failures before rerunning");
@@ -31,6 +36,8 @@ describe("eval canary workflow input", () => {
     expect(workflow).toContain("set -o pipefail");
     expect(workflow).toContain("tee .local/eval-canary/golden-retrieval.log");
     expect(workflow).toContain("tee .local/eval-canary/answer-quality.log");
+    expect(workflow).toContain("--output-dir .local/eval-canary/quality-reports");
+    expect(workflow).toContain("--source-governance-results .local/eval-canary/golden-retrieval.json");
     expect(workflow).toContain(
       "await import(pathToFileURL(`${process.env.GITHUB_WORKSPACE}/scripts/productivity-core.mjs`).href)",
     );

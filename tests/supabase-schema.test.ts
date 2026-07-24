@@ -26,6 +26,10 @@ const indexingV3AgentWorkerHardeningMigration = readFileSync(
   new URL("../supabase/migrations/20260625000000_indexing_v3_agent_worker_hardening.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const documentChangeWebhookMigration = readFileSync(
+  new URL("../supabase/migrations/20260723150000_document_change_ingestion_webhook.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const dropStageJobIdFkMigration = readFileSync(
   new URL("../supabase/migrations/20260708140000_drop_ingestion_job_stages_job_id_fk.sql", import.meta.url),
   "utf8",
@@ -496,6 +500,39 @@ describe("Supabase schema Data API grants", () => {
       "revoke execute on function public.invoke_indexing_v3_agent(integer) from public, anon, authenticated",
     );
     expect(schema).toContain("grant execute on function public.invoke_indexing_v3_agent(integer) to service_role");
+  });
+
+  it("keeps the document-change ingestion webhook update-only, minimal, and fail-safe", () => {
+    for (const sql of [schema, documentChangeWebhookMigration]) {
+      const start = sql.indexOf("create or replace function public.notify_document_change_ingestion_webhook");
+      const end = sql.indexOf("$$;", start);
+      const body = sql.slice(start, end);
+
+      expect(start).toBeGreaterThanOrEqual(0);
+      expect(end).toBeGreaterThan(start);
+      expect(body).toContain("returns trigger");
+      expect(body).toContain("security definer");
+      expect(body).toContain("set search_path = public, extensions, vault, pg_temp");
+      expect(body).toContain("new.metadata->'reindex_requested' = 'true'::jsonb");
+      expect(body).toContain("new.metadata->'reindex_requested' is distinct from old.metadata->'reindex_requested'");
+      expect(body).toContain("where name = 'ingestion_webhook_secret'");
+      expect(body).toContain("current_setting('app.ingestion_webhook_base_url', true)");
+      expect(body).toContain("rtrim(v_base_url, '/') || '/api/webhooks/supabase/document-change'");
+      expect(body).toContain("'id', new.id");
+      expect(body).toContain("'owner_id', new.owner_id");
+      expect(body).toContain("'status', new.status");
+      expect(body).toContain("timeout_milliseconds := 5000");
+      expect(body).toContain("when others then");
+      expect(body).not.toContain("to_jsonb(new)");
+      expect(body).not.toContain("old_record");
+      expect(body).not.toContain("psychiatry.tools");
+
+      expect(sql).toContain(
+        "revoke execute on function public.notify_document_change_ingestion_webhook() from public, anon, authenticated",
+      );
+      expect(sql).toContain("create trigger documents_ingestion_webhook after update of metadata on public.documents");
+      expect(sql).not.toContain("create trigger documents_ingestion_webhook after insert");
+    }
   });
 
   it("keeps enrichment requests conflict-safe with job-first locking and complete reset metadata", () => {
