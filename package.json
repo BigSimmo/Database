@@ -183,7 +183,9 @@
     "check:skills": "node scripts/list-database-skills.mjs --check",
     "check:drift": "node scripts/run-tsx.mjs scripts/check-drift.ts",
     "check:migration-history": "node scripts/run-tsx.mjs scripts/check-migration-history-alignment.ts",
-    "drift:manifest": "node scripts/run-tsx.mjs scripts/generate-drift-manifest.ts"
+    "drift:manifest": "node scripts/run-tsx.mjs scripts/generate-drift-manifest.ts",
+    "sync:pr-branches": "node scripts/sync-open-pr-branches.mjs",
+    "sync:pr-branches:apply": "node scripts/sync-open-pr-branches.mjs --apply"
   },
   "dependencies": {
     "@next/env": "16.2.11",
@@ -198,14 +200,14 @@
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^6.1.200",
     "pdfkit": "^0.19.1",
-    "postcss": "^8.5.15",
+    "postcss": "^8.5.18",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "server-only": "^0.0.1",
     "zod": "^4.4.3"
   },
   "overrides": {
-    "postcss": "^8.5.15",
+    "postcss": "^8.5.18",
     "esbuild": "0.28.1",
     "sharp": "0.35.3",
     "tmp": "^0.2.7",
