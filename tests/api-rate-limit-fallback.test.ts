@@ -103,6 +103,26 @@ describe("paid anonymous answer limits", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_subject_key: "anon:caller" });
   });
+  it("allows in-memory fallback for answer in development when the durable limiter is unavailable", async () => {
+    vi.stubEnv("NODE_ENV", "development");
+    vi.doMock("@/lib/env", () => ({
+      isLocalNoAuthMode: () => false,
+    }));
+    const { consumeSubjectApiRateLimit } = await import("../src/lib/api-rate-limit");
+    const supabase = {
+      rpc: vi.fn(async () => ({ data: null, error: { code: "PGRST202", message: "missing RPC" } })),
+    };
+
+    const result = await consumeSubjectApiRateLimit({
+      supabase: supabase as never,
+      subject: { kind: "anonymous", subjectKey: "anon:caller" },
+      bucket: "answer",
+      allowInMemoryFallbackOnUnavailable: true,
+    });
+
+    expect(result.limited).toBe(false);
+    expect(result.remaining).toBeGreaterThanOrEqual(0);
+  });
 });
 
 describe("atomic streamed-summary limits", () => {

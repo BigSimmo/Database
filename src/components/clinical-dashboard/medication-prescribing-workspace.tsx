@@ -406,7 +406,10 @@ function MedicationResults({
   "query" | "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning"
 >) {
   const command = useSearchCommand();
-  const catalog = useMedicationCatalog(query);
+  // Ranking only needs identity fields; `fields=index` keeps keystroke fetches ~100KB
+  // instead of the full ~2.5MB catalogue. Patient alerts that need section rows still
+  // run on the medication detail page (full record).
+  const catalog = useMedicationCatalog(query, { fields: "index" });
   const { profile, isEmpty: profileEmpty } = usePatientProfile();
   const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");
   const { rows, counts, totalAvailable } = useMemo(() => {

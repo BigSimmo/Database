@@ -2507,23 +2507,34 @@ export function ClinicalDashboard({
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() }));
     if (updateUrl) updateDocumentSearchUrl(trimmedSearchText, targetMode, filtersOverride);
 
+    searchAbortRef.current?.abort();
+    const abortController = new AbortController();
+    searchAbortRef.current = abortController;
     const requestId = ++searchRequestSeqRef.current;
 
     try {
       const shortcutQueryMode = appModeQueryMode(targetMode, queryMode);
       const payload = await runWithRetries(() =>
-        requestSourceLibrarySearch(trimmedSearchText, sourceLibraryMode, filtersOverride, shortcutQueryMode),
+        requestSourceLibrarySearch(
+          trimmedSearchText,
+          sourceLibraryMode,
+          filtersOverride,
+          shortcutQueryMode,
+          abortController.signal,
+        ),
       );
       if (requestId === searchRequestSeqRef.current) {
         applySearchResult(payload);
       }
     } catch (requestError) {
+      if (abortController.signal.aborted || isAbortError(requestError)) return;
       if (requestId === searchRequestSeqRef.current) {
         setError(requestError instanceof Error ? requestError.message : "Document search failed");
         setErrorKind(null);
         setLastFailedQuery(null);
       }
     } finally {
+      if (searchAbortRef.current === abortController) searchAbortRef.current = null;
       if (requestId === searchRequestSeqRef.current) {
         setLoading(false);
         setAnswerProgress(null);

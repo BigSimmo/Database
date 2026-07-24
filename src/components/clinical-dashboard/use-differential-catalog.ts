@@ -44,6 +44,9 @@ export type DifferentialPresentationState = {
   governance: DifferentialRecordGovernance | null;
 };
 
+/** Match universal / medication catalogue debounce so live composer follow coalesces. */
+const differentialSearchDebounceMs = 250;
+
 /** Ranked catalogue search for the Differentials search mode: fetches scored
  *  diagnosis and presentation matches in parallel from /api/differentials.
  *  Empty queries resolve immediately without a request. */
@@ -69,47 +72,58 @@ export function useDifferentialSearch(query: string): DifferentialSearchState {
 
   useEffect(() => {
     if (!requestKey) return undefined;
-    let active = true;
+    const controller = new AbortController();
     const encoded = encodeURIComponent(requestKey);
-    Promise.all([
-      fetch(`/api/differentials?kind=diagnosis&q=${encoded}&limit=20`, { headers: authorizationHeader }),
-      fetch(`/api/differentials?kind=presentation&q=${encoded}&limit=10`, { headers: authorizationHeader }),
-    ])
-      .then(async ([diagnosisResponse, presentationResponse]) => {
-        if (!active) return;
-        if (diagnosisResponse.status === 401 || presentationResponse.status === 401) {
-          if (authStatus === "loading") return;
-          if (authStatus === "authenticated") markSessionExpired();
-          setState({ status: "unauthorized", matches: emptyDifferentialMatches, demoMode: false });
-          return;
-        }
-        if (!diagnosisResponse.ok || !presentationResponse.ok) {
+    const timer = window.setTimeout(() => {
+      Promise.all([
+        fetch(`/api/differentials?kind=diagnosis&q=${encoded}&limit=20`, {
+          headers: authorizationHeader,
+          signal: controller.signal,
+        }),
+        fetch(`/api/differentials?kind=presentation&q=${encoded}&limit=10`, {
+          headers: authorizationHeader,
+          signal: controller.signal,
+        }),
+      ])
+        .then(async ([diagnosisResponse, presentationResponse]) => {
+          if (controller.signal.aborted) return;
+          if (diagnosisResponse.status === 401 || presentationResponse.status === 401) {
+            if (authStatus === "loading") return;
+            if (authStatus === "authenticated") markSessionExpired();
+            setState({ status: "unauthorized", matches: emptyDifferentialMatches, demoMode: false });
+            return;
+          }
+          if (!diagnosisResponse.ok || !presentationResponse.ok) {
+            setState({ status: "error", matches: emptyDifferentialMatches, demoMode: false });
+            return;
+          }
+          const diagnosisPayload = (await diagnosisResponse.json()) as {
+            matches?: DifferentialSearchMatches["diagnoses"];
+            demoMode?: boolean;
+          };
+          const presentationPayload = (await presentationResponse.json()) as {
+            matches?: DifferentialSearchMatches["presentations"];
+            demoMode?: boolean;
+          };
+          if (controller.signal.aborted) return;
+          setState({
+            status: "ready",
+            matches: {
+              diagnoses: diagnosisPayload.matches ?? [],
+              presentations: presentationPayload.matches ?? [],
+            },
+            demoMode: Boolean(diagnosisPayload.demoMode || presentationPayload.demoMode),
+          });
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
           setState({ status: "error", matches: emptyDifferentialMatches, demoMode: false });
-          return;
-        }
-        const diagnosisPayload = (await diagnosisResponse.json()) as {
-          matches?: DifferentialSearchMatches["diagnoses"];
-          demoMode?: boolean;
-        };
-        const presentationPayload = (await presentationResponse.json()) as {
-          matches?: DifferentialSearchMatches["presentations"];
-          demoMode?: boolean;
-        };
-        if (!active) return;
-        setState({
-          status: "ready",
-          matches: {
-            diagnoses: diagnosisPayload.matches ?? [],
-            presentations: presentationPayload.matches ?? [],
-          },
-          demoMode: Boolean(diagnosisPayload.demoMode || presentationPayload.demoMode),
         });
-      })
-      .catch(() => {
-        if (active) setState({ status: "error", matches: emptyDifferentialMatches, demoMode: false });
-      });
+    }, differentialSearchDebounceMs);
+
     return () => {
-      active = false;
+      window.clearTimeout(timer);
+      controller.abort();
     };
   }, [requestKey, authStatus, authorizationHeader, markSessionExpired]);
 

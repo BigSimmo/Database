@@ -10,7 +10,7 @@ describe("document detail loading contract", () => {
   it("uses one server-only authorized loader from both the route and page", () => {
     const loader = source("src/lib/document-detail.ts");
     const route = source("src/app/api/documents/[id]/route.ts");
-    const page = source("src/app/documents/[id]/page.tsx");
+    const page = source("src/app/(search-app)/documents/[id]/page.tsx");
 
     expect(loader).toContain('import "server-only"');
     expect(loader).toContain("loadAuthorizedDocumentDetail");
