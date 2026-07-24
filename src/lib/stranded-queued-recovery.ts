@@ -69,7 +69,9 @@ export async function listStrandedQueuedDocuments(args: {
     const fetchCount = Math.min(pageSize, maxScan - offset);
     let query = args.supabase
       .from("documents")
-      .select("id,owner_id,status,error_message,page_count,chunk_count,image_count,import_batch_id,created_at,updated_at")
+      .select(
+        "id,owner_id,status,error_message,page_count,chunk_count,image_count,import_batch_id,created_at,updated_at",
+      )
       .eq("status", "queued")
       .lt("updated_at", cutoff)
       .order("updated_at", { ascending: true });

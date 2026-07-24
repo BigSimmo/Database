@@ -139,7 +139,10 @@ describe("stranded queued-without-job recovery (#062)", () => {
       created_at: "2026-07-24T11:00:00.000Z",
       updated_at: "2026-07-24T11:00:00.000Z",
     };
-    const openJobIds = Array.from({ length: 20 }, (_, index) => `33333333-3333-4333-8333-${String(index).padStart(12, "0")}`);
+    const openJobIds = Array.from(
+      { length: 20 },
+      (_, index) => `33333333-3333-4333-8333-${String(index).padStart(12, "0")}`,
+    );
     const openJobRows = openJobIds.map((id, index) => ({
       ...stranded,
       id,
@@ -169,9 +172,7 @@ describe("stranded queued-without-job recovery (#062)", () => {
         return jobsQuery;
       }
       return Promise.resolve({
-        data: pendingDocumentIds
-          .filter((id) => openJobIds.includes(id))
-          .map((document_id) => ({ document_id })),
+        data: pendingDocumentIds.filter((id) => openJobIds.includes(id)).map((document_id) => ({ document_id })),
         error: null,
       });
     });
