@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
   CategoryTag,
   ReviewStatusBadge,
@@ -255,25 +256,19 @@ function SpecifierResults({ query }: { query: string }) {
         <SpecifierSubnav active="search" />
       </div>
 
-      <header className="grid gap-1 border-b border-[color:var(--border)] pb-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end sm:gap-3 sm:pb-5">
-        <div className="grid gap-1">
-          <p className={eyebrowText}>Specifier search</p>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
-            Matches for &ldquo;{query}&rdquo;
-          </h1>
-        </div>
-        <p className="nums text-sm font-bold text-[color:var(--text-muted)]" aria-live="polite">
-          {totalMatches} {totalMatches === 1 ? "match" : "matches"}
-        </p>
-      </header>
-
-      <section
-        aria-label="Filter specifier results"
-        className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5"
-      >
-        <SpecifierFamilyFilterChips value={family} onChange={setFamily} />
-        <SpecifierDiagnosisFilter value={diagnosis} onChange={setDiagnosis} options={diagnosisOptions} />
-      </section>
+      <SearchResultsHeaderBand
+        modeId="specifiers"
+        query={query}
+        matchCount={totalMatches}
+        headingLevel={1}
+        filterLabel="Filter specifier results"
+        filterControls={
+          <div className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5">
+            <SpecifierFamilyFilterChips value={family} onChange={setFamily} />
+            <SpecifierDiagnosisFilter value={diagnosis} onChange={setDiagnosis} options={diagnosisOptions} />
+          </div>
+        }
+      />
 
       {totalMatches === 0 ? (
         <EmptySearchResults query={query} />

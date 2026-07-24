@@ -399,7 +399,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await page.locator('button[aria-label="Search differential presentations"]:visible').click();
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
 
-    const filterGroup = page.getByRole("group", { name: "Result type" });
+    const filterGroup = page.getByRole("group", { name: "Result type", exact: true });
     await expect(filterGroup).toBeVisible();
     await expect(filterGroup.getByRole("tab")).toHaveCount(0);
     const allFilter = filterGroup.getByRole("button", { name: /^All \(\d+\)$/ });
@@ -419,7 +419,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(presentationsFilter).toHaveAttribute("aria-pressed", "false");
   });
 
-  test("guest upload action exposes the admin boundary and opens the source library", async ({ page }) => {
+  test("guest upload action exposes the admin boundary and opens Sources", async ({ page }) => {
     await page.setViewportSize({ width: 414, height: 820 });
     await mockMinimalDashboardApi(page);
     await gotoApp(page);
@@ -431,9 +431,9 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(menu).toBeVisible();
     await menu.getByRole("menuitem", { name: "Add document" }).click();
     await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
-    await expect(page.getByRole("dialog", { name: "Source library" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Sources" })).toBeVisible();
     await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only" })).toContainText(
-      "Upload and indexing tools are admin-only. Use the source library to open indexed documents.",
+      "Upload and indexing tools are admin-only. Use Sources to open indexed documents.",
     );
   });
 
@@ -458,6 +458,9 @@ test.describe("Clinical KB accessibility coverage", () => {
     await page.goto("/therapy-compass/search", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Therapy Search" })).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveAttribute("aria-current", "page");
+    const therapyRibbon = page.getByTestId("search-query-ribbon");
+    await expect(therapyRibbon.getByRole("heading", { name: "All" })).toBeVisible();
+    await expect(therapyRibbon.getByRole("group", { name: "Filter therapy results" })).toBeVisible();
 
     const searchInput = page.getByRole("textbox", { name: "Search therapies" });
     await searchInput.focus();

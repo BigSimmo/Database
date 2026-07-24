@@ -1,5 +1,7 @@
 "use client";
 
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+
 import { useTcBindings } from "../bindings";
 import { outlineControl, softControl } from "../controls";
 import { SearchIcon, SearchXIcon, XIcon } from "../icons";
@@ -36,58 +38,56 @@ export function SearchScreen() {
         </label>
       </div>
 
-      <div className="tc-screens-search-screen-008">
-        {QUICK_TAGS.map((tag) => {
-          const on = b.search.tags.includes(tag);
-          return (
+      <SearchResultsHeaderBand
+        modeId="therapy-compass"
+        query={q}
+        matchCount={results.length}
+        loading={b.loading}
+        filterLabel="Filter therapy results"
+        filterControls={
+          <div className="tc-screens-search-screen-008">
+            {QUICK_TAGS.map((tag) => {
+              const on = b.search.tags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  className={`tc-btn ${softControl}${on ? " tc-is-selected" : ""}`}
+                  onClick={() => b.toggleTag(tag)}
+                  aria-pressed={on}
+                >
+                  {tag}
+                </button>
+              );
+            })}
             <button
-              key={tag}
               type="button"
-              className={`tc-btn ${softControl}${on ? " tc-is-selected" : ""}`}
-              onClick={() => b.toggleTag(tag)}
-              aria-pressed={on}
+              className={`tc-btn ${softControl}${b.search.reviewedOnly ? " tc-is-success" : ""}`}
+              onClick={b.toggleReviewedOnly}
+              aria-pressed={b.search.reviewedOnly}
             >
-              {tag}
+              Reviewed only
             </button>
-          );
-        })}
-        <button
-          type="button"
-          className={`tc-btn ${softControl}${b.search.reviewedOnly ? " tc-is-success" : ""}`}
-          onClick={b.toggleReviewedOnly}
-          aria-pressed={b.search.reviewedOnly}
-        >
-          Reviewed only
-        </button>
-        <button
-          type="button"
-          className={`tc-btn ${softControl}${b.search.briefOnly ? " tc-is-selected" : ""}`}
-          onClick={b.toggleBriefOnly}
-          aria-pressed={b.search.briefOnly}
-        >
-          Brief available
-        </button>
-        <button type="button" className="tc-btn tc-screens-search-screen-009" onClick={b.clearSearch}>
-          <XIcon size={15} strokeWidth={1.8} />
-          Clear
-        </button>
-      </div>
+            <button
+              type="button"
+              className={`tc-btn ${softControl}${b.search.briefOnly ? " tc-is-selected" : ""}`}
+              onClick={b.toggleBriefOnly}
+              aria-pressed={b.search.briefOnly}
+            >
+              Brief available
+            </button>
+            <button type="button" className="tc-btn tc-screens-search-screen-009" onClick={b.clearSearch}>
+              <XIcon size={15} strokeWidth={1.8} />
+              Clear
+            </button>
+          </div>
+        }
+      />
 
       {b.loading ? (
         <LoadingState />
       ) : (
         <>
-          <div className="tc-screens-search-screen-010">
-            <div className="tc-screens-search-screen-011">
-              <span className="tc-screens-search-screen-012">Top results</span>
-              <span className="tc-screens-search-screen-013">
-                {results.length === 0
-                  ? "No matches"
-                  : `${Math.min(shown.length, results.length)} of ${results.length} record${results.length === 1 ? "" : "s"}`}
-              </span>
-            </div>
-          </div>
-
           {results.length === 0 ? (
             <EmptyState
               icon={SearchXIcon}
