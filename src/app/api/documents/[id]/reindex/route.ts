@@ -6,6 +6,7 @@ import {
   activeIngestionJobColumns,
   buildActiveJobsSafetyResult,
   checkIngestionMutationSafety,
+  hasActiveAgentEnrichmentJob,
   ingestionMutationSafetyPayload,
   ingestionRollbackFenceStamp,
   type IngestionJobRow,
@@ -66,6 +67,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
     });
     if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
+
+    // Full reindex deletes/rebuilds the same enrichment artifact families the
+    // agent writes. Block only while a fresh agent lease is live; enrichment
+    // mode keeps its own RPC concurrency (`request_indexing_v3_enrichment`).
+    if (mode !== "enrichment") {
+      const enrichmentActive = await hasActiveAgentEnrichmentJob({
+        supabase,
+        documentId: id,
+        staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
+      });
+      if (enrichmentActive) {
+        return NextResponse.json({ error: "Reindex is paused while enrichment is active." }, { status: 409 });
+      }
+    }
 
     if (mode === "enrichment") {
       const { data: queued, error: queueError } = await supabase.rpc("request_indexing_v3_enrichment", {
