@@ -1,17 +1,27 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import PrivacyPage from "@/app/privacy/page";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
+  useRouter: () => ({
+    back: vi.fn(),
+    push: vi.fn(),
+  }),
+}));
+
 describe("privacy UI", () => {
   it("renders a persistent, keyboard-reachable privacy warning and product link", () => {
     const markup = renderToStaticMarkup(createElement(PrivacyInputNotice));
+    const documentsMarkup = renderToStaticMarkup(createElement(PrivacyInputNotice, { returnMode: "documents" }));
 
     expect(markup).toContain("Do not enter patient-identifiable information.");
     expect(markup).toContain('href="/privacy"');
     expect(markup).toContain("Privacy and data processing");
+    expect(documentsMarkup).toContain('href="/privacy?from=documents"');
   });
 
   it("publishes an accessible governance-review draft covering configured data processing", () => {
