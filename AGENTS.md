@@ -207,6 +207,21 @@ action must perform one; a page that ships must be reachable.
 
 <!-- END:page-and-button-wiring -->
 
+<!-- BEGIN:search-chrome-behaviour -->
+
+# Search chrome behaviour
+
+The shared search chrome must adapt by page ownership, not by ad-hoc padding or route-local overlays. Before changing `MasterSearchHeader`, `GlobalSearchShell`, `ClinicalDashboard`, `DocumentViewer`, phone dock reserves, or search-composer placement, read `docs/search-chrome-behaviour.md`.
+
+- **One owner.** A page either uses the shell/dashboard composer, owns an in-flow hero composer, or owns a document-viewer composer. Do not stack a second fixed search bar or a second dock-sized content pad below a page-owned composer.
+- **Phone edge-to-edge contract.** Fixed phone composers are flush to the viewport bottom and paint their own safe-area/home-indicator region while visible. They must not use a non-zero `bottom` gap in edge-to-edge dock mode.
+- **Hidden means zero reserve.** When phone search/header/footer chrome scroll-hides, the content-facing reserve is `0rem`; do not restore `0.75rem`, `env(safe-area-inset-bottom)`, or `var(--safe-area-bottom)` as hidden padding. Visible composer chrome may still consume safe-area inset.
+- **Header/footer symmetry.** Top header and bottom composer hide/reveal from the same scroll signal where they share a scroll container. If one is hidden, page content behind that edge must be fully visible rather than covered by an opaque white/surface band.
+- **Page adaptation.** Standalone mode homes keep the composer in-flow in the hero on phones; submitted/search-result views use the compact bottom dock; answer mode may use overlaid glass header behaviour with matching top reserve; document detail/source routes let `DocumentViewer` own its composer.
+- **Guards.** Update the reserve helper, CSS tokens, Playwright phone-scroll coverage, and static contract tests together. Do not silence the existing reserve/overlay tests; add a narrower guard for any new page-specific exception.
+
+<!-- END:search-chrome-behaviour -->
+
 <!-- BEGIN:supabase-project-safety -->
 
 # Supabase project safety
