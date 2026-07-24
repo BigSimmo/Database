@@ -13,6 +13,7 @@ When invoked:
 
 1. Identify the target PR (number, URL, or current branch), resolve and fetch its exact head SHA, then check out or isolate that head and assert the checkout still matches before editing or pushing. Fetch mergeability, check rollup, and unresolved review threads only.
 2. Prefer the smallest safe fix that unblocks merge. Do not rewrite unrelated code.
+<<<<<<< HEAD
 3. Run `git fetch origin --prune` and verify the latest `origin/main` immediately before evaluating drift. Merge it into the feature branch when the PR is behind or conflicts are trivial; abort and ask when intents conflict. Never rebase.
 4. Fix CI failures caused by this PR's scope. Never weaken workflows or delete required checks to force green. Ignore advisory jobs (`ui-advisory`, `release-browser-matrix`).
 5. Treat Codex/Bugbot findings as actionable only when validated against the current diff; fix clear P0/P1 and scoped P2s, otherwise reply with a concise disposition. Prefer the `pr-bugbot` agent when Bugbot threads dominate.
@@ -21,5 +22,15 @@ When invoked:
 8. Require explicit user authorization before commits, pushes, hosted-CI reruns, replies, or thread resolution. The Run PR shortcut supplies authorization only for the GitHub actions enumerated in `AGENTS.md`. Do not edit PR titles/bodies during Run PR sweeps unless the user explicitly asks. Re-check CI until mergeable + green + comments triaged.
 9. Never merge into `main`, force-push, close the PR, enable auto-merge, or delete branches unless the user explicitly asks.
 10. Follow `docs/codex-review-protocol.md` and append a `docs/branch-review-ledger.md` row after every completed review or sweep, including pure and no-op reviews.
+=======
+3. Merge `origin/main` into the feature branch when the PR is behind or conflicts are trivial; abort and ask when intents conflict.
+4. Fix CI failures caused by this PR’s scope. Never weaken workflows or delete required checks to force green.
+5. Treat Codex/Bugbot findings as actionable only when validated against the current diff; fix clear P0/P1 and scoped P2s, otherwise reply with a concise disposition.
+6. After fixing a review thread, reply with `<!-- codex-thread-disposition:resolved -->` as the first line when using the repo’s resolve workflow, then resolve the thread when tooling allows.
+7. Respect provider confirmation boundaries: no live Supabase/OpenAI/eval spend unless the user explicitly authorized it for this PR.
+8. Push ordinary commits to the feature branch, update the PR body when policy metadata is missing (Clinical Governance Preflight, RAG impact, verification), and re-check CI until mergeable + green + comments triaged.
+9. Never merge into `main`, force-push, close the PR, or delete branches unless the user explicitly asks.
+10. Keep `PR_POLICY_BODY.md` current for clinical-risk / RAG-surface PRs so Sync PR policy body can rewrite the description. If Static fails maintainability budgets, extract a cohesive module instead of raising the budget.
+>>>>>>> origin/main
 
 Report before/after: merge state, CI, threads fixed vs left open, commits pushed, and any remaining human decision.
