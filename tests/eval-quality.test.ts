@@ -690,7 +690,7 @@ describe("eval quality reporting", () => {
     expect(markdown).toContain("## Answer Metrics");
     expect(markdown).toContain("## Answer Case Diagnostics");
     expect(markdown).toContain(
-      "| rag-1 | fast | fast | test_route | 900 | 500 | 10 | 200 | 650 | 40 | 150 | 25 | 25000 | no | test-model | passed |",
+      "| rag-1 | fast | generation | test_route | 900 | 500 | 10 | 200 | 650 | 40 | 150 | 25 | 25000 | no | test-model | passed |",
     );
     expect(markdown).toContain("| Hit@K | 1 |");
     expect(markdown).toContain("Policy: unknown, unverified");

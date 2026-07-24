@@ -12,7 +12,6 @@ import {
   type GoldenRetrievalResult,
 } from "./eval-retrieval";
 import {
-  configuredCostRates,
   estimateCostUsd,
   loadAdminClient,
   percentile,
