@@ -14,15 +14,15 @@ describe("Database skill catalog", () => {
   it("contains every canonical skill exactly once and validates every alias", () => {
     const catalog = loadSkillCatalog();
     const result = validateSkillCatalog();
+    const discovered = discoverSkillDefinitions();
 
     const canonicalCount = result.canonical.length;
     expect(result.errors).toEqual([]);
-    expect(result.canonical).toHaveLength(canonicalCount);
+    expect(canonicalCount + result.aliases.length).toBe(discovered.length);
     expect(new Set(result.canonical.map((skill: { name: string }) => skill.name))).toHaveProperty(
       "size",
       canonicalCount,
     );
-    expect(result.aliases).toHaveLength(result.aliases.length);
     for (const category of catalog.categories) {
       expect(category.skills.every((skill: unknown) => typeof skill === "string")).toBe(true);
     }
@@ -30,8 +30,9 @@ describe("Database skill catalog", () => {
 
   it("discovers each declared skill from its folder metadata", () => {
     const discovered = discoverSkillDefinitions();
+    const result = validateSkillCatalog();
 
-    expect(discovered).toHaveLength(discovered.length);
+    expect(discovered).toHaveLength(result.canonical.length + result.aliases.length);
     for (const skill of discovered) {
       if (!skill) continue;
       const metadataPath = path.join(skillsRoot, skill.name, "agents", "openai.yaml");

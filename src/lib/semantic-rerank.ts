@@ -195,8 +195,8 @@ function validateRanking(value: unknown, candidateIds: string[]): FallbackReason
 
 function providerFailureReason(error: unknown): FallbackReason {
   const message = (error instanceof Error ? error.message : String(error ?? "")).toLowerCase();
-  if (/timeout|timed out|aborted|aborterror/m.test(message)) return "timeout";
-  if (/refus|content[_ -]?filter|filtered/m.test(message)) return "refusal";
+  if (/timeout|timed out|aborted|aborterror/.test(message)) return "timeout";
+  if (/refus|content[_ -]?filter|filtered/.test(message)) return "refusal";
   return "provider_error";
 }
 

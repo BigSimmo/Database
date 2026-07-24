@@ -138,14 +138,6 @@ export function acquireHeavyRunLock({
       if (error?.code !== "EEXIST") throw error;
       const owner = readOwner(lockPath);
       if (owner && processIsAlive(owner.pid)) {
-        // Enforce max 5 minutes staleness limit for inactive idle processes (Issue 2)
-        const startedTime = new Date(owner.startedAt).getTime();
-        const maxStaleness = 5 * 60 * 1000;
-        if (!isNaN(startedTime) && Date.now() - startedTime > maxStaleness) {
-          rmSync(lockPath, { recursive: true, force: true });
-          continue;
-        }
-
         if (Date.now() - startTime < waitMs) {
           const delayMs = Math.min(1000, 500 * Math.pow(1.5, attempt)) + Math.random() * 100;
           spawnSync(process.argv[0], ["-e", `setTimeout(()=>{}, ${Math.floor(delayMs)})`]);
