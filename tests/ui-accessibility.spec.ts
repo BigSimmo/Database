@@ -458,7 +458,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/therapy-compass", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByRole("heading", { name: "Therapy mode", exact: true })).toBeVisible({
+    await expect(page.getByRole("heading", { name: "Therapy", exact: true })).toBeVisible({
       timeout: 60_000,
     });
 
@@ -469,7 +469,7 @@ test.describe("Clinical KB accessibility coverage", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/therapy-compass/search", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "Therapy Search" })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("heading", { name: "Therapy", exact: true })).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveAttribute("aria-current", "page");
     const therapyRibbon = page.getByTestId("search-query-ribbon");
     await expect(therapyRibbon.getByRole("heading", { name: "All" })).toBeVisible();
