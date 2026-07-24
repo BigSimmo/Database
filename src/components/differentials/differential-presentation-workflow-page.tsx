@@ -708,6 +708,7 @@ export function DifferentialPresentationWorkflowPage({
               >
                 <button
                   type="button"
+                  disabled
                   aria-disabled="true"
                   aria-describedby="presentation-density-unavailable"
                   title="Density controls — coming soon"
@@ -717,6 +718,7 @@ export function DifferentialPresentationWorkflowPage({
                 </button>
                 <button
                   type="button"
+                  disabled
                   aria-disabled="true"
                   aria-describedby="presentation-density-unavailable"
                   title="Density controls — coming soon"

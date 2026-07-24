@@ -884,6 +884,7 @@ export function ClinicalNotesChecklistPanel({
           </button>
           <button
             type="button"
+            disabled
             aria-disabled="true"
             aria-describedby="clinical-notes-add-unavailable"
             title="Add to favourites — coming soon"
