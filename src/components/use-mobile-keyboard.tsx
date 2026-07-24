@@ -15,12 +15,25 @@ const MobileKeyboardContext = createContext<MobileKeyboardContextState>({
 const keyboardDetectionThreshold = 150;
 const keyboardOverlayThreshold = 50;
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
 export function resolveMobileKeyboardViewport(args: {
   maxVisualHeight: number;
   currentVisualHeight: number;
   maxLayoutHeight: number;
   currentLayoutHeight: number;
+  /** Only lift when a text field is focused — avoids headless/CI viewport false positives. */
+  hasEditableFocus?: boolean;
 }): MobileKeyboardContextState {
+  if (args.hasEditableFocus === false) {
+    return { isKeyboardOpen: false, keyboardHeight: 0 };
+  }
+
   const visualOcclusion = Math.max(0, args.maxVisualHeight - args.currentVisualHeight);
   if (visualOcclusion <= keyboardDetectionThreshold) return { isKeyboardOpen: false, keyboardHeight: 0 };
 
@@ -53,15 +66,19 @@ export function MobileKeyboardProvider({ children }: { children: ReactNode }) {
     let prevViewportWidth = window.visualViewport.width;
     let prevIsMobile = window.matchMedia("(max-width: 1023px)").matches;
 
+    function applyKeyboardState(next: MobileKeyboardContextState) {
+      setIsKeyboardOpen(next.isKeyboardOpen);
+      setKeyboardHeight(next.keyboardHeight);
+      document.documentElement.style.setProperty("--keyboard-height", `${next.keyboardHeight}px`);
+    }
+
     function handleResize() {
       const viewport = window.visualViewport;
       if (!viewport) return;
 
       const isMobile = window.matchMedia("(max-width: 1023px)").matches;
       if (!isMobile) {
-        setIsKeyboardOpen(false);
-        setKeyboardHeight(0);
-        document.documentElement.style.setProperty("--keyboard-height", "0px");
+        applyKeyboardState({ isKeyboardOpen: false, keyboardHeight: 0 });
         prevIsMobile = isMobile;
         return;
       }
@@ -78,15 +95,15 @@ export function MobileKeyboardProvider({ children }: { children: ReactNode }) {
       prevViewportWidth = viewport.width;
       prevIsMobile = isMobile;
 
-      const next = resolveMobileKeyboardViewport({
-        maxVisualHeight: maxViewportHeight,
-        currentVisualHeight: viewport.height,
-        maxLayoutHeight,
-        currentLayoutHeight: window.innerHeight,
-      });
-      setIsKeyboardOpen(next.isKeyboardOpen);
-      setKeyboardHeight(next.keyboardHeight);
-      document.documentElement.style.setProperty("--keyboard-height", `${next.keyboardHeight}px`);
+      applyKeyboardState(
+        resolveMobileKeyboardViewport({
+          maxVisualHeight: maxViewportHeight,
+          currentVisualHeight: viewport.height,
+          maxLayoutHeight,
+          currentLayoutHeight: window.innerHeight,
+          hasEditableFocus: isEditableTarget(document.activeElement),
+        }),
+      );
     }
 
     // Initial check
@@ -94,10 +111,14 @@ export function MobileKeyboardProvider({ children }: { children: ReactNode }) {
 
     window.visualViewport.addEventListener("resize", handleResize);
     window.addEventListener("resize", handleResize);
+    window.addEventListener("focusin", handleResize);
+    window.addEventListener("focusout", handleResize);
 
     return () => {
       window.visualViewport?.removeEventListener("resize", handleResize);
       window.removeEventListener("resize", handleResize);
+      window.removeEventListener("focusin", handleResize);
+      window.removeEventListener("focusout", handleResize);
       document.documentElement.style.removeProperty("--keyboard-height");
     };
   }, []);
