@@ -62,6 +62,12 @@ describe("mobile interaction regressions", () => {
     );
     expect(presentationSource).toContain("Comparing ({workflow.selectedCount})");
     expect(presentationSource).not.toContain("Compare ({workflow.selectedCount} selected)");
+    expect(presentationSource).toMatch(
+      /type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="presentation-density-unavailable"[\s\S]*Compact/,
+    );
+    expect(presentationSource).toMatch(
+      /type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="presentation-density-unavailable"[\s\S]*Detailed/,
+    );
   });
 
   it("does not fake Add success or Tools sort/more menus", () => {
@@ -71,8 +77,14 @@ describe("mobile interaction regressions", () => {
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
 
     expect(visualEvidence).toContain('title="Add to favourites — coming soon"');
+    expect(visualEvidence).toMatch(
+      /type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="visual-evidence-add-unavailable"/,
+    );
     expect(visualEvidence).not.toContain("setAdded(true)");
     expect(evidencePanels).toContain('title="Add to favourites — coming soon"');
+    expect(evidencePanels).toMatch(
+      /type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="clinical-notes-add-unavailable"/,
+    );
     expect(evidencePanels).not.toContain("setAdded(true)");
 
     expect(tools).toContain("Sorted A to Z");
