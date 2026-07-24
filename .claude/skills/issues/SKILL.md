@@ -39,7 +39,9 @@ Parse the intent from natural language too — the exact syntax is a convenience
   `<!-- issues:next-id=NNN -->` marker, then bump that marker. Fill `Source` with
   `session <today>` unless the user names one; `Added` is today's date.
 - **`/issues done <id> [outcome]`** — move that row from **Open items** to **Resolved / archive**
-  with today's date and a one-line outcome. Archive, never delete.
+  with today's date and a one-line outcome. In the recommended queue, remove only that ID from any
+  composite source and rewrite the row for the remaining open work; remove the whole row only when
+  no referenced open ID remains, then close the order gap. Archive, never delete.
 - **`/issues update <id> <text>`** — edit an open row's summary or next action in place.
 - **`/issues capture`** — scan the current session for recommendations, follow-ups, deferrals, and
   unfixed problems that surfaced but were not recorded. Propose them as a numbered list and add the
@@ -57,8 +59,9 @@ paragraph; put the smallest next action in **Detail / next action**.
 - Keep the table format and column order exactly as in `docs/outstanding-issues.md`. One row per item.
 - Add a retained task to the recommended queue with order, acuity, capability, timing, estimate,
   gate, success criteria, verification, and stop rule. Reorder rather than duplicate related work.
-- Remove a task from the recommended queue when it completes or is no longer recommended; retain
-  its evidence in the open or resolved table as appropriate.
+- When a task completes or is no longer recommended, remove only its ID from composite queue rows;
+  retain and rewrite a row while another referenced open ID remains. Preserve the evidence in the
+  open or resolved table as appropriate.
 - IDs are monotonic and never reused — always allocate from the `issues:next-id` marker and bump it.
 - Escape `|` inside cell text (write `\|`) so the markdown table stays intact.
 - Respect the repo's RAG/clinical/privacy flagging rules if an item _itself_ touches a protected
