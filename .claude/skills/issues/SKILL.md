@@ -5,9 +5,9 @@ description: Track and recall all outstanding tasks, recommendations, and issues
 
 # issues — the universal repository task ledger
 
-`docs/outstanding-issues.md` is the durable, cross-session memory of everything still outstanding:
-open **tasks**, **recommendations** not yet acted on, and **issues** not yet resolved. Chat context
-resets; that file does not. This skill reads it back and keeps it current.
+`docs/outstanding-issues.md` is the single universal, durable, cross-session ledger for recommended
+execution order, open **tasks**, **recommendations**, **issues**, provider/operator work, and archive
+history. Chat context resets; that file does not. This skill reads it back and keeps it current.
 
 **The ledger is the source of truth, not chat memory.** Never answer `/issues` from conversation
 recall — always read the file first, so the answer is correct even in a fresh session. The ordered
@@ -28,8 +28,9 @@ conditional ideas, and audit history that are not necessarily recommended now.
    `4 recommended · 7 open: 1×P1, 4×P2, 2×P3`.
 4. Do **not** mutate the file or commit on a plain read.
 
-If a filter is given, narrow step 2: `/issues P1` (by priority), `/issues issues` / `/issues recs`
-/ `/issues tasks` (by type), `/issues <keyword>` (summary/detail substring match).
+If a filter is given, filter the open items before rendering steps 2–3, then show only matching
+queued tasks and matching non-queued items: `/issues P1` (by priority), `/issues issues` /
+`/issues recs` / `/issues tasks` (by type), `/issues <keyword>` (summary/detail substring match).
 
 ## Mutating subcommands
 
@@ -59,6 +60,10 @@ paragraph; put the smallest next action in **Detail / next action**.
 ## Writing rules
 
 - Keep the table format and column order exactly as in `docs/outstanding-issues.md`. One row per item.
+- Add a retained task to the recommended queue with order, acuity, capability, timing, estimate,
+  gate, success criteria, verification, and stop rule. Reorder rather than duplicate related work.
+- Remove a task from the recommended queue when it completes or is no longer recommended; retain
+  its evidence in the open or resolved table as appropriate.
 - IDs are monotonic and never reused — always allocate from the `issues:next-id` marker and bump it.
 - Keep the recommended execution queue dependency-ordered, gap-free, deduplicated, and synchronized
   with its referenced open rows. Never add refuted, parked, superseded, resolved, or decision-only

@@ -1,4 +1,4 @@
-# Operator backlog
+# Operator action detail
 
 Detailed runbook index for **human-only / provider-gated actions** that cannot be done from a coding
 session (they touch Supabase, Railway, OpenAI, or GitHub settings, per the AGENTS.md provider boundary).
