@@ -4,11 +4,12 @@ import { rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { getDemoImage } from "@/lib/demo-data";
 import { env } from "@/lib/env";
 import { isDemoMode } from "@/lib/env";
-import { jsonError, parseJsonBody } from "@/lib/http";
+import { jsonError } from "@/lib/http";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, unauthorizedResponse } from "@/lib/supabase/auth";
 import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
+import { parseJsonBody } from "@/lib/validation/body";
 
 export const runtime = "nodejs";
 

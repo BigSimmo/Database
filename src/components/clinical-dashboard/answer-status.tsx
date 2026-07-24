@@ -162,24 +162,9 @@ export function AnswerProgressStepper({
   active: boolean;
   onStop: () => void;
 }) {
-<<<<<<< ours
-<<<<<<< ours
   const [now, setNow] = useState(() => Date.now());
   const latest = events.at(-1) ?? null;
   const finished = latest?.stage === "complete";
-=======
-=======
->>>>>>> theirs
-  const latest = events.at(-1) ?? null;
-  const finished = latest?.stage === "complete";
-  const now = useClientTime({
-    fallback: startedAt ?? 0,
-    updateInterval: active && !finished && startedAt ? 1_000 : undefined,
-  });
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
   const currentStep = latest ? answerProgressStepIndex(latest.stage) : 0;
 
   useEffect(() => {
@@ -200,6 +185,7 @@ export function AnswerProgressStepper({
       data-testid="answer-progress-stepper"
       data-progress-state={finished ? "complete" : "active"}
       aria-label={finished ? "Answer generation complete" : "Answer generation progress"}
+      aria-live="polite"
       className="rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 py-2 text-[color:var(--text-heading)]"
     >
       <div className="flex min-h-8 items-center gap-2">
@@ -213,7 +199,7 @@ export function AnswerProgressStepper({
             aria-hidden
           />
         )}
-        <p className="min-w-0 flex-1 text-sm font-semibold" role="status" aria-live="polite">
+        <p className="min-w-0 flex-1 text-sm font-semibold">
           {finished
             ? `Answer ready in ${elapsedLabel(elapsedMs)}`
             : latest

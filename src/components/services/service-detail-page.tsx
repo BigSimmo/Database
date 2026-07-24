@@ -41,8 +41,8 @@ import {
   toneWarning,
 } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { compactBestUseTitle } from "@/lib/compact-best-use-title";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
+import { compactBestUseTitle } from "@/lib/compact-best-use-title";
 import {
   serviceNavigatorQuery,
   type ServiceContact,
@@ -66,7 +66,8 @@ function displayText(value: string | null | undefined, fallback = missingText) {
 }
 
 function bestUseCardTitle(bestUse: string | null | undefined) {
-  return hasText(bestUse) ? compactBestUseTitle(bestUse) : "Assess service fit";
+  if (!hasText(bestUse)) return "Assess service fit";
+  return compactBestUseTitle(bestUse);
 }
 
 function chipToneClass(tone: ServiceStatusChip["tone"] | undefined | null) {
@@ -156,15 +157,7 @@ function summaryCardsFor(service: ServiceRecord): ServiceSummaryCard[] {
     {
       id: "best-use",
       label: "Best use",
-<<<<<<< ours
-<<<<<<< ours
-      title: displayText(service.bestUse, "Assess service fit"),
-=======
       title: bestUseCardTitle(service.bestUse),
->>>>>>> theirs
-=======
-      title: bestUseCardTitle(service.bestUse),
->>>>>>> theirs
       detail: "Clinical fit and referral priority",
     },
   ];
@@ -455,15 +448,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     summaryCardById.get("best-use") ?? {
       id: "best-use",
       label: "Best use",
-<<<<<<< ours
-<<<<<<< ours
-      title: displayText(service.bestUse, "Assess service fit"),
-=======
       title: bestUseCardTitle(service.bestUse),
->>>>>>> theirs
-=======
-      title: bestUseCardTitle(service.bestUse),
->>>>>>> theirs
       detail: "Clinical fit and referral priority",
     },
     summaryCardById.get("eligibility") ?? {
