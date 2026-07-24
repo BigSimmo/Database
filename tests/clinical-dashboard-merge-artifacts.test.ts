@@ -117,8 +117,9 @@ describe("ClinicalDashboard merge-artifact guards", () => {
   it("releases the Safari toolbar reserve only after phone composers hide", () => {
     expect(mobileComposerReserveSource).toContain('export const mobileComposerHiddenReserve = "0rem"');
     expect(mobileComposerReserveSource).toContain(
-      'export const mobileComposerDifferentialsCompareReserve = "calc(12.5rem + var(--safe-area-bottom))"',
+      "calc(12.5rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))",
     );
+    expect(mobileComposerReserveSource).toContain("export const mobileComposerDifferentialsCompareReserve");
     expect(mobileComposerReserveSource).toContain("export function resolveMobileComposerReserve");
     expect(mobileComposerReserveSource).toContain("export function isDocumentViewerOwnedRoute");
     expect(mobileComposerReserveSource).not.toContain("env(safe-area-inset-bottom)");
