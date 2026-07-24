@@ -710,8 +710,8 @@ Use this ledger to prevent repeated branch and PR reviews when the reviewed HEAD
 
 ## 2026-07-24 — work search chrome behaviour review
 
-- Branch/ref: work
-- HEAD: bcf4571dd37005622dbef7aae0e2374afafb6b0f
+- Branch/ref: PR #1137 / `codex/review-search-bar-behavior-and-establish-rules`
+- HEAD: 6ee0484cc97b087c0e4f3661a49493f24a3ea9ba
 - Scope: Targeted review of search bar/header/footer chrome behaviour after the edge-to-edge phone dock fix, plus durable repo rules for page-adaptive search chrome.
 - Outcome: No new P0/P1 search chrome defect found in the static review. Fixed one regression hazard: a stale ClinicalDashboard comment still instructed a 0.75rem hidden dock pad despite the implementation/tests requiring 0rem. Added durable search chrome behaviour rules in AGENTS.md and docs/search-chrome-behaviour.md, with a static guard tying the remembered rules to the hidden-reserve contract.
 - Checks: dependency shortcut section count; git diff --check; targeted rg for stale 0.75rem hidden-pad source wording (only negative test assertions remain); targeted Vitest command attempted but blocked by missing node_modules/vitest under Node 20.20.2 in this container. No provider-backed checks run.

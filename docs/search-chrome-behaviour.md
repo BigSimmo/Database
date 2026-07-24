@@ -4,13 +4,13 @@ This repo uses one shared search experience across the global shell, dashboard r
 
 ## Page ownership model
 
-| Page state | Composer placement | Reserve owner |
-| --- | --- | --- |
-| Answer home / standalone mode homes | In-flow hero composer on phones and larger breakpoints | Page content; no fixed phone dock reserve |
-| Submitted/search-result views | Compact bottom dock on phones; header/inline placement on larger screens | Shell/dashboard `--mobile-composer-reserve` |
-| Answer result view | Overlaid glass header plus answer composer dock | Dashboard `#main-content` top/bottom reserves |
-| Document detail/source routes | `DocumentViewer` floating composer | `DocumentViewer` content padding |
-| Info/detail pages with no composer | No fixed composer | Idle shell padding only |
+| Page state                          | Composer placement                                                       | Reserve owner                                 |
+| ----------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------- |
+| Answer home / standalone mode homes | In-flow hero composer on phones and larger breakpoints                   | Page content; no fixed phone dock reserve     |
+| Submitted/search-result views       | Compact bottom dock on phones; header/inline placement on larger screens | Shell/dashboard `--mobile-composer-reserve`   |
+| Answer result view                  | Overlaid glass header plus answer composer dock                          | Dashboard `#main-content` top/bottom reserves |
+| Document detail/source routes       | `DocumentViewer` floating composer                                       | `DocumentViewer` content padding              |
+| Info/detail pages with no composer  | No fixed composer                                                        | Idle shell padding only                       |
 
 ## Invariants
 
