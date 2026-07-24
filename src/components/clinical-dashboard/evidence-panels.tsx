@@ -574,7 +574,6 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
     .filter((tab) => tab.count > 0);
 }
 
-
 /**
  * Builds the non-empty clinical detail sections used by the clinical notes view.
  *

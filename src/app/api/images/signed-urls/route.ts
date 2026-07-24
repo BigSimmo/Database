@@ -27,7 +27,10 @@ export async function POST(request: Request) {
     }
 
     if (isDemoMode()) {
-      const urls: Record<string, { url: string; mimeType: string | null; caption: string | null; expiresAt: string; demoMode: true }> = {};
+      const urls: Record<
+        string,
+        { url: string; mimeType: string | null; caption: string | null; expiresAt: string; demoMode: true }
+      > = {};
       for (const id of imageIds) {
         const image = getDemoImage(id);
         if (image) {
@@ -97,7 +100,8 @@ export async function POST(request: Request) {
 
     const signedUrlMap = new Map(signed.data.map((res) => [res.path, res.signedUrl]));
 
-    const urls: Record<string, { url: string; mimeType: string | null; caption: string | null; expiresAt: string }> = {};
+    const urls: Record<string, { url: string; mimeType: string | null; caption: string | null; expiresAt: string }> =
+      {};
     for (const img of validImages) {
       const signedUrl = signedUrlMap.get(img.storage_path);
       if (signedUrl) {
