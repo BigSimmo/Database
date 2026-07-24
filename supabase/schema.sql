@@ -3470,105 +3470,6 @@ $function$;
 revoke execute on function public.purge_expired_rag_query_misses(integer) from public, anon, authenticated;
 grant execute on function public.purge_expired_rag_query_misses(integer) to service_role;
 
-CREATE OR REPLACE FUNCTION public.correct_clinical_query_terms(input_query text, min_sim real DEFAULT 0.45)
- RETURNS text
- LANGUAGE plpgsql
- STABLE SECURITY DEFINER
- SET search_path TO 'public', 'extensions', 'pg_temp'
- SET pg_trgm.similarity_threshold = 0.3
-AS $function$
-declare
-  tokens text[];
-  tok text;
-  best text;
-  best_sim real;
-  vocab text[];
-  corrected text[] := array[]::text[];
-  changed boolean := false;
-begin
-  if min_sim is null or min_sim < 0.3 or min_sim > 1 then
-    raise exception 'min_sim must be between 0.3 and 1.0' using errcode = '22023';
-  end if;
-
-  if input_query is null or length(trim(input_query)) = 0 then
-    return input_query;
-  end if;
-
-  -- Build the known-term vocabulary once per call. Every source is scoped to the
-  -- public (null-owner) corpus: this function is SECURITY DEFINER and bypasses RLS, and
-  -- both rag_aliases and documents carry owner-scoped private rows (deep-memory persists
-  -- owner-scoped aliases/canonicals), so an unscoped read would leak private-document
-  -- terms across tenants. Mirrors migration 20260717120000_corrector_public_titles_only.
-  select array_agg(distinct term) into vocab
-  from (
-    select lower(alias) as term from public.rag_aliases where enabled and owner_id is null and length(alias) between 4 and 40
-    union
-    select lower(canonical) from public.rag_aliases where enabled and owner_id is null and length(canonical) between 4 and 40
-    union
-    select w from public.documents d, lateral unnest(regexp_split_to_array(lower(d.title), '[^a-z]+')) as w
-    where d.status = 'indexed' and d.owner_id is null and length(w) between 4 and 40
-  ) t;
-
-  tokens := regexp_split_to_array(lower(input_query), '\s+');
-  foreach tok in array tokens loop
-    if length(tok) < 4 then
-      corrected := corrected || tok;
-      continue;
-    end if;
-    best := null;
-    best_sim := 0;
-    select candidate.term, similarity(candidate.term, tok)
-      into best, best_sim
-    from (
-      (
-        select lower(alias) as term
-        from public.rag_aliases
-        where enabled
-          and length(alias) between 4 and 40
-          and lower(alias) % tok
-        order by similarity(lower(alias), tok) desc, lower(alias)
-        limit 32
-      )
-      union all
-      (
-        select lower(canonical) as term
-        from public.rag_aliases
-        where enabled
-          and length(canonical) between 4 and 40
-          and lower(canonical) % tok
-        order by similarity(lower(canonical), tok) desc, lower(canonical)
-        limit 32
-      )
-      union all
-      (
-        select word as term
-        from public.document_title_words
-        where length(word) between 4 and 40
-          and word % tok
-        order by similarity(word, tok) desc, word
-        limit 32
-      )
-    ) candidate
-    order by similarity(candidate.term, tok) desc, candidate.term
-    limit 1;
-    if best is not null and best_sim >= min_sim and best <> tok and length(best) >= length(tok) then
-      corrected := corrected || best;
-      changed := true;
-    else
-      corrected := corrected || tok;
-    end if;
-  end loop;
-
-  if not changed then
-    return input_query;
-  end if;
-  return array_to_string(corrected, ' ');
-end;
-$function$;
-
-revoke execute on function public.correct_clinical_query_terms(text, real) from public, anon, authenticated;
-grant execute on function public.correct_clinical_query_terms(text, real) to service_role;
-
 -- NOTE: unlike invoke_indexing_v3_agent (URL moved to a GUC by 20260702160000),
 -- the live definition still hardcodes the project URL. Codified as-is; migrate
 -- to the GUC pattern in a follow-up if this RPC stays.
@@ -6506,23 +6407,25 @@ drop function if exists public.match_document_table_facts_text(text, integer, uu
 
 CREATE OR REPLACE FUNCTION public.match_document_table_facts_text(query_text text, match_count integer DEFAULT 16, document_filters uuid[] DEFAULT NULL::uuid[], owner_filter uuid DEFAULT NULL::uuid)
  RETURNS TABLE(id uuid, document_id uuid, source_chunk_id uuid, source_image_id uuid, page_number integer, table_title text, row_label text, clinical_parameter text, threshold_value text, action text, text_rank double precision, match_reason text)
- LANGUAGE sql
+ LANGUAGE plpgsql
  STABLE
  SET search_path TO 'public', 'extensions', 'pg_temp'
  SET plan_cache_mode TO 'force_custom_plan'
 AS $function$
+begin
+  return query execute $body$
   with query as (
     select
-      websearch_to_tsquery('english', coalesce(query_text, '')) as tsq,
-      lower(trim(regexp_replace(coalesce(query_text, ''), '\\s+', ' ', 'g'))) as normalized,
-      string_to_array(lower(trim(regexp_replace(coalesce(query_text, ''), '\\s+', ' ', 'g'))), ' ')::text[] as tokens
+      websearch_to_tsquery('english', coalesce($1, '')) as tsq,
+      lower(trim(regexp_replace(coalesce($1, ''), '\s+', ' ', 'g'))) as normalized,
+      string_to_array(lower(trim(regexp_replace(coalesce($1, ''), '\s+', ' ', 'g'))), ' ')::text[] as tokens
   ),
   doc_scope as (
     select d.id, d.metadata
     from public.documents d
     where d.status = 'indexed'
-      and public.retrieval_owner_matches(owner_filter, d.owner_id)
-      and (document_filters is null or d.id = any(document_filters))
+      and public.retrieval_owner_matches($4, d.owner_id)
+      and ($3 is null or d.id = any($3))
   ),
   fts_matches as (
     select
@@ -6547,7 +6450,7 @@ AS $function$
     join doc_scope ds on ds.id = f.document_id
     where public.is_committed_artifact_generation(f.metadata, ds.metadata)
     order by ts_rank_cd(f.search_tsv, q.tsq) desc
-    limit greatest(match_count * 5, 64)
+    limit greatest($2 * 5, 64)
   ),
   term_matches as (
     select
@@ -6569,7 +6472,7 @@ AS $function$
      and f.normalized_terms && q.tokens
     join doc_scope ds on ds.id = f.document_id
     where public.is_committed_artifact_generation(f.metadata, ds.metadata)
-    limit greatest(match_count * 4, 48)
+    limit greatest($2 * 4, 48)
   ),
   trgm_matches as (
     select
@@ -6592,7 +6495,7 @@ AS $function$
     where public.is_committed_artifact_generation(f.metadata, ds.metadata)
       and similarity(lower(coalesce(f.table_title, '') || ' ' || coalesce(f.row_label, '') || ' ' || coalesce(f.clinical_parameter, '')), q.normalized) >= 0.18
     order by similarity(lower(coalesce(f.table_title, '') || ' ' || coalesce(f.row_label, '') || ' ' || coalesce(f.clinical_parameter, '')), q.normalized) desc
-    limit greatest(match_count * 4, 48)
+    limit greatest($2 * 4, 48)
   ),
   combined as (
     select * from fts_matches
@@ -6634,7 +6537,10 @@ AS $function$
   from deduped d
   where d.text_rank > 0
   order by d.text_rank desc, d.page_number asc nulls last
-  limit match_count;
+  limit $2
+  $body$
+  using query_text, match_count, document_filters, owner_filter;
+end;
 $function$;
 
 CREATE OR REPLACE FUNCTION public.match_documents_for_query(query_text text, match_count integer DEFAULT 12, owner_filter uuid DEFAULT NULL::uuid)

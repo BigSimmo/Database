@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-23T23:41:25.333Z",
+  "generated_at": "2026-07-24T04:55:40.282Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "b00b143ba74e98525ba17f032245c05a7befff9adbc07c612f0f8de29855bc51",
+  "schema_sha256": "97fefccf03eed86a8576974945ee1e25b70098a95b134d0fc4fbfb7d0edffc5a",
   "replay_seconds": 16,
   "snapshot": {
     "views": [
@@ -8243,5 +8243,6 @@
       }
     ],
     "snapshot_version": 1
-  }
+  },
+  "generator_note": "schema_sha256 refreshed offline after schema.sql edit; full snapshot replay still required via npm run drift:manifest when Docker overlay is available"
 }

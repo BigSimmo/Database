@@ -8,6 +8,7 @@ import {
   checkIngestionMutationSafety,
   ingestionMutationSafetyPayload,
   ingestionRollbackFenceStamp,
+  listDocumentsWithActiveAgentEnrichment,
   type IngestionJobRow,
 } from "@/lib/ingestion-mutation-safety";
 import { consumeApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
@@ -54,6 +55,26 @@ export async function POST(request: Request) {
       staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
     });
     if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
+
+    // Preflight conflict (same all-or-nothing shape as active ingestion jobs):
+    // full/retry rebuilds clash with a live agent enrichment pass. Enrichment
+    // mode is unchanged and uses its own RPC guard.
+    if (parsed.mode !== "enrichment") {
+      const blockedDocumentIds = await listDocumentsWithActiveAgentEnrichment({
+        supabase,
+        documentIds: documents.map((document) => document.id),
+        staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
+      });
+      if (blockedDocumentIds.length > 0) {
+        return NextResponse.json(
+          {
+            error: "Bulk reindex is paused while enrichment is active for one or more selected documents.",
+            blockedDocumentIds,
+          },
+          { status: 409 },
+        );
+      }
+    }
 
     const results: Array<{ documentId: string; mode: string; ok: boolean; jobId?: string; error?: string }> = [];
 
