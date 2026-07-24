@@ -31,6 +31,20 @@ describe("services catalogue", () => {
     expect(record.verification?.confidence).toBe("Medium");
   });
 
+  it("compacts pipe-joined best-use blobs on summary cards", () => {
+    const snapshot = loadServicesSnapshot();
+    const crisisCare = snapshot.services.find((service) => service.canonical_name_key === "crisis-care");
+    expect(crisisCare?.best_use_indication?.includes("|")).toBe(true);
+    expect(crisisCare!.best_use_indication.length).toBeGreaterThan(140);
+
+    const record = catalogToServiceRecord(crisisCare!);
+    const bestUseCard = record.summaryCards?.find((card) => card.id === "best-use");
+    expect(bestUseCard?.title).toBe("After-hours crisis, homelessness, FDV, child-safety concerns");
+    expect(bestUseCard!.title.length).toBeLessThanOrEqual(140);
+    expect(bestUseCard!.title.includes("|")).toBe(false);
+    expect(record.criteria?.some((criterion) => criterion.label === crisisCare!.best_use_indication)).toBe(true);
+  });
+
   it("produces unique slugs and non-empty titles", () => {
     const records = mapCatalogToServiceRecords(loadServicesSnapshot().services);
     const slugs = records.map((record) => record.slug);
