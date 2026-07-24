@@ -62,7 +62,7 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import { type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
+import { isAnswerSourceBacked, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
 import {
   extractSafetyFindings,
@@ -569,6 +569,32 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
 }
 
 /**
+ * Align clinical-notes inputs with the fail-closed render model: when an answer
+ * is not explicitly source-backed, strip structured clinical payloads so the
+ * notes sheet cannot reconstruct actionable monitoring/escalation content from
+ * untrusted `answerSections` / quotes (visual evidence is passed separately).
+ */
+function trustGatedAnswerForClinicalNotes(
+  answer: RagAnswer,
+  visualEvidence: VisualEvidenceCard[] = answer.visualEvidence ?? [],
+): RagAnswer {
+  if (isAnswerSourceBacked(answer)) {
+    return {
+      ...answer,
+      visualEvidence,
+      smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence } : answer.smartPanel,
+    };
+  }
+  return {
+    ...answer,
+    answerSections: [],
+    quoteCards: [],
+    visualEvidence,
+    smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence, quotes: [] } : answer.smartPanel,
+  };
+}
+
+/**
  * Builds the non-empty clinical detail sections used by the clinical notes view.
  *
  * @param answer - The answer from which to derive clinical detail sections.
@@ -592,7 +618,9 @@ function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: Answe
 }
 
 export function clinicalNotesDisplayCountForAnswer(answer: RagAnswer, viewMode: AnswerViewMode, fallback: number) {
-  const tabs = clinicalNotesAvailableTabs(clinicalNotesDetailSectionsForAnswer(answer, viewMode));
+  const tabs = clinicalNotesAvailableTabs(
+    clinicalNotesDetailSectionsForAnswer(trustGatedAnswerForClinicalNotes(answer), viewMode),
+  );
   const largestTabCount = tabs.reduce((largest, tab) => Math.max(largest, tab.count), 0);
   return Math.max(1, largestTabCount || fallback);
 }
@@ -618,11 +646,7 @@ export function ClinicalNotesChecklistPanel({
   onCopy: () => void;
   onOpenTables?: () => void;
 }) {
-  const renderableAnswer: RagAnswer = {
-    ...answer,
-    visualEvidence,
-    smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence } : answer.smartPanel,
-  };
+  const renderableAnswer = trustGatedAnswerForClinicalNotes(answer, visualEvidence);
   const detailSections = clinicalNotesDetailSectionsForAnswer(renderableAnswer, viewMode);
   const tabs = clinicalNotesAvailableTabs(detailSections);
   const defaultTab = tabs.find((tab) => tab.id === "actions")?.id ?? tabs[0]?.id ?? "actions";
@@ -1035,7 +1059,7 @@ export function evidenceTabCount({
 }
 
 export function clinicalNotesCount(answer: RagAnswer) {
-  return buildHighYieldClinicalOutputSections(answer).filter((section) =>
+  return buildHighYieldClinicalOutputSections(trustGatedAnswerForClinicalNotes(answer)).filter((section) =>
     ["action", "escalation", "thresholds", "cautions", "monitoring", "medication", "source-gap"].includes(section.id),
   ).length;
 }

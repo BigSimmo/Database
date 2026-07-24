@@ -211,4 +211,54 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
     expect(screen.queryByText("0.49")).not.toBeInTheDocument();
     expect(screen.queryByText("Withhold")).not.toBeInTheDocument();
   });
+
+  it("does not reconstruct clinical-notes sections from untrusted answerSections", () => {
+    const untrusted: RagAnswer = {
+      ...answer,
+      grounded: true,
+      // Missing relevance.isSourceBacked → fail closed for structured clinical UI.
+      answerSections: [
+        {
+          heading: "Monitoring",
+          body: "Check lithium level every 3 months when stable.",
+          citation_chunk_ids: ["chunk-1"],
+          kind: "monitoring_timing",
+          supportLevel: "direct",
+        },
+        {
+          heading: "Escalation",
+          body: "Escalate for tremor, confusion, or ataxia.",
+          citation_chunk_ids: ["chunk-1"],
+          kind: "escalation_risk",
+          supportLevel: "direct",
+        },
+      ],
+      quoteCards: [
+        {
+          chunk_id: "chunk-1",
+          document_id: "doc-1",
+          title: "Lithium source",
+          file_name: "lithium.pdf",
+          page_number: 1,
+          quote: "Check lithium level every 3 months when stable.",
+        },
+      ],
+    };
+
+    render(
+      <ClinicalNotesChecklistPanel
+        answer={untrusted}
+        visualEvidence={[]}
+        viewMode="standard"
+        evidenceMapRows={[]}
+        bestSource={null}
+        copied={false}
+        onCopy={vi.fn()}
+        onOpenTables={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("Check lithium level every 3 months when stable.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Escalate for tremor, confusion, or ataxia.")).not.toBeInTheDocument();
+  });
 });
