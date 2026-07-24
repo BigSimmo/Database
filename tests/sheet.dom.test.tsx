@@ -98,4 +98,21 @@ describe("Sheet stacked-overlay coordination", () => {
     );
     expect(document.body.style.overflow).toBe("");
   });
+
+  it("cancels focus-restore timers on unmount so coverage teardown cannot throw", async () => {
+    vi.useFakeTimers();
+    const onClose = vi.fn();
+    const { unmount } = render(
+      <Sheet open onClose={onClose} title="Solo" portal>
+        <p>Solo body</p>
+      </Sheet>,
+    );
+
+    // Unmount while open: the open-effect cleanup schedules rAF + 50ms retry,
+    // then the unmount cleanup must cancel both before they can touch `document`.
+    unmount();
+    await vi.runAllTimersAsync();
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
+  });
 });
