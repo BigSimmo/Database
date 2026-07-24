@@ -104,13 +104,14 @@ docker build -f Dockerfile.worker -t clinical-kb-worker .
 
 ## 2. Run recipe — one always-on instance
 
-Run **exactly one always-on worker** co-located in Sydney
-(ap-southeast-2, with the Supabase project). Scale the single instance first
-(`WORKER_BATCH_SIZE` / `WORKER_CONCURRENCY`); add replicas only for sustained
-backlog, and only after confirming p100 job duration stays under
-`WORKER_STALE_AFTER_MINUTES` (45 min) — otherwise two workers can reclaim and
-double-process the same document. See `deployment-architecture.md` §3 for the
-queue-durability reasoning.
+Run **exactly one always-on worker** on Railway in Singapore
+(`asia-southeast1-eqsg3a` in `railway.worker.json`) — the closest available
+Railway region to the Supabase project in Sydney (ap-southeast-2). Scale the
+single instance first (`WORKER_BATCH_SIZE` / `WORKER_CONCURRENCY`); add
+replicas only for sustained backlog, and only after confirming p100 job
+duration stays under `WORKER_STALE_AFTER_MINUTES` (45 min) — otherwise two
+workers can reclaim and double-process the same document. See
+`deployment-architecture.md` §3 for the queue-durability reasoning.
 
 ```bash
 docker run \
