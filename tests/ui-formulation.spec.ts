@@ -70,7 +70,9 @@ test("searches patient language, opens a mechanism guide, and carries it into th
   await page.getByRole("button", { name: "Find matching formulation mechanisms" }).click();
 
   await expect(page).toHaveURL(/\/formulation\?.*q=I(?:\+|%20)keep(?:\+|%20)going(?:\+|%20)over(?:\+|%20)it.*run=1/);
-  await expect(page.getByRole("heading", { name: /Mechanisms matching “I keep going over it”/ })).toBeVisible();
+  const queryRibbon = page.getByTestId("search-query-ribbon");
+  await expect(queryRibbon.getByRole("heading", { level: 1, name: "I keep going over it" })).toBeVisible();
+  await expect(queryRibbon.getByRole("group", { name: "Filter formulation mechanisms" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Rumination", exact: true })).toBeVisible();
   await expect(page.getByText("Source status", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Source", { exact: true })).toHaveCount(0);
@@ -94,7 +96,9 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
   await page.setViewportSize({ width: 390, height: 844 });
   await gotoApp(page, "/formulation?q=What+if+something+goes+wrong&run=1");
 
-  await expect(page.getByRole("heading", { name: /Mechanisms matching “What if something goes wrong”/ })).toBeVisible();
+  const queryRibbon = page.getByTestId("search-query-ribbon");
+  await expect(queryRibbon.getByRole("heading", { level: 1, name: "What if something goes wrong" })).toBeVisible();
+  await expect(queryRibbon.getByRole("group", { name: "Filter formulation mechanisms" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Worry", exact: true })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "Filter by formulation domain" })).toBeVisible();
   await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();

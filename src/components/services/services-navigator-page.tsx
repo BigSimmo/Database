@@ -42,6 +42,14 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import { useResultSort } from "@/components/use-result-sort";
 
 const defaultQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
+const serviceQuickFilters = [
+  { label: "Best fit", query: defaultQuery },
+  { label: "Crisis", query: "crisis" },
+  { label: "Culturally safe", query: "Aboriginal Torres Strait Islander" },
+  { label: "Phone referral", query: "phone referral" },
+  { label: "Free", query: "free" },
+  { label: "WA", query: "WA" },
+];
 
 function text(value: string | null | undefined, fallback = "Confirm locally") {
   return value?.trim() ? value.trim() : fallback;
@@ -611,6 +619,41 @@ export function ServicesNavigatorPage() {
             loading={registryLoading}
             sortValue={sortValue}
             onSortChange={setSortValue}
+            filterLabel="Quick service filters"
+            filterControls={
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="hidden shrink-0 items-center gap-1.5 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-soft)] sm:inline-flex">
+                  <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+                  Quick filters
+                </span>
+                <div className="polished-scroll flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
+                  {serviceQuickFilters.map((filter) => (
+                    <button
+                      key={filter.label}
+                      type="button"
+                      onClick={() => applyServiceQuery(filter.query)}
+                      aria-pressed={query.trim().toLowerCase() === filter.query.toLowerCase()}
+                      className={cn(
+                        "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-2.5 text-2xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9 sm:text-xs",
+                        query.trim().toLowerCase() === filter.query.toLowerCase()
+                          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                      )}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLocalQuery({ urlQuery, value: "" })}
+                  aria-label="Clear quick filters"
+                  className="inline-flex min-h-tap shrink-0 items-center rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-9"
+                >
+                  Clear
+                </button>
+              </div>
+            }
           />
         </>
       }
@@ -672,56 +715,6 @@ export function ServicesNavigatorPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  className="inline-flex min-h-10 w-10 cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm font-bold text-[color:var(--text-muted)] opacity-75 shadow-[var(--shadow-tight)] sm:min-h-tap sm:w-auto sm:px-4"
-                  type="button"
-                  aria-label="Advanced service filters"
-                  aria-describedby="services-filters-unavailable"
-                  disabled
-                  title="Advanced service filters — coming soon"
-                >
-                  <SlidersHorizontal className="h-4 w-4" aria-hidden />
-                  <span className="hidden sm:inline">Filters</span>
-                </button>
-                <span id="services-filters-unavailable" className="sr-only">
-                  Advanced service filters are coming soon. Use the quick filters below for now.
-                </span>
-              </div>
-            </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 sm:px-4">
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 overflow-hidden">
-                {[
-                  { label: "Best fit", query: defaultQuery },
-                  { label: "Crisis", query: "crisis" },
-                  { label: "Culturally safe", query: "Aboriginal Torres Strait Islander" },
-                  { label: "Phone referral", query: "phone referral" },
-                  { label: "Free", query: "free" },
-                  { label: "WA", query: "WA" },
-                ].map((chip, index) => (
-                  <button
-                    key={chip.label}
-                    type="button"
-                    onClick={() => applyServiceQuery(chip.query)}
-                    className={cn(
-                      "min-h-8 rounded-full border px-3 text-xs font-bold transition hover:-translate-y-px hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                      index > 2 ? "max-sm:hidden" : "",
-                      index === 0
-                        ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-                        : "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)]",
-                    )}
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setLocalQuery({ urlQuery, value: "" })}
-                className="min-h-8 shrink-0 rounded-full px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent-hover)] max-sm:hidden"
-              >
-                Clear all
-              </button>
             </div>
           </div>
           <div data-testid="service-search-results" className="grid gap-3">

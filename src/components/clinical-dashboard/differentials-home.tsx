@@ -907,6 +907,16 @@ function SearchResultsView({
         loading={loading || catalogLoading}
         sortValue={sortValue}
         onSortChange={setSortValue}
+        filterLabel="Filter differential result type"
+        filterControls={
+          <ResultTypeTabs
+            activeFilter={kindFilter}
+            onFilterChange={setKindFilter}
+            allCount={results.length}
+            presentationCount={presentationCount}
+            diagnosisCount={diagnosisCount}
+          />
+        }
       />
       <p
         data-testid="differentials-catalogue-notice"
@@ -1036,13 +1046,6 @@ function SearchResultsView({
                   </span>
                 </p>
               ) : null}
-              <ResultTypeTabs
-                activeFilter={kindFilter}
-                onFilterChange={setKindFilter}
-                allCount={results.length}
-                presentationCount={presentationCount}
-                diagnosisCount={diagnosisCount}
-              />
               <div className="flex items-center justify-between gap-2 text-sm font-medium text-[color:var(--text-muted)]">
                 <span className="min-w-0 truncate">
                   <strong className="text-[color:var(--text-heading)]">
