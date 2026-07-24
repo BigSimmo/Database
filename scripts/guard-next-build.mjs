@@ -1,10 +1,24 @@
 #!/usr/bin/env node
 import http from "node:http";
 import path from "node:path";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { appName, localProjectId, projectPortEnd, stableProjectPort } from "../src/lib/local-server-utils.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+const totalRamBytes = os.totalmem();
+const tenGiB = 10 * 1024 * 1024 * 1024;
+if (totalRamBytes < tenGiB) {
+  console.error(
+    [
+      `Host system has less than 10 GiB of total RAM (${(totalRamBytes / 1024 / 1024 / 1024).toFixed(1)} GiB).`,
+      "Building Next.js locally requires an 8 GiB Node heap. Your system may crash or OOM during the build.",
+      "If you are using Docker Desktop, increase the memory limit in settings.",
+    ].join("\n"),
+  );
+  process.exit(1);
+}
 const expectedProjectId = localProjectId(projectRoot);
 const identityPath = "/api/local-project-id";
 const timeoutMs = 350;
