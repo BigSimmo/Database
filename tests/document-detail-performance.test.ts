@@ -34,7 +34,8 @@ describe("document detail loading contract", () => {
     expect(loader).toContain("summaryRequest");
     expect(loader).toContain("selectedImageIds(selectedChunk)");
     expect(loader).toContain("imagesRequest.or(imageWindowFilter");
-    expect(loader).toContain("and(image_type.neq.logo_decorative,or(searchable.eq.true,source_kind.eq.table_crop)");
+    expect(loader).toContain("metadata->>retained_for_document_view.eq.true");
+    expect(loader).toContain("and(image_type.neq.logo_decorative,or(${viewableImageFilter})");
     expect(loader).toContain("id.in.(${imageIds.join");
     expect(loader).toContain("tableFactsRequest.or(tableFactWindowFilter");
     expect(loader).toContain("page_number.is.null");
