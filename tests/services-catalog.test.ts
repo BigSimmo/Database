@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { compactBestUseTitle } from "@/lib/compact-best-use-title";
 import { catalogToServiceRecord, mapCatalogToServiceRecords } from "@/lib/service-catalog-mapper";
 import { loadServicesSnapshot, normalizeCatalogServices } from "@/lib/service-catalog";
 import {
@@ -29,6 +30,45 @@ describe("services catalogue", () => {
     expect(record.title).toBe("13YARN");
     expect(record.primaryContact?.value).toContain("13 92 76");
     expect(record.verification?.confidence).toBe("Medium");
+  });
+
+  it("compacts pipe-joined best-use blobs on summary cards", () => {
+    const snapshot = loadServicesSnapshot();
+    const crisisCare = snapshot.services.find((service) => service.canonical_name_key === "crisis-care");
+    expect(crisisCare?.best_use_indication?.includes("|")).toBe(true);
+    expect(crisisCare!.best_use_indication.length).toBeGreaterThan(140);
+
+    const record = catalogToServiceRecord(crisisCare!);
+    const bestUseCard = record.summaryCards?.find((card) => card.id === "best-use");
+    expect(bestUseCard?.title).toBe("After-hours crisis, homelessness, FDV, child-safety concerns");
+    expect(bestUseCard?.title?.length).toBeLessThanOrEqual(140);
+    expect(record.criteria?.some((criterion) => criterion.label === crisisCare!.best_use_indication)).toBe(true);
+  });
+
+  it("compacts raw best-use fallbacks for stale seeded summary cards", () => {
+    const snapshot = loadServicesSnapshot();
+    const crisisCare = snapshot.services.find((service) => service.canonical_name_key === "crisis-care");
+    expect(crisisCare).toBeTruthy();
+
+    const compacted = compactBestUseTitle(crisisCare!.best_use_indication);
+    expect(compacted).toBe("After-hours crisis, homelessness, FDV, child-safety concerns");
+    expect(compacted.includes("|")).toBe(false);
+    expect(compacted.length).toBeLessThanOrEqual(140);
+  });
+
+  it("compacts pipe-joined patient-group blobs in best-use card detail", () => {
+    const snapshot = loadServicesSnapshot();
+    const communitySru = snapshot.services.find(
+      (service) => service.canonical_name_key === "community-supported-residential-units",
+    );
+    expect(communitySru?.patient_group?.includes("|")).toBe(true);
+    expect(communitySru!.patient_group.length).toBeGreaterThan(140);
+
+    const record = catalogToServiceRecord(communitySru!);
+    const bestUseCard = record.summaryCards?.find((card) => card.id === "best-use");
+    expect(bestUseCard?.detail).toBeTruthy();
+    expect(bestUseCard!.detail!.length).toBeLessThanOrEqual(140);
+    expect(bestUseCard!.detail).not.toContain("|");
   });
 
   it("produces unique slugs and non-empty titles", () => {
