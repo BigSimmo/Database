@@ -263,4 +263,53 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
     expect(screen.queryByText("Check lithium level every 3 months when stable.")).not.toBeInTheDocument();
     expect(screen.queryByText("Escalate for tremor, confusion, or ataxia.")).not.toBeInTheDocument();
   });
+
+  it("does not render comparison tables from untrusted documentBreakdown", () => {
+    const comparisonAnswer: RagAnswer = {
+      ...answer,
+      grounded: true,
+      responseMode: "comparison_matrix",
+      queryClass: "comparison",
+      documentBreakdown: [
+        {
+          document_id: "doc-a",
+          title: "Guideline A",
+          file_name: "a.pdf",
+          top_similarity: 0.9,
+          source_strength: "strong",
+          source_count: 1,
+          quote_count: 1,
+          pages: [1],
+          best_quote: "Guideline A prefers weekly lithium monitoring when unstable.",
+        },
+        {
+          document_id: "doc-b",
+          title: "Guideline B",
+          file_name: "b.pdf",
+          top_similarity: 0.8,
+          source_strength: "moderate",
+          source_count: 1,
+          quote_count: 1,
+          pages: [2],
+          best_quote: "Guideline B prefers monthly lithium monitoring when stable.",
+        },
+      ],
+    };
+
+    render(
+      <ClinicalNotesChecklistPanel
+        answer={comparisonAnswer}
+        visualEvidence={[]}
+        viewMode="standard"
+        evidenceMapRows={[]}
+        bestSource={null}
+        copied={false}
+        onCopy={vi.fn()}
+        onOpenTables={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("Guideline A prefers weekly lithium monitoring when unstable.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Guideline B prefers monthly lithium monitoring when stable.")).not.toBeInTheDocument();
+  });
 });

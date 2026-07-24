@@ -571,8 +571,9 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
 /**
  * Align clinical-notes inputs with the fail-closed render model: when an answer
  * is not explicitly source-backed, strip structured clinical payloads so the
- * notes sheet cannot reconstruct actionable monitoring/escalation content from
- * untrusted `answerSections` / quotes (visual evidence is passed separately).
+ * notes sheet cannot reconstruct actionable monitoring/escalation/comparison
+ * content from untrusted sections, quotes, or documentBreakdown (visual
+ * evidence is passed separately).
  */
 function trustGatedAnswerForClinicalNotes(
   answer: RagAnswer,
@@ -589,6 +590,9 @@ function trustGatedAnswerForClinicalNotes(
     ...answer,
     answerSections: [],
     quoteCards: [],
+    documentBreakdown: [],
+    comparisonMatrix: undefined,
+    comparisonEvaluationState: undefined,
     visualEvidence,
     smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence, quotes: [] } : answer.smartPanel,
   };
