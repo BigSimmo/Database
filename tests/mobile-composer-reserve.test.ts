@@ -107,6 +107,7 @@ describe("mobile composer reserve contract", () => {
     // setup/error message.
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
+    expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
     expect(dashboard).toContain("const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId);");
     expect(dashboard).not.toContain("const heroOwnsPhoneComposer = showDesktopHomeComposer || showAnswerHome;");
     expect(header).toContain(

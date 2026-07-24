@@ -3092,7 +3092,7 @@ export function ClinicalDashboard({
   const showDesktopHomeComposer =
     !error &&
     (activeModeResultKind === "tools" ||
-      activeModeResultKind === "favourites" ||
+      (activeModeResultKind === "favourites" && favouritesAccessible) ||
       (!loading &&
         (showAnswerHome ||
           (searchMode === "documents" &&
