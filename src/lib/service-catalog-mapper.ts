@@ -23,8 +23,8 @@ function cleanField(value: string | undefined | null) {
   return value?.trim() || undefined;
 }
 
-/** Compact pipe/newline-joined catalog blobs for quick-fact card titles. */
-function compactBestUseTitle(text: string, maxLength = 140): string {
+/** Compact pipe/newline-joined catalog blobs for quick-fact card titles/details. */
+export function compactBestUseTitle(text: string, maxLength = 140): string {
   const parts = splitReferralLines(text);
   const unique: string[] = [];
   for (const part of parts) {
@@ -190,14 +190,14 @@ function buildSummaryCards(service: CatalogService): ServiceSummaryCard[] {
   const bestUse = cleanField(service.best_use_indication) ?? cleanField(service.discharge_planning_usefulness);
   if (bestUse) {
     const title = compactBestUseTitle(bestUse);
+    const patientGroup = cleanField(service.patient_group);
+    const sectionDetail = cleanField(service.sections[0]);
+    const detailSource = patientGroup ?? sectionDetail ?? (title === bestUse ? undefined : bestUse);
     cards.push({
       id: "best-use",
       label: "Best use",
       title,
-      detail:
-        cleanField(service.patient_group) ??
-        cleanField(service.sections[0]) ??
-        (title === bestUse ? "Clinical fit and referral priority" : bestUse),
+      detail: detailSource ? compactBestUseTitle(detailSource) : "Clinical fit and referral priority",
     });
   }
 

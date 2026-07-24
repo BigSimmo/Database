@@ -42,6 +42,7 @@ import {
 } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
+import { compactBestUseTitle } from "@/lib/service-catalog-mapper";
 import {
   serviceNavigatorQuery,
   type ServiceContact,
@@ -442,7 +443,9 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     summaryCardById.get("best-use") ?? {
       id: "best-use",
       label: "Best use",
-      title: displayText(service.bestUse, "Assess service fit"),
+      title: hasText(service.bestUse)
+        ? compactBestUseTitle(service.bestUse)
+        : "Assess service fit",
       detail: "Clinical fit and referral priority",
     },
     summaryCardById.get("eligibility") ?? {
