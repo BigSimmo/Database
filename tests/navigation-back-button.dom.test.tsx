@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { NavigationBackButton } from "@/components/navigation-back-button";
+import { PrivacyPageBackButton } from "@/components/privacy-page-back-button";
 import ColourCodingReferencePage from "@/app/reference/colour-coding/page";
 import { appModeHomeHref } from "@/lib/app-modes";
 
@@ -9,14 +10,17 @@ const router = vi.hoisted(() => ({
   back: vi.fn(),
   push: vi.fn(),
 }));
+const currentSearchParams = vi.hoisted(() => ({ value: new URLSearchParams() }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
+  useSearchParams: () => currentSearchParams.value,
 }));
 
 beforeEach(() => {
   router.back.mockReset();
   router.push.mockReset();
+  currentSearchParams.value = new URLSearchParams();
 });
 
 describe("NavigationBackButton", () => {
@@ -49,5 +53,25 @@ describe("NavigationBackButton", () => {
 
     expect(router.push).toHaveBeenCalledOnce();
     expect(router.push).toHaveBeenCalledWith(appModeHomeHref("tools"));
+  });
+
+  it("returns privacy readers to their allowlisted source mode", () => {
+    currentSearchParams.value = new URLSearchParams("from=documents");
+
+    render(<PrivacyPageBackButton />);
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+
+    expect(router.push).toHaveBeenCalledOnce();
+    expect(router.push).toHaveBeenCalledWith(appModeHomeHref("documents"));
+  });
+
+  it("fails closed to the default home for an invalid privacy source", () => {
+    currentSearchParams.value = new URLSearchParams("from=https://example.com");
+
+    render(<PrivacyPageBackButton />);
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+
+    expect(router.push).toHaveBeenCalledOnce();
+    expect(router.push).toHaveBeenCalledWith("/");
   });
 });
