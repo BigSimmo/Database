@@ -2187,6 +2187,53 @@ test.describe("Responsive layout guards", () => {
     expect(resultBox!.y + resultBox!.height).toBeLessThanOrEqual(dockBox!.y + 2);
   });
 
+  test("safety-plan working content stays local until an explicit export", async ({ page }) => {
+    const appRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.resourceType() === "fetch" || request.resourceType() === "xhr") appRequests.push(request.url());
+    });
+
+    await page.goto("/safety-plan");
+    await expect(page.getByLabel(/Patient \(name or initials\)/i)).toHaveCount(0);
+    await expect(page.getByText(/kept only in this browser tab/i)).toBeVisible();
+    await expect(
+      page.getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i),
+    ).toBeVisible();
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & { __copiedPlan?: string; __printCalled?: boolean };
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (value: string) => {
+            testWindow.__copiedPlan = value;
+          },
+        },
+      });
+      window.print = () => {
+        testWindow.__printCalled = true;
+      };
+    });
+    appRequests.length = 0;
+
+    await page.getByLabel("e.g. Not sleeping for a couple of nights").fill("Not sleeping");
+    await page.getByRole("button", { name: "Add" }).first().click();
+    await page.getByRole("button", { name: "Copy" }).click();
+
+    await expect
+      .poll(() => page.evaluate(() => (window as typeof window & { __copiedPlan?: string }).__copiedPlan))
+      .toContain("Not sleeping");
+    expect(await page.evaluate(() => (window as typeof window & { __copiedPlan?: string }).__copiedPlan)).not.toMatch(
+      /^For:/m,
+    );
+
+    await page.getByRole("button", { name: "Print / PDF" }).click();
+    await expect
+      .poll(() => page.evaluate(() => (window as typeof window & { __printCalled?: boolean }).__printCalled))
+      .toBe(true);
+    expect(appRequests).toEqual([]);
+  });
+
   test("differentials recent work remains touch-sized inside its mobile scroll row", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 760 });
     await mockAnswerDashboardApi(page);

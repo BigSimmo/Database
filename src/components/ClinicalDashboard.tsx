@@ -206,7 +206,7 @@ import {
   maxStoredAnswerTurns,
   savePersistedAnswerThread,
 } from "@/lib/answer-thread-storage";
-import { buildAnswerRenderModel } from "@/lib/answer-render-policy";
+import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
 import {
   frontendSourceGovernanceWarnings,
   groupSourceGovernanceWarnings,
@@ -2907,7 +2907,7 @@ export function ClinicalDashboard({
   const answerGrounded =
     answer?.grounded === true &&
     answer.confidence !== "unsupported" &&
-    currentRelevance?.isSourceBacked !== false &&
+    isAnswerSourceBacked(answer) &&
     answerRenderModel?.trust !== "unsupported";
   const sourceLookup = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
   const answerPreformatted = isPreformattedGroundedAnswer(answer);
@@ -3114,7 +3114,7 @@ export function ClinicalDashboard({
     ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
-  // Hidden dock pad must stay at 0.75rem — Safari toolbar safe-area recreates a blank band.
+  // Hidden dock pad must stay at 0rem — Safari toolbar safe-area recreates a blank band.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
     resolveDashboardVisibleMobileComposerReserve({
