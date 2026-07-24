@@ -406,10 +406,11 @@ function MedicationResults({
   "query" | "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning"
 >) {
   const command = useSearchCommand();
-  // Ranking only needs identity fields; `fields=index` keeps keystroke fetches ~100KB
-  // instead of the full ~2.5MB catalogue. Patient alerts that need section rows still
-  // run on the medication detail page (full record).
-  const catalog = useMedicationCatalog(query, { fields: "index" });
+  // Debounced + aborted fetches (see useMedicationCatalog) stop keystroke storms.
+  // Keep the full catalogue payload here: Safety/Monitoring chips and patient
+  // alerts need sections/stats/quick that `fields=index` strips. Cross-mode
+  // identity consumers still use `fields=index`.
+  const catalog = useMedicationCatalog(query);
   const { profile, isEmpty: profileEmpty } = usePatientProfile();
   const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");
   const { rows, counts, totalAvailable } = useMemo(() => {
