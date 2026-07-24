@@ -72,8 +72,10 @@ vs schema.sql (buckets, two triggers, a handful of indexes — item 10 in
    plus `OPENAI_API_KEY` and service-role env. After a _data_ restore, point
    `.env.local` at the restored project (update `NEXT_PUBLIC_SUPABASE_URL`,
    `SUPABASE_PROJECT_REF`, keys), run `npm run check:supabase-project`, then
-   `npm run eval:retrieval:quality` and require the 23/23 pass before serving
-   traffic. This is the acceptance test for a real recovery.
+   `npm run eval:retrieval:quality` and require the current golden set to pass
+   (**36/36** as of 2026-07; see the PR template and
+   `docs/rag-behaviour/safeguards.md`) before serving traffic. This is the
+   acceptance test for a real recovery.
 
 ## What did NOT survive the schema restore (verified)
 

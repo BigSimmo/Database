@@ -4541,6 +4541,56 @@ describe("private document API access", () => {
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
+  it("rejects document summary mode on the non-streaming answer endpoint", async () => {
+    const answerQuestionWithScope = vi.fn();
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          summaryMode: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await payload(response)).toMatchObject({
+      code: "summary_mode_stream_required",
+      error: "Document summaries require the streaming answer endpoint.",
+    });
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects document summary mode when documentIds selects a different document", async () => {
+    const summarizeDocument = vi.fn();
+    const client = createSupabaseMock();
+    mockRuntime(client, { summarizeDocument });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          documentIds: [otherDocumentId],
+          summaryMode: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await payload(response)).toMatchObject({ code: "invalid_body" });
+    expect(summarizeDocument).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+
   it("rate limits streamed document summaries before provider work", async () => {
     const summarizeDocument = vi.fn(async () => ({
       answer: "Expensive streamed summary.",
