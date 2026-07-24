@@ -3400,10 +3400,10 @@ export function ClinicalDashboard({
             differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
-          // Only the answer home ("How can I help?") keeps the in-flow hero
-          // pill + privacy notice on phones; every other mode home docks the
-          // compact pill to the bottom edge below sm.
-          heroComposerBreakpoint={showAnswerHome ? "all" : "sm-up"}
+          // Mode homes keep the composer in the centred hero slot at every
+          // breakpoint so documents, therapy, and the other homes share the
+          // same phone/tablet structure instead of switching to a bottom dock.
+          heroComposerBreakpoint={showDesktopHomeComposer || showAnswerHome ? "all" : "sm-up"}
           // Answer view: the header overlays the scrolling <main> at every width
           // (main reserves matching top padding) so content frosts under the
           // glass bar, and it slides away/returns with scroll direction. Other
