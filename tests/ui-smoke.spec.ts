@@ -1103,14 +1103,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { name: "Services", href: "/services" },
       // The rail speaks the catalogue-maturity badge as part of the Forms name.
       { name: "Forms (Early access)", href: "/forms" },
+      { name: "Tools", href: "/?mode=tools" },
+      { name: "Therapy mode", href: "/therapy-compass" },
       // Demo mode still exposes Favourites via the account-library rail entry.
       { name: "Favourites", href: "/favourites" },
-      { name: "Differentials", href: "/differentials" },
-      { name: "Medication", href: "/?mode=prescribing" },
-      { name: "Tools", href: "/?mode=tools" },
     ] as const) {
       await expect(page.getByRole("link", { name: tool.name, exact: true })).toHaveAttribute("href", tool.href);
     }
+    // Specialist catalogues stay out of the persistent rail (MODE picker / Tools hub).
+    await expect(page.getByRole("link", { name: "Differentials", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Medication", exact: true })).toHaveCount(0);
 
     await expectNoPageHorizontalOverflow(page);
   });
@@ -1123,7 +1125,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { path: "/?mode=answer", label: "Answer" },
       { path: "/?mode=documents", label: "Documents" },
       { path: "/favourites", label: "Favourites" },
-      { path: "/?mode=prescribing", label: "Medication" },
+      { path: "/?mode=tools", label: "Tools" },
+      { path: "/therapy-compass", label: "Therapy mode" },
     ] as const) {
       await gotoApp(page, route.path);
       if (route.path.includes("mode=answer")) {
