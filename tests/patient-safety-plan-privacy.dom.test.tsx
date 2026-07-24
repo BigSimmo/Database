@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PatientSafetyPlan } from "@/components/patient-safety-plan";
+import { appModeHomeHref } from "@/lib/app-modes";
 
 const router = vi.hoisted(() => ({
   back: vi.fn(),
@@ -83,7 +84,7 @@ describe("PatientSafetyPlan privacy contract", () => {
     fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 
     expect(router.push).toHaveBeenCalledOnce();
-    expect(router.push).toHaveBeenCalledWith("/");
+    expect(router.push).toHaveBeenCalledWith(appModeHomeHref("tools"));
   });
 
   it("confirms before leaving unadded safety-plan step text", () => {
@@ -134,6 +135,6 @@ describe("PatientSafetyPlan privacy contract", () => {
 
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(router.push).toHaveBeenCalledOnce();
-    expect(router.push).toHaveBeenCalledWith("/");
+    expect(router.push).toHaveBeenCalledWith(appModeHomeHref("tools"));
   });
 });

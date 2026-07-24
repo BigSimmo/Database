@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { NavigationBackButton } from "@/components/navigation-back-button";
+import ColourCodingReferencePage from "@/app/reference/colour-coding/page";
+import { appModeHomeHref } from "@/lib/app-modes";
 
 const router = vi.hoisted(() => ({
   back: vi.fn(),
@@ -39,5 +41,13 @@ describe("NavigationBackButton", () => {
 
     expect(onBeforeNavigate).toHaveBeenCalledOnce();
     expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("returns the colour-coding reference to the canonical Tools home", () => {
+    render(<ColourCodingReferencePage />);
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+
+    expect(router.push).toHaveBeenCalledOnce();
+    expect(router.push).toHaveBeenCalledWith(appModeHomeHref("tools"));
   });
 });

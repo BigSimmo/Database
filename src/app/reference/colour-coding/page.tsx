@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { ClinicalBadge } from "@/components/clinical-dashboard/clinical-badge";
 import { NavigationBackButton } from "@/components/navigation-back-button";
+import { appModeHomeHref } from "@/lib/app-modes";
 import {
   cn,
   eyebrowText,
@@ -43,7 +44,7 @@ export default function ColourCodingReferencePage() {
       <div className={cn(searchPageShell)}>
         <div className={cn(searchPageContainer, "space-y-6")}>
           <header className="space-y-3">
-            <NavigationBackButton fallbackHref="/" />
+            <NavigationBackButton fallbackHref={appModeHomeHref("tools")} />
             <div className="space-y-2">
               <p className={eyebrowText}>Reference</p>
               <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--text-heading)] sm:text-3xl">

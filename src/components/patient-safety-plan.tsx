@@ -24,6 +24,7 @@ import {
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { NavigationBackButton } from "@/components/navigation-back-button";
+import { appModeHomeHref } from "@/lib/app-modes";
 import {
   cn,
   clinicalDivider,
@@ -562,7 +563,7 @@ export function PatientSafetyPlan() {
           <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-3">
             <NavigationBackButton
               className="size-tap"
-              fallbackHref="/"
+              fallbackHref={appModeHomeHref("tools")}
               onBeforeNavigate={() => {
                 if (!isDirty) return true;
                 return window.confirm(
