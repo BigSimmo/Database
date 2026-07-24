@@ -450,6 +450,13 @@ export function PatientSafetyPlan() {
 
   const filledSteps = useMemo(() => STEPS.filter((step) => entries[step.key].length > 0).length, [entries]);
   const ready = filledSteps === STEPS.length;
+  // Working plan content is browser-tab only and never persisted. Treat any
+  // entered step/reason/date as dirty so the header back control cannot discard
+  // an in-progress plan without an explicit confirmation.
+  const isDirty = useMemo(
+    () => Object.values(entries).some((rows) => rows.length > 0) || reasons.length > 0 || planDate.trim() !== "",
+    [entries, planDate, reasons],
+  );
 
   const planText = useMemo(() => {
     const lines: string[] = [
@@ -523,7 +530,16 @@ export function PatientSafetyPlan() {
       <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-8">
           <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-3">
-            <NavigationBackButton className="size-tap" fallbackHref="/" />
+            <NavigationBackButton
+              className="size-tap"
+              fallbackHref="/"
+              onBeforeNavigate={() => {
+                if (!isDirty) return true;
+                return window.confirm(
+                  "Leave this safety plan? Your entries are only in this browser tab and will be lost.",
+                );
+              }}
+            />
             <span className="grid size-tap shrink-0 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <ShieldCheck className="size-icon-lg" aria-hidden="true" />
             </span>

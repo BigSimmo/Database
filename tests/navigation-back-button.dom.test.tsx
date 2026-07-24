@@ -30,4 +30,14 @@ describe("NavigationBackButton", () => {
     expect(router.push).toHaveBeenCalledWith("/");
     expect(router.back).not.toHaveBeenCalled();
   });
+
+  it("cancels navigation when onBeforeNavigate returns false", () => {
+    const onBeforeNavigate = vi.fn(() => false);
+
+    render(<NavigationBackButton fallbackHref="/" onBeforeNavigate={onBeforeNavigate} />);
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+
+    expect(onBeforeNavigate).toHaveBeenCalledOnce();
+    expect(router.push).not.toHaveBeenCalled();
+  });
 });
