@@ -94,6 +94,21 @@ describe("buildDocumentClinicalSummaryModel", () => {
     expect(model.priorities.find((priority) => priority.title === "Timing and monitoring")?.page).toBeNull();
   });
 
+  it("ignores malformed persisted profile groups and items", () => {
+    const malformed = profile({
+      thresholds_timing: { text: "not an array" },
+      medication_dose_monitoring: [null, "invalid", { support: "direct" }],
+      escalation_risk_warnings: [null, item("Escalate valid safety concerns.", [7])],
+    } as unknown as Partial<ClinicalDocumentSummaryProfile>);
+
+    const model = buildDocumentClinicalSummaryModel(documentWithProfile(malformed));
+
+    expect(model.priorities.map((priority) => priority.text)).toEqual([
+      "Escalate valid safety concerns.",
+      "Check renal, thyroid and calcium status before treatment.",
+    ]);
+  });
+
   it("does not surface generic source-review copy as the high-yield summary", () => {
     const model = buildDocumentClinicalSummaryModel(
       documentWithProfile(profile({ overview: "Source-backed review of the indexed document." })),

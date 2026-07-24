@@ -93,6 +93,14 @@ function firstRenderableItem(items: DocumentSummaryProfileItem[], usedText: Set<
   });
 }
 
+function profileItems(value: unknown): DocumentSummaryProfileItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is DocumentSummaryProfileItem =>
+      typeof item === "object" && item !== null && typeof (item as { text?: unknown }).text === "string",
+  );
+}
+
 function profilePriorityCandidates(profile: ClinicalDocumentSummaryProfile): PriorityCandidate[] {
   return [
     {
@@ -100,14 +108,14 @@ function profilePriorityCandidates(profile: ClinicalDocumentSummaryProfile): Pri
       title: "Escalation and safety",
       label: "Critical safety",
       tone: "safety",
-      items: profile.escalation_risk_warnings ?? [],
+      items: profileItems(profile.escalation_risk_warnings),
     },
     {
       id: "monitoring",
       title: "Timing and monitoring",
       label: "Monitoring",
       tone: "monitoring",
-      items: [...(profile.thresholds_timing ?? []), ...(profile.medication_dose_monitoring ?? [])],
+      items: [...profileItems(profile.thresholds_timing), ...profileItems(profile.medication_dose_monitoring)],
     },
     {
       id: "action",
@@ -115,9 +123,9 @@ function profilePriorityCandidates(profile: ClinicalDocumentSummaryProfile): Pri
       label: "Clinical action",
       tone: "action",
       items: [
-        ...(profile.key_clinical_actions ?? []),
-        ...(profile.required_forms_documentation ?? []),
-        ...(profile.applies_to ?? []),
+        ...profileItems(profile.key_clinical_actions),
+        ...profileItems(profile.required_forms_documentation),
+        ...profileItems(profile.applies_to),
       ],
     },
   ];
