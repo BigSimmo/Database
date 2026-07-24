@@ -268,7 +268,7 @@ export function SettingsDialog({
       onClick={onClose}
       className={cn(
         floatingControl,
-        "rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] lg:border-transparent lg:bg-transparent lg:shadow-none",
+        "rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] lg:hidden",
       )}
       iconClassName="size-icon-lg"
     />

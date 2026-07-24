@@ -113,8 +113,8 @@ describe("Sheet stacked-overlay coordination", () => {
     // Unmount while open: no restore callback should be scheduled after the
     // mount cleanup has started tearing down the component.
     unmount();
-    expect(restoreFrameSpy).not.toHaveBeenCalled();
     await vi.runAllTimersAsync();
+    expect(restoreFrameSpy).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
     vi.useRealTimers();
   });

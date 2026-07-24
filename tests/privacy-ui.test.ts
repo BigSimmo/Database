@@ -6,6 +6,7 @@ import PrivacyPage from "@/app/privacy/page";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 
 vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(),
   useRouter: () => ({
     back: vi.fn(),
     push: vi.fn(),
