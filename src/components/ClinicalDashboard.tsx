@@ -46,6 +46,7 @@ import {
   EmptyState,
   floatingControl,
   InlineNotice,
+  LoadingPanel,
   primaryControl,
   textMuted,
 } from "@/components/ui-primitives";
@@ -117,22 +118,22 @@ import {
 } from "@/components/clinical-dashboard/dashboard-contracts";
 const DifferentialsHome = dynamic(
   () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
-  { ssr: false },
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" label="Loading differentials..." /> },
 );
 const FavouritesHub = dynamic(
   () => import("@/components/clinical-dashboard/favourites-hub").then((m) => m.FavouritesHub),
-  { ssr: false },
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" label="Loading favourites..." /> },
 );
 const MedicationPrescribingWorkspace = dynamic(
   () =>
     import("@/components/clinical-dashboard/medication-prescribing-workspace").then(
       (m) => m.MedicationPrescribingWorkspace,
     ),
-  { ssr: false },
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" label="Loading workspace..." /> },
 );
 const DocumentDrawer = dynamic(
   () => import("@/components/clinical-dashboard/document-admin").then((m) => m.DocumentDrawer),
-  { ssr: false },
+  { ssr: false, loading: () => null },
 );
 
 // Results surfaces load lazily. Preload the primary answer surface after hydration so a cold
@@ -145,11 +146,11 @@ const StagedAnswerResultSurface = dynamic(loadStagedAnswerResultSurface, {
 });
 const RelatedDocumentsPanel = dynamic(
   () => import("@/components/clinical-dashboard/document-results").then((m) => m.RelatedDocumentsPanel),
-  { ssr: false },
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" label="Loading related documents..." /> },
 );
 const DocumentSearchResultsPanel = dynamic(
   () => import("@/components/clinical-dashboard/document-search-results").then((m) => m.DocumentSearchResultsPanel),
-  { ssr: false },
+  { ssr: false, loading: () => <LoadingPanel variant="skeleton" label="Loading search results..." /> },
 );
 
 import { clearLegacyRecentQueries, demoRecentQueryOwnerId, recentQueryStorageKey } from "@/lib/recent-query-storage";

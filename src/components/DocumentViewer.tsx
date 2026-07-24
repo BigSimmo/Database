@@ -333,13 +333,19 @@ export function DocumentViewer({
     resetKey: `${documentId}:${activePage}:${activeChunkId ?? ""}`,
   });
   const composerScrollHidden = scrollHidden && !mobileActionsOpen && !composerChromeFocused;
-  // Read localStorage once on mount, then seed both derived states from it.
-  const [initialPdfViewerMode] = useState(getInitialPdfViewerMode);
-  const [useNativePdfViewer, setUseNativePdfViewer] = useState(initialPdfViewerMode.useNativePdfViewer);
-  const [hasExplicitPdfViewerMode, setHasExplicitPdfViewerMode] = useState(
-    initialPdfViewerMode.hasExplicitPdfViewerMode,
-  );
-  const [viewerModeInitialized] = useState(true);
+  // Read localStorage after mount to prevent hydration mismatch.
+  const [useNativePdfViewer, setUseNativePdfViewer] = useState(getDefaultPdfViewerMode);
+  const [hasExplicitPdfViewerMode, setHasExplicitPdfViewerMode] = useState(false);
+  const [viewerModeInitialized, setViewerModeInitialized] = useState(false);
+
+  useEffect(() => {
+    const initialMode = getInitialPdfViewerMode();
+    if (initialMode.hasExplicitPdfViewerMode) {
+      setUseNativePdfViewer(initialMode.useNativePdfViewer);
+      setHasExplicitPdfViewerMode(true);
+    }
+    setViewerModeInitialized(true);
+  }, []);
   const generatedSummaryRef = useRef<HTMLElement | null>(null);
   const summaryAbortRef = useRef<AbortController | null>(null);
   useEffect(
