@@ -12,6 +12,7 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 
 import {
   Check,
@@ -281,6 +282,7 @@ export function MasterSearchHeader({
 }) {
   // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
   // Do not OR demoMode again here — that would reopen Favourites when props diverge.
+  const router = useRouter();
   const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
     authenticated: canAccessFavourites,
     demoMode: false,
@@ -677,7 +679,7 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "dsm-compare") {
-      window.location.assign("/dsm/compare");
+      router.push("/dsm/compare");
       return;
     }
     if (actionId === "dsm-criteria") {
@@ -690,15 +692,15 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "specifiers-builder") {
-      window.location.assign("/specifiers/builder");
+      router.push("/specifiers/builder");
       return;
     }
     if (actionId === "specifiers-compare") {
-      window.location.assign("/specifiers/compare");
+      router.push("/specifiers/compare");
       return;
     }
     if (actionId === "specifiers-map") {
-      window.location.assign("/specifiers/map");
+      router.push("/specifiers/map");
       return;
     }
     if (actionId === "formulation-search") {
@@ -706,15 +708,15 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "formulation-builder") {
-      window.location.assign("/formulation/builder");
+      router.push("/formulation/builder");
       return;
     }
     if (actionId === "formulation-compare") {
-      window.location.assign("/formulation/compare");
+      router.push("/formulation/compare");
       return;
     }
     if (actionId === "formulation-map") {
-      window.location.assign("/formulation/map");
+      router.push("/formulation/map");
       return;
     }
   }
@@ -725,7 +727,7 @@ export function MasterSearchHeader({
       onSearchModeChange(mode.id);
       return;
     }
-    if ("href" in mode && mode.href) window.location.assign(mode.href);
+    if ("href" in mode && mode.href) router.push(mode.href);
   }
 
   function selectAppModeById(modeId: string) {
