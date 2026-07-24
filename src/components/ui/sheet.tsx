@@ -220,6 +220,7 @@ export function Sheet({
         if (!restoreTarget?.isConnected) return;
         restoreTarget.focus({ preventScroll: true });
         window.setTimeout(() => {
+          if (typeof document === "undefined") return;
           if (
             restoreTarget.isConnected &&
             document.activeElement !== restoreTarget &&
