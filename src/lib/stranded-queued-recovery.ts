@@ -38,7 +38,8 @@ function ageMinutes(iso: string, nowMs: number) {
 
 // Pure predicate used by the reproducer and recovery planner: a document is
 // stranded when it is still `queued`, old enough that a mid-upload crash is
-// plausible, and has no open pending/processing ingestion job.
+// plausible, and has no pending/processing job or failed job already handled by
+// the ordinary ingestion-recovery plan.
 export function isStrandedQueuedDocument(args: {
   document: { status: string | null; created_at: string; updated_at?: string | null };
   openJobCount: number;
@@ -97,15 +98,15 @@ export async function listStrandedQueuedDocuments(args: {
     if (candidates.length === 0) break;
 
     const documentIds = candidates.map((document) => document.id);
-    const { data: openJobs, error: openJobsError } = await args.supabase
+    const { data: recoveryJobs, error: recoveryJobsError } = await args.supabase
       .from("ingestion_jobs")
       .select("document_id")
       .in("document_id", documentIds)
-      .in("status", ["pending", "processing"]);
-    if (openJobsError) throw new Error(openJobsError.message);
+      .in("status", ["pending", "processing", "failed"]);
+    if (recoveryJobsError) throw new Error(recoveryJobsError.message);
 
     const openJobCounts = new Map<string, number>();
-    for (const job of openJobs ?? []) {
+    for (const job of recoveryJobs ?? []) {
       const documentId = job.document_id;
       if (!documentId) continue;
       openJobCounts.set(documentId, (openJobCounts.get(documentId) ?? 0) + 1);

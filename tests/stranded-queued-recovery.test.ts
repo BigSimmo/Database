@@ -92,11 +92,13 @@ describe("stranded queued-without-job recovery (#062)", () => {
     documentsQuery.range = vi.fn(async () => ({ data: [stranded, withOpenJob], error: null }));
 
     let jobInCalls = 0;
+    let recoveryJobStatuses: string[] = [];
     const jobsQuery: Record<string, unknown> = {};
     jobsQuery.select = vi.fn(() => jobsQuery);
-    jobsQuery.in = vi.fn(() => {
+    jobsQuery.in = vi.fn((column: string, values: string[]) => {
       jobInCalls += 1;
       if (jobInCalls >= 2) {
+        if (column === "status") recoveryJobStatuses = [...values];
         return Promise.resolve({ data: [{ document_id: withOpenJob.id }], error: null });
       }
       return jobsQuery;
@@ -117,6 +119,7 @@ describe("stranded queued-without-job recovery (#062)", () => {
     expect(filters).toContainEqual({ column: "owner_id", value: ownerId });
     expect(filters).toContainEqual({ column: "status", value: "queued" });
     expect(filters).toContainEqual({ column: "owner_id", value: "is:null" });
+    expect(recoveryJobStatuses).toEqual(["pending", "processing", "failed"]);
     expect(listed.map((document) => document.id)).toEqual([stranded.id]);
   });
 
