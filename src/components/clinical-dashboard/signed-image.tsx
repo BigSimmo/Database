@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { memo, useEffect, useRef, useState } from "react";
-import { CircleAlert, Loader2, Maximize2 } from "lucide-react";
+import { CircleAlert, Maximize2 } from "lucide-react";
 
 import { cn, Skeleton } from "@/components/ui-primitives";
 import { getCachedSignedUrl } from "@/lib/signed-url-cache";
