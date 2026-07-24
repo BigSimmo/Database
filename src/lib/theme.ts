@@ -15,11 +15,22 @@ export const APP_THEME_COLORS = {
   dark: "#060708",
 } as const satisfies Record<ResolvedTheme, string>;
 
+/** localStorage key for an explicit light/dark pin. */
+export const THEME_STORAGE_KEY = "clinical-kb-theme";
+
+/**
+ * Cookie mirror of an explicit light/dark pin so the server layout can paint
+ * the correct `<html>` class before hydration. Cleared for "system".
+ */
+export const THEME_COOKIE_NAME = "clinical-theme";
+
 /**
  * Runs before paint. Storage is deliberately isolated so privacy modes that
- * throw on localStorage still receive their OS-selected theme.
+ * throw on localStorage still receive their OS-selected theme. When localStorage
+ * has no explicit pin, fall back to the `clinical-theme` cookie so a
+ * cookie-only preference (matching RootLayout) is not immediately overwritten.
  */
-export const THEME_BOOTSTRAP_SCRIPT = `(function(){var t=null;try{t=localStorage.getItem("clinical-kb-theme");}catch(e){}var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);var c=d?"${APP_THEME_COLORS.dark}":"${APP_THEME_COLORS.light}";document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute("content",c);});})();`;
+export const THEME_BOOTSTRAP_SCRIPT = `(function(){var t=null;try{t=localStorage.getItem("${THEME_STORAGE_KEY}");}catch(e){}if(t!=="light"&&t!=="dark"){try{var m=document.cookie.match(/(?:^|; )${THEME_COOKIE_NAME}=(light|dark)(?:;|$)/);if(m)t=m[1];}catch(e){}}var d=t==="dark"||(t!=="light"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);var c=d?"${APP_THEME_COLORS.dark}":"${APP_THEME_COLORS.light}";document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute("content",c);});})();`;
 
 export function resolveThemePreference(storedTheme: string | null | undefined, prefersDark: boolean): ResolvedTheme {
   if (storedTheme === "light" || storedTheme === "dark") return storedTheme;
@@ -37,4 +48,11 @@ export function readThemePreference(storedTheme: string | null | undefined): The
 
 export function nextTheme(currentTheme: ResolvedTheme): ResolvedTheme {
   return currentTheme === "dark" ? "light" : "dark";
+}
+
+/** Read an explicit light/dark pin from `document.cookie`, if present. */
+export function readThemeCookie(cookieSource: string | null | undefined): ResolvedTheme | null {
+  if (!cookieSource) return null;
+  const match = cookieSource.match(new RegExp(`(?:^|;\\s*)${THEME_COOKIE_NAME}=(light|dark)(?:;|$)`));
+  return match?.[1] === "light" || match?.[1] === "dark" ? match[1] : null;
 }
