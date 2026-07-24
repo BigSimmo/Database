@@ -448,23 +448,27 @@ Run the matching planner command in `docs/productivity-workflows.md` without sid
 
 <!-- END:repo-productivity-skills -->
 
-## Outstanding-work memory (`/issues`)
+## Universal repository task ledger (`/issues`)
 
 `docs/outstanding-issues.md` is the durable, cross-session memory of every outstanding **task**,
 **recommendation**, and **issue** for this repo. Chat context resets between sessions; that file does
-not, so anything worth remembering after a session ends belongs there.
+not, so anything worth remembering after a session ends belongs there. It is the single universal
+ledger for all agents and worktrees; do not create chat-local or competing task ledgers.
 
+- Before starting or recommending repository work, read the ordered **Recommended execution
+  ledger** and the referenced open item. Only rows in that ordered view are active recommendations;
+  refuted, parked, superseded, resolved, and decision-only records remain audit history, not tasks.
 - When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): read
-  `docs/outstanding-issues.md` and state the open items back, grouped by priority. A plain `/issues`
-  is read-only — it mutates and commits nothing.
+  `docs/outstanding-issues.md` and state the recommended execution ledger in order, then summarize
+  the wider open-item counts. A plain `/issues` is read-only — it mutates and commits nothing.
 - `/issues add|done|update|capture …` mutate the ledger; each mutation commits **only**
   `docs/outstanding-issues.md` (no push unless the user asks or you are already handing off).
 - Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger
   before a session's context is lost — that is what keeps it a memory rather than a stale list.
 - A `SessionStart` hook (`.claude/hooks/issues-surface.sh`, wired in `.claude/settings.json`)
-  auto-surfaces the open items into context at the start of every session and, on a context reset
-  (`compact`/`resume`/`clear`), nudges a `/issues capture`. It is read-only — it never writes the
-  ledger. `/issues` is still the way to read the full list or mutate it.
+  auto-surfaces the ordered recommended tasks plus open-item counts at the start of every session
+  and, on a context reset (`compact`/`resume`/`clear`), nudges a `/issues capture`. It is read-only —
+  it never writes the ledger. `/issues` is still the way to read the full list or mutate it.
 
 ## Codex GitHub review behavior
 
