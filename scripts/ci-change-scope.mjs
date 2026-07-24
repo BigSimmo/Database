@@ -141,15 +141,19 @@ const containerPatterns = [
   "Dockerfile",
   "Dockerfile.worker",
   ".dockerignore",
+  ".github/workflows/docker-image.yml",
   ".npmrc",
   ".nvmrc",
   "next.config.ts",
+  "postcss.config.mjs",
+  "tsconfig.json",
   "package.json",
   "package-lock.json",
   "railway.app.json",
   "railway.worker.json",
-  "worker/python/requirements.txt",
-  /^scripts\/(check-node-engine|guard-next-build|build-worker)\.(?:cjs|mjs)$/,
+  "tests/stubs/server-only.ts",
+  /^worker\/.+/,
+  /^scripts\/(check-node-engine|guard-next-build|build-worker|run-heavy|check-client-bundle-secrets|install-git-hooks)\.(?:cjs|mjs)$/,
 ];
 
 const sourcePatterns = ["data", "src", "tests", "scripts", "worker", "playwright", "public", "supabase"];
@@ -524,7 +528,22 @@ function selfTest() {
   });
   assertScope(
     "container",
-    ["Dockerfile.worker", "railway.app.json", "railway.worker.json", "worker/python/requirements.txt"],
+    [
+      "Dockerfile.worker",
+      ".github/workflows/docker-image.yml",
+      "railway.app.json",
+      "railway.worker.json",
+      "worker/python/requirements.txt",
+      "worker/python/extract_pdf_assets.py",
+      "worker/index.ts",
+      "scripts/build-worker.mjs",
+      "scripts/run-heavy.mjs",
+      "scripts/check-client-bundle-secrets.mjs",
+      "scripts/install-git-hooks.mjs",
+      "tests/stubs/server-only.ts",
+      "tsconfig.json",
+      "postcss.config.mjs",
+    ],
     {
       container_changed: true,
       build_changed: true,
