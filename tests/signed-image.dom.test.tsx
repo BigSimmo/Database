@@ -99,7 +99,6 @@ describe("SignedImage failure/retry (jsdom)", () => {
   });
 
   it("applies the supplied aspect ratio when the signed-image request fails", async () => {
-    const user = userEvent.setup();
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: "boom" }) }),
