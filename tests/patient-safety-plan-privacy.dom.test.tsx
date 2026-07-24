@@ -86,6 +86,31 @@ describe("PatientSafetyPlan privacy contract", () => {
     expect(router.push).toHaveBeenCalledWith("/");
   });
 
+  it("confirms before leaving unadded safety-plan step text", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(<PatientSafetyPlan />);
+    fireEvent.change(screen.getByLabelText("e.g. Not sleeping for a couple of nights"), {
+      target: { value: "Not sleeping" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+
+    expect(confirmSpy).toHaveBeenCalledOnce();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("confirms before leaving unadded contact detail text", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(<PatientSafetyPlan />);
+    fireEvent.change(screen.getByLabelText("Name & relationship"), { target: { value: "Priya" } });
+    fireEvent.change(screen.getByLabelText("Phone or how to reach them"), { target: { value: "0400 000 000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+
+    expect(confirmSpy).toHaveBeenCalledOnce();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
   it("navigates back without confirmation when the safety plan is empty", () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 

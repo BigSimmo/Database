@@ -211,14 +211,20 @@ function AddRow({
   primaryPlaceholder,
   secondaryPlaceholder,
   onAdd,
+  onDraftDirtyChange,
 }: {
   kind: StepKind;
   primaryPlaceholder: string;
   secondaryPlaceholder?: string;
   onAdd: (primary: string, secondary?: string) => void;
+  onDraftDirtyChange?: (dirty: boolean) => void;
 }) {
   const [primary, setPrimary] = useState("");
   const [secondary, setSecondary] = useState("");
+  const draftIsDirty = useCallback(
+    (nextPrimary: string, nextSecondary: string) => nextPrimary.trim() !== "" || nextSecondary.trim() !== "",
+    [],
+  );
 
   const submit = () => {
     const trimmed = primary.trim();
@@ -226,13 +232,18 @@ function AddRow({
     onAdd(trimmed, secondary.trim() || undefined);
     setPrimary("");
     setSecondary("");
+    onDraftDirtyChange?.(false);
   };
 
   return (
     <div className={cn("grid gap-2", kind === "contact" && "sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]")}>
       <input
         value={primary}
-        onChange={(event) => setPrimary(event.target.value)}
+        onChange={(event) => {
+          const nextPrimary = event.target.value;
+          setPrimary(nextPrimary);
+          onDraftDirtyChange?.(draftIsDirty(nextPrimary, secondary));
+        }}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
@@ -246,7 +257,11 @@ function AddRow({
       {kind === "contact" ? (
         <input
           value={secondary}
-          onChange={(event) => setSecondary(event.target.value)}
+          onChange={(event) => {
+            const nextSecondary = event.target.value;
+            setSecondary(nextSecondary);
+            onDraftDirtyChange?.(draftIsDirty(primary, nextSecondary));
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
@@ -310,11 +325,13 @@ function StepBuilderCard({
   entries,
   onAdd,
   onRemove,
+  onDraftDirtyChange,
 }: {
   def: StepDef;
   entries: Entry[];
   onAdd: (primary: string, secondary?: string) => void;
   onRemove: (id: string) => void;
+  onDraftDirtyChange: (dirty: boolean) => void;
 }) {
   const Icon = def.icon;
   const filled = entries.length > 0;
@@ -367,6 +384,7 @@ function StepBuilderCard({
         primaryPlaceholder={def.primaryPlaceholder}
         secondaryPlaceholder={def.secondaryPlaceholder}
         onAdd={onAdd}
+        onDraftDirtyChange={onDraftDirtyChange}
       />
     </section>
   );
@@ -429,6 +447,7 @@ export function PatientSafetyPlan() {
   const [mobileTab, setMobileTab] = useState<"build" | "preview">("build");
   const [copied, setCopied] = useState(false);
   const [finalised, setFinalised] = useState(false);
+  const [draftDirtyByRow, setDraftDirtyByRow] = useState<Record<string, boolean>>({});
 
   // Per-instance id counter — avoids a module-level mutable that would persist
   // across remounts; ids only need to be unique within this mounted plan.
@@ -448,14 +467,25 @@ export function PatientSafetyPlan() {
     setFinalised(false);
   }, []);
 
+  const setDraftDirty = useCallback((key: string, dirty: boolean) => {
+    setDraftDirtyByRow((prev) => {
+      if (prev[key] === dirty) return prev;
+      return { ...prev, [key]: dirty };
+    });
+  }, []);
+
   const filledSteps = useMemo(() => STEPS.filter((step) => entries[step.key].length > 0).length, [entries]);
   const ready = filledSteps === STEPS.length;
   // Working plan content is browser-tab only and never persisted. Treat any
   // entered step/reason/date as dirty so the header back control cannot discard
   // an in-progress plan without an explicit confirmation.
   const isDirty = useMemo(
-    () => Object.values(entries).some((rows) => rows.length > 0) || reasons.length > 0 || planDate.trim() !== "",
-    [entries, planDate, reasons],
+    () =>
+      Object.values(entries).some((rows) => rows.length > 0) ||
+      reasons.length > 0 ||
+      planDate.trim() !== "" ||
+      Object.values(draftDirtyByRow).some(Boolean),
+    [draftDirtyByRow, entries, planDate, reasons],
   );
 
   const planText = useMemo(() => {
@@ -505,6 +535,7 @@ export function PatientSafetyPlan() {
     if (hasContent && !window.confirm("Replace the current plan with the example content?")) return;
     setEntries(SEED);
     setReasons(SEED_REASONS);
+    setDraftDirtyByRow({});
     // Clear the plan date so example content cannot look like a current handover.
     setPlanDate("");
     setFinalised(false);
@@ -694,6 +725,7 @@ export function PatientSafetyPlan() {
               entries={entries[def.key]}
               onAdd={(primary, secondary) => addEntry(def.key, primary, secondary)}
               onRemove={(id) => removeEntry(def.key, id)}
+              onDraftDirtyChange={(dirty) => setDraftDirty(def.key, dirty)}
             />
           ))}
 
@@ -745,8 +777,10 @@ export function PatientSafetyPlan() {
             <AddRow
               kind="list"
               primaryPlaceholder="e.g. Finishing my apprenticeship"
+              onDraftDirtyChange={(dirty) => setDraftDirty("reason", dirty)}
               onAdd={(primary) => {
                 setReasons((prev) => [...prev, { id: uid("reason"), primary }]);
+                setDraftDirty("reason", false);
                 setFinalised(false);
               }}
             />
