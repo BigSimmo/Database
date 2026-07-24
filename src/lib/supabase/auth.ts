@@ -88,21 +88,29 @@ function extractLegacyCookieSessionAccessToken(request: Request): string | null 
   return readCookies(request.headers.get("cookie")).get("sb-access-token")?.trim() || null;
 }
 
+/** Blank or whitespace-only cookie values are leftovers, not presented credentials. */
+function cookieValueIsPresented(value: string | undefined): boolean {
+  return Boolean(value?.trim());
+}
+
 function hasCurrentSessionCookie(request: Request): boolean {
   const cookies = readCookies(request.headers.get("cookie"));
   const cookieName = configuredSessionCookieName();
   if (!cookieName) {
     // Without a configured project, a presented Supabase session cannot be validated and must fail closed.
-    return [...cookies.keys()].some((name) => /^sb-.+-auth-token(?:\.\d+)?$/.test(name));
+    return [...cookies.entries()].some(
+      ([name, value]) => /^sb-.+-auth-token(?:\.\d+)?$/.test(name) && cookieValueIsPresented(value),
+    );
   }
-  return [...cookies.keys()].some(
-    (name) =>
-      name === cookieName || (name.startsWith(`${cookieName}.`) && /^\d+$/.test(name.slice(cookieName.length + 1))),
+  return [...cookies.entries()].some(
+    ([name, value]) =>
+      cookieValueIsPresented(value) &&
+      (name === cookieName || (name.startsWith(`${cookieName}.`) && /^\d+$/.test(name.slice(cookieName.length + 1)))),
   );
 }
 
 function hasLegacySessionCookie(request: Request): boolean {
-  return readCookies(request.headers.get("cookie")).has("sb-access-token");
+  return cookieValueIsPresented(readCookies(request.headers.get("cookie")).get("sb-access-token"));
 }
 
 function extractSessionAccessToken(request: Request): string | null {
