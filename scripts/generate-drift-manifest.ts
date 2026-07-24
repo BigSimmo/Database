@@ -43,7 +43,7 @@ function arg(flag: string): string | undefined {
   return value;
 }
 
-function docker(args: string[], input?: string, environment?: NodeJS.ProcessEnv): string {
+function docker(args: string[], input?: string, environment?: Record<string, string | undefined>): string {
   return execFileSync("docker", args, {
     encoding: "utf8",
     env: environment ? { ...process.env, ...environment } : process.env,
