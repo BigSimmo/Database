@@ -3082,7 +3082,12 @@ export function ClinicalDashboard({
             activeModeResultKind === "documents" &&
             documentMatches.length === 0 &&
             !modeSearchSubmitted) ||
-          (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
+          // Prescribing home unmounts as soon as the query is non-empty, so keep
+          // the hero/phone-composer slot only while MedicationHome actually mounts.
+          (searchMode === "prescribing" &&
+            activeModeResultKind === "documents" &&
+            !modeSearchSubmitted &&
+            !query.trim()) ||
           (activeModeResultKind === "differentials" && !modeSearchSubmitted))));
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
   // Favourites and Tools are content-rich hubs: they share the centred hero but

@@ -110,6 +110,11 @@ describe("mobile composer reserve contract", () => {
     expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
     expect(dashboard).toContain("const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId);");
     expect(dashboard).not.toContain("const heroOwnsPhoneComposer = showDesktopHomeComposer || showAnswerHome;");
+    // Prescribing leaves MedicationHome as soon as the draft query is non-empty;
+    // keep the hero slot (and idle phone reserve) only while that home mounts.
+    expect(dashboard).toMatch(
+      /searchMode === "prescribing" &&\s*activeModeResultKind === "documents" &&\s*!modeSearchSubmitted &&\s*!query\.trim\(\)/,
+    );
     expect(header).toContain(
       'const heroComposerOwnsPhones = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
     );
