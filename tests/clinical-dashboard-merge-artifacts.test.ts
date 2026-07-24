@@ -50,6 +50,10 @@ const formulationUiSource = readFileSync(
   resolve(process.cwd(), "src/components/formulation/formulation-ui.tsx"),
   "utf8",
 );
+const informationPageShellSource = readFileSync(
+  resolve(process.cwd(), "src/components/information-page-shell.tsx"),
+  "utf8",
+);
 const favouritesLibrarySource = readFileSync(
   resolve(process.cwd(), "src/components/clinical-dashboard/favourites-command-library-page.tsx"),
   "utf8",
@@ -167,13 +171,16 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(differentialsHomeSource).not.toContain("pb-[calc(12.5rem+env(safe-area-inset-bottom))]");
     expect(applicationsLauncherSource).not.toContain("pb-[calc(12rem+env(safe-area-inset-bottom))]");
     expect(serviceDetailSource).not.toContain("pb-[calc(5.5rem+env(safe-area-inset-bottom))]");
-    expect(serviceDetailSource).toContain("max-sm:min-h-0");
+    expect(serviceDetailSource).toContain("InformationPageShell");
     expect(formDetailSource).not.toContain("pb-[calc(2rem+env(safe-area-inset-bottom))]");
-    expect(formDetailSource).toContain("max-sm:min-h-0");
+    expect(formDetailSource).toContain("InformationPageShell");
     expect(specifierUiSource).not.toContain("pb-[calc(7rem+env(safe-area-inset-bottom))]");
-    expect(specifierUiSource).toContain("max-sm:min-h-0");
+    expect(specifierUiSource).toContain("InformationPageShell");
     expect(formulationUiSource).not.toContain("pb-[calc(7rem+env(safe-area-inset-bottom))]");
-    expect(formulationUiSource).toContain("max-sm:min-h-0");
+    expect(formulationUiSource).toContain("InformationPageShell");
+    // Phone min-height contract lives on the shared information-page shell so
+    // catalogue detail pages do not each reintroduce a 100dvh pad under the dock.
+    expect(informationPageShellSource).toContain("max-sm:min-h-0");
     expect(favouritesLibrarySource).not.toContain("pb-[calc(6rem+env(safe-area-inset-bottom))]");
     expect(globalStylesSource).toContain("--phone-dock-hidden-pad: 0rem");
   });
