@@ -242,10 +242,14 @@ async function main() {
 
     if (envModule.env.OPENAI_API_KEY && !envModule.env.OPENAI_SAFETY_IDENTIFIER_SECRET) {
       result.warnings.push(
-        "OPENAI_SAFETY_IDENTIFIER_SECRET is not set; authenticated Responses requests omit the privacy-preserving safety identifier.",
+        "OPENAI_SAFETY_IDENTIFIER_SECRET is not set; authenticated Responses requests omit the privacy-preserving safety identifier. For local/dev, run npm run check:local-presence -- --fill.",
       );
     } else if (envModule.env.OPENAI_SAFETY_IDENTIFIER_SECRET) {
       result.passes.push("OpenAI safety identifiers use a deployment-secret HMAC; raw owner IDs are not sent.");
+    } else if (!isCiMode) {
+      result.warnings.push(
+        "OPENAI_SAFETY_IDENTIFIER_SECRET is not set (optional until OpenAI is enabled). Local fill: npm run check:local-presence -- --fill.",
+      );
     }
 
     // Exercise the real boot guard so this check tracks its behaviour instead of
@@ -262,7 +266,19 @@ async function main() {
       const productionLike = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
       if (productionLike) {
         result.failures.push(`Query-hash secret issue: ${message}`);
+      } else if (!isCiMode) {
+        result.warnings.push(
+          `RAG_QUERY_HASH_SECRET is not set for local/dev (${message}). Fill a distinct local value with npm run check:local-presence -- --fill.`,
+        );
       }
+    }
+
+    if (envModule.env.HEALTH_DEEP_PROBE_SECRET) {
+      result.passes.push("HEALTH_DEEP_PROBE_SECRET is set for authorized deep health probes.");
+    } else if (!isCiMode) {
+      result.warnings.push(
+        "HEALTH_DEEP_PROBE_SECRET is not set; /api/health?deep=1 stays shallow. Local fill: npm run check:local-presence -- --fill.",
+      );
     }
 
     if (placeholderLooksLikeExample(envModule.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "")) {

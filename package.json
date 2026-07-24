@@ -63,6 +63,7 @@
     "check:branch-review-ledger": "node scripts/check-branch-review-ledger.mjs --self-test && node scripts/check-branch-review-ledger.mjs",
     "check:pr-policy": "node scripts/pr-policy.mjs --self-test && node scripts/check-pr-policy-workflow.mjs",
     "check:env-parity": "node scripts/check-env-parity.mjs",
+    "check:local-presence": "node scripts/check-local-presence.mjs",
     "sweep:branch-ledger": "node scripts/sweep-branch-ledger.mjs",
     "docs:check-links": "node scripts/check-docs-links.mjs",
     "docs:check-scripts": "node scripts/check-docs-script-refs.mjs",
