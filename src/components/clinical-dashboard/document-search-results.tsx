@@ -68,6 +68,10 @@ import { documentRelevancePercent } from "./relevance-score";
 
 type SearchFacet = { value: string; count: number };
 type ResultTypeFilter = "all" | "tables" | "images" | "pdfs";
+
+/** Initial DOM budget for document result cards; further rows reveal on demand. */
+const DOCUMENT_RESULTS_INITIAL_WINDOW = 25;
+const DOCUMENT_RESULTS_PAGE_SIZE = 25;
 export type SearchFacets = {
   status?: SearchFacet[];
   validation?: SearchFacet[];
@@ -873,6 +877,16 @@ function DocumentSearchResultsPanelImpl({
     () => sortResultItems(displayedMatches, sortValue, documentDisplayTitle),
     [displayedMatches, sortValue],
   );
+  // Progressive reveal so large libraries do not mount every card on first paint.
+  // Reset the window whenever the sorted result set identity changes (query/filter/sort).
+  const resultsSignature = `${trimmedQuery}\0${sortValue}\0${effectiveResultType}\0${activeFacetKeys.join(",")}\0${sortedMatches.length}`;
+  const [visibleCountState, setVisibleCountState] = useState({ signature: resultsSignature, count: DOCUMENT_RESULTS_INITIAL_WINDOW });
+  if (visibleCountState.signature !== resultsSignature) {
+    setVisibleCountState({ signature: resultsSignature, count: DOCUMENT_RESULTS_INITIAL_WINDOW });
+  }
+  const visibleCount = Math.min(visibleCountState.count, sortedMatches.length);
+  const renderedMatches = sortedMatches.slice(0, visibleCount);
+  const hasMoreMatches = visibleCount < sortedMatches.length;
   const selectedDocument =
     sortedMatches.find((document) => document.document_id === selectedDocumentId) ?? sortedMatches[0] ?? null;
   const recordMatchCount = recordMatches.length;
@@ -1012,7 +1026,7 @@ function DocumentSearchResultsPanelImpl({
                   No document matches include all selected filters.
                 </div>
               ) : null}
-              {sortedMatches.map((document, index) => {
+              {renderedMatches.map((document, index) => {
                 const relevanceDisplay = relevanceTone(document);
                 const fileKind = documentFileKind(document.file_name, "DOC");
                 const relevanceVariant = relevanceDisplay.short === "High relevance" ? "high" : "relevant";
@@ -1134,6 +1148,21 @@ function DocumentSearchResultsPanelImpl({
                   </article>
                 );
               })}
+              {hasMoreMatches ? (
+                <button
+                  type="button"
+                  className={cn(floatingControl, "min-h-tap w-full justify-center rounded-xl px-4 text-sm font-semibold")}
+                  onClick={() =>
+                    setVisibleCountState((current) => ({
+                      signature: resultsSignature,
+                      count: Math.min(current.count + DOCUMENT_RESULTS_PAGE_SIZE, sortedMatches.length),
+                    }))
+                  }
+                  data-testid="document-search-show-more"
+                >
+                  Show more ({sortedMatches.length - visibleCount} remaining)
+                </button>
+              ) : null}
             </div>
             {selectedDocument ? (
               <SelectedDocumentEvidencePanel

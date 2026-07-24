@@ -19,7 +19,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useDeferredValue } from "react";
 
 import { cn } from "@/components/ui-primitives";
 import { ModeHomeStatusNotice } from "@/components/mode-home-template";
@@ -533,6 +533,7 @@ export function ServicesNavigatorPage() {
   const initialQuery = urlQuery || defaultQuery;
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
+  const deferredQuery = useDeferredValue(query);
   const registry = useRegistryRecords("service");
   const registryLoading = registry.status === "loading";
   // Demo mode is served by the registry API as status "ready" with fixture
@@ -544,9 +545,9 @@ export function ServicesNavigatorPage() {
     [registry.records, registry.status],
   );
   const matches = useMemo(() => {
-    const ranked = rankServiceRecords(searchableRecords, query);
-    return ranked.length ? ranked.map((match) => match.service) : query.trim() ? [] : searchableRecords;
-  }, [query, searchableRecords]);
+    const ranked = rankServiceRecords(searchableRecords, deferredQuery);
+    return ranked.length ? ranked.map((match) => match.service) : deferredQuery.trim() ? [] : searchableRecords;
+  }, [deferredQuery, searchableRecords]);
   const scopedMatches = useMemo(() => {
     const scopes = command?.commandScopes ?? [];
     if (!scopes.length) return matches;

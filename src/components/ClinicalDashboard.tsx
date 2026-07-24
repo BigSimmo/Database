@@ -26,6 +26,7 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useReducer,
@@ -436,13 +437,14 @@ export function ClinicalDashboard({
   const registryRecords = useRegistryRecords(searchMode === "forms" ? "form" : "service", {
     enabled: searchMode === "services" || searchMode === "forms",
   });
+  const deferredQuery = useDeferredValue(query);
   const serviceSearchMatches = useMemo(
-    () => (searchMode === "services" ? rankServiceRecords(registryRecords.records, query) : []),
-    [query, searchMode, registryRecords.records],
+    () => (searchMode === "services" ? rankServiceRecords(registryRecords.records, deferredQuery) : []),
+    [deferredQuery, searchMode, registryRecords.records],
   );
   const formSearchMatches = useMemo(
-    () => (searchMode === "forms" ? rankFormRecords(registryRecords.records, query) : []),
-    [query, searchMode, registryRecords.records],
+    () => (searchMode === "forms" ? rankFormRecords(registryRecords.records, deferredQuery) : []),
+    [deferredQuery, searchMode, registryRecords.records],
   );
   const recordSearchMatches = useMemo(
     () => (searchMode === "forms" ? formSearchMatches : searchMode === "services" ? serviceSearchMatches : []),

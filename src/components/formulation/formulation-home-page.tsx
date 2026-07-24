@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useDeferredValue } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -177,7 +177,11 @@ function EmptySearchResults({ query }: { query: string }) {
 
 function FormulationResults({ query }: { query: string }) {
   const [domain, setDomain] = useState("all");
-  const results = useMemo(() => searchFormulationMechanisms(query, { domain }), [domain, query]);
+  const deferredQuery = useDeferredValue(query);
+  const results = useMemo(
+    () => searchFormulationMechanisms(deferredQuery, { domain }),
+    [domain, deferredQuery],
+  );
 
   return (
     <FormulationPageShell>

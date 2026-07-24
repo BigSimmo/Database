@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, useDeferredValue, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useTherapyData } from "./data/use-therapy-data";
@@ -269,7 +269,8 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const effectivePathwaySlug = selectedPathwaySlug ?? pathways[0]?.slug ?? null;
   const selectedPathway = effectivePathwaySlug ? (pathways.find((p) => p.slug === effectivePathwaySlug) ?? null) : null;
 
-  const searchResults = useMemo(() => searchTherapies(therapies, search), [therapies, search]);
+  const deferredSearch = useDeferredValue(search);
+  const searchResults = useMemo(() => searchTherapies(therapies, deferredSearch), [therapies, deferredSearch]);
   const compareTherapies = useMemo(
     () => compareSlugs.map((sl) => bySlug.get(sl)).filter((t): t is Therapy => Boolean(t)),
     [compareSlugs, bySlug],

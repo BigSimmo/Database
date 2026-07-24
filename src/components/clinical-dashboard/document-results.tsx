@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { memo } from "react";
 import { BookOpen, FileImage, Filter, ListChecks } from "lucide-react";
 
 import { DocumentOrganizationBadges, documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
@@ -105,7 +106,7 @@ function RelatedDocumentCard({
   );
 }
 
-export function RelatedDocumentsPanel({
+function RelatedDocumentsPanelImpl({
   documents,
   onScopeDocument,
   onTagSearch,
@@ -136,3 +137,7 @@ export function RelatedDocumentsPanel({
     </UtilityDrawer>
   );
 }
+
+// Memoized so answer SSE progress in ClinicalDashboard does not re-render this
+// subtree when documents and callbacks are unchanged.
+export const RelatedDocumentsPanel = memo(RelatedDocumentsPanelImpl);

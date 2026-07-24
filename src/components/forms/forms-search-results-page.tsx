@@ -16,7 +16,7 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useState, useDeferredValue } from "react";
 
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, rankFormRecords, type FormSearchMatch } from "@/lib/form-ranker";
@@ -620,9 +620,10 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const registryReady = registry.status === "ready";
   const [refineOpen, setRefineOpen] = useState(false);
   const refinePanelId = useId();
+  const deferredQuery = useDeferredValue(query);
   const matches = useMemo(
-    () => (registryReady ? rankFormRecords(registry.records, query) : []),
-    [registryReady, registry.records, query],
+    () => (registryReady ? rankFormRecords(registry.records, deferredQuery) : []),
+    [registryReady, registry.records, deferredQuery],
   );
   const scopedMatches = useMemo(() => {
     const scopes = command?.commandScopes ?? [];
