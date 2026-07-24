@@ -356,7 +356,7 @@ export function DocumentClinicalSummary({
           {model.summary ? (
             <p
               className={cn(
-                "mt-3 text-[0.9375rem] font-normal leading-6 text-[color:var(--text)] sm:text-base sm:leading-7",
+                "mt-3 text-base-minus font-normal leading-6 text-[color:var(--text)] sm:text-base sm:leading-7",
                 !summaryExpanded && canExpandSummary && "line-clamp-3 sm:line-clamp-none",
               )}
             >
