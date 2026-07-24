@@ -74,7 +74,6 @@ function lockIsOldEnoughToRecover(lockPath, now = Date.now()) {
  *   baseDirectory?: string;
  *   repositoryIdentity?: string;
  *   processId?: number;
- *   waitMs?: number;
  * }} options
  */
 export function acquireHeavyRunLock({
@@ -84,7 +83,6 @@ export function acquireHeavyRunLock({
   baseDirectory,
   repositoryIdentity = resolveRepositoryIdentity(projectRoot),
   processId = process.pid,
-  waitMs = environment.CLINICAL_KB_LOCK_WAIT_MS ? parseInt(environment.CLINICAL_KB_LOCK_WAIT_MS, 10) : 0,
 }) {
   if (!projectRoot) throw new Error("projectRoot is required for the Database heavyweight-run lock.");
   const lockPath = lockPathFor(repositoryIdentity, baseDirectory);
@@ -103,8 +101,7 @@ export function acquireHeavyRunLock({
   }
 
   mkdirSync(path.dirname(lockPath), { recursive: true });
-  const startTime = Date.now();
-  for (let attempt = 0; ; attempt += 1) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
     try {
       mkdirSync(lockPath);
       const token = randomUUID();
@@ -138,9 +135,13 @@ export function acquireHeavyRunLock({
       if (error?.code !== "EEXIST") throw error;
       const owner = readOwner(lockPath);
       if (owner && processIsAlive(owner.pid)) {
-        if (Date.now() - startTime < waitMs) {
-          const delayMs = Math.min(1000, 500 * Math.pow(1.5, attempt)) + Math.random() * 100;
-          spawnSync(process.argv[0], ["-e", `setTimeout(()=>{}, ${Math.floor(delayMs)})`]);
+        if (attempt < 15) {
+          // 15 attempts, approx 30s
+          const sleepMs = Math.min(3000, 100 * Math.pow(1.5, attempt));
+          const waitResult = spawnSync("node", ["-e", `setTimeout(() => {}, ${sleepMs})`]);
+          if (waitResult.error) {
+            throw new Error("Could not sleep while waiting for run lock");
+          }
           continue;
         }
         throw new Error(
@@ -148,9 +149,9 @@ export function acquireHeavyRunLock({
         );
       }
       if (!owner && !lockIsOldEnoughToRecover(lockPath)) {
-        if (Date.now() - startTime < waitMs) {
-          const delayMs = Math.min(1000, 500 * Math.pow(1.5, attempt)) + Math.random() * 100;
-          spawnSync(process.argv[0], ["-e", `setTimeout(()=>{}, ${Math.floor(delayMs)})`]);
+        if (attempt < 15) {
+          const sleepMs = 500;
+          spawnSync("node", ["-e", `setTimeout(() => {}, ${sleepMs})`]);
           continue;
         }
         throw new Error(`A Database heavyweight lock is being initialized at ${lockPath}; retry after it settles.`);
