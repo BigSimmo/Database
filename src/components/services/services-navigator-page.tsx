@@ -41,7 +41,7 @@ import { sortResultItems } from "@/lib/result-sort";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 
-const defaultQuery = "13YARN crisis Aboriginal and Torres Strait Islander phone";
+const defaultQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
 
 function text(value: string | null | undefined, fallback = "Confirm locally") {
   return value?.trim() ? value.trim() : fallback;
