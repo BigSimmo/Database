@@ -1586,6 +1586,7 @@ export function MasterSearchHeader({
             id={composerPrivacyWarningId}
             testId={composerPrivacyWarningId}
             className="mt-1.5 justify-center px-3 text-center"
+            returnMode={searchMode === "answer" ? undefined : searchMode}
           />
         ) : null}
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can

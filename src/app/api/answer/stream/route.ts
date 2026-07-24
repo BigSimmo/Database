@@ -195,7 +195,10 @@ function streamAnswer(
             : await resolveSearchScope({
                 supabase: createAdminClient(),
                 accessScope,
-                documentIds: body.documentIds ?? (body.documentId ? [body.documentId] : undefined),
+                documentIds:
+                  body.summaryMode && body.documentId
+                    ? [body.documentId]
+                    : (body.documentIds ?? (body.documentId ? [body.documentId] : undefined)),
                 filters: body.filters,
               });
           sendProgress({ stage: "retrieving" });
