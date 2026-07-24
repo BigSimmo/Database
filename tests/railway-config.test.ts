@@ -36,6 +36,12 @@ function triggersDeploy(config: RailwayConfig, filePath: string) {
 describe("Railway config as code", () => {
   const app = readConfig("railway.app.json");
   const worker = readConfig("railway.worker.json");
+  const appDockerfile = readFileSync(new URL("../Dockerfile", import.meta.url), "utf8");
+
+  it("ships the local modules imported by next.config.ts in the app runner", () => {
+    expect(appDockerfile).toContain("COPY --from=build /app/src/lib/security-headers.ts ./src/lib/security-headers.ts");
+    expect(appDockerfile).toContain("COPY --from=build /app/src/lib/supabase/project.ts ./src/lib/supabase/project.ts");
+  });
 
   it("uses the deep readiness endpoint for app rolling deploys", () => {
     expect(app.deploy).toMatchObject({
