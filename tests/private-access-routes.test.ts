@@ -4334,6 +4334,32 @@ describe("private document API access", () => {
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
+  it("rejects streamed document summaries with conflicting documentIds before provider work", async () => {
+    const summarizeDocument = vi.fn();
+    const answerQuestionWithScope = vi.fn();
+    const client = createSupabaseMock();
+    mockRuntime(client, { summarizeDocument, answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          documentIds: [otherDocumentId],
+          summaryMode: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(payload(response)).resolves.toMatchObject({ error: "Invalid answer request." });
+    expect(client.rpc).not.toHaveBeenCalled();
+    expect(summarizeDocument).not.toHaveBeenCalled();
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
   it("rate limits streamed document summaries before provider work", async () => {
     const summarizeDocument = vi.fn(async () => ({
       answer: "Expensive streamed summary.",
@@ -4744,6 +4770,53 @@ describe("private document API access", () => {
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),
     ]);
     expectFeedbackTokenBoundToAnswer(body);
+  });
+
+  it("runs non-stream document summaries through the governed summary path", async () => {
+    const answerQuestionWithScope = vi.fn();
+    const summarizeDocument = vi.fn(async () => ({
+      answer: "Full non-stream document summary.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [],
+    }));
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope, summarizeDocument });
+    const { POST } = await import("../src/app/api/answer/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          summaryMode: true,
+        }),
+      }),
+    );
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      answer: "Full non-stream document summary.",
+      interactionId: expect.any(String),
+      feedbackToken: expect.any(String),
+    });
+    expect(summarizeDocument).toHaveBeenCalledWith(documentId, userId, {
+      signal: expect.any(AbortSignal),
+    });
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_summary_rate_limits_atomic",
+      expect.objectContaining({
+        p_owner_id: userId,
+        p_subject_key: null,
+        p_answer_limit: 30,
+        p_summary_limit: 12,
+      }),
+    );
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
   it("rate limits document summarization before OpenAI work", async () => {

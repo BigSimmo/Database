@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { validateActionReference } from "./github-action-pins.mjs";
 import { yamlBlock } from "./yaml-contract.mjs";
@@ -10,29 +11,91 @@ const failures = [];
 const expectedSupabaseCliVersion = "2.108.0";
 const expectedSupabaseCliVersionPattern = expectedSupabaseCliVersion.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-function discoverGitHubActionFiles(workflowRoot) {
-  const workflowDir = path.join(workflowRoot, ".github", "workflows");
+function discoverWorkflowFiles(root) {
+  const workflowDir = path.join(root, ".github", "workflows");
   if (!existsSync(workflowDir)) return [];
   return readdirSync(workflowDir, { withFileTypes: true })
     .filter((entry) => entry.isFile() && /\.ya?ml$/i.test(entry.name))
     .map((entry) => path.join(workflowDir, entry.name));
 }
 
-for (const filePath of discoverGitHubActionFiles(process.cwd())) {
-  const fileName = path.relative(process.cwd(), filePath).replaceAll("\\", "/");
-  const lines = readFileSync(filePath, "utf8").split(/\r?\n/);
-
-  lines.forEach((line, index) => {
-    if (runsOnLatestPattern.test(line)) {
-      failures.push(
-        `${fileName}:${index + 1}: runs-on uses ubuntu-latest. Pin GitHub-hosted Linux jobs to ubuntu-24.04 so CI is not tied to the moving ubuntu-latest alias.`,
-      );
+function discoverCompositeActionFiles(root) {
+  const actionsDir = path.join(root, ".github", "actions");
+  if (!existsSync(actionsDir)) return [];
+  const files = [];
+  const visit = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        visit(fullPath);
+      } else if (/^action\.ya?ml$/i.test(entry.name)) {
+        files.push(fullPath);
+      }
     }
-
-    const actionFailure = validateActionReference(line);
-    if (actionFailure) failures.push(`${fileName}:${index + 1}: ${actionFailure}`);
-  });
+  };
+  visit(actionsDir);
+  return files;
 }
+
+function discoverGitHubActionFiles(root) {
+  return [...discoverWorkflowFiles(root), ...discoverCompositeActionFiles(root)];
+}
+
+function collectPinFailures(root) {
+  const failures = [];
+  for (const filePath of discoverGitHubActionFiles(root)) {
+    const fileName = path.relative(root, filePath).replaceAll("\\", "/");
+    const lines = readFileSync(filePath, "utf8").split(/\r?\n/);
+
+    lines.forEach((line, index) => {
+      if (runsOnLatestPattern.test(line)) {
+        failures.push(
+          `${fileName}:${index + 1}: runs-on uses ubuntu-latest. Pin GitHub-hosted Linux jobs to ubuntu-24.04 so CI is not tied to the moving ubuntu-latest alias.`,
+        );
+      }
+
+      const actionFailure = validateActionReference(line);
+      if (actionFailure) failures.push(`${fileName}:${index + 1}: ${actionFailure}`);
+    });
+  }
+  return failures;
+}
+
+function selfTest() {
+  const root = mkdtempSync(path.join(os.tmpdir(), "github-action-pin-check-"));
+  try {
+    const workflowDir = path.join(root, ".github", "workflows");
+    const actionDir = path.join(root, ".github", "actions", "fixture");
+    mkdirSync(workflowDir, { recursive: true });
+    mkdirSync(actionDir, { recursive: true });
+    writeFileSync(path.join(workflowDir, "ok.yml"), "name: ok\n", "utf8");
+    writeFileSync(
+      path.join(actionDir, "action.yml"),
+      "name: fixture\nruns:\n  using: composite\n  steps:\n    - uses: actions/cache@v6\n",
+      "utf8",
+    );
+
+    const failures = collectPinFailures(root);
+    if (
+      !failures.some(
+        (failure) => failure.includes(".github/actions/fixture/action.yml") && failure.includes("actions/cache@v6"),
+      )
+    ) {
+      throw new Error("self-test failed: composite action uses entries were not scanned");
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+if (process.argv.includes("--self-test")) {
+  selfTest();
+  console.log("GitHub Actions pin check self-test passed.");
+  process.exit(0);
+}
+
+selfTest();
+failures.push(...collectPinFailures(process.cwd()));
 
 const ciWorkflowPath = path.join(workflowDir, "ci.yml");
 const ciWorkflow = readFileSync(ciWorkflowPath, "utf8");

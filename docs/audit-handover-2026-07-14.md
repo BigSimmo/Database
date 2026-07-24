@@ -117,19 +117,19 @@ evals, service-role tenancy regression class, upstream OCR quality labels drivin
 
 ### 4.1 Security / privacy / API
 
-| ID  | Finding                                                     | Evidence                                                 | Remediation wave |
-| --- | ----------------------------------------------------------- | -------------------------------------------------------- | ---------------- |
-| S1  | Authed public-doc DTOs leak `storage_path` / `content_hash` | `documents/route.ts`, `documents/[id]/route.ts`          | Wave D1          |
-| S2  | Auth UI trusts `getSession()`; APIs use `getUser`           | `src/lib/supabase/client.tsx`                            | Wave D3          |
-| S3  | Public-upload quarantine pool high blast radius if enabled  | `upload/route.ts` + pool owner                           | Wave D4          |
-| S4  | Auth 401 envelope `{ error }` only                          | `supabase/auth.ts` vs `http.ts`                          | Wave H1          |
-| S5  | Many hand-rolled `{ error }` omit `code`/`message`          | upload, doc 404s, feedback, demo                         | Wave H1          |
-| S6  | Auth write/admin routes lack rate limits                    | bulk, labels, table-facts, ingestion/*, eval-cases, jobs | Wave H2          |
-| S7  | Document list offset max `1_000_000`                        | `documents/route.ts`                                     | Wave H3          |
-| S8  | Upload reserves max body when Content-Length absent         | `upload/route.ts`                                        | Wave H4          |
-| S9  | Authed stream summarize excludes public docs                | `answer/stream` → `summarizeDocument` owner-only         | Wave H5          |
-| S10 | Bulk returns raw DB `error.message`                         | `documents/bulk/route.ts`                                | Wave D5          |
-| S11 | `/api/jobs` can return demo jobs when env missing           | `jobs/route.ts`                                          | Wave H6          |
+| ID  | Finding                                                     | Evidence                                                  | Remediation wave |
+| --- | ----------------------------------------------------------- | --------------------------------------------------------- | ---------------- |
+| S1  | Authed public-doc DTOs leak `storage_path` / `content_hash` | `documents/route.ts`, `documents/[id]/route.ts`           | Wave D1          |
+| S2  | Auth UI trusts `getSession()`; APIs use `getUser`           | `src/lib/supabase/client.tsx`                             | Wave D3          |
+| S3  | Public-upload quarantine pool high blast radius if enabled  | `upload/route.ts` + pool owner                            | Wave D4          |
+| S4  | Auth 401 envelope `{ error }` only                          | `supabase/auth.ts` vs `http.ts`                           | Wave H1          |
+| S5  | Many hand-rolled `{ error }` omit `code`/`message`          | upload, doc 404s, feedback, demo                          | Wave H1          |
+| S6  | Auth write/admin routes lack rate limits                    | bulk, labels, table-facts, ingestion/\*, eval-cases, jobs | Wave H2          |
+| S7  | Document list offset max `1_000_000`                        | `documents/route.ts`                                      | Wave H3          |
+| S8  | Upload reserves max body when Content-Length absent         | `upload/route.ts`                                         | Wave H4          |
+| S9  | Authed stream summarize excludes public docs                | `answer/stream` → `summarizeDocument` owner-only          | Wave H5          |
+| S10 | Bulk returns raw DB `error.message`                         | `documents/bulk/route.ts`                                 | Wave D5          |
+| S11 | `/api/jobs` can return demo jobs when env missing           | `jobs/route.ts`                                           | Wave H6          |
 
 ### 4.2 Ingestion / indexing
 

@@ -1,13 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { demoAnswer } from "@/lib/demo-data";
+import { demoAnswer, demoSummary } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
-import { answerQuestionWithScope } from "@/lib/rag";
+import { answerQuestionWithScope, summarizeDocument } from "@/lib/rag";
 import { jsonError, PublicApiError } from "@/lib/http";
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,
   consumeSubjectApiRateLimit,
+  consumeSummaryRateLimits,
   rateLimitJsonResponse,
 } from "@/lib/api-rate-limit";
 import { publicAccessContext } from "@/lib/public-api-access";
@@ -30,6 +31,7 @@ import { nonProductionSupabaseDemoFallbackReason } from "@/lib/supabase/errors";
 import * as serverAuth from "@/lib/supabase/auth";
 import { answerRequestSchema, type AnswerRequestBody } from "@/lib/validation/answer-request";
 import { answerFeedbackMetadata } from "@/lib/answer-feedback-token";
+import { documentSummaryQuestion } from "@/lib/answer-contract";
 
 export const runtime = "nodejs";
 
@@ -37,7 +39,10 @@ const emptyScopeAnswer =
   "The selected filters did not match any indexed documents, so I cannot generate an answer for that scope.";
 
 function buildDemoAnswerPayload(body: AnswerRequestBody, fallbackReason?: string) {
-  const answer = demoAnswer(body.query, body.documentId, body.documentIds);
+  const answer =
+    body.summaryMode && body.documentId
+      ? demoSummary(body.documentId)
+      : demoAnswer(body.query, body.documentId, body.documentIds);
   const answerFocusQuery = queryForClinicalMode(body.query, body.queryMode);
   const smartApiPlan = buildSmartRagApiPlan({
     query: answerFocusQuery,
@@ -71,14 +76,29 @@ export async function POST(request: Request) {
     const access = await publicAccessContext(request, supabase);
     const accessScope = resolveRetrievalAccessScope(access.ownerId);
 
-    const rateLimit = await consumeSubjectApiRateLimit({
-      supabase,
-      subject: access.rateLimitSubject,
-      bucket: "answer",
-      allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
-    });
-    if (rateLimit.limited) {
-      return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
+    if (answerBody.summaryMode) {
+      const decision = await consumeSummaryRateLimits({
+        supabase,
+        subject: access.rateLimitSubject,
+      });
+      if (decision.rateLimit.limited) {
+        return rateLimitJsonResponse(
+          decision.bucket === "document_summarize"
+            ? "Too many document summary requests. Retry shortly."
+            : "Too many answer requests. Retry shortly.",
+          decision.rateLimit,
+        );
+      }
+    } else {
+      const rateLimit = await consumeSubjectApiRateLimit({
+        supabase,
+        subject: access.rateLimitSubject,
+        bucket: "answer",
+        allowInMemoryFallbackOnUnavailable: allowRateLimitInMemoryFallbackOnUnavailable(),
+      });
+      if (rateLimit.limited) {
+        return rateLimitJsonResponse("Too many answer requests. Retry shortly.", rateLimit);
+      }
     }
 
     const scope = await resolveSearchScope({
@@ -104,24 +124,27 @@ export async function POST(request: Request) {
     const singleDocumentScope = Boolean(
       answerBody.documentId && !answerBody.documentIds?.length && scope.activeFilterCount === 0,
     );
-    const answer = await answerQuestionWithScope({
-      query: answerBody.query,
-      documentId: singleDocumentScope ? answerBody.documentId : undefined,
-      documentIds: singleDocumentScope
-        ? undefined
-        : (scope.documentIds ??
-          answerBody.documentIds ??
-          (answerBody.documentId ? [answerBody.documentId] : undefined)),
-      ownerId: access.ownerId,
-      accessScope,
-      allowGlobalSearch: !access.ownerId,
-      queryMode: answerBody.queryMode,
-      signal: request.signal,
-    });
+    const answer =
+      answerBody.summaryMode && answerBody.documentId
+        ? await summarizeDocument(answerBody.documentId, access.ownerId, { signal: request.signal })
+        : await answerQuestionWithScope({
+            query: answerBody.query,
+            documentId: singleDocumentScope ? answerBody.documentId : undefined,
+            documentIds: singleDocumentScope
+              ? undefined
+              : (scope.documentIds ??
+                answerBody.documentIds ??
+                (answerBody.documentId ? [answerBody.documentId] : undefined)),
+            ownerId: access.ownerId,
+            accessScope,
+            allowGlobalSearch: !access.ownerId,
+            queryMode: answerBody.queryMode,
+            signal: request.signal,
+          });
     const governedResponse = buildGovernedAnswerClientResponse(answer);
     logAnswerDiagnostics({
       supabase,
-      query: answerBody.query,
+      query: answerBody.summaryMode ? documentSummaryQuestion : answerBody.query,
       ownerId: access.ownerId,
       answer: governedResponse.telemetryAnswer,
     });
