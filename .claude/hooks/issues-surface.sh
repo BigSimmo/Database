@@ -91,24 +91,6 @@ EOF
   return 0
 }
 
-queue_total="$(printf '%s' "$queue_rows" | grep -c . || true)"
-if [ "${queue_total:-0}" -gt 0 ]; then
-  echo "[issues] Recommended execution queue — ${queue_total} retained tasks (first 8):"
-  printf '%s\n' "$queue_rows" | head -n 8 | while IFS=$'\t' read -r ord ids acuity capability timing; do
-    echo "  ${ord}. ${ids} · ${acuity} · ${timing} · ${capability}"
-  done
-fi
-
-# Keep the priority summary complementary to the queue instead of repeating
-# the same recommended IDs in both sections.
-queued_ids=" $(printf '%s\n' "$queue_rows" | grep -oE '#[0-9]+' | tr '\n' ' ' || true)"
-unqueued_rows="$(printf '%s\n' "$rows" | awk -F'\t' -v queued="$queued_ids" '
-  index(queued, " " $2 " ") == 0
-' || true)"
-ungroup() { printf '%s\n' "$unqueued_rows" | awk -F'\t' -v p="$1" '$1==p'; }
-u1="$(ungroup P1)"; u2="$(ungroup P2)"; u3="$(ungroup P3)"
-uc1="$(count "$u1")"; uc2="$(count "$u2")"; uc3="$(count "$u3")"
-
 print_group() { # $1=rows  $2=max-to-list
   local data="$1" limit="$2" shown=0 more=0 pri id typ sum
   [ -z "$data" ] && return 0
