@@ -18,7 +18,7 @@ export function SearchScreen() {
 
   return (
     <section data-screen-label="Search" className="tc-screens-search-screen-001">
-      <h1 className="tc-screens-search-screen-002">Therapy Search</h1>
+      <h1 className="tc-screens-search-screen-002">Therapy</h1>
       <p className="tc-screens-search-screen-003">
         Find source-grounded therapy records by problem, symptom, skill or population.
       </p>
