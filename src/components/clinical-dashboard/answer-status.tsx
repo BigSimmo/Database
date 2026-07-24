@@ -163,12 +163,12 @@ export function AnswerProgressStepper({
   active: boolean;
   onStop: () => void;
 }) {
+  const latest = events.at(-1) ?? null;
+  const finished = latest?.stage === "complete";
   const now = useClientTime({
     fallback: startedAt ?? 0,
     updateInterval: active && !finished && startedAt ? 1_000 : undefined,
   });
-  const latest = events.at(-1) ?? null;
-  const finished = latest?.stage === "complete";
   const currentStep = latest ? answerProgressStepIndex(latest.stage) : 0;
 
   const clientElapsedMs = startedAt ? Math.max(0, (finished ? (latest?.receivedAt ?? now) : now) - startedAt) : 0;

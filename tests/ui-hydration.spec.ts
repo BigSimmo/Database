@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "playwright/test";
 
 test.describe("React Hydration Safety", () => {
   test("dashboard does not emit hydration warnings during initial load", async ({ page }) => {
