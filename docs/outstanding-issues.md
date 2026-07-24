@@ -49,7 +49,7 @@ executable item below it.
 ## Recommended execution queue
 
 Last reconciled on **2026-07-24** against fetched `origin/main`
-`705480a348b0876179d4e58f734bff22d11dc7e3`. No live application or provider state was queried.
+`705480a34c2dd8b70fc27ce021350e7f26a107a7`. No live application or provider state was queried.
 Revalidate the referenced evidence against current `main` immediately before starting a row.
 
 | Order | Source          | Recommended outcome / next action                                                                                                                                                                                                    | Acuity / capability                                | When                                                        | Active effort                          | Dependencies / approval                                                                            | Done, verification, and stop rule                                                                                                                                                                                                                                                                                        |
