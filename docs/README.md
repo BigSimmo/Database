@@ -45,7 +45,8 @@ npm run docs:check-links
 - [supabase-migration-reconciliation.md](supabase-migration-reconciliation.md) — migration drift and repair policy
 - [observability-slos.md](observability-slos.md) — health probes, SLO counters, degraded modes
 - [openai-rag-operations.md](openai-rag-operations.md) — OpenAI/RAG provider operations and modes
-- [operator-backlog.md](operator-backlog.md) — pending operator debt backlog
+- [outstanding-issues.md](outstanding-issues.md) — single universal task ledger and repository memory
+- [operator-backlog.md](operator-backlog.md) — provider/operator runbook detail (status is canonical in the universal ledger)
 - [deploy-corrector-public-titles.md](deploy-corrector-public-titles.md) — public-title corrector deploy notes
 
 ## Governance, safety, privacy
