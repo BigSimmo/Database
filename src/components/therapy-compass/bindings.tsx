@@ -270,7 +270,17 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const selectedPathway = effectivePathwaySlug ? (pathways.find((p) => p.slug === effectivePathwaySlug) ?? null) : null;
 
   const deferredSearch = useDeferredValue(search);
-  const searchResults = useMemo(() => searchTherapies(therapies, deferredSearch), [therapies, deferredSearch]);
+  const searchResults = useMemo(() => {
+    const liveQuery = search.query.trim();
+    const deferredQuery = deferredSearch.query.trim();
+    // Cleared live query should browse the library immediately (empty query scores all).
+    if (!liveQuery && deferredQuery) {
+      return searchTherapies(therapies, { ...deferredSearch, query: "" });
+    }
+    // First keystrokes: deferred may still be empty — never dump the full library.
+    if (!deferredQuery && liveQuery) return [];
+    return searchTherapies(therapies, deferredSearch);
+  }, [therapies, deferredSearch, search]);
   const compareTherapies = useMemo(
     () => compareSlugs.map((sl) => bySlug.get(sl)).filter((t): t is Therapy => Boolean(t)),
     [compareSlugs, bySlug],

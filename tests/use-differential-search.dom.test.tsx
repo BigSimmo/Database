@@ -22,6 +22,8 @@ beforeEach(() => {
   vi.useFakeTimers();
   clearDifferentialSearchCacheForTests();
   authSession.markSessionExpired.mockReset();
+  authSession.authorizationHeader = { Authorization: "Bearer differential-search-test" };
+  authSession.status = "authenticated";
   fetchMock = vi.fn<typeof fetch>();
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -130,5 +132,35 @@ describe("useDifferentialSearch debounce/abort/cache", () => {
       matches: { diagnoses: [], presentations: [] },
       demoMode: false,
     });
+  });
+
+  it("clears prior matches immediately when the auth identity changes", async () => {
+    const diagnosisMatch = {
+      record: { slug: "major-depressive-disorder", title: "Major depressive disorder" },
+      score: 12,
+      reasons: ["title"],
+    };
+    fetchMock.mockImplementation((_input) => {
+      const url = String(_input);
+      if (url.includes("kind=diagnosis")) {
+        return Promise.resolve(jsonResponse({ matches: [diagnosisMatch], demoMode: false }));
+      }
+      return Promise.resolve(jsonResponse({ matches: [], demoMode: false }));
+    });
+
+    const { result, rerender } = renderHook(() => useDifferentialSearch("depression"));
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
+    expect(result.current.matches.diagnoses).toEqual([diagnosisMatch]);
+
+    authSession.authorizationHeader = { Authorization: "Bearer other-user" };
+    rerender();
+    expect(result.current.status).toBe("loading");
+    expect(result.current.matches).toEqual({ diagnoses: [], presentations: [] });
+
+    await advanceDebounce();
+    await flushMicrotasks();
+    expect(result.current.status).toBe("ready");
   });
 });

@@ -650,7 +650,7 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                 onSortChange={setSortValue}
               />
             </div>
-            {query.trim() && displayedMatches.length === 0 ? (
+            {query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
               <SearchResultsEmptyState
                 modeId="forms"
                 query={query}

@@ -178,7 +178,13 @@ function EmptySearchResults({ query }: { query: string }) {
 function FormulationResults({ query }: { query: string }) {
   const [domain, setDomain] = useState("all");
   const deferredQuery = useDeferredValue(query);
-  const results = useMemo(() => searchFormulationMechanisms(deferredQuery, { domain }), [domain, deferredQuery]);
+  const rankingReady = deferredQuery === query;
+  const results = useMemo(() => {
+    // Empty deferred while live query has text would score every mechanism —
+    // treat that lag as "no results yet" instead of dumping the full catalogue.
+    if (!deferredQuery.trim() && query.trim()) return [];
+    return searchFormulationMechanisms(deferredQuery, { domain });
+  }, [domain, deferredQuery, query]);
 
   return (
     <FormulationPageShell>
@@ -235,9 +241,9 @@ function FormulationResults({ query }: { query: string }) {
         </label>
       </section>
 
-      {results.length === 0 ? (
+      {results.length === 0 && rankingReady ? (
         <EmptySearchResults query={query} />
-      ) : (
+      ) : results.length === 0 ? null : (
         <section aria-label="Mechanism matches" className="grid gap-3">
           {results.map(({ mechanism }, index) => (
             <article

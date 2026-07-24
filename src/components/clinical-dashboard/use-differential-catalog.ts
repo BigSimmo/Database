@@ -116,11 +116,14 @@ export function useDifferentialSearch(query: string): DifferentialSearchState {
           demoMode: false,
         },
   );
-  // Reset to loading during render when the query changes (repo pattern —
-  // avoids react-hooks/set-state-in-effect). Prefer a warm cache hit.
+  // Reset to loading during render when the query or auth identity changes
+  // (repo pattern — avoids react-hooks/set-state-in-effect). Prefer a warm cache hit.
+  // Auth must clear prior identity's matches immediately (parity with useUniversalSearch).
   const [lastRequestKey, setLastRequestKey] = useState(requestKey);
-  if (lastRequestKey !== requestKey) {
+  const [lastAuthSignature, setLastAuthSignature] = useState(authSignature);
+  if (lastRequestKey !== requestKey || lastAuthSignature !== authSignature) {
     setLastRequestKey(requestKey);
+    setLastAuthSignature(authSignature);
     if (!requestKey) {
       setState({ status: "ready", matches: emptyDifferentialMatches, demoMode: false });
     } else if (cached) {

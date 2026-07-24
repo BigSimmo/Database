@@ -546,8 +546,12 @@ export function ServicesNavigatorPage() {
   );
   const matches = useMemo(() => {
     const ranked = rankServiceRecords(searchableRecords, deferredQuery);
-    return ranked.length ? ranked.map((match) => match.service) : deferredQuery.trim() ? [] : searchableRecords;
-  }, [deferredQuery, searchableRecords]);
+    if (ranked.length) return ranked.map((match) => match.service);
+    // Deferred empty while the live query has text means ranking is lagging —
+    // never dump the full catalogue as if the box were cleared.
+    if (!deferredQuery.trim()) return query.trim() ? [] : searchableRecords;
+    return [];
+  }, [deferredQuery, query, searchableRecords]);
   const scopedMatches = useMemo(() => {
     const scopes = command?.commandScopes ?? [];
     if (!scopes.length) return matches;
@@ -633,7 +637,7 @@ export function ServicesNavigatorPage() {
             body="The services registry could not be loaded. Try again shortly."
           />
         )
-      ) : query.trim() && displayedMatches.length === 0 ? (
+      ) : query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
         <SearchResultsEmptyState
           modeId="services"
           query={query}

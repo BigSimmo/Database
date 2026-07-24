@@ -878,14 +878,22 @@ function DocumentSearchResultsPanelImpl({
     [displayedMatches, sortValue],
   );
   // Progressive reveal so large libraries do not mount every card on first paint.
-  // Reset the window whenever the sorted result set identity changes (query/filter/sort).
+  // Reset the window whenever the sorted result set identity changes (query/filter/sort),
+  // but expand far enough that an explicit selection stays visible in the list.
   const resultsSignature = `${trimmedQuery}\0${sortValue}\0${effectiveResultType}\0${activeFacetKeys.join(",")}\0${sortedMatches.length}`;
+  const selectedIndex = selectedDocumentId
+    ? sortedMatches.findIndex((document) => document.document_id === selectedDocumentId)
+    : -1;
+  const minimumVisibleForSelection =
+    selectedIndex >= 0 ? Math.max(DOCUMENT_RESULTS_INITIAL_WINDOW, selectedIndex + 1) : DOCUMENT_RESULTS_INITIAL_WINDOW;
   const [visibleCountState, setVisibleCountState] = useState({
     signature: resultsSignature,
-    count: DOCUMENT_RESULTS_INITIAL_WINDOW,
+    count: minimumVisibleForSelection,
   });
   if (visibleCountState.signature !== resultsSignature) {
-    setVisibleCountState({ signature: resultsSignature, count: DOCUMENT_RESULTS_INITIAL_WINDOW });
+    setVisibleCountState({ signature: resultsSignature, count: minimumVisibleForSelection });
+  } else if (selectedIndex >= visibleCountState.count) {
+    setVisibleCountState({ signature: resultsSignature, count: selectedIndex + 1 });
   }
   const visibleCount = Math.min(visibleCountState.count, sortedMatches.length);
   const renderedMatches = sortedMatches.slice(0, visibleCount);

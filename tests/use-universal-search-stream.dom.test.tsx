@@ -1,7 +1,10 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useUniversalSearch, clearUniversalSearchCacheForTests } from "@/components/clinical-dashboard/use-universal-search";
+import {
+  useUniversalSearch,
+  clearUniversalSearchCacheForTests,
+} from "@/components/clinical-dashboard/use-universal-search";
 import type { UniversalSearchGroup, UniversalSearchResponse } from "@/lib/universal-search";
 import type { UniversalSearchStreamEvent } from "@/lib/universal-search-stream";
 

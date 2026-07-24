@@ -221,10 +221,11 @@ export function FormulationBuilderPage({
         .filter((mechanism): mechanism is FormulationMechanism => Boolean(mechanism)),
     [selectedIds],
   );
-  const visibleMechanisms = useMemo(
-    () => searchFormulationMechanisms(deferredQuery, { domain }).map((result) => result.mechanism),
-    [domain, deferredQuery],
-  );
+  const visibleMechanisms = useMemo(() => {
+    // Empty deferred while live query has text would score every mechanism.
+    if (!deferredQuery.trim() && query.trim()) return [];
+    return searchFormulationMechanisms(deferredQuery, { domain }).map((result) => result.mechanism);
+  }, [domain, deferredQuery, query]);
   const activeSections = formulationSectionsForTemplate(templateId);
   const generatedDraft = formulationDraftFor({
     mechanisms: selectedMechanisms,
