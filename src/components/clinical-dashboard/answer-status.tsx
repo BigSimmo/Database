@@ -186,7 +186,6 @@ export function AnswerProgressStepper({
       data-progress-state={finished ? "complete" : "active"}
       aria-label={finished ? "Answer generation complete" : "Answer generation progress"}
       aria-live="polite"
-      aria-busy={!finished}
       className="rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 py-2 text-[color:var(--text-heading)]"
     >
       <div className="flex min-h-8 items-center gap-2">

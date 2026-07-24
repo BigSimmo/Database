@@ -12,7 +12,7 @@ export default function Loading() {
             <Skeleton className="h-9 w-20 rounded-full" />
           </div>
         </div>
-        
+
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           <Skeleton className="h-40 w-full rounded-xl" animationDelay="50ms" />
           <Skeleton className="h-40 w-full rounded-xl" animationDelay="100ms" />

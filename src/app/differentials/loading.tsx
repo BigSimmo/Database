@@ -1,4 +1,11 @@
-import { Skeleton, searchPageShell, searchPageContainer, searchResultsBodyGrid, searchResultsMainColumn, searchResultsSidebar } from "@/components/ui-primitives";
+import {
+  Skeleton,
+  searchPageShell,
+  searchPageContainer,
+  searchResultsBodyGrid,
+  searchResultsMainColumn,
+  searchResultsSidebar,
+} from "@/components/ui-primitives";
 
 export default function Loading() {
   return (
@@ -8,7 +15,7 @@ export default function Loading() {
           <Skeleton className="h-10 w-1/3 max-w-sm" />
           <Skeleton className="h-10 w-24" />
         </div>
-        
+
         <div className={searchResultsBodyGrid}>
           <div className={searchResultsMainColumn}>
             <div className="grid gap-4">

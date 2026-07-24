@@ -477,11 +477,7 @@ export function LoadingPanel({
     return (
       <div className={`${insetCard} mt-3 space-y-2.5 p-4`} role="status" aria-label={label}>
         {Array.from({ length: lines }).map((_, index) => (
-          <Skeleton
-            key={index}
-            aria-hidden
-            className={cn("h-4", index === lines - 1 ? "w-2/3" : "w-full")}
-          />
+          <Skeleton key={index} aria-hidden className={cn("h-4", index === lines - 1 ? "w-2/3" : "w-full")} />
         ))}
         <span className="sr-only">{label}</span>
       </div>

@@ -177,9 +177,7 @@ export const SignedImage = memo(function SignedImage({
           {shouldLoad ? (
             <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
           ) : (
-            <div className="grid place-items-center gap-1">
-              Image preview will load when visible
-            </div>
+            <div className="grid place-items-center gap-1">Image preview will load when visible</div>
           )}
         </div>
       ) : null}
