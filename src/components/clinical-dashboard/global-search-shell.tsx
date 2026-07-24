@@ -358,7 +358,7 @@ function GlobalStandaloneSearchShellClient({
   // keep the full reserve so content does not slide under a still-visible dock.
   // Safari's bottom safe-area inset includes its translucent browser toolbar.
   // Reusing that inset after the app composer hides recreates a toolbar-sized
-  // blank band, so the hidden state intentionally keeps only a small content
+  // blank band, so the hidden state intentionally keeps no artificial content
   // pad. Interactive composer chrome still receives the full inset above.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,

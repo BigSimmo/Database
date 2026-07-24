@@ -291,6 +291,7 @@ function StagedAnswerResultSurfaceImpl({
           >
             <ClinicalNotesChecklistPanel
               answer={answer}
+              visualEvidence={renderModel.visualEvidence}
               viewMode={answerViewMode}
               evidenceMapRows={answerEvidenceMapRows}
               sourceLinks={renderModel.primarySources}
