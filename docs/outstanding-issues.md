@@ -35,7 +35,7 @@ appear in the active queue here.
 
 <!-- issues:next-id=053 -->
 
-+## Supabase scope
+## Supabase scope
 
 Every Supabase task here targets **Clinical KB Database** (`sjrfecxgysukkwxsowpy`). No task
 provisions, populates, migrates, verifies, or depends on another Supabase project. Stop whenever a
