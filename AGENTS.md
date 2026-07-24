@@ -143,7 +143,7 @@ Review routing:
 - `branch-cleanup`: Use only when the prompt explicitly asks for branch cleanup/hygiene or branch deletion candidates. Apply `docs/branch-cleanup-guide.md` and the review ledger before inspecting branch diffs.
 - `pr-ci-fix`: Confirmation-required for this repo. GitHub/GitLab API calls, PR comments, CI reruns, commits, and pushes require explicit user approval and must respect the upload/handoff rules. Exception: an explicit `Run PR` sweep carries this approval (see "## Run PR shortcut").
 
-When a branch or PR review completes, record the reviewed branch/ref, HEAD SHA, date, scope, outcome, and checks in `docs/branch-review-ledger.md`.
+When a branch or PR review completes, append the reviewed branch/ref, HEAD SHA, date, scope, outcome, and checks to `docs/branch-review-ledger.md`. The ledger is append-only: never edit or delete an existing record; append a correction or superseding record instead. Its `merge=union` attribute preserves concurrent appends, and `npm run check:branch-review-ledger` blocks conflict markers, exact duplicate records, or loss of that merge protection.
 
 <!-- END:codex-review-throttling -->
 

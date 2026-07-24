@@ -2,6 +2,8 @@
 
 Use this ledger to prevent repeated branch and PR reviews when the reviewed HEAD has not changed.
 
+This file is append-only. Never rewrite or delete an existing review record; append a correction or superseding record instead. Git uses the `union` merge driver for this file so concurrent appended records are retained automatically. After merging, keep all distinct records and remove exact duplicates only.
+
 ## Lookup Procedure
 
 1. Identify the target branch or ref from the user request. If no target is named, use the current branch.
