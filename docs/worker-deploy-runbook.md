@@ -51,15 +51,18 @@ The worker image build is validated in CI by
 (`push: false`) on:
 
 - every push to `main` / `release/**`,
-- pull requests that touch a container-affecting file (`Dockerfile.worker`,
-  `worker/python/requirements.txt`, deps, engine/build guards, the workflow
-  itself),
+- pull requests and merge-queue commits whose CI change classifier detects a
+  container-affecting file (`Dockerfile.worker`, all `worker/python/**`,
+  any other `worker/**` source, `scripts/build-worker.mjs`, dependencies, build
+  guards, or container config),
 - the weekly schedule (Sun 18:00 UTC), and
 - manual `workflow_dispatch`.
 
 Nothing is pushed to a registry — the job proves the image **builds cleanly
 from the tree**; registry publication and deploy are host-specific steps after
-the standard gates.
+the standard gates. On an applicable PR or merge-queue commit, both image jobs
+are called from CI and their result is folded into the required `pr-required`
+aggregate.
 
 Status: ✅ **CI covers the worker image build.** All build inputs referenced by
 `Dockerfile.worker` are present in the tree (`package-lock.json`, `.npmrc`,
@@ -67,7 +70,9 @@ Status: ✅ **CI covers the worker image build.** All build inputs referenced by
 `worker/python/requirements.txt`, `worker/index.ts`) and the `server-only`
 bundle path is guarded by `tests/tsx-server-only-runner.test.ts` plus
 `tests/worker-bundle.test.ts` (resolve-checks every bundle external against
-plain-`node` ESM resolution and the `--omit=dev` prune).
+plain-`node` ESM resolution and the `--omit=dev` prune). The image also compiles
+all committed Python helpers and runs `worker/python/test_*.py` before removing
+test files from the runtime layer, so Python-only defects cannot bypass CI.
 
 Local build for parity (optional; needs Docker with a few GB free — unlike the
 app image it does **not** need the 8 GiB build heap):
