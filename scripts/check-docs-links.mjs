@@ -46,7 +46,7 @@ const ALLOWLIST = new Set([
   "scripts/reindex-shadow.ts", // designed-only harness driver (docs/reindex-shadow-harness-design.md)
   "docs/site-map.generated.md", // hypothetical future split named in docs/process-hardening.md
   // Removed after the redesign; referenced historically in docs/redesign/*:
-  "src/app/tools/page.tsx",
+  "src/app/(search-app)/tools/page.tsx",
   "src/lib/tools.ts",
   "src/components/ServiceDetailPage.tsx",
 ]);
