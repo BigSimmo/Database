@@ -1,10 +1,18 @@
 import "server-only";
-import { enqueueDocumentReindexJob, type EnqueueableDocument } from "@/lib/ingestion-enqueue";
+import { env } from "@/lib/env";
 import type { createAdminClient } from "@/lib/supabase/admin";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
-export type StrandedQueuedDocument = EnqueueableDocument & {
+export type StrandedQueuedDocument = {
+  id: string;
+  owner_id: string | null;
+  status?: string | null;
+  error_message?: string | null;
+  page_count?: number | null;
+  chunk_count?: number | null;
+  image_count?: number | null;
+  import_batch_id?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -13,6 +21,7 @@ export type StrandedQueuedRecoveryResult =
   | { documentId: string; outcome: "enqueued"; jobId?: string }
   | { documentId: string; outcome: "already_active" }
   | { documentId: string; outcome: "document_deleted" }
+  | { documentId: string; outcome: "skipped_ownerless" }
   | { documentId: string; outcome: "skipped_young"; ageMinutes: number }
   | { documentId: string; outcome: "error"; message: string };
 
@@ -29,7 +38,8 @@ function ageMinutes(iso: string, nowMs: number) {
 
 // Pure predicate used by the reproducer and recovery planner: a document is
 // stranded when it is still `queued`, old enough that a mid-upload crash is
-// plausible, and has no open pending/processing ingestion job.
+// plausible, and has no pending/processing job or failed job already handled by
+// the ordinary ingestion-recovery plan.
 export function isStrandedQueuedDocument(args: {
   document: { status: string | null; created_at: string; updated_at?: string | null };
   openJobCount: number;
@@ -73,6 +83,7 @@ export async function listStrandedQueuedDocuments(args: {
         "id,owner_id,status,error_message,page_count,chunk_count,image_count,import_batch_id,created_at,updated_at",
       )
       .eq("status", "queued")
+      .not("owner_id", "is", null)
       .lt("updated_at", cutoff)
       .order("updated_at", { ascending: true });
 
@@ -87,15 +98,15 @@ export async function listStrandedQueuedDocuments(args: {
     if (candidates.length === 0) break;
 
     const documentIds = candidates.map((document) => document.id);
-    const { data: openJobs, error: openJobsError } = await args.supabase
+    const { data: recoveryJobs, error: recoveryJobsError } = await args.supabase
       .from("ingestion_jobs")
       .select("document_id")
       .in("document_id", documentIds)
-      .in("status", ["pending", "processing"]);
-    if (openJobsError) throw new Error(openJobsError.message);
+      .in("status", ["pending", "processing", "failed"]);
+    if (recoveryJobsError) throw new Error(recoveryJobsError.message);
 
     const openJobCounts = new Map<string, number>();
-    for (const job of openJobs ?? []) {
+    for (const job of recoveryJobs ?? []) {
       const documentId = job.document_id;
       if (!documentId) continue;
       openJobCounts.set(documentId, (openJobCounts.get(documentId) ?? 0) + 1);
@@ -131,20 +142,43 @@ export async function recoverStrandedQueuedDocuments(args: {
   documents: StrandedQueuedDocument[];
 }): Promise<StrandedQueuedRecoveryResult[]> {
   const results: StrandedQueuedRecoveryResult[] = [];
+  const staleBefore = new Date(Date.now() - env.WORKER_STALE_AFTER_MINUTES * 60_000).toISOString();
 
   for (const document of args.documents) {
+    if (!document.owner_id) {
+      results.push({ documentId: document.id, outcome: "skipped_ownerless" });
+      continue;
+    }
+
     try {
-      const result = await enqueueDocumentReindexJob({
-        supabase: args.supabase,
-        document,
+      const { data, error } = await args.supabase.rpc("request_ingestion_reindex_if_agent_idle", {
+        p_document_id: document.id,
+        p_owner_id: document.owner_id,
+        p_stale_before: staleBefore,
+        p_max_attempts: env.WORKER_MAX_ATTEMPTS,
       });
-      if (result.outcome === "enqueued") {
+      if (error) throw new Error(error.message);
+      if (!data || typeof data !== "object" || !("outcome" in data) || typeof data.outcome !== "string") {
+        throw new Error("Atomic stranded-queue recovery returned an invalid result.");
+      }
+
+      if (data.outcome === "queued") {
         const jobId =
-          result.job && typeof result.job === "object" && "id" in result.job ? String(result.job.id ?? "") : undefined;
+          "job" in data && data.job && typeof data.job === "object" && "id" in data.job
+            ? String(data.job.id ?? "")
+            : undefined;
         results.push({ documentId: document.id, outcome: "enqueued", jobId: jobId || undefined });
         continue;
       }
-      results.push({ documentId: document.id, outcome: result.outcome });
+      if (data.outcome === "ingestion_active" || data.outcome === "agent_enrichment_active") {
+        results.push({ documentId: document.id, outcome: "already_active" });
+        continue;
+      }
+      if (data.outcome === "not_found") {
+        results.push({ documentId: document.id, outcome: "document_deleted" });
+        continue;
+      }
+      throw new Error(`Atomic stranded-queue recovery returned unknown outcome "${data.outcome}".`);
     } catch (error) {
       results.push({
         documentId: document.id,

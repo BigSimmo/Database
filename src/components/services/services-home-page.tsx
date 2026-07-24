@@ -1,6 +1,6 @@
 "use client";
 
-import { FileQuestion, FileSearch, Loader2, MapPinned, Route, ShieldAlert, ShieldCheck, Users } from "lucide-react";
+import { FileQuestion, FileSearch, Loader2, MapPinned, Route, ShieldAlert, Users } from "lucide-react";
 
 import {
   ModeHomeMain,
@@ -139,9 +139,9 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
         footer={
           hasRegistryRecords ? (
             <ModeHomeVerificationFooter
-              icon={ShieldCheck}
-              label="Catalogue service data"
-              body="Confirm locally before use"
+              icon={Route}
+              label="Referral fit"
+              body="Need, catchment, eligibility and route"
               verifiedCount={verifiedCount}
               totalCount={registry.total}
             />

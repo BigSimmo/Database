@@ -98,4 +98,24 @@ describe("Sheet stacked-overlay coordination", () => {
     );
     expect(document.body.style.overflow).toBe("");
   });
+
+  it("cancels focus-restore timers on unmount so coverage teardown cannot throw", async () => {
+    vi.useFakeTimers();
+    const onClose = vi.fn();
+    const { unmount } = render(
+      <Sheet open onClose={onClose} title="Solo" portal>
+        <p>Solo body</p>
+      </Sheet>,
+    );
+    await vi.runAllTimersAsync();
+    const restoreFrameSpy = vi.spyOn(window, "requestAnimationFrame");
+
+    // Unmount while open: no restore callback should be scheduled after the
+    // mount cleanup has started tearing down the component.
+    unmount();
+    await vi.runAllTimersAsync();
+    expect(restoreFrameSpy).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
+  });
 });
