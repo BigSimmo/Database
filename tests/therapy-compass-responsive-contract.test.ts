@@ -61,7 +61,7 @@ describe("Therapy Compass responsive contract", () => {
     expect(responsiveStackCount(therapyCardSource)).toBeGreaterThanOrEqual(2);
     expect(homeSource).toContain("ModeHomeMain");
     expect(homeSource).toContain("ModeHomeTemplate");
-    expect(modeHomeTemplateSource).toContain("sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
+    expect(modeHomeTemplateSource).toContain("lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
     expect(modeHomeTemplateSource).toContain("sm:flex-wrap");
     expect(homeSource).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
     expect(homeSource).toContain("ModeHomeVerificationFooter");
