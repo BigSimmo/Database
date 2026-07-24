@@ -395,6 +395,7 @@ function mockRuntime(
       MAX_IN_FLIGHT_UPLOAD_MB: options.maxInFlightUploadMb ?? 151,
       SUPABASE_DOCUMENT_BUCKET: "clinical-documents",
       SUPABASE_IMAGE_BUCKET: "clinical-images",
+      DOCUMENT_SIGNED_URL_TTL_SECONDS: 600,
       RAG_SEARCH_CACHE_TTL_MS: 0,
       RAG_SEARCH_CACHE_SIZE: 0,
       RAG_ANSWER_CACHE_TTL_MS: 0,
@@ -513,7 +514,7 @@ describe("private document API access", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(200);
-    expect(body.documents).toEqual(documents);
+    expect(body.documents).toEqual([{ id: documentId, title: "Public guideline" }]);
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
     expect(client.auth.getUser).not.toHaveBeenCalled();
   });
@@ -582,7 +583,7 @@ describe("private document API access", () => {
     const body = await payload(response);
 
     expect(response.status).toBe(200);
-    expect(body.documents).toEqual(documents);
+    expect(body.documents).toEqual([{ id: documentId, title: "Public guideline", status: "indexed" }]);
     expect(client.auth.getUser).not.toHaveBeenCalled();
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: null });
     expect(client.calls[0].filters).not.toContainEqual({ column: "owner_id", value: userId });
@@ -937,7 +938,7 @@ describe("private document API access", () => {
   });
 
   it("omits internal document list fields for anonymous callers", async () => {
-    const documents = [{ id: documentId, owner_id: null, title: "Public guideline", status: "indexed" }];
+    const documents = [{ id: documentId, title: "Public guideline", status: "indexed" }];
     const client = createSupabaseMock((call) => (call.table === "documents" ? ok(documents) : ok([])));
     mockRuntime(client);
     const { GET } = await import("../src/app/api/documents/route");
@@ -2312,7 +2313,7 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(409);
     expect(await payload(response)).toMatchObject({
-      error: "Reindex is paused while enrichment is active.",
+      error: "Document has an active agent-enrichment pass. Wait for it to finish before reindexing.",
     });
     expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
     expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
@@ -2744,7 +2745,7 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(409);
     expect(await payload(response)).toMatchObject({
-      error: "Bulk reindex is paused while enrichment is active for one or more selected documents.",
+      error: "Document has an active agent-enrichment pass. Wait for it to finish before reindexing.",
     });
     expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
     expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
@@ -2926,14 +2927,29 @@ describe("private document API access", () => {
   it("cleans up uploaded storage when job insert fails", async () => {
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "insert") {
-        return ok({ id: documentId });
-      }
-      if (call.table === "ingestion_jobs" && call.operation === "insert") {
         return fail("job insert failed");
       }
       return ok([]);
     });
     mockRuntime(client);
+    client.rpc.mockImplementation(async (name: string, args?: Record<string, unknown>) => {
+      if (name === "create_uploaded_document_with_ingestion_job") {
+        return fail("job insert failed");
+      }
+      if (name === "consume_api_rate_limit" || name === "consume_api_subject_rate_limit") {
+        return {
+          data: [
+            rateLimitRow({
+              limited: false,
+              limit_value: Number(args?.p_limit ?? 60),
+              remaining: Number(args?.p_limit ?? 60) - 1,
+            }),
+          ],
+          error: null,
+        };
+      }
+      return ok([]);
+    });
     const { POST } = await import("../src/app/api/upload/route");
     const formData = new FormData();
     formData.set("file", new File(["%PDF-1.7\n%%EOF"], "guideline.pdf", { type: "application/pdf" }));
@@ -2955,10 +2971,10 @@ describe("private document API access", () => {
     const controller = new AbortController();
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "insert") {
+        controller.abort();
         return ok({ id: documentId });
       }
       if (call.table === "ingestion_jobs" && call.operation === "insert") {
-        controller.abort();
         return ok({ id: "job-1", document_id: documentId });
       }
       if (call.table === "documents" && call.operation === "delete") {
