@@ -27,7 +27,7 @@ export function MobileKeyboardProvider({ children }: { children: ReactNode }) {
     function handleResize() {
       const viewport = window.visualViewport;
       if (!viewport) return;
-      
+
       const isMobile = window.matchMedia("(max-width: 1023px)").matches;
       if (!isMobile) {
         setIsKeyboardOpen(false);

@@ -66,6 +66,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
+import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
@@ -1533,7 +1534,7 @@ export function MasterSearchHeader({
                 data-testid="global-search-input"
                 autoFocus={queryInputAutoFocus}
                 onFocus={(e) => {
-                  e.target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+                  e.target.scrollIntoView({ block: "nearest", behavior: resolveScrollBehavior() });
                 }}
                 value={query}
                 enterKeyHint="search"
