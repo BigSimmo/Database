@@ -98,9 +98,15 @@ export const SignedImage = memo(function SignedImage({
     return (
       <div
         ref={frameRef}
+        style={
+          typeof aspectRatio === "number" && Number.isFinite(aspectRatio) && aspectRatio > 0
+            ? { aspectRatio: String(Math.min(Math.max(aspectRatio, 0.35), 8)) }
+            : undefined
+        }
         className={cn(
           className,
-          "grid aspect-[4/3] w-full place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-4 text-center text-xs font-semibold text-[color:var(--warning)]",
+          "grid w-full place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-4 text-center text-xs font-semibold text-[color:var(--warning)]",
+          !(typeof aspectRatio === "number" && Number.isFinite(aspectRatio) && aspectRatio > 0) && "aspect-[4/3]",
         )}
       >
         <div>

@@ -97,4 +97,23 @@ describe("SignedImage failure/retry (jsdom)", () => {
     expect(frame).toHaveStyle({ aspectRatio: "4.2" });
     expect(frame?.className).not.toContain("aspect-[4/3]");
   });
+
+  it("applies the supplied aspect ratio when the signed-image request fails", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({ error: "boom" }) }),
+    );
+
+    render(<SignedImage endpoint={ENDPOINT} alt="Wide table" aspectRatio={3.5} />);
+
+    // Wait for the failure state to render.
+    expect(await screen.findByText("Image preview could not load.")).toBeInTheDocument();
+
+    // The error frame must use the supplied ratio, not force 4:3.
+    // The outer div (with the style) contains the inner div with the text.
+    const frame = screen.getByText("Image preview could not load.").closest("div")?.parentElement;
+    expect(frame).toHaveStyle({ aspectRatio: "3.5" });
+    expect(frame?.className).not.toContain("aspect-[4/3]");
+  });
 });

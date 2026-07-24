@@ -433,6 +433,14 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
       ["administrative", "reference"].includes(finalAssessment.clinical_use_class) &&
       classification.image_type !== "logo_decorative";
     const nextSearchable = finalAssessment.searchable;
+    const existingRetainedForView = existingMetadata.retained_for_document_view === true;
+    // Preserve view-only retention for diagram_crop and page_region that were
+    // previously marked as retained without captioning, ensuring re-enrichment
+    // doesn't accidentally make them searchable or drop them from the viewer.
+    const retainForDocumentView =
+      retainAsAuditTable ||
+      (existingRetainedForView &&
+        ["table_crop", "diagram_crop", "page_region"].includes(image.source_kind ?? ""));
 
     await supabase
       .from("document_images")
@@ -453,7 +461,7 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
           admin_signal_score: finalAssessment.admin_signal_score,
           image_policy_version: clinicalImagePolicyVersion,
           retained_for_audit: retainAsAuditTable || undefined,
-          retained_for_document_view: retainAsAuditTable || undefined,
+          retained_for_document_view: retainForDocumentView || undefined,
         },
       })
       .eq("id", image.id);

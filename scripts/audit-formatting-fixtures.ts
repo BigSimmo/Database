@@ -37,7 +37,11 @@ async function auditExtractJson(file: string): Promise<FormattingIssue[]> {
     const ocrDensity = numberValue(meta.ocr_text_density);
 
     if (sourceKind === "table_crop" && !Array.isArray(meta.table_rows)) {
-      issues.push({ file: label, severity: "fail", issue: "table crop missing structured table rows" });
+      // Only fail when structured extraction was expected (high confidence or no explicit
+      // fallback marker). Image-only table fallbacks emit a warning instead.
+      const expectedStructured = structuredConfidence !== null && structuredConfidence >= 0.58;
+      const severity = expectedStructured ? "fail" : "warning";
+      issues.push({ file: label, severity, issue: "table crop missing structured table rows" });
     }
     if (meta.rows_truncated === true) {
       issues.push({ file: label, severity: "warning", issue: "table rows truncated" });

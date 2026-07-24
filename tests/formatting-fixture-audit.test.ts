@@ -40,4 +40,37 @@ describe("formatting fixture audit", () => {
     expect(result.stdout).toContain("extreme image aspect ratio");
     expect(result.stdout).toContain("page needs OCR");
   });
+
+  it("warns rather than fails for image-only table fallbacks with low structured confidence", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "formatting-audit-"));
+    const fixture = path.join(dir, "extract-image-fallback.json");
+    await writeFile(
+      fixture,
+      JSON.stringify({
+        images: [
+          {
+            sourceKind: "table_crop",
+            width: 800,
+            height: 600,
+            metadata: {
+              crop_completeness: 0.95,
+              structured_extraction_confidence: 0.25,
+              ocr_text_density: 0.35,
+            },
+          },
+        ],
+      }),
+      "utf8",
+    );
+
+    const result = spawnSync("node", ["scripts/run-tsx.mjs", "scripts/audit-formatting-fixtures.ts", fixture], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+    });
+
+    // Should succeed (no fail-level issues) but emit a warning about missing rows.
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("WARNING");
+    expect(result.stdout).toContain("table crop missing structured table rows");
+  });
 });
