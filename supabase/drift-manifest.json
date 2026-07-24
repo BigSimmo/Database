@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-24T05:47:11.755Z",
+  "generated_at": "2026-07-24T06:18:38.047Z",
   "generator": "scripts/generate-drift-manifest.ts",
   "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "81fd99d0849bde3c68a7a476e923034e0bd0258fda08e8e67f35b1c426f110e4",
-  "replay_seconds": 17,
+  "schema_sha256": "7c22a34be4b56894e19136e97897589a000b0502f7b666fffc9060c4e6c907a0",
+  "replay_seconds": 18,
   "snapshot": {
     "views": [
       {
@@ -6661,7 +6661,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "55f95e3b799f7716a7fd264d2b3cdd5a",
+        "def_hash": "d061668633026acc816e1d63403765d1",
         "signature": "public.claim_indexing_v3_agent_jobs(text,integer,integer)"
       },
       {
@@ -7212,6 +7212,14 @@
         ],
         "def_hash": "baa8c0bda37cc561026baecdf1cca1c2",
         "signature": "public.request_indexing_v3_enrichment(uuid,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "608a60e6ec287dda67f9ae93c5889ceb",
+        "signature": "public.request_ingestion_reindex_if_agent_idle(uuid,uuid,timestamp with time zone,integer)"
       },
       {
         "acl": [
