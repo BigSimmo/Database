@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { NavigationBackButton } from "@/components/navigation-back-button";
+import { appModeHomeHref } from "@/lib/app-modes";
 import {
   cn,
   clinicalDivider,
@@ -210,14 +212,20 @@ function AddRow({
   primaryPlaceholder,
   secondaryPlaceholder,
   onAdd,
+  onDraftDirtyChange,
 }: {
   kind: StepKind;
   primaryPlaceholder: string;
   secondaryPlaceholder?: string;
   onAdd: (primary: string, secondary?: string) => void;
+  onDraftDirtyChange?: (dirty: boolean) => void;
 }) {
   const [primary, setPrimary] = useState("");
   const [secondary, setSecondary] = useState("");
+  const draftIsDirty = useCallback(
+    (nextPrimary: string, nextSecondary: string) => nextPrimary.trim() !== "" || nextSecondary.trim() !== "",
+    [],
+  );
 
   const submit = () => {
     const trimmed = primary.trim();
@@ -225,13 +233,18 @@ function AddRow({
     onAdd(trimmed, secondary.trim() || undefined);
     setPrimary("");
     setSecondary("");
+    onDraftDirtyChange?.(false);
   };
 
   return (
     <div className={cn("grid gap-2", kind === "contact" && "sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]")}>
       <input
         value={primary}
-        onChange={(event) => setPrimary(event.target.value)}
+        onChange={(event) => {
+          const nextPrimary = event.target.value;
+          setPrimary(nextPrimary);
+          onDraftDirtyChange?.(draftIsDirty(nextPrimary, secondary));
+        }}
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault();
@@ -245,7 +258,11 @@ function AddRow({
       {kind === "contact" ? (
         <input
           value={secondary}
-          onChange={(event) => setSecondary(event.target.value)}
+          onChange={(event) => {
+            const nextSecondary = event.target.value;
+            setSecondary(nextSecondary);
+            onDraftDirtyChange?.(draftIsDirty(primary, nextSecondary));
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
@@ -309,11 +326,13 @@ function StepBuilderCard({
   entries,
   onAdd,
   onRemove,
+  onDraftDirtyChange,
 }: {
   def: StepDef;
   entries: Entry[];
   onAdd: (primary: string, secondary?: string) => void;
   onRemove: (id: string) => void;
+  onDraftDirtyChange: (dirty: boolean) => void;
 }) {
   const Icon = def.icon;
   const filled = entries.length > 0;
@@ -366,6 +385,7 @@ function StepBuilderCard({
         primaryPlaceholder={def.primaryPlaceholder}
         secondaryPlaceholder={def.secondaryPlaceholder}
         onAdd={onAdd}
+        onDraftDirtyChange={onDraftDirtyChange}
       />
     </section>
   );
@@ -428,6 +448,7 @@ export function PatientSafetyPlan() {
   const [mobileTab, setMobileTab] = useState<"build" | "preview">("build");
   const [copied, setCopied] = useState(false);
   const [finalised, setFinalised] = useState(false);
+  const [draftDirtyByRow, setDraftDirtyByRow] = useState<Record<string, boolean>>({});
 
   // Per-instance id counter — avoids a module-level mutable that would persist
   // across remounts; ids only need to be unique within this mounted plan.
@@ -447,8 +468,26 @@ export function PatientSafetyPlan() {
     setFinalised(false);
   }, []);
 
+  const setDraftDirty = useCallback((key: string, dirty: boolean) => {
+    setDraftDirtyByRow((prev) => {
+      if (prev[key] === dirty) return prev;
+      return { ...prev, [key]: dirty };
+    });
+  }, []);
+
   const filledSteps = useMemo(() => STEPS.filter((step) => entries[step.key].length > 0).length, [entries]);
   const ready = filledSteps === STEPS.length;
+  // Working plan content is browser-tab only and never persisted. Treat any
+  // entered step/reason/date as dirty so the header back control cannot discard
+  // an in-progress plan without an explicit confirmation.
+  const isDirty = useMemo(
+    () =>
+      Object.values(entries).some((rows) => rows.length > 0) ||
+      reasons.length > 0 ||
+      planDate.trim() !== "" ||
+      Object.values(draftDirtyByRow).some(Boolean),
+    [draftDirtyByRow, entries, planDate, reasons],
+  );
 
   const planText = useMemo(() => {
     const lines: string[] = [
@@ -521,7 +560,17 @@ export function PatientSafetyPlan() {
       {/* Tool header */}
       <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-8">
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
+          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-3">
+            <NavigationBackButton
+              className="size-tap"
+              fallbackHref={appModeHomeHref("tools")}
+              onBeforeNavigate={() => {
+                if (!isDirty) return true;
+                return window.confirm(
+                  "Leave this safety plan? Your entries are only in this browser tab and will be lost.",
+                );
+              }}
+            />
             <span className="grid size-tap shrink-0 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <ShieldCheck className="size-icon-lg" aria-hidden="true" />
             </span>
@@ -676,6 +725,7 @@ export function PatientSafetyPlan() {
               entries={entries[def.key]}
               onAdd={(primary, secondary) => addEntry(def.key, primary, secondary)}
               onRemove={(id) => removeEntry(def.key, id)}
+              onDraftDirtyChange={(dirty) => setDraftDirty(def.key, dirty)}
             />
           ))}
 
@@ -727,8 +777,10 @@ export function PatientSafetyPlan() {
             <AddRow
               kind="list"
               primaryPlaceholder="e.g. Finishing my apprenticeship"
+              onDraftDirtyChange={(dirty) => setDraftDirty("reason", dirty)}
               onAdd={(primary) => {
                 setReasons((prev) => [...prev, { id: uid("reason"), primary }]);
+                setDraftDirty("reason", false);
                 setFinalised(false);
               }}
             />

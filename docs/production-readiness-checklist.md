@@ -5,6 +5,11 @@ action detail is indexed in [`operator-backlog.md`](operator-backlog.md); canoni
 tracked only in [`outstanding-issues.md`](outstanding-issues.md).
 Unchecked boxes below are rerun per release candidate; they do not imply abandoned repository work.
 
+**Provider-backed boundary:** commands such as `check:supabase-project`, `eval:quality`,
+`eval:retrieval:quality`, and `verify:release` touch live Supabase and/or OpenAI. Agents must not
+run them without explicit user approval (`AGENTS.md`). Offline substitutes:
+`verify:cheap` / `verify:pr-local` / `eval:quality:release:offline` where applicable.
+
 This is the runbook to make the app publishable in one focused pass.
 
 Last reviewed: 2026-07-10. Applies to any feature branch or release candidate.
