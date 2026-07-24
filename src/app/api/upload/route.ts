@@ -8,6 +8,7 @@ import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
 import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
+import { inferSourceAuthorityFromIdentity } from "@/lib/source-authority-metadata";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
@@ -204,6 +205,12 @@ export async function POST(request: Request) {
     const title = namePlan.title;
     const description = uploadMetadata.description;
     const uploadedAt = new Date().toISOString();
+    const identityAuthority = inferSourceAuthorityFromIdentity({
+      title,
+      file_name: file.name,
+      source_path: storagePath,
+    });
+    const canonicalAuthority = identityAuthority.conflict ? null : identityAuthority.authority;
 
     assertUploadNotAborted(request);
     const { data: document, error: documentError } = await supabase
@@ -221,8 +228,9 @@ export async function POST(request: Request) {
         status: "queued",
         metadata: {
           source_title: title,
-          publisher: null,
-          jurisdiction: "Australia/WA",
+          publisher_code: canonicalAuthority ? (identityAuthority.code ?? canonicalAuthority.codes[0] ?? null) : null,
+          publisher: canonicalAuthority?.publisher ?? null,
+          jurisdiction: canonicalAuthority?.jurisdictions[0] ?? "Australia/WA",
           version: null,
           publication_date: null,
           review_date: null,

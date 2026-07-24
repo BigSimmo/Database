@@ -1,4 +1,5 @@
 import { logger } from "@/lib/logger";
+import { classifySourceAuthority, type SourceDesignation } from "@/lib/source-authority-registry";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
 const knownStatuses = new Set(["current", "review_due", "outdated", "unknown"]);
@@ -117,9 +118,34 @@ export function clipboardProvenanceLine(metadata?: ClinicalSourceMetadata | null
   // clipboard line is an audit artifact, unlike the visible summary above
   // which drops unknown filler segments for readability.
   return [
+    `Designation: ${sourceDesignationSummary(source)}`,
     `Review status: ${sourceStatusLabel(source)}`,
     `Validation: ${validationStatusLabel(source)}`,
     `Review date: ${formatClinicalDate(source.review_date)}`,
     `Jurisdiction: ${source.jurisdiction ?? "Unknown"}`,
   ].join(" | ");
+}
+
+export function sourceDesignationLabel(designation: SourceDesignation) {
+  if (designation === "official") return "Official";
+  if (designation === "trusted") return "Trusted";
+  return "Unclassified";
+}
+
+export function sourceDesignationDescription(metadata?: ClinicalSourceMetadata | null) {
+  const classification = classifySourceAuthority(metadata);
+  if (classification.designation === "official") {
+    return classification.officialBasis === "wa_hospital"
+      ? "Authenticated source issued by a recognised WA hospital. Official does not imply current, locally approved, or clinically relevant."
+      : "Authenticated source issued by a recognised WA health-service network. Official does not imply current, locally approved, or clinically relevant.";
+  }
+  if (classification.designation === "trusted") {
+    return "Recognised authority outside the Official WA hospital/network scope. Trusted does not imply current, locally approved, or clinically relevant.";
+  }
+  return "Source authority is unknown, ambiguous, conflicting, or a registry summary. Treat as unclassified provenance.";
+}
+
+export function sourceDesignationSummary(metadata?: ClinicalSourceMetadata | null) {
+  const classification = classifySourceAuthority(metadata);
+  return sourceDesignationLabel(classification.designation);
 }

@@ -6,6 +6,7 @@ import { isDemoMode } from "@/lib/env";
 import { jsonError, PublicApiError } from "@/lib/http";
 import { logger } from "@/lib/logger";
 import { safeErrorLogDetails } from "@/lib/privacy";
+import { sourceAuthorityForPublisherCode } from "@/lib/source-authority-registry";
 import { invalidateRagCachesForOwner } from "@/lib/rag/rag";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Json, TablesUpdate } from "@/lib/supabase/database.types";
@@ -26,6 +27,7 @@ const bulkMetadataSchema = z.object({
       publicationDate: nullableText,
       jurisdiction: nullableText,
       publisher: nullableText,
+      publisherCode: nullableText,
       sourceType: nullableText,
       collection: nullableText,
       category: nullableText,
@@ -201,8 +203,17 @@ export async function POST(request: Request) {
         setMetadataValue(metadata, "extraction_quality", parsed.metadata.extractionQuality);
         setMetadataValue(metadata, "review_date", parsed.metadata.reviewDate);
         setMetadataValue(metadata, "publication_date", parsed.metadata.publicationDate);
-        setMetadataValue(metadata, "jurisdiction", parsed.metadata.jurisdiction);
-        setMetadataValue(metadata, "publisher", parsed.metadata.publisher);
+        const publisherCode = parsed.metadata.publisherCode;
+        if (publisherCode !== undefined && publisherCode !== null && publisherCode.trim()) {
+          const authority = sourceAuthorityForPublisherCode(publisherCode);
+          if (!authority) throw new PublicApiError("Unknown publisher code.", 400);
+          setMetadataValue(metadata, "publisher_code", authority.codes[0]);
+          setMetadataValue(metadata, "publisher", authority.publisher);
+          setMetadataValue(metadata, "jurisdiction", authority.jurisdictions[0] ?? null);
+        } else {
+          setMetadataValue(metadata, "jurisdiction", parsed.metadata.jurisdiction);
+          setMetadataValue(metadata, "publisher", parsed.metadata.publisher);
+        }
         setMetadataValue(metadata, "source_type", parsed.metadata.sourceType);
         setMetadataValue(metadata, "collection", parsed.metadata.collection);
         setMetadataValue(metadata, "category", parsed.metadata.category);
