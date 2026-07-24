@@ -537,7 +537,7 @@ summary {
    inline body/citation links down 1px on tap, which reads oddly for text links. */
 button:active,
 summary:active {
-  transform: scale(0.97);
+  transform: translateY(1px);
 }
 
 summary::-webkit-details-marker {

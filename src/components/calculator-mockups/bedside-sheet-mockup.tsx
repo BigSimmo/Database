@@ -170,7 +170,7 @@ export function CalculatorsBedsideSheetMockup() {
           </div>
           <nav
             aria-label="Jump to calculator"
-            className="flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]"
+            className="flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%_-_1.5rem),transparent)]"
           >
             {calculators.map((calc) => {
               const derived = deriveCalculator(calc, session[calc.id] ?? {});
@@ -234,7 +234,7 @@ export function CalculatorsBedsideSheetMockup() {
             </button>
           </div>
           {startedCalcs.length ? (
-            <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%-1.5rem),transparent)]">
+            <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%_-_1.5rem),transparent)]">
               {startedCalcs.map(({ calc, derived }) => (
                 <a
                   key={calc.id}
