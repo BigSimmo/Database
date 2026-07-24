@@ -268,6 +268,8 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
     const comparisonAnswer: RagAnswer = {
       ...answer,
       grounded: true,
+      // Missing relevance.isSourceBacked → fail closed; documentBreakdown/comparison
+      // metadata must not rebuild ClinicalOutputPanel comparison-detail tables.
       responseMode: "comparison_matrix",
       queryClass: "comparison",
       documentBreakdown: [
@@ -294,6 +296,33 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
           best_quote: "Guideline B prefers monthly lithium monitoring when stable.",
         },
       ],
+      comparisonMatrix: {
+        documents: [
+          { documentId: "doc-a", title: "Guideline A", fileName: "a.pdf" },
+          { documentId: "doc-b", title: "Guideline B", fileName: "b.pdf" },
+        ],
+        rows: [
+          {
+            parameter: "Monitoring interval",
+            status: "conflict",
+            entries: [
+              {
+                documentId: "doc-a",
+                chunkIds: ["chunk-a"],
+                value: "weekly when unstable",
+                qualifiers: [],
+              },
+              {
+                documentId: "doc-b",
+                chunkIds: ["chunk-b"],
+                value: "monthly when stable",
+                qualifiers: [],
+              },
+            ],
+          },
+        ],
+      },
+      comparisonEvaluationState: "evaluated",
     };
 
     render(
@@ -309,7 +338,10 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
       />,
     );
 
+    expect(screen.queryByText("Clinical comparison detail")).not.toBeInTheDocument();
     expect(screen.queryByText("Guideline A prefers weekly lithium monitoring when unstable.")).not.toBeInTheDocument();
     expect(screen.queryByText("Guideline B prefers monthly lithium monitoring when stable.")).not.toBeInTheDocument();
+    expect(screen.queryByText("weekly when unstable")).not.toBeInTheDocument();
+    expect(screen.queryByText("monthly when stable")).not.toBeInTheDocument();
   });
 });
