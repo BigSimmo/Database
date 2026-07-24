@@ -247,7 +247,7 @@ begin
   end if;
 
   perform net.http_post(
-    url := v_base_url || '/api/webhooks/supabase/document-change',
+    url := rtrim(v_base_url, '/') || '/api/webhooks/supabase/document-change',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || v_secret
@@ -290,8 +290,17 @@ revoke execute on function public.notify_document_change_ingestion_webhook() fro
 drop trigger if exists documents_ingestion_webhook on public.documents;
 -- UPDATE only, by design — see the INSERT-race comment in the function above.
 create trigger documents_ingestion_webhook
-  after update on public.documents
+  after update of metadata on public.documents
   for each row execute function public.notify_document_change_ingestion_webhook();
+```
+
+Rollback is additive and data-preserving: disable delivery by dropping the
+trigger first, then remove the trigger function. The Vault secret and database
+GUC may remain for a later redeploy or be removed separately by an operator.
+
+```sql
+drop trigger if exists documents_ingestion_webhook on public.documents;
+drop function if exists public.notify_document_change_ingestion_webhook();
 ```
 
 To reindex an existing document — or to index one inserted outside the app upload

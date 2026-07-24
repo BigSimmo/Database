@@ -21,3 +21,5 @@ supabase/drift-manifest.json
 # Trimmed Therapy Compass content export (generated data assets); keep minified.
 public/therapy-compass-data/
 docs/branch-review-ledger.md
+# Verbatim user-provided prompt inputs retained for cloud review.
+codex-cloud-review/
