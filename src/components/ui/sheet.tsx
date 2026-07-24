@@ -222,6 +222,7 @@ export function Sheet({
         window.setTimeout(() => {
           if (
             restoreTarget.isConnected &&
+            typeof document !== "undefined" &&
             document.activeElement !== restoreTarget &&
             document.activeElement === document.body
           ) {

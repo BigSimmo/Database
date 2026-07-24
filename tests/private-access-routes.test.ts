@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -3919,6 +3919,45 @@ describe("private document API access", () => {
     expect(response.headers.get("X-Clinical-KB-Fallback")).toBeNull();
     expect(await payload(response)).toMatchObject({ error: "Search failed. Retry with a narrower question." });
     expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
+  });
+
+  it("logs failed search telemetry against the parsed query instead of an unknown placeholder", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: { retrieval_strategy: "text_fast_path" },
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/search", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Clozapine monitoring",
+          includeRelatedDocuments: false,
+          filters: { sourceStatuses: ["current"] },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    await vi.waitFor(() => {
+      const insert = client.calls.find((call) => call.table === "rag_queries" && call.operation === "insert");
+      expect(insert).toBeTruthy();
+      const payload = insert?.insertPayload as Record<string, unknown>;
+      const expectedHash = createHmac("sha256", "test-query-hash-secret-at-least-16-chars")
+        .update("clozapine monitoring")
+        .digest("hex");
+      const unknownHash = createHmac("sha256", "test-query-hash-secret-at-least-16-chars")
+        .update("unknown")
+        .digest("hex");
+      expect(payload.query).toBe(`redacted-query:${expectedHash}`);
+      expect(payload.query).not.toBe(`redacted-query:${unknownHash}`);
+    });
   });
 
   it("falls back to visible demo answers only outside production when Supabase rejects the API key", async () => {
