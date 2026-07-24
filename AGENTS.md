@@ -463,8 +463,10 @@ dropped, superseded, or materially re-scoped. Never copy completed, stale, dupli
 or rejected work back into the active queue.
 
 - When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): read
-  `docs/outstanding-issues.md` and state the open items back, grouped by priority. A plain `/issues`
-  is read-only — it mutates and commits nothing.
+  `docs/outstanding-issues.md` and state the **Prioritised queue** back in execution order, including
+  source/ID, acuity, timing, dependencies/approvals, and stop rule. Evidence-register rows are not
+  active work unless they also appear in that queue. A plain `/issues` is read-only — it mutates
+  and commits nothing.
 - `/issues add|done|update|capture …` mutate the ledger; each mutation commits **only**
   `docs/outstanding-issues.md` (no push unless the user asks or you are already handing off).
 - Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger

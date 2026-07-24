@@ -16,16 +16,25 @@ appear in the active queue here.
 ## How this is used
 
 - Say `/issues` in Claude Code → the skill reads this file and states the open items back,
-  grouped by priority with a one-line summary count. Nothing is mutated on a plain read.
-- `/issues add …`, `/issues done <id>`, `/issues capture`, and friends mutate the tables below.
-  The full command surface lives in the skill file.
+  in **Prioritised queue** execution order with counts by acuity. Nothing is mutated on a plain
+  read, and evidence-register rows are not reported as active work unless they also appear in the
+  queue.
+- `/issues add …`, `/issues done <id-or-source>`, `/issues capture`, and friends update the queue,
+  supporting evidence register, and resolved archive as defined by the skill. The full command
+  surface lives in the skill file.
 - Every mutation keeps this file committed so the memory survives across sessions and worktrees.
 
 ## Conventions
 
-- **ID** is a monotonic `#NNN`, never reused. Allocate the next number above the current max
-  across _both_ tables (open + resolved).
-- **Pri**: `P1` (do next / blocking), `P2` (should do), `P3` (nice-to-have / revisit-when).
+- **Order** is the active execution sequence. Renumber it when dependencies change; gaps may remain
+  when work completes so older handoffs keep their meaning.
+- **Acuity**: `A1` (immediate/highest impact), `A2` (important), `A3` (lower urgency), or
+  `Optional`. Order also accounts for dependencies, timing, approvals, cost, risk, and stop rules.
+- **ID** is a monotonic evidence reference (`#NNN`), never reused. Allocate it from the
+  `issues:next-id` marker when a task needs a durable evidence row; queue rows may instead use a
+  descriptive source.
+- The evidence register's legacy **Pri** field preserves historical triage only; it does not set
+  active execution order.
 - **Type**: `task` (a concrete unit of work), `rec` (a recommendation to weigh), or
   `issue` (a defect / risk / gap).
 - **Detail / next action** is the smallest thing that would move the item forward.
