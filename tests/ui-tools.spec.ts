@@ -857,14 +857,35 @@ test.describe("Clinical KB tools launcher", () => {
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {
     for (const route of [
-      { path: "/services?q=13YARN&focus=1&run=1", modeButton: "Mode Services", compactBottomSearch: true },
-      { path: "/services/13yarn", modeButton: "Mode Services", compactBottomSearch: true },
-      { path: "/forms?q=transport&focus=1&run=1", modeButton: "Mode Forms", compactBottomSearch: true },
-      { path: "/favourites?q=lithium&focus=1&run=1", modeButton: "Mode Favourites", compactBottomSearch: true },
+      {
+        path: "/services?q=13YARN&focus=1&run=1",
+        modeButton: "Mode Services",
+        compactBottomSearch: true,
+        ribbonQuery: "13YARN",
+      },
+      {
+        path: "/services/13yarn",
+        modeButton: "Mode Services",
+        compactBottomSearch: true,
+        ribbonQuery: undefined,
+      },
+      {
+        path: "/forms?q=transport&focus=1&run=1",
+        modeButton: "Mode Forms",
+        compactBottomSearch: true,
+        ribbonQuery: "transport",
+      },
+      {
+        path: "/favourites?q=lithium&focus=1&run=1",
+        modeButton: "Mode Favourites",
+        compactBottomSearch: true,
+        ribbonQuery: "lithium",
+      },
       {
         path: "/differentials?q=acute+confusion&focus=1&run=1",
         modeButton: "Mode Differentials",
         compactBottomSearch: true,
+        ribbonQuery: "acute confusion",
       },
     ] as const) {
       test(`search route keeps the correct composer at ${viewport.name} width on ${route.path}`, async ({ page }) => {
@@ -874,6 +895,12 @@ test.describe("Clinical KB tools launcher", () => {
         await expect(visibleGlobalSearchInput(page), `${route.path} at ${viewport.name}`).toHaveCount(1, {
           timeout: 20_000,
         });
+        if (route.ribbonQuery) {
+          const ribbon = page.getByTestId("search-query-ribbon");
+          await expect(ribbon, `${route.path} at ${viewport.name}`).toBeVisible({ timeout: 20_000 });
+          await expect(ribbon.getByRole("heading", { name: route.ribbonQuery })).toBeVisible();
+          await expect(ribbon.getByRole("status")).toBeVisible();
+        }
 
         const metrics = await globalSearchComposerMetrics(page);
         expect(metrics, `${route.path} at ${viewport.name}`).not.toBeNull();
@@ -2179,6 +2206,10 @@ test.describe("Responsive layout guards", () => {
     const resultCard = page.getByTestId("medication-result-acamprosate-phone");
     const bottomDock = page.locator("form.answer-footer-search-dock");
     await expect(resultCard).toBeVisible();
+    const queryRibbon = page.getByTestId("search-query-ribbon");
+    await expect(queryRibbon).toBeVisible();
+    await expect(queryRibbon.getByRole("heading", { name: "acamprosate renal dose" })).toBeVisible();
+    await expect(queryRibbon.getByRole("status")).toBeVisible();
     await expect(bottomDock).toBeVisible();
     await page.locator("main#main-content").evaluate((main) => main.scrollTo({ top: main.scrollHeight }));
     const resultBox = await resultCard.boundingBox();
