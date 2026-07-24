@@ -10,7 +10,7 @@ import { useSyncExternalStore } from "react";
 export function createBrowserStore<T>(
   subscribeFn: (onStoreChange: () => void) => () => void,
   getSnapshotFn: () => T,
-  serverSnapshot: T
+  serverSnapshot: T,
 ) {
   const subscribe = (onStoreChange: () => void) => {
     if (typeof window === "undefined") {

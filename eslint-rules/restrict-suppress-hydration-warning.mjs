@@ -23,7 +23,8 @@ export default {
             if (tagName !== "html" && tagName !== "body" && tagName !== "script") {
               context.report({
                 node,
-                message: "suppressHydrationWarning is only allowed on <html>, <body>, and <script> elements. Fix the underlying mismatch instead of hiding it.",
+                message:
+                  "suppressHydrationWarning is only allowed on <html>, <body>, and <script> elements. Fix the underlying mismatch instead of hiding it.",
               });
             }
           }
