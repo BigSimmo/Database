@@ -467,9 +467,9 @@ to the recommended queue.
 - Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger
   before a session's context is lost — that is what keeps it a memory rather than a stale list.
 - A `SessionStart` hook (`.claude/hooks/issues-surface.sh`, wired in `.claude/settings.json`)
-  auto-surfaces the open items into context at the start of every session and, on a context reset
-  (`compact`/`resume`/`clear`), nudges a `/issues capture`. It is read-only — it never writes the
-  ledger. `/issues` is still the way to read the full list or mutate it.
+  auto-surfaces the recommended queue plus open-item counts at the start of every session and, on a
+  context reset (`compact`/`resume`/`clear`), nudges a `/issues capture`. It is read-only — it never
+  writes the ledger. `/issues` is still the way to read the full list or mutate it.
 
 ## Codex GitHub review behavior
 
