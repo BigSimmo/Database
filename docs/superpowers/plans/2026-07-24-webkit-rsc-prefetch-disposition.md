@@ -132,7 +132,7 @@ Restore only the temporary omission so the next diff begins from the current-mai
 - Consumes: Playwright's `baseURL` fixture and `page.route(RegExp, handler)` API.
 - Produces: `externalHttpUrlPattern(baseURL: string): RegExp` and `blockExternalRequests(page: Page, problems: string[], baseURL: string): Promise<void>`.
 
-- [ ] **Step 1: Add an explicit failing proof for the external-request guard**
+- [ ] **Step 1: Add an explicit proof for the external-request guard**
 
 Add this test inside `previously uncovered production routes` before the route journeys:
 
