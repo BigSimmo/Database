@@ -459,7 +459,9 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(toolsHub.getByTestId("tools-home")).toBeVisible();
     await expect(toolsHub.getByRole("heading", { level: 1, name: "Tools" })).toBeVisible();
     await expect(toolsHub.getByTestId("global-search-input")).toBeVisible();
-    await expect(toolsHub.getByRole("heading", { name: "All tools" })).toBeVisible();
+    const queryRibbon = toolsHub.getByTestId("search-query-ribbon");
+    await expect(queryRibbon.getByRole("heading", { name: "medication" })).toBeVisible();
+    await expect(queryRibbon.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
     const medicationDetails = toolsHub.getByRole("button", { name: "View details for Medication Prescribing" });
     await expect(medicationDetails).toHaveAttribute("aria-haspopup", "dialog");
     await expect(toolsHub.getByTestId("application-card-documents")).toBeHidden();
@@ -1611,12 +1613,10 @@ test.describe("Clinical KB tools launcher", () => {
     });
     expect(foldLayout).not.toBeNull();
     expect(foldLayout!.scrollTop).toBe(0);
-    // Best Answer must start in the visible fold under the chrome — not clipped
-    // above the scrollport (the ModeHomeMain justify-center regression). Bound
-    // to the header band rather than a tight viewport fraction so tall chrome /
-    // safe-area insets do not flake the upper-half check.
+    // Best Answer must start in the visible upper fold under the consolidated
+    // query, sort, and result-type controls — never clipped above the scrollport.
     expect(foldLayout!.bestTop).toBeGreaterThanOrEqual(foldLayout!.headerBottom - 2);
-    expect(foldLayout!.bestTop).toBeLessThan(foldLayout!.headerBottom + 240);
+    expect(foldLayout!.bestTop).toBeLessThan(foldLayout!.viewportHeight * 0.5);
 
     // Phone list hides the featured best answer, so ranks must start at 1.
     const mobileCards = page.getByTestId("differential-mobile-result-card");
