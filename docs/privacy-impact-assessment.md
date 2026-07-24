@@ -15,7 +15,9 @@
 
 The app is a **clinical knowledge base** — it indexes clinical reference material (guidelines,
 drug monographs, protocols) and answers clinician questions over that corpus with retrieval-augmented
-generation. It is **not** a patient record system and, by design, does not ask for patient data.
+generation. It is **not** a patient record system. Provider-backed features do not ask for patient
+identifiers. The Safety Plan Generator accepts sensitive identifier-free working content and support
+contacts, but keeps them in the current browser tab rather than transmitting or persisting them.
 
 The dominant privacy risk is therefore **incidental PHI**: a clinician will inevitably type patient
 details into a free-text query ("42yo F on clozapine 400mg with rising WCC, next step?"). That query
@@ -64,6 +66,7 @@ material.
 | Clinical reference corpus (documents, chunks, embeddings, images, tables) | Supabase (Sydney) + storage buckets                                                                                                                    | Low–Medium                                 | Published guidelines are not PHI; **uploaded** docs _could_ contain PHI.                                                           |
 | Free-text clinical queries                                                | Processed by Railway (Singapore); hashed into Supabase logs (Sydney); sent to OpenAI (US) for retrieval embedding and, when selected, answer synthesis | **High (potential PHI)**                   | The primary incidental-PHI vector; embedding egress can occur even when the final answer is source-only.                           |
 | Generated answers                                                         | `rag_queries.answer` (not persisted unless `RAG_PERSIST_ANSWER_TEXT`); short-lived `rag_response_cache.payload`                                        | **High (derived from PHI query + corpus)** | Durable answer log dropped at rest by default (PIA-3); expired cache rows have a bounded hourly purge when `pg_cron` is available. |
+| Safety-plan working content                                               | React memory in the current browser tab; user-directed clipboard, print, or PDF output                                                                 | **High (sensitive health information)**    | No patient-identifier field; not sent to the application service or stored by Clinical KB. Exported copies leave this boundary.    |
 | User identity                                                             | Supabase Auth (`auth.users`), `owner_id` foreign keys                                                                                                  | Medium (PII)                               | Email + SSO identity; managed by Supabase Auth.                                                                                    |
 | Audit trail                                                               | `audit_logs`                                                                                                                                           | Medium                                     | Append-only, service-role-only, retained indefinitely by design.                                                                   |
 | Operational telemetry                                                     | `rag_retrieval_logs`, ingestion job tables                                                                                                             | Low–Medium                                 | Redacted query text; per-owner.                                                                                                    |
@@ -127,6 +130,15 @@ The browser request, answer pipeline, and ingestion worker are processed by Rail
 model egress points (A) and (C) then carry query/evidence content to OpenAI in the US. Durable Supabase
 data remains in Sydney. Governance must assess both overseas processing paths rather than treating
 OpenAI as the only cross-border flow.
+
+The `/safety-plan` route has a separate local-only flow: form inputs update React state in the current
+browser tab, with no API request or browser-storage write. Clearing the plan, unmounting the component,
+or closing the tab discards that working state. Copy, print, and save-as-PDF are explicit user-directed
+exports; the exported copy is outside Clinical KB and must be handled under the organisation's approved
+clinical-record process. The tool provides no patient name, date-of-birth, or record-number field and
+warns against putting patient identifiers into free text; any patient identifier must be added after
+export if local policy permits it. Support-contact names and phone details are accepted as sensitive
+working content within the same local-only boundary.
 
 ---
 
