@@ -43,19 +43,21 @@ rows="$(awk '
 ' "$ledger" 2>/dev/null || true)"
 
 # --- parse the ordered recommended execution queue --------------------------
-# Emit "ORDER<TAB>ID<TAB>ACUITY<TAB>WHEN<TAB>ESTIMATE" per recommended row.
+# Emit "ORDER<TAB>ID<TAB>SUMMARY<TAB>ACUITY<TAB>WHEN<TAB>ESTIMATE" per recommended row.
 recommended="$(awk '
   /^## Recommended execution queue/ { inrecommended=1; next }
   /^## /                             { if (inrecommended) inrecommended=0 }
   inrecommended && /^\|[[:space:]]*[0-9]+[[:space:]]*\|/ {
     n=split($0, c, "|")
-    order=c[2]; id=c[3]; acuity=c[5]; timing=c[6]; estimate=c[7]
+    order=c[2]; id=c[3]; summary=c[4]; acuity=c[5]; timing=c[6]; estimate=c[7]
     gsub(/^[ \t]+|[ \t]+$/, "", order)
     gsub(/^[ \t]+|[ \t]+$/, "", id)
+    gsub(/^[ \t]+|[ \t]+$/, "", summary)
     gsub(/^[ \t]+|[ \t]+$/, "", acuity)
     gsub(/^[ \t]+|[ \t]+$/, "", timing)
     gsub(/^[ \t]+|[ \t]+$/, "", estimate)
-    printf "%s\t%s\t%s\t%s\t%s\n", order, id, acuity, timing, estimate
+    if (length(summary) > 100) summary=substr(summary, 1, 97) "..."
+    printf "%s\t%s\t%s\t%s\t%s\t%s\n", order, id, summary, acuity, timing, estimate
   }
 ' "$ledger" 2>/dev/null || true)"
 
@@ -74,12 +76,12 @@ c1="$(count "$p1")"; c2="$(count "$p2")"; c3="$(count "$p3")"
 echo "[issues] Universal task ledger — ${recommended_total} recommended · ${total} open (${c1}×P1, ${c2}×P2, ${c3}×P3). Source of truth: docs/outstanding-issues.md · read the full ledger with /issues."
 
 print_recommended() { # $1=max-to-list
-  local limit="$1" shown=0 more=0 order id acuity timing estimate
+  local limit="$1" shown=0 more=0 order id summary acuity timing estimate
   [ -z "$recommended" ] && return 0
-  while IFS=$'\t' read -r order id acuity timing estimate; do
+  while IFS=$'\t' read -r order id summary acuity timing estimate; do
     [ -z "$order" ] && continue
     if [ "$shown" -lt "$limit" ]; then
-      echo "  ${order} ${id} ${acuity} — ${timing} · ${estimate}"
+      echo "  ${order} ${id} ${acuity} — ${summary} (${timing}; ${estimate})"
       shown=$((shown + 1))
     else
       more=$((more + 1))
