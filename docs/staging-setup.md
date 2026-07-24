@@ -86,9 +86,10 @@ Reuse the app image; only the environment variables differ.
    fail `check:supabase-project` — that's the deliberate speed bump.
 
 3. **Service config:** the Dockerfile already binds `0.0.0.0:$PORT` (Railway
-   injects `$PORT`). Set the app service's healthcheck to `/api/health`, restart
-   policy to `ON_FAILURE`, and one replica pinned to `southeast-asia` with no
-   scale-to-zero (mirror `railway.app.json`).
+   injects `$PORT`). Set the app service's healthcheck to `/api/health/ready`
+   (matches `railway.app.json`), restart policy to `ON_FAILURE`, and one
+   replica pinned to `southeast-asia` with no scale-to-zero. Use `GET
+/api/health` only as a manual liveness smoke check.
 
 4. **No worker:** this staging environment intentionally has no ingestion
    service. The tenancy harness inserts and removes its synthetic lexical rows
@@ -96,7 +97,8 @@ Reuse the app image; only the environment variables differ.
 
 ## C. Validate staging
 
-1. Boot check: `GET /api/health` → `{"status":"ok"}` with the staging project.
+1. Boot check: `GET /api/health/ready` (Railway health) and `GET /api/health`
+   (manual smoke) → healthy responses with the staging project.
 2. Tenancy isolation: configure the dedicated A/B test accounts and standalone
    workflow described in
    [`staging-tenancy-release-evidence.md`](staging-tenancy-release-evidence.md).

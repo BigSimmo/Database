@@ -290,7 +290,7 @@ sequenceDiagram
 
 ### Clinical KB surface
 
-- 11 app modes with unified search shell
+- 13 app modes with unified search shell
 - Documents mode: upload/manage private guidelines, search, cited answers
 - Answer mode: grounded Q&A with PDF-linked citations
 - Registry modes: services, forms, medications, differentials; Formulation is a local mechanism and structured-draft workspace
