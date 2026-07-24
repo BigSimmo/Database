@@ -3091,7 +3091,7 @@ export function ClinicalDashboard({
     (activeModeResultKind === "answer" || activeModeResultKind === "tools" || activeModeResultKind === "favourites");
   const showDesktopHomeComposer =
     !error &&
-    (activeModeResultKind === "tools" ||
+  // Hidden dock pad must stay at 0rem — Safari toolbar safe-area recreates a blank band.
       activeModeResultKind === "favourites" ||
       (!loading &&
         (showAnswerHome ||
