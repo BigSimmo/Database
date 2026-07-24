@@ -256,7 +256,7 @@ function CommandDropdown({
         role="listbox"
         aria-label={`${mode.label} search suggestions`}
         className={cn(
-          "max-h-[min(55dvh,26rem)] overflow-y-auto overscroll-contain p-2",
+          "max-h-[calc(100dvh-5rem)] sm:max-h-[min(55dvh,26rem)] overflow-y-auto overscroll-contain p-2",
           opensUpward ? "sm:max-h-[min(38dvh,20rem)]" : "sm:max-h-[min(42dvh,24rem)]",
         )}
       >

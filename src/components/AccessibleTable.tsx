@@ -99,7 +99,7 @@ function AccessibleTableMarkup({
     <div
       className={cn(
         "overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]",
-        expanded && "max-h-[calc(100dvh-8.5rem)] rounded-none border-0 sm:rounded-lg sm:border",
+        expanded && "max-h-[calc(100dvh-8.5rem)] flex flex-col rounded-none border-0 sm:rounded-lg sm:border",
       )}
     >
       {caption && !(hidePreviewCaption && !expanded) ? (
@@ -112,7 +112,7 @@ function AccessibleTableMarkup({
           {caption}
         </div>
       ) : null}
-      <div className="overflow-x-auto">
+      <div className={cn("overflow-x-auto", expanded && "flex-1 min-h-0")}>
         <table
           aria-label={caption ?? undefined}
           className={cn(
@@ -460,7 +460,7 @@ export function AccessibleTable({
         contentClassName="sm:max-w-none"
         bodyClassName="p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-3"
       >
-        <div>
+        <div className="flex flex-col h-full">
           {lowConfidence ? (
             <p data-testid="table-low-confidence-note" className={cn("mb-1 text-xs", textMuted)}>
               {showFallback

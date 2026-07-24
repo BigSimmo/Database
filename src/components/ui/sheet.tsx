@@ -299,7 +299,7 @@ export function Sheet({
                             "rounded-t-2xl motion-safe:animate-sheet-up",
                             defaultSheetUsesViewportSize
                               ? "min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] sm:min-h-0"
-                              : "max-h-[88dvh]",
+                              : "max-h-[calc(100dvh-2rem)] sm:max-h-[88dvh]",
                           ),
                     ),
               ),
