@@ -6,6 +6,9 @@ const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`
 const answerResultSurfaceSource = read("src/components/clinical-dashboard/answer-result-surface.tsx");
 const sheetSource = read("src/components/ui/sheet.tsx");
 const globalStylesSource = read("src/app/globals.css");
+const agentsSource = read("AGENTS.md");
+const searchChromeBehaviourSource = read("docs/search-chrome-behaviour.md");
+const clinicalDashboardSource = read("src/components/ClinicalDashboard.tsx");
 
 function occurrenceCount(source: string, value: string) {
   return source.split(value).length - 1;
@@ -59,5 +62,28 @@ describe("overlay and global CSS contracts", () => {
     expect(globalStylesSource).not.toMatch(
       /\.edge-glass-header\s*\{[^}]*padding-left:\s*max\(0px,\s*var\(--safe-area-left\)\)/s,
     );
+  });
+
+  it("keeps hidden phone composers from reserving or painting a bottom white band", () => {
+    expect(globalStylesSource).toMatch(/--phone-dock-hidden-pad:\s*0rem;/);
+    expect(globalStylesSource).not.toContain("--phone-dock-hidden-pad: 0.75rem");
+    expect(read("src/components/clinical-dashboard/mobile-composer-reserve.ts")).toContain(
+      'export const mobileComposerHiddenReserve = "0rem"',
+    );
+    expect(read("src/components/DocumentViewer.tsx")).toContain(
+      'composerScrollHidden ? "max-sm:pb-0" : "max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"',
+    );
+  });
+  it("keeps the remembered search chrome rules aligned with the hidden reserve contract", () => {
+    expect(agentsSource).toContain("<!-- BEGIN:search-chrome-behaviour -->");
+    expect(agentsSource).toContain("Hidden means zero reserve");
+    expect(searchChromeBehaviourSource).toContain(
+      "A hidden phone dock must release the content-facing reserve to `0rem`",
+    );
+    expect(searchChromeBehaviourSource).not.toContain(
+      "A hidden phone dock must release the content-facing reserve to `0.75rem`",
+    );
+    expect(clinicalDashboardSource).toContain("Hidden dock pad must stay at 0rem");
+    expect(clinicalDashboardSource).not.toContain("Hidden dock pad must stay at 0.75rem");
   });
 });
