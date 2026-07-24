@@ -40,6 +40,20 @@ gates. Run the standalone manual/nightly workflow and attach a recent green evid
 artifact before release; see
 [`docs/staging-tenancy-release-evidence.md`](staging-tenancy-release-evidence.md).
 
+## Open PR branch sync (active)
+
+- **Problem:** landing one PR advances `main` and leaves the rest of a large open
+  queue behind. GitHub then marks many heads `CONFLICTING`/`DIRTY` even when the
+  merge tree is clean, which stalls squash auto-merge and creates endless manual
+  re-sync churn.
+- **Mitigation:** `.github/workflows/pr-branch-sync.yml` updates open same-repo PR
+  branches from `main` after every push to `main`. Local dry-run/apply helpers:
+  `npm run sync:pr-branches` / `npm run sync:pr-branches:apply`. Opt out with
+  `hold`, `do-not-merge`, or `skip-branch-sync`.
+- **Operator rule:** prefer clearing the open queue (merge or close) over keeping
+  dozens of long-lived feature branches that all touch shared docs like the
+  branch-review ledger.
+
 ## Phase 1 - Active now
 
 - `npm run verify:cheap` is the default broad local gate for source/config/test changes: `check:runtime`, `sitemap:check`, lint, typecheck, and unit tests.
