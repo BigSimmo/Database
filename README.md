@@ -201,13 +201,15 @@ changed paths, `static-pr` always runs runtime, action-pin, CI-scope, format,
 lint, and typecheck checks, and `pr-required` is the single
 always-reporting required aggregate (required PR checks are Gitleaks plus that
 aggregate). One full unit run with coverage, build, safety/config checks, the
-production Chromium gate, and the repo-owned Supabase `db-reset-verify`
-migration replay run only when their file scopes apply; UI PRs also get one
-non-blocking advisory Chromium invocation. The full Playwright browser matrix
+production Chromium gate, the repo-owned Supabase `db-reset-verify` migration
+replay, and both Docker image builds run only when their file scopes apply; a
+failed applicable container build therefore fails `pr-required`. UI PRs also
+get one non-blocking advisory Chromium invocation. The full Playwright browser matrix
 (`release-browser-matrix`) runs on `main`, `release/*`, manual dispatch, and a
-weekly schedule. Docker image builds, live drift, and live eval canary checks
-are path-filtered, scheduled, or manual rather than required checks for every
-source-only PR.
+weekly schedule. Live drift and live eval canary checks remain provider-gated;
+Docker image builds also run independently on main/release pushes, schedule,
+and manual dispatch. They are not required for source-only PRs outside the
+container scope.
 
 ```bash
 npm run dev       # Next.js UI/API on this project's stable localhost port
