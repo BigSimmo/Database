@@ -235,6 +235,14 @@ const publicTitleCorrectorMigration = readFileSync(
   new URL("../supabase/migrations/20260717171000_public_title_corrector.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const baseMatchRpcExecuteGrantsMigration = readFileSync(
+  new URL("../supabase/migrations/20260724130000_explicit_base_match_rpc_execute_grants.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const invokeIngestionWorkerGucMigration = readFileSync(
+  new URL("../supabase/migrations/20260724130100_fix_invoke_ingestion_worker_url_to_guc.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 
 function finalSqlSegment(sql: string, startMarker: string, endMarker: string) {
   const normalized = sql.toLowerCase();
@@ -1742,5 +1750,43 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
     }
     expect(corrector).not.toContain("array_agg(distinct term)");
     expect(corrector).not.toContain("unnest(vocab)");
+  });
+
+  it("keeps base match RPC execute grants explicit in schema and the forward migration", () => {
+    // 2026-07-24 interface audit P3: do not rely solely on roles.sql / default
+    // privilege churn for the live match_* signatures.
+    for (const sql of [schema, baseMatchRpcExecuteGrantsMigration]) {
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)",
+      );
+      expect(sql).toContain(
+        "grant execute on function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_chunks_text(text, integer, uuid[], uuid)",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)",
+      );
+      expect(sql).toContain("revoke execute on function public.match_documents_for_query(text, integer, uuid)");
+      expect(sql).toContain("grant execute on function public.match_documents_for_query(text, integer, uuid)");
+    }
+  });
+
+  it("moves invoke_ingestion_worker to the GUC base-URL pattern with service-role-only execute", () => {
+    for (const sql of [schema, invokeIngestionWorkerGucMigration]) {
+      expect(sql).toContain("alter database %I set app.ingestion_worker_base_url = %L");
+      expect(sql).toContain("when insufficient_privilege then");
+      expect(sql).toContain("nullif(current_setting('app.ingestion_worker_base_url', true), '')");
+      expect(sql).toContain("v_base_url || '/functions/v1/ingestion-worker?limit='");
+      expect(sql).not.toContain("[REDACTED]/functions/v1/ingestion-worker");
+      expect(sql).toContain(
+        "revoke execute on function public.invoke_ingestion_worker(integer) from public, anon, authenticated",
+      );
+      expect(sql).toContain("grant execute on function public.invoke_ingestion_worker(integer) to service_role");
+    }
   });
 });

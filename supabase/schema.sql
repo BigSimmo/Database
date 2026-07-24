@@ -3470,9 +3470,19 @@ $function$;
 revoke execute on function public.purge_expired_rag_query_misses(integer) from public, anon, authenticated;
 grant execute on function public.purge_expired_rag_query_misses(integer) to service_role;
 
--- NOTE: unlike invoke_indexing_v3_agent (URL moved to a GUC by 20260702160000),
--- the live definition still hardcodes the project URL. Codified as-is; migrate
--- to the GUC pattern in a follow-up if this RPC stays.
+-- Prefer app.ingestion_worker_base_url (GUC) with the hardcoded project URL as
+-- fallback, matching invoke_indexing_v3_agent. Guarded ALTER DATABASE SET so
+-- hosted Supabase (42501) still replays cleanly.
+do $$
+begin
+  execute format('alter database %I set app.ingestion_worker_base_url = %L',
+                 current_database(), '[REDACTED]');
+exception
+  when insufficient_privilege then
+    raise notice 'Skipping ALTER DATABASE SET app.ingestion_worker_base_url (insufficient privilege on hosted Supabase).';
+end
+$$;
+
 CREATE OR REPLACE FUNCTION public.invoke_ingestion_worker(p_limit integer DEFAULT 25)
  RETURNS bigint
  LANGUAGE plpgsql
@@ -3483,6 +3493,7 @@ declare
   v_request_id bigint;
   v_jwt text;
   v_limit integer := greatest(1, least(coalesce("p_limit", 25), 200));
+  v_base_url text;
 begin
   select "decrypted_secret" into v_jwt
   from "vault"."decrypted_secrets"
@@ -3493,8 +3504,13 @@ begin
     raise exception 'Missing Vault secret: cron_ingestion_jwt';
   end if;
 
+  v_base_url := coalesce(
+    nullif(current_setting('app.ingestion_worker_base_url', true), ''),
+    '[REDACTED]'
+  );
+
   select "net"."http_post"(
-    url := 'https://sjrfecxgysukkwxsowpy.supabase.co/functions/v1/ingestion-worker?limit=' || v_limit::text,
+    url := v_base_url || '/functions/v1/ingestion-worker?limit=' || v_limit::text,
     headers := jsonb_build_object(
       'Content-Type','application/json',
       'Authorization','Bearer ' || v_jwt
@@ -7166,6 +7182,33 @@ grant execute on function public.get_visual_evidence_cards(uuid, integer) to ser
 revoke execute on function public.match_document_table_facts_text(text, integer, uuid[], uuid)
   from public, anon, authenticated;
 grant execute on function public.match_document_table_facts_text(text, integer, uuid[], uuid) to service_role;
+
+-- Base match RPCs: keep EXECUTE lockdown explicit in the canonical snapshot so
+-- fresh replay does not depend solely on roles.sql / default-privilege churn.
+revoke execute on function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)
+  to service_role;
+
+revoke execute on function public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  to service_role;
+
+revoke execute on function public.match_document_chunks_text(text, integer, uuid[], uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_document_chunks_text(text, integer, uuid[], uuid)
+  to service_role;
+
+revoke execute on function public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)
+  to service_role;
+
+revoke execute on function public.match_documents_for_query(text, integer, uuid)
+  from public, anon, authenticated;
+grant execute on function public.match_documents_for_query(text, integer, uuid)
+  to service_role;
 
 revoke execute on function public.repair_enrichment_quality_batch(integer)
   from public, anon, authenticated;
