@@ -42,6 +42,7 @@ export type DocumentClinicalPriority = {
 export type DocumentClinicalSummaryModel = {
   summary: string;
   priorities: DocumentClinicalPriority[];
+  sourceBacked: boolean;
 };
 
 type PriorityCandidate = {
@@ -83,6 +84,14 @@ function usefulSummaryText(text: string): string {
 
 function profileItemPages(item: DocumentSummaryProfileItem): number[] {
   return Array.isArray(item.pages) ? item.pages : [];
+}
+
+function verifiedSupport(item: DocumentSummaryProfileItem): DocumentSummarySupportLevel | null {
+  if (item.support !== "direct" && item.support !== "partial") return null;
+  const hasLinkedSource = [item.source_chunk_ids, item.source_image_ids].some(
+    (ids) => Array.isArray(ids) && ids.some((id) => typeof id === "string" && id.trim()),
+  );
+  return hasLinkedSource ? item.support : null;
 }
 
 function firstRenderableItem(items: DocumentSummaryProfileItem[], usedText: Set<string>) {
@@ -147,7 +156,7 @@ function prioritiesFromProfile(profile: ClinicalDocumentSummaryProfile): Documen
         label: candidate.label,
         text,
         page,
-        support: item.support,
+        support: verifiedSupport(item),
         tone: candidate.tone,
       },
     ];
@@ -195,6 +204,7 @@ export function buildDocumentClinicalSummaryModel(document: ClinicalDocument): D
   return {
     summary,
     priorities,
+    sourceBacked: priorities.some((priority) => priority.support === "direct" || priority.support === "partial"),
   };
 }
 
@@ -348,7 +358,6 @@ export function DocumentClinicalSummary({
   const mobilePrioritiesButtonRef = useRef<HTMLButtonElement>(null);
   const prioritiesId = useId();
   const canExpandSummary = model.summary.length > 140;
-  const hasRenderableSummary = Boolean(model.summary || model.priorities.length);
 
   function navigateFromSheet(page: number) {
     setMobilePrioritiesOpen(false);
@@ -372,7 +381,7 @@ export function DocumentClinicalSummary({
                 High-yield clinical summary
               </h2>
             </div>
-            {hasRenderableSummary ? (
+            {model.sourceBacked ? (
               <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-soft)]">
                 <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[color:var(--success)]" />
                 Source-backed

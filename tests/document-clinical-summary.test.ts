@@ -60,6 +60,7 @@ describe("buildDocumentClinicalSummaryModel", () => {
       "Key clinical action",
     ]);
     expect(model.priorities.map((priority) => priority.page)).toEqual([9, 6, 4]);
+    expect(model.sourceBacked).toBe(true);
   });
 
   it("skips unsupported and duplicate profile items", () => {
@@ -107,6 +108,26 @@ describe("buildDocumentClinicalSummaryModel", () => {
       "Escalate valid safety concerns.",
       "Check renal, thyroid and calcium status before treatment.",
     ]);
+  });
+
+  it("keeps text-only persisted profile items unverified", () => {
+    const textOnlyItem = {
+      text: "Review monitoring after dose changes.",
+      pages: [5],
+    } as DocumentSummaryProfileItem;
+    const model = buildDocumentClinicalSummaryModel(
+      documentWithProfile(
+        profile({
+          escalation_risk_warnings: [],
+          thresholds_timing: [textOnlyItem],
+          key_clinical_actions: [],
+        }),
+      ),
+    );
+
+    expect(model.priorities).toHaveLength(1);
+    expect(model.priorities[0]?.support).toBeNull();
+    expect(model.sourceBacked).toBe(false);
   });
 
   it("does not surface generic source-review copy as the high-yield summary", () => {
