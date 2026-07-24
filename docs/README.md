@@ -45,7 +45,8 @@ npm run docs:check-links
 - [supabase-migration-reconciliation.md](supabase-migration-reconciliation.md) — migration drift and repair policy
 - [observability-slos.md](observability-slos.md) — health probes, SLO counters, degraded modes
 - [openai-rag-operations.md](openai-rag-operations.md) — OpenAI/RAG provider operations and modes
-- [operator-backlog.md](operator-backlog.md) — pending operator debt backlog
+- [outstanding-issues.md](outstanding-issues.md) — single universal task ledger and repository memory
+- [operator-backlog.md](operator-backlog.md) — provider/operator runbook detail (status is canonical in the universal ledger)
 - [deploy-corrector-public-titles.md](deploy-corrector-public-titles.md) — public-title corrector deploy notes
 
 ## Governance, safety, privacy
@@ -71,7 +72,6 @@ npm run docs:check-links
 
 ## Plans and workstreams (living)
 
-- [outstanding-issues.md](outstanding-issues.md) — universal task ledger, recommended execution order, evidence, status, and resolution history
 - [maturity-backlog-workorders.md](maturity-backlog-workorders.md) — actionable work orders tracking the repository-maturity audit backlog
 - [framework-dependency-modernization-checklist.md](framework-dependency-modernization-checklist.md) — ordered Next.js 16, runtime, dependency, Turbopack, and verification migration program
 - [search-rag-master-plan.md](search-rag-master-plan.md) / [search-rag-master-context.md](search-rag-master-context.md) — search/RAG roadmap and shared context

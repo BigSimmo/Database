@@ -1,9 +1,9 @@
-# Operator backlog
+# Operator action detail
 
 Detailed runbook index for **human-only / provider-gated actions** that cannot be done from a coding
-session (they touch Supabase, Railway, OpenAI, or GitHub settings, per the AGENTS.md provider boundary).
-Canonical task status, priority, and execution order live only in
-[`outstanding-issues.md`](outstanding-issues.md); this file supplies operator procedures and evidence.
+session. Canonical task status, order, acuity, and completion live only in
+[`outstanding-issues.md`](outstanding-issues.md); this file supplies provider-specific steps and
+presence claims that must be verified before acting.
 
 **How to use:** work top to bottom; each row links to the detailed runbook. `Status` values are
 `⏳ pending`, `🔎 verify` (may already be done — confirm before repeating), `✅ done`, `—` (n/a).
