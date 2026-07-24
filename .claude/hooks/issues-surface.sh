@@ -60,8 +60,9 @@ queue_rows="$(awk '
 ' "$ledger" 2>/dev/null || true)"
 
 total="$(printf '%s' "$rows" | grep -c . || true)"
-if [ "${total:-0}" -eq 0 ]; then
-  echo "[issues] Outstanding-work memory (docs/outstanding-issues.md): no open items. Record one with /issues add …"
+queue_total="$(printf '%s' "$queue_rows" | grep -c . || true)"
+if [ "${total:-0}" -eq 0 ] && [ "${queue_total:-0}" -eq 0 ]; then
+  echo "[issues] Outstanding-work memory (docs/outstanding-issues.md): no recommended or open items. Record one with /issues add …"
   exit 0
 fi
 
@@ -72,7 +73,6 @@ c1="$(count "$p1")"; c2="$(count "$p2")"; c3="$(count "$p3")"
 
 echo "[issues] Outstanding-work memory — ${total} open (${c1}×P1, ${c2}×P2, ${c3}×P3). Source of truth: docs/outstanding-issues.md · read the full list back with /issues."
 
-queue_total="$(printf '%s' "$queue_rows" | grep -c . || true)"
 if [ "${queue_total:-0}" -gt 0 ]; then
   echo "[issues] Recommended execution queue — ${queue_total} retained tasks (first 8):"
   printf '%s\n' "$queue_rows" | head -n 8 | while IFS=$'\t' read -r ord ids acuity capability timing; do
