@@ -439,8 +439,7 @@ async function classifyExistingImages(supabase: SupabaseAdmin, documentId: strin
     // doesn't accidentally make them searchable or drop them from the viewer.
     const retainForDocumentView =
       retainAsAuditTable ||
-      (existingRetainedForView &&
-        ["table_crop", "diagram_crop", "page_region"].includes(image.source_kind ?? ""));
+      (existingRetainedForView && ["table_crop", "diagram_crop", "page_region"].includes(image.source_kind ?? ""));
 
     await supabase
       .from("document_images")
