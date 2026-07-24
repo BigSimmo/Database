@@ -46,10 +46,19 @@ COPY worker/python/requirements.txt worker/python/requirements.txt
 RUN python3 -m venv /opt/ocr-venv \
   && /opt/ocr-venv/bin/pip install --no-cache-dir -r worker/python/requirements.txt
 ENV PATH="/opt/ocr-venv/bin:${PATH}"
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 ENV NODE_ENV=production
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY worker/python worker/python
+# Python is outside the TypeScript/Vitest toolchain. Fail the image build on a
+# syntax error or a broken extraction-budget contract instead of discovering it
+# only when the deployed worker processes its first PDF.
+RUN python -m compileall -q worker/python \
+  && python -m unittest discover -s worker/python -p "test_*.py" \
+  && find worker/python -type d -name __pycache__ -prune -exec rm -rf '{}' + \
+  && rm -f worker/python/test_*.py
 COPY package.json ./package.json
 USER node
 # Long-poll worker; WORKER_* env vars control claim batch size, concurrency,
