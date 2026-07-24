@@ -880,7 +880,10 @@ function DocumentSearchResultsPanelImpl({
   // Progressive reveal so large libraries do not mount every card on first paint.
   // Reset the window whenever the sorted result set identity changes (query/filter/sort).
   const resultsSignature = `${trimmedQuery}\0${sortValue}\0${effectiveResultType}\0${activeFacetKeys.join(",")}\0${sortedMatches.length}`;
-  const [visibleCountState, setVisibleCountState] = useState({ signature: resultsSignature, count: DOCUMENT_RESULTS_INITIAL_WINDOW });
+  const [visibleCountState, setVisibleCountState] = useState({
+    signature: resultsSignature,
+    count: DOCUMENT_RESULTS_INITIAL_WINDOW,
+  });
   if (visibleCountState.signature !== resultsSignature) {
     setVisibleCountState({ signature: resultsSignature, count: DOCUMENT_RESULTS_INITIAL_WINDOW });
   }
@@ -1151,7 +1154,10 @@ function DocumentSearchResultsPanelImpl({
               {hasMoreMatches ? (
                 <button
                   type="button"
-                  className={cn(floatingControl, "min-h-tap w-full justify-center rounded-xl px-4 text-sm font-semibold")}
+                  className={cn(
+                    floatingControl,
+                    "min-h-tap w-full justify-center rounded-xl px-4 text-sm font-semibold",
+                  )}
                   onClick={() =>
                     setVisibleCountState((current) => ({
                       signature: resultsSignature,

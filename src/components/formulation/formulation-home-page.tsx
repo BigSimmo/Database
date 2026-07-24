@@ -178,10 +178,7 @@ function EmptySearchResults({ query }: { query: string }) {
 function FormulationResults({ query }: { query: string }) {
   const [domain, setDomain] = useState("all");
   const deferredQuery = useDeferredValue(query);
-  const results = useMemo(
-    () => searchFormulationMechanisms(deferredQuery, { domain }),
-    [domain, deferredQuery],
-  );
+  const results = useMemo(() => searchFormulationMechanisms(deferredQuery, { domain }), [domain, deferredQuery]);
 
   return (
     <FormulationPageShell>
