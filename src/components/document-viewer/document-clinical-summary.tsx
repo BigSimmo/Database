@@ -348,6 +348,7 @@ export function DocumentClinicalSummary({
   const mobilePrioritiesButtonRef = useRef<HTMLButtonElement>(null);
   const prioritiesId = useId();
   const canExpandSummary = model.summary.length > 140;
+  const hasRenderableSummary = Boolean(model.summary || model.priorities.length);
 
   function navigateFromSheet(page: number) {
     setMobilePrioritiesOpen(false);
@@ -371,10 +372,12 @@ export function DocumentClinicalSummary({
                 High-yield clinical summary
               </h2>
             </div>
-            <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-soft)]">
-              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[color:var(--success)]" />
-              Source-backed
-            </span>
+            {hasRenderableSummary ? (
+              <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-[color:var(--text-soft)]">
+                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[color:var(--success)]" />
+                Source-backed
+              </span>
+            ) : null}
           </div>
           {model.summary ? (
             <p

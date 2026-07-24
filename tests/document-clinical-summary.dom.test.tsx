@@ -67,4 +67,15 @@ describe("DocumentClinicalSummary", () => {
     expect(onPageChange).toHaveBeenCalledWith(9);
     expect(screen.queryByTestId("clinical-priorities-sheet")).not.toBeInTheDocument();
   });
+
+  it("does not label an unindexed empty state as source-backed", () => {
+    const emptyDocument = { ...document, summary: undefined } as ClinicalDocument;
+
+    render(
+      <DocumentClinicalSummary document={emptyDocument} pageHref={(page) => `?page=${page}`} onPageChange={vi.fn()} />,
+    );
+
+    expect(screen.getByText("A structured clinical summary has not been indexed for this document yet.")).toBeVisible();
+    expect(screen.queryByText("Source-backed")).not.toBeInTheDocument();
+  });
 });
