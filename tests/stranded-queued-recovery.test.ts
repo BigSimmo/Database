@@ -95,7 +95,7 @@ describe("stranded queued-without-job recovery (#062)", () => {
     });
     documentsQuery.lt = vi.fn(() => documentsQuery);
     documentsQuery.order = vi.fn(() => documentsQuery);
-    documentsQuery.limit = vi.fn(async () => ({ data: [stranded, withOpenJob], error: null }));
+    documentsQuery.range = vi.fn(async () => ({ data: [stranded, withOpenJob], error: null }));
 
     let jobInCalls = 0;
     const jobsQuery: Record<string, unknown> = {};
@@ -122,6 +122,73 @@ describe("stranded queued-without-job recovery (#062)", () => {
 
     expect(filters).toContainEqual({ column: "owner_id", value: ownerId });
     expect(filters).toContainEqual({ column: "status", value: "queued" });
+    expect(listed.map((document) => document.id)).toEqual([stranded.id]);
+  });
+
+  it("pages past open-job queued rows so stranded candidates are not starved by the limit", async () => {
+    const ownerId = "22222222-2222-4222-8222-222222222222";
+    const stranded = {
+      id: "11111111-1111-4111-8111-111111111111",
+      owner_id: ownerId,
+      status: "queued",
+      error_message: null,
+      page_count: 0,
+      chunk_count: 0,
+      image_count: 0,
+      import_batch_id: null,
+      created_at: "2026-07-24T11:00:00.000Z",
+      updated_at: "2026-07-24T11:00:00.000Z",
+    };
+    const openJobIds = Array.from({ length: 20 }, (_, index) => `33333333-3333-4333-8333-${String(index).padStart(12, "0")}`);
+    const openJobRows = openJobIds.map((id, index) => ({
+      ...stranded,
+      id,
+      created_at: `2026-07-24T10:${String(index).padStart(2, "0")}:00.000Z`,
+      updated_at: `2026-07-24T10:${String(index).padStart(2, "0")}:00.000Z`,
+    }));
+
+    let page = 0;
+    const documentsQuery: Record<string, unknown> = {};
+    documentsQuery.select = vi.fn(() => documentsQuery);
+    documentsQuery.eq = vi.fn(() => documentsQuery);
+    documentsQuery.lt = vi.fn(() => documentsQuery);
+    documentsQuery.order = vi.fn(() => documentsQuery);
+    documentsQuery.range = vi.fn(async () => {
+      page += 1;
+      if (page === 1) return { data: openJobRows, error: null };
+      if (page === 2) return { data: [stranded], error: null };
+      return { data: [], error: null };
+    });
+
+    let pendingDocumentIds: string[] = [];
+    const jobsQuery: Record<string, unknown> = {};
+    jobsQuery.select = vi.fn(() => jobsQuery);
+    jobsQuery.in = vi.fn((column: string, values: string[]) => {
+      if (column === "document_id") {
+        pendingDocumentIds = [...values];
+        return jobsQuery;
+      }
+      return Promise.resolve({
+        data: pendingDocumentIds
+          .filter((id) => openJobIds.includes(id))
+          .map((document_id) => ({ document_id })),
+        error: null,
+      });
+    });
+
+    const supabase = {
+      from: vi.fn((table: string) => (table === "documents" ? documentsQuery : jobsQuery)),
+    };
+
+    const listed = await listStrandedQueuedDocuments({
+      supabase: supabase as never,
+      ownerId,
+      minAgeMinutes: 15,
+      limit: 1,
+      now,
+    });
+
+    expect(page).toBeGreaterThanOrEqual(2);
     expect(listed.map((document) => document.id)).toEqual([stranded.id]);
   });
 

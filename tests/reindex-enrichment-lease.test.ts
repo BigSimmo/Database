@@ -246,4 +246,88 @@ describe("reindex enrichment-lease gate (#052)", () => {
       expect.objectContaining({ p_document_id: documentId }),
     );
   });
+
+  it("scopes retry_failed enrichment lease checks to failed documents only", async () => {
+    const failedId = documentId;
+    const indexedLeasedId = otherDocumentId;
+    const rpc = vi.fn();
+    const documentsQuery = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      in: vi.fn(async () => ({
+        data: [
+          { ...documentRow(failedId), status: "failed" },
+          { ...documentRow(indexedLeasedId), status: "indexed" },
+        ],
+        error: null,
+      })),
+    };
+    documentsQuery.select.mockReturnValue(documentsQuery);
+    documentsQuery.eq.mockReturnValue(documentsQuery);
+
+    const from = vi.fn((table: string) => {
+      if (table === "documents") {
+        return {
+          ...documentsQuery,
+          update: vi.fn(() => ({
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn(async () => ({ data: { id: failedId }, error: null })),
+          })),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
+        order: vi.fn().mockReturnThis(),
+        limit: vi.fn(async () => ({ data: [], error: null })),
+        insert: vi.fn(async () => ({ data: [{ id: "job-1" }], error: null })),
+      };
+    });
+
+    const checkIngestionMutationSafety = vi.fn(async () => readySafety());
+    const listDocumentsWithActiveAgentEnrichment = vi.fn(async () => []);
+
+    vi.doMock("@/lib/env", () => ({
+      env: { WORKER_STALE_AFTER_MINUTES: 15, WORKER_MAX_ATTEMPTS: 3 },
+      isDemoMode: () => false,
+    }));
+    vi.doMock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from, rpc }) }));
+    mockAuthenticatedAdmin();
+    vi.doMock("@/lib/api-rate-limit", () => ({
+      consumeApiRateLimit: vi.fn(async () => ({ limited: false })),
+      rateLimitJsonResponse: vi.fn(),
+    }));
+    vi.doMock("@/lib/ingestion-mutation-safety", () => ({
+      checkIngestionMutationSafety,
+      listDocumentsWithActiveAgentEnrichment,
+      ingestionMutationSafetyPayload: vi.fn((safety) => ({ error: safety.message, safety })),
+      activeIngestionJobColumns: "id",
+      buildActiveJobsSafetyResult: vi.fn(),
+      ingestionRollbackFenceStamp: vi.fn(() => "2026-07-24T00:00:00.000000Z"),
+    }));
+    vi.doMock("@/lib/rag/rag", () => ({ invalidateRagCachesForOwner: vi.fn() }));
+    vi.doMock("@/lib/reindex-pipeline", () => ({ isAtomicReindexCandidate: () => true }));
+
+    const { POST } = await import("../src/app/api/documents/bulk/reindex/route");
+    const response = await POST(
+      new Request("http://localhost/api/documents/bulk/reindex", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ documentIds: [failedId, indexedLeasedId], mode: "retry_failed" }),
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(listDocumentsWithActiveAgentEnrichment).toHaveBeenCalledWith(
+      expect.objectContaining({ documentIds: [failedId] }),
+    );
+    const body = await response.json();
+    expect(body.results).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ documentId: indexedLeasedId, ok: false, error: "Document is not failed." }),
+      ]),
+    );
+  });
 });
