@@ -140,6 +140,28 @@ export async function hasActiveAgentEnrichmentJob(args: {
   staleAfterMinutes: number;
   now?: Date;
 }): Promise<boolean> {
+  const blocked = await listDocumentsWithActiveAgentEnrichment({
+    supabase: args.supabase,
+    documentIds: [args.documentId],
+    staleAfterMinutes: args.staleAfterMinutes,
+    now: args.now,
+  });
+  return blocked.length > 0;
+}
+
+// Batch form used by bulk reindex preflight so one query covers the selection
+// set instead of N round-trips. Fresh `processing` leases block; stale leases
+// and non-processing statuses do not (same predicate as the single-document
+// helper).
+export async function listDocumentsWithActiveAgentEnrichment(args: {
+  supabase: SupabaseAdminClient;
+  documentIds: string[];
+  staleAfterMinutes: number;
+  now?: Date;
+}): Promise<string[]> {
+  const uniqueDocumentIds = Array.from(new Set(args.documentIds.filter(Boolean)));
+  if (uniqueDocumentIds.length === 0) return [];
+
   // indexing_v3_agent_jobs is not in the generated Database types (it is a
   // worker-state table added by migration), so query it through an untyped
   // client the same way the reindex route paginates dynamic tables.
@@ -147,14 +169,18 @@ export async function hasActiveAgentEnrichmentJob(args: {
   const { data, error } = await client
     .from("indexing_v3_agent_jobs")
     .select("document_id,status,locked_at,updated_at")
-    .eq("document_id", args.documentId)
-    .eq("status", "processing")
-    .limit(1);
+    .in("document_id", uniqueDocumentIds)
+    .eq("status", "processing");
   if (error) throw new Error(error.message);
 
   const nowMs = (args.now ?? new Date()).getTime();
-  return ((data ?? []) as AgentEnrichmentJobRow[]).some((job) =>
-    isActiveAgentEnrichmentJob(job, args.staleAfterMinutes, nowMs),
+  return Array.from(
+    new Set(
+      ((data ?? []) as AgentEnrichmentJobRow[])
+        .filter((job) => isActiveAgentEnrichmentJob(job, args.staleAfterMinutes, nowMs))
+        .map((job) => job.document_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
   );
 }
 
