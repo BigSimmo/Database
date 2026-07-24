@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { ClinicalNotesChecklistPanel } from "@/components/clinical-dashboard/evidence-panels";
 import { MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
 import type { AnswerRenderModel } from "@/lib/answer-render-policy";
 import type { RagAnswer } from "@/lib/types";
@@ -135,5 +136,79 @@ describe("MobileEvidenceSheetContent tabs (jsdom)", () => {
     expect(gaps).toHaveFocus();
     expect(gaps).toHaveAttribute("aria-selected", "true");
     expect(claims).toHaveAttribute("tabindex", "-1");
+  });
+});
+
+describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
+  it("does not expose raw table evidence suppressed by the render model", () => {
+    const answerWithRawTable: RagAnswer = {
+      ...answer,
+      answer: "Monitor renal function and escalate review for vomiting, dehydration, tremor, confusion, or ataxia.",
+      queryClass: "table_threshold",
+      responseMode: "threshold_table",
+      citations: [
+        {
+          chunk_id: "chunk-1",
+          document_id: "doc-1",
+          title: "Lithium source",
+          file_name: "lithium.pdf",
+          page_number: 1,
+          chunk_index: 0,
+        },
+      ],
+      answerSections: [
+        {
+          heading: "Monitoring",
+          body: "Check lithium level, renal function, thyroid function, calcium, and interacting medicines.",
+          citation_chunk_ids: ["chunk-1"],
+          kind: "monitoring_timing",
+          supportLevel: "direct",
+        },
+        {
+          heading: "Escalation",
+          body: "Escalate review for vomiting, dehydration, tremor, confusion, or ataxia.",
+          citation_chunk_ids: ["chunk-1"],
+          kind: "escalation_risk",
+          supportLevel: "direct",
+        },
+      ],
+      visualEvidence: [
+        {
+          id: "raw-table",
+          document_id: "doc-1",
+          image_id: "image-1",
+          source_chunk_id: "chunk-1",
+          title: "Raw threshold table",
+          file_name: "raw-table.pdf",
+          page_number: 1,
+          chunk_index: 0,
+          caption: "Raw table",
+          tableColumns: ["Threshold", "Action"],
+          tableRows: [
+            ["0.49", "Withhold"],
+            ["1.0", "Monitor"],
+          ],
+          signed_url_endpoint: "/api/images/image-1",
+          viewer_href: "/documents/doc-1?page=1",
+        },
+      ],
+    };
+
+    render(
+      <ClinicalNotesChecklistPanel
+        answer={answerWithRawTable}
+        visualEvidence={[]}
+        viewMode="standard"
+        evidenceMapRows={[]}
+        bestSource={null}
+        copied={false}
+        onCopy={vi.fn()}
+        onOpenTables={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Tables" })).not.toBeInTheDocument();
+    expect(screen.queryByText("0.49")).not.toBeInTheDocument();
+    expect(screen.queryByText("Withhold")).not.toBeInTheDocument();
   });
 });

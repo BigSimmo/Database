@@ -499,12 +499,6 @@ function clinicalNoteHasDistinctDetail(row: ClinicalNotesRow) {
   return Boolean(detail) && detail !== title;
 }
 
-function clinicalNotesTableEvidenceCount(answer: RagAnswer) {
-  return (answer.visualEvidence ?? answer.smartPanel?.visualEvidence ?? []).filter(
-    (item) => item.accessibleTableMarkdown || item.tableRows?.length,
-  ).length;
-}
-
 function clinicalNotesRowsForTab(
   sections: ClinicalDetailSection[],
   tab: ClinicalNotesTabId,
@@ -605,6 +599,7 @@ export function clinicalNotesDisplayCountForAnswer(answer: RagAnswer, viewMode: 
 
 export function ClinicalNotesChecklistPanel({
   answer,
+  visualEvidence,
   viewMode,
   evidenceMapRows,
   sourceLinks = [],
@@ -614,6 +609,7 @@ export function ClinicalNotesChecklistPanel({
   onOpenTables,
 }: {
   answer: RagAnswer;
+  visualEvidence: VisualEvidenceCard[];
   viewMode: AnswerViewMode;
   evidenceMapRows: AnswerEvidenceMapRow[];
   sourceLinks?: SourceLink[];
@@ -622,7 +618,12 @@ export function ClinicalNotesChecklistPanel({
   onCopy: () => void;
   onOpenTables?: () => void;
 }) {
-  const detailSections = clinicalNotesDetailSectionsForAnswer(answer, viewMode);
+  const renderableAnswer: RagAnswer = {
+    ...answer,
+    visualEvidence,
+    smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence } : answer.smartPanel,
+  };
+  const detailSections = clinicalNotesDetailSectionsForAnswer(renderableAnswer, viewMode);
   const tabs = clinicalNotesAvailableTabs(detailSections);
   const defaultTab = tabs.find((tab) => tab.id === "actions")?.id ?? tabs[0]?.id ?? "actions";
   const [requestedTab, setRequestedTab] = useState<ClinicalNotesTabId>(defaultTab);
@@ -632,14 +633,21 @@ export function ClinicalNotesChecklistPanel({
   const notesPanelId = `${tabBaseId}-panel`;
   const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : defaultTab;
   const rows = clinicalNotesRowsForTab(detailSections, activeTab, sourceLinks, bestSource);
-  const tableEvidenceCount = clinicalNotesTableEvidenceCount(answer);
+  const tableEvidenceCount = visualEvidence.filter(
+    (item) => item.accessibleTableMarkdown || item.tableRows?.length,
+  ).length;
   const [added, setAdded] = useState(false);
   const warningRows = clinicalNotesRowsForTab(detailSections, "safety", sourceLinks, bestSource);
   const warningCount = warningRows.filter((row) => row.tone === "warn").length || warningRows.length;
 
   if (!tabs.length || rows.length === 0) {
     return (
-      <ClinicalOutputPanel answer={answer} showLead={false} viewMode={viewMode} evidenceMapRows={evidenceMapRows} />
+      <ClinicalOutputPanel
+        answer={renderableAnswer}
+        showLead={false}
+        viewMode={viewMode}
+        evidenceMapRows={evidenceMapRows}
+      />
     );
   }
 
