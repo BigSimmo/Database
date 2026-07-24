@@ -1253,7 +1253,7 @@ begin
     and d.metadata ? 'indexing_v3_agent_status'
     and coalesce(d.metadata->>'indexing_v3_agent_status', 'pending')
           not in ('completed', 'needs_enrichment_artifacts')
-  on conflict (document_id) do nothing;
+  on conflict do nothing;
 
   return query
   with eligible_jobs as (
@@ -1272,7 +1272,7 @@ begin
         or j.locked_at < now() - make_interval(mins => p_stale_after_minutes))
     order by coalesce(j.next_run_at, j.updated_at), j.id
     limit greatest(p_claim_limit, 1)
-    for update of j skip locked
+    for update of j, d skip locked
   ),
   claimed_jobs as (
     update public.indexing_v3_agent_jobs j
@@ -8471,6 +8471,99 @@ $$;
 revoke all on function public.retry_ingestion_job_if_idle(uuid, uuid, timestamptz, integer, timestamptz, timestamptz)
   from public, anon, authenticated;
 grant execute on function public.retry_ingestion_job_if_idle(uuid, uuid, timestamptz, integer, timestamptz, timestamptz)
+  to service_role;
+
+create or replace function public.request_ingestion_reindex_if_agent_idle(
+  p_document_id uuid,
+  p_owner_id uuid,
+  p_stale_before timestamptz,
+  p_max_attempts integer
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_document public.documents%rowtype;
+  v_job public.ingestion_jobs%rowtype;
+begin
+  if p_document_id is null or p_owner_id is null or p_stale_before is null
+     or p_max_attempts is null or p_max_attempts < 1 then
+    raise exception 'Reindex identifiers, stale cutoff, and max attempts are required.' using errcode = '22023';
+  end if;
+
+  select d.*
+    into v_document
+  from public.documents d
+  where d.id = p_document_id
+    and d.owner_id = p_owner_id
+  for update;
+
+  if not found then
+    return jsonb_build_object('outcome', 'not_found');
+  end if;
+
+  if exists (
+    select 1
+    from public.indexing_v3_agent_jobs a
+    where a.document_id = p_document_id
+      and a.status = 'processing'
+      and (
+        coalesce(a.locked_at, a.updated_at) is null
+        or coalesce(a.locked_at, a.updated_at) > p_stale_before
+      )
+  ) then
+    return jsonb_build_object('outcome', 'agent_enrichment_active');
+  end if;
+
+  if exists (
+    select 1
+    from public.ingestion_jobs i
+    where i.document_id = p_document_id
+      and i.status in ('pending', 'processing')
+  ) then
+    return jsonb_build_object('outcome', 'ingestion_active');
+  end if;
+
+  begin
+    update public.documents
+    set status = case when v_document.status = 'indexed' then status else 'queued' end,
+        error_message = null,
+        page_count = case when v_document.status = 'indexed' then page_count else 0 end,
+        chunk_count = case when v_document.status = 'indexed' then chunk_count else 0 end,
+        image_count = case when v_document.status = 'indexed' then image_count else 0 end,
+        updated_at = now()
+    where id = p_document_id
+      and owner_id = p_owner_id;
+
+    insert into public.ingestion_jobs (
+      document_id,
+      batch_id,
+      status,
+      stage,
+      progress,
+      max_attempts
+    ) values (
+      p_document_id,
+      v_document.import_batch_id,
+      'pending',
+      'queued',
+      0,
+      p_max_attempts
+    )
+    returning * into v_job;
+  exception when unique_violation then
+    return jsonb_build_object('outcome', 'ingestion_active');
+  end;
+
+  return jsonb_build_object('outcome', 'queued', 'job', to_jsonb(v_job));
+end;
+$$;
+
+revoke all on function public.request_ingestion_reindex_if_agent_idle(uuid, uuid, timestamptz, integer)
+  from public, anon, authenticated;
+grant execute on function public.request_ingestion_reindex_if_agent_idle(uuid, uuid, timestamptz, integer)
   to service_role;
 -- Catalog-level, fail-closed verification for future objects created by
 -- postgres. A missing pg_default_acl row must be interpreted through
