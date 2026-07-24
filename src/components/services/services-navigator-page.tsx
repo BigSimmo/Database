@@ -15,6 +15,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
+  Sparkles,
   Users,
   X,
   type LucideIcon,
@@ -40,7 +41,7 @@ import { sortResultItems } from "@/lib/result-sort";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 
-const defaultQuery = "13YARN crisis support aboriginal phone";
+const defaultQuery = "13YARN crisis Aboriginal and Torres Strait Islander phone";
 
 function text(value: string | null | undefined, fallback = "Confirm locally") {
   return value?.trim() ? value.trim() : fallback;
@@ -59,7 +60,9 @@ function chipTone(tone: ServiceStatusChip["tone"] | undefined | null) {
 
 function serviceChipLabel(chip: ServiceStatusChip) {
   const label = text(chip.label, "Status");
-  if (label.toLowerCase().includes("aboriginal and torres strait islander")) return "ATSI-specific";
+  if (label.toLowerCase().includes("aboriginal and torres strait islander")) {
+    return "Aboriginal and Torres Strait Islander-specific";
+  }
   return label;
 }
 
@@ -641,70 +644,67 @@ export function ServicesNavigatorPage() {
         />
       ) : (
         <>
-          <div className="overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-tight)]">
-            <div className="flex min-w-0 items-start justify-between gap-2 bg-[color:var(--surface-chrome)] p-3 sm:gap-3 sm:p-4">
-              <div className="grid min-w-0 flex-1 grid-cols-1 items-start gap-3 sm:grid-cols-[3.25rem_minmax(0,1fr)]">
-                <span className="hidden h-12 w-12 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:grid">
-                  <span className="text-lg font-extrabold leading-none sm:text-xl">{displayedMatches.length}</span>
+          <div className="overflow-hidden rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--surface)] shadow-[var(--shadow-soft)]">
+            <div className="relative flex min-w-0 items-start justify-between gap-3 bg-[linear-gradient(135deg,var(--surface-chrome),var(--surface)_62%,var(--clinical-accent-soft))] p-4 sm:p-5">
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,var(--clinical-accent),transparent)] opacity-55" />
+              <div className="grid min-w-0 flex-1 grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[3.5rem_minmax(0,1fr)] sm:gap-4">
+                <span className="grid h-11 w-11 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-14 sm:w-14">
+                  <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <p className="hidden text-2xs font-extrabold uppercase tracking-[0.08em] text-[color:var(--clinical-accent)] sm:block">
+                  <p className="text-2xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--clinical-accent)]">
                     Referral matches
                   </p>
-                  <h1 className="text-2xl-minus font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:mt-0.5 sm:text-3xl">
+                  <h1 className="mt-0.5 text-2xl-minus font-extrabold leading-tight tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
                     {displayedMatches.length} referral {displayedMatches.length === 1 ? "match" : "matches"}
                   </h1>
-                  <p className="mt-1 max-w-2xl text-sm font-medium leading-5 text-[color:var(--text-muted)] max-sm:max-w-[14rem]">
-                    <span className="sm:hidden">
-                      {sortValue === "alpha"
-                        ? "Sorted A–Z for quick known-service lookup."
-                        : "Best fit for crisis, ATSI-specific phone referral."}
-                    </span>
-                    <span className="hidden sm:inline">
-                      {sortValue === "alpha"
-                        ? "Sorted A–Z for quick known-service lookup."
-                        : "Ranked for crisis support, ATSI-specific access, and phone referral."}
-                    </span>
+                  <p className="mt-1 max-w-2xl text-sm font-semibold leading-5 text-[color:var(--text-muted)] max-sm:max-w-[15rem]">
+                    {sortValue === "alpha"
+                      ? "Sorted A–Z for quick known-service lookup."
+                      : "Prioritised for crisis support, culturally safe access, and phone referral."}
                   </p>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button
-                  className="inline-flex min-h-10 w-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm font-bold text-[color:var(--text-heading)] shadow-[var(--shadow-tight)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-tap sm:w-auto sm:px-4"
+                  className="inline-flex min-h-10 w-10 cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm font-bold text-[color:var(--text-muted)] opacity-75 shadow-[var(--shadow-tight)] sm:min-h-tap sm:w-auto sm:px-4"
                   type="button"
-                  aria-label="Open service filters"
+                  aria-label="Advanced service filters"
+                  aria-describedby="services-filters-unavailable"
                   disabled
-                  title="Advanced filters are not available yet"
+                  title="Advanced service filters — coming soon"
                 >
                   <SlidersHorizontal className="h-4 w-4" aria-hidden />
                   <span className="hidden sm:inline">Filters</span>
                 </button>
+                <span id="services-filters-unavailable" className="sr-only">
+                  Advanced service filters are coming soon. Use the quick filters below for now.
+                </span>
               </div>
             </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-[color:var(--border)] px-3 py-2 sm:px-4 sm:py-2.5">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 sm:px-4">
               <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 overflow-hidden">
-                {["Best fit", "Crisis", "ATSI-specific", "Phone referral", "Free", "WA"].map((chip, index) => (
+                {[
+                  { label: "Best fit", query: defaultQuery },
+                  { label: "Crisis", query: "crisis" },
+                  { label: "Culturally safe", query: "Aboriginal and Torres Strait Islander" },
+                  { label: "Phone referral", query: "phone referral" },
+                  { label: "Free", query: "free" },
+                  { label: "WA", query: "WA" },
+                ].map((chip, index) => (
                   <button
-                    key={chip}
+                    key={chip.label}
                     type="button"
-                    onClick={() =>
-                      applyServiceQuery(
-                        index === 0
-                          ? defaultQuery
-                          : chip === "ATSI-specific"
-                            ? "Aboriginal Torres Strait Islander"
-                            : chip,
-                      )
-                    }
+                    onClick={() => applyServiceQuery(chip.query)}
                     className={cn(
                       "min-h-8 rounded-full border px-3 text-xs font-bold transition hover:-translate-y-px hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                       index > 2 ? "max-sm:hidden" : "",
                       index === 0
                         ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-                        : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+                        : "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)]",
                     )}
                   >
-                    {chip}
+                    {chip.label}
                   </button>
                 ))}
               </div>
