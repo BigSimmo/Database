@@ -41,7 +41,7 @@ describe("services catalogue", () => {
     const record = catalogToServiceRecord(crisisCare!);
     const bestUseCard = record.summaryCards?.find((card) => card.id === "best-use");
     expect(bestUseCard?.title).toBe("After-hours crisis, homelessness, FDV, child-safety concerns");
-    expect(bestUseCard?.title.length).toBeLessThanOrEqual(140);
+    expect(bestUseCard?.title?.length).toBeLessThanOrEqual(140);
     expect(record.criteria?.some((criterion) => criterion.label === crisisCare!.best_use_indication)).toBe(true);
   });
 
