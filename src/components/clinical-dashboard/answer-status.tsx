@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Square,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 
 import {
   answerProgressDisplayMessage,
@@ -19,6 +18,7 @@ import {
   answerProgressSteps,
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
+import { useClientTime } from "@/lib/use-client-time";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
@@ -162,16 +162,13 @@ export function AnswerProgressStepper({
   active: boolean;
   onStop: () => void;
 }) {
-  const [now, setNow] = useState(() => Date.now());
   const latest = events.at(-1) ?? null;
   const finished = latest?.stage === "complete";
+  const now = useClientTime({
+    fallback: startedAt ?? 0,
+    updateInterval: active && !finished && startedAt ? 1_000 : undefined,
+  });
   const currentStep = latest ? answerProgressStepIndex(latest.stage) : 0;
-
-  useEffect(() => {
-    if (!active || finished || !startedAt) return;
-    const interval = window.setInterval(() => setNow(Date.now()), 1_000);
-    return () => window.clearInterval(interval);
-  }, [active, finished, startedAt]);
 
   const clientElapsedMs = startedAt ? Math.max(0, (finished ? (latest?.receivedAt ?? now) : now) - startedAt) : 0;
   const elapsedMs = finished && latest?.elapsedMs !== undefined ? latest.elapsedMs : clientElapsedMs;
