@@ -395,6 +395,33 @@ After completing `upload`, summarize the current branch and worktree state, whet
 
 <!-- BEGIN:run-pr-shortcut -->
 
+<!-- BEGIN:pr-branch-sync -->
+
+## Open PR branch sync (anti-churn)
+
+Open PR heads go stale whenever `main` advances. GitHub frequently labels those
+branches `CONFLICTING` / `DIRTY` even when `git merge-tree` is clean — that is
+staleness, not an unresolvable content fight, and it blocks squash auto-merge.
+
+Durable mitigations in this repo:
+
+- `.github/workflows/pr-branch-sync.yml` runs on every push to `main` (and on
+  `workflow_dispatch`) and calls GitHub's update-branch API for every open
+  same-repo PR that is behind `main`. Opt out per PR with labels `hold`,
+  `do-not-merge`, or `skip-branch-sync`, or a `WIP` / `do not merge` title.
+- Local/operator dry-run: `npm run sync:pr-branches`. Apply: `npm run sync:pr-branches:apply`.
+- Prefer fewer long-lived open PRs; land or close queue items rather than
+  repeatedly re-merging `main` by hand.
+- `docs/branch-review-ledger.md` stays append-only with the `union` merge driver;
+  do not rewrite existing rows during syncs.
+
+When diagnosing "merge conflicts on every PR", first compare `behind_by` and
+`git merge-tree --write-tree origin/main <tip>`. If the tree merge is clean,
+sync the branch (workflow, `update-branch`, or `git merge origin/main` + push)
+instead of rewriting product code.
+
+<!-- END:pr-branch-sync -->
+
 ## Run PR shortcut
 
 When the user types exactly `Run PR` (case-insensitive, entire task message after trimming surrounding whitespace), treat it as a shortcut for a one-shot open-PR maintenance sweep on `bigsimmo/database`. This is a chat shortcut, not an app feature, script, automation, or CI workflow.
@@ -418,6 +445,7 @@ Hard guardrails (never, even during a sweep):
 - Respect the `skip-codex-review` label as a full per-PR opt-out.
 - Preserve unrelated staged, unstaged, and untracked work; never commit secrets.
 - Resolve branch drift with `git merge origin/main` only; skip and report non-trivial conflicts instead of guessing.
+- Before treating GitHub `DIRTY`/`CONFLICTING` as a real conflict, confirm with `git merge-tree` (see "## Open PR branch sync (anti-churn)"). Prefer the hosted `pr-branch-sync` workflow / update-branch API when the token can write; otherwise merge `origin/main` in a worktree and push.
 
 Procedure: in Claude Code sessions, invoke the `run-pr` skill (`.claude/skills/run-pr/SKILL.md`) — it is the canonical detailed procedure. In sessions without GitHub MCP write tooling, degrade to read-only diagnosis and a per-PR report; do not attempt pushes or thread resolution through other means.
 
