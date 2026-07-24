@@ -13,8 +13,8 @@ When invoked:
 
 1. Identify the target PR (number, URL, or current branch), resolve and fetch its exact head SHA, then check out or isolate that head and assert the checkout still matches before editing or pushing. Fetch mergeability, check rollup, and unresolved review threads only.
 2. Prefer the smallest safe fix that unblocks merge. Do not rewrite unrelated code.
-3. Fetch and verify the latest `origin/main` immediately before evaluating drift. Merge it into the feature branch when the PR is behind or conflicts are trivial; abort and ask when intents conflict. Never rebase.
-4. Fix CI failures caused by this PR’s scope. Never weaken workflows or delete required checks to force green. Ignore advisory jobs (`ui-advisory`, `release-browser-matrix`).
+3. Run `git fetch origin --prune` and verify the latest `origin/main` immediately before evaluating drift. Merge it into the feature branch when the PR is behind or conflicts are trivial; abort and ask when intents conflict. Never rebase.
+4. Fix CI failures caused by this PR's scope. Never weaken workflows or delete required checks to force green. Ignore advisory jobs (`ui-advisory`, `release-browser-matrix`).
 5. Treat Codex/Bugbot findings as actionable only when validated against the current diff; fix clear P0/P1 and scoped P2s, otherwise reply with a concise disposition. Prefer the `pr-bugbot` agent when Bugbot threads dominate.
 6. After fixing a review thread, reply first (never resolve silently), then use the authorized direct resolution tool. Delegated Bugbot threads follow the same path. Only the trusted Codex autofix identity may fall back to `<!-- codex-thread-disposition:resolved -->`; otherwise leave the thread open and report the missing capability.
 7. Respect provider confirmation boundaries: no live Supabase/OpenAI/eval spend without separate explicit authorization for that provider action. A Run PR sweep never authorizes provider-backed gates.
