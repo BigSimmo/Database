@@ -1113,7 +1113,7 @@ summary::-webkit-details-marker {
   transition:
     background-color 150ms var(--ease-out-soft),
     border-color 150ms var(--ease-out-soft),
-    color 150ms ease;
+    color 150ms var(--ease-out-soft);
 }
 
 .mode-action-mode-option:hover {
@@ -1333,7 +1333,7 @@ summary::-webkit-details-marker {
   transition:
     border-color 160ms var(--ease-out-soft),
     background-color 160ms var(--ease-out-soft),
-    color 160ms ease;
+    color 160ms var(--ease-out-soft);
 }
 
 .answer-footer-search-chip:hover {
@@ -2306,9 +2306,9 @@ html[data-motion="reduced"] .pwa-notice-card {
   .source-capsule-face {
     border-color: var(--border);
     transition:
-      border-color 150ms ease,
-      box-shadow 150ms ease,
-      transform 150ms ease;
+      border-color 150ms var(--ease-out-soft),
+      box-shadow 150ms var(--ease-out-soft),
+      transform 150ms var(--ease-spring);
   }
 
   .source-capsule-hit:hover .source-capsule-face {
