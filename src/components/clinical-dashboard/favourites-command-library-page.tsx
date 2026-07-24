@@ -1186,9 +1186,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
             />
 
-            <div className="hidden lg:block">
-              <SearchResultsHeaderBand modeId="favourites" query={query} matchCount={scopedItems.length} />
-            </div>
+            <SearchResultsHeaderBand modeId="favourites" query={query} matchCount={scopedItems.length} />
 
             <FavouritesMobileQuickViews
               items={items}
