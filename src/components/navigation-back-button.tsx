@@ -11,6 +11,11 @@ type NavigationBackButtonProps = {
   className?: string;
 };
 
+/**
+ * Deterministic in-app back control. Always navigates to `fallbackHref` rather
+ * than `history.back()`, so deep links / external referrers cannot eject the
+ * user out of Clinical KB (same contract as form detail pages).
+ */
 export function NavigationBackButton({ label = "Go back", fallbackHref = "/", className }: NavigationBackButtonProps) {
   const router = useRouter();
 
@@ -19,10 +24,6 @@ export function NavigationBackButton({ label = "Go back", fallbackHref = "/", cl
       label={label}
       icon={ArrowLeft}
       onClick={() => {
-        if (typeof window !== "undefined" && window.history.length > 1) {
-          router.back();
-          return;
-        }
         router.push(fallbackHref);
       }}
       className={cn(floatingControl, "rounded-full text-[color:var(--text-muted)]", className)}

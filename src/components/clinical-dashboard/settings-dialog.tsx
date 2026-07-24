@@ -50,6 +50,7 @@ import {
   fieldControlWithIcon,
   fieldIcon,
   floatingControl,
+  IconButton,
   InlineNotice,
   primaryControl,
   toggleThumbSurface,
@@ -261,14 +262,16 @@ export function SettingsDialog({
   }, [emailEntryOpen]);
 
   const backButton = (
-    <button
-      type="button"
+    <IconButton
+      label="Back from settings"
+      icon={ArrowLeft}
       onClick={onClose}
-      aria-label="Back from settings"
-      className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:h-10 lg:w-10 lg:border-transparent lg:bg-transparent lg:shadow-none"
-    >
-      <ArrowLeft aria-hidden="true" className="size-icon-lg" />
-    </button>
+      className={cn(
+        floatingControl,
+        "rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] lg:border-transparent lg:bg-transparent lg:shadow-none",
+      )}
+      iconClassName="size-icon-lg"
+    />
   );
 
   const closeButton = (
