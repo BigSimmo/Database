@@ -3,7 +3,7 @@
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { cn, floatingControl } from "@/components/ui-primitives";
+import { cn, floatingControl, IconButton } from "@/components/ui-primitives";
 
 type NavigationBackButtonProps = {
   label?: string;
@@ -15,8 +15,9 @@ export function NavigationBackButton({ label = "Go back", fallbackHref = "/", cl
   const router = useRouter();
 
   return (
-    <button
-      type="button"
+    <IconButton
+      label={label}
+      icon={ArrowLeft}
       onClick={() => {
         if (typeof window !== "undefined" && window.history.length > 1) {
           router.back();
@@ -24,14 +25,8 @@ export function NavigationBackButton({ label = "Go back", fallbackHref = "/", cl
         }
         router.push(fallbackHref);
       }}
-      aria-label={label}
-      className={cn(
-        floatingControl,
-        "h-10 w-10 rounded-full p-0 text-[color:var(--text-muted)] sm:h-11 sm:w-11",
-        className,
-      )}
-    >
-      <ArrowLeft aria-hidden="true" className="h-5 w-5" />
-    </button>
+      className={cn(floatingControl, "rounded-full text-[color:var(--text-muted)]", className)}
+      iconClassName="h-5 w-5"
+    />
   );
 }
