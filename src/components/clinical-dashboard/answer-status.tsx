@@ -185,6 +185,7 @@ export function AnswerProgressStepper({
       data-testid="answer-progress-stepper"
       data-progress-state={finished ? "complete" : "active"}
       aria-label={finished ? "Answer generation complete" : "Answer generation progress"}
+      aria-live="polite"
       className="rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 py-2 text-[color:var(--text-heading)]"
     >
       <div className="flex min-h-8 items-center gap-2">
@@ -198,7 +199,7 @@ export function AnswerProgressStepper({
             aria-hidden
           />
         )}
-        <p className="min-w-0 flex-1 text-sm font-semibold" role="status" aria-live="polite">
+        <p className="min-w-0 flex-1 text-sm font-semibold">
           {finished
             ? `Answer ready in ${elapsedLabel(elapsedMs)}`
             : latest
