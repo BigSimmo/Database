@@ -7,6 +7,10 @@ files**, **risk**, **verification**, and **status**. High-risk items are deliber
 their own work order — the audit's rule is one dedicated PR + full-suite verification per
 structural change, not a single mixed PR.
 
+This file is supporting work-order detail, not a second task ledger. Only work represented in the
+recommended queue in [`outstanding-issues.md`](outstanding-issues.md) is an active repository
+recommendation; that universal ledger owns current status, priority, and execution order.
+
 **Status legend:** `DONE` (landed) · `IN PROGRESS` (partially landed; more PRs remain) ·
 `READY` (scoped, safe to start) · `OPEN` (needs a decision or a dedicated PR) ·
 `PROVIDER-GATED` (touches live DB/CI/provider — needs explicit confirmation) · `SATISFIED`

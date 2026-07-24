@@ -1,8 +1,9 @@
 # Operator backlog
 
-Single source of truth for **human-only / provider-gated actions** that cannot be done from a coding
+Detailed runbook index for **human-only / provider-gated actions** that cannot be done from a coding
 session (they touch Supabase, Railway, OpenAI, or GitHub settings, per the AGENTS.md provider boundary).
-This exists so that launch-blocking state lives in the repo instead of chat memory.
+Canonical task status, priority, and execution order live only in
+[`outstanding-issues.md`](outstanding-issues.md); this file supplies operator procedures and evidence.
 
 **How to use:** work top to bottom; each row links to the detailed runbook. `Status` values are
 `⏳ pending`, `🔎 verify` (may already be done — confirm before repeating), `✅ done`, `—` (n/a).
