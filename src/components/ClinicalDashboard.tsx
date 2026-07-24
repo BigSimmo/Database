@@ -3496,20 +3496,20 @@ export function ClinicalDashboard({
                 // sm+/lg values stay identical to the result-view treatment.
                 searchMode === "answer"
                   ? compactMobileModeHome
-                    ? "pb-4"
+                    ? "pb-[max(1rem,env(safe-area-inset-bottom))]"
                     : // The <main> reserve already clears the fixed composer dock on
                       // phones, so the old large mobile bottom padding only floated a
                       // long answer's last line high above the dock (and padded a short
                       // answer's empty space further). Keep it small here; sm+/desktop
                       // keep the original generous padding.
-                      "pb-4 sm:pb-36 lg:pb-40"
+                      "pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-36 lg:pb-40"
                   : hasMobileBottomSearch
                     ? // The <main> reserve clears the compact dock on phones, so
                       // content keeps only a small pad of its own.
                       compactMobileModeHome
-                      ? "pb-4 sm:pb-10 lg:pb-12"
-                      : "pb-8 sm:pb-10 lg:pb-12"
-                    : "pb-8 sm:pb-10 lg:pb-12",
+                      ? "pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-10 lg:pb-12"
+                      : "pb-[max(2rem,env(safe-area-inset-bottom))] sm:pb-10 lg:pb-12"
+                    : "pb-[max(2rem,env(safe-area-inset-bottom))] sm:pb-10 lg:pb-12",
               )}
             >
               {actionNotice && (
