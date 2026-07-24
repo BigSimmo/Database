@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useDeferredValue } from "react";
 import {
   ArrowRight,
   CheckCircle2,
@@ -177,7 +177,16 @@ function EmptySearchResults({ query }: { query: string }) {
 
 function FormulationResults({ query }: { query: string }) {
   const [domain, setDomain] = useState("all");
-  const results = useMemo(() => searchFormulationMechanisms(query, { domain }), [domain, query]);
+  const deferredQuery = useDeferredValue(query);
+  const rankingReady = deferredQuery === query;
+  const results = useMemo(() => {
+    // Cleared live query should restore the full browse catalogue immediately.
+    if (!query.trim()) return searchFormulationMechanisms("", { domain });
+    // Empty deferred while live query has text would score every mechanism —
+    // treat that lag as "no results yet" instead of dumping the full catalogue.
+    if (!deferredQuery.trim()) return [];
+    return searchFormulationMechanisms(deferredQuery, { domain });
+  }, [domain, deferredQuery, query]);
 
   return (
     <FormulationPageShell>
@@ -234,9 +243,9 @@ function FormulationResults({ query }: { query: string }) {
         </label>
       </section>
 
-      {results.length === 0 ? (
+      {results.length === 0 && rankingReady ? (
         <EmptySearchResults query={query} />
-      ) : (
+      ) : results.length === 0 ? null : (
         <section aria-label="Mechanism matches" className="grid gap-3">
           {results.map(({ mechanism }, index) => (
             <article

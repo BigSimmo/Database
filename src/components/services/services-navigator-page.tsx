@@ -20,7 +20,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useDeferredValue } from "react";
 
 import { cn } from "@/components/ui-primitives";
 import { ModeHomeStatusNotice } from "@/components/mode-home-template";
@@ -536,6 +536,7 @@ export function ServicesNavigatorPage() {
   const initialQuery = urlQuery || defaultQuery;
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
+  const deferredQuery = useDeferredValue(query);
   const registry = useRegistryRecords("service");
   const registryLoading = registry.status === "loading";
   // Demo mode is served by the registry API as status "ready" with fixture
@@ -547,9 +548,15 @@ export function ServicesNavigatorPage() {
     [registry.records, registry.status],
   );
   const matches = useMemo(() => {
-    const ranked = rankServiceRecords(searchableRecords, query);
-    return ranked.length ? ranked.map((match) => match.service) : query.trim() ? [] : searchableRecords;
-  }, [query, searchableRecords]);
+    // Cleared live query should restore the full catalogue immediately, even if
+    // deferredQuery still holds the previous term for a frame.
+    if (!query.trim()) return searchableRecords;
+    const ranked = rankServiceRecords(searchableRecords, deferredQuery);
+    if (ranked.length) return ranked.map((match) => match.service);
+    // Deferred empty while the live query has text means ranking is lagging —
+    // never dump the full catalogue as if the box were cleared.
+    return [];
+  }, [deferredQuery, query, searchableRecords]);
   const scopedMatches = useMemo(() => {
     const scopes = command?.commandScopes ?? [];
     if (!scopes.length) return matches;
@@ -635,7 +642,7 @@ export function ServicesNavigatorPage() {
             body="The services registry could not be loaded. Try again shortly."
           />
         )
-      ) : query.trim() && displayedMatches.length === 0 ? (
+      ) : query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
         <SearchResultsEmptyState
           modeId="services"
           query={query}

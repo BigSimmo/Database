@@ -44,6 +44,11 @@ type UniversalSearchResult = {
   preferredDomains?: UniversalSearchDomain[];
 };
 
+type UniversalSearchCacheEntry = {
+  value: UniversalSearchResult;
+  expiresAt: number;
+};
+
 const debounceMs = 250;
 const minQueryLength = 2;
 
@@ -51,8 +56,10 @@ const minQueryLength = 2;
 // re-hitting the server. Module-scoped so the phone and tablet+ command surfaces share it. The
 // key includes the auth signature, so one identity's cached results are never served to another
 // (a signed-out user has a different key than the signed-in session that produced them).
-const resultCacheMax = 50;
-const resultCache = new Map<string, UniversalSearchResult>();
+// Entries expire after resultCacheTtlMs so a long session cannot retain stale typeahead forever.
+const resultCacheMax = 100;
+const resultCacheTtlMs = 5 * 60 * 1000;
+const resultCache = new Map<string, UniversalSearchCacheEntry>();
 
 function cacheKeyFor(
   query: string,
@@ -68,24 +75,38 @@ function cacheKeyFor(
 
 // Non-mutating read used during render (must stay pure — no recency side effect here).
 function peekResultCache(key: string): UniversalSearchResult | undefined {
-  return resultCache.get(key);
+  const cached = resultCache.get(key);
+  if (!cached) return undefined;
+  if (cached.expiresAt <= Date.now()) {
+    resultCache.delete(key);
+    return undefined;
+  }
+  return cached.value;
 }
 
 // Recency bump for a cache hit, called from the effect (not render) to keep render pure.
 function touchResultCache(key: string) {
   const cached = resultCache.get(key);
-  if (!cached) return;
+  if (!cached || cached.expiresAt <= Date.now()) {
+    if (cached) resultCache.delete(key);
+    return;
+  }
   resultCache.delete(key);
   resultCache.set(key, cached);
 }
 
 function writeResultCache(key: string, value: UniversalSearchResult) {
   resultCache.delete(key);
-  resultCache.set(key, value);
+  resultCache.set(key, { value, expiresAt: Date.now() + resultCacheTtlMs });
   if (resultCache.size > resultCacheMax) {
     const oldest = resultCache.keys().next().value;
     if (oldest !== undefined) resultCache.delete(oldest);
   }
+}
+
+/** Test-only: clear the module-scoped universal search LRU between cases. */
+export function clearUniversalSearchCacheForTests() {
+  resultCache.clear();
 }
 
 /**
@@ -134,7 +155,7 @@ export function useUniversalSearch(args: {
     // Instant path: a previously fetched query needs no fetch. The render below reads the cache
     // directly (setState in an effect body would force a cascading render), so only bump recency
     // and invalidate any older in-flight request here.
-    if (resultCache.has(key)) {
+    if (peekResultCache(key)) {
       touchResultCache(key);
       requestSeqRef.current += 1;
       return undefined;

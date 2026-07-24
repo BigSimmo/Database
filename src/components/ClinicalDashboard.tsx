@@ -196,9 +196,7 @@ import {
 import { persistPrivateSearchScope, restorePrivateSearchScope } from "@/lib/private-search-scope";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
 import { answerLifecycleReducer, initialAnswerLifecycle } from "@/lib/answer-lifecycle";
-import { rankFormRecords } from "@/lib/form-ranker";
-import { rankServiceRecords } from "@/lib/service-ranker";
-import { useRegistryRecords } from "@/lib/use-registry-records";
+import { useDeferredRegistrySearch } from "@/components/clinical-dashboard/use-deferred-registry-search";
 import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/answer-follow-up";
 import {
   clearPersistedAnswerThread,
@@ -431,24 +429,9 @@ export function ClinicalDashboard({
   const [restoredPrivateScopeRef, setRestoredPrivateScopeRef] = useState<string | null>(null);
 
   // Record matches come from the owner-scoped registry API (mock fixtures in
-  // demo mode); ranking stays client-side so live-typing behaviour is
-  // unchanged and the registry is fetched once per active mode.
-  const registryRecords = useRegistryRecords(searchMode === "forms" ? "form" : "service", {
-    enabled: searchMode === "services" || searchMode === "forms",
-  });
-  const serviceSearchMatches = useMemo(
-    () => (searchMode === "services" ? rankServiceRecords(registryRecords.records, query) : []),
-    [query, searchMode, registryRecords.records],
-  );
-  const formSearchMatches = useMemo(
-    () => (searchMode === "forms" ? rankFormRecords(registryRecords.records, query) : []),
-    [query, searchMode, registryRecords.records],
-  );
-  const recordSearchMatches = useMemo(
-    () => (searchMode === "forms" ? formSearchMatches : searchMode === "services" ? serviceSearchMatches : []),
-    [searchMode, formSearchMatches, serviceSearchMatches],
-  );
-  const recordSearchMode = searchMode === "forms" ? "forms" : "services";
+  // demo mode); ranking stays client-side (deferred) so live-typing stays
+  // responsive and the registry is fetched once per active mode.
+  const { recordSearchMatches, recordSearchMode, recordStatus } = useDeferredRegistrySearch(searchMode, query);
   // The thread mirror ref must never outlive the answer it describes: every
   // reset path nulls `answer`, so clearing here covers them all (mode
   // switches, new chat, differentials/services clears) without each caller
@@ -3750,7 +3733,7 @@ export function ClinicalDashboard({
                         matches={documentMatches}
                         recordMatches={recordSearchMatches}
                         recordMode={recordSearchMode}
-                        recordStatus={registryRecords.status}
+                        recordStatus={recordStatus}
                         showRecordMatches={searchMode === "services" || searchMode === "forms"}
                         query={query}
                         loading={loading}
@@ -3849,8 +3832,8 @@ export function ClinicalDashboard({
               {activeModeResultKind === "answer" && answer && (
                 <RelatedDocumentsPanel
                   documents={relatedDocuments}
-                  onScopeDocument={scopeOnlyDocument}
-                  onTagSearch={handleTagSearch}
+                  onScopeDocument={handleScopeDocument}
+                  onTagSearch={handleDocumentTagSearch}
                 />
               )}
               {(documentsDrawerOpen || uploadDrawerOpen) && (

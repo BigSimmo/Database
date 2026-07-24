@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, useDeferredValue, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useTherapyData } from "./data/use-therapy-data";
@@ -269,7 +269,21 @@ export function TcProvider({ children }: { children: ReactNode }) {
   const effectivePathwaySlug = selectedPathwaySlug ?? pathways[0]?.slug ?? null;
   const selectedPathway = effectivePathwaySlug ? (pathways.find((p) => p.slug === effectivePathwaySlug) ?? null) : null;
 
-  const searchResults = useMemo(() => searchTherapies(therapies, search), [therapies, search]);
+  const deferredSearch = useDeferredValue(search);
+  const searchResults = useMemo(() => {
+    const liveQuery = search.query.trim();
+    const deferredQuery = deferredSearch.query.trim();
+    // Cleared live query should browse with live filters immediately (avoid stale
+    // deferred tags/flags from the previous term).
+    if (!liveQuery) {
+      return searchTherapies(therapies, search);
+    }
+    // First keystrokes: deferred text may still be empty — never dump the full library.
+    if (!deferredQuery) return [];
+    // Defer only the text cost; apply live filter chips/flags immediately so toggles
+    // match aria-pressed state without waiting for useDeferredValue.
+    return searchTherapies(therapies, { ...search, query: deferredSearch.query });
+  }, [therapies, deferredSearch.query, search]);
   const compareTherapies = useMemo(
     () => compareSlugs.map((sl) => bySlug.get(sl)).filter((t): t is Therapy => Boolean(t)),
     [compareSlugs, bySlug],

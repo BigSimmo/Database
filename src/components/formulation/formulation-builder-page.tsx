@@ -15,7 +15,7 @@ import {
   Target,
   Waypoints,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useDeferredValue } from "react";
 
 import {
   FormulationBreadcrumbs,
@@ -206,6 +206,7 @@ export function FormulationBuilderPage({
   const [activeStep, setActiveStep] = useState<BuilderStepId>("select");
   const [selectedIds, setSelectedIds] = useState(() => normalizeMechanismSelection(initialMechanisms));
   const [query, setQuery] = useState("");
+  const deferredQuery = useDeferredValue(query);
   const [domain, setDomain] = useState("all");
   const [templateId, setTemplateId] = useState(validInitialTemplate);
   const [sectionNotes, setSectionNotes] = useState<Record<string, string>>({});
@@ -220,10 +221,15 @@ export function FormulationBuilderPage({
         .filter((mechanism): mechanism is FormulationMechanism => Boolean(mechanism)),
     [selectedIds],
   );
-  const visibleMechanisms = useMemo(
-    () => searchFormulationMechanisms(query, { domain }).map((result) => result.mechanism),
-    [domain, query],
-  );
+  const visibleMechanisms = useMemo(() => {
+    // Cleared live query should restore the full browse catalogue immediately.
+    if (!query.trim()) {
+      return searchFormulationMechanisms("", { domain }).map((result) => result.mechanism);
+    }
+    // Empty deferred while live query has text would score every mechanism.
+    if (!deferredQuery.trim()) return [];
+    return searchFormulationMechanisms(deferredQuery, { domain }).map((result) => result.mechanism);
+  }, [domain, deferredQuery, query]);
   const activeSections = formulationSectionsForTemplate(templateId);
   const generatedDraft = formulationDraftFor({
     mechanisms: selectedMechanisms,

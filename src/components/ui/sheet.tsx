@@ -3,6 +3,7 @@
 import {
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -117,6 +118,10 @@ export function Sheet({
   // Otherwise a press that begins on the panel and ends on the backdrop would
   // synthesize a click on the common ancestor and accidentally close the sheet.
   const backdropPointerDownRef = useRef(false);
+  // Focus-restore schedules rAF + setTimeout after close; keep handles so a later
+  // cleanup (or jsdom teardown) can cancel them before they touch `document`.
+  const restoreFocusCleanupRef = useRef<(() => void) | null>(null);
+  const isMountedRef = useRef(false);
   const titleId = useId();
   const descId = useId();
   const sheetId = useId();
@@ -124,6 +129,17 @@ export function Sheet({
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  // Layout cleanup runs before passive effect cleanups on unmount, so the open
+  // effect can skip scheduling focus restoration when the whole Sheet is gone
+  // (avoids order-dependent sibling effect races and jsdom teardown flakes).
+  useLayoutEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      restoreFocusCleanupRef.current?.();
+    };
+  }, []);
 
   // Swipe-to-dismiss for the mobile bottom sheet: dragging the grip down past a
   // threshold closes the sheet; a shorter drag snaps back. Grip-initiated only,
@@ -215,12 +231,18 @@ export function Sheet({
       window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", onKeyDown);
       popSheet(sheetId);
+      restoreFocusCleanupRef.current?.();
+      // Component unmount (not merely open→false): skip focus restore entirely.
+      if (!isMountedRef.current) return;
       const restoreTarget = explicitReturnElement ?? previousActiveElement;
-      window.requestAnimationFrame(() => {
-        if (!restoreTarget?.isConnected) return;
+      let cancelled = false;
+      let retryTimeoutId: number | undefined;
+      const restoreFrame = window.requestAnimationFrame(() => {
+        if (cancelled || !isMountedRef.current || !restoreTarget?.isConnected) return;
         restoreTarget.focus({ preventScroll: true });
-        window.setTimeout(() => {
-          if (typeof document === "undefined") return;
+        retryTimeoutId = window.setTimeout(() => {
+          // jsdom may already be torn down when this fires after a fast test exit.
+          if (cancelled || !isMountedRef.current || typeof document === "undefined") return;
           if (
             restoreTarget.isConnected &&
             document.activeElement !== restoreTarget &&
@@ -230,6 +252,12 @@ export function Sheet({
           }
         }, 50);
       });
+      restoreFocusCleanupRef.current = () => {
+        cancelled = true;
+        window.cancelAnimationFrame(restoreFrame);
+        if (retryTimeoutId !== undefined) window.clearTimeout(retryTimeoutId);
+        restoreFocusCleanupRef.current = null;
+      };
     };
   }, [open, initialFocusRef, returnFocusRef, sheetId]);
 
