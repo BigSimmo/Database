@@ -3114,6 +3114,9 @@ export function ClinicalDashboard({
     ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
+  // Mode homes keep the composer in the centred hero at every breakpoint; when
+  // that hero owns phones there is no fixed bottom dock to clear.
+  const heroOwnsPhoneComposer = showDesktopHomeComposer || showAnswerHome;
   // Hidden dock pad must stay at 0.75rem — Safari toolbar safe-area recreates a blank band.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
@@ -3121,6 +3124,7 @@ export function ClinicalDashboard({
       searchMode,
       hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
       differentialsCompareAddonActive,
+      heroOwnsPhoneComposer,
     }),
   );
   const renderDegradedNotice = () => (
@@ -3403,7 +3407,7 @@ export function ClinicalDashboard({
           // Mode homes keep the composer in the centred hero slot at every
           // breakpoint so documents, therapy, and the other homes share the
           // same phone/tablet structure instead of switching to a bottom dock.
-          heroComposerBreakpoint={showDesktopHomeComposer || showAnswerHome ? "all" : "sm-up"}
+          heroComposerBreakpoint={heroOwnsPhoneComposer ? "all" : "sm-up"}
           // Answer view: the header overlays the scrolling <main> at every width
           // (main reserves matching top padding) so content frosts under the
           // glass bar, and it slides away/returns with scroll direction. Other

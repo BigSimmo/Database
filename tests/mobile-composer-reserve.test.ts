@@ -53,7 +53,7 @@ describe("mobile composer reserve contract", () => {
     ).toBe(mobileComposerIdleReserve);
   });
 
-  it("uses the compact dock reserve for every non-answer dashboard dock (mode homes included)", () => {
+  it("uses the compact dock reserve for non-answer dashboard docks when the hero does not own phones", () => {
     for (const searchMode of ["documents", "services", "forms", "tools", "favourites"]) {
       expect(
         resolveDashboardVisibleMobileComposerReserve({
@@ -63,6 +63,33 @@ describe("mobile composer reserve contract", () => {
         }),
       ).toBe(mobileComposerVisibleReserve.dashboardDock);
     }
+  });
+
+  it("keeps only the idle content pad when the dashboard hero owns the phone composer", () => {
+    expect(
+      resolveDashboardVisibleMobileComposerReserve({
+        searchMode: "documents",
+        hasAnswerFollowUps: false,
+        differentialsCompareAddonActive: false,
+        heroOwnsPhoneComposer: true,
+      }),
+    ).toBe(mobileComposerIdleReserve);
+    expect(
+      resolveDashboardVisibleMobileComposerReserve({
+        searchMode: "tools",
+        hasAnswerFollowUps: false,
+        differentialsCompareAddonActive: false,
+        heroOwnsPhoneComposer: true,
+      }),
+    ).toBe(mobileComposerIdleReserve);
+    expect(
+      resolveDashboardVisibleMobileComposerReserve({
+        searchMode: "answer",
+        hasAnswerFollowUps: false,
+        differentialsCompareAddonActive: false,
+        heroOwnsPhoneComposer: true,
+      }),
+    ).toBe(mobileComposerIdleReserve);
   });
 
   it("keeps the answer dock reserve compact, growing only for the follow-up chip row", () => {
