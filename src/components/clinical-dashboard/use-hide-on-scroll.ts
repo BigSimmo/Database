@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { createBrowserStore } from "@/lib/client-store-factory";
 
 import { mobileComposerHiddenReserveRem } from "@/components/clinical-dashboard/mobile-composer-reserve";
 
@@ -189,12 +190,10 @@ function readPhoneMedia() {
   return window.matchMedia(phoneMediaQuery).matches;
 }
 
-function readPhoneMediaServer() {
-  return false;
-}
+const usePhoneMediaStore = createBrowserStore(subscribeToPhoneMedia, readPhoneMedia, false);
 
 function usePhoneScrollHideActive(disabled = false, allowAllBreakpoints = false) {
-  const isPhone = useSyncExternalStore(subscribeToPhoneMedia, readPhoneMedia, readPhoneMediaServer);
+  const isPhone = usePhoneMediaStore();
   return (allowAllBreakpoints || isPhone) && !disabled;
 }
 

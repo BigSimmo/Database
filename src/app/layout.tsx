@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { AuthProvider } from "@/lib/supabase/client";
 import { AccountDataProvider } from "@/components/account-data-provider";
 import { PwaLifecycle } from "@/components/pwa-lifecycle";
@@ -76,10 +76,15 @@ export default async function RootLayout({
   // silent runtime failure: theme flash returns). Reading headers() opts the app
   // into dynamic rendering — inherent to nonce-based CSP.
   const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const cookieStore = await cookies();
+  const clinicalTheme = cookieStore.get("clinical-theme")?.value;
+  const isDark = clinicalTheme === "dark";
+  const themeClass = isDark ? "dark" : "";
+
   return (
     <html
       lang="en-AU"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${themeClass}`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
@@ -100,8 +105,7 @@ export default async function RootLayout({
         />
         <a
           href="#main-content"
-          suppressHydrationWarning
-          className="sr-only focus:not-sr-only focus:fixed focus:left-[max(0.75rem,env(safe-area-inset-left))] focus:top-[max(0.75rem,env(safe-area-inset-top))] focus:z-[100] focus:rounded-lg focus:border focus:border-[color:var(--border-lux)] focus:bg-[color:var(--surface-raised)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[color:var(--text)] focus:shadow-[var(--shadow-elevated)]"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-[color:var(--surface)] focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-[color:var(--text)] focus:shadow-[var(--shadow-lux)] focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-[color:var(--focus)]"
         >
           Skip to main content
         </a>
