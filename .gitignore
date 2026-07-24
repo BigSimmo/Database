@@ -98,3 +98,5 @@ ds-bundle/
 
 # esbuild output for the worker image (scripts/build-worker.mjs)
 dist/
+test-output*.txt
+docs/archive/staging-tenancy-evidence-*

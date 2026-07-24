@@ -1,7 +1,6 @@
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { format } from "prettier";
 
 import { appModeDefinitions, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
 import { documentsSearchHref, DOCUMENTS_MODE_HOME_ROUTE } from "@/lib/document-flow-routes";
@@ -540,7 +539,7 @@ function renderSiteMapRaw(data = collectSiteMapData()) {
 }
 
 export async function renderSiteMap(data = collectSiteMapData()) {
-  return format(renderSiteMapRaw(data), { parser: "markdown", printWidth: 120 });
+  return renderSiteMapRaw(data);
 }
 
 async function main() {

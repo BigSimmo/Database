@@ -46,7 +46,8 @@ export function listRepoNodeProcesses(workspaceRoot = projectRoot) {
     "if (-not $rootsJson) { exit 0 }",
     "$roots = @(ConvertFrom-Json $rootsJson | ForEach-Object { [IO.Path]::GetFullPath($_).ToLowerInvariant() })",
     "$matches = Get-CimInstance Win32_Process | Where-Object {",
-    "  if ($_.Name -notlike 'node*' -or -not $_.CommandLine) { return $false }",
+    "  if ($_.Name -notmatch '(?i)^(node|npm|npx|tsx|vitest|playwright|bun)(\\.exe)?$' -and $_.Name -notlike 'node*') { return $false }",
+    "  if (-not $_.CommandLine) { return $false }",
     "  $commandLine = $_.CommandLine.ToLowerInvariant()",
     "  foreach ($root in $roots) { if ($commandLine.Contains($root)) { return $true } }",
     "  return $false",
@@ -108,7 +109,7 @@ export function terminateProcesses(pids, context) {
   let killed = 0;
   for (const pid of pids) {
     if (!Number.isFinite(pid) || pid <= 0) continue;
-    const killedResult = spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
+    const killedResult = spawnSync("taskkill", ["/PID", String(pid), "/F"], {
       cwd: projectRoot,
       stdio: "ignore",
       windowsHide: true,
