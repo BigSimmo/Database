@@ -4,6 +4,8 @@ import { ServicesHomePage } from "@/components/services/services-home-page";
 import { ServicesNavigatorPage } from "@/components/services/services-navigator-page";
 import { defaultServiceSlug } from "@/lib/services";
 
+import ServicesLoading from "./loading";
+
 type ServicesSearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
 function readFirstSearchParam(value: string | string[] | undefined) {
@@ -26,7 +28,7 @@ export default async function ServicesIndexRoute({ searchParams }: { searchParam
   }
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[color:var(--surface-wash)]" />}>
+    <Suspense fallback={<ServicesLoading />}>
       <ServicesNavigatorPage />
     </Suspense>
   );
