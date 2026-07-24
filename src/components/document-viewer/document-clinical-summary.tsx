@@ -70,7 +70,7 @@ const priorityTone: Record<PriorityTone, { icon: LucideIcon; iconClassName: stri
   },
 };
 
-const PLACEHOLDER_SUMMARY_RE = /indexed source text is available for source-backed review/i;
+const PLACEHOLDER_SUMMARY_RE = /source-backed review/i;
 
 function isPlaceholderClinicalSummary(text: string): boolean {
   return PLACEHOLDER_SUMMARY_RE.test(text);
@@ -177,10 +177,12 @@ export function buildDocumentClinicalSummaryModel(document: ClinicalDocument): D
     profileOverview ||
       usefulSummaryText(formatted.lead ?? "") ||
       usefulSummaryText(formatted.sections[0]?.items.join(" ") ?? "") ||
-      priorities
-        .slice(0, 2)
-        .map((priority) => priority.text)
-        .join(" "),
+      usefulSummaryText(
+        priorities
+          .slice(0, 2)
+          .map((priority) => priority.text)
+          .join(" "),
+      ),
   );
   return {
     summary,

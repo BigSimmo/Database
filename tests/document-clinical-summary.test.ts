@@ -78,6 +78,22 @@ describe("buildDocumentClinicalSummaryModel", () => {
     expect(model.priorities[0]).toMatchObject({ title: "Timing and monitoring", page: 6 });
   });
 
+  it("handles persisted profile items without a pages array", () => {
+    const legacyItem = {
+      ...item("Take a trough level after the last dose.", []),
+      pages: undefined,
+    } as unknown as DocumentSummaryProfileItem;
+    const model = buildDocumentClinicalSummaryModel(
+      documentWithProfile(
+        profile({
+          thresholds_timing: [legacyItem],
+        }),
+      ),
+    );
+
+    expect(model.priorities.find((priority) => priority.title === "Timing and monitoring")?.page).toBeNull();
+  });
+
   it("does not surface generic source-review copy as the high-yield summary", () => {
     const model = buildDocumentClinicalSummaryModel(
       documentWithProfile(profile({ overview: "Source-backed review of the indexed document." })),
