@@ -62,12 +62,19 @@ describe("mobile interaction regressions", () => {
     );
     expect(presentationSource).toContain("Comparing ({workflow.selectedCount})");
     expect(presentationSource).not.toContain("Compare ({workflow.selectedCount} selected)");
+    // Scope each density control independently so Compact's disabled attrs cannot
+    // greedily satisfy the Detailed assertion (or vice versa).
     expect(presentationSource).toMatch(
-      /type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="presentation-density-unavailable"[\s\S]*Compact/,
+      /<button\s+type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="presentation-density-unavailable"[\s\S]*?>\s*Compact\s*<\/button>/,
     );
     expect(presentationSource).toMatch(
-      /type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="presentation-density-unavailable"[\s\S]*Detailed/,
+      /<button\s+type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="presentation-density-unavailable"[\s\S]*?>\s*Detailed\s*<\/button>/,
     );
+    expect(
+      presentationSource.match(
+        /type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="presentation-density-unavailable"/g,
+      ),
+    ).toHaveLength(2);
   });
 
   it("does not fake Add success or Tools sort/more menus", () => {
