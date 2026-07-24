@@ -155,10 +155,9 @@ describe.runIf(hasPyMuPDF)("Python PDF table extraction", () => {
     expect(tableCrop?.metadata?.accessible_table_markdown).toContain("Published date");
   });
 
-  // #076 deliberately-red contract: page-edge table crops currently omit the on-page
-  // remnant of a straddling final row at the pymupdf_find_tables stage. it.fails keeps
-  // CI green while the defect remains; flip to it() once geometry is fixed.
-  it.fails(
+  // #076: page-edge table crops must keep the on-page remnant of a straddling
+  // final row after find_tables truncates the candidate bbox.
+  it(
     "includes on-page remnant geometry for a table row that straddles the page bottom (#076)",
     async () => {
       const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-page-edge-crop-"));
@@ -194,8 +193,8 @@ describe.runIf(hasPyMuPDF)("Python PDF table extraction", () => {
       const pageHeight = Number(tableCrop?.metadata?.page_height);
       const clip = (tableCrop?.bbox ?? tableCrop?.metadata?.clip_bbox) as number[] | undefined;
       expect(clip).toEqual(expect.any(Array));
-      // Stage: pymupdf_find_tables → save_page_crop. Expected geometry: clip bottom
-      // reaches the page edge so the on-page remnant (y≈824..841.89) is retained.
+      // Stage: pymupdf_find_tables → extend_table_rect_for_edge_content → save_page_crop.
+      // Expected geometry: clip bottom reaches the page edge so the on-page remnant is retained.
       expect(Number(clip?.[3])).toBeGreaterThanOrEqual(pageHeight - 1);
 
       const rows = (tableCrop?.metadata?.table_rows as string[][] | undefined) ?? [];
@@ -204,8 +203,9 @@ describe.runIf(hasPyMuPDF)("Python PDF table extraction", () => {
       const incomplete =
         Number.isFinite(cropCompleteness) && cropCompleteness < 0.99
           ? true
-          : (payload.warnings ?? []).some((warning) => /crop/i.test(warning) && /incomplete/i.test(warning));
+          : (payload.warnings ?? []).some((warning) => warning.includes("table_crop_edge_incomplete"));
       expect(hasScoreRow || incomplete).toBe(true);
+      expect(tableCrop?.metadata?.edge_content_extended).toBe(true);
     },
   );
 });

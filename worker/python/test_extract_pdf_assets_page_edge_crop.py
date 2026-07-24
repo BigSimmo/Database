@@ -1,11 +1,9 @@
-"""Red regression for #076: page-edge table crops omit on-page remnant geometry.
+"""Regression for #076: page-edge table crops keep on-page remnant geometry.
 
-Failing stage: pymupdf_find_tables candidate detection (before save_page_crop).
-Expected geometry: table_crop clip bottom reaches the page bottom (or reports incompleteness)
-so the on-page remnant of a straddling final row is not silently dropped.
-
-This module uses unittest.expectedFailure until a minimal geometry fix lands.
-Do not "fix" by widening padding/timeouts/storage — see docs/outstanding-issues.md #076.
+Failing stage (pre-fix): pymupdf_find_tables candidate detection stopped at the last
+fully detected row. Fix stage: extend_table_rect_for_edge_content + save_page_crop.
+Expected geometry: table_crop clip bottom reaches the page bottom and the straddling
+score-5 remnant is retained (structured row and/or incompleteness signal).
 """
 
 from __future__ import annotations
@@ -25,14 +23,13 @@ FIXTURE_PDF = os.path.join(FIXTURE_DIR, "malformed-table-crop-page-edge.pdf")
 PAGE_WIDTH = 595.28
 PAGE_HEIGHT = 841.89
 STRADDLING_ROW_Y0 = 824.0
-EXPECTED_CLIP_BOTTOM = PAGE_HEIGHT  # include on-page remnant through the page edge
 EXPECTED_SCORE_ROW = "5"
 
 
 @unittest.skipUnless(os.path.isfile(FIXTURE_PDF), "page-edge crop fixture missing")
 class PageEdgeTableCropGeometryTests(unittest.TestCase):
-    def test_fixture_find_tables_stage_drops_straddling_row_bbox(self):
-        """Diagnosis probe: names the exact failing stage without requiring a green crop yet."""
+    def test_fixture_find_tables_stage_still_drops_straddling_row_bbox(self):
+        """Upstream diagnosis: find_tables alone still truncates; the fix extends afterward."""
         document = extractor.fitz.open(FIXTURE_PDF)
         try:
             page = document[0]
@@ -42,22 +39,24 @@ class PageEdgeTableCropGeometryTests(unittest.TestCase):
             tables = page.find_tables()
             self.assertGreaterEqual(len(tables.tables), 1, "fixture must expose a find_tables candidate")
             candidate = extractor.fitz.Rect(tables.tables[0].bbox)
-            # Current-main defect: candidate stops at the last fully detected row.
             self.assertLess(
                 candidate.y1,
-                EXPECTED_CLIP_BOTTOM - 1,
-                "diagnosis changed: find_tables now includes the page-edge remnant",
+                PAGE_HEIGHT - 1,
+                "fixture no longer stresses find_tables truncation at the page edge",
             )
             self.assertAlmostEqual(candidate.y1, STRADDLING_ROW_Y0, places=1)
+
+            extended, info = extractor.extend_table_rect_for_edge_content(page, candidate)
+            self.assertTrue(info["extended"])
+            self.assertIn("bottom", info["edges"])
+            self.assertTrue(info["clipped_by_page"])
+            self.assertGreaterEqual(float(extended.y1), PAGE_HEIGHT - 1)
         finally:
             document.close()
 
-    @unittest.expectedFailure
     def test_table_crop_includes_on_page_remnant_of_straddling_row(self):
         """
-        Red contract (#076).
-
-        Stage: pymupdf_find_tables → expanded_rect → save_page_crop (sourceKind=table_crop)
+        Stage: pymupdf_find_tables → extend_table_rect_for_edge_content → save_page_crop
         Expected geometry: clip_bbox[3] >= page_height - 1 (on-page remnant retained)
         Expected structure: table_rows includes the score-5 clinical row (or incompleteness is marked)
         """
@@ -77,7 +76,7 @@ class PageEdgeTableCropGeometryTests(unittest.TestCase):
                 clip_bottom,
                 page_height - 1.0,
                 (
-                    "stage=pymupdf_find_tables→save_page_crop; "
+                    "stage=pymupdf_find_tables→extend_table_rect_for_edge_content→save_page_crop; "
                     f"expected clip bottom ≥ {page_height - 1.0}, got {clip_bottom}; "
                     f"candidate method={metadata.get('extraction_method')}"
                 ),
@@ -88,7 +87,9 @@ class PageEdgeTableCropGeometryTests(unittest.TestCase):
             crop_completeness = metadata.get("crop_completeness")
             incomplete = (
                 isinstance(crop_completeness, (int, float)) and float(crop_completeness) < 0.99
-            ) or any("crop" in str(warning).lower() and "incomplete" in str(warning).lower() for warning in result.get("warnings") or [])
+            ) or any(
+                "table_crop_edge_incomplete" in str(warning) for warning in result.get("warnings") or []
+            )
             self.assertTrue(
                 has_score_row or incomplete,
                 (
@@ -96,6 +97,8 @@ class PageEdgeTableCropGeometryTests(unittest.TestCase):
                     f"rows={rows!r} crop_completeness={crop_completeness!r} warnings={result.get('warnings')!r}"
                 ),
             )
+            self.assertTrue(metadata.get("edge_content_extended"))
+            self.assertIn("bottom", metadata.get("edge_content_edges") or [])
 
 
 if __name__ == "__main__":
