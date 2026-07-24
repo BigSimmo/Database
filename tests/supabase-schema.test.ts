@@ -30,6 +30,10 @@ const documentChangeWebhookMigration = readFileSync(
   new URL("../supabase/migrations/20260723150000_document_change_ingestion_webhook.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const atomicReindexAgentGuardMigration = readFileSync(
+  new URL("../supabase/migrations/20260724060000_atomic_reindex_agent_guard.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const dropStageJobIdFkMigration = readFileSync(
   new URL("../supabase/migrations/20260708140000_drop_ingestion_job_stages_job_id_fk.sql", import.meta.url),
   "utf8",
@@ -559,6 +563,37 @@ describe("Supabase schema Data API grants", () => {
         body.lastIndexOf("from public.documents"),
       );
       expect(body).toContain("'indexing_v3_agent_attempt_count' - 'indexing_v3_agent_max_attempts'");
+    }
+  });
+
+  it("serializes agent claims with transactional reindex enqueue", () => {
+    for (const sql of [schema, atomicReindexAgentGuardMigration]) {
+      const claimStart = sql.indexOf("create or replace function public.claim_indexing_v3_agent_jobs(");
+      const claimBody = sql.slice(claimStart, sql.indexOf("$$;", claimStart));
+      const reindexStart = sql.indexOf("create or replace function public.request_ingestion_reindex_if_agent_idle(");
+      const reindexBody = sql.slice(reindexStart, sql.indexOf("$$;", reindexStart));
+
+      expect(claimStart).toBeGreaterThanOrEqual(0);
+      expect(claimBody).toContain("on conflict do nothing");
+      expect(claimBody).toContain("for update of j, d skip locked");
+      expect(reindexStart).toBeGreaterThanOrEqual(0);
+      expect(reindexBody).toContain("and d.owner_id = p_owner_id for update;");
+      expect(reindexBody.indexOf("for update;")).toBeLessThan(
+        reindexBody.indexOf("from public.indexing_v3_agent_jobs a"),
+      );
+      expect(reindexBody.indexOf("from public.indexing_v3_agent_jobs a")).toBeLessThan(
+        reindexBody.indexOf("update public.documents"),
+      );
+      expect(reindexBody.indexOf("update public.documents")).toBeLessThan(
+        reindexBody.indexOf("insert into public.ingestion_jobs"),
+      );
+      expect(reindexBody).toContain("exception when unique_violation then");
+      expect(sql).toContain(
+        "revoke all on function public.request_ingestion_reindex_if_agent_idle(uuid, uuid, timestamptz, integer) from public, anon, authenticated;",
+      );
+      expect(sql).toContain(
+        "grant execute on function public.request_ingestion_reindex_if_agent_idle(uuid, uuid, timestamptz, integer) to service_role;",
+      );
     }
   });
 
