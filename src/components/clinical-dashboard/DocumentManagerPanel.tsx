@@ -408,7 +408,7 @@ export function UploadPanel({
 
   return (
     <form onSubmit={handleFormSubmit} className={cn(panelSubtle, "p-3")}>
-      <PrivacyInputNotice className="mb-2" />
+      <PrivacyInputNotice className="mb-2" returnMode="documents" />
       <label className="block text-xs font-semibold text-[color:var(--text)]">
         Guideline PDF files
         <input
