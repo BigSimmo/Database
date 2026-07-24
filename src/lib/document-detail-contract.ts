@@ -28,6 +28,16 @@ export type DocumentDetailImage = {
   accessibleTableMarkdown?: string | null;
   tableRows?: string[][] | null;
   tableColumns?: string[] | null;
+  rowCount?: number | null;
+  rowsTruncated?: boolean | null;
+  columnCount?: number | null;
+  width?: number | null;
+  height?: number | null;
+  cropCompleteness?: number | null;
+  imageQualityScore?: number | null;
+  ocrTextDensity?: number | null;
+  structuredExtractionConfidence?: number | null;
+  retainedForDocumentView?: boolean | null;
 };
 
 export type DocumentDetailTableFact = {

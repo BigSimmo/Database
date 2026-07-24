@@ -194,6 +194,39 @@ function looksLikeTableText(value?: string | null) {
   return Boolean(value?.includes("|") && value.split("|").filter((cell) => cell.trim()).length >= 3);
 }
 
+function formatPercent(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function imageAspectRatio(image: ImageRow) {
+  if (!image.width || !image.height || image.width <= 0 || image.height <= 0) return null;
+  return image.width / image.height;
+}
+
+function tableQualityWarnings(image: ImageRow, hasStructuredTable: boolean) {
+  const warnings: string[] = [];
+  if (image.rowsTruncated) {
+    warnings.push(
+      image.rowCount
+        ? `Extracted table is partial (${image.rowCount} source rows; preview is capped).`
+        : "Extracted table is partial.",
+    );
+  }
+  if (typeof image.cropCompleteness === "number" && image.cropCompleteness < 0.82) {
+    warnings.push(`Source crop may be incomplete (${formatPercent(image.cropCompleteness)} completeness).`);
+  }
+  if (typeof image.structuredExtractionConfidence === "number" && image.structuredExtractionConfidence < 0.58) {
+    warnings.push(`Structured extraction confidence is low (${formatPercent(image.structuredExtractionConfidence)}).`);
+  }
+  if (typeof image.ocrTextDensity === "number" && image.ocrTextDensity < 0.18) {
+    warnings.push("OCR/text density is low; verify wording against the source image.");
+  }
+  if (!hasStructuredTable && image.source_kind === "table_crop") {
+    warnings.push("No reliable generated table was available; use the source image.");
+  }
+  return warnings;
+}
+
 export function DocumentImage({ image }: { image: ImageRow }) {
   const endpoint = `/api/images/${image.id}/signed-url`;
 
@@ -214,6 +247,12 @@ export function DocumentImage({ image }: { image: ImageRow }) {
     columns: image.tableColumns,
   });
   const tableCaption = tableHeading || cleanCaption || "Document table";
+  const warnings = tableQualityWarnings(image, hasStructuredTable);
+  const sourceImageFirst =
+    !hasStructuredTable ||
+    image.rowsTruncated === true ||
+    (typeof image.cropCompleteness === "number" && image.cropCompleteness < 0.82) ||
+    (typeof image.structuredExtractionConfidence === "number" && image.structuredExtractionConfidence < 0.58);
   const showImageCaptionLine = cleanCaption && cleanCaption !== tableCaption;
   const displayLabels = smartEvidenceTags(
     image.labels,
@@ -234,7 +273,8 @@ export function DocumentImage({ image }: { image: ImageRow }) {
         caption={tableHeading || cleanCaption || undefined}
         failureLabel="Image preview failed."
         retryLabel="Retry"
-        className="w-full"
+        className="max-h-[70dvh] min-h-40 w-full"
+        aspectRatio={imageAspectRatio(image)}
         zoomable
       />
     </div>
@@ -252,6 +292,7 @@ export function DocumentImage({ image }: { image: ImageRow }) {
         compact={false}
         expandOnMobile
         dialogTitle={tableCaption}
+        lowConfidenceFallback={imageBlock}
       />
       {!hasStructuredTable && image.tableTextSnippet ? (
         <p className={cn("text-sm leading-6", textMuted)}>{image.tableTextSnippet}</p>
@@ -271,7 +312,17 @@ export function DocumentImage({ image }: { image: ImageRow }) {
           ? ` · ${image.clinicalUseClass.replaceAll("_", " ")}`
           : ""}
       </p>
-      {hasStructuredTable ? (
+      {warnings.length ? (
+        <div className="mt-2 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-2 text-xs leading-5 text-[color:var(--warning)]">
+          <p className="font-semibold">Verify table formatting against the source.</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+            {warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {hasStructuredTable && !sourceImageFirst ? (
         <>
           {figcaptionBlock}
           <details className="group mt-3">

@@ -62,6 +62,10 @@ describe("document detail loading contract", () => {
     expect(loader).toContain("map(withTableFactReviewMetadata)");
     expect(loader).toContain("map(withDocumentLabelReviewMetadata)");
     expect(loader).toContain("isHiddenDocumentLabel");
+    expect(loader).toContain('metadataNumber(metadata, "row_count")');
+    expect(loader).toContain('metadataBoolean(metadata, "rows_truncated")');
+    expect(loader).toContain('metadataNumber(metadata, "crop_completeness")');
+    expect(loader).toContain('metadataNumber(metadata, "structured_extraction_confidence")');
   });
 
   it("returns explicit demo, scope, and request-window metadata", () => {

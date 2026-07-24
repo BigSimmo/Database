@@ -31,6 +31,7 @@ export const SignedImage = memo(function SignedImage({
   rootMargin = "640px 0px",
   zoomable = false,
   caption,
+  aspectRatio,
 }: {
   /** Signed-URL API route, e.g. `/api/images/{id}/signed-url`. */
   endpoint: string;
@@ -48,6 +49,8 @@ export const SignedImage = memo(function SignedImage({
   zoomable?: boolean;
   /** Lightbox title; falls back to `alt`. */
   caption?: string;
+  /** Optional intrinsic width/height ratio for document crops that are not 4:3. */
+  aspectRatio?: number | null;
 }) {
   const [shouldLoad, setShouldLoad] = useState(() => Boolean(getCachedSignedUrl(endpoint)));
   const [loaded, setLoaded] = useState(false);
@@ -122,9 +125,15 @@ export const SignedImage = memo(function SignedImage({
   return (
     <div
       ref={frameRef}
+      style={
+        typeof aspectRatio === "number" && Number.isFinite(aspectRatio) && aspectRatio > 0
+          ? { aspectRatio: String(Math.min(Math.max(aspectRatio, 0.35), 8)) }
+          : undefined
+      }
       className={cn(
         className,
-        "group/signed-image relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-[color:var(--surface-inset)]",
+        "group/signed-image relative w-full overflow-hidden rounded-lg bg-[color:var(--surface-inset)]",
+        !(typeof aspectRatio === "number" && Number.isFinite(aspectRatio) && aspectRatio > 0) && "aspect-[4/3]",
       )}
     >
       {url ? (
