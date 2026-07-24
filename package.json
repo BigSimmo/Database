@@ -63,7 +63,6 @@
     "check:branch-review-ledger": "node scripts/check-branch-review-ledger.mjs --self-test && node scripts/check-branch-review-ledger.mjs",
     "check:pr-policy": "node scripts/pr-policy.mjs --self-test && node scripts/check-pr-policy-workflow.mjs",
     "check:env-parity": "node scripts/check-env-parity.mjs",
-    "check:local-presence": "node scripts/check-local-presence.mjs",
     "sweep:branch-ledger": "node scripts/sweep-branch-ledger.mjs",
     "docs:check-links": "node scripts/check-docs-links.mjs",
     "docs:check-scripts": "node scripts/check-docs-script-refs.mjs",
@@ -183,7 +182,9 @@
     "check:skills": "node scripts/list-database-skills.mjs --check",
     "check:drift": "node scripts/run-tsx.mjs scripts/check-drift.ts",
     "check:migration-history": "node scripts/run-tsx.mjs scripts/check-migration-history-alignment.ts",
-    "drift:manifest": "node scripts/run-tsx.mjs scripts/generate-drift-manifest.ts"
+    "drift:manifest": "node scripts/run-tsx.mjs scripts/generate-drift-manifest.ts",
+    "sync:pr-branches": "node scripts/sync-open-pr-branches.mjs",
+    "sync:pr-branches:apply": "node scripts/sync-open-pr-branches.mjs --apply"
   },
   "dependencies": {
     "@next/env": "16.2.11",
@@ -205,7 +206,7 @@
     "zod": "^4.4.3"
   },
   "overrides": {
-    "postcss": "$postcss",
+    "postcss": "^8.5.18",
     "esbuild": "0.28.1",
     "sharp": "0.35.3",
     "tmp": "^0.2.7",
