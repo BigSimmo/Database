@@ -461,11 +461,16 @@ function MedicationResults({
 
   return (
     <div className={cn(pageContainer, "medication-results-workspace space-y-3 py-0 sm:py-2")}>
-      <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} loading={catalog.loading} />
+      <SearchResultsHeaderBand
+        modeId="prescribing"
+        query={query}
+        matchCount={resultCount}
+        loading={catalog.loading}
+        filterLabel="Filter medication results"
+        filterControls={<FilterStrip activeFilter={activeFilter} counts={counts} onFilterChange={setActiveFilter} />}
+      />
 
       <PatientProfilePanel variant="compact" className="medication-patient-strip" />
-
-      <FilterStrip activeFilter={activeFilter} counts={counts} onFilterChange={setActiveFilter} />
 
       {catalog.loading || catalog.error ? (
         <div className="medication-results-inset">
