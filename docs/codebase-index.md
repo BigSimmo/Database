@@ -41,9 +41,10 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 ### Shell and routing
 
 - **Root layout:** `src/app/layout.tsx` — fonts, `AuthProvider`, global CSS
+- **Shared search-app layout:** `src/app/(search-app)/layout.tsx` + `src/components/clinical-dashboard/shared-search-app-shell.tsx` — keeps `GlobalSearchShell` mounted across mode homes
 - **App shell:** `src/components/clinical-dashboard/global-search-shell.tsx` — canonical route-aware shell and lazy dashboard dispatch. The mockup-named module is a compatibility re-export used only below `/mockups`.
 - **PWA:** `docs/pwa.md` — install assets, privacy-first service worker/offline shell, lifecycle, security, and verification
-- **Home:** `src/app/page.tsx` — dashboard rendered by shell
+- **Home:** `src/app/(search-app)/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
 - **Modes (13):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, Therapy mode, Factsheets
 
@@ -51,7 +52,9 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 | Route                                                                                                     | File                                       |
 | --------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `/`                                                                                                       | `src/app/page.tsx`                         |
+| `/`                                                                                                       | `src/app/(search-app)/page.tsx`            |
+| Shared mode-home route group (`/(search-app)`)                                                            | `src/app/(search-app)/`                    |
+| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                       | `src/app/(search-app)/` shared shell group |
 | `/applications`                                                                                           | `src/app/applications/route.ts`            |
 | `/differentials`, `/diagnoses`, `/presentations`                                                          | `src/app/(search-app)/differentials/`      |
 | `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/(search-app)/dsm/`                |
