@@ -144,6 +144,22 @@ export async function POST(request: Request) {
     }
 
     const ids = Array.from(new Set(parsed.documentIds));
+    const publisherCode = parsed.metadata.publisherCode;
+    const hasPublisherCodeValue =
+      publisherCode !== undefined && publisherCode !== null && publisherCode.trim().length > 0;
+    // Validate once before the per-document loop so unknown codes return HTTP 400 instead of
+    // being swallowed into generic per-document failures that still look like a 2xx success.
+    const resolvedAuthority = hasPublisherCodeValue ? sourceAuthorityForPublisherCode(publisherCode) : null;
+    if (hasPublisherCodeValue && !resolvedAuthority) {
+      throw new PublicApiError("Unknown publisher code.", 400);
+    }
+    const clearPublisherCode =
+      // Explicit null/empty publisherCode means delete the stored code.
+      (publisherCode !== undefined && !hasPublisherCodeValue) ||
+      // Manual publisher/jurisdiction edits replace authority identity; leave a stale code
+      // and classification will keep prioritizing it over the corrected fields.
+      (!hasPublisherCodeValue &&
+        (parsed.metadata.publisher !== undefined || parsed.metadata.jurisdiction !== undefined));
 
     const { data: documents, error: documentsError } = await supabase
       .from("documents")
@@ -203,14 +219,14 @@ export async function POST(request: Request) {
         setMetadataValue(metadata, "extraction_quality", parsed.metadata.extractionQuality);
         setMetadataValue(metadata, "review_date", parsed.metadata.reviewDate);
         setMetadataValue(metadata, "publication_date", parsed.metadata.publicationDate);
-        const publisherCode = parsed.metadata.publisherCode;
-        if (publisherCode !== undefined && publisherCode !== null && publisherCode.trim()) {
-          const authority = sourceAuthorityForPublisherCode(publisherCode);
-          if (!authority) throw new PublicApiError("Unknown publisher code.", 400);
-          setMetadataValue(metadata, "publisher_code", authority.codes[0]);
-          setMetadataValue(metadata, "publisher", authority.publisher);
-          setMetadataValue(metadata, "jurisdiction", authority.jurisdictions[0] ?? null);
+        if (resolvedAuthority) {
+          setMetadataValue(metadata, "publisher_code", resolvedAuthority.codes[0]);
+          setMetadataValue(metadata, "publisher", resolvedAuthority.publisher);
+          setMetadataValue(metadata, "jurisdiction", resolvedAuthority.jurisdictions[0] ?? null);
         } else {
+          if (clearPublisherCode) {
+            setMetadataValue(metadata, "publisher_code", null);
+          }
           setMetadataValue(metadata, "jurisdiction", parsed.metadata.jurisdiction);
           setMetadataValue(metadata, "publisher", parsed.metadata.publisher);
         }
