@@ -29,5 +29,5 @@ RAG impact: no retrieval behaviour change — typeahead documents domain timeout
 
 ## Notes
 
-- Prescribing list-row patient alerts that need full section rows remain on the medication detail page (`fields=index` strips sections by design).
+- Prescribing list rows keep the full catalogue payload so Safety/Monitoring filters and patient alerts still see section-derived signals; keystroke storms are controlled by debounce + abort. `fields=index` remains for identity-only consumers (cross-mode links).
 - Live hybrid RPC cold tails remain a separate approval-gated follow-up.
