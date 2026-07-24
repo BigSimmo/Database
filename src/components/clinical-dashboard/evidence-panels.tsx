@@ -62,7 +62,7 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
-import { type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
+import { isAnswerSourceBacked, type AnswerRenderModel, type SourceLink } from "@/lib/answer-render-policy";
 import { documentCitationHref, formatCitationLabel, formatCompactCitationLabel } from "@/lib/citations";
 import {
   extractSafetyFindings,
@@ -575,6 +575,36 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
 }
 
 /**
+ * Align clinical-notes inputs with the fail-closed render model: when an answer
+ * is not explicitly source-backed, strip structured clinical payloads so the
+ * notes sheet cannot reconstruct actionable monitoring/escalation/comparison
+ * content from untrusted sections, quotes, or documentBreakdown (visual
+ * evidence is passed separately).
+ */
+function trustGatedAnswerForClinicalNotes(
+  answer: RagAnswer,
+  visualEvidence: VisualEvidenceCard[] = answer.visualEvidence ?? [],
+): RagAnswer {
+  if (isAnswerSourceBacked(answer)) {
+    return {
+      ...answer,
+      visualEvidence,
+      smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence } : answer.smartPanel,
+    };
+  }
+  return {
+    ...answer,
+    answerSections: [],
+    quoteCards: [],
+    documentBreakdown: [],
+    comparisonMatrix: undefined,
+    comparisonEvaluationState: undefined,
+    visualEvidence,
+    smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence, quotes: [] } : answer.smartPanel,
+  };
+}
+
+/**
  * Builds the non-empty clinical detail sections used by the clinical notes view.
  *
  * @param answer - The answer from which to derive clinical detail sections.
@@ -598,13 +628,16 @@ function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: Answe
 }
 
 export function clinicalNotesDisplayCountForAnswer(answer: RagAnswer, viewMode: AnswerViewMode, fallback: number) {
-  const tabs = clinicalNotesAvailableTabs(clinicalNotesDetailSectionsForAnswer(answer, viewMode));
+  const tabs = clinicalNotesAvailableTabs(
+    clinicalNotesDetailSectionsForAnswer(trustGatedAnswerForClinicalNotes(answer), viewMode),
+  );
   const largestTabCount = tabs.reduce((largest, tab) => Math.max(largest, tab.count), 0);
   return Math.max(1, largestTabCount || fallback);
 }
 
 export function ClinicalNotesChecklistPanel({
   answer,
+  visualEvidence,
   viewMode,
   evidenceMapRows,
   sourceLinks = [],
@@ -614,6 +647,7 @@ export function ClinicalNotesChecklistPanel({
   onOpenTables,
 }: {
   answer: RagAnswer;
+  visualEvidence: VisualEvidenceCard[];
   viewMode: AnswerViewMode;
   evidenceMapRows: AnswerEvidenceMapRow[];
   sourceLinks?: SourceLink[];
@@ -622,7 +656,8 @@ export function ClinicalNotesChecklistPanel({
   onCopy: () => void;
   onOpenTables?: () => void;
 }) {
-  const detailSections = clinicalNotesDetailSectionsForAnswer(answer, viewMode);
+  const renderableAnswer = trustGatedAnswerForClinicalNotes(answer, visualEvidence);
+  const detailSections = clinicalNotesDetailSectionsForAnswer(renderableAnswer, viewMode);
   const tabs = clinicalNotesAvailableTabs(detailSections);
   const defaultTab = tabs.find((tab) => tab.id === "actions")?.id ?? tabs[0]?.id ?? "actions";
   const [requestedTab, setRequestedTab] = useState<ClinicalNotesTabId>(defaultTab);
@@ -632,14 +667,18 @@ export function ClinicalNotesChecklistPanel({
   const notesPanelId = `${tabBaseId}-panel`;
   const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : defaultTab;
   const rows = clinicalNotesRowsForTab(detailSections, activeTab, sourceLinks, bestSource);
-  const tableEvidenceCount = clinicalNotesTableEvidenceCount(answer);
-  const [added, setAdded] = useState(false);
+  const tableEvidenceCount = clinicalNotesTableEvidenceCount(renderableAnswer);
   const warningRows = clinicalNotesRowsForTab(detailSections, "safety", sourceLinks, bestSource);
   const warningCount = warningRows.filter((row) => row.tone === "warn").length || warningRows.length;
 
   if (!tabs.length || rows.length === 0) {
     return (
-      <ClinicalOutputPanel answer={answer} showLead={false} viewMode={viewMode} evidenceMapRows={evidenceMapRows} />
+      <ClinicalOutputPanel
+        answer={renderableAnswer}
+        showLead={false}
+        viewMode={viewMode}
+        evidenceMapRows={evidenceMapRows}
+      />
     );
   }
 
@@ -845,12 +884,17 @@ export function ClinicalNotesChecklistPanel({
           </button>
           <button
             type="button"
-            onClick={() => setAdded(true)}
-            className="inline-flex min-h-tap items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)]"
+            aria-disabled="true"
+            aria-describedby="clinical-notes-add-unavailable"
+            title="Add to favourites — coming soon"
+            className="inline-flex min-h-tap cursor-not-allowed items-center justify-center gap-1.5 px-2 text-2xs font-semibold text-[color:var(--primary)] opacity-60"
           >
             <Plus aria-hidden="true" className="h-3.5 w-3.5" />
-            {added ? "Added" : "Add"}
+            Add
           </button>
+          <span id="clinical-notes-add-unavailable" className="sr-only">
+            Adding clinical notes to favourites is coming soon.
+          </span>
         </div>
       </div>
     </section>
@@ -1027,7 +1071,7 @@ export function evidenceTabCount({
 }
 
 export function clinicalNotesCount(answer: RagAnswer) {
-  return buildHighYieldClinicalOutputSections(answer).filter((section) =>
+  return buildHighYieldClinicalOutputSections(trustGatedAnswerForClinicalNotes(answer)).filter((section) =>
     ["action", "escalation", "thresholds", "cautions", "monitoring", "medication", "source-gap"].includes(section.id),
   ).length;
 }

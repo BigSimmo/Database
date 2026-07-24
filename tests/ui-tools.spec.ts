@@ -856,14 +856,35 @@ test.describe("Clinical KB tools launcher", () => {
     { name: "desktop", width: 1280, height: 900 },
   ] as const) {
     for (const route of [
-      { path: "/services?q=13YARN&focus=1&run=1", modeButton: "Mode Services", compactBottomSearch: true },
-      { path: "/services/13yarn", modeButton: "Mode Services", compactBottomSearch: true },
-      { path: "/forms?q=transport&focus=1&run=1", modeButton: "Mode Forms", compactBottomSearch: true },
-      { path: "/favourites?q=lithium&focus=1&run=1", modeButton: "Mode Favourites", compactBottomSearch: true },
+      {
+        path: "/services?q=13YARN&focus=1&run=1",
+        modeButton: "Mode Services",
+        compactBottomSearch: true,
+        ribbonQuery: "13YARN",
+      },
+      {
+        path: "/services/13yarn",
+        modeButton: "Mode Services",
+        compactBottomSearch: true,
+        ribbonQuery: undefined,
+      },
+      {
+        path: "/forms?q=transport&focus=1&run=1",
+        modeButton: "Mode Forms",
+        compactBottomSearch: true,
+        ribbonQuery: "transport",
+      },
+      {
+        path: "/favourites?q=lithium&focus=1&run=1",
+        modeButton: "Mode Favourites",
+        compactBottomSearch: true,
+        ribbonQuery: "lithium",
+      },
       {
         path: "/differentials?q=acute+confusion&focus=1&run=1",
         modeButton: "Mode Differentials",
         compactBottomSearch: true,
+        ribbonQuery: "acute confusion",
       },
     ] as const) {
       test(`search route keeps the correct composer at ${viewport.name} width on ${route.path}`, async ({ page }) => {
@@ -873,6 +894,12 @@ test.describe("Clinical KB tools launcher", () => {
         await expect(visibleGlobalSearchInput(page), `${route.path} at ${viewport.name}`).toHaveCount(1, {
           timeout: 20_000,
         });
+        if (route.ribbonQuery) {
+          const ribbon = page.getByTestId("search-query-ribbon");
+          await expect(ribbon, `${route.path} at ${viewport.name}`).toBeVisible({ timeout: 20_000 });
+          await expect(ribbon.getByRole("heading", { name: route.ribbonQuery })).toBeVisible();
+          await expect(ribbon.getByRole("status")).toBeVisible();
+        }
 
         const metrics = await globalSearchComposerMetrics(page);
         expect(metrics, `${route.path} at ${viewport.name}`).not.toBeNull();
@@ -2201,6 +2228,10 @@ test.describe("Responsive layout guards", () => {
     const resultCard = page.getByTestId("medication-result-acamprosate-phone");
     const bottomDock = page.locator("form.answer-footer-search-dock");
     await expect(resultCard).toBeVisible();
+    const queryRibbon = page.getByTestId("search-query-ribbon");
+    await expect(queryRibbon).toBeVisible();
+    await expect(queryRibbon.getByRole("heading", { name: "acamprosate renal dose" })).toBeVisible();
+    await expect(queryRibbon.getByRole("status")).toBeVisible();
     await expect(bottomDock).toBeVisible();
     await page.locator("main#main-content").evaluate((main) => main.scrollTo({ top: main.scrollHeight }));
     const resultBox = await resultCard.boundingBox();
@@ -2208,6 +2239,53 @@ test.describe("Responsive layout guards", () => {
     expect(resultBox).not.toBeNull();
     expect(dockBox).not.toBeNull();
     expect(resultBox!.y + resultBox!.height).toBeLessThanOrEqual(dockBox!.y + 2);
+  });
+
+  test("safety-plan working content stays local until an explicit export", async ({ page }) => {
+    const appRequests: string[] = [];
+    page.on("request", (request) => {
+      if (request.resourceType() === "fetch" || request.resourceType() === "xhr") appRequests.push(request.url());
+    });
+
+    await page.goto("/safety-plan");
+    await expect(page.getByLabel(/Patient \(name or initials\)/i)).toHaveCount(0);
+    await expect(page.getByText(/kept only in this browser tab/i)).toBeVisible();
+    await expect(
+      page.getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i),
+    ).toBeVisible();
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & { __copiedPlan?: string; __printCalled?: boolean };
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          writeText: async (value: string) => {
+            testWindow.__copiedPlan = value;
+          },
+        },
+      });
+      window.print = () => {
+        testWindow.__printCalled = true;
+      };
+    });
+    appRequests.length = 0;
+
+    await page.getByLabel("e.g. Not sleeping for a couple of nights").fill("Not sleeping");
+    await page.getByRole("button", { name: "Add" }).first().click();
+    await page.getByRole("button", { name: "Copy" }).click();
+
+    await expect
+      .poll(() => page.evaluate(() => (window as typeof window & { __copiedPlan?: string }).__copiedPlan))
+      .toContain("Not sleeping");
+    expect(await page.evaluate(() => (window as typeof window & { __copiedPlan?: string }).__copiedPlan)).not.toMatch(
+      /^For:/m,
+    );
+
+    await page.getByRole("button", { name: "Print / PDF" }).click();
+    await expect
+      .poll(() => page.evaluate(() => (window as typeof window & { __printCalled?: boolean }).__printCalled))
+      .toBe(true);
+    expect(appRequests).toEqual([]);
   });
 
   test("differentials recent work remains touch-sized inside its mobile scroll row", async ({ page }) => {

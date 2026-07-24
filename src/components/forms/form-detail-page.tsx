@@ -1,6 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
+  ArrowLeft,
   Bookmark,
   BookmarkCheck,
   CalendarDays,
@@ -42,6 +44,7 @@ import {
   toneWarning,
 } from "@/components/ui-primitives";
 import { FormCodeBadge, splitFormCode } from "@/components/forms/form-code-badge";
+import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, formTitleForCode, type FormRecord } from "@/lib/form-catalog";
 import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/service-ranker";
 import { useAccountData } from "@/components/account-data-provider";
@@ -618,6 +621,7 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value: string | 
 }
 
 export function FormDetailPage({ form }: { form: FormRecord }) {
+  const router = useRouter();
   const accountData = useAccountData();
   const saved = accountData.isSaved("form", form.slug);
   const [notice, setNotice] = useState<string | null>(null);
@@ -632,6 +636,10 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
   const verified = form.verification?.locallyVerified === true;
   const criteria = form.criteria ?? [];
   const relatedTags = useMemo(() => [...(form.tags ?? []), ...(form.catchments ?? [])].slice(0, 8), [form]);
+
+  function goBack() {
+    router.push(appModeHomeHref("forms", { focus: true }));
+  }
 
   async function copyValue(value: string | null | undefined, label: string) {
     if (!hasText(value)) {
@@ -690,6 +698,10 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
         ) : null}
 
         <div className="mb-3 flex flex-wrap items-center gap-3">
+          <button type="button" onClick={goBack} aria-label="Back to forms" className={cn(floatingControl, "px-3")}>
+            <ArrowLeft className="h-4 w-4" aria-hidden />
+            Back
+          </button>
           <nav
             aria-label="Form breadcrumbs"
             className="hidden min-w-0 items-center gap-2 text-xs font-semibold sm:flex"

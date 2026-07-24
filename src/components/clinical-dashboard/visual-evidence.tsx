@@ -524,7 +524,6 @@ export function MobileEvidenceSheetContent({
   const tabRefs = useRef<Partial<Record<EvidenceTabName, HTMLButtonElement | null>>>({});
   const tabIdFor = (tab: EvidenceTabName) => `${tabSetId}-mobile-evidence-tab-${tab.toLowerCase()}`;
   const panelIdFor = (tab: EvidenceTabName) => `${tabSetId}-mobile-evidence-panel-${tab.toLowerCase()}`;
-  const [added, setAdded] = useState(false);
   const primarySourceHref = renderModel.primarySources[0]?.href;
 
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, tab: EvidenceTabName) {
@@ -678,12 +677,17 @@ export function MobileEvidenceSheetContent({
           </button>
           <button
             type="button"
-            onClick={() => setAdded(true)}
-            className="inline-flex min-h-12 items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)]"
+            aria-disabled="true"
+            aria-describedby="visual-evidence-add-unavailable"
+            title="Add to favourites — coming soon"
+            className="inline-flex min-h-12 cursor-not-allowed items-center justify-center gap-1.5 px-2 text-xs font-semibold text-[color:var(--clinical-accent)] opacity-60"
           >
             <Plus aria-hidden="true" className="h-3.5 w-3.5" />
-            {added ? "Added" : "Add"}
+            Add
           </button>
+          <span id="visual-evidence-add-unavailable" className="sr-only">
+            Adding evidence to favourites is coming soon.
+          </span>
         </div>
       </div>
     </div>

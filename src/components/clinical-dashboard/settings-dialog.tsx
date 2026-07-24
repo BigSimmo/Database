@@ -2,6 +2,7 @@
 
 import { type FormEvent, type ReactNode, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   Bell,
   BookOpen,
   Check,
@@ -33,7 +34,6 @@ import {
 
 import { type SidebarIdentity } from "@/components/clinical-dashboard/ClinicalSidebar";
 import { useAccountData } from "@/components/account-data-provider";
-import { NavigationBackButton } from "@/components/navigation-back-button";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import {
   ANSWER_STYLE_OPTIONS,
@@ -50,6 +50,7 @@ import {
   fieldControlWithIcon,
   fieldIcon,
   floatingControl,
+  IconButton,
   InlineNotice,
   primaryControl,
   toggleThumbSurface,
@@ -260,7 +261,18 @@ export function SettingsDialog({
     return () => window.cancelAnimationFrame(focusFrame);
   }, [emailEntryOpen]);
 
-  const backButton = <NavigationBackButton onClick={onClose} label="Back from settings" />;
+  const backButton = (
+    <IconButton
+      label="Back from settings"
+      icon={ArrowLeft}
+      onClick={onClose}
+      className={cn(
+        floatingControl,
+        "rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] lg:hidden",
+      )}
+      iconClassName="size-icon-lg"
+    />
+  );
 
   const closeButton = (
     <button

@@ -58,14 +58,6 @@ async function duplicateUploadResponse(args: {
         storagePath: args.storagePath,
         message: cleanupStorageError.message,
       });
-      await args.supabase.from("storage_cleanup_jobs").insert({
-        document_bucket: env.SUPABASE_DOCUMENT_BUCKET,
-        document_paths: [args.storagePath],
-        owner_id: args.ownerId,
-        status: "pending",
-        image_bucket: env.SUPABASE_IMAGE_BUCKET,
-        image_paths: [],
-      });
     }
   }
 
@@ -212,55 +204,54 @@ export async function POST(request: Request) {
     const title = namePlan.title;
     const description = uploadMetadata.description;
     const uploadedAt = new Date().toISOString();
+    // Upload filename/title/storage-path identity is user-controlled and must not mint
+    // Official/Trusted publisher_code. Authority is set later via registry-validated admin
+    // correction or approval-gated locality backfill against authenticated source metadata.
 
     assertUploadNotAborted(request);
-    const documentPayload = {
-      id: documentId,
-      owner_id: uploadOwnerId,
-      title,
-      description,
-      file_name: file.name,
-      file_type: file.type,
-      file_size: file.size,
-      storage_path: storagePath,
-      content_hash: contentHash,
-      metadata: {
-        source_title: title,
-        publisher_code: null,
-        publisher: null,
-        jurisdiction: "Australia/WA",
-        version: null,
-        publication_date: null,
-        review_date: null,
-        uploaded_at: uploadedAt,
-        indexed_at: null,
-        uploaded_by: uploadOwnerId,
-        original_file_name: namePlan.originalFileName,
-        original_title: namePlan.originalTitle,
-        smart_title_base: namePlan.baseTitle,
-        smart_title_group_key: namePlan.duplicateGroupKey,
-        smart_title_duplicate_index: namePlan.duplicateIndex,
-        smart_title_duplicate_reason: namePlan.duplicateReason,
-        document_status: "unknown",
-        clinical_validation_status: "unverified",
-        extraction_quality: "unknown",
-        max_upload_mb: env.MAX_UPLOAD_MB,
-        confidentiality_scope: "guidelines-only",
+    const { data: document, error: documentError } = await supabase
+      .from("documents")
+      .insert({
+        id: documentId,
+        owner_id: uploadOwnerId,
+        title,
+        description,
+        file_name: file.name,
+        file_type: file.type,
+        file_size: file.size,
+        storage_path: storagePath,
         content_hash: contentHash,
-      },
-    };
+        status: "queued",
+        metadata: {
+          source_title: title,
+          publisher_code: null,
+          publisher: null,
+          jurisdiction: "Australia/WA",
+          version: null,
+          publication_date: null,
+          review_date: null,
+          uploaded_at: uploadedAt,
+          indexed_at: null,
+          uploaded_by: uploadOwnerId,
+          original_file_name: namePlan.originalFileName,
+          original_title: namePlan.originalTitle,
+          smart_title_base: namePlan.baseTitle,
+          smart_title_group_key: namePlan.duplicateGroupKey,
+          smart_title_duplicate_index: namePlan.duplicateIndex,
+          smart_title_duplicate_reason: namePlan.duplicateReason,
+          document_status: "unknown",
+          clinical_validation_status: "unverified",
+          extraction_quality: "unknown",
+          max_upload_mb: env.MAX_UPLOAD_MB,
+          confidentiality_scope: "guidelines-only",
+          content_hash: contentHash,
+        },
+      })
+      .select()
+      .single();
 
-    assertUploadNotAborted(request);
-    const { data: uploadRecord, error: uploadRecordError } = await supabase.rpc(
-      "create_uploaded_document_with_ingestion_job",
-      {
-        p_document: documentPayload,
-        p_max_attempts: env.WORKER_MAX_ATTEMPTS,
-      },
-    );
-
-    if (uploadRecordError) {
-      if (isContentHashDuplicateError(uploadRecordError)) {
+    if (documentError) {
+      if (isContentHashDuplicateError(documentError)) {
         insertedDocumentId = null;
         insertedDocumentOwnerId = null;
         return duplicateUploadResponse({
@@ -270,17 +261,40 @@ export async function POST(request: Request) {
           storagePath: uploadedPath,
         });
       }
-      throw new Error(uploadRecordError.message);
-    }
-
-    const document = (uploadRecord as { document?: unknown } | null)?.document;
-    const job = (uploadRecord as { job?: unknown } | null)?.job;
-    if (!document || !job) {
-      throw new Error("Upload enqueue RPC returned an invalid response.");
+      throw new Error(documentError.message);
     }
     insertedDocumentId = documentId;
     insertedDocumentOwnerId = uploadOwnerId;
+
     assertUploadNotAborted(request);
+    const { data: job, error: jobError } = await supabase
+      .from("ingestion_jobs")
+      .insert({
+        document_id: documentId,
+        batch_id: null,
+        status: "pending",
+        stage: "queued",
+        progress: 0,
+        max_attempts: env.WORKER_MAX_ATTEMPTS,
+      })
+      .select()
+      .single();
+
+    if (jobError) {
+      const { error: rollbackDocumentError } = await supabase
+        .from("documents")
+        .delete()
+        .eq("id", documentId)
+        .eq("owner_id", uploadOwnerId);
+      if (rollbackDocumentError) {
+        throw new Error(
+          `Failed to enqueue ingestion job: ${jobError.message}; rollback failed: ${rollbackDocumentError.message}`,
+        );
+      }
+      insertedDocumentId = null;
+      insertedDocumentOwnerId = null;
+      throw new Error(jobError.message);
+    }
 
     await writeAuditLog(supabase, {
       ownerId: uploadOwnerId,
