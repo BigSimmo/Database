@@ -78,6 +78,13 @@ export function isUsableFallbackPdfImage(image: {
   );
 }
 
+class PdfExtractorProcessError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PdfExtractorProcessError";
+  }
+}
+
 function isRecoverableFallbackPdfImageError(error: unknown) {
   if (!(error instanceof Error)) return false;
   return /^Image object .+(?:: (?:data field is empty or invalid|data buffer is empty)| not found)/.test(error.message);
@@ -179,7 +186,7 @@ export async function runPythonPdfExtractor(
       if (stderr.length < 1024 * 1024) stderr += chunk.toString();
     });
     child.once("error", (error) => finish(() => reject(error)));
-    child.on("close", async (code) => {
+    child.on("close", async (code, signal) => {
       await terminationPromise;
       if (deadlineExceeded) {
         finish(() =>
@@ -201,6 +208,10 @@ export async function runPythonPdfExtractor(
             ),
           ),
         );
+        return;
+      }
+      if (signal) {
+        finish(() => reject(new PdfExtractorProcessError(stderr || `PDF extractor exited with code ${code} (${signal})`)));
         return;
       }
       if (code !== 0) {
@@ -300,7 +311,7 @@ export async function extractPdf(
     const extracted = await runPythonPdfExtractor(pdfPath, imageDir, limits, options.scriptPathOverride);
     return { ...extracted, temporaryPaths: [tempRoot] };
   } catch (error) {
-    if (isPdfExtractionResourceError(error)) {
+    if (isPdfExtractionResourceError(error) || error instanceof PdfExtractorProcessError) {
       await rm(tempRoot, { recursive: true, force: true }).catch(() => undefined);
       throw error;
     }

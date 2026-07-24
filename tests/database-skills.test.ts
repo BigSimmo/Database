@@ -68,7 +68,10 @@ describe("Database skill catalog", () => {
     const rendered = renderSkillCatalog(catalog);
 
     expect(rendered).toContain(
-      `Database skills (${catalog.categories.reduce((acc, cat) => acc + cat.skills.length, 0)})`,
+      `Database skills (${catalog.categories.reduce(
+        (acc: number, cat: { skills: string[] }) => acc + cat.skills.length,
+        0,
+      )})`,
     );
     expect(rendered).toContain("- skills — List every unique Database-specific skill with a clear explanation");
     expect(rendered).not.toContain("- workflows —");

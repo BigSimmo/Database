@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import PDFDocument from "pdfkit";
@@ -167,10 +167,7 @@ describe.runIf(hasPyMuPDF)("Python extractor fallback", () => {
     await writeSyntheticTablePdf(pdfPath);
 
     // Write a python script that sends SIGKILL to itself immediately
-    await require("node:fs/promises").writeFile(
-      scriptPath,
-      "import os, signal\nos.kill(os.getpid(), signal.SIGKILL)\n",
-    );
+    await writeFile(scriptPath, "import os, signal\nos.kill(os.getpid(), signal.SIGKILL)\n");
 
     const pdfBuffer = await readFile(pdfPath);
 
