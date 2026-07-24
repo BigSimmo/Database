@@ -6,6 +6,7 @@ import {
   activeIngestionJobColumns,
   buildActiveJobsSafetyResult,
   checkIngestionMutationSafety,
+  hasActiveAgentEnrichmentJob,
   ingestionMutationSafetyPayload,
   ingestionRollbackFenceStamp,
   type IngestionJobRow,
@@ -66,6 +67,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
     });
     if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
+
+    if (
+      mode !== "enrichment" &&
+      (await hasActiveAgentEnrichmentJob({
+        supabase,
+        documentId: id,
+        staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
+      }))
+    ) {
+      return NextResponse.json(
+        { error: "Document has active agent enrichment work. Wait for it to finish before reindexing." },
+        { status: 409 },
+      );
+    }
 
     if (mode === "enrichment") {
       const { data: queued, error: queueError } = await supabase.rpc("request_indexing_v3_enrichment", {

@@ -6,6 +6,7 @@ import {
   activeIngestionJobColumns,
   buildActiveJobsSafetyResult,
   checkIngestionMutationSafety,
+  hasActiveAgentEnrichmentJob,
   ingestionMutationSafetyPayload,
   ingestionRollbackFenceStamp,
   type IngestionJobRow,
@@ -54,6 +55,26 @@ export async function POST(request: Request) {
       staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
     });
     if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
+
+    if (parsed.mode !== "enrichment") {
+      const reindexCandidates =
+        parsed.mode === "retry_failed" ? documents.filter((document) => document.status === "failed") : documents;
+      const activeAgentEnrichment = await Promise.all(
+        reindexCandidates.map((document) =>
+          hasActiveAgentEnrichmentJob({
+            supabase,
+            documentId: document.id,
+            staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
+          }),
+        ),
+      );
+      if (activeAgentEnrichment.some(Boolean)) {
+        return NextResponse.json(
+          { error: "A selected document has active agent enrichment work. Wait for it to finish before reindexing." },
+          { status: 409 },
+        );
+      }
+    }
 
     const results: Array<{ documentId: string; mode: string; ok: boolean; jobId?: string; error?: string }> = [];
 

@@ -1978,6 +1978,16 @@ describe("private document API access", () => {
     ];
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "indexing_v3_agent_jobs") {
+        return ok([
+          {
+            document_id: documentId,
+            status: "processing",
+            locked_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ]);
+      }
       if (call.table === "document_chunks") return ok(chunks);
       if (call.table === "document_images") return ok(images);
       return ok([]);
@@ -2011,6 +2021,7 @@ describe("private document API access", () => {
     expect(upsertDocumentEnrichment).not.toHaveBeenCalled();
     expect(client.calls[0].selected).toContain("metadata");
     expect(client.calls[0].filters).toContainEqual({ column: "owner_id", value: userId });
+    expect(client.calls.some((call) => call.table === "indexing_v3_agent_jobs")).toBe(false);
     expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
   });
 
@@ -2189,6 +2200,92 @@ describe("private document API access", () => {
     expect(chunkSelects).toEqual([]);
     expect(imageSelects).toEqual([]);
     expect(upsertDocumentDeepMemory).not.toHaveBeenCalled();
+  });
+
+  it("blocks full reindex while a fresh agent-enrichment lease is processing", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Agent-Enriched Protocol",
+      file_name: "agent-enriched.pdf",
+      source_path: null,
+      import_batch_id: null,
+      status: "indexed",
+      error_message: null,
+      page_count: 3,
+      chunk_count: 8,
+      image_count: 1,
+      metadata: {},
+    };
+    const now = new Date().toISOString();
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "indexing_v3_agent_jobs") {
+        return ok([{ document_id: documentId, status: "processing", locked_at: now, updated_at: now }]);
+      }
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "full" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(409);
+    expect(await payload(response)).toMatchObject({
+      error: "Document has active agent enrichment work. Wait for it to finish before reindexing.",
+    });
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
+    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
+  });
+
+  it("allows full reindex after an agent-enrichment lease becomes stale", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Stale Agent Protocol",
+      file_name: "stale-agent.pdf",
+      source_path: null,
+      import_batch_id: null,
+      status: "indexed",
+      error_message: null,
+      page_count: 3,
+      chunk_count: 8,
+      image_count: 1,
+      metadata: {},
+    };
+    const stale = new Date(Date.now() - 11 * 60_000).toISOString();
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok(document);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "indexing_v3_agent_jobs") {
+        return ok([{ document_id: documentId, status: "processing", locked_at: stale, updated_at: stale }]);
+      }
+      if (call.table === "ingestion_jobs" && call.operation === "insert") return ok({ id: "reindex-job" });
+      return ok([]);
+    });
+    mockRuntime(client);
+    const { POST } = await import("../src/app/api/documents/[id]/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest(`/api/documents/${documentId}/reindex`, {
+        method: "POST",
+        body: JSON.stringify({ mode: "full" }),
+      }),
+      { params: Promise.resolve({ id: documentId }) },
+    );
+
+    expect(response.status).toBe(201);
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(true);
+    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(true);
   });
 
   it("blocks full reindex when the selected document already has active indexing work", async () => {
@@ -2566,6 +2663,49 @@ describe("private document API access", () => {
     // reindex route — the rollback matches on the stamp this request wrote.
     const fence = (documentUpdates[0]?.updatePayload as { updated_at?: string }).updated_at;
     expect(documentUpdates[1]?.filters).toContainEqual({ column: "updated_at", value: fence });
+  });
+
+  it("blocks bulk retry before mutation while a selected document has fresh agent enrichment", async () => {
+    const document = {
+      id: documentId,
+      owner_id: userId,
+      title: "Bulk Agent-Enriched Protocol",
+      file_name: "bulk-agent-enriched.pdf",
+      source_path: null,
+      import_batch_id: null,
+      status: "failed",
+      error_message: "earlier failure",
+      page_count: 3,
+      chunk_count: 8,
+      image_count: 1,
+      metadata: {},
+    };
+    const now = new Date().toISOString();
+    const client = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") return ok([document]);
+      if (call.table === "import_batches") return ok([]);
+      if (call.table === "ingestion_jobs" && call.operation === "select") return ok([]);
+      if (call.table === "indexing_v3_agent_jobs") {
+        return ok([{ document_id: documentId, status: "processing", locked_at: now, updated_at: now }]);
+      }
+      return ok([]);
+    });
+    mockRuntime(client, { invalidateRagCachesForOwner: vi.fn() });
+    const { POST } = await import("../src/app/api/documents/bulk/reindex/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/documents/bulk/reindex", {
+        method: "POST",
+        body: JSON.stringify({ documentIds: [documentId], mode: "retry_failed" }),
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await payload(response)).toMatchObject({
+      error: "A selected document has active agent enrichment work. Wait for it to finish before reindexing.",
+    });
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
+    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
   });
 
   it("returns a successful partial-result response when deletion wins one bulk reindex race", async () => {
