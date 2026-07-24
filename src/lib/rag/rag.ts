@@ -1323,6 +1323,8 @@ export async function analyzeQueryWithClassifierFallback(
   // Short, bare clinical search queries (e.g., "bipolar disorder", "anorexia management")
   // can be misclassified by the generative LLM. We route them deterministically.
   if (
+    analysis.needsClassifierFallback &&
+    analysis.corpusGrounding !== "inconclusive" &&
     query.trim().split(/\s+/).length <= 4 &&
     (analysis.documentTitleTerms.length > 0 || analysis.canonicalTerms.length > 0)
   ) {
