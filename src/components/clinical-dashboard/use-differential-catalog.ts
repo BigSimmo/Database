@@ -44,6 +44,7 @@ export type DifferentialPresentationState = {
   governance: DifferentialRecordGovernance | null;
 };
 
+/** Match universal / medication catalogue debounce so live composer follow coalesces. */
 const debounceMs = 250;
 const resultCacheMax = 50;
 const resultCacheTtlMs = 5 * 60 * 1000;
