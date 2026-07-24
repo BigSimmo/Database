@@ -202,6 +202,9 @@ jobs:
       - name: Gate-manifest self-test
         run: npm run check:gate-manifest
 
+      - name: Branch review ledger integrity
+        run: npm run check:branch-review-ledger
+
       - name: Codebase index coverage
         run: npm run docs:check-index
 
