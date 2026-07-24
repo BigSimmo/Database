@@ -105,23 +105,39 @@ export function getDescendantPids(rootPid, allProcesses = listRepoNodeProcesses(
 export function terminateProcesses(pids, context) {
   if (!isWindows) return 0;
 
+  const validPids = pids.filter((pid) => Number.isFinite(pid) && pid > 0);
+  if (validPids.length === 0) return 0;
+
+  let attemptCount = 0;
+  for (const pid of validPids) {
+    const gracefulResult = spawnSync("taskkill", ["/PID", String(pid), "/T"], {
+      cwd: projectRoot,
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    if (gracefulResult.status === 0) attemptCount += 1;
+  }
+
+  if (attemptCount > 0) {
+    spawnSync("powershell.exe", ["-Command", "Start-Sleep -Milliseconds 1500"], { windowsHide: true });
+  }
+
   let killed = 0;
-  for (const pid of pids) {
-    if (!Number.isFinite(pid) || pid <= 0) continue;
+  for (const pid of validPids) {
     const killedResult = spawnSync("taskkill", ["/PID", String(pid), "/T", "/F"], {
       cwd: projectRoot,
       stdio: "ignore",
       windowsHide: true,
     });
-    if (killedResult.status === 0) killed += 1;
+    if (killedResult.status === 0 || attemptCount > 0) killed += 1;
   }
 
   if (killed > 0) {
     const prefix = context ? `[eval] ${context}: ` : "[eval] ";
-    console.log(`${prefix}terminated ${killed} lingering node process(es) for this repo.`);
+    console.log(`${prefix}terminated ${validPids.length} lingering node process(es) for this repo.`);
   }
 
-  return killed;
+  return validPids.length;
 }
 
 export function terminateOwnedProcessTree(pid, processSnapshot = listRepoNodeProcesses()) {

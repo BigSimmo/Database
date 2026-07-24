@@ -94,6 +94,7 @@ export type RagQualityResult = {
     budgetExhaustedByRetrieval?: boolean;
   };
   routeCeilingExceeded?: boolean;
+  executionType: "cached" | "api" | "rule-based";
   estimatedCostUsd: number | null;
   openAIRequestIds?: string[];
   openAIUsage?: {
@@ -1162,19 +1163,20 @@ async function runRagQualityCases(args: {
       routingReason: answer.routingReason,
       timings,
       routeCeilingExceeded,
-      // A case that never touched the provider costs exactly $0 when rates
-      // are configured; null stays reserved for "cannot estimate" — either
-      // rates unconfigured, or a provider call was attempted (request id,
-      // model, or generation time recorded) without usage metadata (e.g. a
-      // provider timeout), where real-but-unmeasured tokens must not be
-      // reported as $0 (issue #014 + review findings on PR #1050).
+      executionType:
+        hasOpenAIUsage || openAIRequestIds.length > 0 || answer.modelUsed || generationLatencyMs > 0
+          ? "api"
+          : answer.routingMode === "unsupported"
+            ? "rule-based"
+            : "cached",
+      // A case that never touched the provider costs exactly $0.
+      // null stays reserved for "cannot estimate" — either
+      // rates unconfigured, or a provider call was attempted without usage metadata.
       estimatedCostUsd: hasOpenAIUsage
         ? estimateCostUsd(openAIUsage)
         : openAIRequestIds.length > 0 || answer.modelUsed || generationLatencyMs > 0
           ? null
-          : configuredCostRates()
-            ? 0
-            : null,
+          : 0,
       openAIRequestIds: openAIRequestIds.length > 0 ? openAIRequestIds : undefined,
       openAIUsage: hasOpenAIUsage ? openAIUsage : undefined,
     });
