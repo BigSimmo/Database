@@ -5,7 +5,10 @@ import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
 
 import { GET as redirectApplications, HEAD as headApplications } from "@/app/applications/route";
-import { GET as redirectPresentations, HEAD as headPresentations } from "@/app/(search-app)/differentials/presentations/route";
+import {
+  GET as redirectPresentations,
+  HEAD as headPresentations,
+} from "@/app/(search-app)/differentials/presentations/route";
 import { GET as redirectMedications, HEAD as headMedications } from "@/app/(search-app)/medications/route";
 import { legacyHomeRedirectUrl } from "@/lib/legacy-home-redirect";
 
