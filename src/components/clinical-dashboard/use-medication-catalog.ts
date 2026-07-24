@@ -35,13 +35,16 @@ type AsyncState<T> = {
   error: string | null;
 };
 
-async function fetchJson<T>(url: string, headers?: HeadersInit): Promise<T> {
+/** Match universal typeahead debounce so prescribing keystrokes coalesce. */
+const catalogDebounceMs = 250;
+
+async function fetchJson<T>(url: string, headers: HeadersInit | undefined, signal: AbortSignal): Promise<T> {
   // Use the default cache mode (not `no-store`) so public responses honor the
   // API's `public, max-age=300, s-maxage=3600, stale-while-revalidate` headers.
   // Owner responses are served `private, no-store` with `Vary: Authorization`,
   // so the browser never caches them across auth states — matching the sibling
   // registry/differential hooks, which also fetch with the default cache mode.
-  const response = await fetch(url, { headers });
+  const response = await fetch(url, { headers, signal });
   if (!response.ok) {
     throw new Error(`Request failed (${response.status})`);
   }
@@ -50,10 +53,11 @@ async function fetchJson<T>(url: string, headers?: HeadersInit): Promise<T> {
 
 export function useMedicationCatalog(
   query?: string,
-  options: { enabled?: boolean; fields?: "index" } = {},
+  options: { enabled?: boolean; fields?: "index"; debounceMs?: number } = {},
 ): AsyncState<MedicationCatalogResponse> {
   const enabled = options.enabled ?? true;
   const fields = options.fields;
+  const debounceMs = options.debounceMs ?? catalogDebounceMs;
   const trimmed = query?.trim() ?? "";
   // Auth-aware like use-registry-records: without the header an authenticated owner was
   // silently served the public fixture catalogue instead of their seeded records.
@@ -78,29 +82,33 @@ export function useMedicationCatalog(
 
   useEffect(() => {
     if (!enabled) return;
-    let cancelled = false;
+    const controller = new AbortController();
     const params = new URLSearchParams();
     if (trimmed) params.set("q", trimmed);
     if (fields) params.set("fields", fields);
     const suffix = params.toString();
     const url = suffix ? `/api/medications?${suffix}` : "/api/medications";
-    fetchJson<MedicationCatalogResponse>(url, authorizationHeader)
-      .then((data) => {
-        if (!cancelled) setState({ data, loading: false, error: null });
-      })
-      .catch((error) => {
-        if (!cancelled) {
+
+    const timer = window.setTimeout(() => {
+      fetchJson<MedicationCatalogResponse>(url, authorizationHeader, controller.signal)
+        .then((data) => {
+          if (!controller.signal.aborted) setState({ data, loading: false, error: null });
+        })
+        .catch((error) => {
+          if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
           setState({
             data: null,
             loading: false,
             error: error instanceof Error ? error.message : "Could not load medications.",
           });
-        }
-      });
+        });
+    }, debounceMs);
+
     return () => {
-      cancelled = true;
+      window.clearTimeout(timer);
+      controller.abort();
     };
-  }, [trimmed, enabled, fields, authorizationHeader]);
+  }, [trimmed, enabled, fields, debounceMs, authorizationHeader]);
 
   return state;
 }
@@ -128,22 +136,25 @@ export function useMedicationDetail(slug?: string): AsyncState<MedicationDetailR
     if (!normalized) {
       return;
     }
-    let cancelled = false;
-    fetchJson<MedicationDetailResponse>(`/api/medications/${encodeURIComponent(normalized)}`, authorizationHeader)
+    const controller = new AbortController();
+    fetchJson<MedicationDetailResponse>(
+      `/api/medications/${encodeURIComponent(normalized)}`,
+      authorizationHeader,
+      controller.signal,
+    )
       .then((data) => {
-        if (!cancelled) setState({ data, loading: false, error: null });
+        if (!controller.signal.aborted) setState({ data, loading: false, error: null });
       })
       .catch((error) => {
-        if (!cancelled) {
-          setState({
-            data: null,
-            loading: false,
-            error: error instanceof Error ? error.message : "Could not load medication.",
-          });
-        }
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+        setState({
+          data: null,
+          loading: false,
+          error: error instanceof Error ? error.message : "Could not load medication.",
+        });
       });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [normalized, authorizationHeader]);
 
