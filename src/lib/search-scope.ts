@@ -26,6 +26,9 @@ const documentScopeQueryPageSize = 1000;
 // page deterministically or later-page matches are dropped from scoped search (#075).
 const labelScopeDocumentBatchSize = 200;
 const labelScopeQueryPageSize = 1000;
+// Hard stop so a stuck PostgREST page that always returns a full page cannot loop forever.
+// 100 pages × 1,000 rows is far above realistic label volume for a 200-document batch.
+const labelScopeMaxPagesPerDocumentBatch = 100;
 
 export const searchScopeFiltersSchema = z
   .object({
@@ -177,7 +180,12 @@ async function loadScopeLabels(args: {
 
   for (let start = 0; start < args.candidateIds.length; start += labelScopeDocumentBatchSize) {
     const documentIdBatch = args.candidateIds.slice(start, start + labelScopeDocumentBatchSize);
-    for (let offset = 0; ; offset += labelScopeQueryPageSize) {
+    for (let offset = 0, pageIndex = 0; ; offset += labelScopeQueryPageSize, pageIndex += 1) {
+      if (pageIndex >= labelScopeMaxPagesPerDocumentBatch) {
+        throw new Error(
+          `Scope label enumeration exceeded ${labelScopeMaxPagesPerDocumentBatch * labelScopeQueryPageSize} rows for a ${documentIdBatch.length}-document batch; narrow the filters.`,
+        );
+      }
       let labelQuery = args.supabase
         .from("document_labels")
         .select("id,document_id,label,label_type")

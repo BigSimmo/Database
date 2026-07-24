@@ -115,11 +115,20 @@ export function expectedFileCoverage(
   limit = 3,
 ): ExpectedFileCoverage {
   const topFiles = sources.slice(0, limit).map(resultDocumentText);
-  const matchedFiles = expectedFiles.filter((expected) =>
-    documentExpectationAlternatives(expected).some((alternative) =>
-      topFiles.some((file) => file.includes(alternative)),
-    ),
-  );
+  // Distinct source identities (#030): each retrieved top-file may satisfy at most one
+  // expectedFiles slot. Without this, a single combo-titled document (or overlapping
+  // aliases) can make allHit true even when a true second source is missing.
+  const usedSourceIndexes = new Set<number>();
+  const matchedFiles = expectedFiles.filter((expected) => {
+    const alternatives = documentExpectationAlternatives(expected);
+    const matchIndex = topFiles.findIndex(
+      (file, index) =>
+        !usedSourceIndexes.has(index) && alternatives.some((alternative) => file.includes(alternative)),
+    );
+    if (matchIndex < 0) return false;
+    usedSourceIndexes.add(matchIndex);
+    return true;
+  });
 
   return {
     expectedFiles,

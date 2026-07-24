@@ -263,4 +263,36 @@ describe("search scope filters", () => {
     const labelCall = supabase.calls.find((call) => call.table === "document_labels");
     expect(labelCall?.abortSignals).toContain(controller.signal);
   });
+
+  it("fails closed when label pagination exceeds the bounded page budget", async () => {
+    const supabase = supabaseMock((call) => {
+      if (call.table === "documents") {
+        return {
+          data: [{ id: "11111111-1111-4111-8111-111111111111", metadata: {}, import_batch_id: null }],
+          error: null,
+        };
+      }
+      if (call.table === "document_labels") {
+        // Always-full pages simulate a stuck API that would otherwise loop forever.
+        return {
+          data: Array.from({ length: 1000 }, (_, index) => ({
+            id: `label-${(call.range?.from ?? 0) + index}`,
+            document_id: "11111111-1111-4111-8111-111111111111",
+            label: "topic",
+            label_type: "topic",
+          })),
+          error: null,
+        };
+      }
+      return { data: [], error: null };
+    });
+
+    await expect(
+      resolveSearchScope({
+        supabase: supabase as never,
+        accessScope: { ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", includePublic: false },
+        filters: { topics: ["topic"] },
+      }),
+    ).rejects.toThrow(/exceeded .* rows for a 1-document batch/i);
+  });
 });

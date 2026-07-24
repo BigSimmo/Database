@@ -60,4 +60,22 @@ describe("eval document matching wide-tier aliases", () => {
       allHit: true,
     });
   });
+
+  it("requires distinct retrieved sources for multi-slot allHit even when one title matches both aliases", () => {
+    const coverage = expectedFileCoverage(
+      ["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"],
+      [
+        {
+          title: "Admission of Community Patients and Discharge Planning",
+          file_name: "Admission of Community Patients and Discharge Planning.pdf",
+        },
+      ],
+      5,
+    );
+
+    expect(coverage.allHit).toBe(false);
+    expect(coverage.anyHit).toBe(true);
+    expect(coverage.matchedFiles).toHaveLength(1);
+    expect(coverage.missingFiles).toHaveLength(1);
+  });
 });
