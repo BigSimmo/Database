@@ -40,6 +40,8 @@ describe("psychiatry form records", () => {
       "4E",
     ]);
     expect(details.find((entry) => entry?.form === "13")?.availability).toBe("contact_ocp");
+    expect(details.find((entry) => entry?.form === "1A")?.before).toEqual([]);
+    expect(details.find((entry) => entry?.form === "1A")?.parallel).toEqual(["1A attachment"]);
 
     const catalogueText = JSON.stringify(formRecords).toLowerCase();
 
