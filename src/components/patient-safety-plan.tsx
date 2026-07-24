@@ -42,11 +42,13 @@ import {
  * A clinician builds an evidence-based safety plan *with* the patient (the
  * Stanley-Brown Safety Planning Intervention, six prioritised steps), and a
  * live patient-facing preview updates as they type — ready to print, save as
- * PDF, or hand over. Sample content is seeded so the layout reads fully; every
- * field is editable and "Clear all" empties the plan. Australian English + AU
- * crisis resources throughout, per the Clinical KB (en-AU) voice. All chrome is
- * token-driven so light/dark, reduced-motion and forced-colors follow the
- * shared design system.
+ * PDF, or hand over. Working content stays in this mounted browser component;
+ * the app neither stores it nor sends it to a server. Copy and print are
+ * explicit user-directed exports. Sample content is seeded so the layout reads
+ * fully; every field is editable and "Clear all" empties the plan.
+ * Australian English + AU crisis resources throughout, per the Clinical KB
+ * (en-AU) voice. All chrome is token-driven so light/dark, reduced-motion and
+ * forced-colors follow the shared design system.
  */
 
 const focusRing =
@@ -422,7 +424,6 @@ function PreviewStep({ def, entries }: { def: StepDef; entries: Entry[] }) {
 export function PatientSafetyPlan() {
   const [entries, setEntries] = useState<Record<StepKey, Entry[]>>(EMPTY_ENTRIES);
   const [reasons, setReasons] = useState<Entry[]>([]);
-  const [patient, setPatient] = useState("");
   const [planDate, setPlanDate] = useState("");
   const [mobileTab, setMobileTab] = useState<"build" | "preview">("build");
   const [copied, setCopied] = useState(false);
@@ -452,7 +453,7 @@ export function PatientSafetyPlan() {
   const planText = useMemo(() => {
     const lines: string[] = [
       "MY SAFETY PLAN",
-      patient ? `For: ${patient}` : "",
+      "Name (add after export): ____________________",
       planDate ? `Date: ${planDate}` : "",
       "",
     ];
@@ -474,7 +475,7 @@ export function PatientSafetyPlan() {
     lines.push("In an emergency: call 000 or go to your nearest Emergency Department.");
     lines.push("24/7 support: Lifeline 13 11 14 · Suicide Call Back Service 1300 659 467.");
     return lines.filter((line, index, all) => !(line === "" && all[index - 1] === "")).join("\n");
-  }, [entries, patient, planDate, reasons]);
+  }, [entries, planDate, reasons]);
 
   const copyPlan = async () => {
     try {
@@ -492,16 +493,11 @@ export function PatientSafetyPlan() {
 
   const loadExample = () => {
     const hasContent =
-      Object.values(entries).some((rows) => rows.length > 0) ||
-      reasons.length > 0 ||
-      patient.trim() !== "" ||
-      planDate.trim() !== "";
+      Object.values(entries).some((rows) => rows.length > 0) || reasons.length > 0 || planDate.trim() !== "";
     if (hasContent && !window.confirm("Replace the current plan with the example content?")) return;
     setEntries(SEED);
     setReasons(SEED_REASONS);
-    // Clear the patient context so example content can never carry a real
-    // patient's name or date into the preview/print output.
-    setPatient("");
+    // Clear the plan date so example content cannot look like a current handover.
     setPlanDate("");
     setFinalised(false);
   };
@@ -509,7 +505,6 @@ export function PatientSafetyPlan() {
   const clearAll = () => {
     setEntries(EMPTY_ENTRIES);
     setReasons([]);
-    setPatient("");
     setPlanDate("");
     setFinalised(false);
   };
@@ -536,8 +531,8 @@ export function PatientSafetyPlan() {
                 Safety plan generator
               </h1>
               <p className="mt-1 max-w-xl text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
-                Build an evidence-based safety plan <em>with</em> your patient — the six prioritised steps — then print,
-                save as PDF, or hand over a copy.
+                Build an identifier-free safety plan <em>with</em> your patient — the six prioritised steps — then
+                export it through your approved clinical workflow.
               </p>
             </div>
           </div>
@@ -642,26 +637,24 @@ export function PatientSafetyPlan() {
             </div>
           </div>
 
-          {/* Patient context */}
-          <section className={cn(panelSubtle, "grid gap-3 p-4 sm:grid-cols-2")}>
-            <div>
-              <label htmlFor="spg-patient" className={fieldLabel}>
-                Patient (name or initials)
-              </label>
-              <input
-                id="spg-patient"
-                value={patient}
-                onChange={(event) => {
-                  setPatient(event.target.value);
-                  setFinalised(false);
-                }}
-                placeholder="e.g. Sam R."
-                className={fieldControlPlain}
-              />
+          {/* Local-only working boundary */}
+          <section className={cn(panelSubtle, "grid gap-3 p-4")} aria-label="Safety plan privacy">
+            <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
+              <ShieldCheck className="mt-0.5 size-icon-md text-[color:var(--clinical-accent)]" aria-hidden="true" />
+              <div className="min-w-0">
+                <h2 className="text-sm font-extrabold text-[color:var(--text-heading)]">
+                  Keep this plan identifier-free
+                </h2>
+                <p className="mt-1 text-2xs font-medium leading-5 text-[color:var(--text-muted)]">
+                  Do not enter the patient&apos;s name, date of birth, or record number. Enter only the minimum plan
+                  details and support contacts needed. Working content is kept only in this browser tab; Clinical KB
+                  does not save it or send it to a server.
+                </p>
+              </div>
             </div>
             <div>
               <label htmlFor="spg-date" className={fieldLabel}>
-                Date
+                Plan date (optional)
               </label>
               <input
                 id="spg-date"
@@ -775,6 +768,14 @@ export function PatientSafetyPlan() {
             </div>
           </div>
 
+          <p
+            data-print-hide
+            className="mb-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 py-2 text-2xs font-semibold leading-5 text-[color:var(--text-muted)]"
+          >
+            Copying, printing, or saving a PDF moves the plan outside Clinical KB. Add any patient identifier only after
+            export, using your organisation&apos;s approved clinical record and handling process.
+          </p>
+
           {finalised ? (
             <div
               role="status"
@@ -800,7 +801,7 @@ export function PatientSafetyPlan() {
                 Keeping myself safe
               </h2>
               <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-2xs font-semibold tabular-nums text-[color:var(--text-muted)]">
-                <span>{patient ? patient : "Name: ________________"}</span>
+                <span>Name (add after printing): ________________</span>
                 <span>{planDate ? planDate : "Date: ____________"}</span>
               </div>
               <p className="mt-1 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)]">
@@ -875,7 +876,8 @@ export function PatientSafetyPlan() {
             className="mt-3 flex items-center gap-1.5 px-1 text-2xs font-semibold text-[color:var(--text-soft)]"
           >
             <ChevronRight className="size-icon-xs text-[color:var(--clinical-accent)]" aria-hidden="true" />
-            Confirm every contact and crisis number with your patient before printing or sharing this plan.
+            Confirm every contact and crisis number before export, then handle the copy under your approved clinical
+            record process.
           </p>
         </div>
       </div>
