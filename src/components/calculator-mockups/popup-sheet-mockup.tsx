@@ -159,7 +159,10 @@ export function CalculatorSheet({
           <ScoreBandBar calc={calc} score={derived.score} started={derived.started} />
         </div>
 
-        <div ref={scrollRef} className="modal-landscape-container grid min-h-0 flex-1 content-start gap-4 overflow-y-auto py-4">
+        <div
+          ref={scrollRef}
+          className="modal-landscape-container grid min-h-0 flex-1 content-start gap-4 overflow-y-auto py-4"
+        >
           <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-lg border border-[color:var(--info-border)] bg-[color:var(--info-soft)] p-2.5 text-sm-minus font-semibold leading-5 text-[color:var(--info)]">
             <Info className="mt-0.5 size-icon-md shrink-0" aria-hidden="true" />
             {calc.indication}

@@ -4,8 +4,8 @@
  * @param pattern Duration or array of durations in milliseconds.
  */
 export function triggerHaptic(pattern: number | number[] = 10) {
-  if (typeof window !== 'undefined' && 'vibrate' in navigator) {
-    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  if (typeof window !== "undefined" && "vibrate" in navigator) {
+    if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       try {
         navigator.vibrate(pattern);
       } catch {
