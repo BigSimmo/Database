@@ -208,6 +208,11 @@ jobs:
       - name: Codebase index coverage
         run: npm run docs:check-index
 
+      - name: Check docs scripts
+        run: npm run docs:check-scripts
+      - name: Check docs links
+        run: npm run docs:check-links
+
       - name: Dependency and duplicate-export hygiene
         run: npm run check:knip
 
