@@ -136,8 +136,9 @@ browser tab, with no API request or browser-storage write. Clearing the plan, un
 or closing the tab discards that working state. Copy, print, and save-as-PDF are explicit user-directed
 exports; the exported copy is outside Clinical KB and must be handled under the organisation's approved
 clinical-record process. The tool provides no patient name, date-of-birth, or record-number field and
-warns against putting identifiers into free text; any identifier must be added after export if local
-policy permits it.
+warns against putting patient identifiers into free text; any patient identifier must be added after
+export if local policy permits it. Support-contact names and phone details are accepted as sensitive
+working content within the same local-only boundary.
 
 ---
 
