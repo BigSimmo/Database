@@ -30,7 +30,7 @@ Use this protocol for every Codex review, audit, bug hunt, PR review, release-re
 - During an automatic resolve task, work only existing unresolved Codex threads. Do not start a new review, add standalone findings, or request another review.
 - After fixing or fully dispositioning a thread, start the reply with `<!-- codex-thread-disposition:resolved -->`; the workflow will close that exact thread. Do not use the marker when human input or new authorization is required, and leave that blocked thread open with a concise reason.
 - Ask before any OpenAI, Supabase, GitHub/GitLab, hosted CI, or provider-backed workflow.
-- After any completed branch/PR review, update `docs/branch-review-ledger.md` with date, branch/ref, HEAD, scope, outcome, and checks. This ledger append is allowed even during a pure review.
+- After any completed branch/PR review, append to `docs/branch-review-ledger.md` with date, branch/ref, HEAD, scope, outcome, and checks. The ledger is append-only: never edit or delete an existing record; append a correction or superseding record instead. This ledger append is allowed even during a pure review.
 
 ## Severity Guide
 
