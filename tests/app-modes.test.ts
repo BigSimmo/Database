@@ -229,7 +229,7 @@ describe("app mode search contract", () => {
       "/?mode=prescribing&q=acamprosate+renal+dose",
     );
     expect(appModeHomeHref("tools", { query: "  medications  ", run: true, focus: true })).toBe(
-      "/?mode=tools&q=medications&focus=1&run=1",
+      "/tools?q=medications&focus=1&run=1",
     );
   });
 

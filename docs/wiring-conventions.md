@@ -95,6 +95,7 @@ Intentional exceptions are documented, not silenced:
 
 ## Known wiring debts
 
-Tracked in `docs/outstanding-issues.md` (`/issues`): the `/tools` vs `/?mode=tools` duplicate Tools
-entry point, the unused `document-flow-routes.ts` href builders, the server-only `/api/jobs` endpoint,
-and the un-built "coming soon" placeholders across forms/favourites.
+Tracked in `docs/outstanding-issues.md` (`/issues`): the unused `document-flow-routes.ts` href
+builders, the server-only `/api/jobs` endpoint, and the un-built "coming soon" placeholders across
+forms/favourites. `#007` (`/tools` vs `/?mode=tools`) is resolved: `/tools` is the canonical entry
+(PT-11); `/?mode=tools` remains a dashboard-mode alias.

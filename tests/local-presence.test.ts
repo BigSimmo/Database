@@ -13,7 +13,7 @@ import {
 describe("check-local-presence", () => {
   it("parses env assignments without exposing values in helpers", () => {
     const parsed = parseEnvFile(
-      ['# comment', 'RAG_QUERY_HASH_SECRET="abc"', "OPENAI_API_KEY=xyz", "not valid", ""].join("\n"),
+      ["# comment", 'RAG_QUERY_HASH_SECRET="abc"', "OPENAI_API_KEY=xyz", "not valid", ""].join("\n"),
     );
     expect(parsed.RAG_QUERY_HASH_SECRET).toBe("abc");
     expect(parsed.OPENAI_API_KEY).toBe("xyz");
@@ -61,15 +61,9 @@ describe("check-local-presence", () => {
     const assessment = assessLocalPresence({});
     expect(assessment.fillable.every((row) => row.status === "gap")).toBe(true);
     expect(FILLABLE_LOCAL_SECRETS.map((s) => s.name)).toEqual(
-      expect.arrayContaining([
-        "OPENAI_SAFETY_IDENTIFIER_SECRET",
-        "RAG_QUERY_HASH_SECRET",
-        "HEALTH_DEEP_PROBE_SECRET",
-      ]),
+      expect.arrayContaining(["OPENAI_SAFETY_IDENTIFIER_SECRET", "RAG_QUERY_HASH_SECRET", "HEALTH_DEEP_PROBE_SECRET"]),
     );
-    expect(REPORT_ONLY_KEYS).toEqual(
-      expect.arrayContaining(["SUPABASE_SERVICE_ROLE_KEY", "OPENAI_API_KEY"]),
-    );
+    expect(REPORT_ONLY_KEYS).toEqual(expect.arrayContaining(["SUPABASE_SERVICE_ROLE_KEY", "OPENAI_API_KEY"]));
     expect(assessment.reportOnly.every((row) => row.fillable === false)).toBe(true);
   });
 
@@ -82,11 +76,7 @@ describe("check-local-presence", () => {
         return `local-dev-secret-${n}-`.padEnd(64, "x");
       },
     });
-    expect(filled).toEqual([
-      "OPENAI_SAFETY_IDENTIFIER_SECRET",
-      "RAG_QUERY_HASH_SECRET",
-      "HEALTH_DEEP_PROBE_SECRET",
-    ]);
+    expect(filled).toEqual(["OPENAI_SAFETY_IDENTIFIER_SECRET", "RAG_QUERY_HASH_SECRET", "HEALTH_DEEP_PROBE_SECRET"]);
     expect(text).toContain("RAG_PROVIDER_MODE=offline");
     expect(text).toContain("OPENAI_SAFETY_IDENTIFIER_SECRET=");
     expect(text).toContain("RAG_QUERY_HASH_SECRET=");

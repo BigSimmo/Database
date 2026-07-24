@@ -80,7 +80,7 @@ const sidebarToolItems = [
   { id: "specifiers", label: "Specifiers", icon: Tags, href: "/specifiers" },
   { id: "formulation", label: "Formulation", icon: Network, href: "/formulation" },
   { id: "prescribing", label: "Medication", icon: Pill, href: "/?mode=prescribing" },
-  { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
+  { id: "tools", label: "Tools", icon: Wrench, href: "/tools" },
   {
     id: "therapy-compass",
     label: appModeDefinition("therapy-compass").label,

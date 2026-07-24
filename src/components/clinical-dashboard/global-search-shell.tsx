@@ -442,7 +442,7 @@ function GlobalStandaloneSearchShellClient({
   }, [recentQueriesOwnerId]);
 
   function prefetchApplications() {
-    router.prefetch("/?mode=tools");
+    router.prefetch("/tools");
     if (favouritesAccessible) router.prefetch("/favourites");
     router.prefetch("/differentials");
     router.prefetch("/dsm");

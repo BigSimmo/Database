@@ -198,14 +198,14 @@
     "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^6.1.200",
     "pdfkit": "^0.19.1",
-    "postcss": "^8.5.15",
+    "postcss": "^8.5.18",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "server-only": "^0.0.1",
     "zod": "^4.4.3"
   },
   "overrides": {
-    "postcss": "^8.5.15",
+    "postcss": "$postcss",
     "esbuild": "0.28.1",
     "sharp": "0.35.3",
     "tmp": "^0.2.7",

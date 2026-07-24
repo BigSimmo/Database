@@ -92,7 +92,7 @@ export function useDashboardShellActions(options: {
   }, [closeTransientSurfaces, openAccountSetup, setSettingsOpen, signedIn]);
 
   const prefetchApplications = useCallback(() => {
-    prefetch("/?mode=tools");
+    prefetch("/tools");
     if (favouritesAccessible) prefetch("/favourites");
     prefetch("/differentials");
   }, [favouritesAccessible, prefetch]);

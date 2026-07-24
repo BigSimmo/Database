@@ -44,6 +44,8 @@ export const REPORT_ONLY_KEYS = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "SUPABASE_PROJECT_REF",
   "SUPABASE_PROJECT_NAME",
+  "SUPABASE_STAGING_PROJECT_REF",
+  "SUPABASE_STAGING_PROJECT_NAME",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
   "SUPABASE_SERVICE_ROLE_KEY",
   "OPENAI_API_KEY",
@@ -87,10 +89,7 @@ export function parseEnvFile(text) {
     const key = line.slice(0, eq).trim();
     if (!/^[A-Z][A-Z0-9_]*$/.test(key)) continue;
     let value = line.slice(eq + 1);
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1);
     }
     out[key] = value;
