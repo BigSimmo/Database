@@ -223,6 +223,20 @@ function isInformationPage(pathname: string): boolean {
   return false;
 }
 
+export function infoPageBackHref(pathname: string): string | null {
+  if (pathname.startsWith("/services/")) return appModeHomeHref("services");
+  if (pathname.startsWith("/forms/")) return appModeHomeHref("forms");
+  if (pathname.startsWith("/medications/")) return appModeHomeHref("prescribing");
+  if (pathname.startsWith("/differentials/")) return appModeHomeHref("differentials");
+  if (pathname.startsWith("/dsm/")) return appModeHomeHref("dsm");
+  if (pathname.startsWith("/specifiers/")) return appModeHomeHref("specifiers");
+  if (pathname.startsWith("/formulation/")) return appModeHomeHref("formulation");
+  if (pathname.startsWith("/therapy-compass/")) return appModeHomeHref("therapy-compass");
+  if (pathname.startsWith("/factsheets/")) return appModeHomeHref("factsheets");
+  if (pathname.startsWith("/documents/")) return documentsSearchHref();
+  return null;
+}
+
 function isToolDetailWithFooterSearch(pathname: string): boolean {
   return (
     (pathname.startsWith("/services/") && pathname !== "/services") ||
@@ -683,7 +697,11 @@ function GlobalStandaloneSearchShellClient({
                   ? "back"
                   : "menu"
             }
-            onMobileBack={() => router.back()}
+            onMobileBack={() => {
+              const fallbackHref = isInfoPage ? infoPageBackHref(pathname) : null;
+              if (fallbackHref) router.push(fallbackHref);
+              else router.back();
+            }}
             queryModeOptions={mockupQueryModeOptions}
             queryInputRef={inputRef}
             recentQueries={recentQueries}

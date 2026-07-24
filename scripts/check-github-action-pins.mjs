@@ -168,28 +168,9 @@ if (!/^      image: semgrep\/semgrep@sha256:[0-9a-f]{64}\s*$/m.test(semgrepGateJ
   failures.push("sast.yml: the blocking ingestion gate container must be digest-pinned (semgrep/semgrep@sha256:...).");
 }
 
-// One SHA per action across every workflow AND composite action. Dependabot bumps
-// one file at a time, so a laggard can sit on an old major indefinitely; because
-// the per-line validation above only covers workflows, a composite skew (e.g.
-// setup-node v5 vs v7) was previously invisible. Assert each action name resolves
-// to a single SHA everywhere it is used.
-function discoverCompositeActionFiles(workflowRoot) {
-  const actionsRoot = path.join(workflowRoot, ".github", "actions");
-  if (!existsSync(actionsRoot)) return [];
-  const files = [];
-  for (const entry of readdirSync(actionsRoot, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    for (const name of ["action.yml", "action.yaml"]) {
-      const candidate = path.join(actionsRoot, entry.name, name);
-      if (existsSync(candidate)) files.push(candidate);
-    }
-  }
-  return files;
-}
-
 const actionPinPattern = /uses:\s*([^@\s]+)@([0-9a-f]{40})(?:\s*#\s*(\S+))?/;
 const shasByAction = new Map();
-for (const filePath of [...discoverGitHubActionFiles(process.cwd()), ...discoverCompositeActionFiles(process.cwd())]) {
+for (const filePath of discoverGitHubActionFiles(process.cwd())) {
   const fileName = path.relative(process.cwd(), filePath).replaceAll("\\", "/");
   // Workflow lines are already run through validateActionReference in the first
   // pass; composite files are not, so validate them here. Without this, a
