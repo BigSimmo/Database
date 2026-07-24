@@ -51,35 +51,16 @@ if [ "${total:-0}" -eq 0 ]; then
   exit 0
 fi
 
-group() { printf '%s\n' "$rows" | awk -F'\t' -v p="$1" '$2==p'; }
-count() { printf '%s' "$1" | grep -c . || true; }
-p1="$(group P1)"; p2="$(group P2)"; p3="$(group P3)"
-c1="$(count "$p1")"; c2="$(count "$p2")"; c3="$(count "$p3")"
+count_priority() { printf '%s\n' "$rows" | awk -F'\t' -v p="$1" '$2==p { n++ } END { print n+0 }'; }
+c1="$(count_priority P1)"; c2="$(count_priority P2)"; c3="$(count_priority P3)"
 
 echo "[issues] Universal task ledger — ${total} open (${c1}×P1, ${c2}×P2, ${c3}×P3). Source of truth: docs/outstanding-issues.md · read the full ordered list with /issues."
 
-print_group() { # $1=rows  $2=max-to-list
-  local data="$1" limit="$2" shown=0 more=0 ord pri id typ sum
-  [ -z "$data" ] && return 0
-  while IFS=$'\t' read -r ord pri id typ sum; do
-    [ -z "$pri" ] && continue
-    if [ "$shown" -lt "$limit" ]; then
-      echo "  ${ord}. ${pri} ${id} ${typ} — ${sum}"
-      shown=$((shown + 1))
-    else
-      more=$((more + 1))
-    fi
-  done <<EOF
-$data
-EOF
-  [ "$more" -gt 0 ] && echo "  … +${more} more at this priority (see /issues)"
-  return 0
-}
-
-# P1 = do-next, list all. P2 = should-do, list up to 8. P3 = collapse to a count.
-[ "$c1" -gt 0 ] && print_group "$p1" 999
-[ "$c2" -gt 0 ] && print_group "$p2" 8
-[ "$c3" -gt 0 ] && echo "  ${c3} × P3 (nice-to-have / revisit-when) — see /issues"
+# Preserve the ledger's dependency-aware order. Acuity totals above are metadata only.
+printf '%s\n' "$rows" | awk -F'\t' '
+  NF && NR <= 10 { printf "  %s. %s %s %s — %s\n", $1, $2, $3, $4, $5 }
+  END { if (NR > 10) printf "  … +%d more in ledger order (see /issues)\n", NR - 10 }
+'
 
 # --- capture reminder ---------------------------------------------------------
 case "$source_val" in
