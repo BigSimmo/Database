@@ -291,6 +291,16 @@ export function PwaLifecycle() {
     const registrationCleanups = new Set<() => void>();
     hasSeenControllerRef.current = Boolean(navigator.serviceWorker.controller);
 
+    let broadcastChannel: BroadcastChannel | null = null;
+    try {
+      broadcastChannel = new BroadcastChannel("pwa_channel");
+      broadcastChannel.addEventListener("message", (event) => {
+        if (event.data === "sw-updated" && !cancelled && !updateDismissedRef.current) {
+          setActivatedUpdateReady(true);
+        }
+      });
+    } catch {}
+
     const exposeWaitingWorker = (worker: ServiceWorker | null) => {
       if (!cancelled && worker && !updateDismissedRef.current) setWaitingWorker(worker);
     };
@@ -325,7 +335,12 @@ export function PwaLifecycle() {
         return;
       }
       setWaitingWorker(null);
-      if (!cancelled && wasPreviouslyControlled && !updateDismissedRef.current) setActivatedUpdateReady(true);
+      if (!cancelled && wasPreviouslyControlled && !updateDismissedRef.current) {
+        setActivatedUpdateReady(true);
+        try {
+          broadcastChannel?.postMessage("sw-updated");
+        } catch {}
+      }
     };
 
     const register = async () => {
@@ -382,6 +397,9 @@ export function PwaLifecycle() {
       document.removeEventListener("visibilitychange", checkForUpdates);
       window.removeEventListener("online", checkForUpdates);
       registrationRef.current = null;
+      try {
+        broadcastChannel?.close();
+      } catch {}
     };
   }, []);
 

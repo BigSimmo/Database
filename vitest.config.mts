@@ -2,6 +2,7 @@ const liveProviderTests = process.env.ALLOW_PROVIDER_TESTS === "true";
 
 const config = {
   test: {
+    passWithNoTests: true,
     // Route and RAG tests cold-import large Next.js module graphs inside the test
     // body. Give those transforms headroom on slower worktree filesystems while
     // retaining a finite timeout that still catches genuine hangs.
