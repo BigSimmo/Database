@@ -30,4 +30,4 @@ RAG impact: no retrieval behaviour change — clamps non-finite/out-of-range sim
 ## Notes
 
 - Review P1 live-lock reclaim and P2 skill-catalog tautology were fixed and resolved on-thread.
-- `PR_POLICY_BODY.md` exists so CI Sync PR policy body can write this description (agent token cannot edit the live PR body directly). Remove this file after the description is synced and policy is green, before merge, if desired.
+- `PR_POLICY_BODY.md` exists so CI Sync PR policy body can write this description (agent token cannot edit the live PR body directly). Safe to delete after policy is green if you do not want the sync template retained.
