@@ -3,11 +3,11 @@ name: issues
 description: Track and recall all outstanding tasks, recommendations, and issues for this repo as durable cross-session memory. Use when the user types "/issues" (state the open items back), or asks to add/close/update/capture an outstanding task, recommendation, or issue. The memory lives in docs/outstanding-issues.md; a plain "/issues" is read-only.
 ---
 
-# issues — the outstanding-work memory
+# issues — the universal task ledger
 
-`docs/outstanding-issues.md` is the durable, cross-session memory of everything still outstanding:
-open **tasks**, **recommendations** not yet acted on, and **issues** not yet resolved. Chat context
-resets; that file does not. This skill reads it back and keeps it current.
+`docs/outstanding-issues.md` is the single durable, cross-session task ledger. Its ordered **Open
+items** table is the only active queue. Legacy evidence and resolved sections are history, not work.
+Chat context resets; that file does not. This skill reads it back and keeps it current.
 
 **The ledger is the source of truth, not chat memory.** Never answer `/issues` from conversation
 recall — always read the file first, so the answer is correct even in a fresh session.
@@ -20,8 +20,8 @@ recall — always read the file first, so the answer is correct even in a fresh 
 ## Default: `/issues` (read-only)
 
 1. Read `docs/outstanding-issues.md`.
-2. State the **open items** back, grouped by priority (P1 → P3), each as
-   `#ID · type · summary — next action (source)`.
+2. State the **open items** back in the table's recommended **Order**, each as
+   `Order · #ID · priority/acuity · type · task — when; next action`.
 3. End with a one-line count, e.g. `5 open: 0×P1, 3×P2, 2×P3 · 0 resolved this session`.
 4. Do **not** mutate the file or commit on a plain read.
 
@@ -32,16 +32,16 @@ If a filter is given, narrow step 2: `/issues P1` (by priority), `/issues issues
 
 Parse the intent from natural language too — the exact syntax is a convenience, not a requirement.
 
-- **`/issues add <text>`** — append a row to **Open items**. Infer `Pri`/`Type` from the text
-  (ask only if genuinely ambiguous; default `P2`/`task`). Allocate the ID from the
-  `<!-- issues:next-id=NNN -->` marker, then bump that marker. Fill `Source` with
-  `session <today>` unless the user names one; `Added` is today's date.
+- **`/issues add <text>`** — append a row to **Open items** at the next order. Infer
+  `Pri`/`Acuity`/`Type` (ask only if genuinely ambiguous; default `P2`/`A2`/`task`). Allocate the ID
+  from the `<!-- issues:next-id=NNN -->` marker, then bump it. Fill every execution field; use
+  `session <today>` as the source unless the user names one.
 - **`/issues done <id> [outcome]`** — move that row from **Open items** to **Resolved / archive**
   with today's date and a one-line outcome. Archive, never delete.
 - **`/issues update <id> <text>`** — edit an open row's summary or next action in place.
 - **`/issues capture`** — scan the current session for recommendations, follow-ups, deferrals, and
   unfixed problems that surfaced but were not recorded. Propose them as a numbered list and add the
-  confirmed ones (dedupe against existing rows first — do not re-add something already tracked).
+  confirmed ones. Dedupe against the whole file, including legacy evidence and resolved history.
 
 ## Capture discipline (proactive memory)
 
@@ -52,9 +52,12 @@ paragraph; put the smallest next action in **Detail / next action**.
 
 ## Writing rules
 
-- Keep the table format and column order exactly as in `docs/outstanding-issues.md`. One row per item.
+- Keep the Open items table format and column order exactly as in `docs/outstanding-issues.md`. One
+  row per item; keep Order contiguous after any mutation.
 - IDs are monotonic and never reused — always allocate from the `issues:next-id` marker and bump it.
 - Escape `|` inside cell text (write `\|`) so the markdown table stays intact.
+- Fill acuity, intelligence, timing, effort, dependencies/approvals, success/verification, stop rule,
+  and source/update fields. Do not put a claim into Open items unless it remains recommended.
 - Respect the repo's RAG/clinical/privacy flagging rules if an item _itself_ touches a protected
   surface — recording it here is fine, but acting on it later still needs the usual gate.
 

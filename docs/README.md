@@ -71,6 +71,7 @@ npm run docs:check-links
 
 ## Plans and workstreams (living)
 
+- [outstanding-issues.md](outstanding-issues.md) — universal ordered task ledger and durable repository memory
 - [maturity-backlog-workorders.md](maturity-backlog-workorders.md) — actionable work orders tracking the repository-maturity audit backlog
 - [framework-dependency-modernization-checklist.md](framework-dependency-modernization-checklist.md) — ordered Next.js 16, runtime, dependency, Turbopack, and verification migration program
 - [search-rag-master-plan.md](search-rag-master-plan.md) / [search-rag-master-context.md](search-rag-master-context.md) — search/RAG roadmap and shared context
