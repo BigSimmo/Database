@@ -61,7 +61,7 @@ recommended="$(awk '
 
 total="$(printf '%s' "$rows" | grep -c . || true)"
 recommended_total="$(printf '%s' "$recommended" | grep -c . || true)"
-if [ "${total:-0}" -eq 0 ]; then
+if [ "${total:-0}" -eq 0 ] && [ "${recommended_total:-0}" -eq 0 ]; then
   echo "[issues] Universal task ledger (docs/outstanding-issues.md): no open items. Record one with /issues add …"
   exit 0
 fi
