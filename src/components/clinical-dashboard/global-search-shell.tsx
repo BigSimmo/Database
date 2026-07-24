@@ -81,22 +81,26 @@ type GlobalSearchShellProps = {
   chromeVisible?: boolean;
   /** Hide the shared mobile header when a route owns its phone navigation. */
   mobileChromeVisible?: boolean;
+  /** Optional custom fallback for the Suspense boundary. Defaults to ModeHomeRouteLoading on the home route. */
+  fallback?: ReactNode;
 };
 
 export function GlobalSearchShell(props: GlobalSearchShellProps) {
   return (
     <Suspense
       fallback={
-        // A neutral placeholder — do NOT render props.children here. The client
-        // body below also renders {children} inside `#main-content`, and echoing
-        // them in the fallback duplicated the page subtree (two `#main-content`
-        // and two `data-testid` on medication/forms/services pages) whenever the
-        // fallback and resolved content briefly coexisted. A route-agnostic mode-home
-        // skeleton (the same one `loading.tsx` shows during navigation) reserves the
-        // layout so the first frame reads as "loading" instead of a blank background.
-        <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
-          <ModeHomeRouteLoading />
-        </div>
+        props.fallback ?? (
+          // A neutral placeholder — do NOT render props.children here. The client
+          // body below also renders {children} inside `#main-content`, and echoing
+          // them in the fallback duplicated the page subtree (two `#main-content`
+          // and two `data-testid` on medication/forms/services pages) whenever the
+          // fallback and resolved content briefly coexisted. A route-agnostic mode-home
+          // skeleton (the same one `loading.tsx` shows during navigation) reserves the
+          // layout so the first frame reads as "loading" instead of a blank background.
+          <div className="min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]">
+            <ModeHomeRouteLoading />
+          </div>
+        )
       }
     >
       <GlobalSearchShellClient {...props} />
