@@ -313,7 +313,10 @@ export async function semanticRerankIfAmbiguous(args: {
             clinicalSignalBoost: 0,
             penalty: 0,
             rankScore: deterministicScore(candidate.result),
-            finalScore: Math.min(1, Math.max(0, candidate.result.hybrid_score ?? clampedSimilarity(candidate.result.similarity))),
+            finalScore: Math.min(
+              1,
+              Math.max(0, candidate.result.hybrid_score ?? clampedSimilarity(candidate.result.similarity)),
+            ),
             semanticRerankScore,
             strategy: candidate.result.rrf_score == null ? "weighted_hybrid" : "weighted_hybrid_rrf_blend",
           };

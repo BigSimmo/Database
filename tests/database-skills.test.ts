@@ -18,7 +18,10 @@ describe("Database skill catalog", () => {
     const canonicalCount = result.canonical.length;
     expect(result.errors).toEqual([]);
     expect(result.canonical).toHaveLength(canonicalCount);
-    expect(new Set(result.canonical.map((skill: { name: string }) => skill.name))).toHaveProperty("size", canonicalCount);
+    expect(new Set(result.canonical.map((skill: { name: string }) => skill.name))).toHaveProperty(
+      "size",
+      canonicalCount,
+    );
     expect(result.aliases).toHaveLength(result.aliases.length);
     for (const category of catalog.categories) {
       expect(category.skills.every((skill: unknown) => typeof skill === "string")).toBe(true);
@@ -68,7 +71,9 @@ describe("Database skill catalog", () => {
     const catalog = loadSkillCatalog();
     const rendered = renderSkillCatalog(catalog);
 
-    expect(rendered).toContain(`Database skills (${catalog.categories.reduce((acc, cat) => acc + cat.skills.length, 0)})`);
+    expect(rendered).toContain(
+      `Database skills (${catalog.categories.reduce((acc, cat) => acc + cat.skills.length, 0)})`,
+    );
     expect(rendered).toContain("- skills — List every unique Database-specific skill with a clear explanation");
     expect(rendered).not.toContain("- workflows —");
     for (const category of catalog.categories) expect(rendered).toContain(category.name);

@@ -6,12 +6,12 @@ import { discoverSkillDefinitions, catalogPath, loadSkillCatalog, skillsRoot } f
 function ensureYamlManifest(skill) {
   const metadataDir = path.join(skillsRoot, skill.directory, "agents");
   const metadataFile = path.join(metadataDir, "openai.yaml");
-  
+
   if (!fs.existsSync(metadataFile)) {
     fs.mkdirSync(metadataDir, { recursive: true });
-    
+
     // Create a 25-64 character short description
-    let shortDesc = skill.description.trim().split('.')[0];
+    let shortDesc = skill.description.trim().split(".")[0];
     if (shortDesc.length < 25) {
       shortDesc = (shortDesc + " for the Database app").slice(0, 64);
     } else if (shortDesc.length > 64) {
@@ -31,32 +31,30 @@ allow_implicit_invocation: true
 function syncSkills() {
   const discovered = discoverSkillDefinitions();
   const catalog = loadSkillCatalog();
-  
-  const existingCanonical = new Set(
-    catalog.categories.flatMap((cat) => (Array.isArray(cat.skills) ? cat.skills : []))
-  );
+
+  const existingCanonical = new Set(catalog.categories.flatMap((cat) => (Array.isArray(cat.skills) ? cat.skills : [])));
   const aliases = new Set(Object.keys(catalog.aliases || {}));
-  
-  const newSkills = discovered.filter(skill => !existingCanonical.has(skill.name) && !aliases.has(skill.name));
-  
+
+  const newSkills = discovered.filter((skill) => !existingCanonical.has(skill.name) && !aliases.has(skill.name));
+
   if (newSkills.length > 0) {
     // Put new skills in a generic category or the last category
-    let targetCategory = catalog.categories.find(cat => cat.name === "Maintenance & Code Quality");
+    let targetCategory = catalog.categories.find((cat) => cat.name === "Maintenance & Code Quality");
     if (!targetCategory) {
       targetCategory = catalog.categories[catalog.categories.length - 1];
     }
-    
+
     for (const skill of newSkills) {
       targetCategory.skills.push(skill.name);
       targetCategory.skills.sort();
       console.log(`Added ${skill.name} to catalog under ${targetCategory.name}`);
     }
-    
+
     fs.writeFileSync(catalogPath, JSON.stringify(catalog, null, 2) + "\n", "utf8");
   } else {
     console.log("Skill catalog is already up to date.");
   }
-  
+
   for (const skill of discovered) {
     ensureYamlManifest(skill);
   }

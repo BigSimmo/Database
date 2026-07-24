@@ -162,20 +162,20 @@ describe.runIf(hasPyMuPDF)("Python extractor fallback", () => {
     const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-extractor-test-"));
     const pdfPath = path.join(root, "table.pdf");
     const scriptPath = path.join(root, "kill_self.py");
-    
+
     await mkdir(root, { recursive: true });
     await writeSyntheticTablePdf(pdfPath);
-    
+
     // Write a python script that sends SIGKILL to itself immediately
     await require("node:fs/promises").writeFile(
       scriptPath,
-      "import os, signal\nos.kill(os.getpid(), signal.SIGKILL)\n"
+      "import os, signal\nos.kill(os.getpid(), signal.SIGKILL)\n",
     );
 
     const pdfBuffer = await readFile(pdfPath);
-    
-    await expect(
-      extractPdf(pdfBuffer, { scriptPathOverride: scriptPath })
-    ).rejects.toThrow(/PDF extractor exited with code/);
+
+    await expect(extractPdf(pdfBuffer, { scriptPathOverride: scriptPath })).rejects.toThrow(
+      /PDF extractor exited with code/,
+    );
   });
 });

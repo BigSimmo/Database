@@ -86,7 +86,7 @@ describe("proxy auth session refresh", () => {
   it("propagates custom response headers during cookie setAll", async () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://mock.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "mock-key";
-    
+
     // Setup the mock to trigger setAll when getClaims is called
     let capturedOptions: any;
     vi.mocked(ssr.createServerClient).mockImplementationOnce((url, key, options: any) => {
@@ -94,12 +94,12 @@ describe("proxy auth session refresh", () => {
       return {
         auth: {
           getClaims: async () => {
-            options.cookies.setAll(
-              [{ name: "sb-mock", value: "token", options: {} }],
-              { "x-custom-security": "enabled", "x-other-header": "value" }
-            );
-          }
-        }
+            options.cookies.setAll([{ name: "sb-mock", value: "token", options: {} }], {
+              "x-custom-security": "enabled",
+              "x-other-header": "value",
+            });
+          },
+        },
       } as any;
     });
 
