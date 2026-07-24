@@ -180,9 +180,11 @@ function FormulationResults({ query }: { query: string }) {
   const deferredQuery = useDeferredValue(query);
   const rankingReady = deferredQuery === query;
   const results = useMemo(() => {
+    // Cleared live query should restore the full browse catalogue immediately.
+    if (!query.trim()) return searchFormulationMechanisms("", { domain });
     // Empty deferred while live query has text would score every mechanism —
     // treat that lag as "no results yet" instead of dumping the full catalogue.
-    if (!deferredQuery.trim() && query.trim()) return [];
+    if (!deferredQuery.trim()) return [];
     return searchFormulationMechanisms(deferredQuery, { domain });
   }, [domain, deferredQuery, query]);
 

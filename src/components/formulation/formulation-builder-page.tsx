@@ -222,8 +222,12 @@ export function FormulationBuilderPage({
     [selectedIds],
   );
   const visibleMechanisms = useMemo(() => {
+    // Cleared live query should restore the full browse catalogue immediately.
+    if (!query.trim()) {
+      return searchFormulationMechanisms("", { domain }).map((result) => result.mechanism);
+    }
     // Empty deferred while live query has text would score every mechanism.
-    if (!deferredQuery.trim() && query.trim()) return [];
+    if (!deferredQuery.trim()) return [];
     return searchFormulationMechanisms(deferredQuery, { domain }).map((result) => result.mechanism);
   }, [domain, deferredQuery, query]);
   const activeSections = formulationSectionsForTemplate(templateId);
