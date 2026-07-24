@@ -28,7 +28,18 @@ describe("favourites auth gate", () => {
     expect(sidebar).toContain("Your library");
     expect(sidebar).toContain('aria-label="Your library"');
     expect(sidebar).toContain("showAccountLibrary");
+    const primarySidebarToolIdsInitializer = sidebar.match(
+      /const primarySidebarToolIds = new Set<[^>]+>\(\[([\s\S]*?)\]\);/,
+    )?.[1];
+    expect(primarySidebarToolIdsInitializer).toBeDefined();
+    expect(primarySidebarToolIdsInitializer).toContain('"therapy-compass"');
     expect(sidebar).not.toMatch(/const sidebarToolItems = \[[\s\S]*\{ id: "favourites", label: "Favourites"/);
+    expect(primarySidebarToolIdsInitializer).not.toContain('"differentials"');
+    expect(primarySidebarToolIdsInitializer).not.toContain('"dsm"');
+    expect(primarySidebarToolIdsInitializer).not.toContain('"specifiers"');
+    expect(primarySidebarToolIdsInitializer).not.toContain('"formulation"');
+    expect(primarySidebarToolIdsInitializer).not.toContain('"prescribing"');
+    expect(primarySidebarToolIdsInitializer).not.toContain('"factsheets"');
 
     expect(shell).toContain("showAccountLibrary={favouritesAccessible}");
     expect(shell).toContain("canAccessFavourites={favouritesAccessible}");

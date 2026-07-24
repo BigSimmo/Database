@@ -1022,7 +1022,9 @@ export async function POST(request: Request) {
       const failurePayload = {
         results: [],
         telemetry: {
-          query_class: classifyRagQuery(error.message).queryClass,
+          query_class: fallbackBody
+            ? classifyRagQuery(fallbackBody.query).queryClass
+            : classifyRagQuery(error.message).queryClass,
           retrieval_strategy: null,
           failure_code: code,
         },
@@ -1031,7 +1033,7 @@ export async function POST(request: Request) {
         logSearchObservation({
           supabase,
           ownerId,
-          query: "unknown",
+          query: fallbackBody?.query ?? "unknown",
           results: [],
           payload: failurePayload,
           failure: {

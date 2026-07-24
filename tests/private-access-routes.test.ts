@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const userId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -268,6 +268,64 @@ function createSupabaseMock(resolve: QueryResolver = defaultQueryResolver) {
         ],
         error: null,
       };
+    }
+    if (name === "create_uploaded_document_with_ingestion_job") {
+      const document = (args?.p_document ?? {}) as Record<string, unknown>;
+      const documentCall: QueryCall = {
+        table: "documents",
+        operation: "insert",
+        orFilters: [],
+        filters: [],
+        inFilters: [],
+        overlapsFilters: [],
+        insertPayload: document,
+        maybeSingle: false,
+        single: true,
+      };
+      calls.push(documentCall);
+      const documentResult = resolveWithDefaultScope(documentCall);
+      if (documentResult.error) return documentResult;
+
+      const insertedDocument = {
+        ...document,
+        ...(typeof documentResult.data === "object" && documentResult.data ? documentResult.data : {}),
+        status: "queued",
+        page_count: 0,
+        chunk_count: 0,
+        image_count: 0,
+        created_at: "2026-07-24T00:00:00.000Z",
+      };
+      const jobPayload = {
+        document_id: document.id,
+        batch_id: null,
+        status: "pending",
+        stage: "queued",
+        progress: 0,
+        max_attempts: args?.p_max_attempts,
+      };
+      const jobCall: QueryCall = {
+        table: "ingestion_jobs",
+        operation: "insert",
+        orFilters: [],
+        filters: [],
+        inFilters: [],
+        overlapsFilters: [],
+        insertPayload: jobPayload,
+        maybeSingle: false,
+        single: true,
+      };
+      calls.push(jobCall);
+      const jobResult = resolveWithDefaultScope(jobCall);
+      if (jobResult.error) return jobResult;
+
+      return ok({
+        document: insertedDocument,
+        job: {
+          id: "job-1",
+          ...jobPayload,
+          ...(typeof jobResult.data === "object" && jobResult.data ? jobResult.data : {}),
+        },
+      });
     }
     return ok([]);
   });
@@ -1438,7 +1496,7 @@ describe("private document API access", () => {
     expect(client.storageMocks.upload).toHaveBeenCalledTimes(1);
   });
 
-  it("cleans up document and storage when aborted after document insert", async () => {
+  it("cleans up document and storage when aborted after the atomic upload enqueue", async () => {
     const controller = new AbortController();
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "select" && call.maybeSingle) return ok(null);
@@ -1459,7 +1517,7 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(499);
     expect(client.calls.filter((call) => call.table === "documents" && call.operation === "insert")).toHaveLength(1);
-    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
+    expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(true);
     expect(client.calls.filter((call) => call.table === "documents" && call.operation === "delete")).toHaveLength(1);
     expect(client.storageMocks.remove).toHaveBeenCalledTimes(1);
   });
@@ -2740,24 +2798,18 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(500);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
-    expect(
-      client.calls.some(
-        (call) =>
-          call.table === "documents" &&
-          call.operation === "delete" &&
-          call.filters.some((filter) => filter.column === "id" && typeof filter.value === "string") &&
-          call.filters.some((filter) => filter.column === "owner_id" && filter.value === userId),
-      ),
-    ).toBe(true);
+    expect(client.calls.some((call) => call.table === "documents" && call.operation === "delete")).toBe(false);
   });
 
-  it("still runs catch cleanup when upload cleanup calls return non-throwing errors", async () => {
+  it("still runs catch cleanup when post-enqueue cleanup calls return non-throwing errors", async () => {
+    const controller = new AbortController();
     const client = createSupabaseMock((call) => {
       if (call.table === "documents" && call.operation === "insert") {
         return ok({ id: documentId });
       }
       if (call.table === "ingestion_jobs" && call.operation === "insert") {
-        return fail("job insert failed");
+        controller.abort();
+        return ok({ id: "job-1", document_id: documentId });
       }
       if (call.table === "documents" && call.operation === "delete") {
         return fail("document cleanup returned error");
@@ -2777,13 +2829,14 @@ describe("private document API access", () => {
       authenticatedRequest("/api/upload", {
         method: "POST",
         body: formData,
+        signal: controller.signal,
       }),
     );
     const uploadPath = client.storageMocks.upload.mock.calls[0]?.[0] as string;
     const documentDeletes = client.calls.filter((call) => call.table === "documents" && call.operation === "delete");
 
-    expect(response.status).toBe(500);
-    expect(documentDeletes.length).toBeGreaterThanOrEqual(2);
+    expect(response.status).toBe(499);
+    expect(documentDeletes).toHaveLength(1);
     expect(client.storageMocks.remove).toHaveBeenCalledWith([uploadPath]);
   });
 
@@ -3921,6 +3974,45 @@ describe("private document API access", () => {
     expect(searchChunksWithTelemetry).not.toHaveBeenCalled();
   });
 
+  it("logs failed search telemetry against the parsed query instead of an unknown placeholder", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const searchChunksWithTelemetry = vi.fn(async () => ({
+      results: [],
+      telemetry: { retrieval_strategy: "text_fast_path" },
+    }));
+    const client = createSupabaseMock((call) =>
+      call.table === "documents" && call.operation === "select" ? fail("Unregistered API key") : ok([]),
+    );
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const { POST } = await import("../src/app/api/search/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/search", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Clozapine monitoring",
+          includeRelatedDocuments: false,
+          filters: { sourceStatuses: ["current"] },
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(500);
+    await vi.waitFor(() => {
+      const insert = client.calls.find((call) => call.table === "rag_queries" && call.operation === "insert");
+      expect(insert).toBeTruthy();
+      const payload = insert?.insertPayload as Record<string, unknown>;
+      const expectedHash = createHmac("sha256", "test-query-hash-secret-at-least-16-chars")
+        .update("clozapine monitoring")
+        .digest("hex");
+      const unknownHash = createHmac("sha256", "test-query-hash-secret-at-least-16-chars")
+        .update("unknown")
+        .digest("hex");
+      expect(payload.query).toBe(`redacted-query:${expectedHash}`);
+      expect(payload.query).not.toBe(`redacted-query:${unknownHash}`);
+    });
+  });
+
   it("falls back to visible demo answers only outside production when Supabase rejects the API key", async () => {
     const answerQuestionWithScope = vi.fn(async () => ({
       answer: "Live answer",
@@ -4391,6 +4483,32 @@ describe("private document API access", () => {
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
+  it("rejects streamed document summaries with conflicting documentIds before provider work", async () => {
+    const summarizeDocument = vi.fn();
+    const answerQuestionWithScope = vi.fn();
+    const client = createSupabaseMock();
+    mockRuntime(client, { summarizeDocument, answerQuestionWithScope });
+    const { POST } = await import("../src/app/api/answer/stream/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer/stream", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          documentIds: [otherDocumentId],
+          summaryMode: true,
+        }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(payload(response)).resolves.toMatchObject({ error: "Invalid answer request." });
+    expect(client.rpc).not.toHaveBeenCalled();
+    expect(summarizeDocument).not.toHaveBeenCalled();
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
+  });
+
   it("rate limits streamed document summaries before provider work", async () => {
     const summarizeDocument = vi.fn(async () => ({
       answer: "Expensive streamed summary.",
@@ -4801,6 +4919,70 @@ describe("private document API access", () => {
       expect.objectContaining({ code: "outdated_source", severity: "danger" }),
     ]);
     expectFeedbackTokenBoundToAnswer(body);
+  });
+
+<<<<<<< ours
+  it("runs non-stream document summaries through the governed summary path", async () => {
+    const answerQuestionWithScope = vi.fn();
+    const summarizeDocument = vi.fn(async () => ({
+      answer: "Full non-stream document summary.",
+      grounded: true,
+      confidence: "high",
+      citations: [],
+      sources: [],
+    }));
+=======
+  it("rejects non-stream document summaries before RAG/provider work", async () => {
+    const answerQuestionWithScope = vi.fn();
+    const summarizeDocument = vi.fn();
+>>>>>>> theirs
+    const client = createSupabaseMock();
+    mockRuntime(client, { answerQuestionWithScope, summarizeDocument });
+    const { POST } = await import("../src/app/api/answer/route");
+
+    const response = await POST(
+      authenticatedRequest("/api/answer", {
+        method: "POST",
+        body: JSON.stringify({
+          query: "Summarize this document for practical clinical use.",
+          documentId,
+          summaryMode: true,
+        }),
+      }),
+    );
+<<<<<<< ours
+    const body = await payload(response);
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      answer: "Full non-stream document summary.",
+      interactionId: expect.any(String),
+      feedbackToken: expect.any(String),
+    });
+    expect(summarizeDocument).toHaveBeenCalledWith(documentId, userId, {
+      signal: expect.any(AbortSignal),
+    });
+    expect(client.rpc).toHaveBeenCalledTimes(1);
+    expect(client.rpc).toHaveBeenCalledWith(
+      "consume_summary_rate_limits_atomic",
+      expect.objectContaining({
+        p_owner_id: userId,
+        p_subject_key: null,
+        p_answer_limit: 30,
+        p_summary_limit: 12,
+      }),
+    );
+=======
+
+    expect(response.status).toBe(400);
+    await expect(payload(response)).resolves.toMatchObject({
+      error: "Document summaries require the streaming answer endpoint.",
+      code: "summary_mode_stream_required",
+    });
+    expect(client.rpc).not.toHaveBeenCalled();
+    expect(summarizeDocument).not.toHaveBeenCalled();
+>>>>>>> theirs
+    expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 
   it("rate limits document summarization before OpenAI work", async () => {

@@ -51,6 +51,7 @@ export async function POST(request: Request) {
       documentIds: documents.map((document) => document.id),
       action: "Bulk reindex",
       checkActiveJobs: true,
+      checkActiveAgentEnrichmentJobs: parsed.mode !== "enrichment",
       staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
     });
     if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });

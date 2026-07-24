@@ -8,26 +8,21 @@ vi.mock("@/components/clinical-dashboard/use-saved-registry-favourites", () => (
 }));
 
 describe("FavouritesHub unavailable controls", () => {
-  it("keeps unavailable actions focusable and exposes their reasons", () => {
+  it("keeps unavailable actions natively disabled and exposes their reasons", () => {
     render(<FavouritesHub query="" onClearQuery={() => undefined} demoMode={false} />);
 
     const recent = screen.getByRole("button", { name: "Recent" });
     const add = screen.getByRole("button", { name: /Add favourite/ });
     const newSet = screen.getByRole("button", { name: "New set" });
 
-    expect(recent).toBeEnabled();
-    expect(recent).toHaveAttribute("aria-disabled", "true");
+    expect(recent).toBeDisabled();
+    expect(recent).not.toHaveAttribute("aria-disabled");
     expect(recent).toHaveAccessibleDescription("Additional sort options are coming soon.");
-    expect(add).toBeEnabled();
-    expect(add).toHaveAttribute("aria-disabled", "true");
+    expect(add).toBeDisabled();
+    expect(add).not.toHaveAttribute("aria-disabled");
     expect(add).toHaveAccessibleDescription("Adding favourites from this screen is coming soon.");
-    expect(newSet).toBeEnabled();
-    expect(newSet).toHaveAttribute("aria-disabled", "true");
+    expect(newSet).toBeDisabled();
+    expect(newSet).not.toHaveAttribute("aria-disabled");
     expect(newSet).toHaveAccessibleDescription("Creating favourite sets is coming soon.");
-
-    for (const control of [recent, add, newSet]) {
-      control.focus();
-      expect(document.activeElement).toBe(control);
-    }
   });
 });

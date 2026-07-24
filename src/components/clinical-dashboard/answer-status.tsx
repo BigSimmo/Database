@@ -162,9 +162,24 @@ export function AnswerProgressStepper({
   active: boolean;
   onStop: () => void;
 }) {
+<<<<<<< ours
+<<<<<<< ours
   const [now, setNow] = useState(() => Date.now());
   const latest = events.at(-1) ?? null;
   const finished = latest?.stage === "complete";
+=======
+=======
+>>>>>>> theirs
+  const latest = events.at(-1) ?? null;
+  const finished = latest?.stage === "complete";
+  const now = useClientTime({
+    fallback: startedAt ?? 0,
+    updateInterval: active && !finished && startedAt ? 1_000 : undefined,
+  });
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
   const currentStep = latest ? answerProgressStepIndex(latest.stage) : 0;
 
   useEffect(() => {

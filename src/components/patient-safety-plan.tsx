@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { NavigationBackButton } from "@/components/navigation-back-button";
 import {
   cn,
   clinicalDivider,
@@ -526,7 +527,8 @@ export function PatientSafetyPlan() {
       {/* Tool header */}
       <header className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-8">
-          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
+          <div className="grid grid-cols-[auto_auto_minmax(0,1fr)] items-start gap-3">
+            <NavigationBackButton className="size-tap" fallbackHref="/" />
             <span className="grid size-tap shrink-0 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
               <ShieldCheck className="size-icon-lg" aria-hidden="true" />
             </span>

@@ -41,6 +41,7 @@ import {
   toneWarning,
 } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
+import { compactBestUseTitle } from "@/lib/compact-best-use-title";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 import {
   serviceNavigatorQuery,
@@ -64,6 +65,10 @@ function displayText(value: string | null | undefined, fallback = missingText) {
   return hasText(value) ? value.trim() : fallback;
 }
 
+function bestUseCardTitle(bestUse: string | null | undefined) {
+  return hasText(bestUse) ? compactBestUseTitle(bestUse) : "Assess service fit";
+}
+
 function chipToneClass(tone: ServiceStatusChip["tone"] | undefined | null) {
   if (tone === "danger") return toneDanger;
   if (tone === "info") return toneInfo;
@@ -77,7 +82,7 @@ function renderSummaryIcon(card: ServiceSummaryCard) {
   if (card.id === "route") return <Navigation className={className} aria-hidden />;
   if (card.id === "eligibility") return <Users className={className} aria-hidden />;
   if (card.id === "cost") return <BadgeDollarSign className={className} aria-hidden />;
-  if (card.id === "confidence" || card.id === "confirm") return <ShieldCheck className={className} aria-hidden />;
+  if (card.id === "confidence" || card.id === "best-use") return <ShieldCheck className={className} aria-hidden />;
   return <Info className={className} aria-hidden />;
 }
 
@@ -149,10 +154,18 @@ function summaryCardsFor(service: ServiceRecord): ServiceSummaryCard[] {
     { id: "eligibility", label: "Eligibility", title: displayText(service.eligibility), detail: "Referral fit" },
     { id: "cost", label: "Cost", title: displayText(service.cost), detail: "Funding detail" },
     {
-      id: "confirm",
-      label: "Confirm",
-      title: service.verification?.confidence ?? "Unknown",
-      detail: service.source?.status ?? "Source status unknown",
+      id: "best-use",
+      label: "Best use",
+<<<<<<< ours
+<<<<<<< ours
+      title: displayText(service.bestUse, "Assess service fit"),
+=======
+      title: bestUseCardTitle(service.bestUse),
+>>>>>>> theirs
+=======
+      title: bestUseCardTitle(service.bestUse),
+>>>>>>> theirs
+      detail: "Clinical fit and referral priority",
     },
   ];
 }
@@ -439,11 +452,19 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
       title: displayText(service.route),
       detail: displayText(primaryContact?.detail, "Primary route"),
     },
-    {
-      id: "confirm",
-      label: "Confirm",
-      title: verified ? "Verified source" : "Confirm before use",
-      detail: verified ? "Local details checked" : "Confirm locally before use",
+    summaryCardById.get("best-use") ?? {
+      id: "best-use",
+      label: "Best use",
+<<<<<<< ours
+<<<<<<< ours
+      title: displayText(service.bestUse, "Assess service fit"),
+=======
+      title: bestUseCardTitle(service.bestUse),
+>>>>>>> theirs
+=======
+      title: bestUseCardTitle(service.bestUse),
+>>>>>>> theirs
+      detail: "Clinical fit and referral priority",
     },
     summaryCardById.get("eligibility") ?? {
       id: "eligibility",

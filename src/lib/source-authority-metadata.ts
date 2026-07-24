@@ -266,6 +266,25 @@ export function auditSourceAuthorityDocuments(documents: SourceAuthorityDocument
   const proposedCorrections = analyses.filter(
     ({ analysis }) => !analysis.unresolvedConflict && analysis.changedKeys.length > 0,
   );
+  const designationCounts = analyses.reduce<Record<string, number>>(
+    (counts, { document, analysis }) => {
+      const metadata = analysis.changes.publisher_code
+        ? { ...metadataRecord(document.metadata), publisher_code: analysis.changes.publisher_code }
+        : document.metadata;
+      const designation =
+        analysis.excludedReason === "registry_record" ? "unclassified" : classifySourceAuthority(metadata).designation;
+      counts[designation] = (counts[designation] ?? 0) + 1;
+      return counts;
+    },
+    { official: 0, trusted: 0, unclassified: 0 },
+  );
+  const unclassifiedSamples = analyses
+    .filter(
+      ({ document, analysis }) =>
+        analysis.excludedReason === "registry_record" ||
+        classifySourceAuthority(document.metadata).designation === "unclassified",
+    )
+    .slice(0, 20);
   const conflictReasonCounts = conflicts.reduce<Record<string, number>>((counts, { analysis }) => {
     for (const conflict of analysis.conflicts) counts[conflict] = (counts[conflict] ?? 0) + 1;
     return counts;
@@ -277,6 +296,8 @@ export function auditSourceAuthorityDocuments(documents: SourceAuthorityDocument
     australian_authority_candidates: australianCandidates.length,
     international_authority_documents: recognized.length - australianCandidates.length,
     excluded_registry_record_count: excludedRegistryRecords.length,
+    designation_counts: designationCounts,
+    unclassified_sample_count: unclassifiedSamples.length,
     authority_conflict_count: conflicts.length,
     authority_conflict_reason_counts: Object.fromEntries(
       Object.entries(conflictReasonCounts).sort(([left], [right]) => left.localeCompare(right)),
@@ -285,6 +306,9 @@ export function auditSourceAuthorityDocuments(documents: SourceAuthorityDocument
     missing_australian_locality_count: missingLocality.length,
     proposed_locality_correction_count: proposedCorrections.length,
     passed: conflicts.length === 0 && missingLocality.length === 0,
+    unclassified_samples: unclassifiedSamples.map(({ document, analysis }) =>
+      compactAuthorityDocument(document, analysis),
+    ),
     conflicts: conflicts.map(({ document, analysis }) => ({
       ...compactAuthorityDocument(document, analysis),
       conflicts: analysis.conflicts,

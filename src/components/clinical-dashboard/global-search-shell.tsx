@@ -354,7 +354,7 @@ function GlobalStandaloneSearchShellClient({
   // keep the full reserve so content does not slide under a still-visible dock.
   // Safari's bottom safe-area inset includes its translucent browser toolbar.
   // Reusing that inset after the app composer hides recreates a toolbar-sized
-  // blank band, so the hidden state intentionally keeps only a small content
+  // blank band, so the hidden state intentionally keeps no artificial content
   // pad. Interactive composer chrome still receives the full inset above.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
@@ -677,36 +677,7 @@ function GlobalStandaloneSearchShellClient({
                   ? "back"
                   : "menu"
             }
-            onMobileBack={() => {
-              if (isInfoPage) {
-                if (pathname.startsWith("/services/")) {
-                  router.push("/services");
-                } else if (pathname.startsWith("/forms/")) {
-                  router.push("/forms");
-                } else if (pathname.startsWith("/medications/")) {
-                  router.push("/?mode=prescribing");
-                } else if (pathname.startsWith("/differentials/")) {
-                  router.push("/differentials");
-                } else if (pathname.startsWith("/dsm/")) {
-                  router.push("/dsm");
-                } else if (pathname.startsWith("/specifiers/")) {
-                  router.push("/specifiers");
-                } else if (pathname.startsWith("/formulation/")) {
-                  router.push("/formulation");
-                } else if (pathname.startsWith("/therapy-compass/")) {
-                  router.push("/therapy-compass");
-                } else if (pathname.startsWith("/factsheets/")) {
-                  router.push("/factsheets");
-                } else if (pathname.startsWith("/documents/")) {
-                  router.push("/documents/search");
-                } else {
-                  router.back();
-                }
-              } else {
-                setQuery("");
-                navigateToMode(searchMode, { focus: true });
-              }
-            }}
+            onMobileBack={() => router.back()}
             queryModeOptions={mockupQueryModeOptions}
             queryInputRef={inputRef}
             recentQueries={recentQueries}

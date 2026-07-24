@@ -112,6 +112,17 @@ function metadataStringArray(metadata: Record<string, unknown>, key: string) {
   return items.length ? items : null;
 }
 
+function metadataNumber(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : NaN;
+  return Number.isFinite(number) ? number : null;
+}
+
+function metadataBoolean(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "boolean" ? value : null;
+}
+
 function withImageTableMetadata<T extends { metadata?: unknown }>(image: T) {
   const metadata = safeMetadata(image.metadata);
   const rawTableText = metadataText(metadata, "table_text");
@@ -129,6 +140,14 @@ function withImageTableMetadata<T extends { metadata?: unknown }>(image: T) {
     accessibleTableMarkdown: metadataText(metadata, "accessible_table_markdown") ?? rawTableText,
     tableRows: metadataStringArrayRows(metadata, "table_rows"),
     tableColumns: metadataStringArray(metadata, "table_columns"),
+    rowCount: metadataNumber(metadata, "row_count"),
+    rowsTruncated: metadataBoolean(metadata, "rows_truncated"),
+    columnCount: metadataNumber(metadata, "column_count"),
+    cropCompleteness: metadataNumber(metadata, "crop_completeness"),
+    imageQualityScore: metadataNumber(metadata, "image_quality_score"),
+    ocrTextDensity: metadataNumber(metadata, "ocr_text_density"),
+    structuredExtractionConfidence: metadataNumber(metadata, "structured_extraction_confidence"),
+    retainedForDocumentView: metadataBoolean(metadata, "retained_for_document_view"),
   };
 }
 

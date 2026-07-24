@@ -121,7 +121,7 @@ describe("PDF extraction budgets", () => {
     );
 
     await expect(
-      runPythonPdfExtractor(inputPath, outputDir, { ...PDF_EXTRACTION_BUDGET, totalTimeoutMs: 1_000 }, fakeExtractor),
+      runPythonPdfExtractor(inputPath, outputDir, { ...PDF_EXTRACTION_BUDGET, totalTimeoutMs: 3_000 }, fakeExtractor),
     ).rejects.toMatchObject({ code: "PDF_EXTRACTION_DEADLINE_EXCEEDED" });
 
     const childPid = Number(await readFile(childPidPath, "utf8"));
@@ -131,6 +131,13 @@ describe("PDF extraction budgets", () => {
     while (Date.now() < deadline) {
       try {
         process.kill(childPid, 0);
+        if (process.platform === "linux") {
+          const stat = await readFile(`/proc/${childPid}/stat`, "utf8").catch(() => "");
+          if (stat.split(" ")[2] === "Z") {
+            childIsAlive = false;
+            break;
+          }
+        }
         await new Promise((resolve) => setTimeout(resolve, 25));
       } catch {
         childIsAlive = false;

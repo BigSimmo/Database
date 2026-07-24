@@ -317,7 +317,7 @@ export function FavouritesHub({
         <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 sm:flex sm:justify-end">
           <button
             type="button"
-            aria-disabled="true"
+            disabled
             aria-describedby="favourites-sort-unavailable"
             className={cn(
               floatingControl,
@@ -332,7 +332,7 @@ export function FavouritesHub({
           </span>
           <button
             type="button"
-            aria-disabled="true"
+            disabled
             aria-describedby="favourites-add-unavailable"
             className={cn(
               primaryControl,
@@ -464,7 +464,7 @@ export function FavouritesHub({
             </div>
             <button
               type="button"
-              aria-disabled="true"
+              disabled
               aria-describedby="favourites-new-set-unavailable"
               className={cn(
                 floatingControl,

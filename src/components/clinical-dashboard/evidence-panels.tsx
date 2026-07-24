@@ -575,6 +575,40 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
 }
 
 /**
+<<<<<<< ours
+=======
+ * Align clinical-notes inputs with the fail-closed render model: when an answer
+ * is not explicitly source-backed, strip structured clinical payloads so the
+ * notes sheet cannot reconstruct actionable monitoring/escalation/comparison
+ * content from untrusted sections, quotes, or documentBreakdown (visual
+ * evidence is passed separately).
+ */
+function trustGatedAnswerForClinicalNotes(
+  answer: RagAnswer,
+  visualEvidence: VisualEvidenceCard[] = answer.visualEvidence ?? [],
+): RagAnswer {
+  if (isAnswerSourceBacked(answer)) {
+    return {
+      ...answer,
+      visualEvidence,
+      smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence } : answer.smartPanel,
+    };
+  }
+  return {
+    ...answer,
+    answer: "",
+    answerSections: [],
+    quoteCards: [],
+    documentBreakdown: [],
+    comparisonMatrix: undefined,
+    comparisonEvaluationState: undefined,
+    visualEvidence,
+    smartPanel: answer.smartPanel ? { ...answer.smartPanel, visualEvidence, quotes: [] } : answer.smartPanel,
+  };
+}
+
+/**
+>>>>>>> theirs
  * Builds the non-empty clinical detail sections used by the clinical notes view.
  *
  * @param answer - The answer from which to derive clinical detail sections.

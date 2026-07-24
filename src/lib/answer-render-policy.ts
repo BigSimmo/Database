@@ -142,7 +142,7 @@ function answerRelevance(answer: RagAnswer): EvidenceRelevance | undefined {
 function deriveTrust(answer: RagAnswer): AnswerRenderTrust {
   const relevance = answerRelevance(answer);
   const retrievalBlocked = answer.retrievalDiagnostics?.gateStatus === "blocked";
-  const sourceBacked = relevance?.isSourceBacked !== false;
+  const sourceBacked = relevance?.isSourceBacked === true;
   const hasFaithfulnessWarning = Boolean(answer.faithfulnessWarning || answer.unverifiedNumericTokens?.length);
   const evidenceGap = answer.responseMode === "evidence_gap";
 

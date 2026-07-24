@@ -1,5 +1,6 @@
 import type { CatalogService } from "@/lib/service-catalog";
 import { catalogServiceSlug, extractEmails, extractPhones, splitReferralLines } from "@/lib/service-catalog";
+import { compactBestUseTitle } from "@/lib/compact-best-use-title";
 import type {
   ServiceChipTone,
   ServiceContact,
@@ -170,12 +171,34 @@ function buildSummaryCards(service: CatalogService): ServiceSummaryCard[] {
     });
   }
 
-  if (service.confidence || service.verification_flags.length > 0) {
+  const bestUse = cleanField(service.best_use_indication) ?? cleanField(service.discharge_planning_usefulness);
+  if (bestUse) {
+<<<<<<< ours
+<<<<<<< ours
     cards.push({
-      id: "confirm",
-      label: "Confirm",
-      title: service.verification_flags[0] ?? `${service.confidence} confidence`,
-      detail: "Verify locally before clinical use",
+      id: "best-use",
+      label: "Best use",
+      title: bestUse,
+      detail: cleanField(service.patient_group) ?? cleanField(service.sections[0]) ?? "Clinical fit and referral priority",
+=======
+    const title = compactBestUseTitle(bestUse);
+    cards.push({
+      id: "best-use",
+      label: "Best use",
+=======
+    const title = compactBestUseTitle(bestUse);
+    cards.push({
+      id: "best-use",
+      label: "Best use",
+>>>>>>> theirs
+      title,
+      detail:
+        compactBestUseTitle(cleanField(service.patient_group) ?? cleanField(service.sections[0]) ?? "") ||
+        (title === bestUse ? "Clinical fit and referral priority" : bestUse),
+<<<<<<< ours
+>>>>>>> theirs
+=======
+>>>>>>> theirs
     });
   }
 

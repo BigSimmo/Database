@@ -3073,7 +3073,6 @@ export function ClinicalDashboard({
   );
   const showAuthPanel = false;
   const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
-  const hasMobileBottomSearch = searchMode !== "answer";
   const submittedAnswerSearchActive =
     activeModeResultKind === "answer" && !answer && canRunSearch && (modeSearchSubmitted || Boolean(submittedUrlQuery));
   const showAnswerHome = activeModeResultKind === "answer" && !answer && !loading && !submittedAnswerSearchActive;
@@ -3102,6 +3101,9 @@ export function ClinicalDashboard({
           (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
           (activeModeResultKind === "differentials" && !modeSearchSubmitted))));
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
+  const heroComposerBreakpoint = showDesktopHomeComposer || showAnswerHome ? "all" : "sm-up";
+  const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
+  const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer;
   // Favourites and Tools are content-rich hubs: they share the centred hero but
   // stay top-aligned so their lists start in a stable position.
   const centeredModeHome =
@@ -3114,7 +3116,7 @@ export function ClinicalDashboard({
     ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
-  // Hidden dock pad must stay at 0.75rem — Safari toolbar safe-area recreates a blank band.
+  // Hidden dock pad must stay at 0rem — Safari toolbar safe-area recreates a blank band.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
     resolveDashboardVisibleMobileComposerReserve({
@@ -3400,10 +3402,10 @@ export function ClinicalDashboard({
             differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
-          // Only the answer home ("How can I help?") keeps the in-flow hero
-          // pill + privacy notice on phones; every other mode home docks the
-          // compact pill to the bottom edge below sm.
-          heroComposerBreakpoint={showAnswerHome ? "all" : "sm-up"}
+          // Mode homes keep the composer in the centred hero slot at every
+          // breakpoint so documents, therapy, and the other homes share the
+          // same phone/tablet structure instead of switching to a bottom dock.
+          heroComposerBreakpoint={heroComposerBreakpoint}
           // Answer view: the header overlays the scrolling <main> at every width
           // (main reserves matching top padding) so content frosts under the
           // glass bar, and it slides away/returns with scroll direction. Other

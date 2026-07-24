@@ -25,7 +25,8 @@ export type IngestionJobRow = {
   max_attempts: number | null;
 };
 
-export type IngestionMutationSafetyReason = "ready" | "supabase_unavailable" | "active_jobs" | "stale_processing_jobs";
+export type IngestionMutationSafetyReason =
+  "ready" | "supabase_unavailable" | "active_jobs" | "active_agent_enrichment" | "stale_processing_jobs";
 
 export type IngestionMutationSafetyResult =
   | {
@@ -64,7 +65,12 @@ function isStaleProcessingJob(job: IngestionJobRow, staleAfterMinutes: number, n
 export const activeIngestionJobColumns =
   "id,document_id,status,stage,locked_at,updated_at,error_message,attempt_count,max_attempts";
 
-function activeJobMessage(documentCount: number, staleCount: number) {
+function activeJobMessage(documentCount: number, staleCount: number, activeAgentEnrichmentCount = 0) {
+  if (activeAgentEnrichmentCount > 0) {
+    return documentCount === 1
+      ? "Document has an active agent-enrichment pass. Wait for it to finish before reindexing."
+      : "One or more selected documents have an active agent-enrichment pass. Wait for it to finish before reindexing.";
+  }
   if (staleCount > 0) {
     return staleCount === 1
       ? "A selected document has a stale processing ingestion job. Run queue recovery before reindexing."
@@ -85,14 +91,25 @@ export function buildActiveJobsSafetyResult(
   staleAfterMinutes: number,
   checkedAt: string,
   now: Date = new Date(),
+  reason: "active_jobs" | "active_agent_enrichment" = "active_jobs",
 ): Extract<IngestionMutationSafetyResult, { ok: false }> {
   const staleProcessingJobs = activeJobs.filter((job) => isStaleProcessingJob(job, staleAfterMinutes, now.getTime()));
+  const resolvedReason =
+    reason === "active_agent_enrichment"
+      ? "active_agent_enrichment"
+      : staleProcessingJobs.length > 0
+        ? "stale_processing_jobs"
+        : "active_jobs";
   return {
     ok: false,
     status: 409,
     checkedAt,
-    reason: staleProcessingJobs.length > 0 ? "stale_processing_jobs" : "active_jobs",
-    message: activeJobMessage(activeJobs.length, staleProcessingJobs.length),
+    reason: resolvedReason,
+    message: activeJobMessage(
+      activeJobs.length,
+      staleProcessingJobs.length,
+      resolvedReason === "active_agent_enrichment" ? activeJobs.length : 0,
+    ),
     activeJobs,
     staleProcessingJobs,
   };
@@ -163,6 +180,7 @@ export async function checkIngestionMutationSafety(args: {
   documentIds: string[];
   action: string;
   checkActiveJobs?: boolean;
+  checkActiveAgentEnrichmentJobs?: boolean;
   staleAfterMinutes: number;
   now?: Date;
 }): Promise<IngestionMutationSafetyResult> {
@@ -205,6 +223,41 @@ export async function checkIngestionMutationSafety(args: {
 
   if (activeJobs.length > 0) {
     return buildActiveJobsSafetyResult(activeJobs, args.staleAfterMinutes, health.checkedAt, args.now);
+  }
+
+  if (args.checkActiveAgentEnrichmentJobs) {
+    const nowMs = (args.now ?? new Date()).getTime();
+    const client = args.supabase as unknown as SupabaseClient;
+    const { data: agentJobs, error: agentError } = await client
+      .from("indexing_v3_agent_jobs")
+      .select("document_id,status,locked_at,updated_at")
+      .in("document_id", uniqueDocumentIds)
+      .eq("status", "processing");
+    if (agentError) throw new Error(agentError.message);
+
+    const activeAgentJobs = ((agentJobs ?? []) as AgentEnrichmentJobRow[])
+      .filter((job) => Boolean(job.document_id) && isActiveAgentEnrichmentJob(job, args.staleAfterMinutes, nowMs))
+      .map((job, index): IngestionJobRow => ({
+        id: `agent-enrichment:${job.document_id ?? index}`,
+        document_id: job.document_id,
+        status: job.status,
+        stage: "agent_enrichment",
+        locked_at: job.locked_at,
+        updated_at: job.updated_at,
+        error_message: null,
+        attempt_count: null,
+        max_attempts: null,
+      }));
+
+    if (activeAgentJobs.length > 0) {
+      return buildActiveJobsSafetyResult(
+        activeAgentJobs,
+        args.staleAfterMinutes,
+        health.checkedAt,
+        args.now,
+        "active_agent_enrichment",
+      );
+    }
   }
 
   return {

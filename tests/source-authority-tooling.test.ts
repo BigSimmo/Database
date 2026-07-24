@@ -9,6 +9,7 @@ import {
   isRegistryRecordSource,
   type SourceAuthorityDocument,
 } from "@/lib/source-authority-metadata";
+import { classifySourceAuthority } from "@/lib/source-authority-registry";
 import { parseBackfillSourceMetadataArgs, runLocalityOnlyBackfill } from "../scripts/backfill-source-metadata";
 
 function document(
@@ -253,6 +254,61 @@ describe("source authority metadata tooling", () => {
         publisher: "WA Country Health Service",
         jurisdiction: "Australia/WA",
       },
+    });
+  });
+
+  it("classifies source designation independently from currency and local validation", () => {
+    expect(
+      analyzeSourceLocality(
+        document({
+          file_name: "CAHS-clozapine.pdf",
+          metadata: {
+            publisher_code: "CAHS",
+            publisher: "Child and Adolescent Health Service",
+            jurisdiction: "Australia/WA",
+          },
+        }),
+      ).authority,
+    ).toMatchObject({ designation: "official", officialBasis: "wa_health_service_network" });
+
+    expect(
+      classifySourceAuthority({
+        publisher_code: "EMHS",
+        publisher: "East Metropolitan Health Service",
+        jurisdiction: "Australia/WA",
+        document_status: "outdated",
+        clinical_validation_status: "unverified",
+        extraction_quality: "poor",
+      }),
+    ).toMatchObject({
+      designation: "official",
+      officialBasis: "wa_health_service_network",
+      tier: "supplementary",
+    });
+    expect(
+      classifySourceAuthority({
+        publisher_code: "WAHEALTH",
+        publisher: "WA Health",
+        jurisdiction: "Australia/WA",
+      }),
+    ).toMatchObject({ designation: "trusted", officialBasis: null });
+    expect(
+      classifySourceAuthority({
+        publisher_code: "CAMHS",
+        publisher: "Child and Adolescent Mental Health Service",
+        jurisdiction: "Australia/WA",
+      }),
+    ).toMatchObject({ designation: "trusted", officialBasis: null });
+    expect(classifySourceAuthority({ publisher_code: "BMJ" })).toMatchObject({ designation: "trusted" });
+    expect(classifySourceAuthority({ publisher: "BMJ Best Practice" })).toMatchObject({
+      designation: "unclassified",
+      reasonCodes: expect.arrayContaining(["publisher_alias_requires_jurisdiction"]),
+    });
+    expect(
+      classifySourceAuthority({ source_kind: "registry_record", publisher_code: "EMHS", jurisdiction: "Australia/WA" }),
+    ).toMatchObject({
+      designation: "unclassified",
+      reasonCodes: expect.arrayContaining(["registry_summary_identity"]),
     });
   });
 
