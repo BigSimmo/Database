@@ -2,6 +2,7 @@
 
 import { type FormEvent, type ReactNode, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   Bell,
   BookOpen,
   Check,
@@ -259,6 +260,17 @@ export function SettingsDialog({
     return () => window.cancelAnimationFrame(focusFrame);
   }, [emailEntryOpen]);
 
+  const backButton = (
+    <button
+      type="button"
+      onClick={onClose}
+      aria-label="Back from settings"
+      className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:h-10 lg:w-10 lg:border-transparent lg:bg-transparent lg:shadow-none"
+    >
+      <ArrowLeft aria-hidden="true" className="size-icon-lg" />
+    </button>
+  );
+
   const closeButton = (
     <button
       ref={closeButtonRef}
@@ -332,16 +344,19 @@ export function SettingsDialog({
           >
             <div className="edge-glass-header-backdrop lg:hidden" aria-hidden="true" />
             <div className="relative mx-auto flex w-full max-w-[520px] items-center justify-between gap-3 lg:max-w-none">
-              <div className="min-w-0">
-                <h2
-                  id="account-settings-title"
-                  className="truncate text-lg font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-2xl lg:leading-8"
-                >
-                  Account &amp; app
-                </h2>
-                <p className="mt-0.5 truncate text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                  Tune your workspace, clinical defaults, and privacy.
-                </p>
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                {backButton}
+                <div className="min-w-0">
+                  <h2
+                    id="account-settings-title"
+                    className="truncate text-lg font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-2xl lg:leading-8"
+                  >
+                    Account &amp; app
+                  </h2>
+                  <p className="mt-0.5 truncate text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                    Tune your workspace, clinical defaults, and privacy.
+                  </p>
+                </div>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <span className="hidden min-h-7 items-center rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-xs font-semibold leading-none text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] lg:inline-flex">
