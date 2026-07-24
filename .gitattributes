@@ -7,3 +7,7 @@
 *.pdf binary
 *.png binary
 *.webp binary
+
+# Review records are append-only. Concurrent branches should retain both sets
+# of rows instead of stopping on an add/add conflict at the shared table tail.
+docs/branch-review-ledger.md merge=union

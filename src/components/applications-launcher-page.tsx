@@ -3,7 +3,6 @@
 import Link from "next/link";
 import {
   Brain,
-  ChevronDown,
   ChevronRight,
   ClipboardCheck,
   ClipboardList,
@@ -126,7 +125,7 @@ const quickActionsBase = [
   { label: "Docs", desktopLabel: "Documents", icon: FileText, id: "documents" },
   { label: "Refer", desktopLabel: "Refer", icon: Users, id: "services" },
   { label: "Forms", desktopLabel: "Forms", icon: FileCheck2, id: "forms" },
-  { label: "More", desktopLabel: "More", icon: Sparkles, id: "favourites" },
+  { label: "Saved", desktopLabel: "Favourites", icon: Star, id: "favourites" },
 ] as const;
 
 const desktopFiltersBase: Array<{ id: LauncherFilter; label: string }> = [
@@ -138,12 +137,12 @@ const desktopFiltersBase: Array<{ id: LauncherFilter; label: string }> = [
   { id: "saved", label: "Saved" },
 ];
 
-const mobileFilters: Array<{ id: LauncherFilter; label: string; hasMenu?: boolean }> = [
+const mobileFilters: Array<{ id: LauncherFilter; label: string }> = [
   { id: "all", label: "All tools" },
   { id: "assessment", label: "Assess" },
   { id: "reference", label: "Evidence" },
   { id: "care", label: "Treat" },
-  { id: "more", label: "More", hasMenu: true },
+  { id: "more", label: "More" },
 ];
 
 /** Full catalog length (includes Favourites). Prefer session-filtered lists in UI. */
@@ -416,7 +415,6 @@ function FilterTabs({
               )}
             >
               {filter.label}
-              {filter.hasMenu ? <ChevronDown className="h-3 w-3" aria-hidden /> : null}
             </button>
           );
         })}
@@ -733,9 +731,13 @@ export function ApplicationsLauncherWorkspace({
   const filteredApps = useMemo(() => {
     return launcherApps.filter((app) => {
       const matchesFilter =
-        effectiveFilter === "all" ||
-        effectiveFilter === "more" ||
-        (effectiveFilter === "saved" ? app.area === "saved" : app.area === effectiveFilter);
+        effectiveFilter === "all"
+          ? true
+          : effectiveFilter === "more"
+            ? app.area === "coordination" || app.area === "saved"
+            : effectiveFilter === "saved"
+              ? app.area === "saved"
+              : app.area === effectiveFilter;
       const matchesQuery =
         !normalizedQuery ||
         [app.title, app.mobileTitle, app.description, app.bestFor, app.detail, areaLabels[app.area], ...app.keywords]
@@ -837,11 +839,9 @@ export function ApplicationsLauncherWorkspace({
               onFilterChange={setActiveFilter}
               canAccessFavourites={canAccessFavourites}
             />
-            <div className="hidden min-h-10 items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] px-3 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] lg:inline-flex">
-              Sort by
-              <span className="text-[color:var(--text-heading)]">A to Z</span>
-              <ChevronDown className="h-3.5 w-3.5" aria-hidden />
-            </div>
+            <p className="hidden min-h-10 items-center rounded-lg px-1 text-xs font-bold text-[color:var(--text-muted)] lg:inline-flex">
+              Sorted A to Z
+            </p>
           </div>
         </div>
 

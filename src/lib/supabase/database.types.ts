@@ -2402,6 +2402,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      request_ingestion_reindex_if_agent_idle: {
+        Args: {
+          p_document_id: string;
+          p_max_attempts: number;
+          p_owner_id: string;
+          p_stale_before: string;
+        };
+        Returns: Json;
+      };
       detect_legacy_ivfflat_indexes: { Args: never; Returns: string[] };
       document_label_metadata: {
         Args: { p_document_id: string };
