@@ -1,11 +1,11 @@
-import { describe, expect, it } from "vitest";
-
 /**
  * Regression lock for the shared `(search-app)` shell: pathname-only mode
- * switches (empty query string) must still update searchMode. The production
- * gate lives in global-search-shell; this unit covers the sync predicate the
- * effect uses so a params-only check cannot return unnoticed.
+ * switches (empty query string) must still update searchMode. Sync runs during
+ * render (not in an effect) so the composer does not paint one stale-mode frame.
+ * This unit covers the sync predicate so a params-only check cannot return unnoticed.
  */
+import { describe, expect, it } from "vitest";
+
 describe("shared search-shell URL sync predicate", () => {
   function shouldSyncUrlState(args: {
     lastSearchParams: string;

@@ -1,7 +1,7 @@
 ## Summary
 
 - Fix cross-mode search performance findings: prescribing catalogue debounce/abort/`fields=index`, differentials abort/debounce, universal documents typeahead soft-timeout (750ms), shared `(search-app)` shell to avoid composer remount, and Answer rate-limit in-memory fallback outside production.
-- Fix Bugbot regression: shared-shell pathname navigation (`/services` → `/dsm`) now syncs `searchMode` even when the query string is unchanged.
+- Fix Bugbot regressions: shared-shell pathname navigation (`/services` → `/dsm`) syncs `searchMode` during render (no stale-mode paint) even when the query string is unchanged; extracted ClinicalDashboard lazy imports to stay under the maintainability budget.
 
 RAG impact: no retrieval behaviour change — typeahead documents domain timeout and shell URL sync only; ranking formulas and full `/api/search` retrieval path unchanged.
 

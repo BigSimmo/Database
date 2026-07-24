@@ -273,9 +273,9 @@ function GlobalStandaloneSearchShellClient({
       ? requestedMode
       : initialSearchMode;
   const [query, setQuery] = useState(requestedQuery);
-  // The search string / pathname we last synced into local state, so the effect
-  // below only reacts to genuine navigations. Seeded with the current values so
-  // the initial mount is a no-op — the state above is already derived from the URL.
+  // The search string / pathname we last synced into local state, so the render
+  // sync below only reacts to genuine navigations. Seeded with the current values
+  // so the initial mount is a no-op — the state above is already derived from the URL.
   // Pathname must be tracked separately: with the shared `(search-app)` layout,
   // navigating /services → /dsm keeps an empty query string, and a params-only
   // gate would leave searchMode stuck on the previous mode.
@@ -371,21 +371,17 @@ function GlobalStandaloneSearchShellClient({
     }),
   );
 
-  useEffect(() => {
-    // Re-derive the mode and query from the URL, but only when the search string
-    // or pathname actually changes (a real navigation). Reacting on every render
-    // — as the old requestAnimationFrame sync effectively did — let a deferred
-    // frame land after a programmatic/user fill and wipe the controlled input; on
-    // slow CI WebKit that raced the forms-detail composer to empty (input
-    // focused-but-empty, submit stuck disabled). Typing never changes the URL, so
-    // a URL-gated sync cannot clobber in-progress input, and the initial mount is
-    // skipped entirely because the state above is already seeded from the URL.
-    // Pathname is required too: the shared `(search-app)` layout keeps this shell
-    // mounted across /services → /dsm style navigations that leave the query
-    // string empty, which must still update searchMode.
-    const searchParamsChanged = lastSyncedSearchParamsRef.current !== searchParamString;
-    const pathnameChanged = lastSyncedPathnameRef.current !== pathname;
-    if (!searchParamsChanged && !pathnameChanged) return;
+  // Re-derive mode/query from the URL when the search string or pathname changes
+  // (a real navigation). Do this during render — not in an effect — so the shared
+  // `(search-app)` shell does not paint one frame with a stale searchMode after
+  // pathname-only moves like /services → /dsm. React discards this render and
+  // immediately re-renders with the updated state (see "adjusting state when a
+  // prop changes"). Typing never changes the URL, so a URL-gated sync cannot
+  // clobber in-progress input; the initial mount is a no-op because the refs are
+  // seeded to the current URL and state is already derived from it.
+  const searchParamsChanged = lastSyncedSearchParamsRef.current !== searchParamString;
+  const pathnameChanged = lastSyncedPathnameRef.current !== pathname;
+  if (searchParamsChanged || pathnameChanged) {
     lastSyncedSearchParamsRef.current = searchParamString;
     lastSyncedPathnameRef.current = pathname;
     setSearchMode(resolvedSearchMode);
@@ -393,7 +389,7 @@ function GlobalStandaloneSearchShellClient({
     const nextSearchContext = readSearchNavigationContext(new URLSearchParams(searchParamString));
     setQueryMode(nextSearchContext.queryMode);
     setScopeFilters(nextSearchContext.scopeFilters);
-  }, [pathname, currentUrlHasQuery, requestedQuery, resolvedSearchMode, searchParamString]);
+  }
 
   useEffect(() => {
     if (!requestedFocus) return undefined;
