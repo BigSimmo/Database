@@ -153,7 +153,7 @@ describe("services snapshot client boundary", () => {
       offenders,
       "Client module graphs must not value-import @/lib/services: it compiles the full services " +
         "snapshot into their chunk. Compute what you need server-side and pass it as a prop " +
-        "(see src/app/services/page.tsx), or use `import type` for types only. Chains shown as " +
+        "(see src/app/(search-app)/services/page.tsx), or use `import type` for types only. Chains shown as " +
         "client entry -> ... -> importing module.",
     ).toEqual([]);
   });
