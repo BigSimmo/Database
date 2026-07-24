@@ -1302,7 +1302,6 @@ export function DocumentViewer({
           <div className="min-w-0 lg:col-span-2">
             <DocumentOverviewLanding
               document={readyDocument}
-              initialPage={activePage}
               signedUrl={signedUrl}
               pages={pages}
               pageHref={usefulPageHref}
