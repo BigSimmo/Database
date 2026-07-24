@@ -1,10 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
 
+const { TEST_PROJECT_REF, TEST_SESSION_COOKIE } = vi.hoisted(() => {
+  const TEST_PROJECT_REF = "testprojectref123";
+  return {
+    TEST_PROJECT_REF,
+    TEST_SESSION_COOKIE: `sb-${TEST_PROJECT_REF}-auth-token`,
+  };
+});
+
+// Synthetic project identity for cookie-name resolution. Do not use the live
+// project ref here — presence helpers derive `sb-<ref>-auth-token` from this URL.
 vi.mock("@/lib/env", () => ({
   env: {
-    NEXT_PUBLIC_SUPABASE_URL: "https://sjrfecxgysukkwxsowpy.supabase.co",
+    NEXT_PUBLIC_SUPABASE_URL: `https://${TEST_PROJECT_REF}.supabase.co`,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: undefined,
-    SUPABASE_PROJECT_REF: "sjrfecxgysukkwxsowpy",
+    SUPABASE_PROJECT_REF: TEST_PROJECT_REF,
   },
 }));
 
@@ -123,7 +133,7 @@ describe("optional authentication", () => {
     );
     const request = new Request("http://localhost/api/search", {
       headers: {
-        cookie: `sb-access-token=expired-legacy-token; sb-sjrfecxgysukkwxsowpy-auth-token=${currentSession}`,
+        cookie: `sb-access-token=expired-legacy-token; ${TEST_SESSION_COOKIE}=${currentSession}`,
       },
     });
 
@@ -160,6 +170,98 @@ describe("optional authentication", () => {
     });
     expect(client.auth.getUser).toHaveBeenCalledTimes(1);
     expect(client.auth.getUser).toHaveBeenCalledWith("valid-legacy-token");
+  });
+
+  it("falls through blank current session cookies to a valid legacy token", async () => {
+    const client = {
+      auth: {
+        getUser: vi.fn(async (token: string) =>
+          token === "valid-legacy-token"
+            ? { data: { user: { id: "user-1", app_metadata: {} } }, error: null }
+            : { data: { user: null }, error: { message: "Invalid token" } },
+        ),
+      },
+    };
+    const request = new Request("http://localhost/api/search", {
+      headers: {
+        cookie: `${TEST_SESSION_COOKIE}=; sb-access-token=valid-legacy-token`,
+      },
+    });
+
+    await expect(resolveOptionalAuthentication(request, client as never)).resolves.toMatchObject({
+      status: "valid",
+      user: { id: "user-1" },
+    });
+    expect(client.auth.getUser).toHaveBeenCalledTimes(1);
+    expect(client.auth.getUser).toHaveBeenCalledWith("valid-legacy-token");
+  });
+
+  it("falls through whitespace-only current chunk cookies to a valid legacy token", async () => {
+    const client = {
+      auth: {
+        getUser: vi.fn(async (token: string) =>
+          token === "valid-legacy-token"
+            ? { data: { user: { id: "user-1", app_metadata: {} } }, error: null }
+            : { data: { user: null }, error: { message: "Invalid token" } },
+        ),
+      },
+    };
+    const request = new Request("http://localhost/api/search", {
+      headers: {
+        cookie: `${TEST_SESSION_COOKIE}.0=%20; sb-access-token=valid-legacy-token`,
+      },
+    });
+
+    await expect(resolveOptionalAuthentication(request, client as never)).resolves.toMatchObject({
+      status: "valid",
+      user: { id: "user-1" },
+    });
+    expect(client.auth.getUser).toHaveBeenCalledWith("valid-legacy-token");
+  });
+
+  it("treats a blank legacy session cookie as absent credentials", async () => {
+    const client = authClient({ data: { user: null }, error: null });
+    const request = new Request("http://localhost/api/search", {
+      headers: { cookie: "sb-access-token=" },
+    });
+
+    await expect(resolveOptionalAuthentication(request, client as never)).resolves.toEqual({ status: "absent" });
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+    await expect(getOptionalAuthenticatedUser(request, client as never)).resolves.toBeNull();
+  });
+
+  it("treats a whitespace-only legacy session cookie as absent credentials", async () => {
+    const client = authClient({ data: { user: null }, error: null });
+    const request = new Request("http://localhost/api/search", {
+      headers: { cookie: "sb-access-token=%20" },
+    });
+
+    await expect(resolveOptionalAuthentication(request, client as never)).resolves.toEqual({ status: "absent" });
+    expect(client.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to legacy when a non-empty current session cookie is invalid", async () => {
+    const client = {
+      auth: {
+        getUser: vi.fn(async (token: string) =>
+          token === "valid-legacy-token"
+            ? { data: { user: { id: "user-1", app_metadata: {} } }, error: null }
+            : { data: { user: null }, error: { message: "Invalid token" } },
+        ),
+      },
+    };
+    const expiredCurrent = encodeURIComponent(
+      JSON.stringify({ access_token: "expired-current-token", refresh_token: "refresh-token", type: "bearer" }),
+    );
+    const request = new Request("http://localhost/api/search", {
+      headers: {
+        cookie: `sb-access-token=valid-legacy-token; ${TEST_SESSION_COOKIE}=${expiredCurrent}`,
+      },
+    });
+
+    await expect(resolveOptionalAuthentication(request, client as never)).resolves.toEqual({ status: "invalid" });
+    expect(client.auth.getUser).toHaveBeenCalledTimes(1);
+    expect(client.auth.getUser).toHaveBeenCalledWith("expired-current-token");
   });
 
   it("rejects a legacy session cookie that Supabase reports as invalid", async () => {
