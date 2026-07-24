@@ -21,9 +21,7 @@ function ensureYamlManifest(skill, aliasTarget) {
     // Alias manifests must mention the declared alias name so check:skills /
     // database-skills tests accept them, while still directing agents to the
     // canonical target skill.
-    const defaultPrompt = aliasTarget
-      ? `Run $${skill.name} (alias for $${aliasTarget})`
-      : `Run $${skill.name}`;
+    const defaultPrompt = aliasTarget ? `Run $${skill.name} (alias for $${aliasTarget})` : `Run $${skill.name}`;
     const yaml = `name: "${skill.name}"
 short_description: "${shortDesc}"
 default_prompt: "${defaultPrompt}"
