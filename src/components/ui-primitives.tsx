@@ -445,6 +445,25 @@ export function PanelHeading({
   );
 }
 
+export function Skeleton({
+  className,
+  animationDelay,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement> & { animationDelay?: string }) {
+  return (
+    <div
+      className={cn(
+        "rounded-md bg-[color:var(--surface-subtle)] bg-no-repeat",
+        "bg-[length:200%_100%] bg-[linear-gradient(100deg,transparent_30%,color-mix(in_srgb,var(--surface-highlight)_72%,transparent)_50%,transparent_70%)]",
+        "motion-safe:animate-shimmer",
+        className,
+      )}
+      style={animationDelay ? { animationDelay } : undefined}
+      {...props}
+    />
+  );
+}
+
 export function LoadingPanel({
   label,
   variant = "spinner",
@@ -458,16 +477,7 @@ export function LoadingPanel({
     return (
       <div className={`${insetCard} mt-3 space-y-2.5 p-4`} role="status" aria-label={label}>
         {Array.from({ length: lines }).map((_, index) => (
-          <span
-            key={index}
-            aria-hidden
-            className={cn(
-              "block h-3.5 rounded-md bg-[color:var(--surface-subtle)] bg-no-repeat",
-              "bg-[length:200%_100%] bg-[linear-gradient(100deg,transparent_30%,color-mix(in_srgb,var(--surface-highlight)_72%,transparent)_50%,transparent_70%)]",
-              "motion-safe:animate-shimmer",
-              index === lines - 1 ? "w-2/3" : "w-full",
-            )}
-          />
+          <Skeleton key={index} aria-hidden className={cn("h-4", index === lines - 1 ? "w-2/3" : "w-full")} />
         ))}
         <span className="sr-only">{label}</span>
       </div>
