@@ -204,7 +204,7 @@ import {
   maxStoredAnswerTurns,
   savePersistedAnswerThread,
 } from "@/lib/answer-thread-storage";
-import { buildAnswerRenderModel } from "@/lib/answer-render-policy";
+import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
 import {
   frontendSourceGovernanceWarnings,
   groupSourceGovernanceWarnings,
@@ -2890,7 +2890,7 @@ export function ClinicalDashboard({
   const answerGrounded =
     answer?.grounded === true &&
     answer.confidence !== "unsupported" &&
-    currentRelevance?.isSourceBacked !== false &&
+    isAnswerSourceBacked(answer) &&
     answerRenderModel?.trust !== "unsupported";
   const sourceLookup = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
   const answerPreformatted = isPreformattedGroundedAnswer(answer);
