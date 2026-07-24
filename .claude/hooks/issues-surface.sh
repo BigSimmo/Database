@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # SessionStart hook — surface the outstanding-work memory into context.
 #
-# Reads docs/outstanding-issues.md (the /issues ledger) and prints a compact,
-# glanceable summary of the OPEN items so every session starts already aware of
-# what is outstanding. When the trigger is a context reset (compact / resume /
-# clear) it also emits a reminder to run `/issues capture` — that is the moment
-# a session's in-flight follow-ups are most likely to be lost.
+# Reads docs/outstanding-issues.md (the universal /issues ledger) and prints the
+# ordered recommended tasks plus open-item counts so every session starts with
+# the same repository-wide priorities. When the trigger is a context reset
+# (compact / resume / clear) it also emits a reminder to run `/issues capture`.
 #
 # Contract: READ-ONLY. Never writes, never commits, never fails a session — it
 # always exits 0, and every step is guarded so a parse error just yields less
@@ -43,9 +42,27 @@ rows="$(awk '
   }
 ' "$ledger" 2>/dev/null || true)"
 
+# --- parse the ordered recommended execution queue --------------------------
+# Emit "ORDER<TAB>ID<TAB>ACUITY<TAB>WHEN<TAB>ESTIMATE" per recommended row.
+recommended="$(awk '
+  /^## Recommended execution queue/ { inrecommended=1; next }
+  /^## /                             { if (inrecommended) inrecommended=0 }
+  inrecommended && /^\|[[:space:]]*[0-9]+[[:space:]]*\|/ {
+    n=split($0, c, "|")
+    order=c[2]; id=c[3]; acuity=c[5]; timing=c[6]; estimate=c[7]
+    gsub(/^[ \t]+|[ \t]+$/, "", order)
+    gsub(/^[ \t]+|[ \t]+$/, "", id)
+    gsub(/^[ \t]+|[ \t]+$/, "", acuity)
+    gsub(/^[ \t]+|[ \t]+$/, "", timing)
+    gsub(/^[ \t]+|[ \t]+$/, "", estimate)
+    printf "%s\t%s\t%s\t%s\t%s\n", order, id, acuity, timing, estimate
+  }
+' "$ledger" 2>/dev/null || true)"
+
 total="$(printf '%s' "$rows" | grep -c . || true)"
+recommended_total="$(printf '%s' "$recommended" | grep -c . || true)"
 if [ "${total:-0}" -eq 0 ]; then
-  echo "[issues] Outstanding-work memory (docs/outstanding-issues.md): no open items. Record one with /issues add …"
+  echo "[issues] Universal task ledger (docs/outstanding-issues.md): no open items. Record one with /issues add …"
   exit 0
 fi
 
@@ -54,7 +71,25 @@ count() { printf '%s' "$1" | grep -c . || true; }
 p1="$(group P1)"; p2="$(group P2)"; p3="$(group P3)"
 c1="$(count "$p1")"; c2="$(count "$p2")"; c3="$(count "$p3")"
 
-echo "[issues] Outstanding-work memory — ${total} open (${c1}×P1, ${c2}×P2, ${c3}×P3). Source of truth: docs/outstanding-issues.md · read the full list back with /issues."
+echo "[issues] Universal task ledger — ${recommended_total} recommended · ${total} open (${c1}×P1, ${c2}×P2, ${c3}×P3). Source of truth: docs/outstanding-issues.md · read the full ledger with /issues."
+
+print_recommended() { # $1=max-to-list
+  local limit="$1" shown=0 more=0 order id acuity timing estimate
+  [ -z "$recommended" ] && return 0
+  while IFS=$'\t' read -r order id acuity timing estimate; do
+    [ -z "$order" ] && continue
+    if [ "$shown" -lt "$limit" ]; then
+      echo "  ${order} ${id} ${acuity} — ${timing} · ${estimate}"
+      shown=$((shown + 1))
+    else
+      more=$((more + 1))
+    fi
+  done <<EOF
+$recommended
+EOF
+  [ "$more" -gt 0 ] && echo "  … +${more} more recommended tasks in ledger order (see /issues)"
+  return 0
+}
 
 print_group() { # $1=rows  $2=max-to-list
   local data="$1" limit="$2" shown=0 more=0 pri id typ sum
@@ -74,10 +109,15 @@ EOF
   return 0
 }
 
-# P1 = do-next, list all. P2 = should-do, list up to 8. P3 = collapse to a count.
-[ "$c1" -gt 0 ] && print_group "$p1" 999
-[ "$c2" -gt 0 ] && print_group "$p2" 8
-[ "$c3" -gt 0 ] && echo "  ${c3} × P3 (nice-to-have / revisit-when) — see /issues"
+# Prefer the universal recommended order. Fall back to priority groups for an
+# older ledger that does not yet have the recommended execution section.
+if [ "${recommended_total:-0}" -gt 0 ]; then
+  print_recommended 10
+else
+  [ "$c1" -gt 0 ] && print_group "$p1" 999
+  [ "$c2" -gt 0 ] && print_group "$p2" 8
+  [ "$c3" -gt 0 ] && echo "  ${c3} × P3 (nice-to-have / revisit-when) — see /issues"
+fi
 
 # --- capture reminder ---------------------------------------------------------
 case "$source_val" in
