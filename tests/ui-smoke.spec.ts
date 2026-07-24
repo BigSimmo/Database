@@ -2937,7 +2937,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await acamprosateCard.click();
     await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
-    const backLink = page.getByRole("link", { name: "Back", exact: true });
+    const backLink = page.getByRole("link", { name: "Medications", exact: true });
     await expect(backLink).toBeVisible();
     await expectMinTouchTarget(backLink);
     await backLink.click();
