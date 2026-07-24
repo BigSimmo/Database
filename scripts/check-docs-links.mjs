@@ -54,6 +54,16 @@ const ALLOWLIST = new Set([
 const DATED_DOC = /\b20\d{2}-\d{2}(-\d{2})?\b/;
 // Historical directories: only scanned with --all.
 const HISTORICAL_DIRS = new Set(["archive", "audit"]);
+const APP_ROUTE_GROUPS = ["(search-app)"];
+
+function repoPathExists(repoRelative) {
+  const cleaned = repoRelative.replace(/\/$/, "");
+  if (existsSync(path.join(repoRoot, cleaned))) return true;
+
+  if (!cleaned.startsWith("src/app/") || cleaned.includes("src/app/(")) return false;
+  const appRelative = cleaned.slice("src/app/".length);
+  return APP_ROUTE_GROUPS.some((group) => existsSync(path.join(repoRoot, "src/app", group, appRelative)));
+}
 
 function collectDocs(dirRelative, targets) {
   const absolute = path.join(repoRoot, dirRelative);
@@ -144,8 +154,7 @@ for (const target of defaultTargets()) {
   const check = (repoRelative, label) => {
     if (ALLOWLIST.has(repoRelative)) return;
     checked += 1;
-    const cleaned = repoRelative.replace(/\/$/, "");
-    if (!existsSync(path.join(repoRoot, cleaned))) failures.push(label);
+    if (!repoPathExists(repoRelative)) failures.push(label);
   };
 
   // Inline code spans: repo-root-relative repo paths.
@@ -179,7 +188,7 @@ for (const target of defaultTargets()) {
     const candidates = rootStyle === relative || rootStyle.startsWith("..") ? [relative] : [rootStyle, relative];
     if (candidates.some((candidate) => ALLOWLIST.has(candidate))) continue;
     checked += 1;
-    const found = candidates.some((candidate) => existsSync(path.join(repoRoot, candidate.replace(/\/$/, ""))));
+    const found = candidates.some((candidate) => repoPathExists(candidate));
     if (!found)
       failures.push(rawCandidate === relative ? relative : `${rawCandidate} (tried ${candidates.join(", ")})`);
   }
