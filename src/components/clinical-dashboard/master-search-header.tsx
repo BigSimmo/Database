@@ -1387,6 +1387,11 @@ export function MasterSearchHeader({
         }}
         onTouchMove={(e) => {
           if (touchStartY.current === null) return;
+          // Ignore swipes that originate inside a scrollable container
+          if (e.target instanceof Element && e.target.closest(".overflow-y-auto, .overflow-auto, .overflow-x-auto")) {
+            touchStartY.current = null;
+            return;
+          }
           const currentY = e.touches[0].clientY;
           const diff = currentY - touchStartY.current;
           if (diff > 50) {

@@ -24,6 +24,9 @@ export function MobileKeyboardProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!window.visualViewport) return;
 
+    // Track the maximum viewport height to detect when the keyboard shrinks the viewport
+    let maxViewportHeight = window.visualViewport.height;
+
     function handleResize() {
       const viewport = window.visualViewport;
       if (!viewport) return;
@@ -36,7 +39,9 @@ export function MobileKeyboardProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const diff = window.innerHeight - viewport.height;
+      maxViewportHeight = Math.max(maxViewportHeight, viewport.height);
+      const diff = maxViewportHeight - viewport.height;
+
       // Threshold to detect software keyboard (usually > 150px)
       if (diff > 150) {
         setIsKeyboardOpen(true);
