@@ -122,8 +122,7 @@ export function expectedFileCoverage(
   const matchedFiles = expectedFiles.filter((expected) => {
     const alternatives = documentExpectationAlternatives(expected);
     const matchIndex = topFiles.findIndex(
-      (file, index) =>
-        !usedSourceIndexes.has(index) && alternatives.some((alternative) => file.includes(alternative)),
+      (file, index) => !usedSourceIndexes.has(index) && alternatives.some((alternative) => file.includes(alternative)),
     );
     if (matchIndex < 0) return false;
     usedSourceIndexes.add(matchIndex);

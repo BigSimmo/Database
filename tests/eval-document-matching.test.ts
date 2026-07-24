@@ -12,11 +12,7 @@ describe("eval document matching wide-tier aliases", () => {
       file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
     };
 
-    const coverage = expectedFileCoverage(
-      ["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"],
-      [dualListedDoc],
-      5,
-    );
+    const coverage = expectedFileCoverage(["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"], [dualListedDoc], 5);
 
     // A single retrieved source may hit Discharge, but must not make allHit true
     // by also filling the Admission slot via overlapping wide-tier aliases.
