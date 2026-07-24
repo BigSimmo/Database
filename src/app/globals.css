@@ -263,6 +263,7 @@
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 64%), 0 12px 34px rgb(8 16 24 / 7%);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 58%);
   --shadow-card: var(--shadow-tight);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent), var(--shadow-soft);
   /* Active left-rail marker (nav/list "current" indicator). One token so the
      accent rail is a consistent 2px everywhere instead of hand-inlined at 2px/3px. */
   --shadow-rail-active: inset 2px 0 0 var(--clinical-accent);
@@ -424,6 +425,7 @@
   --shadow-elevated: 0 2px 8px rgb(0 0 0 / 46%), 0 12px 30px rgb(0 0 0 / 48%), 0 28px 58px rgb(0 0 0 / 50%);
   --shadow-lux: inset 0 1px 0 rgb(255 255 255 / 4%), 0 18px 44px rgb(0 0 0 / 64%);
   --shadow-inset: inset 0 1px 0 rgb(255 255 255 / 4%);
+  --shadow-focus: 0 0 0 3px color-mix(in srgb, var(--focus) 25%, transparent), var(--shadow-soft);
   color-scheme: dark;
 }
 
@@ -1156,6 +1158,7 @@ summary::-webkit-details-marker {
 
 .chat-composer-shell-delta:focus-within {
   border-color: var(--clinical-accent);
+  box-shadow: var(--shadow-focus);
 }
 
 .chat-composer-input {
