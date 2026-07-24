@@ -766,7 +766,8 @@ async function openMobileClinicalGuideMenu(page: Page) {
     { name: "Factsheets", href: "/factsheets" },
     { name: "Tools", href: "/?mode=tools" },
   ]);
-  await expect(menu.getByRole("button", { name: /guide|theme|dark mode|light mode/i })).toHaveCount(0);
+  await expect(menu.getByRole("button", { name: "Guide & help", exact: true })).toHaveCount(0);
+  await expect(menu.getByRole("button", { name: /^(Switch to )?(dark|light) mode$/i })).toHaveCount(0);
   await expect(menu.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
   await expect(menu.getByText("Guest")).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
@@ -798,21 +799,29 @@ async function waitForPersistedAnswerThread(page: Page, minPriorTurns = 1) {
 
 async function openGuide(page: Page) {
   const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
+  const settings = accountSettingsDialog(page);
   const viewport = page.viewportSize();
 
-  if (viewport && viewport.width < 768) {
-    const menu = await openMobileClinicalGuideMenu(page);
-    await menu.getByRole("button", { name: "Settings", exact: true }).click();
-  } else {
-    const sidebar = page.locator("#clinical-tools-sidebar");
-    const settings = (await sidebar.isVisible().catch(() => false))
-      ? sidebar.getByRole("button", { name: "Settings", exact: true })
-      : page.getByRole("button", { name: "Settings", exact: true });
-    await expect(settings).toBeVisible();
-    await settings.click();
+  // Guide now lives inside Settings. If Settings is already open (e.g. after
+  // closing Guide restores it), skip the reopen click that would hit the overlay.
+  if (!(await settings.isVisible().catch(() => false))) {
+    if (viewport && viewport.width < 768) {
+      const menu = await openMobileClinicalGuideMenu(page);
+      await menu.getByRole("button", { name: "Settings", exact: true }).click();
+    } else if (viewport && viewport.width < 1024) {
+      const rail = page.getByLabel("Clinical Guide collapsed sidebar");
+      await expect(rail.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+      await rail.getByRole("button", { name: "Settings", exact: true }).click();
+    } else {
+      const sidebar = page.locator("#clinical-tools-sidebar");
+      const settingsTrigger = (await sidebar.isVisible().catch(() => false))
+        ? sidebar.getByRole("button", { name: "Settings", exact: true })
+        : page.getByLabel("Clinical Guide collapsed sidebar").getByRole("button", { name: "Settings", exact: true });
+      await expect(settingsTrigger).toBeVisible();
+      await settingsTrigger.click();
+    }
   }
 
-  const settings = accountSettingsDialog(page);
   await expect(settings).toBeVisible({ timeout: uiAssertionTimeoutMs });
   await settings.getByRole("button", { name: "Guide & help", exact: true }).click();
   await expect(dialog).toBeVisible();

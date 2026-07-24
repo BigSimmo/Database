@@ -102,7 +102,8 @@ describe("favourites auth gate DOM", () => {
       { name: "Tools", href: "/?mode=tools" },
     ]);
     expect(screen.queryByRole("link", { name: "Favourites" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /guide|theme|dark mode|light mode/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Guide & help", exact: true })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^(Switch to )?(dark|light) mode$/i })).toBeNull();
 
     rerender(<ClinicalSidebarContent {...sidebarProps(true)} />);
 
