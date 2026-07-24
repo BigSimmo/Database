@@ -143,6 +143,12 @@ describe("DocumentViewer — shell states", () => {
     fireEvent.click(actionsButtons[0]);
     expect(await screen.findByText("clozapine-titration.pdf")).toBeVisible();
 
+    // Close the sheet before teardown so focus-restore timers settle while jsdom
+    // is still alive (avoids an unhandled post-test `document` ReferenceError
+    // under the coverage worker pool).
+    fireEvent.click(screen.getByRole("button", { name: "Close document actions" }));
+    expect(screen.queryByText("clozapine-titration.pdf")).toBeNull();
+
     // A supplied payload must resolve to the ready shell — neither failure shell.
     expect(screen.queryByText("Source unavailable")).toBeNull();
     expect(screen.queryByText("Sign in required")).toBeNull();
