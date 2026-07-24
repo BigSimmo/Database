@@ -41,6 +41,7 @@ describe("services catalogue", () => {
     const record = catalogToServiceRecord(crisisCare!);
     const bestUseCard = record.summaryCards?.find((card) => card.id === "best-use");
     expect(bestUseCard?.title).toBe("After-hours crisis, homelessness, FDV, child-safety concerns");
+    expect(bestUseCard?.title.length).toBeLessThanOrEqual(140);
     expect(record.criteria?.some((criterion) => criterion.label === crisisCare!.best_use_indication)).toBe(true);
   });
 
@@ -53,6 +54,21 @@ describe("services catalogue", () => {
     expect(compacted).toBe("After-hours crisis, homelessness, FDV, child-safety concerns");
     expect(compacted.includes("|")).toBe(false);
     expect(compacted.length).toBeLessThanOrEqual(140);
+  });
+
+  it("compacts pipe-joined patient-group blobs in best-use card detail", () => {
+    const snapshot = loadServicesSnapshot();
+    const communitySru = snapshot.services.find(
+      (service) => service.canonical_name_key === "community-supported-residential-units",
+    );
+    expect(communitySru?.patient_group?.includes("|")).toBe(true);
+    expect(communitySru!.patient_group.length).toBeGreaterThan(140);
+
+    const record = catalogToServiceRecord(communitySru!);
+    const bestUseCard = record.summaryCards?.find((card) => card.id === "best-use");
+    expect(bestUseCard?.detail).toBeTruthy();
+    expect(bestUseCard!.detail!.length).toBeLessThanOrEqual(140);
+    expect(bestUseCard!.detail).not.toContain("|");
   });
 
   it("produces unique slugs and non-empty titles", () => {
