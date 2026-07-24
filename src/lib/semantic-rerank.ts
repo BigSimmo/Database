@@ -65,15 +65,19 @@ function candidateEvidence(result: SearchResult): string {
   ].join("\n");
 }
 
+function clampedSimilarity(similarity: number | null | undefined): number {
+  const val = similarity ?? 0;
+  return Number.isFinite(val) ? Math.max(0, Math.min(1, val)) : 0;
+}
+
 function deterministicScore(result: SearchResult): number {
-  return (
+  const score =
     result.score_explanation?.rankScore ??
     result.score_explanation?.preClampFinalScore ??
     result.score_explanation?.finalScore ??
     result.hybrid_score ??
-    result.similarity ??
-    0
-  );
+    clampedSimilarity(result.similarity);
+  return Number.isFinite(score) ? score : 0;
 }
 
 function lexicalScore(result: SearchResult): number {
@@ -106,7 +110,7 @@ function ambiguityBand(results: SearchResult[]): { results: SearchResult[]; elig
   if (supported.length < 2) return { results: [], eligibility: "insufficient_candidates" };
 
   const fusedTop = topBy(supported, deterministicScore);
-  const vectorTop = topBy(supported, (result) => result.similarity ?? 0);
+  const vectorTop = topBy(supported, (result) => clampedSimilarity(result.similarity));
   const lexicalTop = topBy(supported, lexicalScore);
   if (!fusedTop) return { results: [], eligibility: "insufficient_candidates" };
 
@@ -191,8 +195,8 @@ function validateRanking(value: unknown, candidateIds: string[]): FallbackReason
 
 function providerFailureReason(error: unknown): FallbackReason {
   const message = (error instanceof Error ? error.message : String(error ?? "")).toLowerCase();
-  if (/timeout|timed out|aborted|aborterror/.test(message)) return "timeout";
-  if (/refus|content[_ -]?filter|filtered/.test(message)) return "refusal";
+  if (/timeout|timed out|aborted|aborterror/m.test(message)) return "timeout";
+  if (/refus|content[_ -]?filter|filtered/m.test(message)) return "refusal";
   return "provider_error";
 }
 
@@ -294,13 +298,13 @@ export async function semanticRerankIfAmbiguous(args: {
       const scoreExplanation: SearchScoreExplanation = existing
         ? { ...existing, semanticRerankScore }
         : {
-            vectorScore: candidate.result.similarity ?? 0,
+            vectorScore: clampedSimilarity(candidate.result.similarity),
             textRank: candidate.result.text_rank ?? 0,
             lexicalCoverageScore: candidate.result.lexical_score ?? 0,
             metadataMatchScore: 0,
             sectionTitleMatchBoost: 0,
             freshnessRecencyBoost: 0,
-            weightedHybridScore: candidate.result.hybrid_score ?? candidate.result.similarity ?? 0,
+            weightedHybridScore: candidate.result.hybrid_score ?? clampedSimilarity(candidate.result.similarity),
             rrfScore: candidate.result.rrf_score ?? null,
             rrfBoost: 0,
             memoryBoost: 0,
@@ -309,7 +313,7 @@ export async function semanticRerankIfAmbiguous(args: {
             clinicalSignalBoost: 0,
             penalty: 0,
             rankScore: deterministicScore(candidate.result),
-            finalScore: Math.min(1, Math.max(0, candidate.result.hybrid_score ?? candidate.result.similarity ?? 0)),
+            finalScore: Math.min(1, Math.max(0, candidate.result.hybrid_score ?? clampedSimilarity(candidate.result.similarity))),
             semanticRerankScore,
             strategy: candidate.result.rrf_score == null ? "weighted_hybrid" : "weighted_hybrid_rrf_blend",
           };

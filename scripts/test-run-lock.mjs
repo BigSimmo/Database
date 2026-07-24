@@ -74,6 +74,7 @@ function lockIsOldEnoughToRecover(lockPath, now = Date.now()) {
  *   baseDirectory?: string;
  *   repositoryIdentity?: string;
  *   processId?: number;
+ *   waitMs?: number;
  * }} options
  */
 export function acquireHeavyRunLock({
@@ -83,6 +84,7 @@ export function acquireHeavyRunLock({
   baseDirectory,
   repositoryIdentity = resolveRepositoryIdentity(projectRoot),
   processId = process.pid,
+  waitMs = environment.CLINICAL_KB_LOCK_WAIT_MS ? parseInt(environment.CLINICAL_KB_LOCK_WAIT_MS, 10) : 0,
 }) {
   if (!projectRoot) throw new Error("projectRoot is required for the Database heavyweight-run lock.");
   const lockPath = lockPathFor(repositoryIdentity, baseDirectory);
@@ -101,7 +103,8 @@ export function acquireHeavyRunLock({
   }
 
   mkdirSync(path.dirname(lockPath), { recursive: true });
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  const startTime = Date.now();
+  for (let attempt = 0; ; attempt += 1) {
     try {
       mkdirSync(lockPath);
       const token = randomUUID();
@@ -135,11 +138,29 @@ export function acquireHeavyRunLock({
       if (error?.code !== "EEXIST") throw error;
       const owner = readOwner(lockPath);
       if (owner && processIsAlive(owner.pid)) {
+        // Enforce max 5 minutes staleness limit for inactive idle processes (Issue 2)
+        const startedTime = new Date(owner.startedAt).getTime();
+        const maxStaleness = 5 * 60 * 1000;
+        if (!isNaN(startedTime) && Date.now() - startedTime > maxStaleness) {
+          rmSync(lockPath, { recursive: true, force: true });
+          continue;
+        }
+
+        if (Date.now() - startTime < waitMs) {
+          const delayMs = Math.min(1000, 500 * Math.pow(1.5, attempt)) + Math.random() * 100;
+          spawnSync(process.argv[0], ["-e", `setTimeout(()=>{}, ${Math.floor(delayMs)})`]);
+          continue;
+        }
         throw new Error(
           `Another Database heavyweight command is active (PID ${owner.pid}, worktree ${owner.worktree ?? "unknown"}, started ${owner.startedAt ?? "unknown"}): ${redactSensitiveText(owner.command ?? "unknown command")}`,
         );
       }
       if (!owner && !lockIsOldEnoughToRecover(lockPath)) {
+        if (Date.now() - startTime < waitMs) {
+          const delayMs = Math.min(1000, 500 * Math.pow(1.5, attempt)) + Math.random() * 100;
+          spawnSync(process.argv[0], ["-e", `setTimeout(()=>{}, ${Math.floor(delayMs)})`]);
+          continue;
+        }
         throw new Error(`A Database heavyweight lock is being initialized at ${lockPath}; retry after it settles.`);
       }
       rmSync(lockPath, { recursive: true, force: true });

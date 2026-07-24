@@ -22,7 +22,22 @@ function trustedProxyIp(value: string | null) {
     ?.split(",")
     .map((entry) => entry.trim())
     .filter(Boolean);
-  return forwarded?.at(-1) ?? "";
+  const ip = forwarded?.at(-1) ?? "";
+  
+  // Strip IPv6 brackets and any port (e.g. [2001:db8::1]:443 -> 2001:db8::1)
+  if (ip.startsWith("[")) {
+    const endPos = ip.indexOf("]");
+    if (endPos !== -1) return ip.slice(1, endPos);
+  }
+  
+  // Strip IPv4 port (e.g. 192.0.2.1:8080 -> 192.0.2.1)
+  // Bare IPv6 addresses have multiple colons, so only split if there is exactly one colon
+  const colonIndex = ip.indexOf(":");
+  if (colonIndex !== -1 && colonIndex === ip.lastIndexOf(":")) {
+    return ip.slice(0, colonIndex);
+  }
+  
+  return ip;
 }
 
 /**

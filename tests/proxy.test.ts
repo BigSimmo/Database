@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy, shouldBlockProductionMockups } from "../src/proxy";
+import * as ssr from "@supabase/ssr";
+import { vi } from "vitest";
+
+vi.mock("@supabase/ssr", () => ({
+  createServerClient: vi.fn(),
+}));
 
 // The proxy owns the per-request nonce CSP (see src/proxy.ts). CI's verify:ui
 // only exercises the *dev* CSP path (Turbopack keeps 'unsafe-inline'); these
@@ -73,6 +79,37 @@ describe("proxy content-security-policy", () => {
     const overridden = res.headers.get("x-middleware-override-headers") ?? "";
     expect(overridden).toContain("x-nonce");
     expect(res.headers.get("x-middleware-request-x-nonce")).toBe(cspNonce);
+  });
+});
+
+describe("proxy auth session refresh", () => {
+  it("propagates custom response headers during cookie setAll", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://mock.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "mock-key";
+    
+    // Setup the mock to trigger setAll when getClaims is called
+    let capturedOptions: any;
+    vi.mocked(ssr.createServerClient).mockImplementationOnce((url, key, options: any) => {
+      capturedOptions = options;
+      return {
+        auth: {
+          getClaims: async () => {
+            options.cookies.setAll(
+              [{ name: "sb-mock", value: "token", options: {} }],
+              { "x-custom-security": "enabled", "x-other-header": "value" }
+            );
+          }
+        }
+      } as any;
+    });
+
+    const req = requestFor("/");
+    req.cookies.set("sb-access-token", "present"); // satisfy hasAuthCookie
+
+    const res = await proxy(req);
+    expect(res.headers.get("x-custom-security")).toBe("enabled");
+    expect(res.headers.get("x-other-header")).toBe("value");
+    expect(res.cookies.get("sb-mock")?.value).toBe("token");
   });
 });
 
