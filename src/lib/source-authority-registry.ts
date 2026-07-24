@@ -1,7 +1,8 @@
-import { normalizeSourceMetadata } from "@/lib/source-metadata";
 import type { ClinicalSourceMetadata } from "@/lib/types";
 
 export type AustralianSourceTier = "wa_validated" | "australian_national" | "australian_state" | "supplementary";
+export type SourceDesignation = "official" | "trusted" | "unclassified";
+export type SourceOfficialBasis = "wa_hospital" | "wa_health_service_network" | null;
 
 export type SourceAuthorityScope = "wa" | "australian_national" | "australian_state" | "international";
 
@@ -13,12 +14,26 @@ export type SourceAuthorityDefinition = {
   jurisdictions: readonly string[];
   scope: SourceAuthorityScope;
   tier: Exclude<AustralianSourceTier, "supplementary"> | "supplementary";
+  designation: SourceDesignation;
+  officialBasis: SourceOfficialBasis;
 };
 
 export type SourceAuthorityConflict = "publisher_mismatch" | "jurisdiction_mismatch";
+export type SourceDesignationReasonCode =
+  | "recognized_official_wa_hospital"
+  | "recognized_official_wa_health_service_network"
+  | "recognized_trusted_authority"
+  | "registry_summary_identity"
+  | "unrecognized_authority"
+  | "publisher_alias_requires_jurisdiction"
+  | "authority_metadata_conflict";
 
 export type SourceAuthorityClassification = {
   tier: AustralianSourceTier;
+  designation: SourceDesignation;
+  authorityKey: string | null;
+  officialBasis: SourceOfficialBasis;
+  reasonCodes: SourceDesignationReasonCode[];
   authorityTier: SourceAuthorityDefinition["tier"] | null;
   authority: SourceAuthorityDefinition | null;
   matchedBy: "publisher_code" | "publisher_alias" | "none";
@@ -27,6 +42,18 @@ export type SourceAuthorityClassification = {
   conflicts: SourceAuthorityConflict[];
   eligibilityReasons: string[];
 };
+
+function sourceMetadataRecord(input: unknown): Partial<ClinicalSourceMetadata> {
+  return input && typeof input === "object" && !Array.isArray(input) ? (input as Partial<ClinicalSourceMetadata>) : {};
+}
+
+function sourceMetadataString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function sourceMetadataStatus<T extends string>(value: unknown, fallback: T): T {
+  return typeof value === "string" && value.trim() ? (value as T) : fallback;
+}
 
 const waJurisdictions = ["Australia/WA", "Australia/Western Australia", "Western Australia", "WA"] as const;
 const nationalJurisdictions = [
@@ -38,9 +65,15 @@ const nationalJurisdictions = [
 ] as const;
 
 function authority(
-  definition: Omit<SourceAuthorityDefinition, "publisherAliases"> & { publisherAliases?: readonly string[] },
+  definition: Omit<SourceAuthorityDefinition, "publisherAliases" | "designation" | "officialBasis"> & {
+    publisherAliases?: readonly string[];
+    designation?: SourceDesignation;
+    officialBasis?: SourceOfficialBasis;
+  },
 ): SourceAuthorityDefinition {
   return {
+    designation: "trusted",
+    officialBasis: null,
     ...definition,
     publisherAliases: [definition.publisher, ...(definition.publisherAliases ?? [])],
   };
@@ -74,6 +107,19 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    designation: "official",
+    officialBasis: "wa_hospital",
+  }),
+  authority({
+    key: "child-and-adolescent-health-service",
+    codes: ["CAHS"],
+    publisher: "Child and Adolescent Health Service",
+    publisherAliases: ["Perth Children's Hospital", "Princess Margaret Hospital"],
+    jurisdictions: waJurisdictions,
+    scope: "wa",
+    tier: "wa_validated",
+    designation: "official",
+    officialBasis: "wa_health_service_network",
   }),
   authority({
     key: "camhs-wa",
@@ -91,6 +137,8 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    designation: "official",
+    officialBasis: "wa_health_service_network",
   }),
   authority({
     key: "fiona-stanley-fremantle-hospitals-group",
@@ -100,6 +148,8 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    designation: "official",
+    officialBasis: "wa_hospital",
   }),
   authority({
     key: "king-edward-memorial-hospital",
@@ -108,6 +158,8 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    designation: "official",
+    officialBasis: "wa_hospital",
   }),
   authority({
     key: "north-metropolitan-health-service",
@@ -116,6 +168,8 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    designation: "official",
+    officialBasis: "wa_health_service_network",
   }),
   authority({
     key: "peel-health-campus",
@@ -124,6 +178,8 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    designation: "official",
+    officialBasis: "wa_hospital",
   }),
   authority({
     key: "rockingham-peel-group",
@@ -132,6 +188,8 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    designation: "official",
+    officialBasis: "wa_hospital",
   }),
   authority({
     key: "royal-perth-bentley-group",
@@ -140,6 +198,8 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    designation: "official",
+    officialBasis: "wa_hospital",
   }),
   authority({
     key: "south-metropolitan-health-service",
@@ -148,6 +208,8 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    designation: "official",
+    officialBasis: "wa_health_service_network",
   }),
   authority({
     key: "wa-country-health-service",
@@ -157,6 +219,8 @@ export const sourceAuthorityRegistry = [
     jurisdictions: waJurisdictions,
     scope: "wa",
     tier: "wa_validated",
+    designation: "official",
+    officialBasis: "wa_health_service_network",
   }),
   authority({
     key: "acsqhc",
@@ -324,7 +388,9 @@ function jurisdictionCompatible(authorityEntry: SourceAuthorityDefinition, juris
   );
 }
 
-function isCurrentUsableDocument(metadata: ClinicalSourceMetadata) {
+function isCurrentUsableDocument(
+  metadata: Pick<ClinicalSourceMetadata, "source_kind" | "document_status" | "extraction_quality">,
+) {
   return (
     metadata.source_kind !== "registry_record" &&
     metadata.document_status === "current" &&
@@ -332,14 +398,23 @@ function isCurrentUsableDocument(metadata: ClinicalSourceMetadata) {
   );
 }
 
-function isLocallyValidated(metadata: ClinicalSourceMetadata) {
+function isLocallyValidated(metadata: Pick<ClinicalSourceMetadata, "clinical_validation_status">) {
   return (
     metadata.clinical_validation_status === "approved" || metadata.clinical_validation_status === "locally_reviewed"
   );
 }
 
 export function classifySourceAuthority(input: unknown): SourceAuthorityClassification {
-  const metadata = normalizeSourceMetadata(input);
+  const rawMetadata = sourceMetadataRecord(input);
+  const metadata = {
+    source_kind: sourceMetadataString(rawMetadata.source_kind),
+    publisher: sourceMetadataString(rawMetadata.publisher),
+    publisher_code: sourceMetadataString(rawMetadata.publisher_code),
+    jurisdiction: sourceMetadataString(rawMetadata.jurisdiction),
+    document_status: sourceMetadataStatus(rawMetadata.document_status, "unknown"),
+    clinical_validation_status: sourceMetadataStatus(rawMetadata.clinical_validation_status, "unverified"),
+    extraction_quality: sourceMetadataStatus(rawMetadata.extraction_quality, "unknown"),
+  } satisfies Partial<ClinicalSourceMetadata>;
   const code = normalizePublisherCode(metadata.publisher_code);
   const codeAuthority = sourceAuthorityForPublisherCode(code);
   const publisherAuthority = sourceAuthorityForPublisher(metadata.publisher);
@@ -355,11 +430,21 @@ export function classifySourceAuthority(input: unknown): SourceAuthorityClassifi
     conflicts.push("jurisdiction_mismatch");
   }
 
-  if (!authorityEntry) eligibilityReasons.push("unrecognized_authority");
+  const reasonCodes: SourceDesignationReasonCode[] = [];
+
+  if (metadata.source_kind === "registry_record") reasonCodes.push("registry_summary_identity");
+  if (!authorityEntry) {
+    eligibilityReasons.push("unrecognized_authority");
+    reasonCodes.push("unrecognized_authority");
+  }
   if (!codeAuthority && publisherAuthority && !metadata.jurisdiction) {
     eligibilityReasons.push("publisher_alias_requires_jurisdiction");
+    reasonCodes.push("publisher_alias_requires_jurisdiction");
   }
-  if (conflicts.length > 0) eligibilityReasons.push("authority_metadata_conflict");
+  if (conflicts.length > 0) {
+    eligibilityReasons.push("authority_metadata_conflict");
+    reasonCodes.push("authority_metadata_conflict");
+  }
   if (!isCurrentUsableDocument(metadata)) eligibilityReasons.push("source_not_current_usable_document");
   if (authorityEntry?.tier === "wa_validated" && !isLocallyValidated(metadata)) {
     eligibilityReasons.push("wa_source_not_locally_validated");
@@ -372,8 +457,26 @@ export function classifySourceAuthority(input: unknown): SourceAuthorityClassifi
     isCurrentUsableDocument(metadata) &&
     (authorityEntry?.tier !== "wa_validated" || isLocallyValidated(metadata));
 
+  const designationRecognized =
+    Boolean(authorityEntry) &&
+    metadata.source_kind !== "registry_record" &&
+    conflicts.length === 0 &&
+    (Boolean(codeAuthority) || Boolean(metadata.jurisdiction));
+  const designation = designationRecognized ? (authorityEntry?.designation ?? "trusted") : "unclassified";
+  if (designation === "official" && authorityEntry?.officialBasis === "wa_hospital") {
+    reasonCodes.push("recognized_official_wa_hospital");
+  } else if (designation === "official" && authorityEntry?.officialBasis === "wa_health_service_network") {
+    reasonCodes.push("recognized_official_wa_health_service_network");
+  } else if (designation === "trusted") {
+    reasonCodes.push("recognized_trusted_authority");
+  }
+
   return {
     tier: eligible ? (authorityEntry?.tier ?? "supplementary") : "supplementary",
+    designation,
+    authorityKey: designationRecognized ? (authorityEntry?.key ?? null) : null,
+    officialBasis: designationRecognized ? (authorityEntry?.officialBasis ?? null) : null,
+    reasonCodes: [...new Set(reasonCodes)],
     authorityTier: authorityEntry?.tier ?? null,
     authority: authorityEntry ?? null,
     matchedBy,

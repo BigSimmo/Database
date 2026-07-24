@@ -10,13 +10,15 @@
  */
 
 /**
- * Content pad after the phone bottom composer has scrolled away. The rem
- * number is exported separately so the scroll-hide collapse budget
+ * Content pad after the phone bottom composer has scrolled away. It must be
+ * zero so content can paint all the way to the viewport edge once the dock is
+ * invisible. The rem number is exported separately so the scroll-hide
+ * collapse budget
  * (use-hide-on-scroll's readChromeCollapseBudget) measures against the same
  * value; tests/mobile-composer-reserve.test.ts pins the pair together.
  */
-export const mobileComposerHiddenReserveRem = 0.75;
-export const mobileComposerHiddenReserve = "0.75rem";
+export const mobileComposerHiddenReserveRem = 0;
+export const mobileComposerHiddenReserve = "0rem";
 
 /** Routes with no floating bottom dock (info pages, the answer home hero). */
 export const mobileComposerIdleReserve = "2rem";
