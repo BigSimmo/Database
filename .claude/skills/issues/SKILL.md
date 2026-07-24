@@ -5,9 +5,9 @@ description: Track and recall all outstanding tasks, recommendations, and issues
 
 # issues — the outstanding-work memory
 
-`docs/outstanding-issues.md` is the durable, cross-session memory of everything still outstanding:
-open **tasks**, **recommendations** not yet acted on, and **issues** not yet resolved. Chat context
-resets; that file does not. This skill reads it back and keeps it current.
+`docs/outstanding-issues.md` is the single universal, durable, cross-session ledger for recommended
+execution order, open **tasks**, **recommendations**, **issues**, provider/operator work, and archive
+history. Chat context resets; that file does not. This skill reads it back and keeps it current.
 
 **The ledger is the source of truth, not chat memory.** Never answer `/issues` from conversation
 recall — always read the file first, so the answer is correct even in a fresh session.
@@ -20,13 +20,15 @@ recall — always read the file first, so the answer is correct even in a fresh 
 ## Default: `/issues` (read-only)
 
 1. Read `docs/outstanding-issues.md`.
-2. State the **open items** back, grouped by priority (P1 → P3), each as
+2. State the **Recommended execution queue** back in order, including acuity, timing, and gate.
+3. Summarize any open items not represented in that queue, grouped by priority (P1 → P3), each as
    `#ID · type · summary — next action (source)`.
-3. End with a one-line count, e.g. `5 open: 0×P1, 3×P2, 2×P3 · 0 resolved this session`.
-4. Do **not** mutate the file or commit on a plain read.
+4. End with a one-line open/recommended count.
+5. Do **not** mutate the file or commit on a plain read.
 
-If a filter is given, narrow step 2: `/issues P1` (by priority), `/issues issues` / `/issues recs`
-/ `/issues tasks` (by type), `/issues <keyword>` (summary/detail substring match).
+If a filter is given, filter the open items before rendering steps 2–3, then show only matching
+queued tasks and matching non-queued items: `/issues P1` (by priority), `/issues issues` /
+`/issues recs` / `/issues tasks` (by type), `/issues <keyword>` (summary/detail substring match).
 
 ## Mutating subcommands
 
@@ -53,6 +55,10 @@ paragraph; put the smallest next action in **Detail / next action**.
 ## Writing rules
 
 - Keep the table format and column order exactly as in `docs/outstanding-issues.md`. One row per item.
+- Add a retained task to the recommended queue with order, acuity, capability, timing, estimate,
+  gate, success criteria, verification, and stop rule. Reorder rather than duplicate related work.
+- Remove a task from the recommended queue when it completes or is no longer recommended; retain
+  its evidence in the open or resolved table as appropriate.
 - IDs are monotonic and never reused — always allocate from the `issues:next-id` marker and bump it.
 - Escape `|` inside cell text (write `\|`) so the markdown table stays intact.
 - Respect the repo's RAG/clinical/privacy flagging rules if an item _itself_ touches a protected
