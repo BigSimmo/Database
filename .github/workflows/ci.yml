@@ -386,6 +386,14 @@ jobs:
           RAG_QUERY_HASH_SECRET: ${{ secrets.RAG_QUERY_HASH_SECRET }}
         run: npm run check:deployment-readiness
 
+  container-images:
+    name: Container images
+    needs: changes
+    if: needs.changes.outputs.container_changed == 'true' && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/docker-image.yml
+
   ui-critical:
     name: Production UI
     needs: changes
@@ -522,7 +530,7 @@ jobs:
 
   pr-required:
     name: PR required
-    needs: [changes, static-pr, safety, coverage, build, ui-critical, db-reset-verify]
+    needs: [changes, static-pr, safety, coverage, build, container-images, ui-critical, db-reset-verify]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -534,11 +542,14 @@ jobs:
           UI_CHANGED: ${{ needs.changes.outputs.ui_changed }}
           DB_CHANGED: ${{ needs.changes.outputs.db_changed }}
           BUILD_CHANGED: ${{ needs.changes.outputs.build_changed }}
+          CONTAINER_CHANGED: ${{ needs.changes.outputs.container_changed }}
+          EVENT_NAME: ${{ github.event_name }}
           CHANGES_RESULT: ${{ needs.changes.result }}
           STATIC_RESULT: ${{ needs.static-pr.result }}
           SAFETY_RESULT: ${{ needs.safety.result }}
           COVERAGE_RESULT: ${{ needs.coverage.result }}
           BUILD_RESULT: ${{ needs.build.result }}
+          CONTAINER_RESULT: ${{ needs.container-images.result }}
           UI_RESULT: ${{ needs.ui-critical.result }}
           DB_RESULT: ${{ needs.db-reset-verify.result }}
         run: |
@@ -581,6 +592,12 @@ jobs:
             require_success "build" "$BUILD_RESULT"
           else
             require_skipped_or_success "build" "$BUILD_RESULT"
+          fi
+
+          if [ "$CONTAINER_CHANGED" = "true" ] && { [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "merge_group" ]; }; then
+            require_success "container-images" "$CONTAINER_RESULT"
+          else
+            require_skipped_or_success "container-images" "$CONTAINER_RESULT"
           fi
 
           if [ "$UI_CHANGED" = "true" ]; then
