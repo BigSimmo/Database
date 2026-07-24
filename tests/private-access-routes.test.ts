@@ -2254,7 +2254,7 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(409);
     expect(await payload(response)).toMatchObject({
-      error: "Document has active agent enrichment work. Wait for it to finish before reindexing.",
+      error: "Reindex is paused while enrichment is active.",
     });
     expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
     expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);
@@ -2686,7 +2686,7 @@ describe("private document API access", () => {
 
     expect(response.status).toBe(409);
     expect(await payload(response)).toMatchObject({
-      error: "A selected document has active agent enrichment work. Wait for it to finish before reindexing.",
+      error: "Bulk reindex is paused while enrichment is active for one or more selected documents.",
     });
     expect(client.calls.some((call) => call.table === "documents" && call.operation === "update")).toBe(false);
     expect(client.calls.some((call) => call.table === "ingestion_jobs" && call.operation === "insert")).toBe(false);

@@ -72,18 +72,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
     if (!safety.ok) return NextResponse.json(ingestionMutationSafetyPayload(safety), { status: safety.status });
 
-    if (
-      mode !== "enrichment" &&
-      (await hasActiveAgentEnrichmentJob({
+    // Full reindex deletes/rebuilds the same enrichment artifact families the
+    // agent writes. Block only while a fresh agent lease is live; enrichment
+    // mode keeps its own RPC concurrency (`request_indexing_v3_enrichment`).
+    if (mode !== "enrichment") {
+      const enrichmentActive = await hasActiveAgentEnrichmentJob({
         supabase,
         documentId: id,
         staleAfterMinutes: env.WORKER_STALE_AFTER_MINUTES,
-      }))
-    ) {
-      return NextResponse.json(
-        { error: "Document has active agent enrichment work. Wait for it to finish before reindexing." },
-        { status: 409 },
-      );
+      });
+      if (enrichmentActive) {
+        return NextResponse.json({ error: "Reindex is paused while enrichment is active." }, { status: 409 });
+      }
     }
 
     if (mode === "enrichment") {
