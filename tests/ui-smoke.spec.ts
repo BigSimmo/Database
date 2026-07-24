@@ -3355,6 +3355,15 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
       timeout: 30_000,
     });
+    const clinicalSummary = page.getByTestId("document-clinical-summary");
+    await expect(clinicalSummary).toBeVisible();
+    await expect(clinicalSummary.getByRole("heading", { name: "High-yield clinical summary" })).toBeVisible();
+    const clinicalPriorities = clinicalSummary.getByRole("button", { name: /Clinical priorities/ });
+    await expect(clinicalPriorities).toHaveAttribute("aria-expanded", "true");
+    await clinicalPriorities.click();
+    await expect(clinicalPriorities).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("heading", { name: "Key sections", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Useful pages", exact: true })).toHaveCount(0);
     const summaryCard = page.getByTestId("high-yield-summary");
     await expect(summaryCard).toBeVisible();
     await expect(summaryCard).toHaveJSProperty("open", false);
@@ -3390,6 +3399,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Synthetic lithium monitoring protocol" })).toBeVisible({
       timeout: 30_000,
     });
+    const clinicalSummary = page.getByTestId("document-clinical-summary");
+    const summaryToggle = clinicalSummary.getByTestId("toggle-document-summary");
+    await expect(clinicalSummary).toBeVisible();
+    await expect(summaryToggle).toBeVisible();
+    await expect(summaryToggle).toHaveAttribute("aria-expanded", "false");
+    await summaryToggle.click();
+    await expect(summaryToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(summaryToggle).toContainText("Show less");
+    await clinicalSummary.getByTestId("open-clinical-priorities").click();
+    const prioritiesSheet = page.getByRole("dialog", { name: "Clinical priorities" });
+    await expect(prioritiesSheet).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(prioritiesSheet).toHaveCount(0);
     const indexedText = page.locator("#source-text");
     const summary = page.getByTestId("high-yield-summary");
     const images = page.locator("#source-images");
