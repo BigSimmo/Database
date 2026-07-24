@@ -41,35 +41,38 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 ### Shell and routing
 
 - **Root layout:** `src/app/layout.tsx` — fonts, `AuthProvider`, global CSS
+- **Shared search-app layout:** `src/app/(search-app)/layout.tsx` + `src/components/clinical-dashboard/shared-search-app-shell.tsx` — keeps `GlobalSearchShell` mounted across mode homes
 - **App shell:** `src/components/clinical-dashboard/global-search-shell.tsx` — canonical route-aware shell and lazy dashboard dispatch. The mockup-named module is a compatibility re-export used only below `/mockups`.
 - **PWA:** `docs/pwa.md` — install assets, privacy-first service worker/offline shell, lifecycle, security, and verification
-- **Home:** `src/app/page.tsx` — dashboard rendered by shell
+- **Home:** `src/app/(search-app)/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
 - **Modes (13):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, Therapy mode, Factsheets
 
 ### Product pages (`src/app/`)
 
-| Route                                                                                                     | File                                   |
-| --------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `/`                                                                                                       | `src/app/page.tsx`                     |
-| `/applications`                                                                                           | `src/app/applications/route.ts`        |
-| `/differentials`, `/diagnoses`, `/presentations`                                                          | `src/app/differentials/`               |
-| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/dsm/`                         |
-| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                      | `src/app/documents/`                   |
-| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                 | `src/app/factsheets/`                  |
-| `/favourites`                                                                                             | `src/app/favourites/page.tsx`          |
-| `/forms`, `/forms/[slug]`                                                                                 | `src/app/forms/`                       |
-| `/medications`, `/medications/[slug]`                                                                     | `src/app/medications/`                 |
-| `/privacy`                                                                                                | `src/app/privacy/page.tsx`             |
-| `/reference/colour-coding`                                                                                | `src/app/reference/`                   |
-| `/safety-plan`                                                                                            | `src/app/safety-plan/page.tsx`         |
-| `/services`, `/services/[slug]`                                                                           | `src/app/services/`                    |
-| `/therapy-compass`                                                                                        | `src/app/therapy-compass/`             |
-| `/tools`                                                                                                  | `src/app/tools/`                       |
-| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`      | `src/app/specifiers/`                  |
-| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map` | `src/app/formulation/`                 |
-| `/mockups/*`                                                                                              | `src/app/mockups/` (404 in production) |
-| `/auth/callback`                                                                                          | `src/app/auth/callback/route.ts`       |
+| Route                                                                                                     | File                                       |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `/`                                                                                                       | `src/app/(search-app)/page.tsx`            |
+| Shared mode-home route group (`/(search-app)`)                                                            | `src/app/(search-app)/`                    |
+| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                       | `src/app/(search-app)/` shared shell group |
+| `/applications`                                                                                           | `src/app/applications/route.ts`            |
+| `/differentials`, `/diagnoses`, `/presentations`                                                          | `src/app/(search-app)/differentials/`      |
+| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/(search-app)/dsm/`                |
+| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                      | `src/app/(search-app)/documents/`          |
+| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                 | `src/app/(search-app)/factsheets/`         |
+| `/favourites`                                                                                             | `src/app/(search-app)/favourites/page.tsx` |
+| `/forms`, `/forms/[slug]`                                                                                 | `src/app/(search-app)/forms/`              |
+| `/medications`, `/medications/[slug]`                                                                     | `src/app/(search-app)/medications/`        |
+| `/privacy`                                                                                                | `src/app/privacy/page.tsx`                 |
+| `/reference/colour-coding`                                                                                | `src/app/reference/`                       |
+| `/safety-plan`                                                                                            | `src/app/safety-plan/page.tsx`             |
+| `/services`, `/services/[slug]`                                                                           | `src/app/(search-app)/services/`           |
+| `/therapy-compass`                                                                                        | `src/app/(search-app)/therapy-compass/`    |
+| `/tools`                                                                                                  | `src/app/(search-app)/tools/`              |
+| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`      | `src/app/(search-app)/specifiers/`         |
+| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map` | `src/app/(search-app)/formulation/`        |
+| `/mockups/*`                                                                                              | `src/app/mockups/` (404 in production)     |
+| `/auth/callback`                                                                                          | `src/app/auth/callback/route.ts`           |
 
 ### API routes (`src/app/api/`)
 
