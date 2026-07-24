@@ -37,7 +37,15 @@ describe("favourites auth gate", () => {
     expect(sidebarToolInitializer).toBeTruthy();
     const sidebarToolIds = [...(sidebarToolInitializer ?? "").matchAll(/id: "([^"]+)"/g)].map((match) => match[1]);
     expect(sidebarToolIds).toEqual(["answer", "documents", "services", "prescribing", "factsheets", "tools"]);
-    for (const excludedId of ["differentials", "dsm", "specifiers", "formulation", "forms", "therapy-compass", "favourites"]) {
+    for (const excludedId of [
+      "differentials",
+      "dsm",
+      "specifiers",
+      "formulation",
+      "forms",
+      "therapy-compass",
+      "favourites",
+    ]) {
       expect(sidebarToolIds).not.toContain(excludedId);
     }
 
