@@ -887,7 +887,7 @@ describe("RAG structured-output fallback", () => {
     const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
 
     const answer = await answerQuestionWithScope({
-      query: "what is bulimia nervosa",
+      query: "what is bulimia nervosa in adults",
       ownerId: undefined,
       logQuery: false,
       skipCache: true,
@@ -1721,7 +1721,7 @@ describe("RAG structured-output fallback", () => {
 
     const { answerQuestionWithScope } = await import("../src/lib/rag/rag");
     const answer = await answerQuestionWithScope({
-      query: "what is bulimia nervosa",
+      query: "what is bulimia nervosa in adults",
       ownerId: undefined,
       logQuery: false,
       skipCache: true,

@@ -475,12 +475,14 @@ body {
   overscroll-behavior-x: none;
 }
 
-/* Interactive element defaults */
-button,
-input,
-textarea,
-select {
-  font: inherit;
+@layer base {
+  /* Interactive element defaults */
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
 }
 
 /*

@@ -40,9 +40,9 @@ function classifierResponse(overrides: Record<string, unknown> = {}) {
 function fallbackQueryAnalysis(
   analyzeClinicalQuery: (typeof import("../src/lib/clinical-search"))["analyzeClinicalQuery"],
 ) {
-  // A bare condition query is exactly the class that needs the LLM fallback (deterministic
-  // confidence below 0.58 with class unsupported_or_general) — the finding #11 shape.
-  const query = "bipolar disorder";
+  // A bare condition query above the short-query deterministic fallback threshold still needs
+  // the LLM fallback (confidence below 0.58 with class unsupported_or_general).
+  const query = "bipolar disorder long term care";
   const analysis = analyzeClinicalQuery(query);
   expect(analysis.needsClassifierFallback).toBe(true);
   return { query, analysis };
