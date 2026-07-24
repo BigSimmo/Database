@@ -334,6 +334,7 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 | Full documentation index | `docs/README.md`                                                 |
 | Routes and modes         | `docs/site-map.md`                                               |
 | Search/RAG roadmap       | `docs/search-rag-master-plan.md`                                 |
+| Universal task ledger    | `docs/outstanding-issues.md`                                     |
 | Reindex operations       | `docs/reindex-runbook.md`                                        |
 | Production readiness     | `docs/production-readiness-checklist.md`                         |
 | Capacity / scale-up      | `docs/capacity-review.md`, `docs/auth-connection-cap-runbook.md` |
