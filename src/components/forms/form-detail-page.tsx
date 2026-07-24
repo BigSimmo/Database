@@ -45,7 +45,7 @@ import {
 } from "@/components/ui-primitives";
 import { FormCodeBadge, splitFormCode } from "@/components/forms/form-code-badge";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { formCatalogDetails, type FormRecord } from "@/lib/form-ranker";
+import { formCatalogDetails, formTitleForCode, type FormRecord } from "@/lib/form-catalog";
 import type { ServiceChipTone, ServiceContact, ServiceCriterion, ServiceSummaryCard } from "@/lib/service-ranker";
 import { useAccountData } from "@/components/account-data-provider";
 
@@ -264,13 +264,31 @@ function PathwayContextCard({
   testId?: string;
 }) {
   const details = formCatalogDetails(form);
-  const pathwayItems = (items: string[] | undefined, fallbackCode: string, fallbackTitle: string) =>
+  const [activeTab, setActiveTab] = useState<"pathway" | "source">("pathway");
+  const pathwayItems = (items: string[] | undefined, emptyTitle: string, emptyMeta: string) =>
     items?.length
-      ? items.map((item) => ({ code: /^\d{1,2}[a-z]?(?:\s+attachment)?$/i.test(item) ? item : "Step", title: item }))
-      : [{ code: fallbackCode, title: fallbackTitle }];
-  const beforeForms = pathwayItems(details?.before, "Check", "Confirm prerequisites on the current form");
-  const parallelForms = pathwayItems(details?.parallel, "None", "No parallel form listed in the imported pathway");
-  const afterForms = pathwayItems(details?.after, "Next", "Confirm the next lawful step and owner");
+      ? items.map((item) => {
+          const knownTitle = formTitleForCode(item);
+          return {
+            code: knownTitle ? item : "Context",
+            title: knownTitle ?? item,
+            meta: knownTitle ? `Form ${item}` : "Pathway step",
+            isEmpty: false,
+          };
+        })
+      : [{ code: "None", title: emptyTitle, meta: emptyMeta, isEmpty: true }];
+  const beforeForms = pathwayItems(details?.before, "No form is listed before this step", "No prior form");
+  const parallelForms = pathwayItems(details?.parallel, "No parallel form is listed for this step", "No parallel form");
+  const afterForms = pathwayItems(
+    details?.after,
+    "No next form is listed; confirm the lawful off-ramp or local workflow",
+    "No next form",
+  );
+  const confirmChecks = [
+    ...(details?.preUseChecks ?? []),
+    ...(details?.copies ? [details.copies] : []),
+    ...(details?.safetyPearl ? [details.safetyPearl] : []),
+  ].filter((value, index, values) => value.trim().length > 0 && values.indexOf(value) === index);
 
   return (
     <section
@@ -286,105 +304,201 @@ function PathwayContextCard({
         </div>
         <Info className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" aria-hidden />
       </div>
-      <div className="grid grid-cols-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 text-xs font-semibold">
-        <span className="rounded-md bg-[color:var(--clinical-accent)] px-3 py-2 text-center text-[color:var(--clinical-accent-contrast)]">
+      <div
+        className="grid grid-cols-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-1 text-xs font-semibold"
+        role="tablist"
+        aria-label="Decision context sections"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "pathway"}
+          onClick={() => setActiveTab("pathway")}
+          className={cn(
+            "rounded-md px-3 py-2 text-center transition",
+            activeTab === "pathway"
+              ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+              : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+          )}
+        >
           Pathway
-        </span>
-        <span className="px-3 py-2 text-center text-[color:var(--text-muted)]">Source info</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "source"}
+          onClick={() => setActiveTab("source")}
+          className={cn(
+            "rounded-md px-3 py-2 text-center transition",
+            activeTab === "source"
+              ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
+              : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
+          )}
+        >
+          Source info
+        </button>
       </div>
-      <div className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4">
-        <div className="relative">
-          <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-          <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Before</p>
-          <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-            {beforeForms.map((item) => (
-              <div
-                key={`${item.code}-${item.title}`}
-                className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
-              >
-                <PathwayStepCode code={item.code} />
-                <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
-              </div>
-            ))}
+      {activeTab === "pathway" ? (
+        <div className="mt-3 space-y-3 border-l border-[color:var(--border-strong)] pl-4">
+          <div className="relative">
+            <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
+            <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Before</p>
+            <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
+              {beforeForms.map((item) => (
+                <div
+                  key={`${item.code}-${item.title}`}
+                  className="grid grid-cols-[3.25rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
+                >
+                  <PathwayStepCode code={item.code} />
+                  <p
+                    className={cn(
+                      "text-xs font-medium leading-5",
+                      item.isEmpty ? textMuted : "text-[color:var(--text-heading)]",
+                    )}
+                  >
+                    <span className="font-semibold">{item.meta}</span>
+                    {item.isEmpty ? "" : " — "}
+                    {item.isEmpty ? item.title : <span className={textMuted}>{item.title}</span>}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="relative rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35 p-3">
-          <span className="absolute -left-[1.55rem] top-4 h-4 w-4 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-accent)]" />
-          <p className="mb-2 text-2xs font-bold uppercase text-[color:var(--text-soft)]">Current</p>
-          <div className="flex items-center gap-2.5">
-            <FormCodeBadge code={code} variant="sm" />
-            <p className="min-w-0 text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
+          <div className="relative rounded-lg border border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent-soft)]/35 p-3">
+            <span className="absolute -left-[1.55rem] top-4 h-4 w-4 rounded-full border-2 border-[color:var(--surface)] bg-[color:var(--clinical-accent)]" />
+            <p className="mb-2 text-2xs font-bold uppercase text-[color:var(--text-soft)]">Current</p>
+            <div className="flex items-center gap-2.5">
+              <FormCodeBadge code={code} variant="sm" />
+              <p className="min-w-0 text-sm font-semibold text-[color:var(--text-heading)]">{form.title}</p>
+            </div>
+            <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)]">
+              You are here
+            </span>
+            <p className={cn("mt-2 text-xs leading-5", textMuted)}>{displayText(form.subtitle)}</p>
           </div>
-          <span className="mt-2 inline-flex min-h-6 items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)]">
-            You are here
-          </span>
-          <p className={cn("mt-2 text-xs leading-5", textMuted)}>{displayText(form.subtitle)}</p>
-        </div>
-        <div className="relative">
-          <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-          <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Parallel</p>
-          <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-            {parallelForms.map((item) => (
-              <div
-                key={`${item.code}-${item.title}`}
-                className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
-              >
-                <PathwayStepCode code={item.code} />
-                <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
-              </div>
-            ))}
+          <div className="relative">
+            <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
+            <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Parallel</p>
+            <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
+              {parallelForms.map((item) => (
+                <div
+                  key={`${item.code}-${item.title}`}
+                  className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
+                >
+                  <PathwayStepCode code={item.code} />
+                  <p
+                    className={cn(
+                      "text-xs font-medium leading-5",
+                      item.isEmpty ? textMuted : "text-[color:var(--text-heading)]",
+                    )}
+                  >
+                    <span className="font-semibold">{item.meta}</span>
+                    {item.isEmpty ? "" : " — "}
+                    {item.isEmpty ? item.title : <span className={textMuted}>{item.title}</span>}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-        <div className="relative">
-          <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
-          <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">After</p>
-          <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
-            {afterForms.map((item) => (
-              <div
-                key={`${item.code}-${item.title}`}
-                className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
-              >
-                <PathwayStepCode code={item.code} />
-                <p className={cn("text-xs font-medium leading-5", textMuted)}>{item.title}</p>
-              </div>
-            ))}
+          <div className="relative">
+            <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
+            <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">After</p>
+            <div className="mt-2 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)]">
+              {afterForms.map((item) => (
+                <div
+                  key={`${item.code}-${item.title}`}
+                  className="grid grid-cols-[2.75rem_minmax(0,1fr)] gap-2 border-b border-[color:var(--border)] p-2.5 last:border-b-0"
+                >
+                  <PathwayStepCode code={item.code} />
+                  <p
+                    className={cn(
+                      "text-xs font-medium leading-5",
+                      item.isEmpty ? textMuted : "text-[color:var(--text-heading)]",
+                    )}
+                  >
+                    <span className="font-semibold">{item.meta}</span>
+                    {item.isEmpty ? "" : " — "}
+                    {item.isEmpty ? item.title : <span className={textMuted}>{item.title}</span>}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-        {criteria.length ? (
           <div className="relative">
             <span className="absolute -left-[1.35rem] top-1.5 h-3 w-3 rounded-full border border-[color:var(--border-strong)] bg-[color:var(--surface)]" />
             <p className="text-2xs font-bold uppercase text-[color:var(--text-soft)]">Confirm</p>
             <div className="mt-2 grid gap-1.5">
-              {criteria.slice(0, 3).map((criterion) => (
+              {confirmChecks.slice(0, 4).map((check) => (
                 <span
-                  key={criterion.label}
+                  key={check}
                   className={cn(
                     "inline-flex min-h-7 items-center rounded-md border px-2 text-xs font-semibold",
-                    criterionToneClass(criterion.tone),
+                    toneWarning,
                   )}
                 >
-                  {criterion.tone === "reject" ? (
-                    <CircleX className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                  ) : (
-                    <CircleCheck className="mr-1.5 h-3.5 w-3.5" aria-hidden />
-                  )}
-                  {criterion.label}
+                  <CircleCheck className="mr-1.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                  {check.replace(/^Before use:\s*/i, "Before use: ")}
                 </span>
               ))}
+              {criteria
+                .filter((criterion) => criterion.tone === "reject")
+                .slice(0, 1)
+                .map((criterion) => (
+                  <span
+                    key={criterion.label}
+                    className={cn(
+                      "inline-flex min-h-7 items-center rounded-md border px-2 text-xs font-semibold",
+                      criterionToneClass(criterion.tone),
+                    )}
+                  >
+                    <CircleX className="mr-1.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+                    Avoid: {criterion.label}
+                  </span>
+                ))}
             </div>
           </div>
-        ) : null}
-      </div>
-      <button
-        type="button"
-        disabled
-        title="Pathway navigation is not available yet"
-        className={cn(floatingControl, "mt-3 min-h-10 w-full rounded-lg px-3 text-xs opacity-60")}
+        </div>
+      ) : (
+        <div className="mt-3 space-y-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+          <p className="text-sm font-semibold text-[color:var(--text-heading)]">
+            {displayText(details?.sourceFacts?.documentTitle, form.title)}
+          </p>
+          <dl className="grid gap-2 text-xs">
+            <div>
+              <dt className="font-bold uppercase text-[color:var(--text-soft)]">Official source</dt>
+              <dd className={textMuted}>{displayText(form.source?.label)}</dd>
+            </div>
+            <div>
+              <dt className="font-bold uppercase text-[color:var(--text-soft)]">Reviewed</dt>
+              <dd className={textMuted}>{displayText(form.source?.reviewed ?? details?.officialTitleCheckedAt)}</dd>
+            </div>
+            <div>
+              <dt className="font-bold uppercase text-[color:var(--text-soft)]">Availability</dt>
+              <dd className={textMuted}>
+                {details?.availability === "downloadable"
+                  ? "Official PDF stored locally; confirm against the register before use"
+                  : details?.availability === "unavailable"
+                    ? "Marked unavailable on the official register"
+                    : "Contact OCP monitoring"}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-bold uppercase text-[color:var(--text-soft)]">Act / cue</dt>
+              <dd className={textMuted}>{displayText(details?.sourceFacts?.sectionCue, details?.sourceNote)}</dd>
+            </div>
+          </dl>
+        </div>
+      )}
+      <a
+        href={form.source?.url ?? details?.officialRegisterUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(floatingControl, "mt-3 min-h-10 w-full rounded-lg px-3 text-xs")}
       >
         <Navigation className="h-4 w-4" aria-hidden />
-        Full pathway unavailable
+        Open official source / pathway
         <ExternalLink className="h-3.5 w-3.5" aria-hidden />
-      </button>
+      </a>
     </section>
   );
 }
