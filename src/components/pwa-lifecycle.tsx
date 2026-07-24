@@ -1,7 +1,8 @@
 "use client";
 
 import { RefreshCw, Share, SquarePlus, Wifi, WifiOff, X, type LucideIcon } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createBrowserStore } from "@/lib/client-store-factory";
 
 const SERVICE_WORKER_URL = "/sw.js";
 const INSTALL_DISMISSAL_KEY = "clinical-kb-pwa-install-dismissed-at";
@@ -33,9 +34,7 @@ function getConnectivitySnapshot() {
   return navigator.onLine;
 }
 
-function getServerConnectivitySnapshot() {
-  return true;
-}
+const useConnectivityStore = createBrowserStore(subscribeConnectivity, getConnectivitySnapshot, true);
 
 function isStandaloneDisplay() {
   return (
@@ -182,7 +181,7 @@ function InstallStepChip({ icon: Icon, label }: { icon: LucideIcon; label: strin
  * owned caches again.
  */
 export function PwaLifecycle() {
-  const isOnline = useSyncExternalStore(subscribeConnectivity, getConnectivitySnapshot, getServerConnectivitySnapshot);
+  const isOnline = useConnectivityStore();
   const [connectionRestored, setConnectionRestored] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [offlineNoticeDismissed, setOfflineNoticeDismissed] = useState(false);
