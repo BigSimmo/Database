@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, ChevronsUpDown, LayoutList, Search, Table2, X } from "lucide-react";
+import { Bookmark, CheckCircle2, ChevronsUpDown, LayoutList, LoaderCircle, Search, Table2, X } from "lucide-react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { cn } from "@/components/ui-primitives";
@@ -37,95 +37,151 @@ export function SearchResultsHeaderBand({
   const command = useSearchCommand();
   const config = searchCommandSurfaceConfig(modeId);
   const activeScopes = command?.commandScopes ?? [];
+  const visibleScopes = activeScopes.flatMap((scopeId) => {
+    const scope = config?.scopes.find((entry) => entry.id === scopeId);
+    return scope ? [scope] : [];
+  });
   const displayQuery = query.trim() || "All";
+  const statusLabel = loading ? "Searching…" : `${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
+  const hasUtilities = visibleScopes.length > 0 || Boolean(onSortChange || onViewChange || onSaveSearch);
 
   return (
-    <div
+    <section
+      aria-label={`Search results for ${displayQuery}`}
+      aria-busy={loading}
+      data-testid="search-query-ribbon"
       className={cn(
-        "flex flex-wrap items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 shadow-[var(--shadow-inset)]",
+        "relative overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]",
         className,
       )}
     >
-      <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-2.5 text-xs font-bold text-[color:var(--clinical-accent)]">
-        <Search className="h-3 w-3" aria-hidden />
-        {displayQuery}
-      </span>
-      <span className="text-sm font-extrabold text-[color:var(--text-heading)]">
-        {loading ? "Searching…" : `${matchCount} ${matchCount === 1 ? "match" : "matches"}`}
-      </span>
-      {activeScopes.map((scopeId) => {
-        const scope = config?.scopes.find((entry) => entry.id === scopeId);
-        if (!scope) return null;
-        return (
-          <button
-            key={scope.id}
-            type="button"
-            onClick={() => command?.onRemoveScope(scope.id)}
+      <span
+        className={cn(
+          "absolute inset-x-0 top-0 h-0.5 bg-[color:var(--clinical-accent)] lg:inset-y-0 lg:left-0 lg:right-auto lg:h-auto lg:w-1",
+          loading && "motion-safe:animate-pulse",
+        )}
+        aria-hidden
+      />
+      <div className="flex min-w-0 flex-col lg:min-h-[4.5rem] lg:flex-row lg:items-center">
+        <div className="flex min-w-0 items-start gap-2.5 p-3 pt-3.5 lg:flex-1 lg:items-center lg:gap-3 lg:px-4 lg:py-2.5 lg:pl-5">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] lg:h-10 lg:w-10">
+            <Search className="h-4 w-4 lg:h-[1.125rem] lg:w-[1.125rem]" aria-hidden />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-3xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-soft)]">
+              <span className="lg:hidden">Query</span>
+              <span className="hidden lg:inline">{loading ? "Searching for" : "Results for"}</span>
+            </span>
+            <h2
+              className="mt-0.5 truncate text-base font-extrabold text-[color:var(--text-heading)] lg:max-w-[32rem] lg:text-lg"
+              title={displayQuery}
+            >
+              {displayQuery}
+            </h2>
+          </span>
+          <span
             className={cn(
-              "inline-flex min-h-8 items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 text-xs font-bold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)]",
-              focusRing,
+              "inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-extrabold",
+              loading
+                ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                : "bg-[color:var(--success-bg)] text-[color:var(--success-text)]",
             )}
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
           >
-            {scope.label}
-            <X className="h-3 w-3" aria-hidden />
-          </button>
-        );
-      })}
-      <div className="ml-auto flex items-center gap-1.5">
-        {onSortChange ? <ResultSortControl value={sortValue} onChange={onSortChange} /> : null}
-        {onViewChange ? (
+            {loading ? (
+              <LoaderCircle className="h-3.5 w-3.5 motion-safe:animate-spin" aria-hidden />
+            ) : (
+              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+            )}
+            <span className="max-[359px]:sr-only">{statusLabel}</span>
+          </span>
+        </div>
+
+        {hasUtilities ? (
           <div
-            className="inline-flex overflow-hidden rounded-lg border border-[color:var(--border)]"
-            role="group"
-            aria-label="Results view"
+            data-testid="search-query-ribbon-utilities"
+            className="flex min-w-0 flex-wrap items-center gap-1.5 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-2 lg:ml-auto lg:flex-nowrap lg:border-l lg:border-t-0 lg:bg-transparent lg:pl-3 lg:pr-3"
           >
-            <button
-              type="button"
-              aria-pressed={view === "table"}
-              onClick={() => onViewChange("table")}
-              className={cn(
-                "grid h-9 w-9 place-items-center",
-                focusRing,
-                view === "table"
-                  ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                  : "text-[color:var(--text-muted)]",
-              )}
-            >
-              <Table2 className="h-4 w-4" aria-hidden />
-              <span className="sr-only">Table view</span>
-            </button>
-            <button
-              type="button"
-              aria-pressed={view === "list"}
-              onClick={() => onViewChange("list")}
-              className={cn(
-                "grid h-9 w-9 place-items-center border-l border-[color:var(--border)]",
-                focusRing,
-                view === "list"
-                  ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                  : "text-[color:var(--text-muted)]",
-              )}
-            >
-              <LayoutList className="h-4 w-4" aria-hidden />
-              <span className="sr-only">List view</span>
-            </button>
+            {visibleScopes.map((scope) => (
+              <button
+                key={scope.id}
+                type="button"
+                onClick={() => command?.onRemoveScope(scope.id)}
+                aria-label={`Remove ${scope.label} filter`}
+                className={cn(
+                  "inline-flex min-h-10 max-w-full items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                  focusRing,
+                )}
+              >
+                <span className="truncate">{scope.label}</span>
+                <X className="h-3 w-3 shrink-0" aria-hidden />
+              </button>
+            ))}
+            {onSortChange ? (
+              <ResultSortControl
+                value={sortValue}
+                onChange={onSortChange}
+                compact
+                className="min-w-[8.5rem] flex-1 sm:flex-none"
+              />
+            ) : null}
+            {onViewChange ? (
+              <div
+                className="inline-flex min-h-10 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
+                role="group"
+                aria-label="Results view"
+              >
+                <button
+                  type="button"
+                  aria-pressed={view === "table"}
+                  onClick={() => onViewChange("table")}
+                  className={cn(
+                    "grid min-h-10 min-w-10 place-items-center",
+                    focusRing,
+                    view === "table"
+                      ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+                  )}
+                >
+                  <Table2 className="h-4 w-4" aria-hidden />
+                  <span className="sr-only">Table view</span>
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={view === "list"}
+                  onClick={() => onViewChange("list")}
+                  className={cn(
+                    "grid min-h-10 min-w-10 place-items-center border-l border-[color:var(--border)]",
+                    focusRing,
+                    view === "list"
+                      ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+                  )}
+                >
+                  <LayoutList className="h-4 w-4" aria-hidden />
+                  <span className="sr-only">List view</span>
+                </button>
+              </div>
+            ) : null}
+            {onSaveSearch ? (
+              <button
+                type="button"
+                onClick={onSaveSearch}
+                className={cn(
+                  "inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                  focusRing,
+                )}
+              >
+                <Bookmark className="h-3.5 w-3.5" aria-hidden />
+                <span className="max-[389px]:sr-only">Save search</span>
+              </button>
+            ) : null}
           </div>
         ) : null}
-        {onSaveSearch ? (
-          <button
-            type="button"
-            onClick={onSaveSearch}
-            className={cn(
-              "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] px-2.5 text-xs font-extrabold text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-              focusRing,
-            )}
-          >
-            <Bookmark className="h-3.5 w-3.5" aria-hidden />
-            Save search
-          </button>
-        ) : null}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -144,12 +200,12 @@ export function ResultSortControl({
   return (
     <label
       className={cn(
-        "relative inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold",
+        "relative inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
         className,
       )}
     >
-      <span className={cn("text-[color:var(--text-soft)]", compact && "sr-only sm:not-sr-only sm:inline")}>Sort</span>
+      <span className={cn("text-[color:var(--text-soft)]", compact && "max-[359px]:sr-only")}>Sort</span>
       {/* appearance-none strips the native control chrome so "Relevance" renders at the
           same size/weight as the rest of the band and the caret sits in a fixed slot. */}
       <select
