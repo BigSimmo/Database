@@ -386,8 +386,9 @@ test.describe("Clinical KB tools launcher", () => {
       await expect(page.getByLabel("Mode Tools")).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
       if (viewport.name === "mobile") {
-        // Phones dock the compact shared search at the bottom edge.
-        await expect(page.locator("form.answer-footer-search-dock").getByTestId("global-search-input")).toBeVisible();
+        // Phones keep the compact shared search in the tools-home hero slot.
+        await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toBeVisible();
+        await expect(page.locator("form.answer-footer-search-dock")).toHaveCount(0);
       } else {
         await expect(page.getByTestId("tools-home").getByTestId("global-search-input")).toBeVisible();
       }
