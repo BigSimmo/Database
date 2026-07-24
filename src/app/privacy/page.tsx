@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { ClinicalBadge } from "@/components/clinical-dashboard/clinical-badge";
+import { NavigationBackButton } from "@/components/navigation-back-button";
+import { PrivacyPageBackButton } from "@/components/privacy-page-back-button";
 import {
   cn,
   eyebrowText,
@@ -75,15 +77,20 @@ export default function PrivacyPage() {
     <main className={cn(searchPageCanvas)}>
       <div className={cn(searchPageShell)}>
         <div className={cn(searchPageContainer, "space-y-6")}>
-          <header className="space-y-2">
-            <p className={eyebrowText}>{privacyCopy.pageEyebrow}</p>
-            <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
-              {privacyCopy.pageTitle}
-            </h1>
-            <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">
-              This is draft product information based on the repository&apos;s configured behaviour. It is not legal
-              advice, a final privacy policy, or an assertion of governance approval.
-            </p>
+          <header className="space-y-3">
+            <Suspense fallback={<NavigationBackButton fallbackHref="/" />}>
+              <PrivacyPageBackButton />
+            </Suspense>
+            <div className="space-y-2">
+              <p className={eyebrowText}>{privacyCopy.pageEyebrow}</p>
+              <h1 className="text-2xl font-semibold tracking-tight text-[color:var(--text-heading)] sm:text-3xl">
+                {privacyCopy.pageTitle}
+              </h1>
+              <p className="max-w-[68ch] text-sm leading-6 text-[color:var(--text-muted)]">
+                This is draft product information based on the repository&apos;s configured behaviour. It is not legal
+                advice, a final privacy policy, or an assertion of governance approval.
+              </p>
+            </div>
           </header>
 
           <section className={cn(raisedCard, "p-4 sm:p-5")}>

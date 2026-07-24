@@ -2,12 +2,24 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PatientSafetyPlan } from "@/components/patient-safety-plan";
+import { appModeHomeHref } from "@/lib/app-modes";
+
+const router = vi.hoisted(() => ({
+  back: vi.fn(),
+  push: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => router,
+}));
 
 describe("PatientSafetyPlan privacy contract", () => {
   const writeText = vi.fn(async () => undefined);
 
   beforeEach(() => {
     vi.clearAllMocks();
+    router.back.mockReset();
+    router.push.mockReset();
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText },
@@ -52,5 +64,77 @@ describe("PatientSafetyPlan privacy contract", () => {
     fireEvent.click(screen.getByRole("button", { name: "Print / PDF" }));
 
     expect(printSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("confirms before leaving a dirty safety plan via the header back control", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(<PatientSafetyPlan />);
+    fireEvent.change(screen.getByLabelText("e.g. Not sleeping for a couple of nights"), {
+      target: { value: "Not sleeping" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "Add" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+
+    expect(confirmSpy).toHaveBeenCalledOnce();
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringMatching(/Leave this safety plan\?.*will be lost/i));
+    expect(router.push).not.toHaveBeenCalled();
+
+    confirmSpy.mockReturnValue(true);
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+
+    expect(router.push).toHaveBeenCalledOnce();
+    expect(router.push).toHaveBeenCalledWith(appModeHomeHref("tools"));
+  });
+
+  it("confirms before leaving unadded safety-plan step text", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(<PatientSafetyPlan />);
+    fireEvent.change(screen.getByLabelText("e.g. Not sleeping for a couple of nights"), {
+      target: { value: "Not sleeping" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+
+    expect(confirmSpy).toHaveBeenCalledOnce();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("confirms before leaving unadded contact detail text", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(<PatientSafetyPlan />);
+    fireEvent.change(screen.getByLabelText("Name & relationship"), { target: { value: "Priya" } });
+    fireEvent.change(screen.getByLabelText("Phone or how to reach them"), { target: { value: "0400 000 000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+
+    expect(confirmSpy).toHaveBeenCalledOnce();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("keeps unadded draft text dirty after loading and clearing the example", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(<PatientSafetyPlan />);
+    fireEvent.change(screen.getByLabelText("e.g. Not sleeping for a couple of nights"), {
+      target: { value: "Not sleeping" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Load example" }));
+    fireEvent.click(screen.getByRole("button", { name: "Clear all" }));
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+
+    expect(confirmSpy).toHaveBeenCalledOnce();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("navigates back without confirmation when the safety plan is empty", () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<PatientSafetyPlan />);
+    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    expect(router.push).toHaveBeenCalledOnce();
+    expect(router.push).toHaveBeenCalledWith(appModeHomeHref("tools"));
   });
 });

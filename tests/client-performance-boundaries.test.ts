@@ -25,8 +25,13 @@ describe("fixture-free client performance boundaries", () => {
 
   it("keeps initial dashboard rankers on fixture-free entry points", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
-    expect(dashboard).toContain('from "@/lib/form-ranker"');
-    expect(dashboard).toContain('from "@/lib/service-ranker"');
+    const deferredRegistrySearch = source("src/components/clinical-dashboard/use-deferred-registry-search.ts");
+    expect(dashboard).toContain('from "@/components/clinical-dashboard/use-deferred-registry-search"');
+    expect(dashboard).not.toContain('from "@/lib/form-ranker"');
+    expect(dashboard).not.toContain('from "@/lib/service-ranker"');
+    expect(deferredRegistrySearch).toContain('from "@/lib/form-ranker"');
+    expect(deferredRegistrySearch).toContain('from "@/lib/service-ranker"');
+    expect(deferredRegistrySearch).toContain("useDeferredValue");
     expect(source("src/lib/cross-mode-links.ts")).not.toMatch(/@\/lib\/(forms|services)"/);
   });
 
