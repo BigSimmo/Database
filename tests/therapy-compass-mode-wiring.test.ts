@@ -122,6 +122,8 @@ describe("Therapy Compass production-mode wiring", () => {
       "utf8",
     );
     expect(homeSrc).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
-    expect(shellSrc).toContain('searchMode === "therapy-compass" && pathname === "/therapy-compass"');
+    // Mode homes are pathname-gated so optimistic searchMode cannot flip hero→dock mid-nav.
+    expect(shellSrc).toContain("isStandaloneModeHomePath(pathname)");
+    expect(shellSrc).toContain('"/therapy-compass"');
   });
 });
