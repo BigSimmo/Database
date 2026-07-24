@@ -120,7 +120,7 @@ export function Sheet({
   // Pending focus-restore timers from the previous close. Cleared on the next
   // open and on unmount so a torn-down jsdom environment cannot throw from a
   // stale 50ms retry under Vitest coverage workers.
-  const restoreTimersRef = useRef<{ frame: number | null; timeout: ReturnType<typeof setTimeout> | null }>({
+  const restoreTimersRef = useRef<{ frame: number | null; timeout: number | null }>({
     frame: null,
     timeout: null,
   });
@@ -133,14 +133,15 @@ export function Sheet({
   }, [onClose]);
 
   useEffect(() => {
+    const restoreTimers = restoreTimersRef.current;
     return () => {
-      if (restoreTimersRef.current.frame != null) {
-        window.cancelAnimationFrame(restoreTimersRef.current.frame);
-        restoreTimersRef.current.frame = null;
+      if (restoreTimers.frame != null) {
+        window.cancelAnimationFrame(restoreTimers.frame);
+        restoreTimers.frame = null;
       }
-      if (restoreTimersRef.current.timeout != null) {
-        window.clearTimeout(restoreTimersRef.current.timeout);
-        restoreTimersRef.current.timeout = null;
+      if (restoreTimers.timeout != null) {
+        window.clearTimeout(restoreTimers.timeout);
+        restoreTimers.timeout = null;
       }
     };
   }, []);
@@ -231,27 +232,28 @@ export function Sheet({
     }
 
     window.addEventListener("keydown", onKeyDown);
+    const restoreTimers = restoreTimersRef.current;
     return () => {
       window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", onKeyDown);
       popSheet(sheetId);
       const restoreTarget = explicitReturnElement ?? previousActiveElement;
-      if (restoreTimersRef.current.frame != null) {
-        window.cancelAnimationFrame(restoreTimersRef.current.frame);
+      if (restoreTimers.frame != null) {
+        window.cancelAnimationFrame(restoreTimers.frame);
       }
-      if (restoreTimersRef.current.timeout != null) {
-        window.clearTimeout(restoreTimersRef.current.timeout);
+      if (restoreTimers.timeout != null) {
+        window.clearTimeout(restoreTimers.timeout);
       }
       // Focus restore is best-effort. Under Vitest coverage workers the jsdom
       // `document` can be torn down before this rAF/setTimeout pair fires; bare
       // `document` access then becomes an unhandled ReferenceError that fails
       // the whole suite even when every test assertion passed.
-      restoreTimersRef.current.frame = window.requestAnimationFrame(() => {
-        restoreTimersRef.current.frame = null;
+      restoreTimers.frame = window.requestAnimationFrame(() => {
+        restoreTimers.frame = null;
         if (typeof document === "undefined" || !restoreTarget?.isConnected) return;
         restoreTarget.focus({ preventScroll: true });
-        restoreTimersRef.current.timeout = window.setTimeout(() => {
-          restoreTimersRef.current.timeout = null;
+        restoreTimers.timeout = window.setTimeout(() => {
+          restoreTimers.timeout = null;
           if (
             typeof document === "undefined" ||
             !restoreTarget.isConnected ||
