@@ -25,5 +25,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "**/*.mts", ".next/dev/types/**/*.ts"],
-  "exclude": ["node_modules", "scratch/**", "supabase/functions/**", "worktrees/**"]
+  "exclude": ["node_modules", "scratch/**", "supabase/functions/**", "worktrees/**", "scripts/archive/**"]
 }

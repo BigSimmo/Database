@@ -16,7 +16,7 @@ import {
   Workflow,
   type LucideIcon,
 } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useState, useDeferredValue } from "react";
 
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, rankFormRecords, type FormSearchMatch } from "@/lib/form-ranker";
@@ -31,7 +31,6 @@ import {
   ToggleSwitch,
 } from "@/components/ui-primitives";
 import {
-  ResultSortControl,
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
@@ -620,10 +619,15 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
   const registryReady = registry.status === "ready";
   const [refineOpen, setRefineOpen] = useState(false);
   const refinePanelId = useId();
-  const matches = useMemo(
-    () => (registryReady ? rankFormRecords(registry.records, query) : []),
-    [registryReady, registry.records, query],
-  );
+  const deferredQuery = useDeferredValue(query);
+  const matches = useMemo(() => {
+    if (!registryReady) return [];
+    // Cleared query: no form matches (page usually remounts, but keep lag-safe).
+    if (!query.trim()) return [];
+    // Deferred empty while live has text: wait — do not rank as empty-query "all forms".
+    if (!deferredQuery.trim()) return [];
+    return rankFormRecords(registry.records, deferredQuery);
+  }, [registryReady, registry.records, deferredQuery, query]);
   const scopedMatches = useMemo(() => {
     const scopes = command?.commandScopes ?? [];
     if (!scopes.length) return matches;
@@ -640,16 +644,14 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
         <RegistryStatusNotice status={registry.status} />
         {registryReady ? (
           <>
-            <div className="hidden md:block">
-              <SearchResultsHeaderBand
-                modeId="forms"
-                query={query}
-                matchCount={displayedMatches.length}
-                sortValue={sortValue}
-                onSortChange={setSortValue}
-              />
-            </div>
-            {query.trim() && displayedMatches.length === 0 ? (
+            <SearchResultsHeaderBand
+              modeId="forms"
+              query={query}
+              matchCount={displayedMatches.length}
+              sortValue={sortValue}
+              onSortChange={setSortValue}
+            />
+            {query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
               <SearchResultsEmptyState
                 modeId="forms"
                 query={query}
@@ -665,7 +667,6 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
                     <ResultTabs formsCount={displayedMatches.length} />
                   </div>
                   <div className="flex items-center gap-2 pb-1.5">
-                    <ResultSortControl value={sortValue} onChange={setSortValue} className="md:hidden" />
                     {supportsPathwayClaims ? (
                       <RefineBar
                         open={refineOpen}
