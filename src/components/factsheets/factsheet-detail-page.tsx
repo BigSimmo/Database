@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import {
-  ArrowLeft,
   ArrowUpRight,
   Bookmark,
   Check,
@@ -28,6 +27,7 @@ import {
   type Factsheet,
 } from "@/components/factsheets/factsheets-data";
 import { factsheetGlyph } from "@/components/factsheets/factsheets-icons";
+import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
 import { cn, toneDanger, toneWarning } from "@/components/ui-primitives";
 import {
   readSavedRegistrySlugs,
@@ -105,17 +105,14 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
 
   return (
     <>
-      <div className="factsheet-screen bg-[color:var(--background)]">
+      <InformationPageShell testId="factsheet-detail-page" width="bleed" className="factsheet-screen">
         {/* action bar */}
         <div className="border-b border-[color:var(--border)] bg-[color:var(--surface)]">
           <div className="mx-auto flex max-w-[64rem] flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6 lg:px-8">
-            <Link
-              href="/factsheets/search"
-              className="inline-flex min-h-tap items-center gap-1.5 rounded-lg pr-2 text-sm font-bold text-[color:var(--text-muted)] transition hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              All factsheets
-            </Link>
+            <InformationPageBreadcrumbs
+              home={{ label: "All factsheets", href: "/factsheets/search" }}
+              current={factsheet.title}
+            />
             <div className="flex flex-wrap items-center gap-2">
               {factsheet.kind === "medRich" ? (
                 <div
@@ -402,7 +399,7 @@ export function FactsheetDetailPage({ factsheet }: { factsheet: Factsheet }) {
             </div>
           </aside>
         </div>
-      </div>
+      </InformationPageShell>
 
       {/* Print-only clean A4 sheet, portaled to <body> so print can remove every
           other body subtree from layout flow (see globals.css factsheets-printing

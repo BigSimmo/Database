@@ -48,6 +48,7 @@ import {
 } from "@/lib/app-modes";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
+import { isInformationPage } from "@/lib/information-pages";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import { shouldRenderClinicalDashboard, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
@@ -158,65 +159,6 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
       )}
     </PatientProfileProvider>
   );
-}
-
-function isInformationPage(pathname: string): boolean {
-  // Services detail: /services/[slug]
-  if (pathname.startsWith("/services/") && pathname !== "/services") return true;
-
-  // Forms detail: /forms/[slug]
-  if (pathname.startsWith("/forms/") && pathname !== "/forms") return true;
-
-  // Medications detail: /medications/[slug]
-  if (pathname.startsWith("/medications/") && pathname !== "/medications") return true;
-
-  // Psychiatric specifier detail: /specifiers/[slug]
-  if (
-    pathname.startsWith("/specifiers/") &&
-    pathname !== "/specifiers" &&
-    pathname !== "/specifiers/builder" &&
-    pathname !== "/specifiers/compare" &&
-    pathname !== "/specifiers/map"
-  )
-    return true;
-
-  // Clinical formulation detail: /formulation/[slug]
-  if (
-    pathname.startsWith("/formulation/") &&
-    pathname !== "/formulation" &&
-    pathname !== "/formulation/builder" &&
-    pathname !== "/formulation/compare" &&
-    pathname !== "/formulation/map"
-  )
-    return true;
-
-  // Factsheets detail: /factsheets/[slug]
-  if (pathname.startsWith("/factsheets/") && pathname !== "/factsheets" && pathname !== "/factsheets/search")
-    return true;
-
-  // Therapy compass detail: /therapy-compass/[slug]/brief or /therapy-compass/[slug]/sheet
-  if (
-    pathname.startsWith("/therapy-compass/") &&
-    pathname !== "/therapy-compass" &&
-    pathname !== "/therapy-compass/compare" &&
-    pathname !== "/therapy-compass/pathways" &&
-    pathname !== "/therapy-compass/recommend" &&
-    pathname !== "/therapy-compass/review" &&
-    pathname !== "/therapy-compass/search"
-  )
-    return true;
-
-  // Differential diagnosis detail: /differentials/diagnoses/[slug] or /differentials/presentations/[slug]
-  if (pathname.startsWith("/differentials/diagnoses/") || pathname.startsWith("/differentials/presentations/"))
-    return true;
-
-  // DSM-5 Diagnosis detail: /dsm/diagnoses/[slug] or /dsm/diagnoses/[slug]/differentials or /dsm/compare
-  if (pathname.startsWith("/dsm/diagnoses/")) return true;
-
-  // Document detail: /documents/[id] (excluding /documents/search)
-  if (pathname.startsWith("/documents/") && pathname !== "/documents/search") return true;
-
-  return false;
 }
 
 function isToolDetailWithFooterSearch(pathname: string): boolean {
