@@ -1257,9 +1257,9 @@ export function DocumentViewer({
         className={cn(
           "mx-auto grid max-w-[1440px] gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
           // The visible fixed composer needs endpoint clearance. Once hidden,
-          // keep only a small content pad so Safari can paint document content
+          // remove all artificial clearance so Safari can paint document content
           // beneath its translucent toolbar instead of showing a blank band.
-          composerScrollHidden ? "max-sm:pb-3" : "max-sm:pb-[calc(9rem+var(--safe-area-bottom))]",
+          composerScrollHidden ? "max-sm:pb-0" : "max-sm:pb-[calc(9rem+var(--safe-area-bottom))]",
         )}
       >
         {downloadError ? (
