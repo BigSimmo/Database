@@ -378,4 +378,10 @@ describe("source authority metadata tooling", () => {
     expect(backfillScript).toContain('from "@/lib/source-authority-metadata"');
     expect(backfillScript).not.toContain("const publisherByCode");
   });
+
+  it("keeps upload from minting authority from user-controlled filename or title identity", () => {
+    const uploadRoute = readFileSync("src/app/api/upload/route.ts", "utf8");
+    expect(uploadRoute).not.toContain("inferSourceAuthorityFromIdentity");
+    expect(uploadRoute).toContain("publisher_code: null");
+  });
 });
