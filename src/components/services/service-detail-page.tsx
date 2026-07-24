@@ -42,6 +42,7 @@ import {
 } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
+import { compactBestUseTitle } from "@/lib/compact-best-use-title";
 import {
   serviceNavigatorQuery,
   type ServiceContact,
@@ -62,6 +63,11 @@ function hasText(value: string | null | undefined): value is string {
 
 function displayText(value: string | null | undefined, fallback = missingText) {
   return hasText(value) ? value.trim() : fallback;
+}
+
+function bestUseCardTitle(bestUse: string | null | undefined) {
+  if (!hasText(bestUse)) return "Assess service fit";
+  return compactBestUseTitle(bestUse);
 }
 
 function chipToneClass(tone: ServiceStatusChip["tone"] | undefined | null) {
@@ -151,7 +157,7 @@ function summaryCardsFor(service: ServiceRecord): ServiceSummaryCard[] {
     {
       id: "best-use",
       label: "Best use",
-      title: displayText(service.bestUse, "Assess service fit"),
+      title: bestUseCardTitle(service.bestUse),
       detail: "Clinical fit and referral priority",
     },
   ];
@@ -442,7 +448,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     summaryCardById.get("best-use") ?? {
       id: "best-use",
       label: "Best use",
-      title: displayText(service.bestUse, "Assess service fit"),
+      title: bestUseCardTitle(service.bestUse),
       detail: "Clinical fit and referral priority",
     },
     summaryCardById.get("eligibility") ?? {

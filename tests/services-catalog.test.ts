@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { compactBestUseTitle } from "@/lib/compact-best-use-title";
 import { catalogToServiceRecord, mapCatalogToServiceRecords } from "@/lib/service-catalog-mapper";
 import { loadServicesSnapshot, normalizeCatalogServices } from "@/lib/service-catalog";
 import {
@@ -41,6 +42,17 @@ describe("services catalogue", () => {
     const bestUseCard = record.summaryCards?.find((card) => card.id === "best-use");
     expect(bestUseCard?.title).toBe("After-hours crisis, homelessness, FDV, child-safety concerns");
     expect(record.criteria?.some((criterion) => criterion.label === crisisCare!.best_use_indication)).toBe(true);
+  });
+
+  it("compacts raw best-use fallbacks for stale seeded summary cards", () => {
+    const snapshot = loadServicesSnapshot();
+    const crisisCare = snapshot.services.find((service) => service.canonical_name_key === "crisis-care");
+    expect(crisisCare).toBeTruthy();
+
+    const compacted = compactBestUseTitle(crisisCare!.best_use_indication);
+    expect(compacted).toBe("After-hours crisis, homelessness, FDV, child-safety concerns");
+    expect(compacted.includes("|")).toBe(false);
+    expect(compacted.length).toBeLessThanOrEqual(140);
   });
 
   it("produces unique slugs and non-empty titles", () => {

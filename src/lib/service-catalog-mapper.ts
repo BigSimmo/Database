@@ -1,5 +1,6 @@
 import type { CatalogService } from "@/lib/service-catalog";
 import { catalogServiceSlug, extractEmails, extractPhones, splitReferralLines } from "@/lib/service-catalog";
+import { compactBestUseTitle } from "@/lib/compact-best-use-title";
 import type {
   ServiceChipTone,
   ServiceContact,
@@ -21,23 +22,6 @@ function isUnknown(value: string | undefined | null) {
 function cleanField(value: string | undefined | null) {
   if (isUnknown(value)) return undefined;
   return value?.trim() || undefined;
-}
-
-/** Compact pipe/newline-joined catalog blobs for quick-fact card titles. */
-function compactBestUseTitle(text: string, maxLength = 140): string {
-  const parts = splitReferralLines(text);
-  const unique: string[] = [];
-  for (const part of parts) {
-    const key = part.toLowerCase().replace(/\s+/g, " ");
-    if (!unique.some((entry) => entry.toLowerCase().replace(/\s+/g, " ") === key)) {
-      unique.push(part);
-    }
-  }
-
-  const primary = unique[0] ?? text.trim();
-  if (primary.length <= maxLength) return primary;
-  const truncated = primary.slice(0, Math.max(0, maxLength - 1)).trimEnd();
-  return truncated ? `${truncated}…` : primary.slice(0, maxLength);
 }
 
 function confidenceTone(confidence: string): ServiceChipTone {
