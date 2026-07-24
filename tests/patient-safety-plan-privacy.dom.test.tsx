@@ -3,11 +3,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PatientSafetyPlan } from "@/components/patient-safety-plan";
 
+const router = vi.hoisted(() => ({
+  back: vi.fn(),
+  push: vi.fn(),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => router,
+}));
+
 describe("PatientSafetyPlan privacy contract", () => {
   const writeText = vi.fn(async () => undefined);
 
   beforeEach(() => {
     vi.clearAllMocks();
+    router.back.mockReset();
+    router.push.mockReset();
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText },
