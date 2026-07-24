@@ -189,7 +189,10 @@ missing or the POST fails (it just does nothing, mirroring the receiver's inert
 > an orphan, but a process crash/timeout/kill _between_ the two inserts can still
 > strand the same `queued`-without-job row nothing sweeps. The only true
 > must-never-drop guarantees are an atomic enqueue (document + job in one
-> transaction/RPC) or a scheduled queued-without-job sweep. This trigger is a
+> transaction/RPC) or a scheduled queued-without-job sweep. Operator recovery
+> for aged stranded rows is available via
+> `npm run recover:ingestion -- --include-stranded-queued` (optional
+> `--owner-id`, `--stranded-min-age-minutes`, `--apply`). This trigger is a
 > low-latency optimisation, not a delivery guarantee.
 
 ```sql
