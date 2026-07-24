@@ -70,6 +70,21 @@ const priorityTone: Record<PriorityTone, { icon: LucideIcon; iconClassName: stri
   },
 };
 
+const PLACEHOLDER_SUMMARY_RE = /indexed source text is available for source-backed review/i;
+
+function isPlaceholderClinicalSummary(text: string): boolean {
+  return PLACEHOLDER_SUMMARY_RE.test(text);
+}
+
+function usefulSummaryText(text: string): string {
+  const cleaned = cleanClinicalSummaryText(text);
+  return cleaned && !isPlaceholderClinicalSummary(cleaned) ? cleaned : "";
+}
+
+function profileItemPages(item: DocumentSummaryProfileItem): number[] {
+  return Array.isArray(item.pages) ? item.pages : [];
+}
+
 function firstRenderableItem(items: DocumentSummaryProfileItem[], usedText: Set<string>) {
   return items.find((item) => {
     if (item.support === "not_found") return false;
@@ -116,7 +131,7 @@ function prioritiesFromProfile(profile: ClinicalDocumentSummaryProfile): Documen
     if (!item) return [];
     const text = cleanClinicalSummaryText(item.text);
     usedText.add(text.toLowerCase());
-    const page = item.pages.find((value) => Number.isInteger(value) && value > 0) ?? null;
+    const page = profileItemPages(item).find((value) => Number.isInteger(value) && value > 0) ?? null;
     return [
       {
         id: candidate.id,
@@ -157,13 +172,11 @@ export function buildDocumentClinicalSummaryModel(document: ClinicalDocument): D
   const profile = document.summary?.clinical_specifics?.profile;
   const formatted = formatDocumentSummary(document.summary?.summary);
   const priorities = profile ? prioritiesFromProfile(profile) : prioritiesFromFormattedSummary(document);
-  const profileOverview = cleanClinicalSummaryText(profile?.overview ?? "");
-  const usefulProfileOverview =
-    profileOverview && !/source-backed review/i.test(profileOverview) ? profileOverview : "";
+  const profileOverview = usefulSummaryText(profile?.overview ?? "");
   const summary = cleanClinicalSummaryText(
-    usefulProfileOverview ||
-      formatted.lead ||
-      formatted.sections[0]?.items.join(" ") ||
+    profileOverview ||
+      usefulSummaryText(formatted.lead ?? "") ||
+      usefulSummaryText(formatted.sections[0]?.items.join(" ") ?? "") ||
       priorities
         .slice(0, 2)
         .map((priority) => priority.text)
