@@ -77,6 +77,7 @@ export function meetsMinLength(value, minLength) {
 
 /** Parse KEY=VALUE lines without shell expansion; strip simple quotes. */
 export function parseEnvFile(text) {
+  /** @type {Record<string, string>} */
   const out = {};
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
