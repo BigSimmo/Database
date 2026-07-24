@@ -9,6 +9,7 @@ import {
   isRegistryRecordSource,
   type SourceAuthorityDocument,
 } from "@/lib/source-authority-metadata";
+import { classifySourceAuthority } from "@/lib/source-authority-registry";
 import { parseBackfillSourceMetadataArgs, runLocalityOnlyBackfill } from "../scripts/backfill-source-metadata";
 
 function document(
@@ -153,6 +154,42 @@ describe("source authority metadata tooling", () => {
     ]);
   });
 
+  it("counts designations from the full proposed locality patch, not publisher_code alone", () => {
+    // Identity infers WACHS, but the stale free-text publisher would conflict if only
+    // publisher_code were projected — the full locality patch must replace publisher too.
+    const stalePublisherNeedsFullPatch = document({
+      file_name: "WACHS-lithium-guideline.pdf",
+      metadata: { publisher: "Local clinic handout" },
+    });
+    const conflictedStaysUnclassified = document({
+      file_name: "conflicted.pdf",
+      metadata: {
+        publisher_code: "WACHS",
+        publisher: "NPS MedicineWise",
+        jurisdiction: "Australia/WA",
+      },
+    });
+    const analysis = analyzeSourceLocality(stalePublisherNeedsFullPatch);
+    const report = auditSourceAuthorityDocuments([stalePublisherNeedsFullPatch, conflictedStaysUnclassified]);
+
+    expect(analysis.changes).toEqual({
+      publisher_code: "WACHS",
+      publisher: "WA Country Health Service",
+      jurisdiction: "Australia/WA",
+    });
+    // Code-only projection would keep "Local clinic handout" and classify as unclassified
+    // via publisher_mismatch; the full patch correctly counts Official.
+    expect(report.designation_counts).toEqual({ official: 1, trusted: 0, unclassified: 1 });
+    expect(report.missing_australian_locality_count).toBe(1);
+    expect(report.unclassified_samples).toEqual([
+      expect.objectContaining({
+        file_name: "conflicted.pdf",
+        publisher_code: "WACHS",
+        publisher: "NPS MedicineWise",
+      }),
+    ]);
+  });
+
   it("fails closed on cross-authority code and publisher claims", () => {
     const conflicted = document({
       file_name: "lithium-guideline.pdf",
@@ -256,6 +293,61 @@ describe("source authority metadata tooling", () => {
     });
   });
 
+  it("classifies source designation independently from currency and local validation", () => {
+    expect(
+      analyzeSourceLocality(
+        document({
+          file_name: "CAHS-clozapine.pdf",
+          metadata: {
+            publisher_code: "CAHS",
+            publisher: "Child and Adolescent Health Service",
+            jurisdiction: "Australia/WA",
+          },
+        }),
+      ).authority,
+    ).toMatchObject({ designation: "official", officialBasis: "wa_health_service_network" });
+
+    expect(
+      classifySourceAuthority({
+        publisher_code: "EMHS",
+        publisher: "East Metropolitan Health Service",
+        jurisdiction: "Australia/WA",
+        document_status: "outdated",
+        clinical_validation_status: "unverified",
+        extraction_quality: "poor",
+      }),
+    ).toMatchObject({
+      designation: "official",
+      officialBasis: "wa_health_service_network",
+      tier: "supplementary",
+    });
+    expect(
+      classifySourceAuthority({
+        publisher_code: "WAHEALTH",
+        publisher: "WA Health",
+        jurisdiction: "Australia/WA",
+      }),
+    ).toMatchObject({ designation: "trusted", officialBasis: null });
+    expect(
+      classifySourceAuthority({
+        publisher_code: "CAMHS",
+        publisher: "Child and Adolescent Mental Health Service",
+        jurisdiction: "Australia/WA",
+      }),
+    ).toMatchObject({ designation: "trusted", officialBasis: null });
+    expect(classifySourceAuthority({ publisher_code: "BMJ" })).toMatchObject({ designation: "trusted" });
+    expect(classifySourceAuthority({ publisher: "BMJ Best Practice" })).toMatchObject({
+      designation: "unclassified",
+      reasonCodes: expect.arrayContaining(["publisher_alias_requires_jurisdiction"]),
+    });
+    expect(
+      classifySourceAuthority({ source_kind: "registry_record", publisher_code: "EMHS", jurisdiction: "Australia/WA" }),
+    ).toMatchObject({
+      designation: "unclassified",
+      reasonCodes: expect.arrayContaining(["registry_summary_identity"]),
+    });
+  });
+
   it("fails closed when a locality metadata patch RPC is rejected", async () => {
     const rpc = vi.fn().mockResolvedValue({ error: { message: "write denied" } });
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
@@ -321,5 +413,11 @@ describe("source authority metadata tooling", () => {
     expect(auditScript).toContain("documents.filter((document) => !isRegistryRecordSource(document))");
     expect(backfillScript).toContain('from "@/lib/source-authority-metadata"');
     expect(backfillScript).not.toContain("const publisherByCode");
+  });
+
+  it("keeps upload from minting authority from user-controlled filename or title identity", () => {
+    const uploadRoute = readFileSync("src/app/api/upload/route.ts", "utf8");
+    expect(uploadRoute).not.toContain("inferSourceAuthorityFromIdentity");
+    expect(uploadRoute).toContain("publisher_code: null");
   });
 });
