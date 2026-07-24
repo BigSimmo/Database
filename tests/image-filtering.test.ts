@@ -324,6 +324,17 @@ describe("document viewer image partitioning", () => {
     expect(auditImages).toHaveLength(3);
   });
 
+  it("routes retained non-table viewer crops to the audit group", () => {
+    const { clinicalImages, auditImages } = partitionViewerImages([
+      { searchable: false, source_kind: "diagram_crop", retainedForDocumentView: true },
+      { searchable: false, source_kind: "page_region", retainedForDocumentView: true },
+      { searchable: false, source_kind: "embedded", clinicalUseClass: "clinical_evidence" },
+    ]);
+    expect(clinicalImages).toHaveLength(0);
+    expect(auditImages).toHaveLength(2);
+    expect(auditImages.map((image) => image.source_kind)).toEqual(["diagram_crop", "page_region"]);
+  });
+
   it("keeps clinical table crops in the main list and non-searchable rows out of it", () => {
     const { clinicalImages, auditImages } = partitionViewerImages([
       { searchable: true, source_kind: "table_crop", clinicalUseClass: "clinical_evidence" },

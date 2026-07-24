@@ -279,11 +279,14 @@ export type ViewerImagePartitionInput = {
   source_kind?: string | null;
   clinicalUseClass?: string | null;
   tableRole?: string | null;
+  retainedForDocumentView?: boolean | null;
 };
 
 // Administrative/reference table crops are retained for audit and shown in a separate,
-// collapsed group in the document viewer rather than the main clinical list.
+// collapsed group in the document viewer rather than the main clinical list. Other
+// view-only retained crops use the same group so uploaded review images are visible.
 export function isAuditTableImage(image: ViewerImagePartitionInput): boolean {
+  if (image.searchable === false && image.retainedForDocumentView) return true;
   return (
     image.source_kind === "table_crop" &&
     (image.searchable === false ||

@@ -289,10 +289,10 @@ def save_page_crop(page, rect, output_dir, file_name, source_kind, metadata, bud
 
 def expanded_rect(rect, page_rect, x_padding=4, y_padding=4):
     return fitz.Rect(
-        max(rect.x0 - x_padding, page_rect.x0),
-        max(rect.y0 - y_padding, page_rect.y0),
-        min(rect.x1 + x_padding, page_rect.x1),
-        min(rect.y1 + y_padding, page_rect.y1),
+        rect.x0 - x_padding,
+        rect.y0 - y_padding,
+        rect.x1 + x_padding,
+        rect.y1 + y_padding,
     )
 
 

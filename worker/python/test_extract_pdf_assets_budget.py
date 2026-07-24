@@ -96,6 +96,17 @@ class PdfExtractionBudgetTests(unittest.TestCase):
         self.assertEqual(extractor.crop_completeness_score(requested, complete, page), 1.0)
         self.assertLess(extractor.crop_completeness_score(requested, clipped, page), 0.82)
 
+    def test_table_expansion_preserves_unclamped_requested_rect(self):
+        page = extractor.fitz.Rect(0, 0, 200, 200)
+        table = extractor.fitz.Rect(2, 20, 80, 120)
+
+        expanded = extractor.table_expanded_rect(table, page)
+
+        self.assertLess(expanded.x0, page.x0)
+        self.assertEqual(expanded.y0, 2)
+        self.assertEqual(expanded.x1, 90)
+        self.assertEqual(expanded.y1, 138)
+
 
 if __name__ == "__main__":
     unittest.main()
