@@ -81,12 +81,16 @@ export function withOwnerReadScope<T extends OwnerScopedQuery<T>>(query: T, owne
 // titles, indexing internals), so — matching the anonymous list projection and the `[id]` detail
 // route — it is stripped for non-owners rather than surfaced as governance data.
 const NON_OWNER_INTERNAL_DOCUMENT_FIELDS = [
+  "owner_id",
   "storage_path",
   "content_hash",
   "source_path",
   "import_batch_id",
   "error_message",
   "metadata",
+  "source_chunk_ids",
+  "source_image_ids",
+  "model",
 ] as const;
 
 /** True when `viewerOwnerId` is set and owns the row (i.e. the caller's own document). */

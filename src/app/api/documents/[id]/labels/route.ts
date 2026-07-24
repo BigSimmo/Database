@@ -61,7 +61,9 @@ function parseManualLabel(input: z.infer<typeof manualLabelSchema>) {
     source: "generated",
   });
   if (!normalized) {
-    throw new PublicApiError("Enter a short, specific clinical tag. Generic document-control tags are not allowed.");
+    throw new PublicApiError("Enter a short, specific clinical tag. Generic document-control tags are not allowed.", 400, {
+      code: "invalid_clinical_tag_taxonomy",
+    });
   }
   return normalized;
 }

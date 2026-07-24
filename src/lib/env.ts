@@ -230,6 +230,7 @@ const envSchema = z.object({
     .transform((value) => value === "true"),
   PYTHON_BIN: z.string().default(resolvePythonBin()),
   NEXT_PUBLIC_DEMO_MODE: z.enum(["true", "false"]).optional().default("false"),
+  DOCUMENT_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(600),
 });
 
 const parsedEnv = envSchema.parse(process.env);

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getDemoDocumentPayload } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
-import { callerOwnsDocumentRow, enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-api-access";
+import { callerOwnsDocumentRow, enforceDocumentReadRateLimit, withOwnerReadScope, redactNonOwnedDocumentFields } from "@/lib/public-api-access";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError } from "@/lib/supabase/auth";
@@ -341,21 +341,7 @@ function loadDemoDocumentDetail(rawId: string, query: DocumentDetailQuery): Docu
   };
 }
 
-function omitPublicInternalFields(row: Record<string, unknown>) {
-  const internalKeys = new Set([
-    "owner_id",
-    "storage_path",
-    "content_hash",
-    "source_path",
-    "import_batch_id",
-    "error_message",
-    "metadata",
-    "source_chunk_ids",
-    "source_image_ids",
-    "model",
-  ]);
-  return Object.fromEntries(Object.entries(row).filter(([key]) => !internalKeys.has(key)));
-}
+
 
 /**
  * Loads the minimal authorized document-detail DTO shared by the API route and
@@ -494,13 +480,13 @@ export async function loadAuthorizedDocumentDetail(args: {
   }
 
   const publicRows = <T extends Record<string, unknown>>(rows: T[]) =>
-    isOwner ? rows : rows.map(omitPublicInternalFields);
+    isOwner ? rows : rows.map((row) => redactNonOwnedDocumentFields(row, access.ownerId));
   const labels = (labelsResult.data ?? [])
     .filter((label) => !isHiddenDocumentLabel(label))
     .map(withDocumentLabelReviewMetadata);
   const responseDocument = isOwner
     ? document
-    : omitPublicInternalFields(document as unknown as Record<string, unknown>);
+    : redactNonOwnedDocumentFields(document as unknown as Record<string, unknown>, access.ownerId);
   const documentMetadata = safeMetadata(document.metadata);
   const metadata = windowMetadata({
     requestedPage,
@@ -522,7 +508,7 @@ export async function loadAuthorizedDocumentDetail(args: {
       summary:
         isOwner || !summaryResult.data
           ? (summaryResult.data ?? null)
-          : omitPublicInternalFields(summaryResult.data as Record<string, unknown>),
+          : redactNonOwnedDocumentFields(summaryResult.data as Record<string, unknown>, access.ownerId),
     } as unknown as ClinicalDocument,
     pages: publicRows(
       committedRows(document, pagesResult.data ?? []).map(withoutMetadata) as Record<string, unknown>[],

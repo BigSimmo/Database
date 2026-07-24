@@ -12,7 +12,7 @@ import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-a
 
 export const runtime = "nodejs";
 
-const signedUrlTtlSeconds = 60 * 10;
+const signedUrlTtlSeconds = env.DOCUMENT_SIGNED_URL_TTL_SECONDS;
 const routeIdSchema = z.string().uuid();
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {

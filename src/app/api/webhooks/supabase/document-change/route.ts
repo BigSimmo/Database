@@ -179,7 +179,7 @@ async function clearReindexFlagIfRequested(
     p_metadata_patch: { reindex_requested: false },
   });
   if (error) {
-    logger.warn("Failed to clear reindex_requested flag", { ownerScoped: Boolean(ownerId) });
+    logger.warn("Failed to clear reindex_requested flag", { ownerScoped: Boolean(ownerId), documentId });
     return false;
   }
   return true;

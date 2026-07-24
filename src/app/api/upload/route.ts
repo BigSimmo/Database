@@ -59,6 +59,14 @@ async function duplicateUploadResponse(args: {
         storagePath: args.storagePath,
         message: cleanupStorageError.message,
       });
+      await args.supabase.from("storage_cleanup_jobs").insert({
+        document_bucket: env.SUPABASE_DOCUMENT_BUCKET,
+        document_paths: [args.storagePath],
+        owner_id: args.ownerId,
+        status: "pending",
+        image_bucket: env.SUPABASE_IMAGE_BUCKET,
+        image_paths: [],
+      });
     }
   }
 
