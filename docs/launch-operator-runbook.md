@@ -122,7 +122,8 @@ Detailed: [staging-setup.md](staging-setup.md). No code change — the identity 
    `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `SUPABASE_PROJECT_REF=<staging-ref>`,
    `SUPABASE_PROJECT_NAME=Clinical KB Staging`, `SUPABASE_STAGING_PROJECT_REF=<staging-ref>`,
    `SUPABASE_STAGING_PROJECT_NAME=Clinical KB Staging`, `RAG_QUERY_HASH_SECRET` (staging),
-   `RAG_PROVIDER_MODE=auto`. Keep one warm instance (no scale-to-zero); health `/api/health`.
+   `RAG_PROVIDER_MODE=auto`. Keep one warm instance (no scale-to-zero); Railway
+   health `/api/health/ready` (manual smoke: `GET /api/health`).
 3. **✅ verify** boot + soak (soak is hard-guarded against production):
    ```bash
    npx tsx scripts/soak-test.ts --target https://<staging-host> --confirm-staging \
@@ -140,9 +141,9 @@ build-args + secrets.
 **⏸ PAUSE:** authorize the Railway account/service, build with the **production** publishable key, set
 runtime secrets (**incl. `RAG_QUERY_HASH_SECRET`** — PIA-2 fail-closed guard requires it at boot;
 `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `SUPABASE_PROJECT_REF/NAME` for prod). One warm instance,
-no scale-to-zero, health `/api/health`. I'll prep the Railway service config via the `use-railway` skill.
+no scale-to-zero, Railway health `/api/health/ready`. I'll prep the Railway service config via the `use-railway` skill.
 
-**✅ verify:** `GET /api/health` → `{"status":"ok"}`; `npm run check:deployment-readiness`.
+**✅ verify:** `GET /api/health/ready` (and manual `GET /api/health` → `{"status":"ok"}`); `npm run check:deployment-readiness`.
 
 ## 6. Post-deploy
 
