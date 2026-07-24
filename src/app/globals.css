@@ -279,7 +279,7 @@
      header height and those page-fill floors cannot silently drift apart. */
   --shell-header-h: 4rem;
   /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
-  --phone-dock-hidden-pad: 0.75rem;
+  --phone-dock-hidden-pad: 0rem;
   --phone-dock-differentials-compare-clearance: 12.5rem;
   --phone-dock-differentials-compare-compact-clearance: 12.25rem;
   /* Radius tokens are the single source of truth in @theme above (they also
@@ -2263,11 +2263,6 @@ html[data-motion="reduced"] .pwa-notice-card {
     bottom: -10px;
     left: -10px;
     right: -10px;
-  }
-
-  /* Premium Skeleton Shimmer animation with custom easing */
-  .animate-skeleton-shimmer {
-    animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
 
   /* Premium Double-Ring Focus style */
