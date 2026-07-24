@@ -3088,7 +3088,11 @@ export function ClinicalDashboard({
             activeModeResultKind === "documents" &&
             !modeSearchSubmitted &&
             !query.trim()) ||
-          (activeModeResultKind === "differentials" && !modeSearchSubmitted))));
+          // DifferentialsHome leaves ModeHomeTemplate when a draft query coincides
+          // with stale evidence matches — keep the hero slot only while home mounts.
+          (activeModeResultKind === "differentials" &&
+            !modeSearchSubmitted &&
+            !(query.trim() && documentMatches.length > 0)))));
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
   // Favourites and Tools are content-rich hubs: they share the centred hero but
   // stay top-aligned so their lists start in a stable position.

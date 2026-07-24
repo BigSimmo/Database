@@ -115,6 +115,11 @@ describe("mobile composer reserve contract", () => {
     expect(dashboard).toMatch(
       /searchMode === "prescribing" &&\s*activeModeResultKind === "documents" &&\s*!modeSearchSubmitted &&\s*!query\.trim\(\)/,
     );
+    // DifferentialsHome shows results (no mode-home slot) when a draft query
+    // coincides with stale evidence matches after clearing a submitted search.
+    expect(dashboard).toMatch(
+      /activeModeResultKind === "differentials" &&\s*!modeSearchSubmitted &&\s*!\(query\.trim\(\) && documentMatches\.length > 0\)/,
+    );
     expect(header).toContain(
       'const heroComposerOwnsPhones = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
     );
