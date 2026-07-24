@@ -240,6 +240,8 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
           title: "Lithium source",
           file_name: "lithium.pdf",
           page_number: 1,
+          chunk_index: 0,
+          section_heading: "Monitoring",
           quote: "Check lithium level every 3 months when stable.",
         },
       ],
