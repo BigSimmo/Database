@@ -1,0 +1,56 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { PatientSafetyPlan } from "@/components/patient-safety-plan";
+
+describe("PatientSafetyPlan privacy contract", () => {
+  const writeText = vi.fn(async () => undefined);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("does not ask for a patient identifier and explains the transient browser-only boundary", () => {
+    render(<PatientSafetyPlan />);
+
+    expect(screen.queryByLabelText(/Patient \(name or initials\)/i)).toBeNull();
+    expect(screen.getByText(/Do not enter the patient(?:'|’)s name, date of birth, or record number/i)).toBeVisible();
+    expect(screen.getByText(/kept only in this browser tab/i)).toBeVisible();
+  });
+
+  it("copies the plan without persisting or transmitting its working content", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const localStorageSpy = vi.spyOn(Storage.prototype, "setItem");
+
+    render(<PatientSafetyPlan />);
+    fireEvent.change(screen.getByLabelText("e.g. Not sleeping for a couple of nights"), {
+      target: { value: "Not sleeping" },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: "Add" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("Not sleeping"));
+    expect(writeText).not.toHaveBeenCalledWith(expect.stringMatching(/^For:/m));
+    expect(localStorageSpy).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("warns that copy, print, and PDF output leave the transient app session", () => {
+    const printSpy = vi.spyOn(window, "print").mockImplementation(() => undefined);
+
+    render(<PatientSafetyPlan />);
+    expect(screen.getByText(/Copying, printing, or saving a PDF moves the plan outside Clinical KB/i)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Print / PDF" }));
+
+    expect(printSpy).toHaveBeenCalledTimes(1);
+  });
+});
