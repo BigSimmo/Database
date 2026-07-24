@@ -22,6 +22,8 @@ This repo uses one shared search experience across the global shell, dashboard r
 6. Header and footer chrome that share the same scroll signal should hide/reveal symmetrically: when hidden, underlying content must be visible to the viewport edge.
 7. Do not add page-local dock-sized `pb-[calc(...safe-area...)]` under a shell-owned dock. Put clearance in the shared reserve or the page-owned composer, never both.
 8. `GlobalSearchShell` uses an inner `mobile-composer-reserve-pad` so phone padding contributes to scroll height; do not move phone shell clearance back to scrollport padding without a browser proof.
+9. Standalone mode-home detection (`isStandaloneModeHomePath`) is pathname-only. Do not gate hero vs dock on a React `searchMode` that can update before the router pathname lands — that one-frame mismatch animates reserve padding and reads as a choppy screen resize.
+10. Phone `#main-content` / reserve-pad `padding-bottom` transitions apply only while `data-bottom-composer-hidden="true"` (scroll-hide). Mode and route reserve flips must snap.
 
 ## Change checklist
 

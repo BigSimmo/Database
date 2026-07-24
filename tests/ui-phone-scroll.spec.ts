@@ -22,7 +22,7 @@ import { expect, test, type Page } from "playwright/test";
 // in-flow hero pill on phones (the composer sits in the hero and scrolls with the
 // content — no bottom dock), while the sticky header still collapses on scroll;
 // this sweep guards that the scroll geometry stays stable through that collapse.
-// (list mirrors global-search-shell.tsx isStandaloneModeHome).
+// (list mirrors isStandaloneModeHomePath in search-route-ownership.ts).
 const modeHomeRoutes = [
   "/formulation",
   "/dsm",

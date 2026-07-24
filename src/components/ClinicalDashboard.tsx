@@ -158,6 +158,7 @@ import {
   type AppModeId,
   type AppModeSearchKind,
 } from "@/lib/app-modes";
+import { isDashboardModeHref } from "@/lib/search-route-ownership";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import {
   privateScopeReadyForRoute,
@@ -2588,6 +2589,15 @@ export function ClinicalDashboard({
       openAccountSetup("favourites");
       return;
     }
+    const href = appModeHomeHref(mode, { queryMode, scopeFilters });
+    // Leaving the dashboard shell (e.g. Answer → Services): navigate without
+    // rewriting local chrome first. Eager setSearchMode flipped overlay/hero
+    // and reserved dock padding for a frame before ClinicalDashboard unmounted.
+    if (!isDashboardModeHref(href)) {
+      modeChangeFromUiRef.current = true;
+      router.push(href);
+      return;
+    }
     modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setQuery("");
@@ -2607,7 +2617,7 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setDocumentMatches([]);
     setSearchMode(mode);
-    router.push(appModeHomeHref(mode, { queryMode, scopeFilters }));
+    router.push(href);
   }
 
   function focusComposerInput() {

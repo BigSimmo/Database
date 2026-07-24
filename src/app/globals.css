@@ -2614,24 +2614,16 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
-/* iOS Safari bottom reserve transitions to match the composer's hide/show motion.
-   Shell routes animate the inner reserve pad; dashboard/answer animates
-   #main-content padding; DocumentViewer animates its own content pad. */
+/* Phone reserve padding animates only while the bottom composer is
+   scroll-hidden. Mode/route flips of --mobile-composer-reserve (hero ↔ dock)
+   must snap — a 200ms padding transition there reads as a choppy screen resize.
+   DocumentViewer keeps its own Tailwind duration classes on scroll-hide. */
 @media (max-width: 639px) {
-  #main-content {
-    transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
   #main-content[data-bottom-composer-hidden="true"] {
     transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
   }
-  #main-content [data-testid="mobile-composer-reserve-pad"] {
-    transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
   #main-content[data-bottom-composer-hidden="true"] [data-testid="mobile-composer-reserve-pad"] {
     transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  [data-testid="document-viewer-content"] {
-    transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   [data-testid="document-viewer-content"][data-scroll-hidden="true"] {
     transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -2639,11 +2631,8 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
 }
 
 @media (max-width: 639px) and (prefers-reduced-motion: reduce) {
-  #main-content,
   #main-content[data-bottom-composer-hidden="true"],
-  #main-content [data-testid="mobile-composer-reserve-pad"],
   #main-content[data-bottom-composer-hidden="true"] [data-testid="mobile-composer-reserve-pad"],
-  [data-testid="document-viewer-content"],
   [data-testid="document-viewer-content"][data-scroll-hidden="true"] {
     transition: none;
   }

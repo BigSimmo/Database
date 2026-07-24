@@ -50,7 +50,11 @@ import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
-import { shouldRenderClinicalDashboard, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
+import {
+  isStandaloneModeHomePath,
+  shouldRenderClinicalDashboard,
+  shouldRenderDashboardSearch,
+} from "@/lib/search-route-ownership";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
@@ -328,19 +332,10 @@ function GlobalStandaloneSearchShellClient({
     mode: resolvedSearchMode,
     pathname,
   });
-  const isStandaloneModeHome =
-    !hasSubmittedModeSearch &&
-    !rendersDashboardSearch &&
-    ((searchMode === "services" && pathname === "/services") ||
-      (searchMode === "forms" && pathname === "/forms") ||
-      (searchMode === "favourites" && pathname === "/favourites") ||
-      (searchMode === "differentials" && pathname === "/differentials") ||
-      (searchMode === "dsm" && pathname === "/dsm") ||
-      (searchMode === "specifiers" && pathname === "/specifiers") ||
-      (searchMode === "formulation" && pathname === "/formulation") ||
-      (searchMode === "factsheets" && pathname === "/factsheets") ||
-      (searchMode === "therapy-compass" && pathname === "/therapy-compass") ||
-      (searchMode === "tools" && pathname === "/tools"));
+  // Pathname-only: do not require searchMode === route. changeMode used to set
+  // searchMode before router.push landed, which made isStandaloneModeHome false
+  // for one frame (dock reserve + 200ms padding transition = choppy resize).
+  const isStandaloneModeHome = !hasSubmittedModeSearch && !rendersDashboardSearch && isStandaloneModeHomePath(pathname);
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
@@ -505,17 +500,18 @@ function GlobalStandaloneSearchShellClient({
     }
     setQuery("");
     setCommandScopes([]);
-    setSearchMode(mode);
     setMobileMenuOpen(false);
+    // Let the URL sync (render-time) own searchMode. Optimistic setSearchMode
+    // before pathname updates was the namespaced mode-switch reserve flip.
     navigateToMode(mode);
   }
 
   function startNewAnswerChat() {
     setQuery("");
     setMobileMenuOpen(false);
-    setSearchMode("answer");
     setQueryMode("auto");
     setScopeFilters({});
+    // URL sync sets searchMode after navigation; avoid eager chrome thrash.
     router.push(appModeHomeHref("answer", { focus: true }));
   }
 
@@ -534,7 +530,6 @@ function GlobalStandaloneSearchShellClient({
     }
     setQuery(crossQuery);
     setCommandScopes([]);
-    setSearchMode(mode);
     setMobileMenuOpen(false);
     navigateToMode(mode, { query: crossQuery, focus: true, run: true });
   }
