@@ -101,7 +101,7 @@ export function acquireHeavyRunLock({
   }
 
   mkdirSync(path.dirname(lockPath), { recursive: true });
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
     try {
       mkdirSync(lockPath);
       const token = randomUUID();
@@ -135,11 +135,25 @@ export function acquireHeavyRunLock({
       if (error?.code !== "EEXIST") throw error;
       const owner = readOwner(lockPath);
       if (owner && processIsAlive(owner.pid)) {
+        if (attempt < 15) {
+          // 15 attempts, approx 30s
+          const sleepMs = Math.min(3000, 100 * Math.pow(1.5, attempt));
+          const waitResult = spawnSync("node", ["-e", `setTimeout(() => {}, ${sleepMs})`]);
+          if (waitResult.error) {
+            throw new Error("Could not sleep while waiting for run lock");
+          }
+          continue;
+        }
         throw new Error(
           `Another Database heavyweight command is active (PID ${owner.pid}, worktree ${owner.worktree ?? "unknown"}, started ${owner.startedAt ?? "unknown"}): ${redactSensitiveText(owner.command ?? "unknown command")}`,
         );
       }
       if (!owner && !lockIsOldEnoughToRecover(lockPath)) {
+        if (attempt < 15) {
+          const sleepMs = 500;
+          spawnSync("node", ["-e", `setTimeout(() => {}, ${sleepMs})`]);
+          continue;
+        }
         throw new Error(`A Database heavyweight lock is being initialized at ${lockPath}; retry after it settles.`);
       }
       rmSync(lockPath, { recursive: true, force: true });
