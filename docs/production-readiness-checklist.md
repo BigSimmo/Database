@@ -1,8 +1,9 @@
 # Clinical KB Production Readiness Checklist (Executable Today)
 
-**Status: reusable release-candidate checklist, not an outstanding-task ledger.** Live/provider-gated
-actions and their current status are tracked only in [`operator-backlog.md`](operator-backlog.md).
-Unchecked boxes below are rerun per release candidate; they do not imply abandoned repository work.
+**Status: reusable release-candidate checklist, not an outstanding-task ledger.** Recommended work and
+priority live only in [`outstanding-issues.md`](outstanding-issues.md); provider-action detail and
+evidence live in [`operator-backlog.md`](operator-backlog.md). Unchecked boxes below are rerun per
+release candidate; they do not imply abandoned repository work.
 
 This is the runbook to make the app publishable in one focused pass.
 

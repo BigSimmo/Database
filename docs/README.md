@@ -71,10 +71,11 @@ npm run docs:check-links
 
 ## Plans and workstreams (living)
 
-- [maturity-backlog-workorders.md](maturity-backlog-workorders.md) — actionable work orders tracking the repository-maturity audit backlog
+- [outstanding-issues.md](outstanding-issues.md) — the single universal task ledger; its recommended queue is the only active repository-wide work order
+- [maturity-backlog-workorders.md](maturity-backlog-workorders.md) — historical maturity work-order evidence; not an independent active queue
 - [framework-dependency-modernization-checklist.md](framework-dependency-modernization-checklist.md) — ordered Next.js 16, runtime, dependency, Turbopack, and verification migration program
 - [search-rag-master-plan.md](search-rag-master-plan.md) / [search-rag-master-context.md](search-rag-master-context.md) — search/RAG roadmap and shared context
-- [rag-hybrid-findings-and-todo.md](rag-hybrid-findings-and-todo.md) — hybrid retrieval findings backlog
+- [rag-hybrid-findings-and-todo.md](rag-hybrid-findings-and-todo.md) — hybrid retrieval findings and historical evidence; active work is promoted to the universal ledger
 - [reindex-shadow-harness-design.md](reindex-shadow-harness-design.md) — designed-only shadow reindex harness (driver not built)
 - [ingestion-concurrency-fix-workorder.md](ingestion-concurrency-fix-workorder.md) — ingestion concurrency workorder
 - [redesign/](redesign/) — premium redesign plans, decision log, token adoption

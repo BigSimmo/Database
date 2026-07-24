@@ -1,11 +1,12 @@
-# Maturity backlog — work orders
+# Maturity audit work-order history
 
-Living tracker that turns the deferred backlog from
+Supporting history for work orders derived from
 [`docs/audit/2026-07-20-repository-maturity.md`](audit/2026-07-20-repository-maturity.md) §10
-into actionable, sequenced work orders. Each item states its **outcome**, **approach**, **key
-files**, **risk**, **verification**, and **status**. High-risk items are deliberately kept as
-their own work order — the audit's rule is one dedicated PR + full-suite verification per
-structural change, not a single mixed PR.
+with their **outcome**, **approach**, **key files**, **risk**, **verification**, and **status**.
+This is not an independent active backlog. A maturity item is current work only when promoted to the
+recommended queue in [`outstanding-issues.md`](outstanding-issues.md), the repository's single
+universal task ledger. Historical `READY`, `OPEN`, or `PROVIDER-GATED` labels below do not override
+that ledger.
 
 **Status legend:** `DONE` (landed) · `IN PROGRESS` (partially landed; more PRs remain) ·
 `READY` (scoped, safe to start) · `OPEN` (needs a decision or a dedicated PR) ·

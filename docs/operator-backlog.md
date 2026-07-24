@@ -1,10 +1,12 @@
-# Operator backlog
+# Operator runbook index
 
-Single source of truth for **human-only / provider-gated actions** that cannot be done from a coding
-session (they touch Supabase, Railway, OpenAI, or GitHub settings, per the AGENTS.md provider boundary).
-This exists so that launch-blocking state lives in the repo instead of chat memory.
+This file preserves provider-action detail and runbook links. It is **not** an independent task queue:
+[`outstanding-issues.md`](outstanding-issues.md) is the repository's single universal ledger, and an
+operator row is executable only while a corresponding recommended row exists there. Status here is
+supporting evidence that must be reconciled with that ledger and verified live before action.
 
-**How to use:** work top to bottom; each row links to the detailed runbook. `Status` values are
+**How to use:** follow the universal ledger order, then use the matching row here for provider detail.
+`Status` values are
 `⏳ pending`, `🔎 verify` (may already be done — confirm before repeating), `✅ done`, `—` (n/a).
 Update the row (and its runbook) when an action lands. The sequenced flow with exact commands and
 approval gates is [launch-operator-runbook.md](launch-operator-runbook.md); this table is the index.
@@ -12,8 +14,8 @@ Code + ops remediation waves from the 2026-07-14 multi-skill audit live in
 [audit-remediation-plan-2026-07-14.md](audit-remediation-plan-2026-07-14.md).
 Findings inventory for handover: [audit-handover-2026-07-14.md](audit-handover-2026-07-14.md).
 
-> Status column is seeded from repo runbooks + session memory and **must be confirmed against live
-> state** before acting — do not treat a `🔎 verify` row as authoritative.
+> Status is historical/runbook evidence and **must be confirmed against live state** before acting.
+> A pending row absent from the recommended universal queue is not authorization or recommended work.
 
 ## Launch-gating actions
 
@@ -23,7 +25,7 @@ Findings inventory for handover: [audit-handover-2026-07-14.md](audit-handover-2
 | Apply drift-codify forward migration (step 1h)                             | ✅ done    | —                    | Applied and drift/readiness verified 2026-07-13; verify only unless new reviewed drift is found             | [database-drift-detection.md](database-drift-detection.md)                                                                                                                      |
 | Apply repo-ahead migrations to live (post-2026-07-13)                      | ✅ done    | —                    | Zero unsafe title-word rows; `npm run check:drift`; then `eval:retrieval:quality` (36/36) for the corrector | [deploy-corrector-public-titles.md](deploy-corrector-public-titles.md) · [operator-apply-performance-latency-remediation.md](operator-apply-performance-latency-remediation.md) |
 | Full release gate (bounded OpenAI spend)                                   | ⏳ pending | migrations 1 applied | `npm run verify:release`; `npm run eval:quality -- --rag-only`                                              | [launch-operator-runbook.md §2](launch-operator-runbook.md)                                                                                                                     |
-| Provision staging Supabase project (`Clinical KB Staging`, ap-southeast-2) | ⏳ pending | —                    | `npm run check:indexing` after `db push`                                                                    | [staging-setup.md](staging-setup.md)                                                                                                                                            |
+| Provision staging Supabase project (`Clinical KB Staging`, ap-southeast-2) | ✅ done    | —                    | Archived run `29795051547` proves the dedicated staging tenancy harness and cleanup; do not reprovision     | [staging-setup.md](staging-setup.md) · [archived evidence](archive/staging-tenancy-evidence-29795051547/staging-tenancy-evidence.json)                                          |
 | Staging soak + rollback rehearsal on Railway                               | ⏳ pending | staging provisioned  | `scripts/soak-test.ts --confirm-staging` (answer p95 ≤ 25 s)                                                | [launch-operator-runbook.md §4](launch-operator-runbook.md) · [capacity-review.md](capacity-review.md)                                                                          |
 | Production deploy to Railway                                               | ✅ done    | —                    | App deployment recorded live 2026-07-14; re-verify with `GET /api/health` and deployment readiness          | [deployment-architecture.md](deployment-architecture.md)                                                                                                                        |
 

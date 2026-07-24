@@ -1,9 +1,11 @@
 # RAG Hybrid Retrieval — Findings & To-Do (2026-07-01)
 
-Living list of issues found while fixing the live-only hybrid-RPC schema drift and optimising the
-online RAG. Grouped by priority. **Last reconciled: 2026-07-14.** `✅` is complete/closed, `🔶` is
-partially complete with an explicit remaining action, and `⏳` is genuinely open. Historical
-measurements are evidence, not instructions to repeat provider-backed work without approval. See also the master plan
+Historical findings from fixing the live-only hybrid-RPC schema drift and optimising the online RAG.
+This is supporting evidence, not an independent active backlog; current recommended work exists only
+when promoted to [`outstanding-issues.md`](outstanding-issues.md). **Last reconciled: 2026-07-14.**
+`✅` is complete/closed, `🔶` is partially complete, and `⏳` was open at reconciliation time.
+Historical measurements are evidence, not instructions to repeat provider-backed work without
+approval. See also the master plan
 (`C:\Users\joshs\.claude\plans\please-review-the-current-synthetic-pinwheel.md`) for RC IDs and
 `docs/search-rag-master-plan.md`.
 

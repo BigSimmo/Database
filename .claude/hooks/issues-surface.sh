@@ -2,9 +2,9 @@
 # SessionStart hook — surface the outstanding-work memory into context.
 #
 # Reads docs/outstanding-issues.md (the /issues ledger) and prints a compact,
-# glanceable summary of the OPEN items so every session starts already aware of
-# what is outstanding. When the trigger is a context reset (compact / resume /
-# clear) it also emits a reminder to run `/issues capture` — that is the moment
+# glanceable summary of the RECOMMENDED EXECUTION QUEUE so every session starts
+# aware of the ordered work still worth doing. When the trigger is a context reset
+# (compact / resume / clear), it also emits a reminder to run `/issues capture` — that is the moment
 # a session's in-flight follow-ups are most likely to be lost.
 #
 # Contract: READ-ONLY. Never writes, never commits, never fails a session — it
@@ -25,44 +25,43 @@ source_val="$(printf '%s' "$payload" \
   | grep -o '"source"[[:space:]]*:[[:space:]]*"[^"]*"' \
   | head -n1 | sed -E 's/.*"([^"]*)"$/\1/')"
 
-# --- parse the "Open items" table only ---------------------------------------
-# Emit "PRI<TAB>ID<TAB>TYPE<TAB>SUMMARY" per open row. Scoped between the
-# "## Open items" heading and the next "## " heading so the Resolved/archive
-# table (different columns) is never counted.
+# --- parse the "Recommended execution queue" table only ---------------------
+# Emit "ORDER<TAB>ACUITY<TAB>SOURCE<TAB>OUTCOME<TAB>CLASSIFICATION" per row.
 rows="$(awk '
-  /^## Open items/       { inopen=1; next }
-  /^## /                 { if (inopen) inopen=0 }
-  inopen && /^\| #[0-9]/  {
+  /^## Recommended execution queue/ { inqueue=1; next }
+  /^## /                            { if (inqueue) inqueue=0 }
+  inqueue && /^\|[[:space:]]*[0-9]+[[:space:]]*\|/ {
     n=split($0, c, "|")
-    id=c[2]; pri=c[3]; typ=c[4]; sum=c[5]
-    gsub(/^[ \t]+|[ \t]+$/, "", id)
-    gsub(/^[ \t]+|[ \t]+$/, "", pri)
-    gsub(/^[ \t]+|[ \t]+$/, "", typ)
-    gsub(/^[ \t]+|[ \t]+$/, "", sum)
-    printf "%s\t%s\t%s\t%s\n", pri, id, typ, sum
+    ord=c[2]; src=c[3]; out=c[4]; acu=c[5]; cls=c[6]
+    gsub(/^[ \t]+|[ \t]+$/, "", ord)
+    gsub(/^[ \t]+|[ \t]+$/, "", src)
+    gsub(/^[ \t]+|[ \t]+$/, "", out)
+    gsub(/^[ \t]+|[ \t]+$/, "", acu)
+    gsub(/^[ \t]+|[ \t]+$/, "", cls)
+    printf "%s\t%s\t%s\t%s\t%s\n", ord, acu, src, out, cls
   }
 ' "$ledger" 2>/dev/null || true)"
 
 total="$(printf '%s' "$rows" | grep -c . || true)"
 if [ "${total:-0}" -eq 0 ]; then
-  echo "[issues] Outstanding-work memory (docs/outstanding-issues.md): no open items. Record one with /issues add …"
+  echo "[issues] Universal task ledger (docs/outstanding-issues.md): no recommended work."
   exit 0
 fi
 
-group() { printf '%s\n' "$rows" | awk -F'\t' -v p="$1" '$1==p'; }
+group() { printf '%s\n' "$rows" | awk -F'\t' -v p="$1" '$2==p'; }
 count() { printf '%s' "$1" | grep -c . || true; }
 p1="$(group P1)"; p2="$(group P2)"; p3="$(group P3)"
 c1="$(count "$p1")"; c2="$(count "$p2")"; c3="$(count "$p3")"
 
-echo "[issues] Outstanding-work memory — ${total} open (${c1}×P1, ${c2}×P2, ${c3}×P3). Source of truth: docs/outstanding-issues.md · read the full list back with /issues."
+echo "[issues] Universal task ledger — ${total} recommended (${c1}×P1, ${c2}×P2, ${c3}×P3). Source of truth: docs/outstanding-issues.md · read the full queue with /issues."
 
 print_group() { # $1=rows  $2=max-to-list
-  local data="$1" limit="$2" shown=0 more=0 pri id typ sum
+  local data="$1" limit="$2" shown=0 more=0 ord acu src out cls
   [ -z "$data" ] && return 0
-  while IFS=$'\t' read -r pri id typ sum; do
-    [ -z "$pri" ] && continue
+  while IFS=$'\t' read -r ord acu src out cls; do
+    [ -z "$ord" ] && continue
     if [ "$shown" -lt "$limit" ]; then
-      echo "  ${pri} ${id} ${typ} — ${sum}"
+      echo "  ${ord}. ${acu} ${src} — ${out} (${cls})"
       shown=$((shown + 1))
     else
       more=$((more + 1))
@@ -74,7 +73,7 @@ EOF
   return 0
 }
 
-# P1 = do-next, list all. P2 = should-do, list up to 8. P3 = collapse to a count.
+# Preserve queue order inside each acuity. P1 is listed in full, P2 up to 8, P3 as a count.
 [ "$c1" -gt 0 ] && print_group "$p1" 999
 [ "$c2" -gt 0 ] && print_group "$p2" 8
 [ "$c3" -gt 0 ] && echo "  ${c3} × P3 (nice-to-have / revisit-when) — see /issues"
