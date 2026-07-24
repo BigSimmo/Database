@@ -12,6 +12,29 @@ const MobileKeyboardContext = createContext<MobileKeyboardContextState>({
   keyboardHeight: 0,
 });
 
+const keyboardDetectionThreshold = 150;
+const keyboardOverlayThreshold = 50;
+
+export function resolveMobileKeyboardViewport(args: {
+  maxVisualHeight: number;
+  currentVisualHeight: number;
+  maxLayoutHeight: number;
+  currentLayoutHeight: number;
+}): MobileKeyboardContextState {
+  const visualOcclusion = Math.max(0, args.maxVisualHeight - args.currentVisualHeight);
+  if (visualOcclusion <= keyboardDetectionThreshold) return { isKeyboardOpen: false, keyboardHeight: 0 };
+
+  // With interactive-widget=resizes-content, the layout and visual viewports
+  // shrink together, so fixed chrome already sits above the keyboard. Only the
+  // residual visual-only shrink needs a CSS lift on overlay/fallback browsers.
+  const layoutResize = Math.max(0, args.maxLayoutHeight - args.currentLayoutHeight);
+  const overlayHeight = Math.max(0, Math.round(visualOcclusion - layoutResize));
+  return {
+    isKeyboardOpen: true,
+    keyboardHeight: overlayHeight > keyboardOverlayThreshold ? overlayHeight : 0,
+  };
+}
+
 /**
  * Global provider for mobile keyboard viewport state.
  * Syncs the virtual keyboard height (visual viewport vs layout viewport discrepancy)
@@ -26,6 +49,7 @@ export function MobileKeyboardProvider({ children }: { children: ReactNode }) {
 
     // Track the maximum viewport height to detect when the keyboard shrinks the viewport
     let maxViewportHeight = window.visualViewport.height;
+    let maxLayoutHeight = window.innerHeight;
     let prevViewportWidth = window.visualViewport.width;
     let prevIsMobile = window.matchMedia("(max-width: 1023px)").matches;
 
@@ -45,25 +69,24 @@ export function MobileKeyboardProvider({ children }: { children: ReactNode }) {
       // Reset baseline if viewport width changed (orientation/breakpoint change) or if just entered mobile mode
       if (viewport.width !== prevViewportWidth || (!prevIsMobile && isMobile)) {
         maxViewportHeight = viewport.height;
+        maxLayoutHeight = window.innerHeight;
       } else {
         maxViewportHeight = Math.max(maxViewportHeight, viewport.height);
+        maxLayoutHeight = Math.max(maxLayoutHeight, window.innerHeight);
       }
 
       prevViewportWidth = viewport.width;
       prevIsMobile = isMobile;
 
-      const diff = maxViewportHeight - viewport.height;
-
-      // Threshold to detect software keyboard (usually > 150px)
-      if (diff > 150) {
-        setIsKeyboardOpen(true);
-        setKeyboardHeight(diff);
-        document.documentElement.style.setProperty("--keyboard-height", `${diff}px`);
-      } else {
-        setIsKeyboardOpen(false);
-        setKeyboardHeight(0);
-        document.documentElement.style.setProperty("--keyboard-height", "0px");
-      }
+      const next = resolveMobileKeyboardViewport({
+        maxVisualHeight: maxViewportHeight,
+        currentVisualHeight: viewport.height,
+        maxLayoutHeight,
+        currentLayoutHeight: window.innerHeight,
+      });
+      setIsKeyboardOpen(next.isKeyboardOpen);
+      setKeyboardHeight(next.keyboardHeight);
+      document.documentElement.style.setProperty("--keyboard-height", `${next.keyboardHeight}px`);
     }
 
     // Initial check
