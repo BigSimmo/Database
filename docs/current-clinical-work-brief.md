@@ -21,22 +21,22 @@ Adjacent shipping surfaces today: Favourites / Saved workflows (`/favourites`, T
 
 ## Users
 
-| Actor | Need |
-| ----- | ---- |
-| Authenticated clinician | Resume interrupted multi-step reference work across sessions/devices |
-| Guest / anonymous | **Out of scope** for durable Current Clinical Work (align with Favourites gating) |
-| Administrator / ops | Not a consumer; may need retention/deletion tooling if server persistence exists |
+| Actor                   | Need                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------- |
+| Authenticated clinician | Resume interrupted multi-step reference work across sessions/devices              |
+| Guest / anonymous       | **Out of scope** for durable Current Clinical Work (align with Favourites gating) |
+| Administrator / ops     | Not a consumer; may need retention/deletion tooling if server persistence exists  |
 
 ## Data classes (privacy)
 
 Classify before any persistence design. Prefer the Safety Plan / PIA posture: **no patient identifiers**, identifier-free working content only.
 
-| Class | Examples | Sensitivity | Allowed persistence (draft policy) |
-| ----- | -------- | ----------- | ---------------------------------- |
-| A — Navigation husks | Tool ids, mode hrefs, last-opened route | Low | Server or device OK if owner-scoped |
-| B — Clinical working selections | Compare slugs, pinned document ids, formulation section ids | Medium (workflow, not PHI by itself) | Owner-scoped server OK with retention |
-| C — Free-text working notes | Formulation prose, comparison notes, untitled drafts | **High incidental PHI risk** | Prefer tab-local or explicit “save draft” with retention + deletion; never default-sync raw text to logs/providers |
-| D — Source pins | Document ids / titles already in corpus | Medium | Owner-scoped; titles may be corpus public |
+| Class                           | Examples                                                    | Sensitivity                          | Allowed persistence (draft policy)                                                                                 |
+| ------------------------------- | ----------------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| A — Navigation husks            | Tool ids, mode hrefs, last-opened route                     | Low                                  | Server or device OK if owner-scoped                                                                                |
+| B — Clinical working selections | Compare slugs, pinned document ids, formulation section ids | Medium (workflow, not PHI by itself) | Owner-scoped server OK with retention                                                                              |
+| C — Free-text working notes     | Formulation prose, comparison notes, untitled drafts        | **High incidental PHI risk**         | Prefer tab-local or explicit “save draft” with retention + deletion; never default-sync raw text to logs/providers |
+| D — Source pins                 | Document ids / titles already in corpus                     | Medium                               | Owner-scoped; titles may be corpus public                                                                          |
 
 **Hard stop:** do not implement cross-device sync of Class C until privacy/#053 counsel path accepts retention, residency, and deletion semantics. Do not send Class C to OpenAI as a “workspace restore” side channel.
 
@@ -50,11 +50,11 @@ Classify before any persistence design. Prefer the Safety Plan / PIA posture: **
 
 ## Cross-device expectations
 
-| Option | Pros | Cons | Recommendation |
-| ------ | ---- | ---- | -------------- |
-| Tab-local only | Matches Safety Plan; lowest privacy risk | No multi-device resume | Default until demand proven |
-| Device localStorage | Survives refresh | No cross-device; XSS/shared-device risk | Acceptable for Class A only |
-| Owner-scoped Supabase rows | Real resume | Retention, RLS, deletion, PHI incident surface | Only after demand + Class C policy |
+| Option                     | Pros                                     | Cons                                           | Recommendation                     |
+| -------------------------- | ---------------------------------------- | ---------------------------------------------- | ---------------------------------- |
+| Tab-local only             | Matches Safety Plan; lowest privacy risk | No multi-device resume                         | Default until demand proven        |
+| Device localStorage        | Survives refresh                         | No cross-device; XSS/shared-device risk        | Acceptable for Class A only        |
+| Owner-scoped Supabase rows | Real resume                              | Retention, RLS, deletion, PHI incident surface | Only after demand + Class C policy |
 
 **Product default for v0:** tab-local / URL state; no new tables.
 

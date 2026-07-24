@@ -8,12 +8,12 @@ Future patient-content work **extends the existing Factsheets reading model** (E
 
 ## Current model (keep)
 
-| Piece | Location / behaviour |
-| ----- | -------------------- |
-| Mode home / search / detail | `/factsheets`, `/factsheets/search`, `/factsheets/[slug]` |
-| Reading levels | `easy` \| `standard` toggle on med-rich detail (`factsheet-detail-page.tsx`) |
-| Content fields | `whatEasy` / `whatStandard` (and related section bodies) in `factsheets-data.ts` |
-| Presentation contracts | Existing accessibility, print/PDF, and theme tokens on the Factsheets surface |
+| Piece                       | Location / behaviour                                                             |
+| --------------------------- | -------------------------------------------------------------------------------- |
+| Mode home / search / detail | `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                        |
+| Reading levels              | `easy` \| `standard` toggle on med-rich detail (`factsheet-detail-page.tsx`)     |
+| Content fields              | `whatEasy` / `whatStandard` (and related section bodies) in `factsheets-data.ts` |
+| Presentation contracts      | Existing accessibility, print/PDF, and theme tokens on the Factsheets surface    |
 
 The Easy Read / Standard control is already a first-class reading-level switch, not a separate product mode.
 
