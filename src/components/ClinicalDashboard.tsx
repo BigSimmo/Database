@@ -45,7 +45,6 @@ import {
   EmptyState,
   floatingControl,
   InlineNotice,
-  LoadingPanel,
   primaryControl,
   textMuted,
 } from "@/components/ui-primitives";
