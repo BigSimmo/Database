@@ -68,7 +68,9 @@ describe("Railway config as code", () => {
     "data/services-snapshot.json",
     "public/logo.svg",
     "src/app/page.tsx",
+    "scripts/run-heavy.mjs",
     "scripts/guard-next-build.mjs",
+    "scripts/check-client-bundle-secrets.mjs",
   ])("deploys the app for runtime input %s", (filePath) => {
     expect(triggersDeploy(app, filePath)).toBe(true);
   });
@@ -84,6 +86,7 @@ describe("Railway config as code", () => {
     "src/lib/rag/rag.ts",
     "worker/main.ts",
     "worker/python/requirements.txt",
+    "scripts/build-worker.mjs",
     "scripts/enable-server-only-stub.mjs",
     "scripts/register-server-only.mjs",
     "scripts/resolve-tsx-cli.mjs",
