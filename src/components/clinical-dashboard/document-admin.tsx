@@ -43,6 +43,7 @@ import {
   panelSubtle,
   primaryControl,
   sourceCard,
+  SourceDesignationBadge,
   SourceProvenance,
   SourceStatusBadge,
   textMuted,
@@ -63,6 +64,7 @@ import {
   type SmartDocumentTagTier,
   tagSearchText,
 } from "@/lib/document-tags";
+import { classifySourceAuthority, type SourceDesignation } from "@/lib/source-authority-registry";
 import type { ClinicalDocument, DocumentLabel, DocumentLabelType } from "@/lib/types";
 import { emptyStates } from "@/lib/ui-copy";
 
@@ -572,6 +574,7 @@ export function DocumentDrawer({
   const [selectedSite, setSelectedSite] = useState<string>("all");
   const [selectedTopic, setSelectedTopic] = useState<string>("all");
   const [selectedPopulation, setSelectedPopulation] = useState<string>("all");
+  const [selectedDesignation, setSelectedDesignation] = useState<SourceDesignation | "all">("all");
   const [showNeedsReviewOnly, setShowNeedsReviewOnly] = useState<boolean>(false);
 
   const [collectionDraft, setCollectionDraft] = useState("");
@@ -703,6 +706,13 @@ export function DocumentDrawer({
         if (!hasPopMatch) return false;
       }
 
+      if (
+        selectedDesignation !== "all" &&
+        classifySourceAuthority(document.metadata).designation !== selectedDesignation
+      ) {
+        return false;
+      }
+
       // Filter by Needs Review
       if (showNeedsReviewOnly) {
         const profile = documentOrganizationProfile(document);
@@ -711,7 +721,9 @@ export function DocumentDrawer({
 
       const labelText = tagSearchText(document);
       const summaryText = document.summary?.summary ?? "";
-      const haystack = `${document.title} ${document.file_name} ${labelText} ${summaryText}`.toLowerCase();
+      const sourceDesignation = classifySourceAuthority(document.metadata).designation;
+      const haystack =
+        `${document.title} ${document.file_name} ${labelText} ${summaryText} ${sourceDesignation}`.toLowerCase();
       return haystack.includes(filterValue);
     })
     .sort((left, right) => {
@@ -741,7 +753,7 @@ export function DocumentDrawer({
       </label>
 
       {/* Dynamic Browse Library Filters */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         <div>
           <label
             htmlFor="browse-filter-type"
@@ -828,6 +840,26 @@ export function DocumentDrawer({
                 {p}
               </option>
             ))}
+          </select>
+        </div>
+        <div>
+          <label
+            htmlFor="browse-filter-designation"
+            className="text-2xs font-bold uppercase tracking-wider text-[color:var(--text-muted)]"
+          >
+            Provenance
+          </label>
+          <select
+            id="browse-filter-designation"
+            value={selectedDesignation}
+            onChange={(e) => setSelectedDesignation(e.target.value as SourceDesignation | "all")}
+            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            aria-label="Filter by source provenance designation"
+          >
+            <option value="all">All provenance</option>
+            <option value="official">Official</option>
+            <option value="trusted">Trusted</option>
+            <option value="unclassified">Unclassified</option>
           </select>
         </div>
       </div>
@@ -1064,6 +1096,7 @@ export function DocumentDrawer({
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge status={document.status} />
+                  <SourceDesignationBadge metadata={document.metadata} />
                   <SourceStatusBadge metadata={document.metadata} />
                   {isAdminMode ? (
                     <DocumentManagementActions

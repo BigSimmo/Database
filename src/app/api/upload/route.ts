@@ -204,6 +204,9 @@ export async function POST(request: Request) {
     const title = namePlan.title;
     const description = uploadMetadata.description;
     const uploadedAt = new Date().toISOString();
+    // Upload filename/title/storage-path identity is user-controlled and must not mint
+    // Official/Trusted publisher_code. Authority is set later via registry-validated admin
+    // correction or approval-gated locality backfill against authenticated source metadata.
 
     assertUploadNotAborted(request);
     const { data: document, error: documentError } = await supabase
@@ -221,6 +224,7 @@ export async function POST(request: Request) {
         status: "queued",
         metadata: {
           source_title: title,
+          publisher_code: null,
           publisher: null,
           jurisdiction: "Australia/WA",
           version: null,
