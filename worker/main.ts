@@ -1061,7 +1061,8 @@ async function uploadAndCaptionImages(
     const { task, classificationCacheHit } = resolved;
     const { candidate, index, image, perceptualHash, imageHash, nearbyText, tableMetadata, contextHash } = task;
     let classification = redactImageClassification(resolved.classification);
-    const retainedWithoutCaptioning = task.presetClassification?.skip_reason === "retained for document view without captioning";
+    const retainedWithoutCaptioning =
+      task.presetClassification?.skip_reason === "retained for document view without captioning";
     const policyAssessment = assessClinicalImageUse({
       imageType: classification.image_type,
       searchable: classification.searchable,
@@ -1209,7 +1210,11 @@ async function uploadAndCaptionImages(
       });
     }
     if (!data) throw new Error("Document image insert returned no row.");
-    if (data.searchable !== false || retainForDocumentView) {
+    // Persist view-only / audit-retained crops above for the document viewer, but
+    // keep them out of insertedImages — that array feeds buildChunks, table-fact
+    // extraction, and embedding-field writes. Retrieval already filters
+    // searchable=true; feeding searchable=false rows here re-opens indexing.
+    if (data.searchable !== false) {
       insertedImages.push({
         id: data.id,
         caption: data.caption,
