@@ -154,6 +154,42 @@ describe("source authority metadata tooling", () => {
     ]);
   });
 
+  it("counts designations from the full proposed locality patch, not publisher_code alone", () => {
+    // Identity infers WACHS, but the stale free-text publisher would conflict if only
+    // publisher_code were projected — the full locality patch must replace publisher too.
+    const stalePublisherNeedsFullPatch = document({
+      file_name: "WACHS-lithium-guideline.pdf",
+      metadata: { publisher: "Local clinic handout" },
+    });
+    const conflictedStaysUnclassified = document({
+      file_name: "conflicted.pdf",
+      metadata: {
+        publisher_code: "WACHS",
+        publisher: "NPS MedicineWise",
+        jurisdiction: "Australia/WA",
+      },
+    });
+    const analysis = analyzeSourceLocality(stalePublisherNeedsFullPatch);
+    const report = auditSourceAuthorityDocuments([stalePublisherNeedsFullPatch, conflictedStaysUnclassified]);
+
+    expect(analysis.changes).toEqual({
+      publisher_code: "WACHS",
+      publisher: "WA Country Health Service",
+      jurisdiction: "Australia/WA",
+    });
+    // Code-only projection would keep "Local clinic handout" and classify as unclassified
+    // via publisher_mismatch; the full patch correctly counts Official.
+    expect(report.designation_counts).toEqual({ official: 1, trusted: 0, unclassified: 1 });
+    expect(report.missing_australian_locality_count).toBe(1);
+    expect(report.unclassified_samples).toEqual([
+      expect.objectContaining({
+        file_name: "conflicted.pdf",
+        publisher_code: "WACHS",
+        publisher: "NPS MedicineWise",
+      }),
+    ]);
+  });
+
   it("fails closed on cross-authority code and publisher claims", () => {
     const conflicted = document({
       file_name: "lithium-guideline.pdf",
