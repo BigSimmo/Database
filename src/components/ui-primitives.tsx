@@ -1,12 +1,15 @@
-import { Ban, Loader2, TriangleAlert, X, type LucideIcon } from "lucide-react";
+import { Ban, Landmark, Loader2, ShieldCheck, TriangleAlert, X, type LucideIcon } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import {
   extractionQualityLabel,
   formatClinicalDate,
   normalizeSourceMetadata,
+  sourceDesignationDescription,
+  sourceDesignationLabel,
   sourceStatusLabel,
   validationStatusLabel,
 } from "@/lib/source-metadata";
+import { classifySourceAuthority } from "@/lib/source-authority-registry";
 
 export function cn(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -322,6 +325,38 @@ export function ToggleSwitch({
 
 type IconComponent = LucideIcon;
 
+export function SourceDesignationBadge({ metadata, className }: { metadata?: unknown; className?: string }) {
+  const source = normalizeSourceMetadata(metadata);
+  const classification = classifySourceAuthority(source);
+  const toneClassName =
+    classification.designation === "official"
+      ? toneSuccess
+      : classification.designation === "trusted"
+        ? toneInfo
+        : toneWarningQuiet;
+  const Icon =
+    classification.designation === "official"
+      ? Landmark
+      : classification.designation === "trusted"
+        ? ShieldCheck
+        : TriangleAlert;
+
+  return (
+    <span
+      title={sourceDesignationDescription(source)}
+      aria-label={`Source designation: ${sourceDesignationLabel(classification.designation)}. ${sourceDesignationDescription(source)}`}
+      className={cn(
+        "inline-flex min-h-7 items-center gap-1.5 rounded-md border px-2 text-xs font-semibold",
+        toneClassName,
+        className,
+      )}
+    >
+      <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      {sourceDesignationLabel(classification.designation)}
+    </span>
+  );
+}
+
 export function SourceStatusBadge({
   metadata,
   className,
@@ -367,6 +402,7 @@ export function SourceProvenance({ metadata }: { metadata?: unknown }) {
   // validation and extraction-quality labels always stay — they are clinical
   // governance signals, not noise.
   const items = [
+    sourceDesignationLabel(classifySourceAuthority(source).designation),
     validationStatusLabel(source),
     reviewDate === "Unknown" ? null : `Review ${reviewDate}`,
     source.jurisdiction,

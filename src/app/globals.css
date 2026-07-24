@@ -280,7 +280,7 @@
      header height and those page-fill floors cannot silently drift apart. */
   --shell-header-h: 4rem;
   /* Keep in sync with mobile-composer-reserve.ts (phone dock clearance). */
-  --phone-dock-hidden-pad: 0.75rem;
+  --phone-dock-hidden-pad: 0rem;
   --phone-dock-differentials-compare-clearance: 12.5rem;
   --phone-dock-differentials-compare-compact-clearance: 12.25rem;
   /* Radius tokens are the single source of truth in @theme above (they also

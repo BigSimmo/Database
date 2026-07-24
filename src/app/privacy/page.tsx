@@ -25,14 +25,15 @@ const SECTIONS: Section[] = [
     body: (
       <>
         Clinical KB is a knowledge base over clinical reference material. It is{" "}
-        <strong>not a patient-record system</strong> and does not ask for patient data. The main privacy risk is
-        incidental patient information entered into a free-text question or uploaded document.
+        <strong>not a patient-record system</strong> and its provider-backed features do not ask for patient
+        identifiers. The Safety Plan Generator accepts sensitive working content and support contacts but deliberately
+        omits a patient-identifier field.
       </>
     ),
   },
   {
     heading: "What is collected",
-    body: "Questions, generated answers, account identifiers, uploaded documents, retrieved excerpts, document metadata, and operational or retrieval telemetry may be processed. Free text and uploaded material can contain sensitive information if you enter it.",
+    body: "Questions, generated answers, account identifiers, uploaded documents, retrieved excerpts, document metadata, and operational or retrieval telemetry may be processed. Free text and uploaded material can contain sensitive information if you enter it. Safety-plan working content is different: it remains in the current browser tab and is not sent to the application service or stored by Clinical KB.",
   },
   {
     heading: "How questions are handled",
@@ -61,11 +62,11 @@ const SECTIONS: Section[] = [
   },
   {
     heading: "Retention",
-    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Uploaded documents remain until removed under the applicable process.",
+    body: "Repository migrations configure 30-day retention for RAG query records, 90-day retention for retrieval logs and query-miss telemetry, and a bounded hourly purge of expired response-cache rows when the database scheduler is available. The operator must verify that those scheduled jobs are active. Uploaded documents remain until removed under the applicable process. Safety-plan working content has no Clinical KB retention: it is discarded when the component is cleared or the tab is closed. Clipboard, print, and PDF copies are outside the app and must follow the organisation's approved record-handling process.",
   },
   {
     heading: "Your responsibilities",
-    body: "Do not enter patient-identifiable information. Upload only material you are authorised to use, keep access credentials private, review original linked sources before relying on clinical output, and report suspected privacy or access issues through your organisation's approved process.",
+    body: "Do not enter patient-identifiable information. In the Safety Plan Generator, add any patient identifier only after export through your organisation's approved clinical-record process. Upload only material you are authorised to use, keep access credentials private, review original linked sources before relying on clinical output, and report suspected privacy or access issues through your organisation's approved process.",
   },
 ];
 
