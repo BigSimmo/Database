@@ -325,7 +325,7 @@ export function CheckboxRow({
       <span
         aria-hidden="true"
         className={cn(
-          "mt-0.5 grid size-5 shrink-0 place-items-center rounded-md border transition",
+          "relative mt-0.5 grid size-5 shrink-0 place-items-center rounded-md border transition before:absolute before:-inset-2 before:content-['']",
           checked
             ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
             : "border-[color:var(--border-strong)] bg-[color:var(--surface)]",

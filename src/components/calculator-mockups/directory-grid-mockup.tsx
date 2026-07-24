@@ -145,7 +145,7 @@ function CalculatorCard({
         </span>
         <span
           className={cn(
-            "grid size-8 shrink-0 place-items-center rounded-md border transition",
+            "relative grid size-8 shrink-0 place-items-center rounded-md border transition before:absolute before:-inset-2 before:content-['']",
             open
               ? "rotate-180 border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
               : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)]",

@@ -502,7 +502,8 @@ a,
 summary,
 input,
 textarea,
-select {
+select,
+.touch-card {
   outline: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -585,6 +586,11 @@ summary::-webkit-details-marker {
 
   .universal-header {
     background: color-mix(in srgb, var(--surface) 72%, transparent);
+  }
+
+  .modal-landscape-container {
+    padding-left: max(1rem, var(--safe-area-left));
+    padding-right: max(1rem, var(--safe-area-right));
   }
 
   .universal-header-mode-button {
