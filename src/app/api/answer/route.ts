@@ -62,6 +62,14 @@ export async function POST(request: Request) {
   let body: AnswerRequestBody | null = null;
   try {
     const answerBody = await parseJsonBody(request, answerRequestSchema, "Invalid answer request.");
+    if (answerBody.summaryMode) {
+      return jsonError(
+        new PublicApiError("Document summaries require the streaming answer endpoint.", 400, {
+          code: "summary_mode_stream_required",
+        }),
+        400,
+      );
+    }
     body = answerBody;
     if (isDemoMode()) {
       return NextResponse.json({ ...buildDemoAnswerPayload(answerBody), interactionId });

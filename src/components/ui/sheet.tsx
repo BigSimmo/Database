@@ -3,7 +3,6 @@
 import {
   useEffect,
   useId,
-  useLayoutEffect,
   useRef,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -118,10 +117,14 @@ export function Sheet({
   // Otherwise a press that begins on the panel and ends on the backdrop would
   // synthesize a click on the common ancestor and accidentally close the sheet.
   const backdropPointerDownRef = useRef(false);
-  // Focus-restore schedules rAF + setTimeout after close; keep handles so a later
-  // cleanup (or jsdom teardown) can cancel them before they touch `document`.
-  const restoreFocusCleanupRef = useRef<(() => void) | null>(null);
-  const isMountedRef = useRef(false);
+  // Pending focus-restore timers from the previous close. Cleared on the next
+  // open and on unmount so a torn-down jsdom environment cannot throw from a
+  // stale 50ms retry under Vitest coverage workers.
+  const restoreTimersRef = useRef<{ frame: number | null; timeout: number | null }>({
+    frame: null,
+    timeout: null,
+  });
+  const unmountingRef = useRef(false);
   const titleId = useId();
   const descId = useId();
   const sheetId = useId();
@@ -130,14 +133,19 @@ export function Sheet({
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  // Layout cleanup runs before passive effect cleanups on unmount, so the open
-  // effect can skip scheduling focus restoration when the whole Sheet is gone
-  // (avoids order-dependent sibling effect races and jsdom teardown flakes).
-  useLayoutEffect(() => {
-    isMountedRef.current = true;
+  useEffect(() => {
+    unmountingRef.current = false;
+    const restoreTimers = restoreTimersRef.current;
     return () => {
-      isMountedRef.current = false;
-      restoreFocusCleanupRef.current?.();
+      unmountingRef.current = true;
+      if (restoreTimers.frame != null) {
+        window.cancelAnimationFrame(restoreTimers.frame);
+        restoreTimers.frame = null;
+      }
+      if (restoreTimers.timeout != null) {
+        window.clearTimeout(restoreTimers.timeout);
+        restoreTimers.timeout = null;
+      }
     };
   }, []);
 
@@ -227,37 +235,41 @@ export function Sheet({
     }
 
     window.addEventListener("keydown", onKeyDown);
+    const restoreTimers = restoreTimersRef.current;
     return () => {
       window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", onKeyDown);
       popSheet(sheetId);
-      restoreFocusCleanupRef.current?.();
-      // Component unmount (not merely open→false): skip focus restore entirely.
-      if (!isMountedRef.current) return;
       const restoreTarget = explicitReturnElement ?? previousActiveElement;
-      let cancelled = false;
-      let retryTimeoutId: number | undefined;
-      const restoreFrame = window.requestAnimationFrame(() => {
-        if (cancelled || !isMountedRef.current || !restoreTarget?.isConnected) return;
+      if (restoreTimers.frame != null) {
+        window.cancelAnimationFrame(restoreTimers.frame);
+      }
+      if (restoreTimers.timeout != null) {
+        window.clearTimeout(restoreTimers.timeout);
+      }
+      if (unmountingRef.current) return;
+      // Focus restore is best-effort. Under Vitest coverage workers the jsdom
+      // `document` can be torn down before this rAF/setTimeout pair fires; bare
+      // `document` access then becomes an unhandled ReferenceError that fails
+      // the whole suite even when every test assertion passed.
+      restoreTimers.frame = window.requestAnimationFrame(() => {
+        restoreTimers.frame = null;
+        if (typeof document === "undefined" || !restoreTarget?.isConnected) return;
         restoreTarget.focus({ preventScroll: true });
-        retryTimeoutId = window.setTimeout(() => {
-          // jsdom may already be torn down when this fires after a fast test exit.
-          if (cancelled || !isMountedRef.current || typeof document === "undefined") return;
+        restoreTimers.timeout = window.setTimeout(() => {
+          restoreTimers.timeout = null;
+          if (typeof document === "undefined") return;
           if (
-            restoreTarget.isConnected &&
-            document.activeElement !== restoreTarget &&
-            document.activeElement === document.body
+            typeof document === "undefined" ||
+            !restoreTarget.isConnected ||
+            document.activeElement === restoreTarget ||
+            document.activeElement !== document.body
           ) {
-            restoreTarget.focus({ preventScroll: true });
+            return;
           }
+          restoreTarget.focus({ preventScroll: true });
         }, 50);
       });
-      restoreFocusCleanupRef.current = () => {
-        cancelled = true;
-        window.cancelAnimationFrame(restoreFrame);
-        if (retryTimeoutId !== undefined) window.clearTimeout(retryTimeoutId);
-        restoreFocusCleanupRef.current = null;
-      };
     };
   }, [open, initialFocusRef, returnFocusRef, sheetId]);
 
