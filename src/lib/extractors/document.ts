@@ -211,7 +211,9 @@ export async function runPythonPdfExtractor(
         return;
       }
       if (signal) {
-        finish(() => reject(new PdfExtractorProcessError(stderr || `PDF extractor exited with code ${code} (${signal})`)));
+        finish(() =>
+          reject(new PdfExtractorProcessError(stderr || `PDF extractor exited with code ${code} (${signal})`)),
+        );
         return;
       }
       if (code !== 0) {
