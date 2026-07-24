@@ -278,10 +278,12 @@ export function TcProvider({ children }: { children: ReactNode }) {
     if (!liveQuery) {
       return searchTherapies(therapies, search);
     }
-    // First keystrokes: deferred may still be empty — never dump the full library.
+    // First keystrokes: deferred text may still be empty — never dump the full library.
     if (!deferredQuery) return [];
-    return searchTherapies(therapies, deferredSearch);
-  }, [therapies, deferredSearch, search]);
+    // Defer only the text cost; apply live filter chips/flags immediately so toggles
+    // match aria-pressed state without waiting for useDeferredValue.
+    return searchTherapies(therapies, { ...search, query: deferredSearch.query });
+  }, [therapies, deferredSearch.query, search]);
   const compareTherapies = useMemo(
     () => compareSlugs.map((sl) => bySlug.get(sl)).filter((t): t is Therapy => Boolean(t)),
     [compareSlugs, bySlug],
