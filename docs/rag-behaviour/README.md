@@ -8,7 +8,7 @@ selection, release-ordering, or eval-ground-truth surface.
 | File                    | What it holds                                                                                                                                                                      |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `behaviour-map.md`      | The verified mechanics: score imputation sites, the release comparator chains, the gate/threshold ladder, second-stage engagement rules, and which live cases exercise which path. |
-| `refuted-approaches.md` | The two live-refuted improvement attempts with their numbers, the root-cause post-mortems, and the binding constraints any third attempt must satisfy.                             |
+| `refuted-approaches.md` | Live-refuted improvement attempts (feature-weight tuning, saturation-tail spread, governance ranking penalties/boosts) with numbers, post-mortems, and binding constraints.   |
 | `safeguards.md`         | The protection stack: protected-surface list, the pr-policy `RAG impact:` gate, the source-pin contract test, the canary-pair protocol, and the regeneration procedures.           |
 
 Standing rules (mirrored in `AGENTS.md` so every agent session inherits them):
