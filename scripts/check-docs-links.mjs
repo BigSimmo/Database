@@ -45,8 +45,11 @@ const ROOT_PREFIXES = [
 const ALLOWLIST = new Set([
   "scripts/reindex-shadow.ts", // designed-only harness driver (docs/reindex-shadow-harness-design.md)
   "docs/site-map.generated.md", // hypothetical future split named in docs/process-hardening.md
-  // Removed after the redesign; referenced historically in docs/redesign/*:
+  // Legacy pre-(search-app) paths still cited in docs/ledger/redesign records:
+  "src/app/page.tsx",
+  "src/app/services/page.tsx",
   "src/app/tools/page.tsx",
+  "src/app/(search-app)/tools/page.tsx",
   "src/lib/tools.ts",
   "src/components/ServiceDetailPage.tsx",
 ]);
@@ -54,6 +57,16 @@ const ALLOWLIST = new Set([
 const DATED_DOC = /\b20\d{2}-\d{2}(-\d{2})?\b/;
 // Historical directories: only scanned with --all.
 const HISTORICAL_DIRS = new Set(["archive", "audit"]);
+const APP_ROUTE_GROUPS = ["(search-app)"];
+
+function repoPathExists(repoRelative) {
+  const cleaned = repoRelative.replace(/\/$/, "");
+  if (existsSync(path.join(repoRoot, cleaned))) return true;
+
+  if (!cleaned.startsWith("src/app/") || cleaned.includes("src/app/(")) return false;
+  const appRelative = cleaned.slice("src/app/".length);
+  return APP_ROUTE_GROUPS.some((group) => existsSync(path.join(repoRoot, "src/app", group, appRelative)));
+}
 
 function collectDocs(dirRelative, targets) {
   const absolute = path.join(repoRoot, dirRelative);
@@ -144,8 +157,7 @@ for (const target of defaultTargets()) {
   const check = (repoRelative, label) => {
     if (ALLOWLIST.has(repoRelative)) return;
     checked += 1;
-    const cleaned = repoRelative.replace(/\/$/, "");
-    if (!existsSync(path.join(repoRoot, cleaned))) failures.push(label);
+    if (!repoPathExists(repoRelative)) failures.push(label);
   };
 
   // Inline code spans: repo-root-relative repo paths.
@@ -179,7 +191,7 @@ for (const target of defaultTargets()) {
     const candidates = rootStyle === relative || rootStyle.startsWith("..") ? [relative] : [rootStyle, relative];
     if (candidates.some((candidate) => ALLOWLIST.has(candidate))) continue;
     checked += 1;
-    const found = candidates.some((candidate) => existsSync(path.join(repoRoot, candidate.replace(/\/$/, ""))));
+    const found = candidates.some((candidate) => repoPathExists(candidate));
     if (!found)
       failures.push(rawCandidate === relative ? relative : `${rawCandidate} (tried ${candidates.join(", ")})`);
   }
