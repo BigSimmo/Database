@@ -5,18 +5,19 @@ Durable, cross-session memory of everything still outstanding for this repo: ope
 (sessions summarise and reset); this file is not — it is the single source of truth the
 [`/issues` skill](../.claude/skills/issues/SKILL.md) reads back and updates.
 
-**Rule of thumb:** if it is worth remembering after this session ends, it belongs here.
+**Rule of thumb:** if current evidence says the work is still worth doing, it belongs in the
+recommended queue. Refuted, completed, stale, duplicate, or superseded claims belong only in history.
 
 ## How this is used
 
-- Say `/issues` in Claude Code → the skill reads this file and states the open items back,
-  grouped by priority with a one-line summary count. Nothing is mutated on a plain read.
+- Say `/issues` in Claude Code → the skill reads the **Recommended execution queue** back in
+  numeric order with a one-line acuity count. Nothing is mutated on a plain read.
 - Use the **Recommended execution queue** below for current order, acuity, intelligence, timing,
   estimates, gates, success criteria, verification, and stopping conditions. This file is the single
   universal ledger; do not create a parallel task-ledger document.
-- `/issues add …`, `/issues done <id>`, `/issues capture`, and friends mutate the tables below.
-  The full command surface lives in the skill file.
-- Every mutation keeps this file committed so the memory survives across sessions and worktrees.
+- `/issues add …`, `/issues done <id>`, `/issues capture`, and friends keep the recommended queue
+  and source/archive tables synchronized. The full command surface lives in the skill file.
+- Committing and pushing ledger mutations follow the repository's normal authorized Git workflow.
 
 ## Conventions
 
