@@ -450,9 +450,12 @@ Run the matching planner command in `docs/productivity-workflows.md` without sid
 
 ## Outstanding-work memory (`/issues`)
 
-`docs/outstanding-issues.md` is the durable, cross-session memory of every outstanding **task**,
-**recommendation**, and **issue** for this repo. Chat context resets between sessions; that file does
-not, so anything worth remembering after a session ends belongs there.
+`docs/outstanding-issues.md` is the single universal, durable, cross-session ledger for every
+outstanding **task**, **recommendation**, and **issue** in this repo. It owns the recommended
+execution order, acuity, required capability, timing, effort, approvals, evidence, status, success
+criteria, stop rules, and resolution history. Chat context resets between sessions; that file does
+not, so anything worth remembering after a session ends belongs there. Do not create or maintain a
+second task ledger.
 
 - When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): read
   `docs/outstanding-issues.md` and state the open items back, grouped by priority. A plain `/issues`
