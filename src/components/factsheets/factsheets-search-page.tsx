@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChevronRight, Info, LayoutGrid, List, SearchX } from "lucide-react";
 import { useState } from "react";
 
+import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
 import {
   categoryTheme,
   factsheetCategories,
@@ -40,12 +41,6 @@ export function FactsheetsSearchPage({
   const [view, setView] = useState<ViewMode>("list");
   const activeCategory = factsheetCategories.find((entry) => entry === category);
 
-  const resultLine = query
-    ? `${results.length} result${results.length === 1 ? "" : "s"} for “${query}”${
-        activeCategory ? ` in ${activeCategory}` : ""
-      }`
-    : `${results.length} factsheet${results.length === 1 ? "" : "s"}${activeCategory ? ` in ${activeCategory}` : ""}`;
-
   return (
     <div
       data-testid="factsheets-search-page"
@@ -56,61 +51,71 @@ export function FactsheetsSearchPage({
         Search patient information
       </h1>
 
-      <section aria-label="Filter by category" className="mt-4 flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-xs font-bold text-[color:var(--text-soft)]">Filter:</span>
-        {filterChips.map((chip) => {
-          const isActive = chip.key ? activeCategory === chip.key : !activeCategory;
-          return (
-            <Link
-              key={chip.label}
-              href={searchHref(query, chip.key)}
-              aria-current={isActive ? "true" : undefined}
-              className={cn(
-                "inline-flex min-h-tap items-center rounded-lg border px-3 text-xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                isActive
-                  ? "border-transparent bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
-              )}
-            >
-              {chip.label}
-            </Link>
-          );
-        })}
-      </section>
-
-      <div className="mt-5 flex items-center justify-between gap-3">
-        <p className="text-sm-minus font-medium text-[color:var(--text-muted)]">{resultLine}</p>
-        <div
-          role="group"
-          aria-label="Result view"
-          className="inline-flex gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-inset)] p-1"
-        >
-          {(["list", "cards"] as const).map((mode) => {
-            const isActive = view === mode;
-            return (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setView(mode)}
-                aria-pressed={isActive}
-                className={cn(
-                  "inline-flex min-h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-bold capitalize transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                  isActive
-                    ? "bg-[color:var(--surface)] text-[color:var(--text-heading)] shadow-[var(--shadow-tight)]"
-                    : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
-                )}
-              >
-                {mode === "list" ? (
-                  <List className="h-3.5 w-3.5" aria-hidden="true" />
-                ) : (
-                  <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
-                )}
-                {mode}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <SearchResultsHeaderBand
+        modeId="factsheets"
+        query={query}
+        matchCount={results.length}
+        className="mt-4"
+        utilityControls={
+          <div
+            role="group"
+            aria-label="Result view"
+            className="inline-flex min-h-tap overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10"
+          >
+            {(["list", "cards"] as const).map((mode) => {
+              const isActive = view === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setView(mode)}
+                  aria-pressed={isActive}
+                  className={cn(
+                    "inline-flex min-h-tap items-center gap-1.5 px-2.5 text-xs font-bold capitalize transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-10",
+                    mode === "cards" && "border-l border-[color:var(--border)]",
+                    isActive
+                      ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                      : "text-[color:var(--text-muted)] hover:text-[color:var(--text)]",
+                  )}
+                >
+                  {mode === "list" ? (
+                    <List className="h-3.5 w-3.5" aria-hidden="true" />
+                  ) : (
+                    <LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  <span className="max-[389px]:sr-only">{mode}</span>
+                </button>
+              );
+            })}
+          </div>
+        }
+        filterLabel="Filter factsheets by category"
+        filterControls={
+          <div className="polished-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto">
+            <span className="hidden shrink-0 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-soft)] sm:inline">
+              Category
+            </span>
+            {filterChips.map((chip) => {
+              const isActive = chip.key ? activeCategory === chip.key : !activeCategory;
+              return (
+                <Link
+                  key={chip.label}
+                  href={searchHref(query, chip.key)}
+                  aria-current={isActive ? "true" : undefined}
+                  className={cn(
+                    "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-2.5 text-2xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9 sm:text-xs",
+                    isActive
+                      ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                      : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                  )}
+                >
+                  {chip.label}
+                </Link>
+              );
+            })}
+          </div>
+        }
+      />
 
       {results.length === 0 ? (
         <section className="mt-4 grid justify-items-center gap-3 rounded-xl border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] px-4 py-12 text-center">

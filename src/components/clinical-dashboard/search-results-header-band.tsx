@@ -1,6 +1,7 @@
 "use client";
 
 import { Bookmark, CheckCircle2, ChevronsUpDown, LayoutList, LoaderCircle, Search, Table2, X } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { searchCommandSurfaceConfig } from "@/lib/search-command-surface";
 import { cn } from "@/components/ui-primitives";
@@ -21,6 +22,10 @@ export function SearchResultsHeaderBand({
   sortValue = "relevance",
   onSortChange,
   onSaveSearch,
+  utilityControls,
+  filterControls,
+  filterLabel = "Filter search results",
+  headingLevel = 2,
   className,
 }: {
   modeId: AppModeId;
@@ -32,6 +37,13 @@ export function SearchResultsHeaderBand({
   sortValue?: ResultSortValue;
   onSortChange?: (value: ResultSortValue) => void;
   onSaveSearch?: () => void;
+  /** Page-specific actions that belong beside sort/view controls. */
+  utilityControls?: ReactNode;
+  /** Page-specific filters rendered as a full-width row within the shared ribbon. */
+  filterControls?: ReactNode;
+  filterLabel?: string;
+  /** Use level 1 when the ribbon is the route's primary page heading. */
+  headingLevel?: 1 | 2;
   className?: string;
 }) {
   const command = useSearchCommand();
@@ -43,7 +55,9 @@ export function SearchResultsHeaderBand({
   });
   const displayQuery = query.trim() || "All";
   const statusLabel = loading ? "Searching…" : `${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
-  const hasUtilities = visibleScopes.length > 0 || Boolean(onSortChange || onViewChange || onSaveSearch);
+  const hasUtilities =
+    visibleScopes.length > 0 || Boolean(onSortChange || onViewChange || onSaveSearch || utilityControls);
+  const QueryHeading = headingLevel === 1 ? "h1" : "h2";
 
   return (
     <section
@@ -72,12 +86,12 @@ export function SearchResultsHeaderBand({
               <span className="lg:hidden">Query</span>
               <span className="hidden lg:inline">{loading ? "Searching for" : "Results for"}</span>
             </span>
-            <h2
+            <QueryHeading
               className="mt-0.5 truncate text-base font-extrabold text-[color:var(--text-heading)] lg:max-w-[32rem] lg:text-lg"
               title={displayQuery}
             >
               {displayQuery}
-            </h2>
+            </QueryHeading>
           </span>
           <span
             className={cn(
@@ -111,7 +125,7 @@ export function SearchResultsHeaderBand({
                 onClick={() => command?.onRemoveScope(scope.id)}
                 aria-label={`Remove ${scope.label} filter`}
                 className={cn(
-                  "inline-flex min-h-10 max-w-full items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                  "inline-flex min-h-tap max-w-full items-center gap-1 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-bold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
                   focusRing,
                 )}
               >
@@ -127,9 +141,10 @@ export function SearchResultsHeaderBand({
                 className="min-w-[8.5rem] flex-1 sm:flex-none"
               />
             ) : null}
+            {utilityControls}
             {onViewChange ? (
               <div
-                className="inline-flex min-h-10 overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]"
+                className="inline-flex min-h-tap overflow-hidden rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)] sm:min-h-10"
                 role="group"
                 aria-label="Results view"
               >
@@ -138,7 +153,7 @@ export function SearchResultsHeaderBand({
                   aria-pressed={view === "table"}
                   onClick={() => onViewChange("table")}
                   className={cn(
-                    "grid min-h-10 min-w-10 place-items-center",
+                    "grid min-h-tap min-w-tap place-items-center sm:min-h-10 sm:min-w-10",
                     focusRing,
                     view === "table"
                       ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -153,7 +168,7 @@ export function SearchResultsHeaderBand({
                   aria-pressed={view === "list"}
                   onClick={() => onViewChange("list")}
                   className={cn(
-                    "grid min-h-10 min-w-10 place-items-center border-l border-[color:var(--border)]",
+                    "grid min-h-tap min-w-tap place-items-center border-l border-[color:var(--border)] sm:min-h-10 sm:min-w-10",
                     focusRing,
                     view === "list"
                       ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
@@ -170,7 +185,7 @@ export function SearchResultsHeaderBand({
                 type="button"
                 onClick={onSaveSearch}
                 className={cn(
-                  "inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                  "inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-xs font-extrabold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)] sm:min-h-10",
                   focusRing,
                 )}
               >
@@ -181,6 +196,16 @@ export function SearchResultsHeaderBand({
           </div>
         ) : null}
       </div>
+      {filterControls ? (
+        <div
+          data-testid="search-query-ribbon-filters"
+          role="group"
+          aria-label={filterLabel}
+          className="min-w-0 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3"
+        >
+          {filterControls}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -200,7 +225,7 @@ export function ResultSortControl({
   return (
     <label
       className={cn(
-        "relative inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
+        "relative inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)] sm:min-h-10",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
         className,
       )}

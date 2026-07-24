@@ -344,7 +344,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
         await expect(dailyActions).toBeHidden();
         await expect(
           page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only." }),
-        ).toContainText("Use the source library to open indexed documents.");
+        ).toContainText("Use Sources to open indexed documents.");
         await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
       }
       await expectNoPageHorizontalOverflow(page);

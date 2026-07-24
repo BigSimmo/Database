@@ -1,7 +1,7 @@
 "use client";
 
 import { BookOpen, ChevronDown, type LucideIcon } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 
 import { Sheet, type SheetMobileSize } from "@/components/ui/sheet";
 import { clinicalDivider, cn, iconTilePremium, navPill, panelSubtle, textMuted } from "@/components/ui-primitives";
@@ -9,6 +9,7 @@ import { clinicalDivider, cn, iconTilePremium, navPill, panelSubtle, textMuted }
 const sheetMediaQueries = {
   sm: "(max-width: 639px)",
   lg: "(max-width: 1023px)",
+  all: "(min-width: 0px)",
 } as const;
 
 type UtilityDrawerSheetBreakpoint = keyof typeof sheetMediaQueries;
@@ -87,6 +88,7 @@ export function UtilityDrawer({
   sheetDescription,
   sheetBreakpoint = "sm",
   sheetMobileSize,
+  sheetReturnFocusRef,
 }: {
   id?: string;
   title: string;
@@ -113,13 +115,16 @@ export function UtilityDrawer({
   sheetDescription?: string | null;
   sheetBreakpoint?: UtilityDrawerSheetBreakpoint;
   sheetMobileSize?: SheetMobileSize;
+  sheetReturnFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
   const [usesSheet, setUsesSheet] = useState(false);
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
   const open = controlledOpen ?? uncontrolledOpen;
-  const sheetTriggerClassName = sheetBreakpoint === "lg" ? "lg:hidden" : "sm:hidden";
-  const inlineDrawerClassName = sheetBreakpoint === "lg" ? "hidden lg:block" : "hidden sm:block";
+  const sheetTriggerClassName =
+    sheetBreakpoint === "all" ? "block" : sheetBreakpoint === "lg" ? "lg:hidden" : "sm:hidden";
+  const inlineDrawerClassName =
+    sheetBreakpoint === "all" ? "hidden" : sheetBreakpoint === "lg" ? "hidden lg:block" : "hidden sm:block";
   const triggerClassName = cn(
     "flex min-h-[56px] w-full cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 py-3 text-left transition motion-safe:duration-150 hover:bg-[color:var(--surface-subtle)]",
     className,
@@ -227,7 +232,7 @@ export function UtilityDrawer({
         contentStyle={sheetContentStyle}
         bodyClassName={sheetBodyClassName}
         mobileSize={sheetMobileSize}
-        returnFocusRef={mobileTriggerRef}
+        returnFocusRef={sheetReturnFocusRef ?? mobileTriggerRef}
         portal
       >
         <div className={cn("space-y-3", sheetChildrenClassName)}>{children}</div>
