@@ -4,7 +4,6 @@ import {
   Activity,
   Ban,
   TriangleAlert,
-  ArrowLeft,
   BadgeCheck,
   BookOpen,
   CalendarDays,
@@ -19,7 +18,6 @@ import {
   Timer,
   type LucideIcon,
 } from "lucide-react";
-import Link from "next/link";
 import { useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import { BadgeCluster } from "@/components/clinical-dashboard/clinical-badge";
@@ -46,12 +44,17 @@ import {
   cn,
   EmptyState,
   LoadingPanel,
-  pageContainer,
   toneDanger,
   toneInfo,
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
+import {
+  InformationPageBreadcrumbs,
+  InformationPageFooter,
+  InformationPageShell,
+} from "@/components/information-page-shell";
+import { appModeHomeHref } from "@/lib/app-modes";
 
 const sectionIcons: Record<string, LucideIcon> = {
   dose: CalendarDays,
@@ -387,7 +390,7 @@ function MedicationRecordDetail({
   const activeSections = sectionsByTab[activeTab];
 
   return (
-    <div className={cn(pageContainer, "space-y-3 py-1 sm:py-2")} style={medicationAccentStyle(record.accent)}>
+    <div className="space-y-3 py-1 sm:py-2" style={medicationAccentStyle(record.accent)}>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="space-y-3.5">
           <section className="scroll-mt-16 overflow-hidden rounded-xl border border-[color:var(--border)] border-l-4 border-l-[color:var(--med-accent)] bg-[color:var(--surface-raised)] p-3.5 shadow-[var(--shadow-soft)] sm:p-5">
@@ -496,27 +499,19 @@ export function MedicationRecordPage({
   const governance = data?.governance ?? (error ? undefined : fallbackGovernance);
 
   return (
-    <main
-      className="min-h-[calc(100dvh-var(--shell-header-h))] text-[color:var(--text)]"
-      data-testid={`medication-page-${slug}`}
-    >
-      <div className="mx-auto max-w-7xl px-3 pt-3 sm:px-6 lg:px-8">
-        <Link
-          href={`/?mode=prescribing&q=${encodeURIComponent(slug)}`}
-          className="inline-flex min-h-tap w-fit items-center gap-2 rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)] hover:bg-[color:var(--surface-raised)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          <span className="hidden sm:inline">Back to medication search</span>
-          <span className="sm:hidden">Back</span>
-        </Link>
-      </div>
-      <div className="px-3 py-3 sm:px-6 lg:px-8">
+    <InformationPageShell testId={`medication-page-${slug}`} gap={false}>
+      <InformationPageBreadcrumbs
+        home={{
+          label: "Medications",
+          href: appModeHomeHref("prescribing", { query: slug, focus: true }),
+        }}
+        current={record?.name ?? slug}
+      />
+      <div className="mt-3">
         {record ? (
           <MedicationRecordDetail record={record} governance={governance} />
         ) : loading ? (
-          <div className="mx-auto max-w-7xl">
-            <LoadingPanel label="Loading medication reference…" variant="skeleton" lines={6} />
-          </div>
+          <LoadingPanel label="Loading medication reference…" variant="skeleton" lines={6} />
         ) : (
           <div className="rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-bg)] p-4 text-sm text-[color:var(--danger-text)]">
             <div className="flex items-start gap-2">
@@ -526,9 +521,9 @@ export function MedicationRecordPage({
           </div>
         )}
       </div>
-      <footer className="mx-auto max-w-7xl px-4 pb-4 text-center text-2xs font-medium text-[color:var(--text-muted)]">
+      <InformationPageFooter className="mt-4 pb-1">
         Clinical KB provides evidence summaries, not medical advice. Verify clinical decisions.
-      </footer>
-    </main>
+      </InformationPageFooter>
+    </InformationPageShell>
   );
 }

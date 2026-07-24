@@ -1939,7 +1939,7 @@ test.describe("Clinical KB service detail page", () => {
       const copyContactButton = servicePage.getByRole("button", { name: "Copy contact" }).last();
       await expect(servicePage).toBeVisible();
       await expect(servicePage.getByRole("heading", { level: 1, name: "13YARN" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Back to services" })).toBeVisible();
+      await expect(servicePage.getByRole("link", { name: "Services" })).toBeVisible();
       await expect(servicePage.getByRole("button", { name: "Save service" })).toBeVisible();
       await expect(copyContactButton).toBeVisible();
       await expect(servicePage.getByRole("link", { name: "Call" })).toHaveAttribute("href", "tel:139276");
@@ -2033,7 +2033,7 @@ test.describe("Clinical KB service detail page", () => {
     await servicePage.getByRole("button", { name: "Copy contact" }).last().click();
     await expect(page.getByRole("status")).toContainText("Contact copied");
 
-    await page.getByRole("button", { name: "Back to services" }).click();
+    await servicePage.getByRole("link", { name: "Services" }).click();
     await expect(page).toHaveURL(/\/services(?:\?|$)/);
   });
 });
