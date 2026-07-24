@@ -53,7 +53,7 @@ Blocking tests run with zero retries. CI publishes list, JUnit, and JSON reports
 
 ## CI topology
 
-PR CI keeps static checks separate from one required full unit run with coverage. UI scope uses one required production Chromium invocation for non-quarantined critical, regression, and dashboard/document visual-artifact journeys, plus one advisory invocation for quarantined and mockup journeys. Build, migration, security, and release behavior remain independently scoped and unchanged.
+PR CI keeps static checks separate from one required full unit run with coverage. UI scope uses one required production Chromium invocation for non-quarantined critical, regression, and dashboard/document visual-artifact journeys, plus one advisory invocation for quarantined and mockup journeys. Container scope calls the reusable Docker workflow and requires both app and worker image builds through the `pr-required` aggregate. Build, migration, security, and release behavior remain independently scoped.
 
 ## Contribution checklist (UI changes)
 
