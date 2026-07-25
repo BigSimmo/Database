@@ -764,7 +764,7 @@ async function openMobileClinicalGuideMenu(page: Page) {
     { name: "Services", href: "/services" },
     { name: "Medications", href: "/?mode=prescribing" },
     { name: "Factsheets", href: "/factsheets" },
-    { name: "Tools", href: "/?mode=tools" },
+    { name: "Tools", href: "/tools" },
   ]);
   await expect(menu.getByRole("button", { name: "Guide & help", exact: true })).toHaveCount(0);
   await expect(menu.getByRole("button", { name: /^(Switch to )?(dark|light) mode$/i })).toHaveCount(0);
@@ -1086,7 +1086,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expandSidebar.click();
     await expect(sidebar).toBeVisible();
     await expect(sidebar.getByRole("link", { name: "View tools" })).toHaveCount(0);
-    await expect(sidebar.getByRole("link", { name: "Tools", exact: true })).toHaveAttribute("href", "/?mode=tools");
+    await expect(sidebar.getByRole("link", { name: "Tools", exact: true })).toHaveAttribute("href", "/tools");
     await expect(sidebar.getByTestId("sidebar-account-settings")).toHaveAccessibleName(
       /G Guest Not signed in\. Set up workspace/,
     );
@@ -1139,7 +1139,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { name: "Services", href: "/services" },
       { name: "Medications", href: "/?mode=prescribing" },
       { name: "Factsheets", href: "/factsheets" },
-      { name: "Tools", href: "/?mode=tools" },
+      { name: "Tools", href: "/tools" },
     ]);
     expect(
       await library
@@ -1403,6 +1403,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
 
     // Scroll the sheet body so a lower mode is interactable, then select it.
+    // Tools is canonical at /tools (PT-11); selecting it navigates off the dashboard.
     const toolsMode = appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ });
     await toolsMode.scrollIntoViewIfNeeded();
     await expect(toolsMode).toBeVisible();
@@ -1410,8 +1411,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(modeSheet).toHaveCount(0);
     await expect(appModeMenu).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeFocused();
+    await expect(page).toHaveURL(/\/tools(?:\?|$)/);
+    await expect(page.getByRole("heading", { name: /tools/i }).first()).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 

@@ -228,13 +228,14 @@ export function Sheet({
       };
       focusIfNeeded();
       // Retries cover sibling-sheet teardown and late-mounted autofocus inputs
-      // (UtilityDrawer media sync / deferred drawer children).
+      // (UtilityDrawer media sync / deferred drawer children). Keep retrying long
+      // enough to outlast focus=1 hydration (rAF + ~300ms) and composer reclaim.
       let attempts = 0;
       const retryTimer = window.setInterval(() => {
         attempts += 1;
         const focusTarget = focusIfNeeded();
         if (
-          attempts >= 8 ||
+          attempts >= 40 ||
           !isTopmostSheet(sheetId) ||
           (focusTarget != null && document.activeElement === focusTarget)
         ) {
