@@ -233,15 +233,18 @@ export function Sheet({
       // Retries cover sibling-sheet teardown and late-mounted autofocus inputs
       // (UtilityDrawer media sync / deferred drawer children). Keep retrying long
       // enough to outlast focus=1 hydration (rAF + ~300ms) and composer reclaim.
+      // Do not treat the close-button fallback as settled — otherwise the first
+      // frame stops retries before data-sheet-autofocus children mount (Sources).
       let attempts = 0;
       const retryTimer = window.setInterval(() => {
         attempts += 1;
-        const focusTarget = focusIfNeeded();
-        if (
-          attempts >= 40 ||
-          !isTopmostSheet(sheetId) ||
-          (focusTarget != null && document.activeElement === focusTarget)
-        ) {
+        focusIfNeeded();
+        const preferredFocus =
+          initialFocusRef?.current ?? panelRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus="true"]');
+        // Only preferred targets end retries early. Settling on the close fallback
+        // would abort before late-mounted data-sheet-autofocus inputs appear.
+        const settledOnPreferred = preferredFocus != null && document.activeElement === preferredFocus;
+        if (attempts >= 40 || !isTopmostSheet(sheetId) || settledOnPreferred) {
           window.clearInterval(retryTimer);
           if (restoreTimers.openFocusRetry === retryTimer) {
             restoreTimers.openFocusRetry = null;
