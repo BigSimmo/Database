@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "playwright/test";
+import { stableProjectPort } from "./src/lib/local-server-utils.mjs";
 import { getPlaywrightBaseUrl } from "./scripts/playwright-base-url";
+
+process.env.PORT = process.env.PORT || String(stableProjectPort(process.cwd()));
 
 const baseURL = getPlaywrightBaseUrl({ allowEnsure: false });
 
