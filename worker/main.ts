@@ -1612,11 +1612,22 @@ async function processJob(job: JobRow) {
     if (!atomicReindex) await resetDocumentIndex(job.document_id);
     const buffer = await downloadDocument(job.documents.storage_path);
     await updateJobProgress(job.id, { stage: "extracting text/images", progress: 20 });
-    extracted = await extractDocument({
-      buffer,
-      fileName: job.documents.file_name,
-      mimeType: job.documents.file_type,
-    });
+    // Finding #7: Ingestion Worker Heartbeat. Prevent stale locks during long PDF extractions.
+    const heartbeat = setInterval(
+      () => {
+        updateJobProgress(job.id, { stage: "extracting text/images", progress: 20 }).catch(() => {});
+      },
+      Math.min(60_000, jobLeaseHeartbeatMs),
+    );
+    try {
+      extracted = await extractDocument({
+        buffer,
+        fileName: job.documents.file_name,
+        mimeType: job.documents.file_type,
+      });
+    } finally {
+      clearInterval(heartbeat);
+    }
 
     await updateJobProgress(job.id, { stage: "saving pages", progress: 32 });
     const pageRows = buildDocumentPageRows(job.document_id, extracted);
@@ -1936,7 +1947,20 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+main().catch(async (error) => {
   console.error("Clinical KB worker stopped unexpectedly", safeErrorLogDetails(error));
+  if (env.WORKER_FAILURE_WEBHOOK_URL) {
+    try {
+      await fetch(env.WORKER_FAILURE_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: `CRITICAL: Clinical KB worker stopped unexpectedly. Error: ${error instanceof Error ? error.message : String(error)}`,
+        }),
+      });
+    } catch (webhookError) {
+      console.error("Failed to dispatch worker failure webhook", safeErrorLogDetails(webhookError));
+    }
+  }
   process.exitCode = 1;
 });
