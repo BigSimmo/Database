@@ -97,7 +97,7 @@ describe("shared header hide/reveal wiring", () => {
 
   it("keeps the header out of sticky positioning wherever its row collapses", () => {
     // Sticky pins the bar inside the viewport and fights the 1fr -> 0fr grid.
-    expect(headerSource).toContain('sticksAbovePhones || collapsesAtEveryWidth\n              ? "relative"');
+    expect(headerSource).toMatch(/sticksAbovePhones \|\| collapsesAtEveryWidth\s*\?\s*"relative"/);
   });
 
   it("counts the collapse budget only where the wrapper really collapses", () => {
