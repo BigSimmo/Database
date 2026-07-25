@@ -65,10 +65,6 @@ function displayText(value: string | null | undefined, fallback = missingText) {
   return hasText(value) ? value.trim() : fallback;
 }
 
-function bestUseCardTitle(bestUse: string | null | undefined) {
-  return hasText(bestUse) ? compactBestUseTitle(bestUse) : "Assess service fit";
-}
-
 function chipToneClass(tone: ServiceStatusChip["tone"] | undefined | null) {
   if (tone === "danger") return toneDanger;
   if (tone === "info") return toneInfo;
@@ -156,15 +152,7 @@ function summaryCardsFor(service: ServiceRecord): ServiceSummaryCard[] {
     {
       id: "best-use",
       label: "Best use",
-<<<<<<< ours
-<<<<<<< ours
       title: displayText(service.bestUse, "Assess service fit"),
-=======
-      title: bestUseCardTitle(service.bestUse),
->>>>>>> theirs
-=======
-      title: bestUseCardTitle(service.bestUse),
->>>>>>> theirs
       detail: "Clinical fit and referral priority",
     },
   ];
@@ -455,15 +443,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     summaryCardById.get("best-use") ?? {
       id: "best-use",
       label: "Best use",
-<<<<<<< ours
-<<<<<<< ours
       title: displayText(service.bestUse, "Assess service fit"),
-=======
-      title: bestUseCardTitle(service.bestUse),
->>>>>>> theirs
-=======
-      title: bestUseCardTitle(service.bestUse),
->>>>>>> theirs
       detail: "Clinical fit and referral priority",
     },
     summaryCardById.get("eligibility") ?? {

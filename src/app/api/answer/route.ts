@@ -3,19 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { demoAnswer, demoSummary } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
-import { answerQuestionWithScope } from "@/lib/rag/rag";
-=======
 import { answerQuestionWithScope, summarizeDocument } from "@/lib/rag";
->>>>>>> theirs
-=======
-import { answerQuestionWithScope, summarizeDocument } from "@/lib/rag";
->>>>>>> theirs
-=======
-import { answerQuestionWithScope, summarizeDocument } from "@/lib/rag";
->>>>>>> theirs
 import { jsonError, PublicApiError } from "@/lib/http";
 import {
   allowRateLimitInMemoryFallbackOnUnavailable,

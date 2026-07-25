@@ -60,7 +60,7 @@ function syncThemeColorMetadata(theme: ResolvedTheme) {
 function applyResolvedTheme(theme: ResolvedTheme) {
   const isCurrentlyDark = document.documentElement.classList.contains("dark");
   const willBeDark = theme === "dark";
-  
+
   if (isCurrentlyDark !== willBeDark) {
     document.documentElement.classList.add("theme-transitioning");
     document.documentElement.classList.toggle("dark", willBeDark);
