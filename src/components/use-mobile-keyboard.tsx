@@ -14,6 +14,8 @@ const MobileKeyboardContext = createContext<MobileKeyboardContextState>({
 
 const keyboardDetectionThreshold = 150;
 const keyboardOverlayThreshold = 50;
+/** Visual growth past the orientation-change occluded height that means the keyboard is closing. */
+const deferredKeyboardCloseGrowth = 48;
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
@@ -48,6 +50,93 @@ export function resolveMobileKeyboardViewport(args: {
   };
 }
 
+export type MobileKeyboardBaseline = {
+  maxVisualHeight: number;
+  maxLayoutHeight: number;
+};
+
+export type MobileKeyboardBaselineResolution = MobileKeyboardBaseline & {
+  pendingOrientationRebase: boolean;
+  deferredOccludedVisualHeight: number | null;
+};
+
+/**
+ * Orientation / breakpoint width changes must not adopt an already-occluded
+ * viewport as the new unobstructed baseline while the keyboard is open.
+ * Prefer a stored baseline for the new width; otherwise carry the prior
+ * occlusion into the new orientation and finish the rebase once the keyboard
+ * closes (visual height grows past the deferred occluded height).
+ */
+export function resolveMobileKeyboardBaselines(args: {
+  widthChanged: boolean;
+  hasEditableFocus: boolean;
+  keyboardWasOpen: boolean;
+  pendingOrientationRebase: boolean;
+  currentVisualHeight: number;
+  currentLayoutHeight: number;
+  previousVisualHeight: number;
+  previousLayoutHeight: number;
+  maxVisualHeight: number;
+  maxLayoutHeight: number;
+  storedBaseline?: MobileKeyboardBaseline | null;
+  deferredOccludedVisualHeight?: number | null;
+}): MobileKeyboardBaselineResolution {
+  const grow = {
+    maxVisualHeight: Math.max(args.maxVisualHeight, args.currentVisualHeight),
+    maxLayoutHeight: Math.max(args.maxLayoutHeight, args.currentLayoutHeight),
+  };
+
+  if (!args.widthChanged) {
+    if (
+      args.pendingOrientationRebase &&
+      args.deferredOccludedVisualHeight != null &&
+      args.currentVisualHeight > args.deferredOccludedVisualHeight + deferredKeyboardCloseGrowth
+    ) {
+      return {
+        maxVisualHeight: args.currentVisualHeight,
+        maxLayoutHeight: args.currentLayoutHeight,
+        pendingOrientationRebase: false,
+        deferredOccludedVisualHeight: null,
+      };
+    }
+
+    return {
+      ...grow,
+      pendingOrientationRebase: args.pendingOrientationRebase,
+      deferredOccludedVisualHeight: args.deferredOccludedVisualHeight ?? null,
+    };
+  }
+
+  if (args.storedBaseline) {
+    return {
+      maxVisualHeight: Math.max(args.storedBaseline.maxVisualHeight, args.currentVisualHeight),
+      maxLayoutHeight: Math.max(args.storedBaseline.maxLayoutHeight, args.currentLayoutHeight),
+      pendingOrientationRebase: false,
+      deferredOccludedVisualHeight: null,
+    };
+  }
+
+  if (args.hasEditableFocus && args.keyboardWasOpen) {
+    // Carry the previous occlusion into the new orientation instead of treating
+    // the already-shrunken viewport as the unobstructed baseline.
+    const priorVisualOcclusion = Math.max(0, args.maxVisualHeight - args.previousVisualHeight);
+    const priorLayoutOcclusion = Math.max(0, args.maxLayoutHeight - args.previousLayoutHeight);
+    return {
+      maxVisualHeight: args.currentVisualHeight + priorVisualOcclusion,
+      maxLayoutHeight: args.currentLayoutHeight + priorLayoutOcclusion,
+      pendingOrientationRebase: true,
+      deferredOccludedVisualHeight: args.currentVisualHeight,
+    };
+  }
+
+  return {
+    maxVisualHeight: args.currentVisualHeight,
+    maxLayoutHeight: args.currentLayoutHeight,
+    pendingOrientationRebase: false,
+    deferredOccludedVisualHeight: null,
+  };
+}
+
 /**
  * Global provider for mobile keyboard viewport state.
  * Syncs the virtual keyboard height (visual viewport vs layout viewport discrepancy)
@@ -64,9 +153,16 @@ export function MobileKeyboardProvider({ children }: { children: ReactNode }) {
     let maxViewportHeight = window.visualViewport.height;
     let maxLayoutHeight = window.innerHeight;
     let prevViewportWidth = window.visualViewport.width;
+    let prevViewportHeight = window.visualViewport.height;
+    let prevLayoutHeight = window.innerHeight;
     let prevIsMobile = window.matchMedia("(max-width: 1023px)").matches;
+    let keyboardWasOpen = false;
+    let pendingOrientationRebase = false;
+    let deferredOccludedVisualHeight: number | null = null;
+    const baselinesByWidth = new Map<number, MobileKeyboardBaseline>();
 
     function applyKeyboardState(next: MobileKeyboardContextState) {
+      keyboardWasOpen = next.isKeyboardOpen;
       setIsKeyboardOpen(next.isKeyboardOpen);
       setKeyboardHeight(next.keyboardHeight);
       document.documentElement.style.setProperty("--keyboard-height", `${next.keyboardHeight}px`);
@@ -80,30 +176,58 @@ export function MobileKeyboardProvider({ children }: { children: ReactNode }) {
       if (!isMobile) {
         applyKeyboardState({ isKeyboardOpen: false, keyboardHeight: 0 });
         prevIsMobile = isMobile;
+        pendingOrientationRebase = false;
+        deferredOccludedVisualHeight = null;
+        prevViewportHeight = viewport.height;
+        prevLayoutHeight = window.innerHeight;
         return;
       }
 
-      // Reset baseline if viewport width changed (orientation/breakpoint change) or if just entered mobile mode
-      if (viewport.width !== prevViewportWidth || (!prevIsMobile && isMobile)) {
-        maxViewportHeight = viewport.height;
-        maxLayoutHeight = window.innerHeight;
-      } else {
-        maxViewportHeight = Math.max(maxViewportHeight, viewport.height);
-        maxLayoutHeight = Math.max(maxLayoutHeight, window.innerHeight);
-      }
+      const hasEditableFocus = isEditableTarget(document.activeElement);
+      const widthChanged = viewport.width !== prevViewportWidth || (!prevIsMobile && isMobile);
+      const widthKey = Math.round(viewport.width);
+      const nextBaselines = resolveMobileKeyboardBaselines({
+        widthChanged,
+        hasEditableFocus,
+        keyboardWasOpen,
+        pendingOrientationRebase,
+        currentVisualHeight: viewport.height,
+        currentLayoutHeight: window.innerHeight,
+        previousVisualHeight: prevViewportHeight,
+        previousLayoutHeight: prevLayoutHeight,
+        maxVisualHeight: maxViewportHeight,
+        maxLayoutHeight,
+        storedBaseline: baselinesByWidth.get(widthKey) ?? null,
+        deferredOccludedVisualHeight,
+      });
 
+      maxViewportHeight = nextBaselines.maxVisualHeight;
+      maxLayoutHeight = nextBaselines.maxLayoutHeight;
+      pendingOrientationRebase = nextBaselines.pendingOrientationRebase;
+      deferredOccludedVisualHeight = nextBaselines.deferredOccludedVisualHeight;
       prevViewportWidth = viewport.width;
       prevIsMobile = isMobile;
 
-      applyKeyboardState(
-        resolveMobileKeyboardViewport({
+      const next = resolveMobileKeyboardViewport({
+        maxVisualHeight: maxViewportHeight,
+        currentVisualHeight: viewport.height,
+        maxLayoutHeight,
+        currentLayoutHeight: window.innerHeight,
+        hasEditableFocus,
+      });
+
+      // Remember unobstructed baselines per width so a later rotation-with-keyboard
+      // can restore the correct orientation instead of adopting occluded heights.
+      if (!next.isKeyboardOpen && !pendingOrientationRebase) {
+        baselinesByWidth.set(widthKey, {
           maxVisualHeight: maxViewportHeight,
-          currentVisualHeight: viewport.height,
           maxLayoutHeight,
-          currentLayoutHeight: window.innerHeight,
-          hasEditableFocus: isEditableTarget(document.activeElement),
-        }),
-      );
+        });
+      }
+
+      prevViewportHeight = viewport.height;
+      prevLayoutHeight = window.innerHeight;
+      applyKeyboardState(next);
     }
 
     // Initial check
