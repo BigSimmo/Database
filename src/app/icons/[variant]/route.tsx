@@ -35,8 +35,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ var
     {
       width: conf.size,
       height: conf.size,
+      // Paths are unversioned (`/icons/icon-192`); do not mark immutable for a
+      // year. Revalidate daily so brand-mark updates propagate without a query
+      // bust (manifest tests forbid `?`/`#` on icon URLs).
       headers: {
-        "Cache-Control": "public, max-age=31536000, immutable",
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
       },
     },
   );

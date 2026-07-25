@@ -109,4 +109,13 @@ describe("PWA manifest and public bootstrap resources", () => {
     expect(nextConfig).toContain('source: "/offline.html"');
     expect(nextConfig).toContain('{ key: "X-Robots-Tag", value: "noindex, nofollow" }');
   });
+
+  it("keeps unversioned PWA icon routes revalidatable and avoids a day-long image TTL floor", () => {
+    const iconsRoute = readFileSync(join(process.cwd(), "src/app/icons/[variant]/route.tsx"), "utf8");
+    const nextConfig = readFileSync(join(process.cwd(), "next.config.ts"), "utf8");
+
+    expect(iconsRoute).toContain("public, max-age=86400, stale-while-revalidate=604800");
+    expect(iconsRoute).not.toMatch(/max-age=31536000,\s*immutable/);
+    expect(nextConfig).not.toMatch(/minimumCacheTTL:\s*86400/);
+  });
 });
