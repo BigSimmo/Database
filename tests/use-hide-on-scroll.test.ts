@@ -356,7 +356,7 @@ describe("computeScrollHideUpdate", () => {
     ).toBe(false);
   });
 
-  it("holds a reserve-only overlay through the captured fractional bottom clamp", () => {
+  it("uses a shrinking scroll range, not pixel tolerance, to identify a reserve-collapse clamp", () => {
     // Real PageDown frame from the compact Answer result at 390x844. The
     // animated reserve shrink moved the browser's maximum from 160px to 127px;
     // compositor rounding left scrollTop 1.03px below that integer maximum.
@@ -366,6 +366,7 @@ describe("computeScrollHideUpdate", () => {
         offset: 125.9683,
         lastOffset: 160.5079,
         maxOffset: 127,
+        previousMaxOffset: 160,
         collapseBudget: 23.3347,
         collapseKind: "reserve-only",
         currentlyHidden: true,
@@ -378,6 +379,36 @@ describe("computeScrollHideUpdate", () => {
       direction: null,
       directionTravel: 0,
     });
+
+    // The same fractional positions are a genuine upward gesture once the
+    // scroll range is stable; no bottom-edge tolerance may suppress it.
+    expect(
+      computeScrollHideUpdate({
+        offset: 125.9683,
+        lastOffset: 160.5079,
+        maxOffset: 127,
+        previousMaxOffset: 127,
+        collapseKind: "reserve-only",
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 160.5079,
+      }).hidden,
+    ).toBe(false);
+
+    // Range shrink alone is insufficient: if the old position still fits
+    // inside the new range, the browser did not have to clamp it.
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 120,
+        maxOffset: 127,
+        previousMaxOffset: 160,
+        collapseKind: "reserve-only",
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 120,
+      }).hidden,
+    ).toBe(false);
   });
 
   it("hides normally when ample runway remains below the collapse release", () => {
