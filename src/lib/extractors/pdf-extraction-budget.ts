@@ -89,7 +89,9 @@ export class PdfExtractionBudgetTracker {
   }
 
   assertRenderDimensions(width: number, height: number) {
-    const pixels = Math.max(0, width) * Math.max(0, height);
+    // Ceil fractional PDF render sizes so 100.5×100.5 is budgeted, not rejected as
+    // "not a safe integer" by a raw width*height product.
+    const pixels = Math.ceil(Math.max(0, width)) * Math.ceil(Math.max(0, height));
     if (!Number.isSafeInteger(pixels) || pixels > this.limits.maxRenderPixels) {
       budgetExceeded(`rendered image pixels ${pixels} exceed ${this.limits.maxRenderPixels}`);
     }
