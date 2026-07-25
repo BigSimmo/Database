@@ -491,6 +491,11 @@ function RightRail({
         type="button"
         disabled={!comparisonAvailable}
         title={comparisonAvailable ? "Compare selected services" : "Select at least two services before comparing"}
+        aria-label={
+          comparisonAvailable
+            ? `Compare selected services (${selected.length})`
+            : "Select at least two services before comparing"
+        }
         onClick={() => setShowComparison((current) => !current)}
         aria-expanded={comparisonExpanded}
         aria-controls={comparisonExpanded ? "selected-services-comparison" : undefined}

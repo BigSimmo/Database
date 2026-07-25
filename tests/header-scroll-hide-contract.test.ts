@@ -127,12 +127,18 @@ describe("shared header hide/reveal wiring", () => {
     expect(behaviourDocSource).toContain("Hide the top bar, not the search field, above phones");
     expect(behaviourDocSource).toContain("Top-bar hide/reveal is cross-breakpoint");
     expect(behaviourDocSource).toContain("Page chrome that must match the top bar portals into the collapse host");
-    expect(behaviourDocSource).toContain("Drop the sticky search top offset while the top bar is hidden");
+    expect(behaviourDocSource).toContain("Do not double-sticky the search inside an outer sticky stack");
+    expect(behaviourDocSource).toContain(
+      "Collapse-everywhere hosts still drop their own sticky search offset while the top bar is hidden",
+    );
   });
 
-  it("drops the sticky search top offset while the collapsing top bar is hidden", () => {
-    // Leaving top: 4.75rem after the mode bar collapses left a dead band above
-    // dashboard result search on tablet/desktop.
+  it("keeps sticky-stack search in normal flow and only self-stickies collapse-everywhere hosts", () => {
+    // Double sticky (outer stack + composer top offset) overlays page controls
+    // once the top bar collapses — that blocked the services Clear control.
+    expect(headerSource).toContain("const stickySearchOwnedByOuterStack = sticksAbovePhones");
+    expect(headerSource).toContain('stickySearchOwnedByOuterStack\n      ? "relative sm:relative"');
+    // Dashboard collapse-everywhere composers still drop the 4.75rem clearance.
     expect(headerSource).toContain("const stickySearchClearsTopBar");
     expect(headerSource).toContain('hideStrategy === "collapse" && headerChromeHidden');
     expect(headerSource).toContain('"top-0 sm:top-0"');

@@ -1419,13 +1419,22 @@ export function MasterSearchHeader({
     const showsComposerPrivacyNotice = usesPhoneSearchLayout ? isDesktopHomeComposer : true;
 
     const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
-    // Search sits outside the collapsing top-bar row. While the top bar is
-    // visible, sticky search clears its height; once the top bar hides, that
-    // offset would leave a dead band — drop to the viewport top instead.
+    // Search sits outside the collapsing top-bar row. Sticky hosts already pin an
+    // outer [top bar | search] stack, so the composer must stay in normal flow
+    // inside that stack — a second sticky + top offset would overlay page
+    // controls once the top bar collapses. Collapse-everywhere hosts have no
+    // outer stack, so their composer keeps its own sticky and drops the top-bar
+    // clearance while the bar is hidden.
+    const stickySearchOwnedByOuterStack = sticksAbovePhones;
     const stickySearchClearsTopBar = !(hideStrategy === "collapse" && headerChromeHidden);
-    const stickySearchTopClass = stickySearchClearsTopBar
-      ? "top-[calc(4.75rem+env(safe-area-inset-top))] sm:top-[calc(4.75rem+env(safe-area-inset-top))]"
-      : "top-0 sm:top-0";
+    const stickySearchTopClass = stickySearchOwnedByOuterStack
+      ? undefined
+      : stickySearchClearsTopBar
+        ? "top-[calc(4.75rem+env(safe-area-inset-top))] sm:top-[calc(4.75rem+env(safe-area-inset-top))]"
+        : "top-0 sm:top-0";
+    const stickySearchPositionClass = stickySearchOwnedByOuterStack
+      ? "relative sm:relative"
+      : cn("sm:sticky", stickySearchTopClass);
 
     return (
       <form
@@ -1469,12 +1478,14 @@ export function MasterSearchHeader({
                       ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
                       : cn(
                           "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                          isHeroDesktopComposer ? "sm:hidden" : cn("sm:sticky", stickySearchTopClass),
+                          isHeroDesktopComposer ? "sm:hidden" : stickySearchPositionClass,
                         ),
                   )
                 : cn(
-                    "universal-top-search-edge sticky z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
-                    stickySearchTopClass,
+                    "universal-top-search-edge mx-auto box-border w-full px-3 py-3 sm:px-4",
+                    stickySearchOwnedByOuterStack
+                      ? "relative z-20"
+                      : cn("sticky z-20", stickySearchTopClass),
                   ),
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
