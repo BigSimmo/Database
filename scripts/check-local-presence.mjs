@@ -242,8 +242,9 @@ export function generateLocalSecret(bytes = 32) {
 }
 
 /**
- * Merge fillable gaps into `.env.local` text. Never overwrites an existing
- * non-empty assignment for a key. Returns which keys were filled (names only).
+ * Merge fillable gaps into `.env.local` text. Skips keys that already meet
+ * minLength. For present-but-too-short keys, removes stale KEY=value lines
+ * before appending the regenerated assignment. Returns filled key names only.
  */
 export function mergeFillIntoEnvLocal(existingText, gaps, { generate = generateLocalSecret } = {}) {
   const existing = parseEnvFile(existingText || "");
@@ -265,8 +266,20 @@ export function mergeFillIntoEnvLocal(existingText, gaps, { generate = generateL
     return { text: existingText || "", filled };
   }
 
-  const base = (existingText || "").replace(/\s*$/, "");
-  const next = `${base ? `${base}\n\n` : ""}# --- check:local-presence --fill (${new Date().toISOString().slice(0, 10)}) ---\n${additions.join("\n")}\n`;
+  const filledSet = new Set(filled);
+  const stripped = (existingText || "")
+    .split(/\r?\n/)
+    .filter((rawLine) => {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#")) return true;
+      const eq = line.indexOf("=");
+      if (eq <= 0) return true;
+      const key = line.slice(0, eq).trim();
+      return !filledSet.has(key);
+    })
+    .join("\n")
+    .replace(/\s*$/, "");
+  const next = `${stripped ? `${stripped}\n\n` : ""}# --- check:local-presence --fill (${new Date().toISOString().slice(0, 10)}) ---\n${additions.join("\n")}\n`;
   return { text: next, filled };
 }
 

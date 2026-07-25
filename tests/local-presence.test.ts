@@ -87,4 +87,22 @@ describe("check-local-presence", () => {
     });
     expect(again.filled).toEqual([]);
   });
+
+  it("replaces present-but-too-short assignments instead of duplicating keys", () => {
+    const existing = [
+      "RAG_PROVIDER_MODE=offline",
+      "OPENAI_SAFETY_IDENTIFIER_SECRET=short",
+      "RAG_QUERY_HASH_SECRET=also-short",
+    ].join("\n");
+    const { text, filled } = mergeFillIntoEnvLocal(existing, FILLABLE_LOCAL_SECRETS, {
+      generate: () => "regenerated-local-secret-value-".padEnd(64, "z"),
+    });
+    expect(filled).toEqual(["OPENAI_SAFETY_IDENTIFIER_SECRET", "RAG_QUERY_HASH_SECRET", "HEALTH_DEEP_PROBE_SECRET"]);
+    expect(text).toContain("RAG_PROVIDER_MODE=offline");
+    expect(text).not.toMatch(/OPENAI_SAFETY_IDENTIFIER_SECRET=short/);
+    expect(text).not.toMatch(/RAG_QUERY_HASH_SECRET=also-short/);
+    expect([...text.matchAll(/^OPENAI_SAFETY_IDENTIFIER_SECRET=/gm)]).toHaveLength(1);
+    expect([...text.matchAll(/^RAG_QUERY_HASH_SECRET=/gm)]).toHaveLength(1);
+    expect(parseEnvFile(text).OPENAI_SAFETY_IDENTIFIER_SECRET).toMatch(/^regenerated-local-secret-value-/);
+  });
 });
