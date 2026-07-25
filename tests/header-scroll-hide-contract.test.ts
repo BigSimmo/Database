@@ -87,9 +87,12 @@ describe("shared header hide/reveal wiring", () => {
     expect(shellSource).toContain('className={mobileChromeVisible ? "sm:contents" : "hidden lg:contents"}');
     expect(shellSource).not.toContain('mobileChromeVisible ? undefined : "hidden lg:block"');
     // Sticky pins the outer [top bar | search] stack; translating that whole
-    // stack would take the search field off-screen.
+    // stack would take the search field off-screen. Overlay hosts still use
+    // max-sm:-translate-y-full — strip that before asserting sticky collapse
+    // does not revive the sm: translate path.
     expect(headerSource).toContain('className="sm:sticky sm:top-0 sm:z-30"');
-    expect(headerSource).not.toContain("sm:-translate-y-full");
+    expect(headerSource.replaceAll("max-sm:-translate-y-full", "")).not.toContain("sm:-translate-y-full");
+    expect(headerSource).not.toContain('sticksAbovePhones && headerChromeHidden && "sm:-translate-y-full"');
   });
 
   it("keeps the header out of sticky positioning wherever its row collapses", () => {
