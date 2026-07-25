@@ -128,6 +128,12 @@ describe("mobile composer reserve contract", () => {
     expect(header).toContain(
       'const heroComposerOwnsPhones = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
     );
+    // focus=1 is entry-only: after any mode submit (or run=1 bootstrap) autofocus
+    // must not re-pin the phone dock and block hide-on-scroll.
+    expect(dashboard).toContain("const shouldAutoFocusComposer = focusSearch && !modeSearchSubmitted;");
+    expect(dashboard).toContain('if (shouldFocusComposer && params.get("run") !== "1") focusComposerInput(true);');
+    expect(header).toContain("composerChromeFocused && phoneBottomSearchDockActive && hideOnScrollEnabled");
+    expect(header).toContain("queueMicrotask(() => {");
     expect(
       resolveDashboardVisibleMobileComposerReserve({
         searchMode: "answer",
