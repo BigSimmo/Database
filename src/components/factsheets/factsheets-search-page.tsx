@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ChevronRight, Info, LayoutGrid, List, SearchX } from "lucide-react";
 import { useState } from "react";
 
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import {
   categoryTheme,
   factsheetCategories,
@@ -38,6 +42,7 @@ export function FactsheetsSearchPage({
   category?: string;
   results: Factsheet[];
 }) {
+  const router = useRouter();
   const [view, setView] = useState<ViewMode>("list");
   const activeCategory = factsheetCategories.find((entry) => entry === category);
 
@@ -90,6 +95,16 @@ export function FactsheetsSearchPage({
           </div>
         }
         filterLabel="Filter factsheets by category"
+        mobileControls={
+          <MobileResultFilterControl
+            label="Category"
+            ariaLabel="Filter factsheets by category"
+            testId="factsheet-category-select"
+            value={activeCategory ?? "all"}
+            options={filterChips.map((chip) => ({ value: chip.key ?? "all", label: chip.label }))}
+            onChange={(value) => router.push(searchHref(query, value === "all" ? undefined : value))}
+          />
+        }
         filterControls={
           <div className="polished-scroll flex min-w-0 items-center gap-1.5 overflow-x-auto">
             <span className="hidden shrink-0 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-soft)] sm:inline">

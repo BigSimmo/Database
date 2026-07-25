@@ -370,6 +370,12 @@ test.describe("Clinical KB tools launcher", () => {
       await expect(page.locator("#launcher-results-panel")).toHaveAttribute("role", "group");
       await expect(page.locator("#launcher-results-panel")).toHaveAttribute("aria-label", "All tools");
       if (viewport.name === "mobile") {
+        const categorySelect = page.getByTestId("tool-category-select");
+        await expect(categorySelect).toBeVisible();
+        await expect(categorySelect).toHaveAccessibleName("Filter by tool category");
+        await categorySelect.selectOption("assessment");
+        await expect(page.locator("#launcher-results-panel")).toHaveAttribute("aria-label", "Assess tools");
+        await categorySelect.selectOption("all");
         await page.getByTestId("application-row-medication-prescribing").click();
         const selectedSheet = page.getByRole("dialog", { name: "Medication Prescribing" });
         await expect(selectedSheet).toBeVisible();
@@ -752,6 +758,11 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page.getByRole("button", { name: "Mode Services" })).toBeVisible();
     const input = visibleGlobalSearchInput(page).first();
     await expect(input).toBeVisible();
+    const quickFilter = page.getByTestId("service-quick-filter-select");
+    await expect(quickFilter).toBeVisible();
+    await expect(quickFilter).toHaveAccessibleName("Apply a quick service filter");
+    await quickFilter.selectOption("crisis");
+    await expect(page).toHaveURL(/\/services\?.*q=crisis/);
 
     // Phones keep the full search results in the page instead of opening a
     // command sheet over the small viewport.
@@ -1466,23 +1477,25 @@ test.describe("Clinical KB tools launcher", () => {
     await submitDifferentialSearch(page, "acute confusion");
 
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
-    const tabs = page.getByTestId("differential-result-type-tabs");
-    await expect(tabs).toBeVisible();
-    await expect(tabs).toHaveAttribute("role", "group");
-    await expect(tabs).toHaveAttribute("aria-label", "Result type");
-    await expect(tabs.getByRole("button", { name: /All \(\d+\)/ })).toBeVisible();
-    await expect(tabs.getByRole("button", { name: /Presentations \(\d+\)/ })).toBeVisible();
-    await expect(tabs.getByRole("button", { name: /Diagnoses \(\d+\)/ })).toBeVisible();
+    const typeSelect = page.getByTestId("differential-result-type-select");
+    await expect(typeSelect).toBeVisible();
+    await expect(typeSelect).toHaveAccessibleName("Filter by result type");
+    await expect(typeSelect).toHaveValue("all");
+    await typeSelect.selectOption("diagnosis");
+    await expect(typeSelect).toHaveValue("diagnosis");
+    await typeSelect.selectOption("all");
 
-    const tabMetrics = await tabs.getByRole("button").evaluateAll((buttons) =>
-      buttons.map((button) => {
-        const rect = button.getBoundingClientRect();
-        return { height: rect.height, scrollHeight: button.scrollHeight };
-      }),
-    );
-    for (const tab of tabMetrics) {
-      expect(tab.scrollHeight).toBeLessThanOrEqual(tab.height + 1);
-    }
+    const mobilePair = page.getByTestId("search-query-ribbon-mobile-control-pair");
+    const pairMetrics = await mobilePair.evaluate((element) => ({
+      width: element.getBoundingClientRect().width,
+      scrollWidth: element.scrollWidth,
+      controlHeights: Array.from(element.querySelectorAll("label")).map(
+        (label) => label.getBoundingClientRect().height,
+      ),
+    }));
+    expect(pairMetrics.scrollWidth).toBeLessThanOrEqual(pairMetrics.width + 1);
+    expect(pairMetrics.controlHeights).toHaveLength(2);
+    expect(Math.abs(pairMetrics.controlHeights[0] - pairMetrics.controlHeights[1])).toBeLessThanOrEqual(1);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -1564,23 +1577,25 @@ test.describe("Clinical KB tools launcher", () => {
     await submitDifferentialSearch(page, "acute confusion");
 
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
-    const tabs = page.getByTestId("differential-result-type-tabs");
-    await expect(tabs).toBeVisible();
-    await expect(tabs).toHaveAttribute("role", "group");
-    await expect(tabs).toHaveAttribute("aria-label", "Result type");
-    await expect(tabs.getByRole("button", { name: "All (8)" })).toBeVisible();
-    await expect(tabs.getByRole("button", { name: "Presentations (1)" })).toBeVisible();
-    await expect(tabs.getByRole("button", { name: "Diagnoses (7)" })).toBeVisible();
+    const typeSelect = page.getByTestId("differential-result-type-select");
+    await expect(typeSelect).toBeVisible();
+    await expect(typeSelect).toHaveAccessibleName("Filter by result type");
+    await expect(typeSelect).toHaveValue("all");
+    await typeSelect.selectOption("presentation");
+    await expect(typeSelect).toHaveValue("presentation");
+    await typeSelect.selectOption("all");
 
-    const tabMetrics = await tabs.getByRole("button").evaluateAll((tabElements) =>
-      tabElements.map((tab) => {
-        const rect = tab.getBoundingClientRect();
-        return { height: rect.height, scrollHeight: tab.scrollHeight };
-      }),
-    );
-    for (const tab of tabMetrics) {
-      expect(tab.scrollHeight).toBeLessThanOrEqual(tab.height + 1);
-    }
+    const mobilePair = page.getByTestId("search-query-ribbon-mobile-control-pair");
+    const pairMetrics = await mobilePair.evaluate((element) => ({
+      width: element.getBoundingClientRect().width,
+      scrollWidth: element.scrollWidth,
+      controlHeights: Array.from(element.querySelectorAll("label")).map(
+        (label) => label.getBoundingClientRect().height,
+      ),
+    }));
+    expect(pairMetrics.scrollWidth).toBeLessThanOrEqual(pairMetrics.width + 1);
+    expect(pairMetrics.controlHeights).toHaveLength(2);
+    expect(Math.abs(pairMetrics.controlHeights[0] - pairMetrics.controlHeights[1])).toBeLessThanOrEqual(1);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -2210,6 +2225,9 @@ test.describe("Responsive layout guards", () => {
     await expect(queryRibbon).toBeVisible();
     await expect(queryRibbon.getByRole("heading", { name: "acamprosate renal dose" })).toBeVisible();
     await expect(queryRibbon.getByRole("status")).toBeVisible();
+    const resultFilter = queryRibbon.getByTestId("medication-result-filter-select");
+    await expect(resultFilter).toBeVisible();
+    await expect(resultFilter).toHaveAccessibleName("Filter medication results");
     await expect(bottomDock).toBeVisible();
     await page.locator("main#main-content").evaluate((main) => main.scrollTo({ top: main.scrollHeight }));
     const resultBox = await resultCard.boundingBox();

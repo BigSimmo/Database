@@ -442,12 +442,15 @@ test.describe("Medication responsive stress coverage", () => {
         await expect(phoneResult).toBeVisible();
         await expect(desktopResult).toBeHidden();
 
-        const metrics = await page.evaluate(() => {
+        const metrics = await page.evaluate((viewportWidth) => {
           const workspace = document.querySelector<HTMLElement>(".medication-results-workspace");
           const patient = document.querySelector<HTMLElement>(".medication-patient-strip");
           const filters = document.querySelector<HTMLElement>(".medication-filter-strip");
           const card = document.querySelector<HTMLElement>('[data-testid="medication-result-acamprosate-phone"]');
-          const firstFilter = filters?.querySelector<HTMLElement>("button");
+          const firstFilter =
+            viewportWidth < 640
+              ? document.querySelector<HTMLElement>('[data-testid="medication-result-filter-select"]')
+              : filters?.querySelector<HTMLElement>("button");
           if (!workspace || !patient || !filters || !card || !firstFilter) return null;
           const workspaceRect = workspace.getBoundingClientRect();
           const patientRect = patient.getBoundingClientRect();
@@ -466,7 +469,7 @@ test.describe("Medication responsive stress coverage", () => {
             filterLeft: filterRect.left,
             filterHeight: filterRect.height,
           };
-        });
+        }, viewport.width);
         expect(metrics).not.toBeNull();
         expect(metrics?.filterHeight ?? 0).toBeGreaterThanOrEqual(42);
 

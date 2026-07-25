@@ -5,7 +5,10 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 
 describe("SearchResultsHeaderBand", () => {
   it("presents the query and completed count as one labelled results ribbon", () => {
@@ -127,5 +130,48 @@ describe("SearchResultsHeaderBand", () => {
 
     expect(onOpenSources).toHaveBeenCalledOnce();
     expect(onFilterTables).toHaveBeenCalledOnce();
+  });
+
+  it("pairs sort with a page-specific dropdown on mobile without changing either action", async () => {
+    const user = userEvent.setup();
+    const onSortChange = vi.fn();
+    const onFilterChange = vi.fn();
+
+    render(
+      <SearchResultsHeaderBand
+        modeId="differentials"
+        query="acute confusion"
+        matchCount={8}
+        sortValue="relevance"
+        onSortChange={onSortChange}
+        filterLabel="Filter differential result type"
+        mobileControls={
+          <MobileResultFilterControl
+            label="Show"
+            ariaLabel="Filter by result type"
+            value="all"
+            options={[
+              { value: "all", label: "All (8)" },
+              { value: "presentation", label: "Presentations (1)" },
+              { value: "diagnosis", label: "Diagnoses (7)" },
+            ]}
+            onChange={onFilterChange}
+          />
+        }
+        filterControls={
+          <button type="button" onClick={vi.fn()}>
+            Desktop filters
+          </button>
+        }
+      />,
+    );
+
+    const pair = screen.getByTestId("search-query-ribbon-mobile-control-pair");
+    await user.selectOptions(within(pair).getByLabelText("Sort results"), "alpha");
+    await user.selectOptions(within(pair).getByLabelText("Filter by result type"), "diagnosis");
+
+    expect(onSortChange).toHaveBeenCalledWith("alpha");
+    expect(onFilterChange).toHaveBeenCalledWith("diagnosis");
+    expect(screen.getByTestId("search-query-ribbon-filters")).toHaveClass("hidden", "sm:block");
   });
 });
