@@ -3,15 +3,14 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
- * Static contract for the shared header hide/reveal.
+ * Static contract for the shared top-bar hide/reveal.
  *
- * The header hides on scroll down and returns on scroll up at every breakpoint,
- * while the bottom search dock stays a phone-only behaviour. Getting that right
- * depends on three things no runtime unit test can see: which scroll source
- * feeds the reporter at each width, whether the chrome collapses its layout row
- * or sticks and translates, and whether the sticky wrapper actually has any
- * travel against the viewport. Each was individually wrong at some point while
- * the desktop header "only came back at the top of the page".
+ * The top bar (mode / new chat) hides on scroll down and returns on scroll up at
+ * every breakpoint, while the search field stays on tablet/desktop and the
+ * bottom search dock stays phone-only. Getting that right depends on wiring no
+ * runtime unit test can see: which scroll source feeds the reporter, whether
+ * only `header#search` is inside the collapse row, and whether sticky hosts pin
+ * an outer [top bar | search] stack instead of translating the search away.
  *
  * The Chromium proof lives in tests/ui-chrome-scroll.spec.ts; this file keeps
  * the cheap suite honest about the wiring that proof depends on.
@@ -42,26 +41,39 @@ describe("shared header hide/reveal wiring", () => {
 
   it("picks the hide mechanism from where each host's scrollport lives", () => {
     // GlobalSearchShell hands scrolling back to the document above phones, so
-    // releasing the header's flow row there would jump the page mid-scroll.
+    // the outer stack sticks while only the top-bar row collapses.
     expect(shellSource).toContain('hideOnScroll={{ strategy: "collapse", wide: "sticky"');
     // ClinicalDashboard's <main> is the scrollport at every width (the shell is
-    // dvh-tall and overflow-hidden), so the released strip goes to the content.
+    // dvh-tall and overflow-hidden), so the released top-bar strip goes to the
+    // content.
     expect(dashboardSource).toContain('{ strategy: "collapse", wide: "collapse"');
   });
 
-  it("gives the sticky chrome wrapper real travel against the viewport", () => {
-    // A plain block here is a header-height containing block, which leaves the
-    // wrapper's sticky rule nowhere to stick: the bar scrolled off with the
-    // page and only reappeared at scroll top. `contents` removes that box.
-    expect(shellSource).toContain('className={mobileChromeVisible ? "sm:contents" : "hidden lg:contents"}');
-    expect(shellSource).not.toContain('mobileChromeVisible ? undefined : "hidden lg:block"');
-    expect(headerSource).toContain("sm:sticky sm:top-0 sm:z-30 sm:transition-transform");
+  it("collapses only the top bar and keeps the search composer outside that row", () => {
+    // Wrapping headerAndComposer (top bar + search) is what made tablet/desktop
+    // search disappear with the mode bar.
+    expect(headerSource).toContain("const collapsingTopBar = (");
+    expect(headerSource).toContain("{topBar}");
+    expect(headerSource).toContain("{searchComposer}");
+    expect(headerSource).not.toContain("{headerAndComposer}");
+    // The collapse testid must sit on the top-bar wrapper, not a joint stack.
+    const collapseIdx = headerSource.indexOf('data-testid="universal-header-collapse"');
+    const topBarCloseIdx = headerSource.indexOf("{topBar}", collapseIdx);
+    const composerIdx = headerSource.indexOf("{searchComposer}", collapseIdx);
+    expect(collapseIdx).toBeGreaterThan(-1);
+    expect(topBarCloseIdx).toBeGreaterThan(collapseIdx);
+    expect(composerIdx).toBeGreaterThan(topBarCloseIdx);
   });
 
-  it("transforms the sticky wrapper only while the chrome is hidden", () => {
-    // A standing transform would make the wrapper the containing block for the
-    // fixed-position menus and composers rendered inside it.
-    expect(headerSource).toContain('sticksAbovePhones && headerChromeHidden && "sm:-translate-y-full"');
+  it("gives the sticky chrome stack real travel against the viewport", () => {
+    // A plain block around the stack is a containing block that leaves sticky
+    // nowhere to stick. `contents` removes that box on GlobalSearchShell.
+    expect(shellSource).toContain('className={mobileChromeVisible ? "sm:contents" : "hidden lg:contents"}');
+    expect(shellSource).not.toContain('mobileChromeVisible ? undefined : "hidden lg:block"');
+    // Sticky pins the outer [top bar | search] stack; translating that whole
+    // stack would take the search field off-screen.
+    expect(headerSource).toContain('className="sm:sticky sm:top-0 sm:z-30"');
+    expect(headerSource).not.toContain("sm:-translate-y-full");
   });
 
   it("keeps the header out of sticky positioning wherever its row collapses", () => {
@@ -70,8 +82,8 @@ describe("shared header hide/reveal wiring", () => {
   });
 
   it("counts the collapse budget only where the wrapper really collapses", () => {
-    // Chrome that sticks and translates releases no layout, so charging the
-    // header's height against the scroll runway would suppress valid hides.
+    // Sticky hosts now collapse only the top-bar row (still `display: grid`), so
+    // the budget correctly charges that height; non-grid wrappers stay at 0.
     expect(hookSource).toContain('window.getComputedStyle(collapse).display === "grid"');
   });
 
@@ -83,8 +95,8 @@ describe("shared header hide/reveal wiring", () => {
   });
 
   it("keeps the bottom search dock a phone-only behaviour", () => {
-    // The user-visible contract: the header hides everywhere, the footer search
-    // bar hides on phones only. Both gates below require the phone layout.
+    // The user-visible contract: the top bar hides everywhere, the footer
+    // search bar hides on phones only. Both gates below require the phone layout.
     expect(headerSource).toContain(
       "const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);",
     );
@@ -92,7 +104,8 @@ describe("shared header hide/reveal wiring", () => {
     expect(headerSource).toContain("const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;");
   });
 
-  it("documents the cross-breakpoint behaviour alongside the code", () => {
-    expect(behaviourDocSource).toContain("Header hide/reveal is cross-breakpoint");
+  it("documents that tablet/desktop search stays while the top bar hides", () => {
+    expect(behaviourDocSource).toContain("Hide the top bar, not the search field, above phones");
+    expect(behaviourDocSource).toContain("Top-bar hide/reveal is cross-breakpoint");
   });
 });

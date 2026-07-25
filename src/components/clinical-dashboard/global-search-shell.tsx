@@ -57,7 +57,11 @@ import {
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { isInformationPage } from "@/lib/information-pages";
-import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import {
+  differentialsMobileCompareAddonSlotId,
+  modeHomeDesktopComposerSlotId,
+  therapyHeaderCollapseAddonSlotId,
+} from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import { shouldRenderClinicalDashboard, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
 import type { SearchScopeFilters } from "@/lib/search-scope";
@@ -709,6 +713,13 @@ function GlobalStandaloneSearchShellClient({
             mobileBottomSearchVariant="compact"
             mobileBottomSearchAddonSlotId={
               differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
+            }
+            // Therapy non-home screens portal their section strip into the
+            // collapsing top-bar track so it hides/reveals with the header.
+            headerCollapseAddonSlotId={
+              pathname.startsWith("/therapy-compass") && pathname !== "/therapy-compass"
+                ? therapyHeaderCollapseAddonSlotId
+                : undefined
             }
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}

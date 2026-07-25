@@ -19,7 +19,7 @@ This repo uses one shared search experience across the global shell, dashboard r
 3. A visible fixed phone dock may include `var(--safe-area-bottom)` so the pill clears the home indicator.
 4. A hidden phone dock must release the content-facing reserve to `0rem`; do not use `env(safe-area-inset-bottom)` or `var(--safe-area-bottom)` for hidden content padding.
 5. Edge-to-edge phone dock mode is `left: 0; right: 0; bottom: 0; width: 100%`; inset the pill with padding, not with a non-zero bottom offset.
-6. Header and footer chrome that share the same scroll signal should hide/reveal symmetrically: when hidden, underlying content must be visible to the viewport edge. Header hide/reveal is cross-breakpoint; the bottom search dock is phone-only. Read "Scroll hide/reveal" below before changing either.
+6. Header and footer chrome that share the same scroll signal should hide/reveal symmetrically for the surfaces that actually hide: when the top bar is hidden, underlying content must be visible to the viewport edge. Top-bar hide/reveal is cross-breakpoint; the search field stays on tablet/desktop; the bottom search dock is phone-only. Read "Scroll hide/reveal" below before changing either.
 7. Do not add page-local dock-sized `pb-[calc(...safe-area...)]` under a shell-owned dock. Put clearance in the shared reserve or the page-owned composer, never both.
 8. `GlobalSearchShell` uses an inner `mobile-composer-reserve-pad` so phone padding contributes to scroll height; do not move phone shell clearance back to scrollport padding without a browser proof.
 9. Keep collapse-budget policy geometry-aware: an in-flow collapsing header needs enough remaining runway to absorb header + dock clearance, while a fixed overlay that only releases bottom reserve may hide when its post-collapse range retains the top reveal band plus deliberate hide intent _and_ the current offset already fits that post-collapse range (no material near-bottom clamp). Do not use synthetic page padding to make the stricter gate pass.
@@ -27,25 +27,25 @@ This repo uses one shared search experience across the global shell, dashboard r
 
 ## Scroll hide/reveal
 
-The universal header hides on a deliberate scroll down and returns on a deliberate scroll up at **every** breakpoint. The bottom search dock keeps that behaviour on phones only — on tablet and desktop the composer sits in the hero or the header, where there is nothing to reclaim. Both read one `useScrollHideReporter` per host, so the header and the phone dock can never disagree about direction.
+The universal **top bar** (mode, new chat, menu) hides on a deliberate scroll down and returns on a deliberate scroll up at **every** breakpoint. The search field does **not** hide with it on tablet or desktop — only the phone bottom search dock still scroll-hides, and that stays phone-only. Both the top bar and the phone dock read one `useScrollHideReporter` per host, so they can never disagree about direction.
 
 Choose the hide mechanism from where the host's scrollport lives, because that decides what hiding costs the reader:
 
-| Host                              | Scrollport                                    | `hideOnScroll`                           | Mechanism                                                                |
-| --------------------------------- | --------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------ |
-| `ClinicalDashboard` (answer view) | `<main>` at every width                       | `strategy: "overlay", allBreakpoints`    | Absolute glass bar translates off; `<main>` keeps its top reserve        |
-| `ClinicalDashboard` (other modes) | `<main>` at every width                       | `strategy: "collapse", wide: "collapse"` | 1fr -> 0fr grid row; the released strip goes straight to the content     |
-| `GlobalSearchShell`               | `#main-content` on phones, the document above | `strategy: "collapse", wide: "sticky"`   | Grid collapse on phones; sticks to the viewport top and translates above |
+| Host                              | Scrollport                                    | `hideOnScroll`                           | Mechanism                                                                                          |
+| --------------------------------- | --------------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `ClinicalDashboard` (answer view) | `<main>` at every width                       | `strategy: "overlay", allBreakpoints`    | Absolute glass top bar translates off; `<main>` keeps its top reserve; search stays                |
+| `ClinicalDashboard` (other modes) | `<main>` at every width                       | `strategy: "collapse", wide: "collapse"` | Top-bar 1fr -> 0fr grid row; released strip goes to content; search stays as a sibling             |
+| `GlobalSearchShell`               | `#main-content` on phones, the document above | `strategy: "collapse", wide: "sticky"`   | Sticky stack of [top bar \| search]; only the top-bar row collapses so search rises to the top     |
 
 Rules that keep this working:
 
+- **Hide the top bar, not the search field, above phones.** The collapse wrapper (`data-testid="universal-header-collapse"`) must wrap only `header#search`. Putting the inline composer inside that wrapper is what made tablet/desktop search disappear with the mode bar.
 - **Feed the reporter from the element that actually scrolls.** `GlobalSearchShell`'s `#main-content` is the scrollport only on phones, so above that it also runs `useDocumentScrollHideReporter`. That hook self-gates: the phone shell is `fixed inset-0`, so the document cannot scroll and never fires.
-- **Do not release flow space out of a document-scrolled page.** Collapsing the header row while the document scrolls pulls the whole page up by the header height mid-scroll. Stick and translate instead; `readChromeCollapseBudget` therefore charges the header's height against the scroll runway only while the wrapper is a grid at the current width.
-- **Sticky belongs on the collapse wrapper, not on `header#search`.** The header sits inside two header-height boxes, which leaves a sticky rule on it zero travel — that is what made the desktop bar scroll away and only return at the top of the page. For the same reason the wrapper's ancestor in `GlobalSearchShell` is `display: contents` above the phone breakpoint rather than a block.
-- **Transform only while hidden.** A standing transform on the wrapper would become the containing block for the fixed-position menus and composers rendered inside it.
+- **Sticky belongs on the outer [top bar \| search] stack, not on `header#search`.** The top bar sits inside header-height boxes, which leaves a sticky rule on it zero travel. For the same reason the stack's ancestor in `GlobalSearchShell` is `display: contents` above the phone breakpoint rather than a block.
+- **Collapse only the top-bar row inside a sticky stack.** Translating the whole stack would take the search field off-screen; collapsing just the top bar lets search stay pinned at the viewport top.
 - **Rebase the reporter on geometry switches.** Pass `resetKey` when the host changes the scrollport under it (`ClinicalDashboard` passes `searchMode`, which swaps `<main>`'s header reserve); otherwise the carried-over offset spends the first post-switch scroll on a spurious hide or reveal.
 
-Coverage: `tests/header-scroll-hide-contract.test.ts` (wiring), `tests/use-hide-on-scroll.test.ts` (decision logic), `tests/ui-chrome-scroll.spec.ts` (tablet/desktop hide and reveal), `tests/ui-phone-scroll.spec.ts` (phone scroll geometry).
+Coverage: `tests/header-scroll-hide-contract.test.ts` (wiring), `tests/use-hide-on-scroll.test.ts` (decision logic), `tests/ui-chrome-scroll.spec.ts` (tablet/desktop top-bar hide/reveal with search still visible), `tests/ui-phone-scroll.spec.ts` (phone scroll geometry).
 
 ## Change checklist
 
