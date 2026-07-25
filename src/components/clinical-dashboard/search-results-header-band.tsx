@@ -23,6 +23,7 @@ export function SearchResultsHeaderBand({
   onSortChange,
   onSaveSearch,
   utilityControls,
+  mobileControls,
   filterControls,
   filterLabel = "Filter search results",
   headingLevel = 2,
@@ -39,6 +40,8 @@ export function SearchResultsHeaderBand({
   onSaveSearch?: () => void;
   /** Page-specific actions that belong beside sort/view controls. */
   utilityControls?: ReactNode;
+  /** Compact page-specific controls shown in the utility row below `sm`. */
+  mobileControls?: ReactNode;
   /** Page-specific filters rendered as a full-width row within the shared ribbon. */
   filterControls?: ReactNode;
   filterLabel?: string;
@@ -56,7 +59,8 @@ export function SearchResultsHeaderBand({
   const displayQuery = query.trim() || "All";
   const statusLabel = loading ? "Searching…" : `${matchCount} ${matchCount === 1 ? "match" : "matches"}`;
   const hasUtilities =
-    visibleScopes.length > 0 || Boolean(onSortChange || onViewChange || onSaveSearch || utilityControls);
+    visibleScopes.length > 0 ||
+    Boolean(onSortChange || onViewChange || onSaveSearch || utilityControls || mobileControls);
   const QueryHeading = headingLevel === 1 ? "h1" : "h2";
 
   return (
@@ -133,14 +137,43 @@ export function SearchResultsHeaderBand({
                 <X className="h-3 w-3 shrink-0" aria-hidden />
               </button>
             ))}
-            {onSortChange ? (
-              <ResultSortControl
-                value={sortValue}
-                onChange={onSortChange}
-                compact
-                className="min-w-[8.5rem] flex-1 sm:flex-none"
-              />
-            ) : null}
+            {onSortChange && mobileControls ? (
+              <div
+                data-testid="search-query-ribbon-mobile-control-pair"
+                className="grid min-w-[15rem] flex-1 grid-cols-2 gap-1.5 sm:flex sm:min-w-0 sm:flex-none sm:items-center"
+              >
+                <ResultSortControl
+                  value={sortValue}
+                  onChange={onSortChange}
+                  compact
+                  className="w-full min-w-0 sm:w-auto sm:min-w-[8.5rem]"
+                />
+                <div role="group" aria-label={filterLabel} className="min-w-0 sm:hidden">
+                  {mobileControls}
+                </div>
+              </div>
+            ) : (
+              <>
+                {onSortChange ? (
+                  <ResultSortControl
+                    value={sortValue}
+                    onChange={onSortChange}
+                    compact
+                    className="min-w-[8.5rem] flex-1 sm:flex-none"
+                  />
+                ) : null}
+                {mobileControls ? (
+                  <div
+                    data-testid="search-query-ribbon-mobile-controls"
+                    role="group"
+                    aria-label={filterLabel}
+                    className="min-w-0 flex-1 sm:hidden"
+                  >
+                    {mobileControls}
+                  </div>
+                ) : null}
+              </>
+            )}
             {utilityControls}
             {onViewChange ? (
               <div
@@ -201,7 +234,10 @@ export function SearchResultsHeaderBand({
           data-testid="search-query-ribbon-filters"
           role="group"
           aria-label={filterLabel}
-          className="min-w-0 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3"
+          className={cn(
+            "min-w-0 border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-2 sm:px-3",
+            Boolean(mobileControls) && "hidden sm:block",
+          )}
         >
           {filterControls}
         </div>
@@ -225,7 +261,7 @@ export function ResultSortControl({
   return (
     <label
       className={cn(
-        "relative inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] py-1 pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)] sm:min-h-10",
+        "relative inline-flex min-h-tap min-w-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
         "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
         className,
       )}
@@ -236,11 +272,58 @@ export function ResultSortControl({
       <select
         value={value}
         onChange={(event) => onChange(readResultSort(event.target.value))}
-        className="cursor-pointer appearance-none bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none]"
+        className="h-tap min-w-0 flex-1 cursor-pointer appearance-none bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none]"
         aria-label="Sort results"
       >
         <option value="relevance">Relevance</option>
         <option value="alpha">A–Z</option>
+      </select>
+      <ChevronsUpDown
+        className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--text-soft)]"
+        aria-hidden
+      />
+    </label>
+  );
+}
+
+export function MobileResultFilterControl<Value extends string>({
+  label,
+  ariaLabel,
+  value,
+  options,
+  onChange,
+  testId,
+  className,
+}: {
+  label: string;
+  ariaLabel: string;
+  value: Value;
+  options: ReadonlyArray<{ value: Value; label: string; disabled?: boolean }>;
+  onChange: (value: Value) => void;
+  testId?: string;
+  className?: string;
+}) {
+  return (
+    <label
+      className={cn(
+        "relative inline-flex min-h-tap w-full min-w-0 items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] pl-2.5 pr-7 text-xs font-bold shadow-[var(--shadow-inset)]",
+        "focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[color:var(--focus)]",
+        className,
+      )}
+    >
+      <span className="shrink-0 text-[color:var(--text-soft)] max-[359px]:sr-only">{label}</span>
+      <select
+        data-testid={testId}
+        value={value}
+        onChange={(event) => onChange(event.target.value as Value)}
+        aria-label={ariaLabel}
+        className="h-tap min-w-0 flex-1 cursor-pointer appearance-none bg-transparent text-xs font-bold text-[color:var(--text)] outline-none [-webkit-appearance:none]"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value} disabled={option.disabled}>
+            {option.label}
+          </option>
+        ))}
       </select>
       <ChevronsUpDown
         className="pointer-events-none absolute right-2 size-icon-sm text-[color:var(--text-soft)]"
