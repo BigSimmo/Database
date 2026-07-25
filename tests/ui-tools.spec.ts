@@ -1231,8 +1231,15 @@ test.describe("Clinical KB tools launcher", () => {
 
     await scrollPrimarySurface(page, 60);
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    // Resting edge docks may use translateY(calc(-1 * var(--keyboard-height))) with
+    // height 0, which computes to an identity matrix rather than "none".
     await expect
-      .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform === "none"))
+      .poll(async () =>
+        dock.evaluate((node) => {
+          const transform = window.getComputedStyle(node).transform;
+          return transform === "none" || transform === "matrix(1, 0, 0, 1, 0, 0)";
+        }),
+      )
       .toBe(true);
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeGreaterThan(112);
   });

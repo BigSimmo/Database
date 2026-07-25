@@ -117,8 +117,9 @@ describe("ClinicalDashboard merge-artifact guards", () => {
   it("releases the Safari toolbar reserve only after phone composers hide", () => {
     expect(mobileComposerReserveSource).toContain('export const mobileComposerHiddenReserve = "0rem"');
     expect(mobileComposerReserveSource).toContain(
-      'export const mobileComposerDifferentialsCompareReserve = "calc(12.5rem + var(--safe-area-bottom))"',
+      "calc(12.5rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))",
     );
+    expect(mobileComposerReserveSource).toContain("export const mobileComposerDifferentialsCompareReserve");
     expect(mobileComposerReserveSource).toContain("export function resolveMobileComposerReserve");
     expect(mobileComposerReserveSource).toContain("export function isDocumentViewerOwnedRoute");
     expect(mobileComposerReserveSource).not.toContain("env(safe-area-inset-bottom)");
@@ -151,7 +152,9 @@ describe("ClinicalDashboard merge-artifact guards", () => {
 
     expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
     expect(documentViewerSource).toContain('"max-sm:pb-0"');
-    expect(documentViewerSource).toContain('"max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"');
+    expect(documentViewerSource).toContain(
+      '"max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]"',
+    );
     // Hidden document content must not reintroduce Safari toolbar inset padding.
     expect(documentViewerSource).not.toMatch(/composerScrollHidden\s*\?\s*["']max-sm:pb-\[calc\([^"']*safe-area/);
     expect(documentViewerSource).toContain("max-sm:duration-[240ms]");
