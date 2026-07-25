@@ -137,7 +137,7 @@ function CalculatorComposer({
               type="button"
               onClick={() => onQuery("")}
               aria-label="Clear search"
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+              className="grid size-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -201,7 +201,7 @@ function CalculatorTile({
       <span
         className={cn(
           "grid shrink-0 place-items-center rounded-lg border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]",
-          compact ? "size-10" : "size-11",
+          compact ? "size-10" : "size-tap",
         )}
       >
         <Icon className={compact ? "size-icon-lg" : "size-icon-xl"} aria-hidden="true" />
@@ -627,7 +627,7 @@ export function CalculatorsSearchPage() {
           </div>
         ) : (
           <div className="grid justify-items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-8 text-center">
-            <span className="grid size-11 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)]">
+            <span className="grid size-tap place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-soft)]">
               <Search className="size-icon-lg" aria-hidden="true" />
             </span>
             <p className="text-base font-bold text-[color:var(--text-heading)]">
