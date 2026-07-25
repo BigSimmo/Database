@@ -215,11 +215,14 @@ export function Sheet({
         if (!focusTarget?.isConnected) return null;
         if (document.activeElement === focusTarget) return focusTarget;
         // Reclaim when focus is outside the panel (or still on body after a
-        // remount). Do not steal from another in-panel control the user tabbed to.
+        // remount). Do not steal from another in-panel control the user tabbed to —
+        // except the close-button fallback chosen before a late-mounted
+        // data-sheet-autofocus target appears (Sources Find field race).
         const active = document.activeElement;
         if (
           active == null ||
           active === document.body ||
+          active === closeRef.current ||
           (panelRef.current != null && !panelRef.current.contains(active))
         ) {
           focusTarget.focus({ preventScroll: true });
