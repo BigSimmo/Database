@@ -3862,9 +3862,21 @@ test.describe("Clinical KB UI smoke coverage", () => {
         }),
       )
       .toBe(0);
-    await main.evaluate((node) => {
-      node.scrollTop = Math.max(0, node.scrollTop - 24);
-    });
+    // A deliberate upward gesture reveals the chrome again. Use two separated
+    // steps, each yielding frames: on a starved CI renderer a single upward
+    // write can coalesce into the trailing bottom-clamp evaluation and be
+    // rebased away as geometry feedback. A real drag always emits follow-up
+    // events, and the second step is a clean upward delta past reveal intent.
+    const settledBottomOffset = await main.evaluate((node) => node.scrollTop);
+    for (const rise of [24, 48]) {
+      await main.evaluate(
+        async (node, top) => {
+          node.scrollTop = top;
+          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+        },
+        Math.max(0, settledBottomOffset - rise),
+      );
+    }
     await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
   });
 
