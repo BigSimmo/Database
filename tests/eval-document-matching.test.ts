@@ -74,4 +74,34 @@ describe("eval document matching wide-tier aliases", () => {
     expect(coverage.matchedFiles).toHaveLength(1);
     expect(coverage.missingFiles).toHaveLength(1);
   });
+
+  it("does not let the same document repeated across citations fill two expected slots", () => {
+    // answer.citations carries one entry per cited chunk, so a single combo-titled document
+    // arrives several times; distinctness must be by document, not by position.
+    const citedTwice = {
+      title: "Lithium and Metformin Monitoring",
+      file_name: "Lithium and Metformin Monitoring.pdf",
+    };
+
+    const coverage = expectedFileCoverage(
+      ["CG.MHSP.Lithium.pdf", "CG.MHSP.Metformin.pdf"],
+      [citedTwice, citedTwice],
+      5,
+    );
+
+    expect(coverage.allHit).toBe(false);
+    expect(coverage.matchedFiles).toHaveLength(1);
+  });
+
+  it("assigns sources optimally so coverage does not depend on expectedFiles order", () => {
+    // The combo document matches both expectations; the narrower one matches only Lithium.
+    // Whichever order the expectations arrive in, both slots are satisfiable by distinct docs.
+    const sources = [
+      { title: "Lithium and Metformin Monitoring", file_name: "Lithium and Metformin Monitoring.pdf" },
+      { title: "Lithium Clinical Guideline", file_name: "Lithium Clinical Guideline.pdf" },
+    ];
+
+    expect(expectedFileCoverage(["CG.MHSP.Lithium.pdf", "CG.MHSP.Metformin.pdf"], sources, 5).allHit).toBe(true);
+    expect(expectedFileCoverage(["CG.MHSP.Metformin.pdf", "CG.MHSP.Lithium.pdf"], sources, 5).allHit).toBe(true);
+  });
 });
