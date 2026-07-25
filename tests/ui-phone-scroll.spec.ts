@@ -234,3 +234,57 @@ test("phone scroll stays smooth on /formulation at 430x932", async ({ page }) =>
   expect(Math.abs(atBottom.scrollTop - atBottom.maxOffset)).toBeLessThanOrEqual(2);
   expect(await readFlipCount(page)).toBeLessThanOrEqual(1);
 });
+
+/**
+ * Status-bar safe-area guard: collapsing the phone header must reclaim the
+ * chrome controls, never the OS top inset. Without the always-on
+ * `chrome-safe-area-top` spacer, service-detail text painted under the
+ * system clock/signal icons after a deliberate scroll-hide.
+ */
+test("phone service detail keeps content below the status-bar inset after header hide", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/services/13yarn");
+  await expect(page.getByTestId("service-detail-page")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("chrome-safe-area-top")).toBeVisible();
+
+  const initial = await readGeometry(page);
+  expect(initial.headerHidden, "header visible at the top").toBe(false);
+
+  await dragScrollBy(page, Math.max(initial.maxOffset, 240), 24);
+  await page.waitForTimeout(500);
+
+  const afterHide = await page.evaluate(() => {
+    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const main = document.getElementById("main-content");
+    const safeRect = safeArea?.getBoundingClientRect();
+    const mainRect = main?.getBoundingClientRect();
+    const rootStyles = getComputedStyle(document.documentElement);
+    const safeAreaTopPx = Number.parseFloat(rootStyles.getPropertyValue("--safe-area-top")) || 0;
+    const probeY = Math.max(1, safeAreaTopPx / 2);
+    const hit = document.elementFromPoint(window.innerWidth / 2, probeY);
+    const hitIsServiceContent = Boolean(hit?.closest('[data-testid="service-detail-page"]'));
+    const hitIsSafeArea = Boolean(hit?.closest('[data-testid="chrome-safe-area-top"]'));
+    return {
+      headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
+      safeAreaHeight: safeRect?.height ?? 0,
+      safeAreaTop: safeRect?.top ?? -1,
+      mainTop: mainRect?.top ?? -1,
+      safeAreaTopPx,
+      hitIsServiceContent,
+      hitIsSafeArea,
+    };
+  });
+
+  expect(afterHide.headerHidden, "header collapses after a deliberate descent").toBe(true);
+  expect(afterHide.safeAreaHeight, "safe-area spacer keeps the status-bar band").toBeGreaterThanOrEqual(
+    afterHide.safeAreaTopPx - 1,
+  );
+  expect(afterHide.safeAreaTop, "safe-area spacer stays pinned to the viewport top").toBeLessThanOrEqual(1);
+  expect(afterHide.mainTop, "scrollport starts below the status-bar inset").toBeGreaterThanOrEqual(
+    afterHide.safeAreaTopPx - 1,
+  );
+  expect(afterHide.hitIsServiceContent, "service text must not paint inside the status-bar band").toBe(false);
+  expect(afterHide.hitIsSafeArea, "status-bar band stays owned by the safe-area spacer").toBe(true);
+});

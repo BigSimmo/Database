@@ -55,7 +55,21 @@ describe("shared header hide/reveal wiring", () => {
     // page and only reappeared at scroll top. `contents` removes that box.
     expect(shellSource).toContain('className={mobileChromeVisible ? "sm:contents" : "hidden lg:contents"}');
     expect(shellSource).not.toContain('mobileChromeVisible ? undefined : "hidden lg:block"');
-    expect(headerSource).toContain("sm:sticky sm:top-0 sm:z-30 sm:transition-transform");
+    // Collapse returns a fragment (spacer + wrapper). Wrapping both in a block
+    // would recreate the zero-travel sticky bug under `sm:contents`.
+    expect(headerSource).toContain('data-testid="chrome-safe-area-top"');
+    expect(headerSource).toContain("sm:sticky sm:top-[var(--safe-area-top)] sm:z-30 sm:transition-transform");
+  });
+
+  it("keeps the OS top safe-area outside the collapse / translate hide", () => {
+    // Releasing the status-bar inset with the chrome lets scrolled text paint
+    // under the system clock/signal icons on notched phones (service detail).
+    expect(headerSource).toContain('data-testid="chrome-safe-area-top"');
+    expect(headerSource).toContain("h-[var(--safe-area-top)]");
+    expect(headerSource).toContain(
+      'hideStrategy === "collapse" ? "pt-2" : "pt-[max(0.5rem,var(--safe-area-top))]"',
+    );
+    expect(behaviourDocSource).toContain("OS top safe-area band");
   });
 
   it("transforms the sticky wrapper only while the chrome is hidden", () => {

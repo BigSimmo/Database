@@ -1741,7 +1741,12 @@ export function MasterSearchHeader({
           // No backdrop-filter on the header itself: it would form a backdrop
           // root and starve the .edge-glass-header-backdrop scrim (the single
           // source of the bar's frost) of the real page behind it.
-          "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)]",
+          // Collapse hosts own the OS top inset via the always-on
+          // `chrome-safe-area-top` spacer outside the 0fr row, so this bar only
+          // needs its aesthetic 0.5rem pad. Overlay hosts still paint the inset
+          // themselves (answer mode keeps an equivalent reserve on <main>).
+          "edge-glass-header universal-header z-30 py-2 text-[color:var(--text)]",
+          hideStrategy === "collapse" ? "pt-2" : "pt-[max(0.5rem,var(--safe-area-top))]",
           // Collapse hosts keep the header above an internally scrolling <main>,
           // so sticky is unnecessary wherever the row collapses and fights the
           // 0fr grid by pinning the bar inside the viewport. Where the chrome
@@ -1988,57 +1993,79 @@ export function MasterSearchHeader({
     //
     // Above the phone breakpoint a `wide: "sticky"` host scrolls the document
     // instead, so this wrapper — not the <header> inside it, which has no
-    // sticky travel within its header-height parents — pins to the viewport top
-    // and translates away. Releasing the row there would pull the whole page up
-    // by the header height mid-scroll; translating leaves the geometry alone.
+    // sticky travel within its header-height parents — pins below the always-on
+    // safe-area spacer and translates away. Releasing the row there would pull
+    // the whole page up by the header height mid-scroll; translating leaves the
+    // geometry alone.
+    //
+    // Return a fragment (never a wrapping block): GlobalSearchShell uses
+    // `sm:contents` on the chrome parent so the sticky wrapper can travel
+    // against the viewport. A single root box would recreate the zero-travel
+    // sticky bug.
     return (
-      <div
-        data-scroll-hidden={headerChromeHidden ? "true" : undefined}
-        data-testid="universal-header-collapse"
-        className={cn(
-          "motion-reduce:transition-none",
-          collapsesAtEveryWidth
-            ? cn(
-                "grid transition-[grid-template-rows]",
-                headerChromeHidden
-                  ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
-                  : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                headerChromeHidden ? "[grid-template-rows:0fr]" : "[grid-template-rows:1fr]",
-              )
-            : cn(
-                "max-sm:grid max-sm:transition-[grid-template-rows]",
-                headerChromeHidden
-                  ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                  : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
-                headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
-                sticksAbovePhones &&
-                  cn(
-                    "sm:sticky sm:top-0 sm:z-30 sm:transition-transform",
-                    headerChromeHidden
-                      ? "sm:duration-[240ms] sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                      : "sm:duration-200 sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
-                  ),
-                // Transform only while hidden: a standing transform would make
-                // this wrapper the containing block for the fixed-position menus
-                // and composers rendered inside it.
-                sticksAbovePhones && headerChromeHidden && "sm:-translate-y-full",
-              ),
-        )}
-        {...chromeFocusProps}
-      >
+      <>
+        {/*
+          OS status-bar inset stays outside the 0fr collapse / -translate hide.
+          Hide-on-scroll may reclaim the chrome controls, never the safe-area
+          band — otherwise scrolled content paints under the system clock/signal
+          icons (service detail / info pages on notched phones).
+        */}
         <div
+          aria-hidden="true"
+          data-testid="chrome-safe-area-top"
           className={cn(
-            "max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
-            collapsesAtEveryWidth && "sm:flex sm:min-h-0 sm:flex-col sm:justify-end",
-            // Clip only while hiding so the edge-glass-header gradient that
-            // extends below the header keeps painting when the chrome is shown.
-            headerChromeHidden && "max-sm:overflow-hidden",
-            collapsesAtEveryWidth && headerChromeHidden && "sm:overflow-hidden",
+            "pointer-events-none h-[var(--safe-area-top)] shrink-0 bg-[color:var(--background)]",
+            sticksAbovePhones && "sm:sticky sm:top-0 sm:z-[31]",
           )}
+        />
+        <div
+          data-scroll-hidden={headerChromeHidden ? "true" : undefined}
+          data-testid="universal-header-collapse"
+          className={cn(
+            "motion-reduce:transition-none",
+            collapsesAtEveryWidth
+              ? cn(
+                  "grid transition-[grid-template-rows]",
+                  headerChromeHidden
+                    ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                    : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  headerChromeHidden ? "[grid-template-rows:0fr]" : "[grid-template-rows:1fr]",
+                )
+              : cn(
+                  "max-sm:grid max-sm:transition-[grid-template-rows]",
+                  headerChromeHidden
+                    ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                    : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
+                  sticksAbovePhones &&
+                    cn(
+                      "sm:sticky sm:top-[var(--safe-area-top)] sm:z-30 sm:transition-transform",
+                      headerChromeHidden
+                        ? "sm:duration-[240ms] sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                        : "sm:duration-200 sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    ),
+                  // Transform only while hidden: a standing transform would make
+                  // this wrapper the containing block for the fixed-position menus
+                  // and composers rendered inside it.
+                  sticksAbovePhones && headerChromeHidden && "sm:-translate-y-full",
+                ),
+          )}
+          {...chromeFocusProps}
         >
-          {headerAndComposer}
+          <div
+            className={cn(
+              "max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
+              collapsesAtEveryWidth && "sm:flex sm:min-h-0 sm:flex-col sm:justify-end",
+              // Clip only while hiding so the edge-glass-header gradient that
+              // extends below the header keeps painting when the chrome is shown.
+              headerChromeHidden && "max-sm:overflow-hidden",
+              collapsesAtEveryWidth && headerChromeHidden && "sm:overflow-hidden",
+            )}
+          >
+            {headerAndComposer}
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
