@@ -1,6 +1,9 @@
 "use client";
 
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 
 import { useTcBindings } from "../bindings";
 import { outlineControl, softControl } from "../controls";
@@ -17,6 +20,7 @@ export function SearchScreen() {
   const q = b.search.query;
   const results = b.searchResults;
   const shown = results.slice(0, MAX_CARDS);
+  const availabilityFilterCount = Number(b.search.reviewedOnly) + Number(b.search.briefOnly);
 
   return (
     <section data-screen-label="Search" className="tc-screens-search-screen-001">
@@ -44,6 +48,55 @@ export function SearchScreen() {
         matchCount={results.length}
         loading={b.loading}
         filterLabel="Filter therapy results"
+        mobileControls={
+          <div className="grid min-w-0 grid-cols-2 gap-1.5">
+            <MobileResultFilterControl
+              label="Topics"
+              ariaLabel="Add or remove a therapy topic filter"
+              testId="therapy-topic-filter-select"
+              value=""
+              options={[
+                {
+                  value: "",
+                  label: b.search.tags.length ? `${b.search.tags.length} topics selected` : "All topics",
+                  disabled: true,
+                },
+                ...QUICK_TAGS.map((tag) => ({
+                  value: tag,
+                  label: `${b.search.tags.includes(tag) ? "✓ " : ""}${tag}`,
+                })),
+              ]}
+              onChange={(tag) => {
+                if (tag) b.toggleTag(tag);
+              }}
+            />
+            <MobileResultFilterControl
+              label="More"
+              ariaLabel="Change therapy availability filters"
+              testId="therapy-availability-filter-select"
+              value=""
+              options={[
+                {
+                  value: "",
+                  label: availabilityFilterCount ? `${availabilityFilterCount} more selected` : "Any availability",
+                  disabled: true,
+                },
+                { value: "reviewed", label: `${b.search.reviewedOnly ? "✓ " : ""}Reviewed only` },
+                { value: "brief", label: `${b.search.briefOnly ? "✓ " : ""}Brief available` },
+                {
+                  value: "clear",
+                  label: "Clear filters",
+                  disabled: b.search.tags.length === 0 && availabilityFilterCount === 0 && !q,
+                },
+              ]}
+              onChange={(filter) => {
+                if (filter === "reviewed") b.toggleReviewedOnly();
+                if (filter === "brief") b.toggleBriefOnly();
+                if (filter === "clear") b.clearSearch();
+              }}
+            />
+          </div>
+        }
         filterControls={
           <div className="tc-screens-search-screen-008">
             {QUICK_TAGS.map((tag) => {

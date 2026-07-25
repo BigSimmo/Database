@@ -100,7 +100,10 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
   await expect(queryRibbon.getByRole("heading", { level: 1, name: "What if something goes wrong" })).toBeVisible();
   await expect(queryRibbon.getByRole("group", { name: "Filter formulation mechanisms" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Worry", exact: true })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Filter by formulation domain" })).toBeVisible();
+  await expect(queryRibbon.getByTestId("formulation-pattern-select")).toBeVisible();
+  const domainSelect = queryRibbon.getByTestId("formulation-domain-select");
+  await expect(domainSelect).toBeVisible();
+  await expect(domainSelect).toHaveAccessibleName("Filter by formulation domain");
   await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Source status", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Source", { exact: true })).toHaveCount(0);
