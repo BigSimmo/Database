@@ -350,6 +350,22 @@ export function MasterSearchHeader({
     disabled: !hideOnScroll || hideOnScroll.scrollHidden !== undefined,
   });
   const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
+  // Mode homes portal the composer into the hero slot. With "all" the hero owns
+  // every width (the answer home keeps its in-flow pill on phones); "sm-up"
+  // hero hosts hand phones the bottom dock instead.
+  const heroComposerOwnsPhones = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
+  const phoneBottomSearchDockActive =
+    usesPhoneSearchLayout &&
+    searchComposerVisible &&
+    !heroComposerOwnsPhones &&
+    (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
+  const hideOnScrollEnabled = Boolean(hideOnScroll);
+  // Focus-capture pins can survive dock teardown when React skips blur (portal
+  // swap, hero reclaim, breakpoint change). Ignore latched focus unless that
+  // surface is still the active hide/reveal owner, then clear the latch async
+  // (repo pattern — avoids react-hooks/set-state-in-effect).
+  const composerFocusPinsChrome = composerChromeFocused && phoneBottomSearchDockActive && hideOnScrollEnabled;
+  const headerFocusPinsChrome = headerChromeFocused && hideOnScrollEnabled;
   // Header and composer share one scroll signal, so any active surface or
   // focus inside either edge pins both edges. This preserves keyboard focus
   // safety without letting the unfocused header disappear above a still-
@@ -360,36 +376,21 @@ export function MasterSearchHeader({
     commandDropdownOpen ||
     scopeOpen ||
     scopeSheetOpen ||
-    headerChromeFocused ||
-    composerChromeFocused;
+    headerFocusPinsChrome ||
+    composerFocusPinsChrome;
   const headerChromeHidden = scrollHidden && !sharedChromePinned;
-  // Mode homes portal the composer into the hero slot. With "all" the hero owns
-  // every width (the answer home keeps its in-flow pill on phones); "sm-up"
-  // hero hosts hand phones the bottom dock instead.
-  const heroComposerOwnsPhones = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
-  const phoneBottomSearchDockActive =
-    usesPhoneSearchLayout &&
-    searchComposerVisible &&
-    !heroComposerOwnsPhones &&
-    (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
   // Compare addon chrome lives inside the phone dock; hide/reveal with it so
   // the search pill and Compare selected bar reclaim space together.
   const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
   const bottomComposerHidden = bottomComposerScrollHiddenActive && scrollHidden && !sharedChromePinned;
 
-  // Focus-capture pins survive dock teardown when React skips blur (portal swap,
-  // hero reclaim, breakpoint change). Clear the latch whenever the phone dock
-  // is no longer the active hide/reveal surface so shared chrome can hide again.
   useEffect(() => {
-    if (!phoneBottomSearchDockActive) setComposerChromeFocused(false);
-  }, [phoneBottomSearchDockActive]);
-
-  const hideOnScrollEnabled = Boolean(hideOnScroll);
-  useEffect(() => {
-    if (hideOnScrollEnabled) return;
-    setComposerChromeFocused(false);
-    setHeaderChromeFocused(false);
-  }, [hideOnScrollEnabled]);
+    if (phoneBottomSearchDockActive && hideOnScrollEnabled) return;
+    queueMicrotask(() => {
+      if (!phoneBottomSearchDockActive || !hideOnScrollEnabled) setComposerChromeFocused(false);
+      if (!hideOnScrollEnabled) setHeaderChromeFocused(false);
+    });
+  }, [phoneBottomSearchDockActive, hideOnScrollEnabled]);
 
   useEffect(() => {
     onBottomComposerHiddenChange?.(bottomComposerHidden);
