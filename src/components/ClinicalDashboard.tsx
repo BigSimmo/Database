@@ -89,6 +89,7 @@ import {
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
+import { focusComposerInput as scheduleComposerFocus } from "@/components/clinical-dashboard/focus-composer-input";
 import { readChromeCollapseMetrics, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
@@ -2616,12 +2617,7 @@ export function ClinicalDashboard({
   }
 
   function focusComposerInput(retainTarget = false) {
-    const requestedInput = retainTarget ? composerInputRef.current : null;
-    const focusBoundInput = () => {
-      const input = retainTarget ? requestedInput : composerInputRef.current;
-      if (input?.isConnected && composerInputRef.current === input) input.focus({ preventScroll: true });
-    };
-    window.requestAnimationFrame(() => { focusBoundInput(); window.setTimeout(focusBoundInput, 150); });
+    scheduleComposerFocus(composerInputRef, retainTarget);
   }
 
   function stageAnswerFollowUpDraft(draft: string) {
