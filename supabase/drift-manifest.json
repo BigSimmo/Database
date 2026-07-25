@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-24T06:18:38.047Z",
+  "generated_at": "2026-07-25T15:45:24.778Z",
   "generator": "scripts/generate-drift-manifest.ts",
-  "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "87e910024d52ea024f4b19c34f6e078ecc48160dc50a483fa785677740673db1",
-  "replay_seconds": 18,
+  "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
+  "schema_sha256": "81240cb662ec8a9da27eca60a3908587f565c3eb67981aa0c21961d6b333a3d5",
+  "replay_seconds": 15,
   "snapshot": {
     "views": [
       {
@@ -6775,11 +6775,12 @@
         "signature": "public.correct_clinical_query_terms(text,real)"
       },
       {
-        "schema": "public",
-        "name": "create_uploaded_document_with_ingestion_job",
-        "signature": "public.create_uploaded_document_with_ingestion_job(jsonb,integer)",
-        "language": "plpgsql",
-        "security_definer": true
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "54f1ab21c9d7cee9555b187dec088371",
+        "signature": "public.create_uploaded_document_with_ingestion_job(jsonb,integer)"
       },
       {
         "acl": [
@@ -6897,7 +6898,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "4a8d38962265b8fde233dc8657773bf1",
+        "def_hash": "066ef1277bc11fa8092086fc66352d15",
         "signature": "public.invoke_ingestion_worker(integer)"
       },
       {
