@@ -13,7 +13,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn, toolbarButton } from "@/components/ui-primitives";
 import {
-  hasOpenSheet,
+  canRestoreFocusTo,
   isTopmostSheet,
   popSheet,
   pushSheet,
@@ -255,8 +255,9 @@ export function Sheet({
         // A sheet opened while this one was closing (switching between two
         // sheets in one tick) now owns focus. Instances cannot cancel each
         // other's timers, so the stack is the only place this is knowable —
-        // without it the new sheet has to fight the restore back.
-        if (hasOpenSheet()) return;
+        // without it the new sheet has to fight the restore back. Handing
+        // focus back down to a sheet this one was stacked on still restores.
+        if (!canRestoreFocusTo(restoreTarget)) return;
         restoreTarget.focus({ preventScroll: true });
         restoreTimers.timeout = window.setTimeout(() => {
           restoreTimers.timeout = null;
@@ -266,7 +267,7 @@ export function Sheet({
           // took focus, do not steal it back.
           if (
             !restoreTarget.isConnected ||
-            hasOpenSheet() ||
+            !canRestoreFocusTo(restoreTarget) ||
             document.activeElement === restoreTarget ||
             (document.activeElement !== document.body && document.activeElement != null)
           ) {

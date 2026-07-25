@@ -44,6 +44,14 @@ export const SHEET_FOCUS_SETTLE_MS = 2000;
 const FALLBACK_ATTEMPT_DELAYS_MS = [16, 32, 64, 128, 256];
 
 /**
+ * Ceiling on how many times one open may pull focus back. Another component
+ * that re-focuses itself from its own focus handler would otherwise trade
+ * `focus()` calls with this controller synchronously until the stack blows.
+ * Giving up leaves focus where the other surface put it.
+ */
+const MAX_FOCUS_RECLAIMS = 12;
+
+/**
  * Elements that must keep working behind a modal: stylesheets and scripts carry
  * no focus, live regions must keep announcing (route changes, status), and the
  * Next.js dev overlay/route announcer would otherwise be unreachable.
@@ -63,6 +71,22 @@ export function isTopmostSheet(id: string) {
 
 export function hasOpenSheet() {
   return openSheets.length > 0;
+}
+
+/**
+ * Whether a closing sheet may still return focus to `target`.
+ *
+ * With nothing open, always. With a sheet still open, only when the target
+ * lives inside it — that is a stacked sheet handing focus back down to the
+ * sheet below. A target out in the (now inert) page background belongs to a
+ * sheet that was replaced rather than stacked on, and restoring it would drag
+ * focus out of the sheet that took over.
+ */
+export function canRestoreFocusTo(target: HTMLElement | null) {
+  if (target == null) return false;
+  const topRoot = openSheets[openSheets.length - 1]?.root ?? null;
+  if (topRoot == null) return true;
+  return topRoot.contains(target);
 }
 
 /**
@@ -201,6 +225,7 @@ export function startSheetOpenFocus({
   // sheet's own opening focus, so it may be upgraded when a better target (a
   // late-mounted autofocus child) appears — unlike focus the user moved.
   let lastAppliedTarget: HTMLElement | null = null;
+  let reclaims = 0;
   const timers: number[] = [];
   const teardowns: Array<() => void> = [];
 
@@ -225,6 +250,11 @@ export function startSheetOpenFocus({
     const active = document.activeElement;
     if (active === target) return;
     if (active !== lastAppliedTarget && !shouldReclaimFocus(getPanel(), active)) return;
+    reclaims += 1;
+    if (reclaims > MAX_FOCUS_RECLAIMS) {
+      finish();
+      return;
+    }
     target.focus({ preventScroll: true });
     if (document.activeElement === target) lastAppliedTarget = target;
   }

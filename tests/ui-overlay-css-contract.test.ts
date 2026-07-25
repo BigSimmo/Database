@@ -39,8 +39,10 @@ describe("overlay and global CSS contracts", () => {
 
   it("holds the close-restore behind the open-sheet stack", () => {
     // A sheet opened while another was closing must keep focus; without this
-    // guard the new sheet has to fight the old sheet's restore back.
-    expect(sheetSource).toContain("if (hasOpenSheet()) return;");
+    // guard the new sheet has to fight the old sheet's restore back. Closing a
+    // stacked sheet must still hand focus back down to the sheet below.
+    expect(sheetSource).toContain("if (!canRestoreFocusTo(restoreTarget)) return;");
+    expect(sheetFocusSource).toContain("return topRoot.contains(target);");
   });
 
   it("defines the shared easing tokens only once", () => {
