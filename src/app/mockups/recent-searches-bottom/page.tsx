@@ -29,7 +29,7 @@ function RecentSearchRail() {
             className="inline-flex min-h-9 max-w-[15rem] shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)]/78 px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] backdrop-blur transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text)]"
           >
             <Search className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" />
-            <span className="truncate">{search}</span>
+            <span className="truncate min-w-0">{search}</span>
           </button>
         ))}
       </div>
