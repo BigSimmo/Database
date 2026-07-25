@@ -98,6 +98,8 @@ export const SignedImage = memo(function SignedImage({
     return (
       <div
         ref={frameRef}
+        role="status"
+        aria-live="polite"
         className={cn(
           className,
           "grid aspect-[4/3] w-full place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-4 text-center text-xs font-semibold text-[color:var(--warning)]",
@@ -141,6 +143,9 @@ export const SignedImage = memo(function SignedImage({
         // `unoptimized` so bearer URLs never enter the unauthenticated
         // `/_next/image` optimizer cache (stale-while-revalidate can outlive the
         // signed token). Authorization stays on `/api/.../signed-url` issuance.
+        // Do not append Storage transform query params here: createSignedUrl()
+        // returns object/sign URLs, and client-side width/height/resize mutation
+        // is a silent no-op (or can invalidate the token) without render/image.
         <Image
           src={url}
           alt={alt}
