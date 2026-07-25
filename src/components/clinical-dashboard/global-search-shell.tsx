@@ -344,6 +344,10 @@ function GlobalStandaloneSearchShellClient({
       // Guard both: open menu DOM (activeElement is often <body> mid-transition) and
       // any intentional focus already moved off the composer.
       if (document.getElementById("app-mode-menu")) return;
+      // Do not reclaim composer focus while a modal Sheet is open (Sources /
+      // Guide / filters). The focus=1 hydration retry otherwise races sheet
+      // autofocus and can leave the Find field unfocused in UI smoke.
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       const active = document.activeElement;
       if (active instanceof HTMLElement && active !== document.body && active !== inputRef.current) {
         return;
