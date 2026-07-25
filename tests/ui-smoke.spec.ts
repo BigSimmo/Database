@@ -3148,8 +3148,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const resultsLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(resultsLibraryDialog).toBeVisible();
     await expect
-      .poll(async () =>
-        resultsLibraryDialog.getByPlaceholder("Find a document").evaluate((el) => el === document.activeElement),
+      .poll(
+        async () =>
+          resultsLibraryDialog.getByPlaceholder("Find a document").evaluate((el) => el === document.activeElement),
+        { timeout: 15_000 },
       )
       .toBe(true);
     const sourceDialogBox = await resultsLibraryDialog.boundingBox();

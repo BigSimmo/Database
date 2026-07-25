@@ -244,7 +244,7 @@ export function Sheet({
         // Only preferred targets end retries early. Settling on the close fallback
         // would abort before late-mounted data-sheet-autofocus inputs appear.
         const settledOnPreferred = preferredFocus != null && document.activeElement === preferredFocus;
-        if (attempts >= 40 || !isTopmostSheet(sheetId) || settledOnPreferred) {
+        if (attempts >= 80 || !isTopmostSheet(sheetId) || settledOnPreferred) {
           window.clearInterval(retryTimer);
           if (restoreTimers.openFocusRetry === retryTimer) {
             restoreTimers.openFocusRetry = null;
