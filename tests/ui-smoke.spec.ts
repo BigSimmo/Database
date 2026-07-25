@@ -3869,13 +3869,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // events, and the second step is a clean upward delta past reveal intent.
     const settledBottomOffset = await main.evaluate((node) => node.scrollTop);
     for (const rise of [24, 48]) {
-      await main.evaluate(
-        async (node, top) => {
-          node.scrollTop = top;
-          await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-        },
-        Math.max(0, settledBottomOffset - rise),
-      );
+      await scrollPrimarySurface(page, Math.max(0, settledBottomOffset - rise));
     }
     await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
   });
