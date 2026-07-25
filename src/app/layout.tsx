@@ -91,9 +91,6 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${themeClass}`}
       suppressHydrationWarning
     >
-      <head>
-        <link rel="preload" href="/icon.svg" as="image" type="image/svg+xml" fetchPriority="high" />
-      </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         {/* Applies the resolved theme before first paint on every route (standalone
             pages don't mount useTheme, and hydration-time toggling flashes light).

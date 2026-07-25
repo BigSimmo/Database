@@ -118,4 +118,11 @@ describe("PWA manifest and public bootstrap resources", () => {
     expect(iconsRoute).not.toMatch(/max-age=31536000,\s*immutable/);
     expect(nextConfig).not.toMatch(/minimumCacheTTL:\s*86400/);
   });
+
+  it("keeps the themed favicon markers that check:assets guards without SVGO", () => {
+    const icon = readFileSync(join(process.cwd(), "src/app/icon.svg"), "utf8");
+    expect(icon).toContain("prefers-color-scheme: dark");
+    expect(icon).toContain("<style>");
+    expect(icon).toContain("viewBox=");
+  });
 });

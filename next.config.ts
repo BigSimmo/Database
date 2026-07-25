@@ -49,9 +49,9 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   images: {
-    // Keep Next's default minimumCacheTTL (60s). A day-long lower bound would
-    // retain optimizer output past many signed-URL lifetimes if a caller ever
-    // forgot `unoptimized` on a private preview.
+    // Explicit responsive breakpoints for next/image. Leave minimumCacheTTL at
+    // Next's default (60s): a day-long floor can retain optimizer output past
+    // signed-URL lifetimes if a private preview ever omits `unoptimized`.
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [32, 48, 64, 96, 128, 256, 384],
     // Prefer AVIF (~20-30% smaller than WebP), falling back to WebP, for any

@@ -42,8 +42,9 @@ describe("SignedImage failure/retry (jsdom)", () => {
       <SignedImage endpoint={ENDPOINT} alt="Airway diagram" failureLabel="Image preview failed." retryLabel="Retry" />,
     );
 
-    // The first fetch fails → failure state with a retry action.
+    // The first fetch fails → polite status region with a retry action.
     expect(await screen.findByText("Image preview failed.")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveAttribute("aria-live", "polite");
     const retry = screen.getByRole("button", { name: "Retry" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
