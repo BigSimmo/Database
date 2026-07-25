@@ -739,6 +739,6 @@ export function universalSearchViewAllHref(domain: UniversalSearchDomain, query:
     case "therapies":
       return `/therapy-compass/search?q=${encodeURIComponent(query)}&run=1`;
     case "tools":
-      return `/?mode=tools&q=${encodeURIComponent(query)}&run=1`;
+      return `/tools?q=${encodeURIComponent(query)}&run=1`;
   }
 }

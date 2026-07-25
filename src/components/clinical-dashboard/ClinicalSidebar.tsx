@@ -60,7 +60,8 @@ const sidebarToolItems = [
   { id: "services", label: "Services", icon: appModeIcons.services, href: "/services" },
   { id: "prescribing", label: "Medications", icon: Pill, href: "/?mode=prescribing" },
   { id: "factsheets", label: "Factsheets", icon: appModeIcons.factsheets, href: "/factsheets" },
-  { id: "tools", label: "Tools", icon: Wrench, href: "/?mode=tools" },
+  // PT-11: standalone /tools is the canonical entry; /?mode=tools remains a dashboard-mode alias.
+  { id: "tools", label: "Tools", icon: Wrench, href: "/tools" },
 ] as const;
 
 const sidebarAccountLibraryItems = [
