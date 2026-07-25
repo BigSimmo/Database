@@ -334,12 +334,9 @@ export function MasterSearchHeader({
   // paths also refresh from the live query so the first tap still picks Sheet.
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
-  // True once the hero portal is conclusively unavailable — the media query
-  // does not match, or the slot never appeared after the retry budget. While a
-  // slot id is present and this is false the inline composer stays suppressed
-  // (no flash while the portal mounts); once it flips true the inline composer
-  // renders, so the search can never vanish from the page at any width.
-  const [desktopHomeComposerFallback, setDesktopHomeComposerFallback] = useState(false);
+  // The default/inline composer stays mounted until desktopHomeComposerActive
+  // + host are both ready. That avoids a null gap while the mode-home slot
+  // remounts; dual composers may coexist briefly during the handoff.
   // Phone-only hide-on-scroll: never hide while a header-owned surface is open
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
@@ -946,7 +943,6 @@ export function MasterSearchHeader({
       queueMicrotask(() => {
         if (cancelled) return;
         setDesktopHomeComposerActive(false);
-        setDesktopHomeComposerFallback(false);
         setDesktopHomeComposerHost(null);
       });
       return () => {
@@ -995,20 +991,16 @@ export function MasterSearchHeader({
         if (host.parentNode !== slot) slot.appendChild(host);
         setDesktopHomeComposerHost(host);
         setDesktopHomeComposerActive(true);
-        setDesktopHomeComposerFallback(false);
       } else {
         host.parentNode?.removeChild(host);
         setDesktopHomeComposerActive(false);
         if (mediaQuery.matches && portalRetryCount < 24) {
           portalRetryCount += 1;
           retryTimeout = window.setTimeout(syncTarget, Math.min(40 * portalRetryCount, 400));
-        } else {
-          // The composer belongs inline at this width, or the slot never
-          // appeared within the retry budget: release the inline fallback so
-          // the search cannot vanish. The MutationObserver keeps watching, so
-          // a slot that shows up later still reclaims the portal.
-          setDesktopHomeComposerFallback(true);
         }
+        // Until the portal attaches (or after the retry budget), the default
+        // composer stays mounted — search never vanishes. MutationObserver
+        // keeps watching so a late slot still reclaims the portal.
       }
     };
 
@@ -1022,7 +1014,6 @@ export function MasterSearchHeader({
       mediaQuery.removeEventListener("change", syncTarget);
       host.parentNode?.removeChild(host);
       setDesktopHomeComposerActive(false);
-      setDesktopHomeComposerFallback(false);
       setDesktopHomeComposerHost(null);
     };
   }, [desktopHomeComposerSlotId, heroComposerBreakpoint]);

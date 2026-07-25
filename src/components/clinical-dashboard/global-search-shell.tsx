@@ -254,6 +254,13 @@ function GlobalStandaloneSearchShellClient({
   const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
   const resetPhoneScrollHideRef = useRef(phoneScrollHide.reset);
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
+  const [bottomComposerHiddenPathname, setBottomComposerHiddenPathname] = useState(pathname);
+  // Render-time reset (not an effect): pathname-only mode homes share one scroller,
+  // so a carried-over hidden dock pad would open the next mode mid-collapse.
+  if (pathname !== bottomComposerHiddenPathname) {
+    setBottomComposerHiddenPathname(pathname);
+    setBottomComposerHidden(false);
+  }
   useEffect(() => {
     reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
     resetPhoneScrollHideRef.current = phoneScrollHide.reset;
@@ -262,7 +269,6 @@ function GlobalStandaloneSearchShellClient({
   // the route changes so /services → /dsm does not open mid-page with a hidden header.
   useEffect(() => {
     resetPhoneScrollHideRef.current();
-    setBottomComposerHidden(false);
     const main = document.getElementById("main-content");
     if (main instanceof HTMLElement) main.scrollTop = 0;
   }, [pathname]);

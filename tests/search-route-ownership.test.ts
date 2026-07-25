@@ -112,6 +112,7 @@ describe("shared-search route ownership", () => {
       resolve(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
       "utf8",
     );
+    expect(headerSource).not.toContain("desktopHomeComposerFallback");
     expect(headerSource).not.toContain("desktopHomeComposerSlotId && !desktopHomeComposerFallback");
     expect(headerSource).toMatch(
       /desktopHomeComposerActive && desktopHomeComposerHost\s*\?\s*null\s*:\s*renderSearchComposer\("default"\)/,
