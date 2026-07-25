@@ -22,8 +22,6 @@ export default function manifest(): MetadataRoute.Manifest {
     // Focus the already-open app window on launch instead of spawning a second
     // instance; "auto" lets platforms without the capability use their default.
     launch_handler: { client_mode: ["navigate-existing", "auto"] },
-    background_color: APP_THEME_COLORS[DEFAULT_THEME],
-    theme_color: APP_THEME_COLORS[DEFAULT_THEME],
     categories: ["medical", "productivity", "utilities"],
     prefer_related_applications: false,
     icons: [

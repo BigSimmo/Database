@@ -82,8 +82,19 @@ function syncThemeColorMetadata(theme: ResolvedTheme) {
 }
 
 function applyResolvedTheme(theme: ResolvedTheme) {
-  document.documentElement.classList.toggle("dark", theme === "dark");
-  syncThemeColorMetadata(theme);
+  const isCurrentlyDark = document.documentElement.classList.contains("dark");
+  const willBeDark = theme === "dark";
+  
+  if (isCurrentlyDark !== willBeDark) {
+    document.documentElement.classList.add("theme-transitioning");
+    document.documentElement.classList.toggle("dark", willBeDark);
+    syncThemeColorMetadata(theme);
+    window.setTimeout(() => {
+      document.documentElement.classList.remove("theme-transitioning");
+    }, 200);
+  } else {
+    syncThemeColorMetadata(theme);
+  }
 }
 
 function subscribeTheme(onStoreChange: () => void) {
