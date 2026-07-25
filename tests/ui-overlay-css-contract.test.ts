@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 const answerResultSurfaceSource = read("src/components/clinical-dashboard/answer-result-surface.tsx");
 const sheetSource = read("src/components/ui/sheet.tsx");
+const sheetFocusSource = read("src/components/ui/sheet-focus.ts");
 const globalStylesSource = read("src/app/globals.css");
 const agentsSource = read("AGENTS.md");
 const searchChromeBehaviourSource = read("docs/search-chrome-behaviour.md");
@@ -27,6 +28,19 @@ describe("overlay and global CSS contracts", () => {
     expect(sheetSource).toContain(
       "if (event.target !== event.currentTarget || !backdropPointerDownRef.current) return",
     );
+  });
+
+  it("settles Sheet open focus from events rather than a polling interval", () => {
+    expect(sheetSource).not.toContain("setInterval");
+    expect(sheetFocusSource).not.toContain("setInterval");
+    expect(sheetFocusSource).toContain("new MutationObserver(attempt)");
+    expect(sheetFocusSource).toContain('document.addEventListener("focusin", attempt)');
+  });
+
+  it("holds the close-restore behind the open-sheet stack", () => {
+    // A sheet opened while another was closing must keep focus; without this
+    // guard the new sheet has to fight the old sheet's restore back.
+    expect(sheetSource).toContain("if (hasOpenSheet()) return;");
   });
 
   it("defines the shared easing tokens only once", () => {
