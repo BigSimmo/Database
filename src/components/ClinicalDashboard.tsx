@@ -3254,6 +3254,12 @@ export function ClinicalDashboard({
       ).find((element) => element.isConnected && element.getClientRects().length > 0);
       const focusTarget = returnTarget?.isConnected ? returnTarget : fallbackTarget;
       focusTarget?.focus({ preventScroll: true });
+      // Sheet autofocus teardown and composer focus listeners can win the first
+      // frame after Escape; retry once if the opener did not keep focus.
+      window.setTimeout(() => {
+        if (!focusTarget?.isConnected || document.activeElement === focusTarget) return;
+        focusTarget.focus({ preventScroll: true });
+      }, 50);
     });
   });
   const handleOpenSourcePdfBrowser = useEventCallback(openSourcePdfBrowser);

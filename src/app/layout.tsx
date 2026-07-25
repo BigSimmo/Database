@@ -7,6 +7,7 @@ import { PwaLifecycle } from "@/components/pwa-lifecycle";
 import { WebVitalsReporter } from "@/components/web-vitals-reporter";
 import { resolveMetadataBase } from "@/lib/metadata-base";
 import { APP_THEME_COLORS, THEME_BOOTSTRAP_SCRIPT, THEME_COOKIE_NAME } from "@/lib/theme";
+import { MobileKeyboardProvider } from "@/components/use-mobile-keyboard";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -60,6 +61,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  interactiveWidget: "resizes-content",
   colorScheme: "light dark",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: APP_THEME_COLORS.light },
@@ -114,7 +116,9 @@ export default async function RootLayout({
         <WebVitalsReporter />
         <PwaLifecycle />
         <AuthProvider>
-          <AccountDataProvider>{children}</AccountDataProvider>
+          <AccountDataProvider>
+            <MobileKeyboardProvider>{children}</MobileKeyboardProvider>
+          </AccountDataProvider>
         </AuthProvider>
       </body>
     </html>
