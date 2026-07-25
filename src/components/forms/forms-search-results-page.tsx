@@ -31,7 +31,6 @@ import {
   ToggleSwitch,
 } from "@/components/ui-primitives";
 import {
-  ResultSortControl,
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
 } from "@/components/clinical-dashboard/search-results-header-band";
@@ -645,15 +644,28 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
         <RegistryStatusNotice status={registry.status} />
         {registryReady ? (
           <>
-            <div className="hidden md:block">
-              <SearchResultsHeaderBand
-                modeId="forms"
-                query={query}
-                matchCount={displayedMatches.length}
-                sortValue={sortValue}
-                onSortChange={setSortValue}
-              />
-            </div>
+            <SearchResultsHeaderBand
+              modeId="forms"
+              query={query}
+              matchCount={displayedMatches.length}
+              sortValue={sortValue}
+              onSortChange={setSortValue}
+              filterLabel="Filter form results"
+              filterControls={
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="min-w-0 flex-1 overflow-x-auto">
+                    <ResultTabs formsCount={displayedMatches.length} />
+                  </div>
+                  {supportsPathwayClaims ? (
+                    <RefineBar
+                      open={refineOpen}
+                      onToggle={() => setRefineOpen((open) => !open)}
+                      panelId={refinePanelId}
+                    />
+                  ) : null}
+                </div>
+              }
+            />
             {query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
               <SearchResultsEmptyState
                 modeId="forms"
@@ -665,21 +677,6 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
               />
             ) : (
               <>
-                <div className="flex min-w-0 items-end gap-3 border-b border-[color:var(--border)]">
-                  <div className="min-w-0 flex-1 overflow-x-auto">
-                    <ResultTabs formsCount={displayedMatches.length} />
-                  </div>
-                  <div className="flex items-center gap-2 pb-1.5">
-                    <ResultSortControl value={sortValue} onChange={setSortValue} className="md:hidden" />
-                    {supportsPathwayClaims ? (
-                      <RefineBar
-                        open={refineOpen}
-                        onToggle={() => setRefineOpen((open) => !open)}
-                        panelId={refinePanelId}
-                      />
-                    ) : null}
-                  </div>
-                </div>
                 {supportsPathwayClaims ? <RefinePanel open={refineOpen} panelId={refinePanelId} /> : null}
                 <div className="hidden md:block">
                   <ResultsTable matches={displayedMatches} query={query} sortValue={sortValue} />

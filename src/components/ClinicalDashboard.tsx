@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
 import {
   CircleAlert,
   BookOpen,
@@ -101,6 +100,8 @@ import {
   hasActiveIndexingWork,
   hasNonProductionSupabaseApiKeyFallback,
   isAbortError,
+  releaseOwnedAbortController,
+  replaceOwnedAbortController,
   mergeDocumentRefresh,
   normalizeNavigationHash,
   setupNeedsSlowRecheck,
@@ -115,42 +116,16 @@ import {
   type DocumentPagination,
   type LabelReviewMutationBody,
 } from "@/components/clinical-dashboard/dashboard-contracts";
-const DifferentialsHome = dynamic(
-  () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
-  { ssr: false },
-);
-const FavouritesHub = dynamic(
-  () => import("@/components/clinical-dashboard/favourites-hub").then((m) => m.FavouritesHub),
-  { ssr: false },
-);
-const MedicationPrescribingWorkspace = dynamic(
-  () =>
-    import("@/components/clinical-dashboard/medication-prescribing-workspace").then(
-      (m) => m.MedicationPrescribingWorkspace,
-    ),
-  { ssr: false },
-);
-const DocumentDrawer = dynamic(
-  () => import("@/components/clinical-dashboard/document-admin").then((m) => m.DocumentDrawer),
-  { ssr: false },
-);
-
-// Results surfaces load lazily. Preload the primary answer surface after hydration so a cold
-// browser does not finish a fast/cached answer before the result UI chunk is available.
-const loadStagedAnswerResultSurface = () =>
-  import("@/components/clinical-dashboard/answer-result-surface").then((m) => m.StagedAnswerResultSurface);
-const StagedAnswerResultSurface = dynamic(loadStagedAnswerResultSurface, {
-  ssr: false,
-  loading: () => <AnswerSkeleton />,
-});
-const RelatedDocumentsPanel = dynamic(
-  () => import("@/components/clinical-dashboard/document-results").then((m) => m.RelatedDocumentsPanel),
-  { ssr: false },
-);
-const DocumentSearchResultsPanel = dynamic(
-  () => import("@/components/clinical-dashboard/document-search-results").then((m) => m.DocumentSearchResultsPanel),
-  { ssr: false },
-);
+import {
+  DifferentialsHome,
+  DocumentDrawer,
+  DocumentSearchResultsPanel,
+  FavouritesHub,
+  loadStagedAnswerResultSurface,
+  MedicationPrescribingWorkspace,
+  RelatedDocumentsPanel,
+  StagedAnswerResultSurface,
+} from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
 import { clearLegacyRecentQueries, demoRecentQueryOwnerId, recentQueryStorageKey } from "@/lib/recent-query-storage";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
@@ -533,6 +508,7 @@ export function ClinicalDashboard({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
+  const documentsDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
   const [documentScopeOpen, setDocumentScopeOpen] = useState(false);
   const [documentsDrawerMode, setDocumentsDrawerMode] = useState<DocumentDrawerMode>("library");
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
@@ -1990,14 +1966,12 @@ export function ClinicalDashboard({
     };
     // A newer search already invalidated any prior request via requestId; abort
     // its network work too so the server stops generating, then own the signal.
-    searchAbortRef.current?.abort();
-    const abortController = new AbortController();
+    const abortController = replaceOwnedAbortController(searchAbortRef);
     const authRequest = registerAuthRequest(abortController);
     requestIsCurrent = () =>
       requestId === searchRequestSeqRef.current &&
       isAuthEpochCurrent(authRequest.epoch) &&
       !abortController.signal.aborted;
-    searchAbortRef.current = abortController;
     setLoading(true);
     setError(null);
     setSearchRelevance(null);
@@ -2176,7 +2150,7 @@ export function ClinicalDashboard({
       answerWatchdog.cancel();
       authRequest.release();
       answerTimedOutRef.current = false;
-      if (searchAbortRef.current === abortController) searchAbortRef.current = null;
+      releaseOwnedAbortController(searchAbortRef, abortController);
       if (requestIsCurrent()) {
         setLoading(false);
         setAnswerProgress(null);
@@ -2490,23 +2464,29 @@ export function ClinicalDashboard({
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() }));
     if (updateUrl) updateDocumentSearchUrl(trimmedSearchText, targetMode, filtersOverride);
 
+    const abortController = replaceOwnedAbortController(searchAbortRef);
     const requestId = ++searchRequestSeqRef.current;
-
     try {
       const shortcutQueryMode = appModeQueryMode(targetMode, queryMode);
       const payload = await runWithRetries(() =>
-        requestSourceLibrarySearch(trimmedSearchText, sourceLibraryMode, filtersOverride, shortcutQueryMode),
+        requestSourceLibrarySearch(
+          trimmedSearchText,
+          sourceLibraryMode,
+          filtersOverride,
+          shortcutQueryMode,
+          abortController.signal,
+        ),
       );
-      if (requestId === searchRequestSeqRef.current) {
-        applySearchResult(payload);
-      }
+      if (requestId === searchRequestSeqRef.current) applySearchResult(payload);
     } catch (requestError) {
+      if (abortController.signal.aborted || isAbortError(requestError)) return;
       if (requestId === searchRequestSeqRef.current) {
         setError(requestError instanceof Error ? requestError.message : "Document search failed");
         setErrorKind(null);
         setLastFailedQuery(null);
       }
     } finally {
+      releaseOwnedAbortController(searchAbortRef, abortController);
       if (requestId === searchRequestSeqRef.current) {
         setLoading(false);
         setAnswerProgress(null);
@@ -2680,18 +2660,13 @@ export function ClinicalDashboard({
   }
 
   function openDocumentsDrawer(mode: DocumentDrawerMode) {
+    documentsDrawerReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeDashboardTransientSurfaces("documents");
     setSearchMode("documents");
     setDocumentDrawerStatusFilter("indexed");
     setDocumentsDrawerMode(mode);
     setDocumentsDrawerOpen(true);
-    if (window.matchMedia("(min-width: 1024px)").matches) {
-      window.requestAnimationFrame(() => {
-        document
-          .getElementById("dashboard-documents-drawer")
-          ?.scrollIntoView({ block: "start", behavior: resolveScrollBehavior() });
-      });
-    }
   }
 
   function openRecentDocuments() {
@@ -2711,7 +2686,7 @@ export function ClinicalDashboard({
       openDocumentsDrawer("library");
       setActionNotice({
         tone: "warning",
-        message: "Upload and indexing tools are admin-only. Use the source library to open indexed documents.",
+        message: "Upload and indexing tools are admin-only. Use Sources to open indexed documents.",
       });
       return;
     }
@@ -3075,15 +3050,24 @@ export function ClinicalDashboard({
   const showDesktopHomeComposer =
     !error &&
     (activeModeResultKind === "tools" ||
-      activeModeResultKind === "favourites" ||
+      (activeModeResultKind === "favourites" && favouritesAccessible) ||
       (!loading &&
         (showAnswerHome ||
           (searchMode === "documents" &&
             activeModeResultKind === "documents" &&
             documentMatches.length === 0 &&
             !modeSearchSubmitted) ||
-          (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
-          (activeModeResultKind === "differentials" && !modeSearchSubmitted))));
+          // Prescribing home unmounts as soon as the query is non-empty, so keep
+          // the hero/phone-composer slot only while MedicationHome actually mounts.
+          (searchMode === "prescribing" &&
+            activeModeResultKind === "documents" &&
+            !modeSearchSubmitted &&
+            !query.trim()) ||
+          // DifferentialsHome leaves ModeHomeTemplate when a draft query coincides
+          // with stale evidence matches — keep the hero slot only while home mounts.
+          (activeModeResultKind === "differentials" &&
+            !modeSearchSubmitted &&
+            !(query.trim() && documentMatches.length > 0)))));
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
   // Favourites and Tools are content-rich hubs: they share the centred hero but
   // stay top-aligned so their lists start in a stable position.
@@ -3097,6 +3081,7 @@ export function ClinicalDashboard({
     ((searchMode === "services" || searchMode === "forms") && !modeSearchSubmitted && !query.trim() && !loading);
   const differentialsCompareAddonActive =
     searchMode === "differentials" && modeSearchSubmitted && Boolean(query.trim());
+  const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId);
   // Hidden dock pad must stay at 0rem — Safari toolbar safe-area recreates a blank band.
   const mobileComposerReserve = resolveMobileComposerReserve(
     bottomComposerHidden,
@@ -3104,6 +3089,7 @@ export function ClinicalDashboard({
       searchMode,
       hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
       differentialsCompareAddonActive,
+      heroOwnsPhoneComposer,
     }),
   );
   const renderDegradedNotice = () => (
@@ -3214,7 +3200,7 @@ export function ClinicalDashboard({
         ? "Source PDFs"
         : documentsDrawerIsAdmin
           ? "Document admin"
-          : "Source library";
+          : "Sources";
   const documentsDrawerSummary = dashboardDataLoading
     ? "Loading indexed document status."
     : documentsDrawerMode === "recent"
@@ -3225,14 +3211,14 @@ export function ClinicalDashboard({
           ? `${indexedDocumentTotal.toLocaleString()} indexed documents available.`
           : "Search and open indexed clinical sources.";
   const documentsDrawerMobileSummary = dashboardDataLoading
-    ? "Loading library"
+    ? "Loading sources"
     : documentsDrawerMode === "recent"
       ? "Recent sources"
       : documentsDrawerMode === "source"
         ? "PDF sources"
         : documentsDrawerIsAdmin
           ? "Admin"
-          : "Library";
+          : "Sources";
   const DocumentsDrawerIcon =
     documentsDrawerMode === "recent"
       ? Clock3
@@ -3241,7 +3227,7 @@ export function ClinicalDashboard({
         : documentsDrawerIsAdmin
           ? UploadCloud
           : FolderOpen;
-  const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Library and admin" : "Sources";
+  const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Sources and admin" : "Sources";
 
   // Stable-identity handlers for the React.memo children (StagedAnswerResultSurface,
   // DocumentSearchResultsPanel). These close over the draft `query` or call the
@@ -3257,6 +3243,25 @@ export function ClinicalDashboard({
   const handleDocumentTagSearch = useEventCallback(handleTagSearch);
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
+  const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {
+    setDocumentsDrawerOpen(nextOpen);
+    if (nextOpen) return;
+
+    const returnTarget = documentsDrawerReturnFocusRef.current;
+    window.requestAnimationFrame(() => {
+      const fallbackTarget = Array.from(
+        document.querySelectorAll<HTMLElement>('button[aria-haspopup="menu"][aria-label$=" options"]'),
+      ).find((element) => element.isConnected && element.getClientRects().length > 0);
+      const focusTarget = returnTarget?.isConnected ? returnTarget : fallbackTarget;
+      focusTarget?.focus({ preventScroll: true });
+      // Sheet autofocus teardown and composer focus listeners can win the first
+      // frame after Escape; retry once if the opener did not keep focus.
+      window.setTimeout(() => {
+        if (!focusTarget?.isConnected || document.activeElement === focusTarget) return;
+        focusTarget.focus({ preventScroll: true });
+      }, 50);
+    });
+  });
   const handleOpenSourcePdfBrowser = useEventCallback(openSourcePdfBrowser);
   const handleCopyAnswer = useEventCallback(() => {
     copyText("answer", answerRenderModel?.copyText || safeAnswerText || answer?.answer || "");
@@ -3383,10 +3388,9 @@ export function ClinicalDashboard({
             differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
-          // Only the answer home ("How can I help?") keeps the in-flow hero
-          // pill + privacy notice on phones; every other mode home docks the
-          // compact pill to the bottom edge below sm.
-          heroComposerBreakpoint={showAnswerHome ? "all" : "sm-up"}
+          // Mode homes keep the composer in the centred hero at every breakpoint,
+          // sharing the phone/tablet structure instead of switching to a bottom dock.
+          heroComposerBreakpoint={heroOwnsPhoneComposer ? "all" : "sm-up"}
           // Answer view: the header overlays the scrolling <main> at every width
           // (main reserves matching top padding) so content frosts under the
           // glass bar, and it slides away/returns with scroll direction. Other
@@ -3849,8 +3853,9 @@ export function ClinicalDashboard({
                       summary={documentsDrawerSummary}
                       mobileSummary={documentsDrawerMobileSummary}
                       open={documentsDrawerOpen}
-                      onOpenChange={setDocumentsDrawerOpen}
-                      sheetBreakpoint="lg"
+                      onOpenChange={handleDocumentsDrawerOpenChange}
+                      sheetBreakpoint={documentsDrawerIsAdmin ? "lg" : "all"}
+                      sheetReturnFocusRef={documentsDrawerReturnFocusRef}
                       sheetHeaderLeading={
                         <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
                           <DocumentsDrawerIcon className="h-5 w-5" aria-hidden="true" />

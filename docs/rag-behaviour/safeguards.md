@@ -59,7 +59,9 @@ comparator key ORDER as source text. Any edit — including by a task that never
 
 `AGENTS.md` § "RAG ranking protection" mirrors these rules so every agent session loads them:
 flag RAG impact before editing, canary pair for behaviour changes, never insert comparator
-keys above relevance, read this folder first. The eval-canary pair protocol:
+keys above relevance, read this folder first. **Also:** do not add `review_due` /
+`unknownCurrentness` / governance-metadata ranking penalties or boosts — that shape is
+refuted (`refuted-approaches.md` § Refutation 3; ledger `#032`). The eval-canary pair protocol:
 
 1. Baseline: latest green canary on current main (or one dispatch).
 2. Change merges (or runs from a branch via the `ref` dispatch input).

@@ -48,6 +48,7 @@ import {
 } from "@/lib/app-modes";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
+import { isInformationPage } from "@/lib/information-pages";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import { shouldRenderClinicalDashboard, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
@@ -164,65 +165,6 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
   );
 }
 
-function isInformationPage(pathname: string): boolean {
-  // Services detail: /services/[slug]
-  if (pathname.startsWith("/services/") && pathname !== "/services") return true;
-
-  // Forms detail: /forms/[slug]
-  if (pathname.startsWith("/forms/") && pathname !== "/forms") return true;
-
-  // Medications detail: /medications/[slug]
-  if (pathname.startsWith("/medications/") && pathname !== "/medications") return true;
-
-  // Psychiatric specifier detail: /specifiers/[slug]
-  if (
-    pathname.startsWith("/specifiers/") &&
-    pathname !== "/specifiers" &&
-    pathname !== "/specifiers/builder" &&
-    pathname !== "/specifiers/compare" &&
-    pathname !== "/specifiers/map"
-  )
-    return true;
-
-  // Clinical formulation detail: /formulation/[slug]
-  if (
-    pathname.startsWith("/formulation/") &&
-    pathname !== "/formulation" &&
-    pathname !== "/formulation/builder" &&
-    pathname !== "/formulation/compare" &&
-    pathname !== "/formulation/map"
-  )
-    return true;
-
-  // Factsheets detail: /factsheets/[slug]
-  if (pathname.startsWith("/factsheets/") && pathname !== "/factsheets" && pathname !== "/factsheets/search")
-    return true;
-
-  // Therapy compass detail: /therapy-compass/[slug]/brief or /therapy-compass/[slug]/sheet
-  if (
-    pathname.startsWith("/therapy-compass/") &&
-    pathname !== "/therapy-compass" &&
-    pathname !== "/therapy-compass/compare" &&
-    pathname !== "/therapy-compass/pathways" &&
-    pathname !== "/therapy-compass/recommend" &&
-    pathname !== "/therapy-compass/review" &&
-    pathname !== "/therapy-compass/search"
-  )
-    return true;
-
-  // Differential diagnosis detail: /differentials/diagnoses/[slug] or /differentials/presentations/[slug]
-  if (pathname.startsWith("/differentials/diagnoses/") || pathname.startsWith("/differentials/presentations/"))
-    return true;
-
-  // DSM-5 Diagnosis detail: /dsm/diagnoses/[slug] or /dsm/diagnoses/[slug]/differentials or /dsm/compare
-  if (pathname.startsWith("/dsm/diagnoses/")) return true;
-
-  // Document detail: /documents/[id] (excluding /documents/search)
-  if (pathname.startsWith("/documents/") && pathname !== "/documents/search") return true;
-
-  return false;
-}
-
 function isToolDetailWithFooterSearch(pathname: string): boolean {
   return (
     (pathname.startsWith("/services/") && pathname !== "/services") ||
@@ -277,10 +219,12 @@ function GlobalStandaloneSearchShellClient({
       ? requestedMode
       : initialSearchMode;
   const [query, setQuery] = useState(requestedQuery);
-  // The search string we last synced into local state, so the effect below only
-  // reacts to genuine navigations. Seeded with the current string so the initial
-  // mount is a no-op — the state above is already derived from the URL.
-  const lastSyncedSearchParamsRef = useRef(searchParamString);
+  // Previous URL snapshot for during-render sync (React "adjusting state when a
+  // prop changes"). Pathname must be tracked separately: with the shared
+  // `(search-app)` layout, /services → /dsm keeps an empty query string, and a
+  // params-only gate would leave searchMode stuck on the previous mode.
+  const [syncedSearchParamString, setSyncedSearchParamString] = useState(searchParamString);
+  const [syncedPathname, setSyncedPathname] = useState(pathname);
   const [searchMode, setSearchMode] = useState<AppModeId>(resolvedSearchMode);
   const [queryMode, setQueryMode] = useState<ClinicalQueryMode>(
     () => readSearchNavigationContext(searchParams).queryMode,
@@ -296,9 +240,9 @@ function GlobalStandaloneSearchShellClient({
   const [commandScopes, setCommandScopes] = useState<string[]>([]);
   const removeCommandScope = useCallback(
     (scopeId: string) => setCommandScopes((current) => current.filter((scope) => scope !== scopeId)),
-    [],
+    [setCommandScopes],
   );
-  const clearCommandScopes = useCallback(() => setCommandScopes([]), []);
+  const clearCommandScopes = useCallback(() => setCommandScopes([]), [setCommandScopes]);
   const searchCommandContextValue = useMemo(
     () => ({
       query,
@@ -371,23 +315,23 @@ function GlobalStandaloneSearchShellClient({
     }),
   );
 
-  useEffect(() => {
-    // Re-derive the mode and query from the URL, but only when the search string
-    // actually changes (a real navigation). Reacting on every render — as the old
-    // requestAnimationFrame sync effectively did — let a deferred frame land after
-    // a programmatic/user fill and wipe the controlled input; on slow CI WebKit
-    // that raced the forms-detail composer to empty (input focused-but-empty,
-    // submit stuck disabled). Typing never changes the URL, so a URL-gated sync
-    // cannot clobber in-progress input, and the initial mount is skipped entirely
-    // because the state above is already seeded from the URL.
-    if (lastSyncedSearchParamsRef.current === searchParamString) return;
-    lastSyncedSearchParamsRef.current = searchParamString;
+  // Re-derive mode/query from the URL when the search string or pathname changes
+  // (a real navigation). Do this during render — not in an effect — so the shared
+  // `(search-app)` shell does not paint one frame with a stale searchMode after
+  // pathname-only moves like /services → /dsm. React discards this render and
+  // immediately re-renders with the updated state (see "adjusting state when a
+  // prop changes"). Typing never changes the URL, so a URL-gated sync cannot
+  // clobber in-progress input; the initial mount is a no-op because synced*
+  // state is seeded from the current URL.
+  if (searchParamString !== syncedSearchParamString || pathname !== syncedPathname) {
+    setSyncedSearchParamString(searchParamString);
+    setSyncedPathname(pathname);
     setSearchMode(resolvedSearchMode);
     setQuery(currentUrlHasQuery ? requestedQuery : "");
     const nextSearchContext = readSearchNavigationContext(new URLSearchParams(searchParamString));
     setQueryMode(nextSearchContext.queryMode);
     setScopeFilters(nextSearchContext.scopeFilters);
-  }, [currentUrlHasQuery, requestedQuery, resolvedSearchMode, searchParamString]);
+  }
 
   useEffect(() => {
     if (!requestedFocus) return undefined;
