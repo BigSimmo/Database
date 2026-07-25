@@ -258,6 +258,9 @@ jobs:
       - name: Owner-scope guard
         run: npm run check:owner-scope
 
+      - name: Asset linting
+        run: npm run check:assets
+
       - name: Lint
         run: npm run lint
 
