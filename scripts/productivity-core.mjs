@@ -246,8 +246,19 @@ export function buildWorkflowPlan(workflow, files = [], options = {}) {
                 "node scripts/reconciliation-preflight.mjs",
                 "Inventory cached base, primary checkout, worktrees, dirty state, and Git operations without fetching.",
               ),
+              check(
+                "node scripts/reconciliation-evidence-pack.mjs --output .local/reconciliation-evidence/pack.json",
+                "Write one deterministic secret-safe local evidence pack without fetching or deleting.",
+              ),
             ]
-          : [];
+          : phase === "start" || phase === "cleanup"
+            ? [
+                check(
+                  "node scripts/primary-checkout-lease.mjs --check",
+                  "Refuse primary checkout writes/switches/sync while another owner or dirty/operation state exists.",
+                ),
+              ]
+            : [];
     approvalRequired =
       phase === "handoff"
         ? [
@@ -268,11 +279,17 @@ export function buildWorkflowPlan(workflow, files = [], options = {}) {
       "Verify branch and worktree state at every transition.",
       "Use content equality for squash-merge proof before cleanup.",
     );
+    if (phase === "start" || phase === "cleanup") {
+      proof.push(
+        "Keep read-only commands and independent feature worktrees unblocked; only primary writes need the cooperative lease.",
+      );
+    }
     if (phase === "reconcile") {
       proof.push(
         "Use a dedicated clean integration worktree; never integrate from a dirty primary checkout.",
         "Filter candidates by ownership, open PRs, ledger, and ancestry before expensive patch comparison.",
         "Preserve unmerged content before cleanup and never print raw process command lines.",
+        "Record dispositions, operation markers, archive refs, bundle verification, and local/base equality in the evidence pack.",
       );
     }
   }
