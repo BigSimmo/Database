@@ -194,7 +194,8 @@
     "check:migration-history": "node scripts/run-tsx.mjs scripts/check-migration-history-alignment.ts",
     "drift:manifest": "node scripts/run-tsx.mjs scripts/generate-drift-manifest.ts",
     "sync:pr-branches": "node scripts/sync-open-pr-branches.mjs",
-    "sync:pr-branches:apply": "node scripts/sync-open-pr-branches.mjs --apply"
+    "sync:pr-branches:apply": "node scripts/sync-open-pr-branches.mjs --apply",
+    "check:assets": "node scripts/check-assets.mjs"
   },
   "dependencies": {
     "@next/env": "16.2.11",
