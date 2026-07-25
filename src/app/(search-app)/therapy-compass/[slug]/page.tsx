@@ -11,10 +11,10 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const record = findTherapyRecord(slug);
-  if (!record) return { title: "Therapy not found - Therapy mode" };
+  if (!record) return { title: "Therapy not found - Therapy" };
   const summary = record.clinicalSummary ?? record.bestUsedFor ?? "Source-grounded therapy record.";
   return {
-    title: `${record.name} - Therapy mode`,
+    title: `${record.name} - Therapy`,
     description: therapyNeedsReview(record) ? `${summary} (Awaiting source review.)` : summary,
   };
 }
