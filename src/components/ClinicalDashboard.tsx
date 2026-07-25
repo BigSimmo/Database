@@ -360,9 +360,6 @@ export function ClinicalDashboard({
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
     Boolean(autoRunSearch && initialQuery.trim() && initialSearchMode !== "tools"),
   );
-  // `focus=1` should focus the home composer, not the replacement follow-up
-  // dock after an Answer submission. Carrying that focus across the portal
-  // swap pins both scroll-hide edges indefinitely.
   const shouldAutoFocusComposer = focusSearch && !(searchMode === "answer" && modeSearchSubmitted);
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sources, setSources] = useState<SearchResult[]>([]);
@@ -1500,9 +1497,6 @@ export function ClinicalDashboard({
 
   useEffect(() => {
     if (!shouldAutoFocusComposer) {
-      // Release only focus inherited from the submitted home composer. This
-      // effect runs on the home -> result transition; later user-initiated
-      // focus does not change its dependencies and remains safely pinned.
       if (document.activeElement === composerInputRef.current) composerInputRef.current?.blur();
       return undefined;
     }
@@ -2622,7 +2616,6 @@ export function ClinicalDashboard({
   }
 
   function focusComposerInput(retainTarget = false) {
-    // Bind auto-focus retries to the home node so its replacement never inherits focus.
     const requestedInput = retainTarget ? composerInputRef.current : null;
     const resolveInput = () => (retainTarget ? requestedInput : composerInputRef.current);
     window.requestAnimationFrame(() => {
