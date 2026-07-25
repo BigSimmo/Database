@@ -108,7 +108,12 @@ describe("mobile composer reserve contract", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
     expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
-    expect(dashboard).toContain("const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId);");
+    expect(dashboard).toContain(
+      'const heroComposerBreakpoint = showDesktopHomeComposer || showAnswerHome ? "all" : "sm-up";',
+    );
+    expect(dashboard).toContain(
+      'const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
+    );
     expect(dashboard).not.toContain("const heroOwnsPhoneComposer = showDesktopHomeComposer || showAnswerHome;");
     // Prescribing leaves MedicationHome as soon as the draft query is non-empty;
     // keep the hero slot (and idle phone reserve) only while that home mounts.
