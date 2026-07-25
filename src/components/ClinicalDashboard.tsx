@@ -360,6 +360,10 @@ export function ClinicalDashboard({
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
     Boolean(autoRunSearch && initialQuery.trim() && initialSearchMode !== "tools"),
   );
+  // `focus=1` should focus the home composer, not the replacement follow-up
+  // dock after an Answer submission. Carrying that focus across the portal
+  // swap pins both scroll-hide edges indefinitely.
+  const shouldAutoFocusComposer = focusSearch && !(searchMode === "answer" && modeSearchSubmitted);
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sources, setSources] = useState<SearchResult[]>([]);
   // Answer-mode conversation thread. `priorAnswerTurns` holds completed
@@ -1495,11 +1499,17 @@ export function ClinicalDashboard({
   }, []);
 
   useEffect(() => {
-    if (!focusSearch) return undefined;
+    if (!shouldAutoFocusComposer) {
+      // Release only focus inherited from the submitted home composer. This
+      // effect runs on the home -> result transition; later user-initiated
+      // focus does not change its dependencies and remains safely pinned.
+      if (document.activeElement === composerInputRef.current) composerInputRef.current?.blur();
+      return undefined;
+    }
     focusComposerInput();
     const timeout = window.setTimeout(focusComposerInput, 500);
     return () => window.clearTimeout(timeout);
-  }, [focusSearch]);
+  }, [shouldAutoFocusComposer]);
 
   // Abort any in-flight answer/library search if the dashboard unmounts.
   useEffect(() => {
@@ -3361,7 +3371,7 @@ export function ClinicalDashboard({
           }}
           queryModeOptions={clinicalQueryModeOptions}
           queryInputRef={composerInputRef}
-          queryInputAutoFocus={focusSearch}
+          queryInputAutoFocus={shouldAutoFocusComposer}
           recentQueries={recentQueries}
           commandScopes={commandScopes}
           onCommandScopesChange={setCommandScopes}
