@@ -252,10 +252,20 @@ function GlobalStandaloneSearchShellClient({
   const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
   const phoneScrollHide = useScrollHideReporter();
   const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
+  const resetPhoneScrollHideRef = useRef(phoneScrollHide.reset);
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
   useEffect(() => {
     reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
-  }, [phoneScrollHide.reportScroll]);
+    resetPhoneScrollHideRef.current = phoneScrollHide.reset;
+  }, [phoneScrollHide.reportScroll, phoneScrollHide.reset]);
+  // Mode homes share one shell scroller. Reset scroll + collapsed chrome when
+  // the route changes so /services → /dsm does not open mid-page with a hidden header.
+  useEffect(() => {
+    resetPhoneScrollHideRef.current();
+    setBottomComposerHidden(false);
+    const main = document.getElementById("main-content");
+    if (main instanceof HTMLElement) main.scrollTop = 0;
+  }, [pathname]);
   const visibleShellModes = useMemo(() => {
     const modes = visibleAppModeDefinitions();
     if (!availableModeIds?.length) return modes;

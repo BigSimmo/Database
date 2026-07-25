@@ -1896,10 +1896,10 @@ export function MasterSearchHeader({
 
       {searchComposerVisible ? (
         <>
-          {(desktopHomeComposerActive && desktopHomeComposerHost) ||
-          (desktopHomeComposerSlotId && !desktopHomeComposerFallback)
-            ? null
-            : renderSearchComposer("default")}
+          {/* Keep the default composer visible until the hero portal is actually
+              attached. Hiding on slotId alone left a null gap while the mode-home
+              slot remounted / MutationObserver rebound (mode-switch flicker). */}
+          {desktopHomeComposerActive && desktopHomeComposerHost ? null : renderSearchComposer("default")}
           {desktopHomeComposerActive && desktopHomeComposerHost
             ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
             : null}

@@ -277,7 +277,20 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     return () => window.cancelAnimationFrame(frame);
   }, [allowAllBreakpoints]);
 
-  return { hidden: active && hidden, reportScroll };
+  // Shared shell keeps this reporter across namespaced mode homes. Without an
+  // explicit reset, a scrolled/collapsed phone surface carries scrollTop +
+  // hidden chrome into the next mode and reads as a stuck mid-page resize.
+  const reset = useCallback(() => {
+    hiddenRef.current = false;
+    lastOffsetRef.current = 0;
+    directionRef.current = null;
+    directionTravelRef.current = 0;
+    scrollSourceRef.current = null;
+    hasScrollSourceRef.current = false;
+    setHidden(false);
+  }, []);
+
+  return { hidden: active && hidden, reportScroll, reset };
 }
 
 interface UseHideOnScrollOptions {

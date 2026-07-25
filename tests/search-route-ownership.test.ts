@@ -91,4 +91,41 @@ describe("shared-search route ownership", () => {
       /function changeMode\(mode: AppModeId\) \{[\s\S]*?setSearchMode\(mode\);[\s\S]*?navigateToMode\(mode\);/,
     );
   });
+
+  it("resets shared phone scroll chrome when the pathname changes", () => {
+    const shellSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
+      "utf8",
+    );
+    const hideSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/use-hide-on-scroll.ts"),
+      "utf8",
+    );
+    expect(hideSource).toContain("const reset = useCallback");
+    expect(hideSource).toMatch(/return \{ hidden: active && hidden, reportScroll, reset \}/);
+    expect(shellSource).toContain("resetPhoneScrollHideRef.current()");
+    expect(shellSource).toMatch(/main\.scrollTop = 0[\s\S]*\}, \[pathname\]\)/);
+  });
+
+  it("keeps the default composer until the hero portal host attaches", () => {
+    const headerSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
+      "utf8",
+    );
+    expect(headerSource).not.toContain("desktopHomeComposerSlotId && !desktopHomeComposerFallback");
+    expect(headerSource).toMatch(
+      /desktopHomeComposerActive && desktopHomeComposerHost\s*\?\s*null\s*:\s*renderSearchComposer\("default"\)/,
+    );
+  });
+
+  it("leaves the dashboard shell without eager chrome thrash", () => {
+    const dashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+    expect(dashboardSource).toContain("isDashboardModeHref");
+    expect(dashboardSource).toMatch(
+      /function selectSearchMode\(mode: AppModeId\) \{[\s\S]*?if \(!isDashboardModeHref\(href\)\) \{[\s\S]*?router\.push\(href\);\n      return;/,
+    );
+    expect(dashboardSource).toMatch(
+      /function crossModeSearch\(mode: AppModeId, crossQuery: string\) \{[\s\S]*?if \(!isDashboardModeHref\(href\)\) \{[\s\S]*?router\.push\(href\);\n      return;/,
+    );
+  });
 });

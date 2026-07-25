@@ -2298,6 +2298,20 @@ export function ClinicalDashboard({
       openAccountSetup("favourites");
       return;
     }
+    const href = appModeHomeHref(mode, {
+      query: crossQuery,
+      focus: true,
+      run: true,
+      queryMode,
+      scopeFilters,
+    });
+    // Leaving the dashboard shell: navigate only — eager setSearchMode flipped
+    // overlay/hero/dock chrome for a frame before ClinicalDashboard unmounted.
+    if (!isDashboardModeHref(href)) {
+      modeChangeFromUiRef.current = true;
+      router.push(href);
+      return;
+    }
     modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setCommandScopes([]);
@@ -2320,7 +2334,10 @@ export function ClinicalDashboard({
       setMedicationSearchQuery(crossQuery);
     }
     setSearchMode(mode);
-    router.push(appModeHomeHref(mode, { query: crossQuery, focus: true, run: true, queryMode, scopeFilters }));
+    router.push(href);
+    window.requestAnimationFrame(() => {
+      mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() });
+    });
   }
 
   async function submitAnswerFeedback(feedbackType: AnswerFeedbackType) {
@@ -2618,6 +2635,11 @@ export function ClinicalDashboard({
     setDocumentMatches([]);
     setSearchMode(mode);
     router.push(href);
+    // Dashboard-internal mode flips keep the same scroller; jump to top so
+    // Answer ↔ Documents does not inherit a mid-page offset + collapsed chrome.
+    window.requestAnimationFrame(() => {
+      mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() });
+    });
   }
 
   function focusComposerInput() {

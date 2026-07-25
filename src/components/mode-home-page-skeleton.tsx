@@ -25,7 +25,10 @@ export function ModeHomePageSkeleton() {
 
 export function ModeHomeRouteLoading() {
   return (
-    <div className="grid min-h-[calc(100dvh-13.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] items-center justify-items-center bg-[color:var(--background)] sm:min-h-[calc(100dvh-var(--shell-header-h))]">
+    // Match the live shell canvas (header token + idle content pad), not a
+    // larger 13.5rem chrome budget — that taller skeleton jumped when the
+    // real mode home mounted inside GlobalSearchShell.
+    <div className="grid min-h-[calc(100dvh-var(--shell-header-h))] items-center justify-items-center bg-[color:var(--background)]">
       <ModeHomePageSkeleton />
     </div>
   );
