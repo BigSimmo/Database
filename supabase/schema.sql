@@ -1,4 +1,4 @@
--- Medical RAG Knowledge Base schema.
+﻿-- Medical RAG Knowledge Base schema.
 -- Run this in the Supabase SQL editor or with the Supabase CLI.
 -- Tables are RLS protected; the local Next.js API and worker use the service role.
 --
@@ -3476,7 +3476,7 @@ grant execute on function public.purge_expired_rag_query_misses(integer) to serv
 do $$
 begin
   execute format('alter database %I set app.ingestion_worker_base_url = %L',
-                 current_database(), '[REDACTED]');
+                 current_database(), 'https://sjrfecxgysukkwxsowpy.supabase.co');
 exception
   when insufficient_privilege then
     raise notice 'Skipping ALTER DATABASE SET app.ingestion_worker_base_url (insufficient privilege on hosted Supabase).';
@@ -3506,7 +3506,7 @@ begin
 
   v_base_url := coalesce(
     nullif(current_setting('app.ingestion_worker_base_url', true), ''),
-    '[REDACTED]'
+    'https://sjrfecxgysukkwxsowpy.supabase.co'
   );
 
   select "net"."http_post"(
@@ -9135,3 +9135,13 @@ begin
   end if;
 end;
 $$;
+
+-- Explicit function revokes (ISSUE-05)
+revoke execute on function public.detect_legacy_ivfflat_indexes() from public, anon, authenticated;
+revoke execute on function public.document_summary_text(uuid) from public, anon, authenticated;
+revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
+revoke execute on function public.set_document_embedding_field_content_hash() from public, anon, authenticated;
+grant execute on function public.detect_legacy_ivfflat_indexes() to service_role;
+grant execute on function public.document_summary_text(uuid) to service_role;
+grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;
+grant execute on function public.set_document_embedding_field_content_hash() to service_role;
