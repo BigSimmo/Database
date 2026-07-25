@@ -58,6 +58,21 @@ Full audit trail: `docs/branch-review-ledger.md` (2026-07-20 rows), PRs #1003–
 5. **Honest sizing:** the prize is rank depth on 3–4 already-passing cases (~0.03–0.08 mrr).
    Weigh against the demonstrated regression risk before attempting at all.
 
+## Refutation 3 — governance metadata ranking penalties/boosts: measured regression (do not implement)
+
+Ledger `#032` / source-governance audit (PR #1051) items that look like “gaps” but are **deliberate, measured non-features**:
+
+- `review_due` carries **no** ranking penalty
+- `unknownCurrentnessPenalty` ships at **0**
+- `selectBestSourceRecommendation` **ignores** governance metadata for ordering
+
+**Do not implement blanket governance ranking penalties or boosts.**
+
+- **Measured harm (2026-07-02):** golden retrieval regressed to 16/23 (doc-recall@5 1.0→0.76, mrr 0.75→0.64) when metadata boosts/penalties reordered selection.
+- **Why it fails here:** relevance scores saturate at the clamp, so stacked metadata swings override lexical relevance; the corpus is only partially enriched and `normalizeSourceMetadata` coerces unenriched docs to `unknown`/`unverified` — **unknown ≠ bad**. Even governance-as-tiebreak buried correct unenriched docs (three designs bisected).
+- **Standing guard:** `tests/retrieval-selection.test.ts` keeps relevance ordering and asserts a higher-relevance `review_due`/`unverified` source outranks a lower-relevance `current`/`reviewed` one (`docs/rag-hybrid-findings-and-todo.md` item 20).
+- **If ever revisited:** only via **RC8 — source-strength as a filter, not a penalty/boost in selection ordering**, gated on `eval:retrieval:quality` 36/36 plus an approved live canary pair. Prompt-side governance caveats are a separate generation-surface item (`#033`), not a ranking change.
+
 ## Related follow-up plans
 
 - **Word-boundary content matcher — ✅ IMPLEMENTED (2026-07-20, same-day follow-up).**

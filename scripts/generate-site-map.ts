@@ -122,7 +122,7 @@ const apiDescriptions: Record<string, string> = {
   "/api/ingestion/jobs": "Ingestion job collection.",
   "/api/ingestion/jobs/[id]/retry": "Retry ingestion job.",
   "/api/ingestion/quality": "Ingestion quality reporting.",
-  "/api/jobs": "Job state.",
+  "/api/jobs": "Administrator/ops job listing (not a client product API; see docs/api-jobs-ops-surface.md).",
   "/api/local-project-id": "Local project identity guard.",
   "/api/registry/records": "Registry record collection.",
   "/api/registry/records/[slug]": "Registry record detail.",
