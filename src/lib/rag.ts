@@ -4171,7 +4171,9 @@ ${qualityRetryInstruction}`
           schemaName: "clinical_rag_answer",
           instructions: answerInstructions,
           promptCacheKey: ragAnswerPromptVersion,
-          timeoutMs: routeDeadline.requestTimeoutMs(env.OPENAI_ANSWER_TIMEOUT_MS),
+          // Leave enough of the shared route budget for deterministic fallback,
+          // verification, and response finalization when the provider times out.
+          timeoutMs: routeDeadline.requestTimeoutMs(env.OPENAI_ANSWER_TIMEOUT_MS, 750),
           maxRetries: 0,
           reasoningEffort: useStrongReasoning
             ? strongReasoningEffortForQueryClass(queryClass, env.OPENAI_STRONG_REASONING_EFFORT)
@@ -4882,7 +4884,11 @@ ${qualityRetryInstruction}`
     // Generated synthesis has already failed, so do not stitch dose or threshold figures
     // across fallback chunks. Prefer the first individually complete candidate that passes
     // every extractive and numeric safety gate.
-    if (extractiveFallbackAnswer && (queryClass === "medication_dose_risk" || queryClass === "table_threshold")) {
+    if (
+      extractiveFallbackAnswer &&
+      (queryClass === "table_threshold" ||
+        (queryClass === "medication_dose_risk" && isMedicationDoseEvidenceQuery(args.query)))
+    ) {
       extractiveFallbackAnswer =
         generationFallbackResults
           .map((result) => retainCitedExtractiveFallbackEvidence(buildExtractiveFallbackCandidate([result])))

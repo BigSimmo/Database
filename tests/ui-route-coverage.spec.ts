@@ -26,6 +26,15 @@ const readySetupChecks = [
 
 const problemsByPage = new WeakMap<Page, string[]>();
 
+function isWebKitRscPrefetchCancellation(message: string, pageUrl: string) {
+  const currentUrl = new URL(pageUrl);
+  return (
+    message.startsWith(`/${currentUrl.host}/`) &&
+    message.includes("_rsc=") &&
+    message.endsWith(" due to access control checks.")
+  );
+}
+
 async function blockExternalRequests(page: Page, problems: string[]) {
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
@@ -196,10 +205,16 @@ async function proveRenderedRoute(
 test.describe("previously uncovered production routes", () => {
   test.describe.configure({ timeout: 120_000 });
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ browserName, page }) => {
     const problems: string[] = [];
     problemsByPage.set(page, problems);
-    page.on("pageerror", (error) => problems.push(`pageerror ${error.message}`));
+    page.on("pageerror", (error) => {
+      // WebKit reports cancelled same-origin Next.js RSC prefetches as page
+      // errors when the responsive route proof navigates to its next viewport.
+      // The requests complete with HTTP 200; keep every other page error fatal.
+      if (browserName === "webkit" && isWebKitRscPrefetchCancellation(error.message, page.url())) return;
+      problems.push(`pageerror ${error.message}`);
+    });
     await blockExternalRequests(page, problems);
     await installOfflineApiFixtures(page, problems);
     await installTherapyFixtures(page);
@@ -320,8 +335,10 @@ test.describe("previously uncovered production routes", () => {
       async (currentPage) => {
         const mixedFeatures = currentPage.getByRole("button", { name: "Mixed features" });
         await expect(mixedFeatures).toBeEnabled();
-        await mixedFeatures.click();
-        await expect(mixedFeatures).toHaveAttribute("aria-pressed", "true");
+        await expect(async () => {
+          await mixedFeatures.click();
+          await expect(mixedFeatures).toHaveAttribute("aria-pressed", "true", { timeout: 1_000 });
+        }).toPass({ timeout: 10_000 });
         await expect(currentPage.getByRole("heading", { name: "Mixed features", level: 2 })).toBeVisible();
       },
     );

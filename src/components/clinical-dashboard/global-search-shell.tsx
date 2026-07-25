@@ -398,7 +398,6 @@ function GlobalStandaloneSearchShellClient({
     navigateToMode(searchMode, {
       query: trimmedQuery || undefined,
       run: Boolean(trimmedQuery),
-      focus: true,
     });
   }
 

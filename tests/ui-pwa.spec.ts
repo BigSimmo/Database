@@ -1,5 +1,7 @@
 import { expect, test, type BrowserContext, type Page } from "playwright/test";
 
+test.use({ serviceWorkers: "allow" });
+
 const PWA_ENTRY = "/?pwa-dev=1";
 const WORKER_PATH = "/sw.js";
 const PWA_CACHE_PREFIX = "clinical-kb-pwa-";

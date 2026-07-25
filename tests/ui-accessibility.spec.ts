@@ -253,7 +253,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
-  test("solid-button label tokens stay legible with forced colors", async ({ page }) => {
+  test("solid-button label tokens stay legible with forced colors", async ({ page, browserName }) => {
     // Chromium paints a Canvas backplate behind every glyph run in forced-colors
     // mode: a label whose color resolves into the Canvas/ButtonFace family
     // disappears into its own backplate (axe cannot see this — it reads CSS,
@@ -290,8 +290,14 @@ test.describe("Clinical KB accessibility coverage", () => {
     });
 
     expect(buttonLabelColor).not.toBe(canvas);
-    for (const [token, color] of tokenColors) {
-      expect(`${token}: ${color}`).not.toBe(`${token}: ${canvas}`);
+    // WebKit's forced-colors emulation resolves system color keywords read
+    // through custom properties to Canvas even when the rendered control is
+    // correctly auto-adjusted. Keep the real button assertion above on every
+    // engine; apply the lower-level token probe only where it is meaningful.
+    if (browserName !== "webkit") {
+      for (const [token, color] of tokenColors) {
+        expect(`${token}: ${color}`).not.toBe(`${token}: ${canvas}`);
+      }
     }
   });
 

@@ -86,6 +86,20 @@ describe("broad document-answer citation coverage", () => {
     expect(reason).toBe("insufficient_broad_citation_coverage");
   });
 
+  it("rejects a one-citation clinical escalation answer when more evidence is available", () => {
+    const reason = generatedAnswerQualityFailureReason(
+      modelAnswer({
+        answer: "Neuroleptic side effects should be escalated when severe symptoms or red flags emerge.",
+        citations: [{ chunk_id: "side-effect-actions" }] as RagAnswer["citations"],
+        sources: [{ id: "side-effect-actions" }, { id: "side-effect-red-flags" }] as RagAnswer["sources"],
+      }),
+      "When should neuroleptic side effects be escalated?",
+      "medication_dose_risk" satisfies RagQueryClass,
+    );
+
+    expect(reason).toBe("insufficient_clinical_risk_citation_coverage");
+  });
+
   it("allows a single directly supporting chunk when no second source chunk is available", () => {
     const reason = generatedAnswerQualityFailureReason(
       modelAnswer({

@@ -28,8 +28,10 @@ describe("RAG route deadlines", () => {
     const deadline = createAnswerRouteDeadline({ routeMode: "fast", startedAt });
 
     expect(deadline.requestTimeoutMs(30_000)).toBe(15_000);
+    expect(deadline.requestTimeoutMs(30_000, 750)).toBe(14_250);
     await vi.advanceTimersByTimeAsync(10_000);
     expect(deadline.requestTimeoutMs(30_000)).toBe(5_000);
+    expect(deadline.requestTimeoutMs(30_000, 750)).toBe(4_250);
 
     const pending = deadline.race(new Promise<never>(() => undefined));
     const rejection = expect(pending).rejects.toBeInstanceOf(AnswerRouteDeadlineExceededError);

@@ -216,7 +216,11 @@ export function buildRetrievalQueryVariants(
   if (/\bpatient property\b/i.test(query)) {
     addVariant("patient property");
   }
-  if (/\bclozapine\b/i.test(query) && /\b(?:anc|fbc|wbc|neutrophil|white cell)\b/i.test(query)) {
+  const hasClozapineBloodIntent =
+    (analysis.medications.includes("clozapine") || analysis.canonicalTerms.includes("clozapine")) &&
+    (analysis.acronyms.some((term) => /^(?:anc|fbc|wbc)$/.test(term)) ||
+      /\b(?:anc|fbc|wbc|neutrophil|white cell)\b/i.test(query));
+  if (hasClozapineBloodIntent) {
     if (/\b(?:threshold|cut[\s-]?off|withhold|withheld|withholding|cease|stop|stopped|discontinue)\b/i.test(query)) {
       addVariant("clozapine blood results amber red range");
     }

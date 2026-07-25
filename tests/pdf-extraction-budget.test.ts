@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import PDFDocument from "pdfkit";
 import { afterEach, describe, expect, it } from "vitest";
-import { extractPdf, runPythonPdfExtractor } from "@/lib/extractors/document";
+import { extractPdf, isUsableFallbackPdfImage, runPythonPdfExtractor } from "@/lib/extractors/document";
 import {
   PDF_EXTRACTION_BUDGET,
   PdfExtractionBudgetTracker,
@@ -31,6 +31,16 @@ afterEach(async () => {
 });
 
 describe("PDF extraction budgets", () => {
+  it("skips malformed fallback images without aborting extraction", () => {
+    const valid = { data: new Uint8Array([1]), width: 10, height: 20 };
+    expect(isUsableFallbackPdfImage(valid)).toBe(true);
+    expect(isUsableFallbackPdfImage({ ...valid, data: undefined })).toBe(false);
+    expect(isUsableFallbackPdfImage({ ...valid, data: new Uint8Array() })).toBe(false);
+    expect(isUsableFallbackPdfImage({ ...valid, width: 0 })).toBe(false);
+    expect(isUsableFallbackPdfImage({ ...valid, width: Number.NaN })).toBe(false);
+    expect(isUsableFallbackPdfImage({ ...valid, height: Number.POSITIVE_INFINITY })).toBe(false);
+  });
+
   it("accepts exact aggregate boundaries and rejects the first byte or item beyond them", () => {
     const limits = {
       ...PDF_EXTRACTION_BUDGET,

@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import type { Session } from "@supabase/supabase-js";
+import { AuthRetryableFetchError, type Session } from "@supabase/supabase-js";
 import {
   authorizationHeadersForAccessToken,
   isDefinitiveAuthValidationError,
   isUsableBrowserSupabaseKey,
   resolveInitialAuthState,
+  shouldFailInitialSessionVerification,
 } from "../src/lib/supabase/client";
 
 function fakeSession(userId: string, accessToken = "access-token"): Session {
@@ -47,6 +48,14 @@ describe("browser auth helpers", () => {
     expect(isDefinitiveAuthValidationError({ code: "session_not_found", message: "Session not found" })).toBe(true);
     expect(isDefinitiveAuthValidationError({ status: 503, message: "Auth service unavailable" })).toBe(false);
     expect(isDefinitiveAuthValidationError(new TypeError("Failed to fetch"))).toBe(false);
+  });
+
+  it("fails initial verification only for unknown non-retryable errors", () => {
+    expect(shouldFailInitialSessionVerification(null)).toBe(false);
+    expect(shouldFailInitialSessionVerification(new AuthRetryableFetchError("Failed to fetch", 503))).toBe(false);
+    expect(shouldFailInitialSessionVerification({ status: 503, message: "Auth service unavailable" })).toBe(true);
+    expect(shouldFailInitialSessionVerification({ status: 401, message: "JWT expired" })).toBe(false);
+    expect(shouldFailInitialSessionVerification(new Error("Unexpected auth response"))).toBe(true);
   });
 });
 

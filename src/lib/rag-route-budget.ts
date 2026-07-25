@@ -24,7 +24,7 @@ export type AnswerRouteDeadline = {
   signal: AbortSignal;
   readonly deadlineExceeded: boolean;
   remainingMs(): number;
-  requestTimeoutMs(maximumMs: number): number;
+  requestTimeoutMs(maximumMs: number, reserveMs?: number): number;
   race<T>(promise: Promise<T>): Promise<T>;
   dispose(): void;
 };
@@ -83,9 +83,9 @@ export function createAnswerRouteDeadline(args: {
       return deadlineExceeded;
     },
     remainingMs,
-    requestTimeoutMs(maximumMs) {
+    requestTimeoutMs(maximumMs, reserveMs = 0) {
       throwIfAborted();
-      return Math.max(1, Math.min(maximumMs, remainingMs()));
+      return Math.max(1, Math.min(maximumMs, remainingMs() - Math.max(0, reserveMs)));
     },
     race<T>(promise: Promise<T>) {
       try {

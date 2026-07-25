@@ -22,7 +22,12 @@ const clinicalDocumentAliases: Record<string, string[]> = {
     "Active Community Patients in the Emergency Department",
     "Active Community Patients Emergency Department",
   ],
-  AdmissionCommunityPts: ["Admission of Community Patients", "Admission Community Patients"],
+  AdmissionCommunityPts: [
+    "Admission of Community Patients",
+    "Admission Community Patients",
+    "Admission to Discharge for Community Mental Health",
+    "Referral Admission and Discharge Mental Health Hospital in the Home",
+  ],
   AgitationArousalPharmaMgt: [
     "Agitation and Arousal Pharmacological Management",
     "Pharmacological Management of Acute Agitation and Arousal",

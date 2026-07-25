@@ -149,21 +149,30 @@ export function Sheet({
         panelRef.current?.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
         ) ?? [],
-      ).filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true");
+      ).filter(
+        (element) =>
+          !element.hasAttribute("disabled") &&
+          element.getAttribute("aria-hidden") !== "true" &&
+          element.getClientRects().length > 0,
+      );
       if (focusable.length === 0) return;
 
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (panelRef.current && !panelRef.current.contains(document.activeElement)) {
-        event.preventDefault();
-        (event.shiftKey ? last : first).focus();
-      } else if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
+      const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const currentIndex = activeElement ? focusable.indexOf(activeElement) : -1;
+      const nextIndex =
+        currentIndex === -1
+          ? event.shiftKey
+            ? focusable.length - 1
+            : 0
+          : event.shiftKey
+            ? (currentIndex - 1 + focusable.length) % focusable.length
+            : (currentIndex + 1) % focusable.length;
+
+      // Move focus explicitly instead of relying on platform Tab preferences.
+      // Firefox can otherwise leave programmatically focused buttons out of the
+      // native sequence, which makes the modal trap inconsistent by browser.
+      event.preventDefault();
+      focusable[nextIndex].focus();
     }
 
     window.addEventListener("keydown", onKeyDown);

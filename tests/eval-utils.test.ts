@@ -54,6 +54,30 @@ describe("RAG eval source identity matching", () => {
     expect(coverage.missingFiles).toEqual(["MHSP.Discharge.pdf"]);
   });
 
+  it("maps legacy community-admission expectations to current combined policies", () => {
+    const coverage = expectedFileCoverage(
+      ["MHSP.AdmissionCommunityPts.pdf"],
+      [
+        {
+          title: "Admission to Discharge for Community Mental Health",
+          file_name: "Admission to Discharge for Community Mental Health (NMHS).pdf",
+        },
+        {
+          title: "Referral, Admission and Discharge - Mental Health Hospital in the Home",
+          file_name:
+            "Referral, Admission and Discharge - Mental Health Hospital in the Home (MHHITH) Policy and Procedure (RKPG).pdf",
+        },
+      ],
+      5,
+    );
+
+    expect(coverage).toMatchObject({
+      matchedFiles: ["MHSP.AdmissionCommunityPts.pdf"],
+      missingFiles: [],
+      allHit: true,
+    });
+  });
+
   it("fails supported clinical eval cases when numeric faithfulness warnings are present", () => {
     const testCase: RagEvalCase = {
       id: "dose-warning",

@@ -43,6 +43,10 @@ export default defineConfig({
     baseURL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    // Page routes cannot intercept requests made by a controlling service
+    // worker. Block workers for deterministic API mocks; ui-pwa.spec.ts opts
+    // back in explicitly for the dedicated worker lifecycle coverage.
+    serviceWorkers: "block",
     // Disable CSS/web animations suite-wide so a click can't land mid-transition
     // on a moving target (documented races in ui-stress/ui-smoke). The dedicated
     // reduced-motion a11y spec emulates a per-test mode, so suite-wide settings

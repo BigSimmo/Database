@@ -244,13 +244,17 @@ const clinicalDocumentAliases: Record<string, string[]> = {
     "Active Community Patients in the Emergency Department",
     "Active Community Patients Emergency Department",
   ],
+  "Alcohol withdrawal": [
+    "Alcohol and Other Drugs - Addiction, Toxicity and Withdrawal",
+    "Alcohol and Other Drugs Management Guideline",
+  ],
   ClozapinePresAdminMonitor: [
     "Clozapine Prescribing Administration Monitoring",
     "Clozapine Prescribing Administration and Monitoring",
     "Clozapine Prescribing Administering Monitoring",
     "Clozapine Prescribing Administering Monitoring and Capillary Sampling",
   ],
-  PtSafetyPlan: ["Patient Safety Plan"],
+  PtSafetyPlan: ["Patient Safety Plan", "Safety Planning", "Safety Plan"],
 };
 
 const clinicalContentAliases: Record<string, string[]> = {
@@ -291,7 +295,7 @@ function textContainsClinicalTerm(text: string, term: string) {
   const normalizedTerm = normalized(term);
   if (!normalizedTerm) return false;
   const escaped = normalizedTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-  return new RegExp(`(?:^|\\s)${escaped}(?:$|\\s)`).test(text);
+  return new RegExp(`(?:^|[^a-z0-9])${escaped}(?=$|[^a-z0-9])`).test(text);
 }
 
 function resultDocumentText(result: SearchResult) {

@@ -63,6 +63,8 @@ describe("retrieval query variants", () => {
     expect(variants[0]).toContain("clozapine");
     expect(variants.join(" ")).toContain("fbc");
     expect(variants.join(" ")).toContain("anc");
+    expect(variants).toContain("clozapine blood results amber red range");
+    expect(variants.indexOf("clozapine blood results amber red range")).toBeLessThan(maxTextRpcQueryVariants);
     expect(variants.length).toBeLessThanOrEqual(4);
   });
 

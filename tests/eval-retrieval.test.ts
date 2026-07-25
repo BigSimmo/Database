@@ -447,6 +447,52 @@ describe("golden retrieval eval helpers", () => {
     expect(evaluated.failures).toEqual([]);
   });
 
+  it("recognizes current safety-plan and alcohol-withdrawal titles", () => {
+    const safetyPlan = evaluateGoldenRetrievalCase({
+      testCase: {
+        id: "safety-plan-title",
+        query: "What should a patient safety plan include?",
+        expectedQueryClass: "document_lookup",
+        expectedDocumentSubstrings: ["PtSafetyPlan"],
+        expectedContentTerms: ["safety", "plan"],
+        topK: 8,
+        expectTableEvidence: false,
+      },
+      results: [
+        result({
+          title: "Safety Planning Policy and Procedure (RKPG)",
+          file_name: "Safety Planning Policy and Procedure (RKPG).pdf",
+          content: "A safety plan records agreed actions.",
+        }),
+      ],
+      telemetry: { query_class: "document_lookup", retrieval_strategy: "text_fast_path" },
+      latencyMs: 10,
+    });
+    const alcoholWithdrawal = evaluateGoldenRetrievalCase({
+      testCase: {
+        id: "ciwa-title",
+        query: "What CIWA-Ar score threshold requires drug treatment in alcohol withdrawal?",
+        expectedQueryClass: "table_threshold",
+        expectedDocumentSubstrings: ["Alcohol withdrawal"],
+        expectedContentTerms: ["alcohol", "withdrawal", ["ciwa", "score", "threshold"]],
+        topK: 12,
+        expectTableEvidence: false,
+      },
+      results: [
+        result({
+          title: "Alcohol and Other Drugs - Addiction, Toxicity and Withdrawal",
+          file_name: "Alcohol and Other Drugs - Addiction, Toxicity and Withdrawal.pdf",
+          content: "Use the CIWA-Ar treatment table for alcohol withdrawal.",
+        }),
+      ],
+      telemetry: { query_class: "table_threshold", retrieval_strategy: "text_fast_path" },
+      latencyMs: 10,
+    });
+
+    expect(safetyPlan.failures).toEqual([]);
+    expect(alcoholWithdrawal.failures).toEqual([]);
+  });
+
   it("reports failed cases with top result summaries", () => {
     const evaluated = evaluateGoldenRetrievalCase({
       testCase: {

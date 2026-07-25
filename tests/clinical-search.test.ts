@@ -212,6 +212,13 @@ describe("clinical search query normalization", () => {
     ).toBe("agitation arousal pharmacological management");
   });
 
+  it("anchors neuroleptic side-effect escalation to the canonical document title", () => {
+    expect(buildClinicalTextSearchQuery("When should neuroleptic side effects be escalated?")).toBe(
+      "neuroleptic side effect",
+    );
+    expect(classifyRagQuery("When should neuroleptic side effects be escalated?").queryClass).toBe("document_lookup");
+  });
+
   it("keeps typo-heavy agitation dosing queries anchored to the local pharmacological chart", () => {
     expect(
       buildClinicalTextSearchQuery("What agitaton and arousl dosing guidance applies to psychiatric inpatients?"),
@@ -239,6 +246,31 @@ describe("clinical search query normalization", () => {
         "Which observations and blood monitoring are needed while a patient is taking clozapine?",
       ),
     ).toBe("clozapine monitoring");
+  });
+
+  it("preserves structured evidence terms for clozapine blood-action threshold queries", () => {
+    expect(buildClinicalTextSearchQuery("What ANC or FBC threshold should withhold clozapine?")).toBe(
+      "clozapine monitoring anc fbc red",
+    );
+  });
+
+  it("requires the named medication, not generic monitoring language, for medication context", () => {
+    const ranked = rankClinicalResults("What monitoring is required for lithium therapy?", [
+      result({
+        id: "unrelated-monitoring",
+        title: "Methotrexate Monitoring",
+        content: "Monitor therapy with regular blood tests.",
+        hybrid_score: 0.8,
+      }),
+      result({
+        id: "lithium-monitoring",
+        title: "Lithium Clinical Guideline",
+        content: "Monitor lithium levels, renal function, and thyroid function.",
+        hybrid_score: 0.65,
+      }),
+    ]);
+
+    expect(ranked.map((item) => item.id)).toEqual(["lithium-monitoring", "unrelated-monitoring"]);
   });
 
   it("anchors generic discharge summaries to mental health discharge sources", () => {

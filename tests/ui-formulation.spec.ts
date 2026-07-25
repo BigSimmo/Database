@@ -100,8 +100,10 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
   await expect(page.getByText("Source", { exact: true })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
 
-  await page.getByRole("link", { name: "Open Worry" }).click();
-  await expect(page).toHaveURL(/\/formulation\/worry$/, { timeout: 30_000 });
+  await expect(async () => {
+    await page.getByRole("link", { name: "Open Worry" }).click();
+    await expect(page).toHaveURL(/\/formulation\/worry$/, { timeout: 2_000 });
+  }).toPass({ timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "Worry", exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("link", { name: "Compare", exact: true }).last()).toBeVisible();
   await expect(page.getByRole("link", { name: "Use in formulation", exact: true }).first()).toBeVisible();

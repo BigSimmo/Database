@@ -128,6 +128,11 @@ export function isDefinitiveAuthValidationError(error: unknown) {
   );
 }
 
+/** Retryable network failures keep a stored session; unknown failures still fail closed. */
+export function shouldFailInitialSessionVerification(error: unknown) {
+  return Boolean(error) && !isDefinitiveAuthValidationError(error) && !isAuthRetryableFetchError(error);
+}
+
 function authCallbackRedirect() {
   if (typeof window === "undefined") return undefined;
   return `${window.location.origin}${AUTH_CALLBACK_PATH}`;
@@ -179,7 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // as authenticated (or send a bad bearer token) on load.
         const [userResult, sessionResult] = await Promise.all([client.auth.getUser(), client.auth.getSession()]);
         if (!active) return;
-        if (userResult.error && !isDefinitiveAuthValidationError(userResult.error)) {
+        if (shouldFailInitialSessionVerification(userResult.error)) {
           setSession(null);
           setStatus("error");
           setNotice(null);

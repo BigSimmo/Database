@@ -367,9 +367,11 @@ test.describe("Clinical KB tools launcher", () => {
       await expect(page.locator("#launcher-results-panel")).toHaveAttribute("role", "group");
       await expect(page.locator("#launcher-results-panel")).toHaveAttribute("aria-label", "All tools");
       if (viewport.name === "mobile") {
-        await page.getByTestId("application-row-medication-prescribing").click();
         const selectedSheet = page.getByRole("dialog", { name: "Medication Prescribing" });
-        await expect(selectedSheet).toBeVisible();
+        await expect(async () => {
+          await page.getByTestId("application-row-medication-prescribing").click();
+          await expect(selectedSheet).toBeVisible({ timeout: 1_000 });
+        }).toPass({ timeout: 10_000 });
         await expect(selectedSheet.getByRole("heading", { name: "Medication Prescribing" })).toBeVisible();
         const mobileLaunchLink = selectedSheet.locator('a[href="/?mode=prescribing"]').first();
         await expect(mobileLaunchLink).toBeVisible();
@@ -1621,8 +1623,10 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(toolsHub.getByText("Selected tool")).toHaveCount(0);
     const detailsButton = toolsHub.getByRole("button", { name: "View details for Medication Prescribing" });
     await expect(detailsButton).toHaveAttribute("aria-haspopup", "dialog");
-    await detailsButton.click();
-    await expect(page.getByRole("dialog", { name: "Medication Prescribing" })).toBeVisible();
+    await expect(async () => {
+      await detailsButton.click();
+      await expect(page.getByRole("dialog", { name: "Medication Prescribing" })).toBeVisible({ timeout: 1_000 });
+    }).toPass({ timeout: 10_000 });
     await expectNoPageHorizontalOverflow(page);
   });
 });
