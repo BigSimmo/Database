@@ -1506,8 +1506,8 @@ export function ClinicalDashboard({
       if (document.activeElement === composerInputRef.current) composerInputRef.current?.blur();
       return undefined;
     }
-    focusComposerInput();
-    const timeout = window.setTimeout(focusComposerInput, 500);
+    focusComposerInput(true);
+    const timeout = window.setTimeout(() => focusComposerInput(true), 500);
     return () => window.clearTimeout(timeout);
   }, [shouldAutoFocusComposer]);
 
@@ -1546,7 +1546,7 @@ export function ClinicalDashboard({
       setLoading(false);
       setError(null);
       setAnswerProgress(null);
-      if (shouldFocusComposer) focusComposerInput();
+      if (shouldFocusComposer) focusComposerInput(true);
     });
     return () => window.cancelAnimationFrame(frame);
   }, [searchParams, clearDifferentialModeResultState]);
@@ -1566,7 +1566,7 @@ export function ClinicalDashboard({
       // run=1 URLs name the latest answered question; the composer stays empty
       // while an answer thread is active (including after localStorage restore).
       if (searchText && params.get("run") !== "1") setQuery(searchText);
-      if (shouldFocusComposer) focusComposerInput();
+      if (shouldFocusComposer) focusComposerInput(true);
     });
     return () => window.cancelAnimationFrame(frame);
   }, [clearDifferentialModeResultState]);
@@ -2621,10 +2621,19 @@ export function ClinicalDashboard({
     router.push(appModeHomeHref(mode, { queryMode, scopeFilters }));
   }
 
-  function focusComposerInput() {
+  function focusComposerInput(retainTarget = false) {
+    // Bind auto-focus retries to the home node so its replacement never inherits focus.
+    const requestedInput = retainTarget ? composerInputRef.current : null;
+    const resolveInput = () => (retainTarget ? requestedInput : composerInputRef.current);
     window.requestAnimationFrame(() => {
-      composerInputRef.current?.focus({ preventScroll: true });
-      window.setTimeout(() => composerInputRef.current?.focus({ preventScroll: true }), 150);
+      const input = resolveInput();
+      if (!input?.isConnected || composerInputRef.current !== input) return;
+      input.focus({ preventScroll: true });
+      window.setTimeout(() => {
+        const retryInput = resolveInput();
+        if (retryInput?.isConnected && composerInputRef.current === retryInput)
+          retryInput.focus({ preventScroll: true });
+      }, 150);
     });
   }
 

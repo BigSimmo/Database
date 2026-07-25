@@ -2146,6 +2146,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await scrollPrimarySurface(page, 60);
     await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+
+    await input.click();
+    await expect(input).toBeFocused();
   });
 
   test("recent searches appear on the answer home and re-run on tap", async ({ page }) => {
