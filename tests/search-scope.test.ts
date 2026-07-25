@@ -12,6 +12,7 @@ describe("search scope filters", () => {
       label_type: "service",
     }));
     const requestedRanges: Array<[string, number, number]> = [];
+    const requestedOrders: Array<[string, string, boolean]> = [];
 
     const from = (table: string) => {
       let start = 0;
@@ -22,7 +23,10 @@ describe("search scope filters", () => {
         is: () => builder,
         in: () => builder,
         or: () => builder,
-        order: () => builder,
+        order: (column: string, options?: { ascending?: boolean }) => {
+          requestedOrders.push([table, column, options?.ascending !== false]);
+          return builder;
+        },
         abortSignal: () => builder,
         range: (nextStart: number, nextEnd: number) => {
           start = nextStart;
@@ -48,6 +52,10 @@ describe("search scope filters", () => {
     expect(requestedRanges.filter(([table]) => table === "document_labels")).toEqual([
       ["document_labels", 0, 999],
       ["document_labels", 1_000, 1_999],
+    ]);
+    expect(requestedOrders.filter(([table]) => table === "document_labels")).toEqual([
+      ["document_labels", "id", true],
+      ["document_labels", "id", true],
     ]);
   });
 
