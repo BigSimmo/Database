@@ -2014,8 +2014,11 @@ export function MasterSearchHeader({
           aria-hidden="true"
           data-testid="chrome-safe-area-top"
           className={cn(
-            "pointer-events-none h-[var(--safe-area-top)] shrink-0 bg-[color:var(--background)]",
-            sticksAbovePhones && "sm:sticky sm:top-0 sm:z-[31]",
+            // relative + z above the collapsing header: the 0fr row still lets
+            // header#search's box extend upward into this band for layout, and
+            // without a higher stack the status-bar fill can lose to that paint.
+            "relative z-[32] h-[var(--safe-area-top)] shrink-0 bg-[color:var(--background)]",
+            sticksAbovePhones && "sm:sticky sm:top-0",
           )}
         />
         <div

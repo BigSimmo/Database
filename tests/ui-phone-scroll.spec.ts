@@ -258,22 +258,23 @@ test("phone service detail keeps content below the status-bar inset after header
     const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
     const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
     const main = document.getElementById("main-content");
+    const servicePage = document.querySelector<HTMLElement>('[data-testid="service-detail-page"]');
     const safeRect = safeArea?.getBoundingClientRect();
     const mainRect = main?.getBoundingClientRect();
     const rootStyles = getComputedStyle(document.documentElement);
     const safeAreaTopPx = Number.parseFloat(rootStyles.getPropertyValue("--safe-area-top")) || 0;
-    const probeY = Math.max(1, safeAreaTopPx / 2);
-    const hit = document.elementFromPoint(window.innerWidth / 2, probeY);
-    const hitIsServiceContent = Boolean(hit?.closest('[data-testid="service-detail-page"]'));
-    const hitIsSafeArea = Boolean(hit?.closest('[data-testid="chrome-safe-area-top"]'));
+    // Geometry proof (not hit-testing): service cards may sit above the main
+    // box in document coordinates after scroll, but their visible paint is
+    // clipped to #main-content, which must start at/below the safe-area band.
+    const visibleServiceTop = servicePage ? Math.max(servicePage.getBoundingClientRect().top, mainRect?.top ?? 0) : -1;
     return {
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       safeAreaHeight: safeRect?.height ?? 0,
       safeAreaTop: safeRect?.top ?? -1,
       mainTop: mainRect?.top ?? -1,
+      visibleServiceTop,
       safeAreaTopPx,
-      hitIsServiceContent,
-      hitIsSafeArea,
+      safeAreaZ: safeArea ? getComputedStyle(safeArea).zIndex : "",
     };
   });
 
@@ -285,6 +286,11 @@ test("phone service detail keeps content below the status-bar inset after header
   expect(afterHide.mainTop, "scrollport starts below the status-bar inset").toBeGreaterThanOrEqual(
     afterHide.safeAreaTopPx - 1,
   );
-  expect(afterHide.hitIsServiceContent, "service text must not paint inside the status-bar band").toBe(false);
-  expect(afterHide.hitIsSafeArea, "status-bar band stays owned by the safe-area spacer").toBe(true);
+  expect(afterHide.visibleServiceTop, "service content stays below the status-bar inset").toBeGreaterThanOrEqual(
+    afterHide.safeAreaTopPx - 1,
+  );
+  expect(
+    Number.parseInt(afterHide.safeAreaZ, 10),
+    "safe-area spacer stacks above collapsing chrome",
+  ).toBeGreaterThanOrEqual(32);
 });

@@ -66,9 +66,8 @@ describe("shared header hide/reveal wiring", () => {
     // under the system clock/signal icons on notched phones (service detail).
     expect(headerSource).toContain('data-testid="chrome-safe-area-top"');
     expect(headerSource).toContain("h-[var(--safe-area-top)]");
-    expect(headerSource).toContain(
-      'hideStrategy === "collapse" ? "pt-2" : "pt-[max(0.5rem,var(--safe-area-top))]"',
-    );
+    expect(headerSource).toContain("relative z-[32] h-[var(--safe-area-top)]");
+    expect(headerSource).toContain('hideStrategy === "collapse" ? "pt-2" : "pt-[max(0.5rem,var(--safe-area-top))]"');
     expect(behaviourDocSource).toContain("OS top safe-area band");
   });
 
