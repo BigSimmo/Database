@@ -163,6 +163,7 @@
     "cleanup:storage": "node scripts/run-tsx.mjs scripts/cleanup-storage.ts",
     "purge:query-logs": "node scripts/run-tsx.mjs scripts/purge-query-logs.ts",
     "audit:tables": "node scripts/run-tsx.mjs scripts/audit-tables.ts",
+    "audit:formatting-fixtures": "node scripts/run-tsx.mjs scripts/audit-formatting-fixtures.ts",
     "clean:artifacts": "npx rimraf test-output*.txt docs/archive/staging-tenancy-evidence-*",
     "samples": "node scripts/run-tsx.mjs scripts/generate-sample-documents.ts",
     "samples:check": "node scripts/run-tsx.mjs scripts/check-sample-extraction.ts",

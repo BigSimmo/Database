@@ -967,6 +967,33 @@ test.describe("Clinical KB tools launcher", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("services referral header and best-use guidance stay actionable", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
+
+    // Eyebrow copy is "Referral matches"; the H1 is "{n} referral match(es)".
+    await expect(page.getByText("Referral matches", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /\d+\s+referral match(?:es)?/i })).toBeVisible();
+    await expect(
+      page.getByText("Prioritised for crisis support, culturally safe access, and phone referral."),
+    ).toBeVisible();
+    await expect(page.getByRole("group", { name: "Quick service filters" })).toBeVisible();
+    await expect(page.getByText("Quick filters")).toBeVisible();
+
+    const culturallySafe = page.getByRole("button", { name: "Culturally safe" });
+    await expect(culturallySafe).toBeVisible();
+    await waitForReactEventHandler(culturallySafe);
+    await culturallySafe.click();
+    await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
+    await expect(page.getByText("Aboriginal and Torres Strait Islander-specific").first()).toBeVisible();
+
+    await page.getByTestId("service-search-result-13yarn").getByRole("link", { name: "Open 13YARN" }).click();
+    await expect(page).toHaveURL(/\/services\/13yarn$/);
+    await expect(page.getByText("Best use").first()).toBeVisible();
+    await expect(page.getByText(/crisis support/i).first()).toBeVisible();
+    await expectNoPageHorizontalOverflow(page);
+  });
+
   test("forms mode shows registry-backed form records without unsupported pathway claims", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await mockAnswerDashboardApi(page);
