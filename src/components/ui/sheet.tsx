@@ -259,7 +259,14 @@ export function Sheet({
         restoreTimers.timeout = window.setTimeout(() => {
           restoreTimers.timeout = null;
           if (typeof document === "undefined") return;
-          if (!restoreTarget.isConnected || document.activeElement === restoreTarget) {
+          // Only retry when focus fell through to the document body. If another
+          // surface (e.g. a Guide dialog opened from a phone menu sheet) already
+          // took focus, do not steal it back.
+          if (
+            !restoreTarget.isConnected ||
+            document.activeElement === restoreTarget ||
+            (document.activeElement !== document.body && document.activeElement != null)
+          ) {
             return;
           }
           restoreTarget.focus({ preventScroll: true });
