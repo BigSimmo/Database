@@ -85,9 +85,7 @@ test("phone Therapy section nav hides and returns with the universal header", as
 
   // Anchored: the portaled strip lives inside the collapse row, not sticky in content.
   await expect
-    .poll(async () =>
-      sectionNav.evaluate((node) => Boolean(node.closest('[data-testid="universal-header-collapse"]'))),
-    )
+    .poll(async () => sectionNav.evaluate((node) => Boolean(node.closest('[data-testid="universal-header-collapse"]'))))
     .toBe(true);
   await expect
     .poll(async () =>

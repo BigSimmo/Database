@@ -87,10 +87,10 @@ function readChromeState(page: Page): Promise<ChromeState> {
     const searchRect = search?.getBoundingClientRect();
     const searchOnScreen = Boolean(
       searchRect &&
-        searchRect.width > 0 &&
-        searchRect.height > 0 &&
-        searchRect.bottom > 0 &&
-        searchRect.top < window.innerHeight,
+      searchRect.width > 0 &&
+      searchRect.height > 0 &&
+      searchRect.bottom > 0 &&
+      searchRect.top < window.innerHeight,
     );
     return {
       offset: Math.round(mainScrolls && main ? main.scrollTop : window.scrollY),
@@ -212,9 +212,10 @@ for (const { name: sizeName, viewport } of breakpoints) {
 
       const scrolledDown = await readChromeState(page);
       expect(scrolledDown.hidden, "the top bar still hides").toBe(true);
-      expect(scrolledDown.hiddenBottomComposers, "no composer flips data-scroll-hidden above the phone breakpoint").toBe(
-        0,
-      );
+      expect(
+        scrolledDown.hiddenBottomComposers,
+        "no composer flips data-scroll-hidden above the phone breakpoint",
+      ).toBe(0);
       if (searchStartedInChrome) {
         expect(scrolledDown.searchVisible, "header search geometry stays on screen").toBe(true);
       }

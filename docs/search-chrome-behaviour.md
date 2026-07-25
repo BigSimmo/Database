@@ -31,11 +31,11 @@ The universal **top bar** (mode, new chat, menu) hides on a deliberate scroll do
 
 Choose the hide mechanism from where the host's scrollport lives, because that decides what hiding costs the reader:
 
-| Host                              | Scrollport                                    | `hideOnScroll`                           | Mechanism                                                                                          |
-| --------------------------------- | --------------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `ClinicalDashboard` (answer view) | `<main>` at every width                       | `strategy: "overlay", allBreakpoints`    | Absolute glass top bar translates off; `<main>` keeps its top reserve; search stays                |
-| `ClinicalDashboard` (other modes) | `<main>` at every width                       | `strategy: "collapse", wide: "collapse"` | Top-bar 1fr -> 0fr grid row; released strip goes to content; search stays as a sibling             |
-| `GlobalSearchShell`               | `#main-content` on phones, the document above | `strategy: "collapse", wide: "sticky"`   | Sticky stack of [top bar \| search]; only the top-bar row collapses so search rises to the top     |
+| Host                              | Scrollport                                    | `hideOnScroll`                           | Mechanism                                                                                      |
+| --------------------------------- | --------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `ClinicalDashboard` (answer view) | `<main>` at every width                       | `strategy: "overlay", allBreakpoints`    | Absolute glass top bar translates off; `<main>` keeps its top reserve; search stays            |
+| `ClinicalDashboard` (other modes) | `<main>` at every width                       | `strategy: "collapse", wide: "collapse"` | Top-bar 1fr -> 0fr grid row; released strip goes to content; search stays as a sibling         |
+| `GlobalSearchShell`               | `#main-content` on phones, the document above | `strategy: "collapse", wide: "sticky"`   | Sticky stack of [top bar \| search]; only the top-bar row collapses so search rises to the top |
 
 Rules that keep this working:
 
