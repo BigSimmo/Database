@@ -4,6 +4,17 @@ import {
   expectedFileCoverage,
   normalizedDocumentName,
 } from "@/lib/eval-document-matching";
+import { answerQualityEvalCases, ragEvalCases } from "@/lib/rag/rag-eval-cases";
+
+const multiSlotCases = [...ragEvalCases, ...answerQualityEvalCases].filter(
+  (evalCase) => evalCase.expectedFiles.length > 1,
+);
+
+// Alias values a wide-tier expectation recognizes, excluding the expectation's own name.
+function aliasValuesFor(expectation: string) {
+  const own = normalizedDocumentName(expectation);
+  return documentExpectationAlternatives(expectation).filter((value) => value !== own);
+}
 
 describe("eval document matching wide-tier aliases", () => {
   it("does not let one dual-listed admission-to-discharge doc satisfy both comparison slots", () => {
@@ -103,5 +114,49 @@ describe("eval document matching wide-tier aliases", () => {
 
     expect(expectedFileCoverage(["CG.MHSP.Lithium.pdf", "CG.MHSP.Metformin.pdf"], sources, 5).allHit).toBe(true);
     expect(expectedFileCoverage(["CG.MHSP.Metformin.pdf", "CG.MHSP.Lithium.pdf"], sources, 5).allHit).toBe(true);
+  });
+
+  it("keeps the alias values of every multi-slot case's expectations pairwise disjoint", () => {
+    // Generalizes the admission/discharge check above to every multi-slot case, including any
+    // added later. A value listed under two slots of the same case is the #030 defect: it lets
+    // one document stand in for two independent sources.
+    const overlaps = multiSlotCases.flatMap((evalCase) => {
+      const found: string[] = [];
+      for (let i = 0; i < evalCase.expectedFiles.length; i += 1) {
+        for (let j = i + 1; j < evalCase.expectedFiles.length; j += 1) {
+          const left = new Set(aliasValuesFor(evalCase.expectedFiles[i]));
+          const shared = aliasValuesFor(evalCase.expectedFiles[j]).filter((value) => left.has(value));
+          for (const value of shared) {
+            found.push(
+              `${evalCase.id}: "${value}" is listed under both ${evalCase.expectedFiles[i]} and ${evalCase.expectedFiles[j]}`,
+            );
+          }
+        }
+      }
+      return found;
+    });
+
+    expect(overlaps).toEqual([]);
+  });
+
+  it("never lets a single document satisfy every slot of a multi-slot case", () => {
+    // Table-independent: whatever the alias tables say, one retrieved document is one source.
+    // This holds even for a document whose text contains every expectation, so it stays true if
+    // the alias tables are widened again.
+    expect(multiSlotCases.length).toBeGreaterThan(0);
+
+    for (const evalCase of multiSlotCases) {
+      const everyExpectation = evalCase.expectedFiles
+        .flatMap((expectation) => [expectation, ...aliasValuesFor(expectation)])
+        .join(" ");
+      const coverage = expectedFileCoverage(
+        evalCase.expectedFiles,
+        [{ title: everyExpectation, file_name: `${everyExpectation}.pdf` }],
+        5,
+      );
+
+      expect(coverage.matchedFiles.length, `${evalCase.id} matched more than one slot from one document`).toBe(1);
+      expect(coverage.allHit, `${evalCase.id} reached allHit from a single document`).toBe(false);
+    }
   });
 });
