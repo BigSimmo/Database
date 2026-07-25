@@ -49,7 +49,7 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(homeSrc).toContain('title="Therapy"');
     expect(searchSrc).toContain('className="tc-screens-search-screen-002">Therapy</h1>');
     expect(workspaceSrc).toContain("Therapy could not load");
-    expect(sidebarSrc).toContain('label: appModeDefinition("therapy-compass").label');
+    expect(sidebarSrc).not.toContain('id: "therapy-compass"');
     expect(appModesSrc).not.toContain("Therapy mode");
     expect(homeSrc).not.toContain("Therapy mode");
     expect(searchSrc).not.toContain("Therapy Search");

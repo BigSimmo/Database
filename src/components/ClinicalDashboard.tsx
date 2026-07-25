@@ -49,13 +49,12 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
-import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
-import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
-import { useTheme } from "@/components/clinical-dashboard/use-theme";
+import * as SidebarDialogs from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
+import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
 import {
   deriveSidebarIdentity,
   ClinicalDesktopSidebar,
@@ -209,7 +208,6 @@ import {
   maxVisiblePriorTurns,
   PriorAnswerTurnSurface,
 } from "@/components/clinical-dashboard/answer-thread-turn";
-
 const documentPageSize = 150;
 const activeIndexingPollFallbackMs = 5_000;
 const indexingWorkDetailsPollMs = 15_000;
@@ -260,7 +258,6 @@ type IngestionQualityPayload = {
   items?: IngestionQualityReviewItem[];
   demoMode?: boolean;
 };
-
 export const clinicalQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
   { value: "auto", label: "Auto" },
   { value: "monitoring_schedule", label: "Monitoring" },
@@ -270,7 +267,6 @@ export const clinicalQueryModeOptions: Array<{ value: ClinicalQueryMode; label: 
   { value: "required_documentation", label: "Documentation" },
   { value: "compare_guidance", label: "Compare" },
 ];
-
 type SearchResultModePayload =
   | {
       kind: "documents";
@@ -288,9 +284,7 @@ type SearchResultModePayload =
       query: string;
       payload: AnswerPayload;
     };
-
 type SourceLibrarySearchMode = Extract<AppModeSearchKind, "documents" | "differentials">;
-
 type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
 type IndexingMonitorFilter = "all" | "active" | "failed";
 type UploadIndexingTab = "setup" | "upload" | "jobs" | "quality";
@@ -538,7 +532,6 @@ export function ClinicalDashboard({
   const [indexingActive, setIndexingActive] = useState(false);
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
-  const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const {
     status: authStatus,
@@ -664,6 +657,13 @@ export function ClinicalDashboard({
     setDocumentsDrawerOpen,
     setUploadDrawerOpen,
     prefetch: (href) => router.prefetch(href),
+  });
+  const settingsGuideFlow = useSettingsGuideFlow({
+    openGuide,
+    closeGuide,
+    openSettings,
+    openAccountProfile,
+    setSettingsOpen,
   });
   const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
   const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
@@ -3320,11 +3320,10 @@ export function ClinicalDashboard({
         onCollapsedChange={setSidebarCollapsed}
         onNewChat={startNewChat}
         onPickRecent={pickRecentQuery}
-        onOpenGuide={openGuide}
-        onOpenSettings={openSettings}
-        onOpenAccount={openAccountProfile}
-        theme={theme}
-        onToggleTheme={toggleTheme}
+        onOpenSettings={settingsGuideFlow.openSettingsWithDefaultFocus}
+        onOpenAccount={settingsGuideFlow.openAccountProfileWithDefaultFocus}
+        onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
+        onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
         showAccountLibrary={favouritesAccessible}
       />
@@ -4096,15 +4095,20 @@ export function ClinicalDashboard({
           hidden
           onNavigate={navigateMobileSection}
         />
-        <GuideDialog open={guideOpen} onClose={closeGuide} />
-        <SettingsDialog
+        <GuideDialog open={guideOpen} onClose={settingsGuideFlow.closeGuideWithRestore} />
+        <SidebarDialogs.SidebarSettingsDialog
           open={settingsOpen}
           onClose={closeSettings}
           identity={sidebarIdentity}
           onSignOut={auth.signOut}
-          onOpenGuide={openGuide}
+          onOpenGuide={settingsGuideFlow.openGuideFromSettings}
+          initialFocus={settingsGuideFlow.settingsInitialFocus}
         />
-        <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
+        <SidebarDialogs.SidebarAccountSetupDialog
+          open={accountSetupOpen}
+          onClose={closeAccountSetup}
+          intent={accountSetupIntent}
+        />
         <ClinicalMobileSidebar
           open={mobileSidebarOpen}
           recentQueries={recentQueries}
@@ -4113,11 +4117,10 @@ export function ClinicalDashboard({
           onOpenChange={setMobileSidebarOpen}
           onNewChat={startNewChat}
           onPickRecent={pickRecentQuery}
-          onOpenGuide={openGuide}
-          onOpenSettings={openSettings}
-          onOpenAccount={openAccountProfile}
-          theme={theme}
-          onToggleTheme={toggleTheme}
+          onOpenSettings={settingsGuideFlow.openSettingsWithDefaultFocus}
+          onOpenAccount={settingsGuideFlow.openAccountProfileWithDefaultFocus}
+          onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
+          onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
           onPrefetchApplications={prefetchApplications}
           showAccountLibrary={favouritesAccessible}
         />
