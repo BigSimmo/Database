@@ -179,6 +179,39 @@ describe("computeScrollHideUpdate", () => {
     expect(revealed.direction).toBe("up");
   });
 
+  it("reveals when a genuine upward scroll is coalesced with a prior layout clamp", () => {
+    // RAF debouncing coalesces a layout-clamp scroll event with any
+    // immediately-following user scroll into a single RAF evaluation. The hook
+    // reads the FINAL offset (newMaxOffset - userScroll) but lastMaxOffsetRef
+    // still holds the pre-collapse maximum. The net offset is more than
+    // revealIntentDistance (12px) below the new bottom edge, so the clamp
+    // detection must yield to the upward-scroll reveal path.
+    const result = computeScrollHideUpdate({
+      offset: 904, // newMaxOffset (928) - 24px deliberate scroll
+      lastOffset: 1000, // stale: pre-collapse jump-to-bottom offset
+      maxOffset: 928, // new max after 72px in-flow header collapse
+      previousMaxOffset: 1000, // stale: pre-collapse max (lastMaxOffsetRef)
+      currentlyHidden: true,
+      direction: null,
+      directionTravel: 0,
+    });
+    expect(result.hidden).toBe(false);
+    expect(result.direction).toBe("up");
+
+    // A small simultaneous bounce (<= revealIntentDistance) must still be
+    // treated as geometry feedback, not user intent.
+    const stillHidden = computeScrollHideUpdate({
+      offset: 918, // newMaxOffset (928) - 10px (below revealIntentDistance)
+      lastOffset: 1000,
+      maxOffset: 928,
+      previousMaxOffset: 1000,
+      currentlyHidden: true,
+      direction: null,
+      directionTravel: 0,
+    });
+    expect(stillHidden.hidden).toBe(true);
+  });
+
   it("does not reveal on a small phantom clamp when the offset stays pinned to the bottom", () => {
     // Single frame: a 4px upward clamp while glued to the bottom edge. The old
     // guard required the previous offset to sit more than `minimumDelta` above
