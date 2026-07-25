@@ -502,6 +502,7 @@ export function ClinicalDashboard({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
+  const documentsDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
   const [documentScopeOpen, setDocumentScopeOpen] = useState(false);
   const [documentsDrawerMode, setDocumentsDrawerMode] = useState<DocumentDrawerMode>("library");
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
@@ -2659,18 +2660,13 @@ export function ClinicalDashboard({
   }
 
   function openDocumentsDrawer(mode: DocumentDrawerMode) {
+    documentsDrawerReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeDashboardTransientSurfaces("documents");
     setSearchMode("documents");
     setDocumentDrawerStatusFilter("indexed");
     setDocumentsDrawerMode(mode);
     setDocumentsDrawerOpen(true);
-    if (window.matchMedia("(min-width: 1024px)").matches) {
-      window.requestAnimationFrame(() => {
-        document
-          .getElementById("dashboard-documents-drawer")
-          ?.scrollIntoView({ block: "start", behavior: resolveScrollBehavior() });
-      });
-    }
   }
 
   function openRecentDocuments() {
@@ -2690,7 +2686,7 @@ export function ClinicalDashboard({
       openDocumentsDrawer("library");
       setActionNotice({
         tone: "warning",
-        message: "Upload and indexing tools are admin-only. Use the source library to open indexed documents.",
+        message: "Upload and indexing tools are admin-only. Use Sources to open indexed documents.",
       });
       return;
     }
@@ -3204,7 +3200,7 @@ export function ClinicalDashboard({
         ? "Source PDFs"
         : documentsDrawerIsAdmin
           ? "Document admin"
-          : "Source library";
+          : "Sources";
   const documentsDrawerSummary = dashboardDataLoading
     ? "Loading indexed document status."
     : documentsDrawerMode === "recent"
@@ -3215,14 +3211,14 @@ export function ClinicalDashboard({
           ? `${indexedDocumentTotal.toLocaleString()} indexed documents available.`
           : "Search and open indexed clinical sources.";
   const documentsDrawerMobileSummary = dashboardDataLoading
-    ? "Loading library"
+    ? "Loading sources"
     : documentsDrawerMode === "recent"
       ? "Recent sources"
       : documentsDrawerMode === "source"
         ? "PDF sources"
         : documentsDrawerIsAdmin
           ? "Admin"
-          : "Library";
+          : "Sources";
   const DocumentsDrawerIcon =
     documentsDrawerMode === "recent"
       ? Clock3
@@ -3231,7 +3227,7 @@ export function ClinicalDashboard({
         : documentsDrawerIsAdmin
           ? UploadCloud
           : FolderOpen;
-  const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Library and admin" : "Sources";
+  const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Sources and admin" : "Sources";
 
   // Stable-identity handlers for the React.memo children (StagedAnswerResultSurface,
   // DocumentSearchResultsPanel). These close over the draft `query` or call the
@@ -3247,6 +3243,25 @@ export function ClinicalDashboard({
   const handleDocumentTagSearch = useEventCallback(handleTagSearch);
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
+  const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {
+    setDocumentsDrawerOpen(nextOpen);
+    if (nextOpen) return;
+
+    const returnTarget = documentsDrawerReturnFocusRef.current;
+    window.requestAnimationFrame(() => {
+      const fallbackTarget = Array.from(
+        document.querySelectorAll<HTMLElement>('button[aria-haspopup="menu"][aria-label$=" options"]'),
+      ).find((element) => element.isConnected && element.getClientRects().length > 0);
+      const focusTarget = returnTarget?.isConnected ? returnTarget : fallbackTarget;
+      focusTarget?.focus({ preventScroll: true });
+      // Sheet autofocus teardown and composer focus listeners can win the first
+      // frame after Escape; retry once if the opener did not keep focus.
+      window.setTimeout(() => {
+        if (!focusTarget?.isConnected || document.activeElement === focusTarget) return;
+        focusTarget.focus({ preventScroll: true });
+      }, 50);
+    });
+  });
   const handleOpenSourcePdfBrowser = useEventCallback(openSourcePdfBrowser);
   const handleCopyAnswer = useEventCallback(() => {
     copyText("answer", answerRenderModel?.copyText || safeAnswerText || answer?.answer || "");
@@ -3837,8 +3852,9 @@ export function ClinicalDashboard({
                       summary={documentsDrawerSummary}
                       mobileSummary={documentsDrawerMobileSummary}
                       open={documentsDrawerOpen}
-                      onOpenChange={setDocumentsDrawerOpen}
-                      sheetBreakpoint="lg"
+                      onOpenChange={handleDocumentsDrawerOpenChange}
+                      sheetBreakpoint={documentsDrawerIsAdmin ? "lg" : "all"}
+                      sheetReturnFocusRef={documentsDrawerReturnFocusRef}
                       sheetHeaderLeading={
                         <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
                           <DocumentsDrawerIcon className="h-5 w-5" aria-hidden="true" />

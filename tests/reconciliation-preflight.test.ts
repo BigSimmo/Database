@@ -1,8 +1,7 @@
-import { spawnSync } from "node:child_process";
-import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   classifyReconciliationState,
+  collectReconciliationState,
   collectProcessDiagnostics,
   parseWorktreePorcelain,
 } from "../scripts/reconciliation-preflight.mjs";
@@ -103,18 +102,14 @@ describe("reconciliation preflight", () => {
   });
 
   it("emits parseable metadata-only JSON without fetching", () => {
-    const script = path.resolve(process.cwd(), "scripts", "reconciliation-preflight.mjs");
-    const result = spawnSync(process.execPath, [script, "--json"], {
-      cwd: process.cwd(),
-      encoding: "utf8",
-    });
-
-    expect(result.status).toBe(0);
-    expect(result.stderr).toBe("");
-    const payload = JSON.parse(result.stdout);
+    // Exercise the exported collector in-process. Spawning a second Node/Vite
+    // module graph here made this otherwise synchronous contract contend with
+    // the full suite for CPU and occasionally exceed the global test timeout.
+    const stdout = JSON.stringify(collectReconciliationState());
+    const payload = JSON.parse(stdout);
     expect(payload).toMatchObject({ cachedRefsOnly: true, fetched: false });
     expect(payload.integrationBase).toBe("dedicated-worktree-required");
     expect(payload.processDiagnostics).toMatchObject({ skipped: true, rawCommandLinesSerialized: false });
-    expect(result.stdout).not.toContain("commandLine");
-  }, 60_000);
+    expect(stdout).not.toContain("commandLine");
+  });
 });

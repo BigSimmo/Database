@@ -25,7 +25,7 @@ const therapyMetadataFiles = [
 ];
 
 describe("Therapy Compass production-mode wiring", () => {
-  it("uses Therapy mode for user-facing mode copy and page metadata", () => {
+  it("uses Therapy for user-facing mode copy, search heading, and page metadata", () => {
     const appModesSrc = readFileSync(new URL("../src/lib/app-modes.ts", import.meta.url), "utf8");
     const homeSrc = readFileSync(
       new URL("../src/components/therapy-compass/screens/home-screen.tsx", import.meta.url),
@@ -35,20 +35,30 @@ describe("Therapy Compass production-mode wiring", () => {
       new URL("../src/components/therapy-compass/workspace.tsx", import.meta.url),
       "utf8",
     );
+    const searchSrc = readFileSync(
+      new URL("../src/components/therapy-compass/screens/search-screen.tsx", import.meta.url),
+      "utf8",
+    );
     const sidebarSrc = readFileSync(
       new URL("../src/components/clinical-dashboard/ClinicalSidebar.tsx", import.meta.url),
       "utf8",
     );
 
-    expect(appModesSrc).toContain('label: "Therapy mode"');
-    expect(appModesSrc).toContain('submitAriaLabel: "Open Therapy mode"');
-    expect(homeSrc).toContain('title="Therapy mode"');
-    expect(workspaceSrc).toContain("Therapy mode could not load");
+    expect(appModesSrc).toContain('label: "Therapy"');
+    expect(appModesSrc).toContain('submitAriaLabel: "Open Therapy"');
+    expect(homeSrc).toContain('title="Therapy"');
+    expect(searchSrc).toContain('className="tc-screens-search-screen-002">Therapy</h1>');
+    expect(workspaceSrc).toContain("Therapy could not load");
     expect(sidebarSrc).not.toContain('id: "therapy-compass"');
+    expect(appModesSrc).not.toContain("Therapy mode");
+    expect(homeSrc).not.toContain("Therapy mode");
+    expect(searchSrc).not.toContain("Therapy Search");
+    expect(workspaceSrc).not.toContain("Therapy mode");
 
     for (const filename of therapyMetadataFiles) {
       const source = readFileSync(new URL(filename, import.meta.url), "utf8");
-      expect(source, filename).toContain("Therapy mode");
+      expect(source, filename).toContain("Therapy");
+      expect(source, filename).not.toContain("Therapy mode");
       expect(source, filename).not.toContain("Therapy Compass");
     }
   });

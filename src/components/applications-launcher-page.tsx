@@ -24,6 +24,10 @@ import {
 import { type FormEvent, useMemo, useState } from "react";
 
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { cn, toneInfo, toneSuccess, toneWarning } from "@/components/ui-primitives";
@@ -391,34 +395,15 @@ function FilterTabs({
           );
         })}
       </div>
-      <div
-        className="flex min-w-0 gap-1 overflow-x-auto pb-1 sm:hidden"
-        role="group"
-        aria-label="Filter by tool category"
-      >
-        {mobileFilters.map((filter) => {
-          const active = filter.id === activeFilter || (filter.id === "all" && activeFilter === "saved");
-          return (
-            <button
-              key={filter.id}
-              type="button"
-              id={`launcher-filter-mobile-${filter.id}`}
-              aria-pressed={active}
-              aria-controls="launcher-results-panel"
-              onClick={() => onFilterChange(filter.id)}
-              className={cn(
-                "inline-flex min-h-tap shrink-0 items-center justify-center gap-0.5 whitespace-nowrap rounded-lg border px-2 text-2xs font-bold transition",
-                active
-                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-                  : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
-                focusRing,
-              )}
-            >
-              {filter.label}
-            </button>
-          );
-        })}
-      </div>
+      <MobileResultFilterControl
+        label="Category"
+        ariaLabel="Filter by tool category"
+        testId="tool-category-select"
+        className="sm:hidden"
+        value={activeFilter === "more" ? "all" : activeFilter}
+        options={desktopFilters.map((filter) => ({ value: filter.id, label: filter.label }))}
+        onChange={onFilterChange}
+      />
     </>
   );
 }
@@ -829,21 +814,37 @@ export function ApplicationsLauncherWorkspace({
         data-testid="tools-all-tools"
         className="mx-auto mt-8 grid max-w-[86rem] grid-cols-1 gap-4 sm:mt-10"
       >
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-          <div className="text-left">
-            <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{copy.allSectionLabel}</h2>
+        {normalizedQuery ? (
+          <SearchResultsHeaderBand
+            modeId="tools"
+            query={query}
+            matchCount={filteredApps.length}
+            filterLabel="Filter tools by category"
+            filterControls={
+              <FilterTabs
+                activeFilter={effectiveFilter}
+                onFilterChange={setActiveFilter}
+                canAccessFavourites={canAccessFavourites}
+              />
+            }
+          />
+        ) : (
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="text-left">
+              <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{copy.allSectionLabel}</h2>
+            </div>
+            <div className="flex items-center gap-3">
+              <FilterTabs
+                activeFilter={effectiveFilter}
+                onFilterChange={setActiveFilter}
+                canAccessFavourites={canAccessFavourites}
+              />
+              <p className="hidden min-h-10 items-center rounded-lg px-1 text-xs font-bold text-[color:var(--text-muted)] lg:inline-flex">
+                Sorted A to Z
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <FilterTabs
-              activeFilter={effectiveFilter}
-              onFilterChange={setActiveFilter}
-              canAccessFavourites={canAccessFavourites}
-            />
-            <p className="hidden min-h-10 items-center rounded-lg px-1 text-xs font-bold text-[color:var(--text-muted)] lg:inline-flex">
-              Sorted A to Z
-            </p>
-          </div>
-        </div>
+        )}
 
         <div id="launcher-results-panel" role="group" aria-label={resultsPanelLabel} className="grid grid-cols-1 gap-4">
           {filteredApps.length === 0 ? (
