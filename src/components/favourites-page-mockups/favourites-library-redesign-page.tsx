@@ -185,7 +185,8 @@ const variants: Record<
     selectedId: "acamprosate-renal-screen",
     accent: "#007c89",
     pageClassName: "bg-[color:var(--surface-lux)] text-[color:var(--text-heading)]",
-    commandClassName: "bg-[color:var(--clinical-accent)] text-white shadow-[0_14px_34px_rgba(0,124,137,0.24)] hover:bg-[color:var(--clinical-accent-hover)]",
+    commandClassName:
+      "bg-[color:var(--clinical-accent)] text-white shadow-[0_14px_34px_rgba(0,124,137,0.24)] hover:bg-[color:var(--clinical-accent-hover)]",
     resumeTitle: "Resume Acamprosate renal screen",
     resumeBody: "Open the ward-round renal caution page with source count, set context, and next action visible.",
     primaryFilter: "Recent",
@@ -198,7 +199,8 @@ const variants: Record<
     selectedId: "lithium-monitoring-guideline",
     accent: "#1d4ed8",
     pageClassName: "bg-[color:var(--surface-raised)] text-[color:var(--text-heading)]",
-    commandClassName: "bg-[color:var(--primary)] text-white shadow-[0_14px_34px_rgba(29,78,216,0.22)] hover:bg-[color:var(--primary-hover)]",
+    commandClassName:
+      "bg-[color:var(--primary)] text-white shadow-[0_14px_34px_rgba(29,78,216,0.22)] hover:bg-[color:var(--primary-hover)]",
     resumeTitle: "Review lithium monitoring guideline",
     resumeBody: "Check pages 4-9, mark the PDF as reviewed, then ask against the document if needed.",
     primaryFilter: "Review due",
@@ -211,7 +213,8 @@ const variants: Record<
     selectedId: "renal-dose-search",
     accent: "#047857",
     pageClassName: "bg-[color:var(--surface-lux)] text-[color:var(--text-heading)]",
-    commandClassName: "bg-[color:var(--success)] text-white shadow-[0_14px_34px_rgba(4,120,87,0.24)] hover:bg-[color:var(--success-hover)]",
+    commandClassName:
+      "bg-[color:var(--success)] text-white shadow-[0_14px_34px_rgba(4,120,87,0.24)] hover:bg-[color:var(--success-hover)]",
     resumeTitle: "Run renal dose saved search",
     resumeBody: "Restart the ward-round saved query across medicines and documents before opening individual items.",
     primaryFilter: "Ward round",
@@ -225,15 +228,20 @@ const variantRoutes: Array<{ id: FavouritesLibraryRedesignVariant; href: string 
 ];
 
 function statusClassName(state: ReviewState) {
-  if (state === "review-due") return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
-  if (state === "recent") return "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]";
+  if (state === "review-due")
+    return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
+  if (state === "recent")
+    return "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]";
   return "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
 }
 
 function kindClassName(kind: FavouriteKind) {
-  if (kind === "Medication") return "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
-  if (kind === "Document") return "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]";
-  if (kind === "Source") return "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]";
+  if (kind === "Medication")
+    return "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
+  if (kind === "Document")
+    return "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]";
+  if (kind === "Source")
+    return "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]";
   return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
 }
 
@@ -250,7 +258,9 @@ function ShellPill({
     <span
       className={cn(
         "inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
-        active ? "border-[color:var(--border)] bg-white text-[color:var(--text-muted)]" : "border-[color:var(--border)] bg-[color:var(--surface-highlight)] text-[color:var(--text-muted)]",
+        active
+          ? "border-[color:var(--border)] bg-white text-[color:var(--text-muted)]"
+          : "border-[color:var(--border)] bg-[color:var(--surface-highlight)] text-[color:var(--text-muted)]",
       )}
     >
       {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
@@ -264,7 +274,9 @@ function IconTile({ icon: Icon, active = false }: { icon: LucideIcon; active?: b
     <span
       className={cn(
         "grid h-10 w-10 shrink-0 place-items-center rounded-lg border",
-        active ? "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]" : "border-[color:var(--border)] bg-white text-[color:var(--text-muted)]",
+        active
+          ? "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+          : "border-[color:var(--border)] bg-white text-[color:var(--text-muted)]",
       )}
     >
       <Icon className="h-4.5 w-4.5" aria-hidden />
@@ -329,11 +341,15 @@ function PageHeader({ variant, selected }: { variant: FavouritesLibraryRedesignV
             <Heart className="h-6 w-6" aria-hidden />
           </span>
           <div className="min-w-0">
-            <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{config.eyebrow}</p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+              {config.eyebrow}
+            </p>
             <h1 className="mt-1 text-balance text-3xl font-black leading-tight tracking-normal text-[color:var(--text-muted)] sm:text-4xl">
               {config.title}
             </h1>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[color:var(--text-muted)]">{config.description}</p>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[color:var(--text-muted)]">
+              {config.description}
+            </p>
           </div>
         </div>
       </div>
@@ -396,8 +412,12 @@ function ResumeBand({ variant, selected }: { variant: FavouritesLibraryRedesignV
                 {selected.reviewLabel}
               </span>
             </div>
-            <h2 className="mt-3 text-2xl font-black tracking-normal text-[color:var(--text-muted)]">{config.resumeTitle}</h2>
-            <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-[color:var(--text-muted)]">{config.resumeBody}</p>
+            <h2 className="mt-3 text-2xl font-black tracking-normal text-[color:var(--text-muted)]">
+              {config.resumeTitle}
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-[color:var(--text-muted)]">
+              {config.resumeBody}
+            </p>
             <p className="mt-3 text-xs font-bold text-[color:var(--text-muted)]">
               {selected.set} / {selected.provenance} / {selected.lastUsed}
             </p>
@@ -418,8 +438,12 @@ function ResumeBand({ variant, selected }: { variant: FavouritesLibraryRedesignV
                   <Icon className="h-4 w-4" aria-hidden />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-xl font-black leading-none text-[color:var(--text-muted)]">{stat.value}</span>
-                  <span className="mt-1 block truncate text-xs font-bold text-[color:var(--text-muted)]">{stat.label}</span>
+                  <span className="block text-xl font-black leading-none text-[color:var(--text-muted)]">
+                    {stat.value}
+                  </span>
+                  <span className="mt-1 block truncate text-xs font-bold text-[color:var(--text-muted)]">
+                    {stat.label}
+                  </span>
                 </span>
               </div>
             );
@@ -438,7 +462,9 @@ function ReviewQueue({ variant }: { variant: FavouritesLibraryRedesignVariant })
     <aside className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4 shadow-[0_18px_50px_rgba(119,72,0,0.08)]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">Review queue</p>
+          <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">
+            Review queue
+          </p>
           <h2 className="mt-1 text-xl font-black text-[color:var(--text-muted)]">1 item needs confirmation</h2>
         </div>
         <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--border)] bg-white text-[color:var(--text-muted)]">
@@ -501,7 +527,9 @@ function FilterRail({ variant }: { variant: FavouritesLibraryRedesignVariant }) 
               className={cn(
                 "grid min-h-11 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2.5 text-left text-sm font-extrabold transition",
                 focusRing,
-                active ? "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]" : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-muted)]",
+                active
+                  ? "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                  : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-muted)]",
               )}
             >
               <Icon className="h-4 w-4" aria-hidden />
@@ -562,14 +590,18 @@ function SetNavigatorStrip({ variant }: { variant: FavouritesLibraryRedesignVari
             key={set.title}
             className={cn(
               "rounded-xl border bg-white p-4 shadow-[0_16px_40px_rgba(15,31,44,0.06)]",
-              active ? "border-[color:var(--border)] ring-2 ring-[color:var(--clinical-accent-border)]" : "border-[color:var(--border)]",
+              active
+                ? "border-[color:var(--border)] ring-2 ring-[color:var(--clinical-accent-border)]"
+                : "border-[color:var(--border)]",
             )}
           >
             <div className="flex items-start justify-between gap-3">
               <span
                 className={cn(
                   "grid h-11 w-11 place-items-center rounded-xl",
-                  active ? "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]" : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
+                  active
+                    ? "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                    : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
                 )}
               >
                 <Icon className="h-5 w-5" aria-hidden />
@@ -579,10 +611,17 @@ function SetNavigatorStrip({ variant }: { variant: FavouritesLibraryRedesignVari
               </span>
             </div>
             <h2 className="mt-4 text-lg font-black text-[color:var(--text-muted)]">{set.title}</h2>
-            <p className="mt-1 min-h-10 text-sm font-semibold leading-5 text-[color:var(--text-muted)]">{set.summary}</p>
+            <p className="mt-1 min-h-10 text-sm font-semibold leading-5 text-[color:var(--text-muted)]">
+              {set.summary}
+            </p>
             <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold text-[color:var(--text-muted)]">
               <span>Last used {set.lastUsed}</span>
-              <span className={cn("text-right", set.reviewDue ? "text-[color:var(--text-muted)]" : "text-[color:var(--text-muted)]")}>
+              <span
+                className={cn(
+                  "text-right",
+                  set.reviewDue ? "text-[color:var(--text-muted)]" : "text-[color:var(--text-muted)]",
+                )}
+              >
                 {set.reviewDue ? `${set.reviewDue} review due` : "No review due"}
               </span>
             </div>
@@ -602,7 +641,9 @@ function LibraryTable({ variant, selected }: { variant: FavouritesLibraryRedesig
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-xl font-black text-[color:var(--text-muted)]">All favourites</h2>
-            <span className="rounded-md bg-[color:var(--surface-subtle)] px-2 py-1 text-xs font-black text-[color:var(--text-muted)]">5 items</span>
+            <span className="rounded-md bg-[color:var(--surface-subtle)] px-2 py-1 text-xs font-black text-[color:var(--text-muted)]">
+              5 items
+            </span>
           </div>
           <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
             Primary action, source state, set context, and review state stay visible.
@@ -637,14 +678,18 @@ function LibraryTable({ variant, selected }: { variant: FavouritesLibraryRedesig
                 className={cn(
                   "grid min-h-[5.5rem] grid-cols-[4.25rem_minmax(8.5rem,1.2fr)_5rem_5.5rem_5.75rem_5rem] items-center gap-2 border-b border-[color:var(--border)] px-3 py-3 last:border-b-0 transition",
                   focusRing,
-                  isSelected ? "bg-[color:var(--surface-subtle)] shadow-[inset_3px_0_0_var(--clinical-accent)]" : "hover:bg-[color:var(--surface-subtle)]",
+                  isSelected
+                    ? "bg-[color:var(--surface-subtle)] shadow-[inset_3px_0_0_var(--clinical-accent)]"
+                    : "hover:bg-[color:var(--surface-subtle)]",
                 )}
               >
                 <span className="flex items-center gap-2">
                   <span
                     className={cn(
                       "grid h-5 w-5 place-items-center rounded border",
-                      isSelected ? "border-[color:var(--border)] bg-[color:var(--surface-subtle)]" : "border-[color:var(--border)] bg-white",
+                      isSelected
+                        ? "border-[color:var(--border)] bg-[color:var(--surface-subtle)]"
+                        : "border-[color:var(--border)] bg-white",
                     )}
                   >
                     {isSelected ? <CheckCircle2 className="h-3.5 w-3.5 text-white" aria-hidden /> : null}
@@ -652,8 +697,12 @@ function LibraryTable({ variant, selected }: { variant: FavouritesLibraryRedesig
                   <IconTile icon={Icon} active={isSelected} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-black text-[color:var(--text-muted)]">{record.title}</span>
-                  <span className="mt-1 block truncate text-xs font-bold text-[color:var(--text-muted)]">{record.summary}</span>
+                  <span className="block truncate text-sm font-black text-[color:var(--text-muted)]">
+                    {record.title}
+                  </span>
+                  <span className="mt-1 block truncate text-xs font-bold text-[color:var(--text-muted)]">
+                    {record.summary}
+                  </span>
                   <span className="mt-2 flex flex-wrap gap-1.5">
                     <span
                       className={cn(
