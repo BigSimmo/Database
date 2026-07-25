@@ -24,7 +24,10 @@ import {
 } from "lucide-react";
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useDifferentialSearch } from "@/components/clinical-dashboard/use-differential-catalog";
 import { useResultSort } from "@/components/use-result-sort";
@@ -908,6 +911,20 @@ function SearchResultsView({
         sortValue={sortValue}
         onSortChange={setSortValue}
         filterLabel="Filter differential result type"
+        mobileControls={
+          <MobileResultFilterControl
+            label="Show"
+            ariaLabel="Filter by result type"
+            testId="differential-result-type-select"
+            value={kindFilter}
+            options={[
+              { value: "all", label: `All (${results.length})` },
+              { value: "presentation", label: `Presentations (${presentationCount})` },
+              { value: "diagnosis", label: `Diagnoses (${diagnosisCount})` },
+            ]}
+            onChange={setKindFilter}
+          />
+        }
         filterControls={
           <ResultTypeTabs
             activeFilter={kindFilter}
