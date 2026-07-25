@@ -354,6 +354,21 @@ describe("computeScrollHideUpdate", () => {
         currentlyHidden: false,
       }).hidden,
     ).toBe(false);
+
+    // Near-bottom hides must stay refused even when the post-collapse range is
+    // long enough: offset 180 would clamp onto 80 and jump content under the finger.
+    expect(
+      computeScrollHideUpdate({
+        offset: 180,
+        lastOffset: 160,
+        maxOffset: 200,
+        collapseBudget: 120,
+        collapseKind: "reserve-only",
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(false);
   });
 
   it("uses a shrinking scroll range, not pixel tolerance, to identify a reserve-collapse clamp", () => {

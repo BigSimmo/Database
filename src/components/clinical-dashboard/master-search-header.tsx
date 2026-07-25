@@ -377,6 +377,20 @@ export function MasterSearchHeader({
   const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
   const bottomComposerHidden = bottomComposerScrollHiddenActive && scrollHidden && !sharedChromePinned;
 
+  // Focus-capture pins survive dock teardown when React skips blur (portal swap,
+  // hero reclaim, breakpoint change). Clear the latch whenever the phone dock
+  // is no longer the active hide/reveal surface so shared chrome can hide again.
+  useEffect(() => {
+    if (!phoneBottomSearchDockActive) setComposerChromeFocused(false);
+  }, [phoneBottomSearchDockActive]);
+
+  const hideOnScrollEnabled = Boolean(hideOnScroll);
+  useEffect(() => {
+    if (hideOnScrollEnabled) return;
+    setComposerChromeFocused(false);
+    setHeaderChromeFocused(false);
+  }, [hideOnScrollEnabled]);
+
   useEffect(() => {
     onBottomComposerHiddenChange?.(bottomComposerHidden);
   }, [bottomComposerHidden, onBottomComposerHiddenChange]);

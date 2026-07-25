@@ -156,10 +156,14 @@ export function computeScrollHideUpdate(params: {
         : Math.max(0, maxOffset - collapseBudget);
     // Reserve-only overlays keep the viewport geometry stable; requiring their
     // resulting range to retain top-reveal + hide-intent distance prevents a
-    // material clamp while allowing genuinely compact results to hide.
+    // material clamp while allowing genuinely compact results to hide. Also
+    // refuse when the current offset would not fit the post-collapse range —
+    // otherwise a near-bottom hide clamps the page under the finger even when
+    // the resulting range itself is long enough for deliberate intent.
     const collapseHasSafeRunway =
       collapseKind === "reserve-only"
-        ? postCollapseMaxOffset >= effectiveHideActivationOffset + hideIntentDistance
+        ? postCollapseMaxOffset >= effectiveHideActivationOffset + hideIntentDistance &&
+          offset <= postCollapseMaxOffset + bottomClampTolerance
         : runwayAfterCollapse > revealIntentDistance + collapseRunwaySlack;
     hidden = travelPastActivation >= hideIntentDistance && collapseHasSafeRunway;
   } else if (currentlyHidden && nextDirection === "up" && nextDirectionTravel >= revealIntentDistance) {
