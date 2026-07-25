@@ -195,6 +195,14 @@ export function Sheet({
         panelRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus="true"]') ??
         closeRef.current;
       focusTarget?.focus({ preventScroll: true });
+      // One retry if open-time focus lost the race to a closing sibling sheet
+      // (phone Guide menu → Guide dialog, or Sources opener teardown).
+      window.setTimeout(() => {
+        if (!focusTarget?.isConnected || document.activeElement === focusTarget) return;
+        if (panelRef.current && !panelRef.current.contains(document.activeElement)) {
+          focusTarget.focus({ preventScroll: true });
+        }
+      }, 50);
     });
 
     function onKeyDown(event: KeyboardEvent) {
