@@ -71,7 +71,7 @@ export const proseMeasure = "max-w-[68ch]";
 // chunk numbers, guideline versions, document IDs. Pairs with tabular figures.
 export const codeText = "font-mono tabular-nums tracking-tight";
 export const commandInput =
-  "min-h-12 w-full rounded-lg border border-[color:var(--border)]/70 bg-[color:var(--surface)] pl-12 pr-12 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-soft),var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] motion-safe:transition sm:text-base";
+  "min-h-12 w-full rounded-lg border border-[color:var(--border)]/70 bg-[color:var(--surface)] pl-12 pr-12 text-sm font-semibold text-[color:var(--text)] shadow-[var(--shadow-soft),var(--shadow-inset)] outline-none transition placeholder:text-[color:var(--text-soft)] focus:border-[color:var(--focus)] focus:shadow-[var(--shadow-focus)] motion-safe:transition sm:text-base";
 
 export const chatAnswerText =
   "max-w-[68ch] text-base-minus font-medium leading-[1.56] text-[color:var(--text-heading)] sm:text-base sm:leading-[1.62]";
@@ -445,6 +445,25 @@ export function PanelHeading({
   );
 }
 
+export function Skeleton({
+  className,
+  animationDelay,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement> & { animationDelay?: string }) {
+  return (
+    <div
+      className={cn(
+        "rounded-md bg-[color:var(--surface-subtle)] bg-no-repeat",
+        "bg-[length:200%_100%] bg-[linear-gradient(100deg,transparent_30%,color-mix(in_srgb,var(--surface-highlight)_72%,transparent)_50%,transparent_70%)]",
+        "motion-safe:animate-shimmer",
+        className,
+      )}
+      style={animationDelay ? { animationDelay } : undefined}
+      {...props}
+    />
+  );
+}
+
 export function LoadingPanel({
   label,
   variant = "spinner",
@@ -458,16 +477,7 @@ export function LoadingPanel({
     return (
       <div className={`${insetCard} mt-3 space-y-2.5 p-4`} role="status" aria-label={label}>
         {Array.from({ length: lines }).map((_, index) => (
-          <span
-            key={index}
-            aria-hidden
-            className={cn(
-              "block h-3.5 rounded-md bg-[color:var(--surface-subtle)] bg-no-repeat",
-              "bg-[length:200%_100%] bg-[linear-gradient(100deg,transparent_30%,color-mix(in_srgb,var(--surface-highlight)_72%,transparent)_50%,transparent_70%)]",
-              "motion-safe:animate-shimmer",
-              index === lines - 1 ? "w-2/3" : "w-full",
-            )}
-          />
+          <Skeleton key={index} aria-hidden className={cn("h-4", index === lines - 1 ? "w-2/3" : "w-full")} />
         ))}
         <span className="sr-only">{label}</span>
       </div>

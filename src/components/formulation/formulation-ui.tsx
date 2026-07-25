@@ -1,50 +1,19 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ArrowLeft, ChevronRight, Info, Network, ShieldCheck } from "lucide-react";
+import { Info, Network, ShieldCheck } from "lucide-react";
 
-import { cn, eyebrowText, pageContainer } from "@/components/ui-primitives";
+import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
+import { cn, eyebrowText } from "@/components/ui-primitives";
 
 export const formulationCard =
   "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] shadow-[var(--shadow-inset)]";
 
 export function FormulationPageShell({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <main
-      className={cn(
-        // Phone shell owns dock clearance; avoid 100dvh min-height overflowing the
-        // inset scrollport the way service/form detail pages used to.
-        "max-sm:min-h-0 bg-[color:var(--background)] px-3 py-4 pb-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-5 sm:py-6 sm:pb-10 lg:px-7",
-        className,
-      )}
-    >
-      <div className={cn(pageContainer, "grid gap-5 sm:gap-6")}>{children}</div>
-    </main>
-  );
+  return <InformationPageShell className={className}>{children}</InformationPageShell>;
 }
 
 export function FormulationBreadcrumbs({ current }: { current?: string }) {
-  return (
-    <nav
-      aria-label="Breadcrumb"
-      className="flex min-h-tap items-center gap-1 text-xs font-semibold text-[color:var(--text-muted)]"
-    >
-      <Link
-        href="/formulation"
-        className="inline-flex min-h-tap items-center gap-1.5 rounded-md px-1.5 hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden />
-        Formulation
-      </Link>
-      {current ? (
-        <>
-          <ChevronRight className="h-3.5 w-3.5 text-[color:var(--text-soft)]" aria-hidden />
-          <span aria-current="page" className="truncate text-[color:var(--text)]">
-            {current}
-          </span>
-        </>
-      ) : null}
-    </nav>
-  );
+  return <InformationPageBreadcrumbs home={{ label: "Formulation", href: "/formulation" }} current={current} />;
 }
 
 export function FormulationSubnav({ active }: { active: "search" | "builder" | "compare" | "map" }) {

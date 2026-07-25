@@ -202,10 +202,10 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
     id: "safety-plan",
     title: "Safety plan",
     mobileTitle: "Safety plan",
-    description: "Build a patient safety plan with the Stanley-Brown six steps and a printable copy.",
+    description: "Build an identifier-free safety plan with the Stanley-Brown six steps and a printable copy.",
     bestFor: "Collaborative safety planning",
     detail:
-      "Build an evidence-based safety plan with the patient — warning signs, coping strategies, supports, and means safety — with a live patient copy to print, save as PDF, or hand over.",
+      "Build an identifier-free safety plan with the patient — warning signs, coping strategies, supports, and means safety. Working content stays in the current browser tab until you copy, print, or save a PDF.",
     href: "/safety-plan",
     area: "care",
     status: "ready",
@@ -224,8 +224,13 @@ export const toolCatalogRecords: ToolCatalogRecord[] = [
       "means safety",
     ],
     checkFirst: ["Current risk and recent changes", "Warning signs and triggers", "Trusted supports and crisis lines"],
-    neededInput: ["Warning signs", "Coping strategies and supports", "Crisis contacts and means-safety steps"],
-    output: "A six-step safety plan with a patient copy to print, save as PDF, or hand over.",
+    neededInput: [
+      "No patient identifiers",
+      "Warning signs",
+      "Coping strategies and supports",
+      "Crisis contacts and means-safety steps",
+    ],
+    output: "An identifier-free six-step safety plan to export through an approved clinical workflow.",
   },
   {
     id: "monitoring",

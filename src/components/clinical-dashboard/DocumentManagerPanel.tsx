@@ -408,7 +408,7 @@ export function UploadPanel({
 
   return (
     <form onSubmit={handleFormSubmit} className={cn(panelSubtle, "p-3")}>
-      <PrivacyInputNotice className="mb-2" />
+      <PrivacyInputNotice className="mb-2" returnMode="documents" />
       <label className="block text-xs font-semibold text-[color:var(--text)]">
         Guideline PDF files
         <input
@@ -420,7 +420,7 @@ export function UploadPanel({
           disabled={demoMode || !canUpload || uploading}
           aria-describedby={fileHintId}
           onChange={() => changeStatus(null)}
-          className="mt-2 block w-full text-xs font-medium text-[color:var(--text-muted)] file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border file:border-[color:var(--border)] file:bg-[color:var(--surface)] file:px-3 file:text-xs file:font-semibold file:text-[color:var(--text)] file:shadow-[var(--shadow-inset)] file:transition file:hover:bg-[color:var(--surface-subtle)] disabled:opacity-50"
+          className="mt-2 block w-full text-xs font-medium text-[color:var(--text-muted)] file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border file:border-[color:var(--border)] file:bg-[color:var(--surface)] file:px-3 file:text-xs file:font-semibold file:text-[color:var(--text)] file:shadow-[var(--shadow-inset)] file:transition file:hover:bg-[color:var(--surface-subtle)] disabled:opacity-50 disabled:file:opacity-50"
         />
       </label>
       <p id={fileHintId} className={cn(textMuted, "mt-2 text-xs")}>

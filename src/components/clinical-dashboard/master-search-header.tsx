@@ -12,6 +12,7 @@ import {
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 
 import {
   Check,
@@ -66,6 +67,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
+import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
@@ -281,6 +283,7 @@ export function MasterSearchHeader({
 }) {
   // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
   // Do not OR demoMode again here — that would reopen Favourites when props diverge.
+  const router = useRouter();
   const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
     authenticated: canAccessFavourites,
     demoMode: false,
@@ -389,6 +392,7 @@ export function MasterSearchHeader({
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
   const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
+  const touchStartY = useRef<number | null>(null);
   const selectedDocumentIdSet = useMemo(() => new Set(selectedDocumentIds), [selectedDocumentIds]);
   const documentById = useMemo(() => new Map(documents.map((document) => [document.id, document])), [documents]);
   const selectedDocuments = useMemo(
@@ -677,7 +681,7 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "dsm-compare") {
-      window.location.assign("/dsm/compare");
+      router.push("/dsm/compare");
       return;
     }
     if (actionId === "dsm-criteria") {
@@ -690,15 +694,15 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "specifiers-builder") {
-      window.location.assign("/specifiers/builder");
+      router.push("/specifiers/builder");
       return;
     }
     if (actionId === "specifiers-compare") {
-      window.location.assign("/specifiers/compare");
+      router.push("/specifiers/compare");
       return;
     }
     if (actionId === "specifiers-map") {
-      window.location.assign("/specifiers/map");
+      router.push("/specifiers/map");
       return;
     }
     if (actionId === "formulation-search") {
@@ -706,15 +710,15 @@ export function MasterSearchHeader({
       return;
     }
     if (actionId === "formulation-builder") {
-      window.location.assign("/formulation/builder");
+      router.push("/formulation/builder");
       return;
     }
     if (actionId === "formulation-compare") {
-      window.location.assign("/formulation/compare");
+      router.push("/formulation/compare");
       return;
     }
     if (actionId === "formulation-map") {
-      window.location.assign("/formulation/map");
+      router.push("/formulation/map");
       return;
     }
   }
@@ -725,7 +729,7 @@ export function MasterSearchHeader({
       onSearchModeChange(mode.id);
       return;
     }
-    if ("href" in mode && mode.href) window.location.assign(mode.href);
+    if ("href" in mode && mode.href) router.push(mode.href);
   }
 
   function selectAppModeById(modeId: string) {
@@ -1378,6 +1382,25 @@ export function MasterSearchHeader({
     return (
       <form
         onSubmit={submit}
+        onTouchStart={(e) => {
+          touchStartY.current = e.touches[0].clientY;
+        }}
+        onTouchMove={(e) => {
+          if (touchStartY.current === null) return;
+          // Ignore swipes that originate inside a scrollable container
+          if (e.target instanceof Element && e.target.closest(".overflow-y-auto, .overflow-auto, .overflow-x-auto")) {
+            touchStartY.current = null;
+            return;
+          }
+          const currentY = e.touches[0].clientY;
+          const diff = currentY - touchStartY.current;
+          if (diff > 50) {
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            touchStartY.current = null;
+          }
+        }}
         data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
         data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
         data-command-open={
@@ -1517,6 +1540,9 @@ export function MasterSearchHeader({
                 ref={bindQueryInputRef}
                 data-testid="global-search-input"
                 autoFocus={queryInputAutoFocus}
+                onFocus={(e) => {
+                  e.target.scrollIntoView({ block: "nearest", behavior: resolveScrollBehavior() });
+                }}
                 value={query}
                 enterKeyHint="search"
                 inputMode="search"
@@ -1541,7 +1567,7 @@ export function MasterSearchHeader({
                 <button
                   type="button"
                   onClick={onClearQuery}
-                  className="grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:h-12 sm:w-12"
+                  className="grid min-h-tap min-w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:h-12 sm:w-12"
                   aria-label="Clear search question"
                 >
                   <X aria-hidden="true" className="h-4 w-4" />
@@ -1584,6 +1610,7 @@ export function MasterSearchHeader({
             id={composerPrivacyWarningId}
             testId={composerPrivacyWarningId}
             className="mt-1.5 justify-center px-3 text-center"
+            returnMode={searchMode === "answer" ? undefined : searchMode}
           />
         ) : null}
         {/* Scope popover is a form sibling so the "+" menu's "Set scope" action can

@@ -127,7 +127,10 @@ type ResolvedSearchArgs = RunUniversalSearchArgs & {
 };
 
 const registryDomainTimeoutMs = 2500;
-const documentsDomainTimeoutMs = 6000;
+// Typeahead documents are lexical-only previews. Cap well below the full retrieval
+// budget so an empty/slow documents domain cannot dominate Promise.all wall time
+// for the federated response (other domains typically finish in tens of ms).
+const documentsDomainTimeoutMs = 750;
 const ownerCatalogueLimit = 500;
 
 // Owner typeahead needs the complete rankable catalogue, but not governance timestamps, IDs,
@@ -736,6 +739,6 @@ export function universalSearchViewAllHref(domain: UniversalSearchDomain, query:
     case "therapies":
       return `/therapy-compass/search?q=${encodeURIComponent(query)}&run=1`;
     case "tools":
-      return `/?mode=tools&q=${encodeURIComponent(query)}&run=1`;
+      return `/tools?q=${encodeURIComponent(query)}&run=1`;
   }
 }

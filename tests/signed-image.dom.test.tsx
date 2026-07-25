@@ -97,4 +97,23 @@ describe("SignedImage failure/retry (jsdom)", () => {
     expect(frame).toHaveStyle({ aspectRatio: "4.2" });
     expect(frame?.className).not.toContain("aspect-[4/3]");
   });
+
+  it("does not append Storage transform query params onto issued signed URLs", async () => {
+    const signedUrl = "https://example.supabase.co/storage/v1/object/sign/images/demo.png?token=abc";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ url: signedUrl }) }),
+    );
+
+    // Default className is max-h-52; a prior broken heuristic rewrote that into
+    // width/height/resize query params on object/sign URLs (silent no-op / risk).
+    render(<SignedImage endpoint={ENDPOINT} alt="Signed crop" />);
+
+    const img = await screen.findByRole("img", { name: "Signed crop" });
+    const src = img.getAttribute("src") ?? "";
+    expect(src).toContain("/object/sign/");
+    expect(src).not.toContain("width=");
+    expect(src).not.toContain("height=");
+    expect(src).not.toContain("resize=");
+  });
 });

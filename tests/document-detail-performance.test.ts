@@ -10,7 +10,7 @@ describe("document detail loading contract", () => {
   it("uses one server-only authorized loader from both the route and page", () => {
     const loader = source("src/lib/document-detail.ts");
     const route = source("src/app/api/documents/[id]/route.ts");
-    const page = source("src/app/documents/[id]/page.tsx");
+    const page = source("src/app/(search-app)/documents/[id]/page.tsx");
 
     expect(loader).toContain('import "server-only"');
     expect(loader).toContain("loadAuthorizedDocumentDetail");
@@ -34,7 +34,11 @@ describe("document detail loading contract", () => {
     expect(loader).toContain("summaryRequest");
     expect(loader).toContain("selectedImageIds(selectedChunk)");
     expect(loader).toContain("imagesRequest.or(imageWindowFilter");
-    expect(loader).toContain("and(image_type.neq.logo_decorative,or(searchable.eq.true,source_kind.eq.table_crop)");
+    expect(loader).toContain("documentViewImageVisibility");
+    expect(loader).toContain(
+      "or(searchable.eq.true,source_kind.eq.table_crop,metadata->>retained_for_document_view.eq.true)",
+    );
+    expect(loader).toContain("and(image_type.neq.logo_decorative,${documentViewImageVisibility},page_number.gte.");
     expect(loader).toContain("id.in.(${imageIds.join");
     expect(loader).toContain("tableFactsRequest.or(tableFactWindowFilter");
     expect(loader).toContain("page_number.is.null");

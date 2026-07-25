@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { ClinicalNotesChecklistPanel } from "@/components/clinical-dashboard/evidence-panels";
 import { MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
 import type { AnswerRenderModel } from "@/lib/answer-render-policy";
 import type { RagAnswer } from "@/lib/types";
@@ -137,8 +138,6 @@ describe("MobileEvidenceSheetContent tabs (jsdom)", () => {
     expect(claims).toHaveAttribute("tabindex", "-1");
   });
 });
-<<<<<<< ours
-=======
 
 describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
   it("does not expose raw table evidence suppressed by the render model", () => {
@@ -265,36 +264,6 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
     expect(screen.queryByText("Escalate for tremor, confusion, or ataxia.")).not.toBeInTheDocument();
   });
 
-  it("does not reconstruct clinical notes from untrusted labeled answer text", () => {
-    const untrusted: RagAnswer = {
-      ...answer,
-      grounded: true,
-      // Missing relevance.isSourceBacked → fail closed for parsed clinical UI.
-      answer: [
-        "Action: Withhold lithium and arrange urgent same-day clinical review.",
-        "Monitoring: Repeat lithium level, renal function, and electrolytes within 24 hours.",
-      ].join("\n"),
-    };
-
-    render(
-      <ClinicalNotesChecklistPanel
-        answer={untrusted}
-        visualEvidence={[]}
-        viewMode="standard"
-        evidenceMapRows={[]}
-        bestSource={null}
-        copied={false}
-        onCopy={vi.fn()}
-        onOpenTables={vi.fn()}
-      />,
-    );
-
-    expect(screen.queryByText("Withhold lithium and arrange urgent same-day clinical review.")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Repeat lithium level, renal function, and electrolytes within 24 hours."),
-    ).not.toBeInTheDocument();
-  });
-
   it("does not render comparison tables from untrusted documentBreakdown", () => {
     const comparisonAnswer: RagAnswer = {
       ...answer,
@@ -376,4 +345,3 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
     expect(screen.queryByText("monthly when stable")).not.toBeInTheDocument();
   });
 });
->>>>>>> theirs

@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import { memo, useEffect, useRef, useState } from "react";
-import { CircleAlert, Loader2, Maximize2 } from "lucide-react";
+import { CircleAlert, Maximize2 } from "lucide-react";
 
-import { cn } from "@/components/ui-primitives";
+import { cn, Skeleton } from "@/components/ui-primitives";
 import { getCachedSignedUrl } from "@/lib/signed-url-cache";
 import { useSignedImageUrl } from "@/components/clinical-dashboard/use-signed-image-url";
 import { ImageLightbox } from "@/components/clinical-dashboard/image-lightbox";
@@ -51,12 +51,6 @@ export const SignedImage = memo(function SignedImage({
   caption?: string;
   /** Optional intrinsic width/height ratio for document crops that are not 4:3. */
   aspectRatio?: number | null;
-  /** Optional width for image transformation. */
-  width?: number;
-  /** Optional height for image transformation. */
-  height?: number;
-  /** Optional resize mode for image transformation. */
-  resize?: "cover" | "contain" | "fill";
 }) {
   const [shouldLoad, setShouldLoad] = useState(() => Boolean(getCachedSignedUrl(endpoint)));
   const [loaded, setLoaded] = useState(false);
@@ -145,34 +139,16 @@ export const SignedImage = memo(function SignedImage({
       )}
     >
       {url ? (
-        (() => {
-          let finalUrl = url;
-          const isSidebarContext = className?.includes("max-h-52");
-          const hasTransformParams = width !== undefined || height !== undefined || resize !== undefined;
-          const w = width ?? (hasTransformParams ? undefined : (isSidebarContext ? 384 : undefined));
-          const h = height ?? (hasTransformParams ? undefined : (isSidebarContext ? 384 : undefined));
-          const r = resize ?? (hasTransformParams ? undefined : (isSidebarContext ? "contain" : undefined));
-
-          if (w || h || r) {
-            try {
-              const urlObj = new URL(finalUrl);
-              if (w) urlObj.searchParams.set("width", String(w));
-              if (h) urlObj.searchParams.set("height", String(h));
-              if (r) urlObj.searchParams.set("resize", r);
-              finalUrl = urlObj.toString();
-            } catch (e) {
-              // Ignore invalid URLs
-            }
-          }
-
-          return (
-            // Keep next/image for fill/layout/sizes, but mark private signed previews
-            // `unoptimized` so bearer URLs never enter the unauthenticated
-            // `/_next/image` optimizer cache (stale-while-revalidate can outlive the
-            // signed token). Authorization stays on `/api/.../signed-url` issuance.
-            <Image
-              src={finalUrl}
-              alt={alt}
+        // Keep next/image for fill/layout/sizes, but mark private signed previews
+        // `unoptimized` so bearer URLs never enter the unauthenticated
+        // `/_next/image` optimizer cache (stale-while-revalidate can outlive the
+        // signed token). Authorization stays on `/api/.../signed-url` issuance.
+        // Do not append Storage transform query params here: createSignedUrl()
+        // returns object/sign URLs, and client-side width/height/resize mutation
+        // is a silent no-op (or can invalidate the token) without render/image.
+        <Image
+          src={url}
+          alt={alt}
           fill
           sizes="(max-width: 768px) 92vw, 320px"
           unoptimized
@@ -183,8 +159,6 @@ export const SignedImage = memo(function SignedImage({
             loaded ? "opacity-100" : "opacity-0",
           )}
         />
-          );
-        })()
       ) : null}
       {zoomable && url && loaded ? (
         <>
@@ -213,14 +187,11 @@ export const SignedImage = memo(function SignedImage({
         </>
       ) : null}
       {!url || !loaded ? (
-        <div className="absolute inset-0 grid place-items-center gap-1 text-center text-xs font-semibold text-[color:var(--text-muted)]">
+        <div className="absolute inset-0 flex items-center justify-center text-center text-xs font-semibold text-[color:var(--text-muted)]">
           {shouldLoad ? (
-            <>
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-              Loading image
-            </>
+            <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
           ) : (
-            "Image preview will load when visible"
+            <div className="grid place-items-center gap-1">Image preview will load when visible</div>
           )}
         </div>
       ) : null}
