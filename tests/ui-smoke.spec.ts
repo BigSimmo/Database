@@ -2177,8 +2177,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(geometry.collapseBudget).toBeLessThan(128);
     expect(geometry.postCollapseMaxOffset).toBeGreaterThanOrEqual(32);
     expect(geometry.postCollapseMaxOffset).toBeLessThan(48);
-    await main.focus();
-    await page.keyboard.press("PageDown");
+    // Use the shared scroll helper rather than browser-dependent PageDown
+    // routing so this exercises the app scroll surface deterministically.
+    await scrollPrimarySurface(page, geometry.postCollapseMaxOffset);
     await expect(header).toHaveAttribute("data-scroll-hidden", "true");
     await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
     // The reserve and both chrome edges animate for 240ms. The hidden state
