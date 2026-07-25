@@ -31,7 +31,11 @@ import {
   resolveMobileComposerReserve,
   resolveShellVisibleMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
-import { readChromeCollapseMetrics, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import {
+  readChromeCollapseMetrics,
+  useDocumentScrollHideReporter,
+  useScrollHideReporter,
+} from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import {
@@ -215,12 +219,17 @@ function GlobalStandaloneSearchShellClient({
   const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
   const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
-  const phoneScrollHide = useScrollHideReporter();
-  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
+  // The header hides at every breakpoint; only the phone bottom dock stays
+  // phone-gated (MasterSearchHeader keeps that behind its own phone layout
+  // check). #main-content is the scrollport on phones and the document is the
+  // scrollport above them, so both sources feed the same reporter.
+  const chromeScrollHide = useScrollHideReporter(false, true);
+  const reportChromeScrollHideRef = useRef(chromeScrollHide.reportScroll);
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
+  useDocumentScrollHideReporter(chromeScrollHide.reportScroll);
   useEffect(() => {
-    reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
-  }, [phoneScrollHide.reportScroll]);
+    reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
+  }, [chromeScrollHide.reportScroll]);
   const visibleShellModes = useMemo(() => {
     const modes = visibleAppModeDefinitions();
     if (!availableModeIds?.length) return modes;
@@ -527,7 +536,7 @@ function GlobalStandaloneSearchShellClient({
 
   function handleMainScroll(event: UIEvent<HTMLDivElement>) {
     const target = event.currentTarget;
-    phoneScrollHide.reportScroll({
+    chromeScrollHide.reportScroll({
       offset: target.scrollTop,
       maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
       ...readChromeCollapseMetrics(target),
@@ -550,7 +559,7 @@ function GlobalStandaloneSearchShellClient({
       const target = event.target;
       if (!(target instanceof HTMLElement) || !main.contains(target)) return;
       if (target.scrollHeight <= target.clientHeight + 1) return;
-      reportPhoneScrollHideRef.current({
+      reportChromeScrollHideRef.current({
         offset: target.scrollTop,
         maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
         // Collapsing chrome releases layout into nested scrollers too (their
@@ -623,7 +632,13 @@ function GlobalStandaloneSearchShellClient({
       ) : null}
 
       <div className="flex min-w-0 flex-col max-sm:h-full max-sm:min-h-0 max-sm:overflow-hidden sm:min-h-dvh">
-        <div className={mobileChromeVisible ? undefined : "hidden lg:block"}>
+        {/*
+          `contents` above the phone breakpoint: the chrome wrapper pins itself
+          to the viewport top there, and a plain block here would be a
+          header-height containing block that leaves that sticky rule no travel
+          (the header then just scrolled off the page with the content).
+        */}
+        <div className={mobileChromeVisible ? "sm:contents" : "hidden lg:contents"}>
           <MasterSearchHeader
             demoMode={clientDemoMode}
             documents={[]}
@@ -703,9 +718,11 @@ function GlobalStandaloneSearchShellClient({
             // scrolls with the content, matching the answer home rather than
             // docking to the bottom edge.
             heroComposerBreakpoint="all"
-            // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
+            // Phones: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the header/composer to hand space back to content.
-            hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
+            // Tablet/desktop: the document scrolls, so the chrome sticks to the
+            // viewport top and slides away instead of releasing flow space.
+            hideOnScroll={{ strategy: "collapse", wide: "sticky", scrollHidden: chromeScrollHide.hidden }}
             onBottomComposerHiddenChange={setBottomComposerHidden}
             queryInputAutoFocus={searchParams.get("focus") === "1"}
           />

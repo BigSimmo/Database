@@ -7,7 +7,8 @@ import { mobileComposerHiddenReserveRem } from "@/components/clinical-dashboard/
 
 // Matches phoneSearchLayoutMediaQuery in master-search-header.tsx — the repo's
 // phone/tablet seam. Hide-on-scroll runs below the sm breakpoint unless the
-// host opts into all breakpoints (the ClinicalDashboard glass-header overlay).
+// host opts into all breakpoints (both app shells do this for the header; the
+// bottom search dock stays phone-only).
 const phoneMediaQuery = "(max-width: 639px)";
 
 // Scroll offset (px) that must be passed before the chrome may hide; the
@@ -203,7 +204,14 @@ export function readChromeCollapseMetrics(
   scroller: HTMLElement,
 ): Pick<ScrollMetrics, "collapseBudget" | "collapseKind"> {
   const collapse = document.querySelector('[data-testid="universal-header-collapse"]');
-  const headerRelease = collapse instanceof HTMLElement ? collapse.getBoundingClientRect().height : 0;
+  // The 1fr -> 0fr grid IS the collapse mechanism, so the wrapper only hands
+  // layout back while it is a grid at the current width. Where it sticks and
+  // translates instead (GlobalSearchShell above the phone breakpoint, which
+  // hands scrolling back to the document), hiding costs the scroller nothing.
+  const headerRelease =
+    collapse instanceof HTMLElement && window.getComputedStyle(collapse).display === "grid"
+      ? collapse.getBoundingClientRect().height
+      : 0;
   const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
   const hiddenPadPx = mobileComposerHiddenReserveRem * rootFontSize;
   const padRelease = (element: Element | null): number => {
@@ -233,7 +241,7 @@ function readPhoneMedia() {
 
 const usePhoneMediaStore = createBrowserStore(subscribeToPhoneMedia, readPhoneMedia, false);
 
-function usePhoneScrollHideActive(disabled = false, allowAllBreakpoints = false) {
+function useScrollHideActive(disabled = false, allowAllBreakpoints = false) {
   const isPhone = usePhoneMediaStore();
   return (allowAllBreakpoints || isPhone) && !disabled;
 }
@@ -242,9 +250,11 @@ function usePhoneScrollHideActive(disabled = false, allowAllBreakpoints = false)
  * Imperative scroll-offset reporter for hosts that already own a React `onScroll`
  * handler on the scrolling element (for example ClinicalDashboard `<main>`).
  * Pass `allowAllBreakpoints` when the consumer hides chrome at every width
- * (the all-breakpoints glass-header overlay) instead of phones only.
+ * (both app shells do this for the header) instead of phones only, and
+ * `resetKey` when the host changes the scroll geometry under the reporter
+ * without remounting.
  */
-export function useScrollHideReporter(disabled = false, allowAllBreakpoints = false) {
+export function useScrollHideReporter(disabled = false, allowAllBreakpoints = false, resetKey?: unknown) {
   const [hidden, setHidden] = useState(false);
   const hiddenRef = useRef(false);
   const lastOffsetRef = useRef(0);
@@ -253,7 +263,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
   const directionTravelRef = useRef(0);
   const scrollSourceRef = useRef<EventTarget | null>(null);
   const hasScrollSourceRef = useRef(false);
-  const active = usePhoneScrollHideActive(disabled, allowAllBreakpoints);
+  const active = useScrollHideActive(disabled, allowAllBreakpoints);
 
   const reportScroll = useCallback(
     (report: number | ScrollMetrics) => {
@@ -318,12 +328,11 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     return () => window.cancelAnimationFrame(frame);
   }, [active]);
 
-  // The gate widening/narrowing (e.g. ClinicalDashboard toggling answer mode)
-  // changes the scroll geometry underneath us (<main> gains/loses its header
-  // reserve), so a carried-over hidden flag or last offset would produce one
-  // spurious hide/reveal on the first post-switch scroll. Reset on the change
-  // itself — `active` can stay true across it on phones, so the effect above
-  // never fires there.
+  // A geometry switch under the reporter (e.g. ClinicalDashboard toggling answer
+  // mode, where <main> gains/loses its header reserve) would otherwise carry a
+  // stale hidden flag or last offset into the first post-switch scroll and
+  // produce one spurious hide/reveal. Reset on the change itself — `active` can
+  // stay true across it, so the effect above never fires there.
   useEffect(() => {
     hiddenRef.current = false;
     lastOffsetRef.current = 0;
@@ -334,9 +343,49 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     hasScrollSourceRef.current = false;
     const frame = window.requestAnimationFrame(() => setHidden(false));
     return () => window.cancelAnimationFrame(frame);
-  }, [allowAllBreakpoints]);
+  }, [allowAllBreakpoints, resetKey]);
 
   return { hidden: active && hidden, reportScroll };
+}
+
+/**
+ * Feeds document scroll into a {@link useScrollHideReporter} for hosts whose
+ * page scrolls the document above the phone breakpoint — GlobalSearchShell,
+ * where `#main-content` is the scrollport only on phones and its `onScroll`
+ * therefore never fires on tablet/desktop. Self-gating: while the document
+ * cannot scroll (the phone shell is `fixed inset-0`) no scroll event arrives,
+ * so the internal scroller stays the single source at that width.
+ */
+export function useDocumentScrollHideReporter(reportScroll: (metrics: ScrollMetrics) => void) {
+  useEffect(() => {
+    let frame = 0;
+
+    const evaluate = () => {
+      frame = 0;
+      const scrollingElement = document.scrollingElement ?? document.documentElement;
+      const maxOffset = Math.max(0, scrollingElement.scrollHeight - window.innerHeight);
+      if (maxOffset <= 0) return;
+      reportScroll({
+        offset: window.scrollY,
+        maxOffset,
+        // Chrome that sticks to the viewport and translates away releases no
+        // document layout, so there is no runway to protect here.
+        collapseBudget: 0,
+        source: window,
+      });
+    };
+
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(evaluate);
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [reportScroll]);
 }
 
 interface UseHideOnScrollOptions {
@@ -367,7 +416,7 @@ export function useHideOnScroll({
   resetKey,
 }: UseHideOnScrollOptions): boolean {
   const { hidden, reportScroll } = useScrollHideReporter(disabled);
-  const active = usePhoneScrollHideActive(disabled);
+  const active = useScrollHideActive(disabled);
 
   useEffect(() => {
     reportScroll(0);

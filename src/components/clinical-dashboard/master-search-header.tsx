@@ -266,6 +266,20 @@ export function MasterSearchHeader({
      * matching top padding on its scroll container.
      */
     allBreakpoints?: boolean;
+    /**
+     * Collapse-only: how the chrome hides above the phone breakpoint. Omitting
+     * it keeps the hide/reveal phone-only.
+     *
+     * "collapse" releases the header's layout row at every width — for hosts
+     * whose scrollport is an internal element at every width (ClinicalDashboard's
+     * `<main>`), where the released strip goes straight to the content.
+     *
+     * "sticky" pins the chrome to the viewport top and slides it away instead —
+     * for hosts that hand scrolling back to the document above the phone
+     * breakpoint (GlobalSearchShell), where releasing flow space would jump the
+     * page under the reader.
+     */
+    wide?: "collapse" | "sticky";
     /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
     scrollHidden?: boolean;
   };
@@ -1695,6 +1709,12 @@ export function MasterSearchHeader({
   // flow (absolute over the scrolling <main>, which reserves matching top
   // padding) so content frosts under the glass bar at every width.
   const overlayAllBreakpoints = hideStrategy === "overlay" && Boolean(hideOnScroll?.allBreakpoints);
+  const wideCollapseBehaviour = hideStrategy === "collapse" ? hideOnScroll?.wide : undefined;
+  // Collapse hosts whose scrollport is internal at every width release the
+  // header row at every width too; hosts that hand scrolling back to the
+  // document above the phone breakpoint stick and translate there instead.
+  const collapsesAtEveryWidth = wideCollapseBehaviour === "collapse";
+  const sticksAbovePhones = wideCollapseBehaviour === "sticky";
   const chromeFocusProps = hideOnScroll
     ? {
         onFocusCapture: () => setHeaderChromeFocused(true),
@@ -1722,15 +1742,21 @@ export function MasterSearchHeader({
           // root and starve the .edge-glass-header-backdrop scrim (the single
           // source of the bar's frost) of the real page behind it.
           "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)]",
-          // Collapse hosts keep the header above an internally scrolling <main>, so
-          // sticky is unnecessary on phones and fights the 0fr grid collapse by
-          // pinning the bar inside the viewport. All-breakpoints overlay hosts take
+          // Collapse hosts keep the header above an internally scrolling <main>,
+          // so sticky is unnecessary wherever the row collapses and fights the
+          // 0fr grid by pinning the bar inside the viewport. Where the chrome
+          // sticks instead, the pinning belongs to the collapse wrapper: this
+          // <header> sits inside two header-height boxes, which leaves a sticky
+          // rule here zero travel — the bar simply scrolled off with the page
+          // and only came back at scroll top. All-breakpoints overlay hosts take
           // the header out of flow entirely (absolute over the padded <main>) —
-          // sticky would be inert there because the scroll container is <main>, not
-          // an ancestor of the header. Legacy overlay hosts keep sticky (they ride
-          // document scroll) and can translate away with zero layout shift.
+          // sticky would be inert there because the scroll container is <main>,
+          // not an ancestor of the header. Legacy overlay hosts keep sticky
+          // (they ride document scroll) and translate away with no layout shift.
           hideStrategy === "collapse"
-            ? "max-sm:relative sm:sticky sm:top-0"
+            ? sticksAbovePhones || collapsesAtEveryWidth
+              ? "relative"
+              : "max-sm:relative sm:sticky sm:top-0"
             : overlayAllBreakpoints
               ? "absolute inset-x-0 top-0"
               : "sticky top-0",
@@ -1952,32 +1978,62 @@ export function MasterSearchHeader({
   );
 
   if (hideStrategy === "collapse") {
-    // Collapse hide-on-scroll (phones): the host renders the header above an
-    // internally scrolling element, so hiding must also release the header's
-    // layout space. A 1fr -> 0fr grid row animates the collapse without any
-    // height measurement; the bottom-anchored inner track makes the chrome
-    // slide up out of the viewport top. Fixed-position composers (answer
-    // footer, mobile bottom search) escape the wrapper naturally because it
-    // never carries a transform, and everything is inert from sm up.
+    // Collapse hide-on-scroll: the host renders the header above an internally
+    // scrolling element, so hiding must also release the header's layout space.
+    // A 1fr -> 0fr grid row animates the collapse without any height
+    // measurement; the bottom-anchored inner track makes the chrome slide up
+    // out of the viewport top. Fixed-position composers (answer footer, mobile
+    // bottom search) escape the wrapper naturally because it carries no
+    // transform in this mode.
+    //
+    // Above the phone breakpoint a `wide: "sticky"` host scrolls the document
+    // instead, so this wrapper — not the <header> inside it, which has no
+    // sticky travel within its header-height parents — pins to the viewport top
+    // and translates away. Releasing the row there would pull the whole page up
+    // by the header height mid-scroll; translating leaves the geometry alone.
     return (
       <div
         data-scroll-hidden={headerChromeHidden ? "true" : undefined}
         data-testid="universal-header-collapse"
         className={cn(
-          "max-sm:grid max-sm:transition-[grid-template-rows] motion-reduce:transition-none",
-          headerChromeHidden
-            ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-            : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
-          headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
+          "motion-reduce:transition-none",
+          collapsesAtEveryWidth
+            ? cn(
+                "grid transition-[grid-template-rows]",
+                headerChromeHidden
+                  ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                headerChromeHidden ? "[grid-template-rows:0fr]" : "[grid-template-rows:1fr]",
+              )
+            : cn(
+                "max-sm:grid max-sm:transition-[grid-template-rows]",
+                headerChromeHidden
+                  ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
+                sticksAbovePhones &&
+                  cn(
+                    "sm:sticky sm:top-0 sm:z-30 sm:transition-transform",
+                    headerChromeHidden
+                      ? "sm:duration-[240ms] sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                      : "sm:duration-200 sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  ),
+                // Transform only while hidden: a standing transform would make
+                // this wrapper the containing block for the fixed-position menus
+                // and composers rendered inside it.
+                sticksAbovePhones && headerChromeHidden && "sm:-translate-y-full",
+              ),
         )}
         {...chromeFocusProps}
       >
         <div
           className={cn(
             "max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
+            collapsesAtEveryWidth && "sm:flex sm:min-h-0 sm:flex-col sm:justify-end",
             // Clip only while hiding so the edge-glass-header gradient that
             // extends below the header keeps painting when the chrome is shown.
             headerChromeHidden && "max-sm:overflow-hidden",
+            collapsesAtEveryWidth && headerChromeHidden && "sm:overflow-hidden",
           )}
         >
           {headerAndComposer}
