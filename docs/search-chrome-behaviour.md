@@ -39,13 +39,14 @@ Choose the hide mechanism from where the host's scrollport lives, because that d
 
 Rules that keep this working:
 
-- **Hide the top bar, not the search field, above phones.** The collapse wrapper (`data-testid="universal-header-collapse"`) must wrap only `header#search`. Putting the inline composer inside that wrapper is what made tablet/desktop search disappear with the mode bar.
+- **Hide the top bar, not the search field, above phones.** The collapse wrapper (`data-testid="universal-header-collapse"`) wraps `header#search` plus optional page chrome that must match top-bar hide/reveal (via `headerCollapseAddonSlotId`). Putting the inline search composer inside that wrapper is what made tablet/desktop search disappear with the mode bar — keep composers outside the collapse row.
+- **Page chrome that must match the top bar portals into the collapse host.** Do not pin tool secondary nav with `position: sticky` inside `#main-content` on phones — after the header collapses that sticky row becomes a second stuck header. Therapy's section strip portals into `#therapy-header-collapse-addon-slot` below `max-sm` and stays in-flow sticky above that.
 - **Feed the reporter from the element that actually scrolls.** `GlobalSearchShell`'s `#main-content` is the scrollport only on phones, so above that it also runs `useDocumentScrollHideReporter`. That hook self-gates: the phone shell is `fixed inset-0`, so the document cannot scroll and never fires.
 - **Sticky belongs on the outer [top bar \| search] stack, not on `header#search`.** The top bar sits inside header-height boxes, which leaves a sticky rule on it zero travel. For the same reason the stack's ancestor in `GlobalSearchShell` is `display: contents` above the phone breakpoint rather than a block.
 - **Collapse only the top-bar row inside a sticky stack.** Translating the whole stack would take the search field off-screen; collapsing just the top bar lets search stay pinned at the viewport top.
 - **Rebase the reporter on geometry switches.** Pass `resetKey` when the host changes the scrollport under it (`ClinicalDashboard` passes `searchMode`, which swaps `<main>`'s header reserve); otherwise the carried-over offset spends the first post-switch scroll on a spurious hide or reveal.
 
-Coverage: `tests/header-scroll-hide-contract.test.ts` (wiring), `tests/use-hide-on-scroll.test.ts` (decision logic), `tests/ui-chrome-scroll.spec.ts` (tablet/desktop top-bar hide/reveal with search still visible), `tests/ui-phone-scroll.spec.ts` (phone scroll geometry).
+Coverage: `tests/header-scroll-hide-contract.test.ts` (wiring), `tests/use-hide-on-scroll.test.ts` (decision logic), `tests/ui-chrome-scroll.spec.ts` (tablet/desktop top-bar hide/reveal with search still visible), `tests/ui-phone-scroll.spec.ts` (phone scroll geometry), `tests/ui-therapy-nav-scroll.spec.ts` (Therapy section nav hide/reveal with the top bar).
 
 ## Change checklist
 

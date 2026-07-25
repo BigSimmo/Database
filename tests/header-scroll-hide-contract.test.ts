@@ -59,10 +59,26 @@ describe("shared header hide/reveal wiring", () => {
     // The collapse testid must sit on the top-bar wrapper, not a joint stack.
     const collapseIdx = headerSource.indexOf('data-testid="universal-header-collapse"');
     const topBarCloseIdx = headerSource.indexOf("{topBar}", collapseIdx);
+    const addonIdx = headerSource.indexOf("headerCollapseAddonSlotId", topBarCloseIdx);
     const composerIdx = headerSource.indexOf("{searchComposer}", collapseIdx);
     expect(collapseIdx).toBeGreaterThan(-1);
     expect(topBarCloseIdx).toBeGreaterThan(collapseIdx);
-    expect(composerIdx).toBeGreaterThan(topBarCloseIdx);
+    // Optional page chrome (Therapy section nav) may sit after the top bar
+    // inside the collapse row; the search composer must stay outside it.
+    expect(addonIdx).toBeGreaterThan(topBarCloseIdx);
+    expect(composerIdx).toBeGreaterThan(addonIdx);
+  });
+
+  it("hosts Therapy section nav inside the collapse row on non-home therapy routes", () => {
+    expect(shellSource).toContain("therapyHeaderCollapseAddonSlotId");
+    expect(shellSource).toContain('pathname.startsWith("/therapy-compass") && pathname !== "/therapy-compass"');
+    expect(headerSource).toContain('data-testid="header-collapse-addon"');
+    // Addon host must be declared inside collapsingTopBar, not beside search.
+    const collapseIdx = headerSource.indexOf('data-testid="universal-header-collapse"');
+    const addonHostIdx = headerSource.indexOf('data-testid="header-collapse-addon"', collapseIdx);
+    const collapsingClose = headerSource.indexOf("if (sticksAbovePhones)", collapseIdx);
+    expect(addonHostIdx).toBeGreaterThan(collapseIdx);
+    expect(addonHostIdx).toBeLessThan(collapsingClose);
   });
 
   it("gives the sticky chrome stack real travel against the viewport", () => {
@@ -107,5 +123,6 @@ describe("shared header hide/reveal wiring", () => {
   it("documents that tablet/desktop search stays while the top bar hides", () => {
     expect(behaviourDocSource).toContain("Hide the top bar, not the search field, above phones");
     expect(behaviourDocSource).toContain("Top-bar hide/reveal is cross-breakpoint");
+    expect(behaviourDocSource).toContain("Page chrome that must match the top bar portals into the collapse host");
   });
 });
