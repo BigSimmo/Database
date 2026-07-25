@@ -376,7 +376,11 @@ export async function resolveSearchScope(args: {
     const labelRows = await loadScopeLabels({ supabase: args.supabase, candidateIds, signal: args.signal });
     labelsByDocument = new Map();
     for (const label of labelRows) {
-      labelsByDocument.set(label.document_id, [...(labelsByDocument.get(label.document_id) ?? []), label]);
+      // Append in place: paging past the 1,000-row cap means this loop now sees the full label
+      // set, and rebuilding each document's array per row is quadratic in that volume.
+      const documentLabels = labelsByDocument.get(label.document_id);
+      if (documentLabels) documentLabels.push(label);
+      else labelsByDocument.set(label.document_id, [label]);
     }
   }
 

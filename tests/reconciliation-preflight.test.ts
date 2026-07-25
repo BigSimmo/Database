@@ -1,10 +1,52 @@
-import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   classifyReconciliationState,
   collectReconciliationState,
   collectProcessDiagnostics,
   parseWorktreePorcelain,
 } from "../scripts/reconciliation-preflight.mjs";
+
+const temporaryDirectories: string[] = [];
+
+afterEach(() => {
+  for (const directory of temporaryDirectories.splice(0)) {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+function temporaryDirectory(prefix: string) {
+  const directory = mkdtempSync(path.join(tmpdir(), prefix));
+  temporaryDirectories.push(directory);
+  return directory;
+}
+
+function git(args: string[], cwd: string) {
+  const result = spawnSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.status !== 0) {
+    throw new Error(result.stderr || result.stdout || `git ${args.join(" ")} failed`);
+  }
+  return (result.stdout ?? "").trim();
+}
+
+/** Tiny isolated repo so the collector never scales with the live worktree farm. */
+function createFixtureRepository() {
+  const root = temporaryDirectory("reconcil-preflight-");
+  git(["init", "-b", "main"], root);
+  git(["config", "user.email", "preflight@example.test"], root);
+  git(["config", "user.name", "Preflight Fixture"], root);
+  writeFileSync(path.join(root, "README.md"), "fixture\n", "utf8");
+  git(["add", "README.md"], root);
+  git(["commit", "-m", "fixture root"], root);
+  return root;
+}
 
 describe("reconciliation preflight", () => {
   it("parses clean, detached, locked, and prunable worktree records", () => {
@@ -101,15 +143,41 @@ describe("reconciliation preflight", () => {
     expect(diagnostics).toEqual({ matchingWorktreeNodeProcesses: 1, rawCommandLinesSerialized: false });
   });
 
-  it("emits parseable metadata-only JSON without fetching", () => {
-    // Exercise the exported collector in-process. Spawning a second Node/Vite
-    // module graph here made this otherwise synchronous contract contend with
-    // the full suite for CPU and occasionally exceed the global test timeout.
-    const stdout = JSON.stringify(collectReconciliationState());
-    const payload = JSON.parse(stdout);
-    expect(payload).toMatchObject({ cachedRefsOnly: true, fetched: false });
-    expect(payload.integrationBase).toBe("dedicated-worktree-required");
+  it("emits parseable metadata-only JSON from a fixture repository without fetching", () => {
+    // Causal harness fix (#067): collecting against the live checkout scales with every
+    // registered worktree (status + git-dir + rev-list each). Under full-suite load that
+    // O(n) scan contended for CPU and hit the global 30s timeout. Inject a tiny fixture
+    // root so this contract stays deterministic and independent of the worktree farm.
+    const fixtureRoot = createFixtureRepository();
+    const startedAt = Date.now();
+    const payload = collectReconciliationState({
+      repositoryRoot: fixtureRoot,
+      baseRef: "main",
+      now: () => new Date("2026-07-24T12:00:00.000Z"),
+    });
+    const elapsedMs = Date.now() - startedAt;
+
+    expect(payload).toMatchObject({
+      cachedRefsOnly: true,
+      fetched: false,
+      generatedAt: "2026-07-24T12:00:00.000Z",
+      repositoryRoot: path.resolve(fixtureRoot),
+      baseRef: "main",
+      integrationBase: "dedicated-worktree-required",
+      totals: { worktrees: 1 },
+    });
     expect(payload.processDiagnostics).toMatchObject({ skipped: true, rawCommandLinesSerialized: false });
-    expect(stdout).not.toContain("commandLine");
+    expect(JSON.stringify(payload)).not.toContain("commandLine");
+    expect(elapsedMs).toBeLessThan(5_000);
+  });
+
+  it("does not inspect the live repository when a fixture root is injected", () => {
+    const fixtureRoot = createFixtureRepository();
+    const liveRoot = path.resolve(process.cwd());
+    const payload = collectReconciliationState({ repositoryRoot: fixtureRoot, baseRef: "main" });
+
+    expect(path.resolve(payload.repositoryRoot)).not.toBe(liveRoot);
+    expect(path.resolve(payload.primaryPath)).toBe(path.resolve(fixtureRoot));
+    expect(payload.totals.worktrees).toBe(1);
   });
 });
