@@ -162,6 +162,8 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalStylesSource).toContain("@media (max-width: 639px) and (prefers-reduced-motion: reduce)");
     expect(globalStylesSource).toContain('#main-content[data-bottom-composer-hidden="true"]');
     expect(globalStylesSource).toContain('[data-testid="mobile-composer-reserve-pad"]');
+    expect(globalStylesSource).toContain("transition: padding-bottom 200ms var(--ease-out-soft)");
+    expect(globalStylesSource).toContain("transition: padding-bottom 240ms var(--ease-out-soft)");
     expect(globalStylesSource).toContain("--phone-dock-differentials-compare-clearance: 12.5rem");
     expect(globalStylesSource).toContain("var(--phone-dock-differentials-compare-clearance)");
     // Child pages must not stack a second dock-sized safe-area pad under the
