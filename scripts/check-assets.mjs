@@ -3,7 +3,11 @@
  *
  * Unlike `svgo -f …` (which rewrites in place and is non-recursive without -r),
  * this check optimizes to a temp copy and compares bytes so CI never mutates
- * the worktree and nested icons (e.g. src/app/icon.svg) are covered.
+ * the worktree and nested SVGs are covered.
+ *
+ * `src/app/icon.svg` is owned by `brand:check` / `brandIconSvg()` and must keep
+ * its prefers-color-scheme `<style>` block. Default SVGO multipass strips that
+ * theme swap, so the brand icon is intentionally excluded here.
  */
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
@@ -13,6 +17,7 @@ import { optimize } from "svgo";
 
 const rootDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const roots = ["public", path.join("src", "app")];
+const skipRelativePaths = new Set(["src/app/icon.svg"]);
 
 async function* walkSvgFiles(dir) {
   let entries;
@@ -33,6 +38,8 @@ async function* walkSvgFiles(dir) {
       continue;
     }
     if (entry.isFile() && entry.name.toLowerCase().endsWith(".svg")) {
+      const relative = path.relative(rootDir, fullPath).replaceAll("\\", "/");
+      if (skipRelativePaths.has(relative)) continue;
       yield fullPath;
     }
   }
