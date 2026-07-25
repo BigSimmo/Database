@@ -475,7 +475,7 @@ Record one `docs/branch-review-ledger.md` row per PR touched, and end with the p
 
 ## Repository productivity skills
 
-Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 32 canonical single-word skills and `npm run check:skills` to verify catalog integrity. The older long names remain compatibility aliases and must not be counted as unique skills.
+Automatically apply repo-local skills under `.agents/skills/` when their descriptions match the user's request. Run `npm run skills` for the validated catalog of 33 canonical single-word skills and `npm run check:skills` to verify catalog integrity. The older long names remain compatibility aliases and must not be counted as unique skills.
 
 The foundational orchestration skills are:
 

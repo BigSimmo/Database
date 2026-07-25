@@ -83,4 +83,18 @@ describe("SignedImage failure/retry (jsdom)", () => {
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByTestId("image-lightbox")).not.toBeInTheDocument());
   });
+
+  it("uses a provided source aspect ratio instead of forcing every document crop into 4:3", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ url: "/demo/wide-table.png" }) }),
+    );
+
+    render(<SignedImage endpoint={ENDPOINT} alt="Wide table" aspectRatio={4.2} />);
+
+    const img = await screen.findByRole("img", { name: "Wide table" });
+    const frame = img.closest("div");
+    expect(frame).toHaveStyle({ aspectRatio: "4.2" });
+    expect(frame?.className).not.toContain("aspect-[4/3]");
+  });
 });

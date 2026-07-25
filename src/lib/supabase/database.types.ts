@@ -2306,6 +2306,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      create_uploaded_document_with_ingestion_job: {
+        Args: {
+          p_document: Json;
+          p_max_attempts: number;
+        };
+        Returns: Json;
+      };
       complete_strict_enrichment_job: {
         Args: {
           p_agent_version?: string;
