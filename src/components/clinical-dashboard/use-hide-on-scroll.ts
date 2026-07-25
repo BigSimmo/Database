@@ -25,12 +25,10 @@ const minimumDelta = 4;
 // chrome at a direction change.
 const hideIntentDistance = 24;
 const revealIntentDistance = 12;
-// How close to the bottom edge (CSS px) counts as "pinned to the bottom".
-// scrollHeight/clientHeight expose integer maxima while composited scrolling
-// can report fractional scrollTop values just over 1px below that edge during
-// a reserve transition. Keep this below minimumDelta so a real upward move is
-// still required to reveal.
-const bottomClampTolerance = 2;
+// How close to the stable bottom edge (px) counts as "pinned to the bottom".
+// Keep this strict for iOS rubber-band readings; animated layout clamps are
+// identified from the changing scroll range instead of pixel proximity.
+const bottomClampTolerance = 1;
 // Hiding the chrome releases its layout space back to the scroller (header
 // grid collapse + dock reserve-pad shrink), shrinking maxOffset by the same
 // amount. When the runway left below the current offset is smaller than that
@@ -68,6 +66,7 @@ export function computeScrollHideUpdate(params: {
   offset: number;
   lastOffset: number;
   maxOffset?: number;
+  previousMaxOffset?: number;
   collapseBudget?: number;
   collapseKind?: "in-flow" | "reserve-only";
   sourceChanged?: boolean;
@@ -84,6 +83,7 @@ export function computeScrollHideUpdate(params: {
     offset,
     lastOffset,
     maxOffset,
+    previousMaxOffset,
     collapseBudget,
     collapseKind,
     sourceChanged = false,
@@ -102,20 +102,23 @@ export function computeScrollHideUpdate(params: {
     return { hidden: false, lastOffset: offset, direction: null, directionTravel: 0 };
   }
 
-  // Collapsing in-flow chrome grows the scroll viewport: as the header hands its
-  // height back to the content, the browser clamps scrollTop to the new, smaller
-  // maximum and emits an apparent upward scroll even though the user is moving
-  // down or holding at the bottom. A collapse animates over several frames, so
-  // this clamp repeats frame after frame; if any frame's phantom "up" reveals
-  // the chrome, the viewport shrinks again and a hide/reveal scroll-bounce
-  // begins. While the chrome is hidden and the offset stays pinned to the bottom
-  // edge, treat every upward reading as layout feedback — hold the hidden state
-  // and rebase intent so only a genuine upward scroll (one that pulls the offset
-  // clear of the bottom) can reveal. This intentionally does not depend on the
-  // previous offset's relationship to the maximum, which the browser's per-frame
-  // clamping makes unreliable during the collapse.
-  //
-  // The bottom test is deliberately one-sided (`offset >= maxOffset - tol`, not
+  // When hidden chrome releases layout, the scroll range shrinks and a previous
+  // offset beyond the new maximum becomes impossible. The browser clamps both
+  // values downward; that apparent upward movement is geometry feedback, not
+  // reveal intent. Hold hidden and rebase until the range stabilizes.
+  if (
+    currentlyHidden &&
+    maxOffset !== undefined &&
+    previousMaxOffset !== undefined &&
+    maxOffset < previousMaxOffset &&
+    offset < lastOffset &&
+    lastOffset > maxOffset
+  ) {
+    return { hidden: true, lastOffset: offset, direction: null, directionTravel: 0 };
+  }
+
+  // The stable-bottom test is deliberately one-sided
+  // (`offset >= maxOffset - tol`, not
   // `|offset - maxOffset| <= tol`): iOS rubber-band overscroll at the bottom can
   // report a scrollTop *past* the maximum, and while the content springs back
   // the reading moves up. That is still the bottom edge, not a scroll away from
@@ -233,6 +236,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
   const [hidden, setHidden] = useState(false);
   const hiddenRef = useRef(false);
   const lastOffsetRef = useRef(0);
+  const lastMaxOffsetRef = useRef<number | undefined>(undefined);
   const directionRef = useRef<ScrollDirection>(null);
   const directionTravelRef = useRef(0);
   const scrollSourceRef = useRef<EventTarget | null>(null);
@@ -251,19 +255,33 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
               source: undefined,
             }
           : report;
-      if (!active || offset < 0) return;
+      if (!active) return;
       const lastOffset = lastOffsetRef.current;
       const delta = offset - lastOffset;
       const sourceChanged = source !== undefined && hasScrollSourceRef.current && scrollSourceRef.current !== source;
+      const previousMaxOffset = sourceChanged ? undefined : lastMaxOffsetRef.current;
+      const comparableRangeChanged =
+        previousMaxOffset !== undefined && maxOffset !== undefined && previousMaxOffset !== maxOffset;
       if (source !== undefined) {
         scrollSourceRef.current = source;
         hasScrollSourceRef.current = true;
       }
-      if (!sourceChanged && Math.abs(delta) < minimumDelta && offset > topRevealOffset) return;
+      // Baseline each metrics report, even when movement itself is too small to
+      // evaluate. Undefined explicitly clears stale geometry for numeric reports.
+      lastMaxOffsetRef.current = maxOffset;
+      if (offset < 0) return;
+      if (
+        !sourceChanged &&
+        !comparableRangeChanged &&
+        Math.abs(delta) < minimumDelta &&
+        offset > topRevealOffset
+      )
+        return;
       const update = computeScrollHideUpdate({
         offset,
         lastOffset,
         maxOffset,
+        previousMaxOffset,
         collapseBudget,
         collapseKind,
         sourceChanged,
@@ -284,6 +302,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     if (active) return undefined;
     hiddenRef.current = false;
     lastOffsetRef.current = 0;
+    lastMaxOffsetRef.current = undefined;
     directionRef.current = null;
     directionTravelRef.current = 0;
     scrollSourceRef.current = null;
@@ -301,6 +320,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
   useEffect(() => {
     hiddenRef.current = false;
     lastOffsetRef.current = 0;
+    lastMaxOffsetRef.current = undefined;
     directionRef.current = null;
     directionTravelRef.current = 0;
     scrollSourceRef.current = null;
