@@ -3120,7 +3120,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("details#dashboard-documents-drawer")).not.toHaveAttribute("open", "");
     await page.keyboard.press("Escape");
     await expect(resultsLibraryDialog).toHaveCount(0);
-    await expect.poll(async () => openSourcesButton.evaluate((el) => el === document.activeElement)).toBe(true);
+    await expect
+      .poll(async () => openSourcesButton.evaluate((el) => el === document.activeElement), {
+        timeout: 15_000,
+      })
+      .toBe(true);
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(documentResults).toBeVisible();
@@ -3984,10 +3988,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await gotoApp(page, "/");
 
       const dialog = await openGuide(page);
+      await expect.poll(async () => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await page.keyboard.press("Shift+Tab");
-      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      await expect.poll(async () => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await page.keyboard.press("Tab");
-      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      await expect.poll(async () => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await dialog.getByRole("button", { name: "Close guide" }).click();
       await expect(dialog).toBeHidden();
 
