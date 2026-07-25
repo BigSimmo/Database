@@ -86,7 +86,7 @@ const routeDescriptions: Record<string, string> = {
   "/specifiers/builder": "Structured diagnostic wording builder.",
   "/specifiers/compare": "Side-by-side psychiatric specifier comparison.",
   "/specifiers/map": "Psychiatric specifier family map.",
-  "/therapy-compass": "Therapy mode home (source-grounded therapy decision support).",
+  "/therapy-compass": "Therapy home (source-grounded therapy decision support).",
   "/therapy-compass/search": "Therapy library search surface.",
   "/therapy-compass/recommend": "Recommend a therapy from a clinical question and constraints.",
   "/therapy-compass/compare": "Side-by-side therapy comparison.",

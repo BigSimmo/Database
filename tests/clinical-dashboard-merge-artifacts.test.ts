@@ -50,6 +50,10 @@ const formulationUiSource = readFileSync(
   resolve(process.cwd(), "src/components/formulation/formulation-ui.tsx"),
   "utf8",
 );
+const informationPageShellSource = readFileSync(
+  resolve(process.cwd(), "src/components/information-page-shell.tsx"),
+  "utf8",
+);
 const favouritesLibrarySource = readFileSync(
   resolve(process.cwd(), "src/components/clinical-dashboard/favourites-command-library-page.tsx"),
   "utf8",
@@ -117,8 +121,9 @@ describe("ClinicalDashboard merge-artifact guards", () => {
   it("releases the Safari toolbar reserve only after phone composers hide", () => {
     expect(mobileComposerReserveSource).toContain('export const mobileComposerHiddenReserve = "0rem"');
     expect(mobileComposerReserveSource).toContain(
-      'export const mobileComposerDifferentialsCompareReserve = "calc(12.5rem + var(--safe-area-bottom))"',
+      "calc(12.5rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))",
     );
+    expect(mobileComposerReserveSource).toContain("export const mobileComposerDifferentialsCompareReserve");
     expect(mobileComposerReserveSource).toContain("export function resolveMobileComposerReserve");
     expect(mobileComposerReserveSource).toContain("export function isDocumentViewerOwnedRoute");
     expect(mobileComposerReserveSource).not.toContain("env(safe-area-inset-bottom)");
@@ -151,7 +156,9 @@ describe("ClinicalDashboard merge-artifact guards", () => {
 
     expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
     expect(documentViewerSource).toContain('"max-sm:pb-0"');
-    expect(documentViewerSource).toContain('"max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"');
+    expect(documentViewerSource).toContain(
+      '"max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]"',
+    );
     // Hidden document content must not reintroduce Safari toolbar inset padding.
     expect(documentViewerSource).not.toMatch(/composerScrollHidden\s*\?\s*["']max-sm:pb-\[calc\([^"']*safe-area/);
     expect(documentViewerSource).toContain("max-sm:duration-[240ms]");
@@ -159,6 +166,8 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalStylesSource).toContain("@media (max-width: 639px) and (prefers-reduced-motion: reduce)");
     expect(globalStylesSource).toContain('#main-content[data-bottom-composer-hidden="true"]');
     expect(globalStylesSource).toContain('[data-testid="mobile-composer-reserve-pad"]');
+    expect(globalStylesSource).toContain("transition: padding-bottom 200ms var(--ease-out-soft)");
+    expect(globalStylesSource).toContain("transition: padding-bottom 240ms var(--ease-out-soft)");
     expect(globalStylesSource).toContain("--phone-dock-differentials-compare-clearance: 12.5rem");
     expect(globalStylesSource).toContain("var(--phone-dock-differentials-compare-clearance)");
     // Child pages must not stack a second dock-sized safe-area pad under the
@@ -167,13 +176,16 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(differentialsHomeSource).not.toContain("pb-[calc(12.5rem+env(safe-area-inset-bottom))]");
     expect(applicationsLauncherSource).not.toContain("pb-[calc(12rem+env(safe-area-inset-bottom))]");
     expect(serviceDetailSource).not.toContain("pb-[calc(5.5rem+env(safe-area-inset-bottom))]");
-    expect(serviceDetailSource).toContain("max-sm:min-h-0");
+    expect(serviceDetailSource).toContain("InformationPageShell");
     expect(formDetailSource).not.toContain("pb-[calc(2rem+env(safe-area-inset-bottom))]");
-    expect(formDetailSource).toContain("max-sm:min-h-0");
+    expect(formDetailSource).toContain("InformationPageShell");
     expect(specifierUiSource).not.toContain("pb-[calc(7rem+env(safe-area-inset-bottom))]");
-    expect(specifierUiSource).toContain("max-sm:min-h-0");
+    expect(specifierUiSource).toContain("InformationPageShell");
     expect(formulationUiSource).not.toContain("pb-[calc(7rem+env(safe-area-inset-bottom))]");
-    expect(formulationUiSource).toContain("max-sm:min-h-0");
+    expect(formulationUiSource).toContain("InformationPageShell");
+    // Phone min-height contract lives on the shared information-page shell so
+    // catalogue detail pages do not each reintroduce a 100dvh pad under the dock.
+    expect(informationPageShellSource).toContain("max-sm:min-h-0");
     expect(favouritesLibrarySource).not.toContain("pb-[calc(6rem+env(safe-area-inset-bottom))]");
     expect(globalStylesSource).toContain("--phone-dock-hidden-pad: 0rem");
   });
