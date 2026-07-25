@@ -1,13 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import {
-  ArrowLeft,
   Bookmark,
   BookmarkCheck,
   CalendarDays,
-  CircleCheck,
   ChevronRight,
+  CircleCheck,
   Clipboard,
   ClipboardList,
   Clock3,
@@ -34,7 +32,6 @@ import {
   codeText,
   floatingControl,
   metadataPill,
-  pageContainer,
   primaryControl,
   textMuted,
   toneDanger,
@@ -43,6 +40,7 @@ import {
   toneSuccess,
   toneWarning,
 } from "@/components/ui-primitives";
+import { InformationPageBreadcrumbs, InformationPageShell } from "@/components/information-page-shell";
 import { FormCodeBadge, splitFormCode } from "@/components/forms/form-code-badge";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { formCatalogDetails, formTitleForCode, type FormRecord } from "@/lib/form-catalog";
@@ -621,7 +619,6 @@ function InfoRow({ label, value, icon: Icon }: { label: string; value: string | 
 }
 
 export function FormDetailPage({ form }: { form: FormRecord }) {
-  const router = useRouter();
   const accountData = useAccountData();
   const saved = accountData.isSaved("form", form.slug);
   const [notice, setNotice] = useState<string | null>(null);
@@ -636,10 +633,6 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
   const verified = form.verification?.locallyVerified === true;
   const criteria = form.criteria ?? [];
   const relatedTags = useMemo(() => [...(form.tags ?? []), ...(form.catchments ?? [])].slice(0, 8), [form]);
-
-  function goBack() {
-    router.push(appModeHomeHref("forms", { focus: true }));
-  }
 
   async function copyValue(value: string | null | undefined, label: string) {
     if (!hasText(value)) {
@@ -671,322 +664,299 @@ export function FormDetailPage({ form }: { form: FormRecord }) {
   }
 
   return (
-    <main
-      data-testid="form-detail-page"
-      className="max-sm:min-h-0 bg-[color:var(--background)] px-3 pb-4 pt-4 text-[color:var(--text)] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:px-5 sm:pb-10 sm:pt-6 lg:px-8"
-    >
-      <div className={pageContainer}>
-        {notice ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className={cn(
-              "mb-3 flex min-h-tap items-center justify-between gap-3 rounded-lg border p-3 text-sm font-semibold shadow-[var(--shadow-inset)]",
-              notice.includes("failed") || notice.includes("Nothing") ? toneWarning : toneSuccess,
-            )}
+    <InformationPageShell testId="form-detail-page" gap={false}>
+      {notice ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className={cn(
+            "mb-3 flex min-h-tap items-center justify-between gap-3 rounded-lg border p-3 text-sm font-semibold shadow-[var(--shadow-inset)]",
+            notice.includes("failed") || notice.includes("Nothing") ? toneWarning : toneSuccess,
+          )}
+        >
+          <span>{notice}</span>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="Dismiss form notification"
+            className="grid size-tap place-items-center rounded-md transition hover:bg-[color:var(--surface)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
-            <span>{notice}</span>
-            <button
-              type="button"
-              onClick={() => setNotice(null)}
-              aria-label="Dismiss form notification"
-              className="grid size-tap place-items-center rounded-md transition hover:bg-[color:var(--surface)]/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-            >
-              <X className="h-4 w-4" aria-hidden />
-            </button>
-          </div>
-        ) : null}
-
-        <div className="mb-3 flex flex-wrap items-center gap-3">
-          <button type="button" onClick={goBack} aria-label="Back to forms" className={cn(floatingControl, "px-3")}>
-            <ArrowLeft className="h-4 w-4" aria-hidden />
-            Back
+            <X className="h-4 w-4" aria-hidden />
           </button>
-          <nav
-            aria-label="Form breadcrumbs"
-            className="hidden min-w-0 items-center gap-2 text-xs font-semibold sm:flex"
-          >
-            <span className="text-[color:var(--clinical-accent)]">Forms</span>
-            <ChevronRight className="h-3.5 w-3.5 text-[color:var(--text-soft)]" aria-hidden />
-            <span className="truncate text-[color:var(--text-muted)]">
-              {displayText(form.catalogueLabel, "Catalogue")}
+        </div>
+      ) : null}
+
+      <InformationPageBreadcrumbs
+        home={{ label: "Forms", href: appModeHomeHref("forms", { focus: true }) }}
+        crumbs={[{ label: displayText(form.catalogueLabel, "Catalogue") }]}
+        current={form.title}
+        className="mb-3"
+      />
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <div className="min-w-0 space-y-4">
+          <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
+            <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
+              <FormCodeBadge code={code} variant="hero" />
+              <div className="min-w-0">
+                <h1 className="max-w-4xl text-3xl font-extrabold leading-[1.05] text-[color:var(--text-heading)] sm:text-4xl">
+                  {form.title}
+                </h1>
+                <p className="mt-1.5 max-w-4xl text-xs font-medium leading-4 text-[color:var(--text-muted)] sm:mt-3 sm:text-base sm:leading-6">
+                  {displayText(form.subtitle, "Psychiatry form and workflow details.")}
+                </p>
+                {form.statusChips?.length ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-3">
+                    {form.statusChips.map((chip, index) => (
+                      <span
+                        key={chip.label ?? `form-chip-${index}`}
+                        className={cn(
+                          "inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2 text-2xs font-bold uppercase leading-none sm:min-h-7 sm:px-2.5 sm:text-xs",
+                          chipToneClass(chip.tone),
+                        )}
+                      >
+                        <span className="hidden h-2 w-2 rounded-full bg-current sm:inline-block" aria-hidden />
+                        {displayText(chip.label, "Status")}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+              <div className="flex items-start justify-end gap-2 xl:justify-end">
+                <button
+                  type="button"
+                  onClick={toggleSaved}
+                  aria-label={saved ? "Remove saved form" : "Save form"}
+                  aria-pressed={saved}
+                  className="grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                >
+                  {saved ? (
+                    <BookmarkCheck className="h-5 w-5" aria-hidden />
+                  ) : (
+                    <Bookmark className="h-5 w-5" aria-hidden />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  disabled={!form.source?.url}
+                  onClick={() => {
+                    if (form.source?.url) window.open(form.source.url, "_blank", "noopener,noreferrer");
+                  }}
+                  aria-label={form.source?.url ? "Open official source for this form" : "Official source unavailable"}
+                  title={form.source?.url ? undefined : "Official source unavailable"}
+                  className="hidden min-h-tap shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition enabled:hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
+                >
+                  <FileText className="h-4 w-4" aria-hidden />
+                  <span>Source</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2.5 shadow-[var(--shadow-inset)] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:gap-3 sm:p-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--danger-soft)] text-[color:var(--danger)] sm:h-10 sm:w-10">
+                <FileText className="size-icon-md sm:size-icon-lg" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
+                  {formShortTitle(form)}
+                  {details?.availability === "downloadable" ? ".pdf" : ""}
+                </h2>
+                <p className={cn("mt-0.5 text-xs", textMuted)}>{displayText(form.source?.label, "Official form")}</p>
+              </div>
+            </div>
+            <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
+              {displayText(form.source?.status, "Source status pending")}
             </span>
-            <ChevronRight className="h-3.5 w-3.5 text-[color:var(--text-soft)]" aria-hidden />
-            <span className="truncate text-[color:var(--text-muted)]">{form.title}</span>
-          </nav>
+            <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
+              {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
+            </span>
+            <div className="flex items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:hidden">
+              <span>{details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}</span>
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </div>
+            {form.source?.url || details?.localPdfPath ? (
+              <div className="hidden items-center gap-3 sm:flex">
+                {form.source?.url ? (
+                  <a
+                    href={form.source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  >
+                    Official
+                    <ExternalLink className="h-4 w-4" aria-hidden />
+                  </a>
+                ) : null}
+                {details?.localPdfPath ? (
+                  <a
+                    href={details.localPdfPath}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--text-muted)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                  >
+                    Stored copy
+                    <Download className="h-4 w-4" aria-hidden />
+                  </a>
+                ) : null}
+              </div>
+            ) : (
+              <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:inline">
+                Source link pending
+              </span>
+            )}
+          </section>
+
+          <div className="hidden lg:block">
+            <ActionPanel
+              sourceHref={form.source?.url ?? null}
+              onCopy={() => copyValue(formDetailsClipboardText(form), "Form details copied")}
+              hrefForCall={hrefForCall}
+            />
+          </div>
+
+          <section aria-label="Priority facts" className="space-y-2.5 sm:space-y-3">
+            <h2 className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base">
+              Priority facts
+            </h2>
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
+              {summaryCards.map((card) => (
+                <DetailCard key={card.id} card={card} />
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/30 p-4 shadow-[var(--shadow-inset)]">
+            <div className="grid gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)]">
+              <span className="grid h-10 w-10 place-items-center rounded-lg bg-[color:var(--warning-soft)] text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
+                <ShieldCheck className="h-5 w-5" aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Legal boundary</h2>
+                  <span className={cn(metadataPill, "rounded-full text-2xs uppercase", toneWarning)}>Governance</span>
+                </div>
+                <p className="mt-2 max-w-5xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
+                  {displayText(
+                    form.bestUse,
+                    "Use the current approved form, confirm authority, and document the least restrictive safe option before signing.",
+                  )}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <section aria-label="Form information" className="grid gap-2">
+            {detailRows.map((row) => {
+              const label = row.label.toLowerCase();
+              const Icon = label.includes("only")
+                ? Route
+                : label.includes("sign")
+                  ? Clipboard
+                  : label.includes("clinical")
+                    ? Info
+                    : label.includes("source")
+                      ? FileText
+                      : label.includes("pathway")
+                        ? Navigation
+                        : CircleCheck;
+              return <InfoRow key={row.label} label={row.label} value={row.value} icon={Icon} />;
+            })}
+          </section>
+
+          <div className="grid gap-3 lg:hidden">
+            <SourceSnapshotCard form={form} />
+            <ActionPanel
+              sourceHref={form.source?.url ?? null}
+              onCopy={() => copyValue(formDetailsClipboardText(form), "Form details copied")}
+              hrefForCall={hrefForCall}
+            />
+          </div>
+
+          <div className="lg:hidden">
+            <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-mobile" />
+          </div>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_24rem]">
-          <div className="min-w-0 space-y-4">
-            <section className="rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3 shadow-[var(--shadow-inset)] sm:p-5">
-              <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_2.75rem] gap-x-3 gap-y-2.5 sm:grid-cols-[6rem_minmax(0,1fr)_auto] sm:gap-x-4 sm:gap-y-3 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-start">
-                <FormCodeBadge code={code} variant="hero" />
-                <div className="min-w-0">
-                  <h1 className="max-w-4xl text-3xl font-extrabold leading-[1.05] text-[color:var(--text-heading)] sm:text-4xl">
-                    {form.title}
-                  </h1>
-                  <p className="mt-1.5 max-w-4xl text-xs font-medium leading-4 text-[color:var(--text-muted)] sm:mt-3 sm:text-base sm:leading-6">
-                    {displayText(form.subtitle, "Psychiatry form and workflow details.")}
-                  </p>
-                  {form.statusChips?.length ? (
-                    <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-3">
-                      {form.statusChips.map((chip, index) => (
-                        <span
-                          key={chip.label ?? `form-chip-${index}`}
-                          className={cn(
-                            "inline-flex min-h-6 items-center gap-1.5 rounded-full border px-2 text-2xs font-bold uppercase leading-none sm:min-h-7 sm:px-2.5 sm:text-xs",
-                            chipToneClass(chip.tone),
-                          )}
-                        >
-                          <span className="hidden h-2 w-2 rounded-full bg-current sm:inline-block" aria-hidden />
-                          {displayText(chip.label, "Status")}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-                <div className="flex items-start justify-end gap-2 xl:justify-end">
-                  <button
-                    type="button"
-                    onClick={toggleSaved}
-                    aria-label={saved ? "Remove saved form" : "Save form"}
-                    aria-pressed={saved}
-                    className="grid h-tap w-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  >
-                    {saved ? (
-                      <BookmarkCheck className="h-5 w-5" aria-hidden />
-                    ) : (
-                      <Bookmark className="h-5 w-5" aria-hidden />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!form.source?.url}
-                    onClick={() => {
-                      if (form.source?.url) window.open(form.source.url, "_blank", "noopener,noreferrer");
-                    }}
-                    aria-label={form.source?.url ? "Open official source for this form" : "Official source unavailable"}
-                    title={form.source?.url ? undefined : "Official source unavailable"}
-                    className="hidden min-h-tap shrink-0 items-center gap-2 rounded-lg border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] px-3 text-sm font-semibold text-[color:var(--text-heading)] shadow-[var(--shadow-inset)] transition enabled:hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50 sm:inline-flex"
-                  >
-                    <FileText className="h-4 w-4" aria-hidden />
-                    <span>Source</span>
-                  </button>
-                </div>
-              </div>
-            </section>
+        <aside className="polished-scroll hidden min-w-0 space-y-3 lg:sticky lg:top-[5.75rem] lg:block lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
+          <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-desktop" />
+          <SourceSnapshotCard form={form} />
 
-            <section className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] p-2.5 shadow-[var(--shadow-inset)] sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:gap-3 sm:p-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[color:var(--danger-soft)] text-[color:var(--danger)] sm:h-10 sm:w-10">
-                  <FileText className="size-icon-md sm:size-icon-lg" aria-hidden />
+          <RailCard icon={FileText} title="Source status">
+            <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold text-[color:var(--text-heading)]">
+                  {displayText(form.source?.label, "Source")}
+                </p>
+                <span
+                  className={cn(
+                    "inline-flex min-h-6 shrink-0 items-center rounded-md border px-2 text-2xs font-bold",
+                    sourceToneClass(form),
+                  )}
+                >
+                  {displayText(form.source?.status, "Unreviewed")}
                 </span>
-                <div className="min-w-0">
-                  <h2 className="truncate text-sm font-semibold text-[color:var(--text-heading)]">
-                    {formShortTitle(form)}
-                    {details?.availability === "downloadable" ? ".pdf" : ""}
-                  </h2>
-                  <p className={cn("mt-0.5 text-xs", textMuted)}>{displayText(form.source?.label, "Official form")}</p>
-                </div>
               </div>
-              <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
-                {displayText(form.source?.status, "Source status pending")}
-              </span>
-              <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:block">
-                {details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}
-              </span>
-              <div className="flex items-center gap-2 text-xs font-semibold text-[color:var(--text-muted)] sm:hidden">
-                <span>{details?.officialPdfPasswordProtected ? "Password protected" : "Check source"}</span>
-                <ChevronRight className="h-4 w-4" aria-hidden />
-              </div>
-              {form.source?.url || details?.localPdfPath ? (
-                <div className="hidden items-center gap-3 sm:flex">
-                  {form.source?.url ? (
-                    <a
-                      href={form.source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                    >
-                      Official
-                      <ExternalLink className="h-4 w-4" aria-hidden />
-                    </a>
-                  ) : null}
-                  {details?.localPdfPath ? (
-                    <a
-                      href={details.localPdfPath}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--text-muted)] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                    >
-                      Stored copy
-                      <Download className="h-4 w-4" aria-hidden />
-                    </a>
-                  ) : null}
-                </div>
-              ) : (
-                <span className="hidden text-xs font-semibold text-[color:var(--text-muted)] sm:inline">
-                  Source link pending
-                </span>
-              )}
-            </section>
-
-            <div className="hidden lg:block">
-              <ActionPanel
-                sourceHref={form.source?.url ?? null}
-                onCopy={() => copyValue(formDetailsClipboardText(form), "Form details copied")}
-                hrefForCall={hrefForCall}
-              />
+              {form.source?.reviewed ? (
+                <p className={cn("mt-2 text-xs leading-5", textMuted)}>{form.source.reviewed}</p>
+              ) : null}
+              {form.source?.notes?.length ? (
+                <ul className="mt-2 space-y-1.5">
+                  {form.source.notes.map((note) => (
+                    <li key={note} className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+                      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
+                      <span>{note}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
+          </RailCard>
 
-            <section aria-label="Priority facts" className="space-y-2.5 sm:space-y-3">
-              <h2 className="text-base-minus font-semibold leading-5 text-[color:var(--text-heading)] sm:text-base">
-                Priority facts
-              </h2>
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4">
-                {summaryCards.map((card) => (
-                  <DetailCard key={card.id} card={card} />
+          <RailCard icon={ShieldCheck} title="Verification">
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-1.5">
+                <span className={cn(metadataPill, "rounded-full", verified ? toneSuccess : toneWarning)}>
+                  {verified ? "Locally verified" : "Verify locally"}
+                </span>
+                <span className={cn(metadataPill, "rounded-full")}>
+                  {form.verification?.confidence ?? "Unknown"} confidence
+                </span>
+              </div>
+              {form.verification?.notes?.length ? (
+                <ul className="space-y-1.5">
+                  {form.verification.notes.map((note) => (
+                    <li key={note} className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+                      <CircleCheck
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]"
+                        aria-hidden
+                      />
+                      <span>{note}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={cn("text-sm leading-6", textMuted)}>No verification notes are listed.</p>
+              )}
+            </div>
+          </RailCard>
+
+          <RailCard icon={Tag} title="Tags & context">
+            {relatedTags.length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {relatedTags.map((tag) => (
+                  <span key={tag} className={cn(metadataPill, "rounded-full text-2xs")}>
+                    {tag}
+                  </span>
                 ))}
               </div>
-            </section>
-
-            <section className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]/30 p-4 shadow-[var(--shadow-inset)]">
-              <div className="grid gap-3 sm:grid-cols-[2.5rem_minmax(0,1fr)]">
-                <span className="grid h-10 w-10 place-items-center rounded-lg bg-[color:var(--warning-soft)] text-[color:var(--warning)] shadow-[var(--shadow-inset)]">
-                  <ShieldCheck className="h-5 w-5" aria-hidden />
-                </span>
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Legal boundary</h2>
-                    <span className={cn(metadataPill, "rounded-full text-2xs uppercase", toneWarning)}>Governance</span>
-                  </div>
-                  <p className="mt-2 max-w-5xl text-sm font-medium leading-6 text-[color:var(--text-muted)]">
-                    {displayText(
-                      form.bestUse,
-                      "Use the current approved form, confirm authority, and document the least restrictive safe option before signing.",
-                    )}
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            <section aria-label="Form information" className="grid gap-2">
-              {detailRows.map((row) => {
-                const label = row.label.toLowerCase();
-                const Icon = label.includes("only")
-                  ? Route
-                  : label.includes("sign")
-                    ? Clipboard
-                    : label.includes("clinical")
-                      ? Info
-                      : label.includes("source")
-                        ? FileText
-                        : label.includes("pathway")
-                          ? Navigation
-                          : CircleCheck;
-                return <InfoRow key={row.label} label={row.label} value={row.value} icon={Icon} />;
-              })}
-            </section>
-
-            <div className="grid gap-3 lg:hidden">
-              <SourceSnapshotCard form={form} />
-              <ActionPanel
-                sourceHref={form.source?.url ?? null}
-                onCopy={() => copyValue(formDetailsClipboardText(form), "Form details copied")}
-                hrefForCall={hrefForCall}
-              />
-            </div>
-
-            <div className="lg:hidden">
-              <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-mobile" />
-            </div>
-          </div>
-
-          <aside className="polished-scroll hidden min-w-0 space-y-3 lg:sticky lg:top-[5.75rem] lg:block lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
-            <PathwayContextCard form={form} code={code} criteria={criteria} testId="form-decision-context-desktop" />
-            <SourceSnapshotCard form={form} />
-
-            <RailCard icon={FileText} title="Source status">
-              <div className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold text-[color:var(--text-heading)]">
-                    {displayText(form.source?.label, "Source")}
-                  </p>
-                  <span
-                    className={cn(
-                      "inline-flex min-h-6 shrink-0 items-center rounded-md border px-2 text-2xs font-bold",
-                      sourceToneClass(form),
-                    )}
-                  >
-                    {displayText(form.source?.status, "Unreviewed")}
-                  </span>
-                </div>
-                {form.source?.reviewed ? (
-                  <p className={cn("mt-2 text-xs leading-5", textMuted)}>{form.source.reviewed}</p>
-                ) : null}
-                {form.source?.notes?.length ? (
-                  <ul className="mt-2 space-y-1.5">
-                    {form.source.notes.map((note) => (
-                      <li
-                        key={note}
-                        className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
-                      >
-                        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden />
-                        <span>{note}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            </RailCard>
-
-            <RailCard icon={ShieldCheck} title="Verification">
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-1.5">
-                  <span className={cn(metadataPill, "rounded-full", verified ? toneSuccess : toneWarning)}>
-                    {verified ? "Locally verified" : "Verify locally"}
-                  </span>
-                  <span className={cn(metadataPill, "rounded-full")}>
-                    {form.verification?.confidence ?? "Unknown"} confidence
-                  </span>
-                </div>
-                {form.verification?.notes?.length ? (
-                  <ul className="space-y-1.5">
-                    {form.verification.notes.map((note) => (
-                      <li
-                        key={note}
-                        className="flex gap-2 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
-                      >
-                        <CircleCheck
-                          className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]"
-                          aria-hidden
-                        />
-                        <span>{note}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className={cn("text-sm leading-6", textMuted)}>No verification notes are listed.</p>
-                )}
-              </div>
-            </RailCard>
-
-            <RailCard icon={Tag} title="Tags & context">
-              {relatedTags.length ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {relatedTags.map((tag) => (
-                    <span key={tag} className={cn(metadataPill, "rounded-full text-2xs")}>
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className={cn("text-sm leading-6", textMuted)}>No tags listed.</p>
-              )}
-            </RailCard>
-          </aside>
-        </div>
+            ) : (
+              <p className={cn("text-sm leading-6", textMuted)}>No tags listed.</p>
+            )}
+          </RailCard>
+        </aside>
       </div>
-    </main>
+    </InformationPageShell>
   );
 }
