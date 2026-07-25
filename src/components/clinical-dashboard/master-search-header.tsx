@@ -1419,6 +1419,13 @@ export function MasterSearchHeader({
     const showsComposerPrivacyNotice = usesPhoneSearchLayout ? isDesktopHomeComposer : true;
 
     const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
+    // Search sits outside the collapsing top-bar row. While the top bar is
+    // visible, sticky search clears its height; once the top bar hides, that
+    // offset would leave a dead band — drop to the viewport top instead.
+    const stickySearchClearsTopBar = !(hideStrategy === "collapse" && headerChromeHidden);
+    const stickySearchTopClass = stickySearchClearsTopBar
+      ? "top-[calc(4.75rem+env(safe-area-inset-top))] sm:top-[calc(4.75rem+env(safe-area-inset-top))]"
+      : "top-0 sm:top-0";
 
     return (
       <form
@@ -1462,12 +1469,13 @@ export function MasterSearchHeader({
                       ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
                       : cn(
                           "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                          isHeroDesktopComposer
-                            ? "sm:hidden"
-                            : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
+                          isHeroDesktopComposer ? "sm:hidden" : cn("sm:sticky", stickySearchTopClass),
                         ),
                   )
-                : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
+                : cn(
+                    "universal-top-search-edge sticky z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
+                    stickySearchTopClass,
+                  ),
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
