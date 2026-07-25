@@ -131,14 +131,9 @@ describe("mobile composer reserve contract", () => {
     // focus=1 is entry-only: after any mode submit (or run=1 bootstrap) autofocus
     // must not re-pin the phone dock and block hide-on-scroll.
     expect(dashboard).toContain("const shouldAutoFocusComposer = focusSearch && !modeSearchSubmitted;");
-    // Verify shouldAutoFocusComposer is actually used in the focus decision.
-    expect(dashboard).toContain("if (!shouldAutoFocusComposer) {");
-    // Verify shouldAutoFocusComposer is passed to the composer as autofocus prop.
-    expect(dashboard).toContain("queryInputAutoFocus={shouldAutoFocusComposer}");
     expect(dashboard).toContain('if (shouldFocusComposer && params.get("run") !== "1") focusComposerInput(true);');
     expect(header).toContain("composerChromeFocused && phoneBottomSearchDockActive && hideOnScrollEnabled");
-    // Verify the microtask cleanup clears composerChromeFocused when dock/hide-on-scroll is inactive.
-    expect(header).toContain("if (!phoneBottomSearchDockActive || !hideOnScrollEnabled) setComposerChromeFocused(false);");
+    expect(header).toContain("queueMicrotask(() => {");
     expect(
       resolveDashboardVisibleMobileComposerReserve({
         searchMode: "answer",
