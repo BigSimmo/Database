@@ -336,12 +336,16 @@ function RightRail({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
+      <section
+        data-testid="services-referral-decision"
+        className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]"
+      >
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Referral decision</h3>
           <button
             className="inline-flex min-h-tap items-center text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
             type="button"
+            data-testid="services-clear-selected"
             onClick={clearSelectedServices}
             disabled={selected.length === 0}
             title={selected.length === 0 ? "No selected services to clear" : "Clear selected services"}
@@ -349,7 +353,9 @@ function RightRail({
             Clear
           </button>
         </div>
-        <p className="mt-3 text-sm font-bold text-[color:var(--text-heading)]">Selected services ({selected.length})</p>
+        <p data-testid="services-selected-count" className="mt-3 text-sm font-bold text-[color:var(--text-heading)]">
+          Selected services ({selected.length})
+        </p>
         <div className="mt-3 grid gap-2">
           {selected.map((service, index) => (
             <button
@@ -392,7 +398,7 @@ function RightRail({
           ))}
         </div>
         <button
-          className="mt-4 inline-flex min-h-tap items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
+          className="mt-4 inline-flex min-h-tap scroll-mt-40 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:scroll-mt-44"
           type="button"
           onClick={() => setShowChecklistDetails((current) => !current)}
           disabled={selected.length === 0}
@@ -489,8 +495,14 @@ function RightRail({
       <button
         className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50"
         type="button"
+        data-testid="services-compare-selected"
         disabled={!comparisonAvailable}
         title={comparisonAvailable ? "Compare selected services" : "Select at least two services before comparing"}
+        aria-label={
+          comparisonAvailable
+            ? `Compare selected services (${selected.length})`
+            : "Select at least two services before comparing"
+        }
         onClick={() => setShowComparison((current) => !current)}
         aria-expanded={comparisonExpanded}
         aria-controls={comparisonExpanded ? "selected-services-comparison" : undefined}

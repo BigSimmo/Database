@@ -246,19 +246,24 @@ test.describe("previously uncovered production routes", () => {
         await search.click();
         await expect(currentPage.getByRole("heading", { name: "Therapy", level: 1, exact: true })).toBeVisible();
         const nav = currentPage.getByRole("navigation", { name: "Therapy sections" });
+        // Phone: section nav portals into the header collapse host (outside
+        // .tc-root). Read canvas colour from the workspace root still in the
+        // page, and prove the strip is anchored under the collapsing top bar.
         const layout = await nav.evaluate((element) => {
           const navRect = element.getBoundingClientRect();
           const shellRect = element.parentElement?.getBoundingClientRect();
-          const root = element.closest(".tc-root");
+          const root = document.querySelector(".tc-root");
           return {
             centerDelta: shellRect
               ? navRect.left + navRect.width / 2 - (shellRect.left + shellRect.width / 2)
               : Number.POSITIVE_INFINITY,
             backgroundColor: root ? getComputedStyle(root).backgroundColor : "",
+            portaledIntoCollapse: Boolean(element.closest('[data-testid="universal-header-collapse"]')),
           };
         });
         expect(Math.abs(layout.centerDelta)).toBeLessThanOrEqual(1);
         expect(layout.backgroundColor).toBe("rgb(255, 255, 255)");
+        expect(layout.portaledIntoCollapse).toBe(true);
       },
     );
   });
