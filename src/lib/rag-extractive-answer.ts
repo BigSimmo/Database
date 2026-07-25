@@ -1704,9 +1704,15 @@ export function generatedAnswerQualityFailureReason(answer: RagAnswer, query: st
     /(?:\b(?:what|which)\b.{0,100}\b(?:include|included|require|required|requirements?)\b|\b(?:process|procedure)\b|\bhow\b.{0,80}\b(?:handled|managed|performed|completed)\b)/i.test(
       query,
     );
+  const clinicalRiskCoverageRequested =
+    queryClass === "medication_dose_risk" &&
+    /\b(?:escalat\w*|urgent\w*|red flags?|toxicity|adverse effects?|side effects?)\b/i.test(query);
   const distinctAvailableSources = new Set((answer.sources ?? []).map((source) => source.id)).size;
   if (broadDocumentCoverageRequested && distinctAvailableSources >= 2 && answer.citations.length < 2) {
     return "insufficient_broad_citation_coverage";
+  }
+  if (clinicalRiskCoverageRequested && distinctAvailableSources >= 2 && answer.citations.length < 2) {
+    return "insufficient_clinical_risk_citation_coverage";
   }
   if (isUnusableGeneratedAnswer(answer)) return "unusable_generated_answer";
   if (isTemplateLikeGeneratedAnswer(answer)) return "template_like_answer";
@@ -1954,6 +1960,7 @@ function finalizeRagAnswerQualityCore(answer: RagAnswer, query: string, queryCla
       const isDocumentListSection = section.kind === "documentation" || /\bdocument matches\b/i.test(section.heading);
       if (
         !isDocumentListSection &&
+        answer.routingMode !== "extractive" &&
         (bodyKey === answerKey || answerKey.includes(bodyKey) || bodyKey.includes(answerKey))
       ) {
         return null;

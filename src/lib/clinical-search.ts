@@ -530,6 +530,7 @@ function queryClassFromSignals(args: {
     return "document_lookup";
   if (outsideCorpusMedicalPattern.test(args.normalizedQuery) && args.documentTitleTerms.length === 0)
     return "unsupported_or_general";
+  if (args.documentTitleTerms.includes("neuroleptic side effects")) return "document_lookup";
   if (
     /\bflow\s*chart|flowchart\b/i.test(args.normalizedQuery) &&
     /\b(?:next step|step after|after)\b/i.test(args.normalizedQuery)
@@ -1238,11 +1239,18 @@ export function medicationDoseQueryContext(query: string, result: SearchResult) 
     return { hasClinicalSubject: false, matched: true, hitCount: 0, requiredHits: 0 };
   }
   const evidenceTokens = new Set(normalizedClinicalSearchTokens(clinicalResultEvidenceHaystack(result)));
-  const hitCount = subjectTokens.filter((token) => evidenceTokens.has(token)).length;
+  const evidenceHasSubjectToken = (token: string) =>
+    evidenceTokens.has(token) ||
+    (token.startsWith("monitor") &&
+      Array.from(evidenceTokens).some((evidenceToken) => evidenceToken.startsWith("monitor")));
+  const hitCount = subjectTokens.filter(evidenceHasSubjectToken).length;
   const requiredHits = Math.min(2, subjectTokens.length);
+  const namedMedications = medicationTerms(normalizeAnalysisText(query));
+  const hasNamedMedication =
+    namedMedications.length === 0 || namedMedications.some((medication) => evidenceTokens.has(medication));
   return {
     hasClinicalSubject: true,
-    matched: hitCount >= requiredHits,
+    matched: hasNamedMedication && hitCount >= requiredHits,
     hitCount,
     requiredHits,
   };
@@ -1298,7 +1306,13 @@ export function buildClinicalTextSearchQuery(query: string) {
     if (/\b(?:fbc|full blood count)\b/i.test(query)) visualTokens.unshift("fbc", "blood");
     normalizedTokens.unshift(...visualTokens);
   } else if (wantsClozapineBloodMonitoring) {
-    normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "monitoring");
+    const thresholdEvidenceTokens = normalizedTokens.filter((token) =>
+      /^(?:anc|fbc|wbc|wcc|neutrophil|red)$/.test(token),
+    );
+    if (/\b(?:withhold|withheld|withholding|cease|ceased|stop|stopped)\b/i.test(correctedQueryText)) {
+      thresholdEvidenceTokens.push("red");
+    }
+    normalizedTokens.splice(0, normalizedTokens.length, "clozapine", "monitoring", ...thresholdEvidenceTokens);
   } else if (wantsAgitationMedicationChart) {
     const requestedDoseRouteTerms = medicationDoseEvidenceSearchTerms(query);
     const medicationChartTokens =
@@ -1308,6 +1322,8 @@ export function buildClinicalTextSearchQuery(query: string) {
     normalizedTokens.splice(0, normalizedTokens.length, ...medicationChartTokens);
   } else if (wantsAgitationArousal) {
     normalizedTokens.splice(0, normalizedTokens.length, "agitation", "arousal", "pharmacological", "management");
+  } else if (/\bneuroleptic\b/i.test(correctedQueryText) && /\bside effects?\b/i.test(correctedQueryText)) {
+    normalizedTokens.splice(0, normalizedTokens.length, "neuroleptic", "side", "effect");
   } else if (/\badmission\b/i.test(query) && /\bcommunity patients?\b/i.test(query)) {
     normalizedTokens.unshift("admission", "community", "patients", "pts");
   } else if (/\bdischarge\b/i.test(query) && /\b(?:summari[sz]e|summary|guidance|documentation?)\b/i.test(query)) {
