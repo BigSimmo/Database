@@ -268,6 +268,61 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(modeButton).toHaveAttribute("aria-expanded", "false");
   });
 
+  test("an open sheet deactivates the page behind it and releases it on close", async ({ page }) => {
+    // jsdom cannot enforce `inert`, so the browser is the only place the modal
+    // containment contract (and its release) can actually be proven.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+    await expectDashboardUsable(page);
+
+    const readState = () =>
+      page.evaluate(() => {
+        const marked = Array.from(document.querySelectorAll('[data-sheet-inert="true"]'));
+        const dialog = document.querySelector('[role="dialog"]');
+        const background = marked
+          .flatMap((element) => Array.from(element.querySelectorAll("button, a[href]")))
+          .at(0);
+        let focusRefused: boolean | null = null;
+        if (background instanceof HTMLElement) {
+          const before = document.activeElement;
+          background.focus();
+          focusRefused = document.activeElement !== background;
+          if (before instanceof HTMLElement) before.focus();
+        }
+        return {
+          marked: marked.length,
+          allInert: marked.every((element) => element.hasAttribute("inert")),
+          dialogIsMarked: dialog != null && dialog.closest('[data-sheet-inert="true"]') != null,
+          focusInDialog: dialog != null && document.activeElement != null && dialog.contains(document.activeElement),
+          focusRefused,
+          overflow: document.body.style.overflow,
+        };
+      });
+
+    const modeButton = page.getByRole("button", { name: "Mode Answer", exact: true });
+    await modeButton.click();
+    await expect(page.locator('[role="dialog"]').first()).toBeVisible();
+
+    const open = await readState();
+    expect(open.marked, "background should be deactivated behind the sheet").toBeGreaterThan(0);
+    expect(open.allInert).toBe(true);
+    expect(open.dialogIsMarked, "the sheet itself must stay interactive").toBe(false);
+    expect(open.focusInDialog).toBe(true);
+    expect(open.focusRefused, "the browser must refuse focus into the deactivated background").toBe(true);
+    expect(open.overflow).toBe("hidden");
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator('[role="dialog"]').first()).toBeHidden();
+
+    await expect
+      .poll(async () => (await readState()).marked, { message: "inert markers must be released on close" })
+      .toBe(0);
+    expect(await page.locator("[inert]").count()).toBe(0);
+    await expect(modeButton).toBeFocused();
+    expect((await readState()).overflow).toBe("");
+  });
+
   test("phone privacy link meets the tap target and guests do not poll private ingestion routes", async ({ page }) => {
     const privateIngestionRequests: string[] = [];
     page.on("request", (request) => {
