@@ -209,6 +209,8 @@ export function Sheet({
         panelRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus="true"]') ??
         closeRef.current;
       const focusIfNeeded = () => {
+        // Never reclaim focus once a newer Sheet is stacked above this one.
+        if (!isTopmostSheet(sheetId)) return null;
         const focusTarget = resolveFocusTarget();
         if (!focusTarget?.isConnected) return null;
         if (document.activeElement === focusTarget) return focusTarget;
@@ -231,7 +233,11 @@ export function Sheet({
       const retryTimer = window.setInterval(() => {
         attempts += 1;
         const focusTarget = focusIfNeeded();
-        if (attempts >= 8 || (focusTarget != null && document.activeElement === focusTarget)) {
+        if (
+          attempts >= 8 ||
+          !isTopmostSheet(sheetId) ||
+          (focusTarget != null && document.activeElement === focusTarget)
+        ) {
           window.clearInterval(retryTimer);
           if (restoreTimers.openFocusRetry === retryTimer) {
             restoreTimers.openFocusRetry = null;
