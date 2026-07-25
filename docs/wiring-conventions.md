@@ -96,5 +96,15 @@ Intentional exceptions are documented, not silenced:
 ## Known wiring debts
 
 Tracked in `docs/outstanding-issues.md` (`/issues`): the `/tools` vs `/?mode=tools` duplicate Tools
-entry point, the unused `document-flow-routes.ts` href builders, the server-only `/api/jobs` endpoint,
-and the un-built "coming soon" placeholders across forms/favourites.
+entry point remains open (`#007`).
+
+### Closed wiring audits (2026-07-24)
+
+- **`/api/jobs` (`#009`)** — intentional administrator/ops listing, not a client product API. Product UI
+  uses `/api/ingestion/jobs`. Decision: `docs/api-jobs-ops-surface.md`. Keep the route; do not remove
+  without updating API contract tests and docs together.
+- **Coming-soon placeholders (`#010`)** — audited forms refine/reset + Forms tab, favourites hub
+  sort/add/new-set, favourites command-library move/remove, and presentation Compact/Detailed density.
+  All use `disabled` or the `aria-disabled` + `title` + `sr-only` / `aria-describedby` pattern (or
+  presentational `ToggleSwitch` without `onToggle`). No fake-interactive controls found; leave
+  unwired until the underlying features land. Reference markup remains `favourites-hub.tsx`.
