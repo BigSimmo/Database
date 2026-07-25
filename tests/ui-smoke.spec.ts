@@ -3984,10 +3984,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await gotoApp(page, "/");
 
       const dialog = await openGuide(page);
+      await expect.poll(async () => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await page.keyboard.press("Shift+Tab");
-      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      await expect.poll(async () => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await page.keyboard.press("Tab");
-      expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
+      await expect.poll(async () => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await dialog.getByRole("button", { name: "Close guide" }).click();
       await expect(dialog).toBeHidden();
 
