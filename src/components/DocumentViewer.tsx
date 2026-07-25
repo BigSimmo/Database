@@ -1251,7 +1251,9 @@ export function DocumentViewer({
           // The visible fixed composer needs endpoint clearance. Once hidden,
           // remove all artificial clearance so Safari can paint document content
           // beneath its translucent toolbar instead of showing a blank band.
-          composerScrollHidden ? "max-sm:pb-0" : "max-sm:pb-[calc(9rem+var(--safe-area-bottom))]",
+          composerScrollHidden
+            ? "max-sm:pb-0"
+            : "max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]",
         )}
       >
         {downloadError ? (
