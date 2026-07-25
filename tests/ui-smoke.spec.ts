@@ -2177,9 +2177,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(geometry.collapseBudget).toBeLessThan(128);
     expect(geometry.postCollapseMaxOffset).toBeGreaterThanOrEqual(32);
     expect(geometry.postCollapseMaxOffset).toBeLessThan(48);
-    // Use the shared scroll helper rather than browser-dependent PageDown
-    // routing so this exercises the app scroll surface deterministically.
-    await scrollPrimarySurface(page, geometry.postCollapseMaxOffset);
+    // A jump straight onto the bottom edge (PageDown / full-page flick) lands
+    // past the post-collapse range; hiding there would clamp content under the
+    // finger, so the near-bottom guard keeps both chrome edges visible.
+    await scrollPrimarySurface(page, geometry.maxOffset);
+    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    await scrollPrimarySurface(page, 0);
+    // Deliberate downward travel that still fits the post-collapse range is
+    // the designed hide path: past the 8px top band plus 24px intent, at or
+    // below the ~39px post-collapse maximum (floored so fractional layout
+    // readings can never overshoot the hook's own near-bottom tolerance).
+    await scrollPrimarySurface(page, Math.floor(geometry.postCollapseMaxOffset));
     await expect(header).toHaveAttribute("data-scroll-hidden", "true");
     await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
     // The reserve and both chrome edges animate for 240ms. The hidden state
