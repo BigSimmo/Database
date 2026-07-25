@@ -50,4 +50,59 @@ describe("mobile interaction regressions", () => {
     expect(privacySource).toContain("inline-flex min-h-tap items-center");
     expect(privacySource).toContain("sm:min-h-0");
   });
+
+  it("keeps presentation section tabs and compare dock honest on phone", () => {
+    const presentationSource = source("src/components/differentials/differential-presentation-workflow-page.tsx");
+
+    expect(presentationSource).toContain('label: "Overview", href: diagnosisBase');
+    expect(presentationSource).toContain('label: "Map", href: `${diagnosisBase}?tab=map`');
+    expect(presentationSource).toContain('label: "Related", href: `${diagnosisBase}?tab=related`');
+    expect(presentationSource).not.toMatch(
+      /href=\{active \? `\/differentials\/presentations\/\$\{workflow\.id\}` : `\/differentials\/diagnoses\/\$\{firstCandidate\}`\}/,
+    );
+    expect(presentationSource).toContain("Comparing ({workflow.selectedCount})");
+    expect(presentationSource).not.toContain("Compare ({workflow.selectedCount} selected)");
+    // Scope each density control independently so Compact's disabled attrs cannot
+    // greedily satisfy the Detailed assertion (or vice versa).
+    expect(presentationSource).toMatch(
+      /<button\s+type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="presentation-density-unavailable"[\s\S]*?>\s*Compact\s*<\/button>/,
+    );
+    expect(presentationSource).toMatch(
+      /<button\s+type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="presentation-density-unavailable"[\s\S]*?>\s*Detailed\s*<\/button>/,
+    );
+    expect(
+      presentationSource.match(
+        /type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="presentation-density-unavailable"/g,
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("does not fake Add success or Tools sort/more menus", () => {
+    const visualEvidence = source("src/components/clinical-dashboard/visual-evidence.tsx");
+    const evidencePanels = source("src/components/clinical-dashboard/evidence-panels.tsx");
+    const tools = source("src/components/applications-launcher-page.tsx");
+    const header = source("src/components/clinical-dashboard/master-search-header.tsx");
+
+    expect(visualEvidence).toContain('title="Add to favourites — coming soon"');
+    expect(visualEvidence).toMatch(
+      /type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="visual-evidence-add-unavailable"/,
+    );
+    expect(visualEvidence).not.toContain("setAdded(true)");
+    expect(evidencePanels).toContain('title="Add to favourites — coming soon"');
+    expect(evidencePanels).toMatch(
+      /type="button"\s+disabled\s+aria-disabled="true"\s+aria-describedby="clinical-notes-add-unavailable"/,
+    );
+    expect(evidencePanels).not.toContain("setAdded(true)");
+
+    expect(tools).toContain("Sorted A to Z");
+    expect(tools).not.toContain("Sort by");
+    expect(tools).not.toContain("hasMenu");
+    expect(tools).toContain('label: "Saved", desktopLabel: "Favourites"');
+    expect(tools).toMatch(/effectiveFilter === "more"\s*\?\s*app\.area === "coordination" \|\| app\.area === "saved"/);
+
+    expect(header).toContain('router.push("/dsm/compare")');
+    expect(header).toContain('router.push("/specifiers/builder")');
+    expect(header).toContain('router.push("/formulation/map")');
+    expect(header).not.toContain("window.location.assign");
+  });
 });

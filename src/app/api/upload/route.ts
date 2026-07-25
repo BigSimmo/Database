@@ -8,7 +8,6 @@ import { logger } from "@/lib/logger";
 import { writeAuditLog } from "@/lib/audit";
 import { consumeSubjectApiRateLimit, rateLimitJsonResponse } from "@/lib/api-rate-limit";
 import { planDocumentName, type DocumentNameSupabase } from "@/lib/document-naming";
-import { inferSourceAuthorityFromIdentity } from "@/lib/source-authority-metadata";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError, requireAuthenticatedUser, unauthorizedResponse } from "@/lib/supabase/auth";
 import { probeSupabaseHealth } from "@/lib/supabase/health";
@@ -59,6 +58,19 @@ async function duplicateUploadResponse(args: {
         storagePath: args.storagePath,
         message: cleanupStorageError.message,
       });
+      const { error: cleanupLedgerError } = await args.supabase.from("storage_cleanup_jobs").insert({
+        document_bucket: env.SUPABASE_DOCUMENT_BUCKET,
+        document_paths: [args.storagePath],
+        owner_id: args.ownerId,
+        status: "pending",
+        image_bucket: env.SUPABASE_IMAGE_BUCKET,
+        image_paths: [],
+      });
+      if (cleanupLedgerError) {
+        // Keep the duplicate response path fail-closed for orphaned objects: without a
+        // ledger row there is no durable recovery record after storage.remove() failed.
+        throw new Error(`Duplicate upload cleanup ledger insert failed: ${cleanupLedgerError.message}`);
+      }
     }
   }
 
@@ -205,12 +217,9 @@ export async function POST(request: Request) {
     const title = namePlan.title;
     const description = uploadMetadata.description;
     const uploadedAt = new Date().toISOString();
-    const identityAuthority = inferSourceAuthorityFromIdentity({
-      title,
-      file_name: file.name,
-      source_path: storagePath,
-    });
-    const canonicalAuthority = identityAuthority.conflict ? null : identityAuthority.authority;
+    // Upload filename/title/storage-path identity is user-controlled and must not mint
+    // Official/Trusted publisher_code. Authority is set later via registry-validated admin
+    // correction or approval-gated locality backfill against authenticated source metadata.
 
     assertUploadNotAborted(request);
     const documentPayload = {
@@ -225,9 +234,9 @@ export async function POST(request: Request) {
       content_hash: contentHash,
       metadata: {
         source_title: title,
-        publisher_code: canonicalAuthority ? (identityAuthority.code ?? canonicalAuthority.codes[0] ?? null) : null,
-        publisher: canonicalAuthority?.publisher ?? null,
-        jurisdiction: canonicalAuthority?.jurisdictions[0] ?? "Australia/WA",
+        publisher_code: null,
+        publisher: null,
+        jurisdiction: "Australia/WA",
         version: null,
         publication_date: null,
         review_date: null,
@@ -247,7 +256,6 @@ export async function POST(request: Request) {
         confidentiality_scope: "guidelines-only",
         content_hash: contentHash,
       },
-      status: "queued",
     };
 
     assertUploadNotAborted(request);

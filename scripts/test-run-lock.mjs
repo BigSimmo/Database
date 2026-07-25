@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -8,6 +8,8 @@ import { redactSensitiveText } from "./sensitive-text.mjs";
 const tokenEnvironmentKey = "CLINICAL_KB_HEAVY_LOCK_TOKEN";
 const pathEnvironmentKey = "CLINICAL_KB_HEAVY_LOCK_PATH";
 const incompleteLockGraceMs = 30_000;
+const staleLockHeartbeatMs = 60_000;
+const staleLockReclaimMs = 30 * 60 * 1000;
 
 function processIsAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
@@ -74,6 +76,7 @@ function lockIsOldEnoughToRecover(lockPath, now = Date.now()) {
  *   baseDirectory?: string;
  *   repositoryIdentity?: string;
  *   processId?: number;
+ *   forceLockRelease?: boolean;
  * }} options
  */
 export function acquireHeavyRunLock({
@@ -83,6 +86,7 @@ export function acquireHeavyRunLock({
   baseDirectory,
   repositoryIdentity = resolveRepositoryIdentity(projectRoot),
   processId = process.pid,
+  forceLockRelease = false,
 }) {
   if (!projectRoot) throw new Error("projectRoot is required for the Database heavyweight-run lock.");
   const lockPath = lockPathFor(repositoryIdentity, baseDirectory);
@@ -101,7 +105,7 @@ export function acquireHeavyRunLock({
   }
 
   mkdirSync(path.dirname(lockPath), { recursive: true });
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
     try {
       mkdirSync(lockPath);
       const token = randomUUID();
@@ -116,6 +120,18 @@ export function acquireHeavyRunLock({
       };
       writeFileSync(path.join(lockPath, "owner.json"), `${JSON.stringify(owner, null, 2)}\n`, "utf8");
       let released = false;
+      const ownerFile = path.join(lockPath, "owner.json");
+      // Keep mtime fresh while the holder process event loop is alive. Pair with
+      // async child execution in run-heavy.mjs so heartbeat timers can fire.
+      const heartbeatInterval = setInterval(() => {
+        try {
+          const now = new Date();
+          utimesSync(ownerFile, now, now);
+        } catch {
+          // Ignore if the lock was already released.
+        }
+      }, staleLockHeartbeatMs);
+      heartbeatInterval.unref?.();
       return {
         path: lockPath,
         owner,
@@ -128,18 +144,55 @@ export function acquireHeavyRunLock({
         release() {
           if (released) return;
           released = true;
+          clearInterval(heartbeatInterval);
           if (readOwner(lockPath)?.token === token) rmSync(lockPath, { recursive: true, force: true });
         },
       };
     } catch (error) {
       if (error?.code !== "EEXIST") throw error;
       const owner = readOwner(lockPath);
+      let isStale = false;
+      if (owner) {
+        if (!processIsAlive(owner.pid)) {
+          isStale = true;
+        } else {
+          try {
+            const mtime = statSync(path.join(lockPath, "owner.json")).mtimeMs;
+            if (Date.now() - mtime > staleLockReclaimMs) isStale = true;
+          } catch {
+            isStale = true;
+          }
+        }
+      }
+
+      if (forceLockRelease || isStale) {
+        console.warn(
+          `[AUDIT] Breaking ${isStale ? "stale" : "forced"} heavyweight lock at ${lockPath} (was PID ${owner?.pid || "unknown"})`,
+        );
+        rmSync(lockPath, { recursive: true, force: true });
+        continue;
+      }
+
       if (owner && processIsAlive(owner.pid)) {
+        if (attempt < 15) {
+          // 15 attempts, approx 30s
+          const sleepMs = Math.min(3000, 100 * Math.pow(1.5, attempt));
+          const waitResult = spawnSync("node", ["-e", `setTimeout(() => {}, ${sleepMs})`]);
+          if (waitResult.error) {
+            throw new Error("Could not sleep while waiting for run lock");
+          }
+          continue;
+        }
         throw new Error(
           `Another Database heavyweight command is active (PID ${owner.pid}, worktree ${owner.worktree ?? "unknown"}, started ${owner.startedAt ?? "unknown"}): ${redactSensitiveText(owner.command ?? "unknown command")}`,
         );
       }
       if (!owner && !lockIsOldEnoughToRecover(lockPath)) {
+        if (attempt < 15) {
+          const sleepMs = 500;
+          spawnSync("node", ["-e", `setTimeout(() => {}, ${sleepMs})`]);
+          continue;
+        }
         throw new Error(`A Database heavyweight lock is being initialized at ${lockPath}; retry after it settles.`);
       }
       rmSync(lockPath, { recursive: true, force: true });

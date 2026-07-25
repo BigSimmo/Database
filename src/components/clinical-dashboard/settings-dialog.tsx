@@ -2,6 +2,7 @@
 
 import { type FormEvent, type ReactNode, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   Bell,
   BookOpen,
   Check,
@@ -33,7 +34,6 @@ import {
 
 import { type SidebarIdentity } from "@/components/clinical-dashboard/ClinicalSidebar";
 import { useAccountData } from "@/components/account-data-provider";
-import { NavigationBackButton } from "@/components/navigation-back-button";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import {
   ANSWER_STYLE_OPTIONS,
@@ -110,14 +110,17 @@ export function SettingsDialog({
   identity,
   onSignOut,
   onOpenGuide,
+  initialFocus = "close",
 }: {
   open: boolean;
   onClose: () => void;
   identity: SidebarIdentity;
   onSignOut: () => void;
   onOpenGuide: () => void;
+  initialFocus?: "close" | "guide";
 }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const guideButtonRef = useRef<HTMLButtonElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const settingsEmailInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -261,7 +264,18 @@ export function SettingsDialog({
     return () => window.cancelAnimationFrame(focusFrame);
   }, [emailEntryOpen]);
 
-  const backButton = <NavigationBackButton onClick={onClose} label="Back from settings" />;
+  const backButton = (
+    <IconButton
+      label="Back from settings"
+      icon={ArrowLeft}
+      onClick={onClose}
+      className={cn(
+        floatingControl,
+        "rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] lg:hidden",
+      )}
+      iconClassName="size-icon-lg"
+    />
+  );
 
   const closeButton = (
     <button
@@ -281,7 +295,7 @@ export function SettingsDialog({
       onClose={onClose}
       closeLabel="Close settings"
       labelledBy="account-settings-title"
-      initialFocusRef={closeButtonRef}
+      initialFocusRef={initialFocus === "guide" ? guideButtonRef : closeButtonRef}
       mobilePlacement="fullscreen"
       contentClassName="w-full max-w-none border-[color:var(--border-lux)] bg-[color:var(--background)] font-sans shadow-none max-lg:!pb-0 lg:max-w-[940px] lg:bg-[color:var(--surface-lux)] lg:shadow-[var(--shadow-lux)]"
       bodyClassName="p-0"
@@ -782,7 +796,9 @@ export function SettingsDialog({
                   primary guideline before acting.
                 </p>
                 <button
+                  ref={guideButtonRef}
                   type="button"
+                  data-settings-guide-trigger
                   onClick={() => {
                     onClose();
                     onOpenGuide();
@@ -791,7 +807,7 @@ export function SettingsDialog({
                   data-testid="settings-row-guide-help"
                 >
                   <BookOpen aria-hidden="true" className="h-4 w-4" />
-                  Open the clinical guide
+                  Guide & help
                 </button>
               </div>
             </SettingsSection>

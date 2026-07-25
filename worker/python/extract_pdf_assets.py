@@ -312,6 +312,149 @@ def crop_completeness_score(requested_rect, clipped_rect, page_rect):
         edge_penalty += 0.04
     return round(max(0.0, score - edge_penalty), 3)
 
+# Max gap between a find_tables bbox edge and continuing cell drawings that
+# still belong to the same table. Keeps footers/unrelated blocks from merging in.
+TABLE_EDGE_CONTENT_GAP = 24.0
+
+
+def _rects_overlap_horizontally(a, b, tolerance=2.0):
+    return not (a.x1 < b.x0 - tolerance or a.x0 > b.x1 + tolerance)
+
+
+def _rects_overlap_vertically(a, b, tolerance=2.0):
+    return not (a.y1 < b.y0 - tolerance or a.y0 > b.y1 + tolerance)
+
+
+def page_drawing_rects(page):
+    rects = []
+    for drawing in page.get_drawings() or []:
+        rect = drawing.get("rect")
+        if not rect:
+            continue
+        rect = fitz.Rect(rect)
+        # Ignore hairline page rules / tiny marks.
+        if rect.width < 8 or rect.height < 8:
+            continue
+        rects.append(rect)
+    return rects
+
+
+def extend_table_rect_for_edge_content(page, rect, max_gap=TABLE_EDGE_CONTENT_GAP):
+    """Grow a find_tables bbox to keep on-page remnants of straddling table rows/cols.
+
+    `page.find_tables()` often stops at the last fully detected row when the final
+    row straddles the page edge. Cell drawings for that remnant still exist on the
+    page; fold them into the crop rectangle (clamped to the page). Text blocks are
+    intentionally ignored here so titles/footers do not inflate the crop.
+    """
+    page_rect = page.rect
+    content_rects = page_drawing_rects(page)
+    x0, y0, x1, y1 = float(rect.x0), float(rect.y0), float(rect.x1), float(rect.y1)
+    edges = []
+    clipped_by_page = False
+
+    def absorb(axis):
+        nonlocal x0, y0, x1, y1, clipped_by_page
+        changed = False
+        current = fitz.Rect(x0, y0, x1, y1)
+        for content in content_rects:
+            if axis in ("bottom", "top") and not _rects_overlap_horizontally(current, content):
+                continue
+            if axis in ("left", "right") and not _rects_overlap_vertically(current, content):
+                continue
+            if axis == "bottom":
+                if content.y1 <= y1 + 0.5 or content.y0 > y1 + max_gap:
+                    continue
+                if content.y1 > page_rect.y1 + 0.5:
+                    clipped_by_page = True
+                next_y1 = min(max(y1, float(content.y1)), float(page_rect.y1))
+                if next_y1 > y1 + 0.5:
+                    y1 = next_y1
+                    changed = True
+            elif axis == "top":
+                if content.y0 >= y0 - 0.5 or content.y1 < y0 - max_gap:
+                    continue
+                if content.y0 < page_rect.y0 - 0.5:
+                    clipped_by_page = True
+                next_y0 = max(min(y0, float(content.y0)), float(page_rect.y0))
+                if next_y0 < y0 - 0.5:
+                    y0 = next_y0
+                    changed = True
+            elif axis == "right":
+                if content.x1 <= x1 + 0.5 or content.x0 > x1 + max_gap:
+                    continue
+                if content.x1 > page_rect.x1 + 0.5:
+                    clipped_by_page = True
+                next_x1 = min(max(x1, float(content.x1)), float(page_rect.x1))
+                if next_x1 > x1 + 0.5:
+                    x1 = next_x1
+                    changed = True
+            elif axis == "left":
+                if content.x0 >= x0 - 0.5 or content.x1 < x0 - max_gap:
+                    continue
+                if content.x0 < page_rect.x0 - 0.5:
+                    clipped_by_page = True
+                next_x0 = max(min(x0, float(content.x0)), float(page_rect.x0))
+                if next_x0 < x0 - 0.5:
+                    x0 = next_x0
+                    changed = True
+        return changed
+
+    for axis in ("bottom", "top", "right", "left"):
+        guard = 0
+        while absorb(axis) and guard < 8:
+            if axis not in edges:
+                edges.append(axis)
+            guard += 1
+
+    extended = fitz.Rect(x0, y0, x1, y1) & page_rect
+    return extended, {
+        "extended": bool(edges),
+        "clipped_by_page": clipped_by_page,
+        "edges": edges,
+    }
+
+
+def recover_table_rows_from_edge_strip(page, original_rect, extended_rect, existing_rows, column_count=0):
+    """Recover structured rows from text that continues past a truncated find_tables bbox."""
+    existing_keys = {
+        tuple(clean_cell(cell) for cell in row)
+        for row in existing_rows or []
+        if any(clean_cell(cell) for cell in row)
+    }
+    recovered = []
+    for block in page.get_text("blocks") or []:
+        if len(block) < 5:
+            continue
+        block_rect = fitz.Rect(block[:4])
+        intersection = extended_rect & block_rect
+        if intersection.is_empty:
+            continue
+        # Only consider text that sits in the strip beyond the original detection.
+        outside_bottom = block_rect.y1 > original_rect.y1 + 0.5 and block_rect.y0 >= original_rect.y1 - 2.0
+        outside_top = block_rect.y0 < original_rect.y0 - 0.5 and block_rect.y1 <= original_rect.y0 + 2.0
+        outside_right = block_rect.x1 > original_rect.x1 + 0.5 and block_rect.x0 >= original_rect.x1 - 2.0
+        outside_left = block_rect.x0 < original_rect.x0 - 0.5 and block_rect.x1 <= original_rect.x0 + 2.0
+        if not (outside_bottom or outside_top or outside_right or outside_left):
+            continue
+        lines = [clean_cell(line) for line in str(block[4] or "").splitlines() if clean_cell(line)]
+        if not lines:
+            continue
+        # Prefer blocks that match the known column count (one cell per line).
+        if column_count and len(lines) == column_count:
+            row = lines
+        elif column_count and len(lines) > 1 and len(lines) < column_count:
+            # Partial remnant still useful for search/OCR text.
+            row = lines + [""] * (column_count - len(lines))
+        else:
+            continue
+        key = tuple(row)
+        if key in existing_keys:
+            continue
+        existing_keys.add(key)
+        recovered.append(row)
+    return recovered
+
 
 def rect_intersection_ratio(a, b):
     intersection = a & b
@@ -957,33 +1100,68 @@ def extract(pdf_path, output_dir, budget=None):
         table_candidates.extend(fallback_table_candidates(page, [candidate["rect"] for candidate in table_candidates]))
         table_candidates = merge_related_table_candidates(table_candidates, page.rect)
         for table_candidate in table_candidates:
-            table_rect = table_expanded_rect(table_candidate["rect"], page.rect)
+            detected_rect = table_candidate["rect"]
+            edge_rect, edge_info = extend_table_rect_for_edge_content(page, detected_rect)
+            table_rows = list(table_candidate.get("table_rows") or [])
+            column_count = int(table_candidate.get("column_count") or (len(table_rows[0]) if table_rows else 0) or 0)
+            recovered_rows = []
+            if edge_info["extended"]:
+                recovered_rows = recover_table_rows_from_edge_strip(
+                    page,
+                    detected_rect,
+                    edge_rect,
+                    table_rows,
+                    column_count,
+                )
+                if recovered_rows:
+                    table_rows = (table_rows + recovered_rows)[:MAX_TABLE_ROWS]
+            rows_truncated = bool(table_candidate.get("rows_truncated")) or bool(edge_info["clipped_by_page"])
+            if edge_info["clipped_by_page"]:
+                warnings.append(
+                    f"table_crop_edge_incomplete: page {page_number} table continues past the page edge; "
+                    "retained the on-page remnant in the crop"
+                )
+            table_rect = expanded_rect(edge_rect, page.rect, 4, 4)
+            table_text = (table_candidate.get("table_text") or "")[:MAX_TABLE_TEXT_CHARS]
+            accessible = (
+                table_candidate.get("accessible_table_markdown") or table_candidate.get("table_text") or ""
+            )[:MAX_TABLE_TEXT_CHARS]
+            if recovered_rows:
+                accessible = (table_rows_to_markdown(table_rows) or accessible)[:MAX_TABLE_TEXT_CHARS]
+                table_text = accessible
+            crop_metadata = {
+                "pageNumber": page_number,
+                "source_kind": "table_crop",
+                "candidate_type": "table",
+                "table_label": table_candidate.get("table_label"),
+                "table_title": table_candidate.get("table_title"),
+                "table_text": table_text,
+                "table_role": table_candidate.get("table_role"),
+                "table_confidence": table_candidate.get("table_confidence"),
+                "table_rows": table_rows,
+                "table_columns": table_candidate.get("table_columns") or [],
+                "accessible_table_markdown": accessible,
+                "row_count": len(table_rows) if table_rows else table_candidate.get("row_count"),
+                "rows_truncated": rows_truncated,
+                "column_count": column_count or table_candidate.get("column_count"),
+                "heading_text": table_candidate.get("heading_text"),
+                "bbox": rect_payload(table_rect),
+                "extraction_method": table_candidate.get("extraction_method"),
+                "table_index": table_candidate.get("table_index"),
+            }
+            if edge_info["extended"]:
+                crop_metadata["edge_content_extended"] = True
+                crop_metadata["edge_content_edges"] = edge_info["edges"]
+            if edge_info["clipped_by_page"]:
+                # Partial last row still visible on-page, but structured extraction cannot be complete.
+                crop_metadata["crop_completeness"] = 0.9
             crop = save_page_crop(
                 page,
                 table_rect,
                 output_dir,
                 f"page-{page_number}-table-crop-{crop_index}.png",
                 "table_crop",
-                {
-                    "pageNumber": page_number,
-                    "source_kind": "table_crop",
-                    "candidate_type": "table",
-                    "table_label": table_candidate.get("table_label"),
-                    "table_title": table_candidate.get("table_title"),
-                    "table_text": (table_candidate.get("table_text") or "")[:MAX_TABLE_TEXT_CHARS],
-                    "table_role": table_candidate.get("table_role"),
-                    "table_confidence": table_candidate.get("table_confidence"),
-                    "table_rows": table_candidate.get("table_rows") or [],
-                    "table_columns": table_candidate.get("table_columns") or [],
-                    "accessible_table_markdown": (table_candidate.get("accessible_table_markdown") or table_candidate.get("table_text") or "")[:MAX_TABLE_TEXT_CHARS],
-                    "row_count": table_candidate.get("row_count"),
-                    "rows_truncated": bool(table_candidate.get("rows_truncated")),
-                    "column_count": table_candidate.get("column_count"),
-                    "heading_text": table_candidate.get("heading_text"),
-                    "bbox": rect_payload(table_rect),
-                    "extraction_method": table_candidate.get("extraction_method"),
-                    "table_index": table_candidate.get("table_index"),
-                },
+                crop_metadata,
                 budget,
                 warnings,
             )

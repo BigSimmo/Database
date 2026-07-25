@@ -74,7 +74,9 @@ test("searches clinical language without provenance fields and carries a result 
   await page.getByRole("button", { name: "Find matching psychiatric specifiers" }).click();
 
   await expect(page).toHaveURL(/\/specifiers\?.*q=depressed(?:\+|%20)but(?:\+|%20)racing(?:\+|%20)thoughts.*run=1/);
-  await expect(page.getByRole("heading", { name: /Matches for “depressed but racing thoughts”/ })).toBeVisible();
+  const queryRibbon = page.getByTestId("search-query-ribbon");
+  await expect(queryRibbon.getByRole("heading", { level: 1, name: "depressed but racing thoughts" })).toBeVisible();
+  await expect(queryRibbon.getByRole("group", { name: "Filter specifier results" })).toBeVisible();
   await expect(page.getByText(/Results ranked by text relevance/i)).toHaveCount(0);
   await expect(page.getByText("Top match", { exact: true })).toBeVisible();
   await expect(page.getByRole("group", { name: "Filter by specifier family" })).toBeVisible();
@@ -102,20 +104,25 @@ test("keeps mobile search, filters, results, and the fixed composer usable", asy
   await page.setViewportSize({ width: 390, height: 844 });
   await gotoApp(page, "/specifiers?q=returns+every+winter&run=1");
 
-  await expect(page.getByRole("heading", { name: /Matches for “returns every winter”/ })).toBeVisible();
+  const queryRibbon = page.getByTestId("search-query-ribbon");
+  await expect(queryRibbon.getByRole("heading", { level: 1, name: "returns every winter" })).toBeVisible();
+  await expect(queryRibbon.getByRole("group", { name: "Filter specifier results" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Open With seasonal pattern" })).toBeVisible();
-  await expect(page.getByRole("group", { name: "Filter by specifier family" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Filter by diagnosis" })).toBeVisible();
+  const familySelect = queryRibbon.getByTestId("specifier-family-select");
+  const diagnosisSelect = queryRibbon.getByTestId("specifier-diagnosis-select");
+  await expect(familySelect).toBeVisible();
+  await expect(familySelect).toHaveAccessibleName("Filter by specifier family");
+  await expect(diagnosisSelect).toBeVisible();
+  await expect(diagnosisSelect).toHaveAccessibleName("Filter by diagnosis");
   await expect(page.getByTestId("global-search-input").filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("Source status", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Source", { exact: true })).toHaveCount(0);
 
-  const courseFilter = page.getByRole("button", { name: /^(Course|Course and onset)$/ });
-  await courseFilter.click();
-  await expect(courseFilter).toHaveAttribute("aria-pressed", "true");
+  await familySelect.selectOption("course-onset");
+  await expect(familySelect).toHaveValue("course-onset");
   await expect(page.getByRole("link", { name: "Open With seasonal pattern" })).toBeVisible();
 
-  await page.getByRole("combobox", { name: "Filter by diagnosis" }).selectOption("depressive");
+  await diagnosisSelect.selectOption("depressive");
   await expect(page.getByRole("link", { name: "Open With seasonal pattern" })).toBeVisible();
   await expectNoHorizontalOverflow(page);
 

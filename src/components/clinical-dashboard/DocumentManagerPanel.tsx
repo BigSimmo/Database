@@ -408,7 +408,7 @@ export function UploadPanel({
 
   return (
     <form onSubmit={handleFormSubmit} className={cn(panelSubtle, "p-3")}>
-      <PrivacyInputNotice className="mb-2" />
+      <PrivacyInputNotice className="mb-2" returnMode="documents" />
       <label className="block text-xs font-semibold text-[color:var(--text)]">
         Guideline PDF files
         <input
@@ -420,7 +420,7 @@ export function UploadPanel({
           disabled={demoMode || !canUpload || uploading}
           aria-describedby={fileHintId}
           onChange={() => changeStatus(null)}
-          className="mt-2 block w-full text-xs font-medium text-[color:var(--text-muted)] file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border file:border-[color:var(--border)] file:bg-[color:var(--surface)] file:px-3 file:text-xs file:font-semibold file:text-[color:var(--text)] file:shadow-[var(--shadow-inset)] file:transition file:hover:bg-[color:var(--surface-subtle)] disabled:opacity-50"
+          className="mt-2 block w-full text-xs font-medium text-[color:var(--text-muted)] file:mr-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border file:border-[color:var(--border)] file:bg-[color:var(--surface)] file:px-3 file:text-xs file:font-semibold file:text-[color:var(--text)] file:shadow-[var(--shadow-inset)] file:transition file:hover:bg-[color:var(--surface-subtle)] disabled:opacity-50 disabled:file:opacity-50"
         />
       </label>
       <p id={fileHintId} className={cn(textMuted, "mt-2 text-xs")}>
@@ -815,29 +815,33 @@ export function LibraryHealthStrip({
     {
       target: "documents" as const,
       label: "Documents",
-      value: loading ? "Loading" : `${indexedDocuments} indexed`,
+      value: loading ? "" : `${indexedDocuments} indexed`,
       tone: loading ? toneNeutral : indexedDocuments ? toneSuccess : toneWarning,
       actionLabel: "Show indexed document files",
     },
     {
       target: "setup" as const,
       label: "Setup",
-      value: `${readyChecks}/${checks.length || fallbackSetupChecks.length} ready`,
-      tone: readyChecks === (checks.length || fallbackSetupChecks.length) ? toneSuccess : toneWarning,
+      value: loading ? "" : `${readyChecks}/${checks.length || fallbackSetupChecks.length} ready`,
+      tone: loading
+        ? toneNeutral
+        : readyChecks === (checks.length || fallbackSetupChecks.length)
+          ? toneSuccess
+          : toneWarning,
       actionLabel: "Show setup checks",
     },
     {
       target: "indexing" as const,
       label: "Indexing",
-      value: activeJobs + activeBatches ? `${activeJobs + activeBatches} active` : "Idle",
-      tone: activeJobs + activeBatches ? toneInfo : toneNeutral,
+      value: loading ? "" : activeJobs + activeBatches ? `${activeJobs + activeBatches} active` : "Idle",
+      tone: loading ? toneNeutral : activeJobs + activeBatches ? toneInfo : toneNeutral,
       actionLabel: "Show indexing progress",
     },
     {
       target: "failures" as const,
       label: "Failures",
-      value: failedWork ? `${failedWork} needs review` : "None",
-      tone: failedWork ? toneDanger : toneNeutral,
+      value: loading ? "" : failedWork ? `${failedWork} needs review` : "None",
+      tone: loading ? toneNeutral : failedWork ? toneDanger : toneNeutral,
       actionLabel: "Show failed indexing work",
     },
   ];
@@ -847,6 +851,7 @@ export function LibraryHealthStrip({
       data-testid="library-health-strip"
       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
       aria-label="Library health"
+      style={{ containIntrinsicSize: "auto 76px", contentVisibility: "auto" }}
     >
       <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Library health</p>
@@ -863,9 +868,18 @@ export function LibraryHealthStrip({
               item.tone,
             )}
             aria-label={item.actionLabel}
+            aria-busy={loading || undefined}
+            style={{ containIntrinsicSize: "auto 48px", contentVisibility: "auto" }}
           >
             <p className="text-2xs font-bold uppercase tracking-[0.06em]">{item.label}</p>
-            <p className="mt-1 text-xs font-semibold">{item.value}</p>
+            {loading ? (
+              <div
+                className="mt-1 h-4 w-16 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]"
+                data-testid="library-health-skeleton"
+              />
+            ) : (
+              <p className="mt-1 text-xs font-semibold">{item.value}</p>
+            )}
           </button>
         ))}
       </div>

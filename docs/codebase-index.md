@@ -41,53 +41,56 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 ### Shell and routing
 
 - **Root layout:** `src/app/layout.tsx` — fonts, `AuthProvider`, global CSS
+- **Shared search-app layout:** `src/app/(search-app)/layout.tsx` + `src/components/clinical-dashboard/shared-search-app-shell.tsx` — keeps `GlobalSearchShell` mounted across mode homes
 - **App shell:** `src/components/clinical-dashboard/global-search-shell.tsx` — canonical route-aware shell and lazy dashboard dispatch. The mockup-named module is a compatibility re-export used only below `/mockups`.
 - **PWA:** `docs/pwa.md` — install assets, privacy-first service worker/offline shell, lifecycle, security, and verification
-- **Home:** `src/app/page.tsx` — dashboard rendered by shell
+- **Home:** `src/app/(search-app)/page.tsx` — dashboard rendered by shell
 - **Dashboard:** `src/components/ClinicalDashboard.tsx` + `src/components/clinical-dashboard/`
-- **Modes (13):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, Therapy mode, Factsheets
+- **Modes (13):** `src/lib/app-modes.ts` — answer, documents, services, forms, favourites, differentials, DSM-5 diagnosis, specifiers, formulation, prescribing, tools, Therapy, Factsheets
 
 ### Product pages (`src/app/`)
 
-| Route                                                                                                     | File                                   |
-| --------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `/`                                                                                                       | `src/app/page.tsx`                     |
-| `/applications`                                                                                           | `src/app/applications/route.ts`        |
-| `/differentials`, `/diagnoses`, `/presentations`                                                          | `src/app/differentials/`               |
-| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/dsm/`                         |
-| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                      | `src/app/documents/`                   |
-| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                 | `src/app/factsheets/`                  |
-| `/favourites`                                                                                             | `src/app/favourites/page.tsx`          |
-| `/forms`, `/forms/[slug]`                                                                                 | `src/app/forms/`                       |
-| `/medications`, `/medications/[slug]`                                                                     | `src/app/medications/`                 |
-| `/privacy`                                                                                                | `src/app/privacy/page.tsx`             |
-| `/reference/colour-coding`                                                                                | `src/app/reference/`                   |
-| `/safety-plan`                                                                                            | `src/app/safety-plan/page.tsx`         |
-| `/services`, `/services/[slug]`                                                                           | `src/app/services/`                    |
-| `/therapy-compass`                                                                                        | `src/app/therapy-compass/`             |
-| `/tools`                                                                                                  | `src/app/tools/`                       |
-| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`      | `src/app/specifiers/`                  |
-| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map` | `src/app/formulation/`                 |
-| `/mockups/*`                                                                                              | `src/app/mockups/` (404 in production) |
-| `/auth/callback`                                                                                          | `src/app/auth/callback/route.ts`       |
+| Route                                                                                                     | File                                       |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| `/`                                                                                                       | `src/app/(search-app)/page.tsx`            |
+| Shared mode-home route group (`/(search-app)`)                                                            | `src/app/(search-app)/`                    |
+| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                       | `src/app/(search-app)/` shared shell group |
+| `/applications`                                                                                           | `src/app/applications/route.ts`            |
+| `/differentials`, `/diagnoses`, `/presentations`                                                          | `src/app/(search-app)/differentials/`      |
+| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/(search-app)/dsm/`                |
+| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                      | `src/app/(search-app)/documents/`          |
+| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                 | `src/app/(search-app)/factsheets/`         |
+| `/favourites`                                                                                             | `src/app/(search-app)/favourites/page.tsx` |
+| `/forms`, `/forms/[slug]`                                                                                 | `src/app/(search-app)/forms/`              |
+| `/medications`, `/medications/[slug]`                                                                     | `src/app/(search-app)/medications/`        |
+| `/privacy`                                                                                                | `src/app/privacy/page.tsx`                 |
+| `/reference/colour-coding`                                                                                | `src/app/reference/`                       |
+| `/safety-plan`                                                                                            | `src/app/safety-plan/page.tsx`             |
+| `/services`, `/services/[slug]`                                                                           | `src/app/(search-app)/services/`           |
+| `/therapy-compass`                                                                                        | `src/app/(search-app)/therapy-compass/`    |
+| `/tools`                                                                                                  | `src/app/(search-app)/tools/`              |
+| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`      | `src/app/(search-app)/specifiers/`         |
+| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map` | `src/app/(search-app)/formulation/`        |
+| `/mockups/*`                                                                                              | `src/app/mockups/` (404 in production)     |
+| `/auth/callback`                                                                                          | `src/app/auth/callback/route.ts`           |
 
 ### API routes (`src/app/api/`)
 
-| Area          | Routes                                                                                                              | Entry files                                                     |
-| ------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Account       | `/api/account/favourites`, `/api/account/preferences`                                                               | `account/`                                                      |
-| Answers       | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                         | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
-| Search        | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                   | `search/`                                                       |
-| Upload        | `/api/upload`                                                                                                       | `upload/route.ts`                                               |
-| Documents     | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts | `documents/`                                                    |
-| Differentials | `/api/differentials`, `/api/differentials/[slug]`, `/api/differentials/presentations/[slug]`                        | `differentials/`                                                |
-| Medications   | `/api/medications`, `/api/medications/[slug]`                                                                       | `medications/`                                                  |
-| Ingestion     | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                     | `ingestion/`                                                    |
-| Registry      | `/api/registry/records`, `/api/registry/records/[slug]`                                                             | `registry/records/`                                             |
-| Images        | `/api/images/[id]/signed-url`                                                                                       | `images/[id]/signed-url/route.ts`                               |
-| Ops           | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                    | `health/`, `setup-status/`, `local-project-id/`                 |
-| Eval / jobs   | `/api/eval-cases`, `/api/jobs`                                                                                      | `eval-cases/`, `jobs/`                                          |
-| Webhooks      | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)    | `webhooks/`                                                     |
+| Area          | Routes                                                                                                                 | Entry files                                                     |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Account       | `/api/account/favourites`, `/api/account/preferences`                                                                  | `account/`                                                      |
+| Answers       | `/api/answer`, `/api/answer/stream`, `/api/answer-feedback`                                                            | `answer/route.ts`, `answer/stream/route.ts`, `answer-feedback/` |
+| Search        | `/api/search`, `/api/search/interaction`, `/api/search/universal`                                                      | `search/`                                                       |
+| Upload        | `/api/upload`                                                                                                          | `upload/route.ts`                                               |
+| Documents     | `/api/documents`, `/api/documents/[id]`, bulk/reindex, labels, reviews, search, signed URLs, summaries, table facts    | `documents/`                                                    |
+| Differentials | `/api/differentials`, `/api/differentials/[slug]`, `/api/differentials/presentations/[slug]`                           | `differentials/`                                                |
+| Medications   | `/api/medications`, `/api/medications/[slug]`                                                                          | `medications/`                                                  |
+| Ingestion     | `/api/ingestion/batches`, `/api/ingestion/jobs`, retry, quality                                                        | `ingestion/`                                                    |
+| Registry      | `/api/registry/records`, `/api/registry/records/[slug]`                                                                | `registry/records/`                                             |
+| Images        | `/api/images/[id]/signed-url`                                                                                          | `images/[id]/signed-url/route.ts`                               |
+| Ops           | `/api/health`, `/api/health/ready`, `/api/setup-status`, `/api/local-project-id`                                       | `health/`, `setup-status/`, `local-project-id/`                 |
+| Eval / jobs   | `/api/eval-cases`; `/api/jobs` (admin/ops listing — see `docs/api-jobs-ops-surface.md`; UI uses `/api/ingestion/jobs`) | `eval-cases/`, `jobs/`                                          |
+| Webhooks      | `/api/webhooks/railway`, `/api/webhooks/supabase/document-change` (inbound; secret-gated — see docs/webhooks.md)       | `webhooks/`                                                     |
 
 ---
 
@@ -290,7 +293,7 @@ sequenceDiagram
 
 ### Clinical KB surface
 
-- 11 app modes with unified search shell
+- 13 app modes with unified search shell
 - Documents mode: upload/manage private guidelines, search, cited answers
 - Answer mode: grounded Q&A with PDF-linked citations
 - Registry modes: services, forms, medications, differentials; Formulation is a local mechanism and structured-draft workspace
@@ -300,7 +303,8 @@ sequenceDiagram
 
 One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
-- **Mode homes** (`/services`, `/forms`, `/favourites`, `/differentials`, `/formulation`, `/tools`, and dashboard homes): inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike. (`/applications` is a redirect to `/tools`, not a composer surface.)
+- **Mode homes** (`/services`, `/forms`, `/favourites`, `/differentials`, `/dsm`, `/specifiers`, `/formulation`, `/factsheets`, `/therapy-compass`, `/tools`, and dashboard homes): inline in the hero via the `mode-home-composer-slot` portal, on phone and tablet+ alike. (`/applications` is a redirect to `/tools`, not a composer surface.)
+- **Information (detail) pages**: catalogue/record routes under each mode (`/services/[slug]`, `/forms/[slug]`, `/medications/[slug]`, `/specifiers/[slug]`, `/formulation/[slug]`, `/factsheets/[slug]`, `/dsm/diagnoses/[slug]`, …). Route detection: `src/lib/information-pages.ts` (`isInformationPage`). Shared outer chrome: `src/components/information-page-shell.tsx` (`InformationPageShell`, breadcrumbs, optional footer). Specifier/formulation mode shells re-export that primitive. Intentional opt-outs: document viewer, therapy-compass CSS workspace, differentials presentation workflow.
 - **Result and detail views**: fixed bottom dock on phone (compact variant on submitted searches), sticky top from `sm` up.
 - **Results routing**: standalone routes own their submitted searches via `?q=…&run=1` (`/services` → `ServicesNavigatorPage`, `/forms` → `FormsSearchResultsPage`, `/differentials` → `DifferentialsHome` results view, `/formulation` → local mechanism results, `/favourites` filters the command library in place). Answer, Documents, and Prescribing submitted searches render inside `ClinicalDashboard` — intentional, since they need retrieval/answer state. `/?mode=favourites` redirects to `/favourites`; `/?mode=differentials` redirects to `/differentials`; `/?mode=dsm` redirects to `/dsm`; `/?mode=specifiers` redirects to `/specifiers`; `/?mode=formulation` redirects to `/formulation`.
 - **Intentionally composer-free routes**: `/differentials/presentations/*` (comparison workflow owns its chrome), `/documents/[id]` viewer (has its own in-document ask composer), `/documents/source/*` (document flow owns mobile chrome). Do not re-flag these in search-consistency audits.
@@ -311,19 +315,21 @@ One shared composer (`master-search-header.tsx`) serves every mode. Placement:
 
 ## Key config files
 
-| File                                | Role                                        |
-| ----------------------------------- | ------------------------------------------- |
-| `package.json`                      | Scripts, deps, Node 24 / npm 11             |
-| `.env.example`                      | Full env template                           |
-| `next.config.ts`                    | CSP, security headers, build config         |
-| `tsconfig.json`                     | Strict TS; excludes `supabase/functions/**` |
-| `eslint.config.mjs`                 | Lint scope                                  |
-| `AGENTS.md`                         | Agent rules, verification gates, shortcuts  |
-| `.github/workflows/ci.yml`          | CI pipeline                                 |
-| `docs/process-hardening.md`         | Verification pyramid                        |
-| `docs/clinical-governance.md`       | Clinical safety governance                  |
-| `docs/reindex-runbook.md`           | Reindex operations                          |
-| `docs/retrieval-quality-runbook.md` | Retrieval tuning                            |
+| File                                   | Role                                           |
+| -------------------------------------- | ---------------------------------------------- |
+| `package.json`                         | Scripts, deps, Node 24 / npm 11                |
+| `.env.example`                         | Full env template                              |
+| `next.config.ts`                       | CSP, security headers, build config            |
+| `tsconfig.json`                        | Strict TS; excludes `supabase/functions/**`    |
+| `eslint.config.mjs`                    | Lint scope                                     |
+| `AGENTS.md`                            | Agent rules, verification gates, shortcuts     |
+| `.github/workflows/ci.yml`             | CI pipeline                                    |
+| `.github/workflows/pr-branch-sync.yml` | Auto-update open PR branches when `main` moves |
+| `scripts/sync-open-pr-branches.mjs`    | Local dry-run/apply helper for PR branch sync  |
+| `docs/process-hardening.md`            | Verification pyramid                           |
+| `docs/clinical-governance.md`          | Clinical safety governance                     |
+| `docs/reindex-runbook.md`              | Reindex operations                             |
+| `docs/retrieval-quality-runbook.md`    | Retrieval tuning                               |
 
 ---
 

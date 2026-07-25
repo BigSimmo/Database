@@ -34,6 +34,7 @@ const envSchema = z.object({
   // with no destination configured accepts the event and reports it undelivered.
   SLACK_WEBHOOK_URL: z.string().url().optional(),
   DISCORD_WEBHOOK_URL: z.string().url().optional(),
+  WORKER_FAILURE_WEBHOOK_URL: z.string().url().optional(),
   NEXT_PUBLIC_LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH: z.enum(["true", "false"]).optional().default("false"),
   LOCAL_NO_AUTH_OWNER_EMAIL: z.string().optional(),
@@ -230,6 +231,7 @@ const envSchema = z.object({
     .transform((value) => value === "true"),
   PYTHON_BIN: z.string().default(resolvePythonBin()),
   NEXT_PUBLIC_DEMO_MODE: z.enum(["true", "false"]).optional().default("false"),
+  DOCUMENT_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(600),
 });
 
 const parsedEnv = envSchema.parse(process.env);

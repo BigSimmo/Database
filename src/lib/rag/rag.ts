@@ -1287,23 +1287,6 @@ export async function analyzeQueryWithClassifierFallback(
   // management") skips the LLM entirely so the soft-tail refusal is deterministic — and typos
   // remain rescuable because the short-circuit path still runs trigram correction afterwards.
   // "inconclusive" (including DB errors and an unapplied migration) keeps legacy behaviour.
-  // ISSUE-07: Deterministic Query Classifier Logic
-  // Prevent valid short clinical queries from falling back to the nondeterministic LLM classifier
-  // and occasionally returning 0 results.
-  const commonClinicalTerms =
-    /^(?:hypertension|diabetes|asthma|copd|gerd|ckd|chf|cad|dvt|pe|ami|stroke|sepsis|pneumonia|covid|flu|influenza|depression|anxiety|bipolar(?: disorder)?|schizophrenia|ptsd|adhd|autism|cancer|leukemia|lymphoma|melanoma|hiv|aids|hepatitis|tuberculosis|malaria|syphilis|gonorrhea|chlamydia|herpes|hpv|pcos|endometriosis|fibroids|preeclampsia|eclampsia|menopause|osteoporosis|gout|rheumatoid arthritis|osteoarthritis|lupus|crohns|ulcerative colitis|ibs|celiac|pancreatitis|gallstones|appendicitis|migraine|epilepsy|parkinsons|alzheimers|dementia|ms|als|glaucoma|cataracts|macular degeneration|tinnitus|vertigo|anemia|hemophilia|sickle cell|thrombosis|embolism|aneurysm|arrhythmia|afib|heart failure|myocardial infarction|angina|endocarditis|pericarditis|myocarditis|valvular heart disease|cardiomyopathy|aortic dissection|pad|anorexia|bulimia|hyponatremia|hyperkalemia|hypercalcemia|hypoglycemia|hyperglycemia)(?: (?:management|treatment|diagnosis|symptoms|causes|guidelines|medications))?$/i;
-
-  if (commonClinicalTerms.test(query.trim())) {
-    return {
-      ...analysis,
-      queryClass: "broad_summary",
-      confidence: Math.max(analysis.confidence, 0.7),
-      needsSynthesis: true,
-      needsClassifierFallback: false,
-      reasons: Array.from(new Set([...analysis.reasons, "deterministic_pre_classifier"])).slice(0, 12),
-    } satisfies ClinicalQueryAnalysis;
-  }
-
   // This deliberately runs before the OPENAI_API_KEY gate: offline/source-only deployments
   // still retrieve lexically, so in-corpus bare topics should answer there too.
   if (opts?.corpusGrounding && isUnsupportedSoftTailAnalysis(query, analysis)) {
@@ -1334,6 +1317,23 @@ export async function analyzeQueryWithClassifierFallback(
       } satisfies ClinicalQueryAnalysis;
     }
     analysis = { ...analysis, corpusGrounding: "inconclusive" };
+  }
+
+  // Finding #2: Deterministic fallback routing for short clinical queries.
+  // Short, bare clinical search queries (e.g., "bipolar disorder", "anorexia management")
+  // can be misclassified by the generative LLM. We route them deterministically.
+  if (
+    analysis.needsClassifierFallback &&
+    analysis.corpusGrounding !== "inconclusive" &&
+    query.trim().split(/\s+/).length <= 4 &&
+    (analysis.documentTitleTerms.length > 0 || analysis.canonicalTerms.length > 0)
+  ) {
+    return {
+      ...analysis,
+      queryClass: "broad_summary",
+      needsClassifierFallback: false,
+      reasons: uniqueTextValues([...analysis.reasons, "deterministic_short_clinical_query_fallback"], 12),
+    } satisfies ClinicalQueryAnalysis;
   }
 
   if (!analysis.needsClassifierFallback || !env.OPENAI_API_KEY) return analysis;

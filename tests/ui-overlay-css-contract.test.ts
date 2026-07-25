@@ -66,12 +66,17 @@ describe("overlay and global CSS contracts", () => {
 
   it("keeps hidden phone composers from reserving or painting a bottom white band", () => {
     expect(globalStylesSource).toMatch(/--phone-dock-hidden-pad:\s*0rem;/);
+    expect(globalStylesSource).toMatch(/--keyboard-height:\s*0px;/);
+    expect(globalStylesSource).toContain("transform: translateY(calc(-1 * var(--keyboard-height, 0px)))");
     expect(globalStylesSource).not.toContain("--phone-dock-hidden-pad: 0.75rem");
     expect(read("src/components/clinical-dashboard/mobile-composer-reserve.ts")).toContain(
       'export const mobileComposerHiddenReserve = "0rem"',
     );
+    expect(globalStylesSource).toContain(
+      '.document-viewer-composer.floating-composer-edge:not([data-scroll-hidden="true"])',
+    );
     expect(read("src/components/DocumentViewer.tsx")).toContain(
-      'composerScrollHidden ? "max-sm:pb-0" : "max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"',
+      '"max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]"',
     );
   });
   it("keeps the remembered search chrome rules aligned with the hidden reserve contract", () => {

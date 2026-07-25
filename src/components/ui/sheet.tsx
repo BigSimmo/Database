@@ -117,6 +117,19 @@ export function Sheet({
   // Otherwise a press that begins on the panel and ends on the backdrop would
   // synthesize a click on the common ancestor and accidentally close the sheet.
   const backdropPointerDownRef = useRef(false);
+  // Pending focus-restore timers from the previous close. Cleared on the next
+  // open and on unmount so a torn-down jsdom environment cannot throw from a
+  // stale 50ms retry under Vitest coverage workers.
+  const restoreTimersRef = useRef<{
+    frame: number | null;
+    timeout: number | null;
+    openFocusRetry: number | null;
+  }>({
+    frame: null,
+    timeout: null,
+    openFocusRetry: null,
+  });
+  const unmountingRef = useRef(false);
   const titleId = useId();
   const descId = useId();
   const sheetId = useId();
@@ -124,6 +137,26 @@ export function Sheet({
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
+
+  useEffect(() => {
+    unmountingRef.current = false;
+    const restoreTimers = restoreTimersRef.current;
+    return () => {
+      unmountingRef.current = true;
+      if (restoreTimers.frame != null) {
+        window.cancelAnimationFrame(restoreTimers.frame);
+        restoreTimers.frame = null;
+      }
+      if (restoreTimers.timeout != null) {
+        window.clearTimeout(restoreTimers.timeout);
+        restoreTimers.timeout = null;
+      }
+      if (restoreTimers.openFocusRetry != null) {
+        window.clearInterval(restoreTimers.openFocusRetry);
+        restoreTimers.openFocusRetry = null;
+      }
+    };
+  }, []);
 
   // Swipe-to-dismiss for the mobile bottom sheet: dragging the grip down past a
   // threshold closes the sheet; a shorter drag snaps back. Grip-initiated only,
@@ -164,13 +197,55 @@ export function Sheet({
 
     const explicitReturnElement = returnFocusRef?.current ?? null;
     const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const restoreTimers = restoreTimersRef.current;
+    if (restoreTimers.openFocusRetry != null) {
+      window.clearInterval(restoreTimers.openFocusRetry);
+      restoreTimers.openFocusRetry = null;
+    }
     pushSheet(sheetId);
     const focusFrame = window.requestAnimationFrame(() => {
-      const focusTarget =
+      const resolveFocusTarget = () =>
         initialFocusRef?.current ??
         panelRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus="true"]') ??
         closeRef.current;
-      focusTarget?.focus({ preventScroll: true });
+      const focusIfNeeded = () => {
+        // Never reclaim focus once a newer Sheet is stacked above this one.
+        if (!isTopmostSheet(sheetId)) return null;
+        const focusTarget = resolveFocusTarget();
+        if (!focusTarget?.isConnected) return null;
+        if (document.activeElement === focusTarget) return focusTarget;
+        // Reclaim when focus is outside the panel (or still on body after a
+        // remount). Do not steal from another in-panel control the user tabbed to.
+        const active = document.activeElement;
+        if (
+          active == null ||
+          active === document.body ||
+          (panelRef.current != null && !panelRef.current.contains(active))
+        ) {
+          focusTarget.focus({ preventScroll: true });
+        }
+        return focusTarget;
+      };
+      focusIfNeeded();
+      // Retries cover sibling-sheet teardown and late-mounted autofocus inputs
+      // (UtilityDrawer media sync / deferred drawer children). Keep retrying long
+      // enough to outlast focus=1 hydration (rAF + ~300ms) and composer reclaim.
+      let attempts = 0;
+      const retryTimer = window.setInterval(() => {
+        attempts += 1;
+        const focusTarget = focusIfNeeded();
+        if (
+          attempts >= 40 ||
+          !isTopmostSheet(sheetId) ||
+          (focusTarget != null && document.activeElement === focusTarget)
+        ) {
+          window.clearInterval(retryTimer);
+          if (restoreTimers.openFocusRetry === retryTimer) {
+            restoreTimers.openFocusRetry = null;
+          }
+        }
+      }, 50);
+      restoreTimers.openFocusRetry = retryTimer;
     });
 
     function onKeyDown(event: KeyboardEvent) {
@@ -216,18 +291,39 @@ export function Sheet({
       window.removeEventListener("keydown", onKeyDown);
       popSheet(sheetId);
       const restoreTarget = explicitReturnElement ?? previousActiveElement;
-      window.requestAnimationFrame(() => {
-        if (!restoreTarget?.isConnected) return;
+      if (restoreTimers.frame != null) {
+        window.cancelAnimationFrame(restoreTimers.frame);
+      }
+      if (restoreTimers.timeout != null) {
+        window.clearTimeout(restoreTimers.timeout);
+      }
+      if (restoreTimers.openFocusRetry != null) {
+        window.clearInterval(restoreTimers.openFocusRetry);
+        restoreTimers.openFocusRetry = null;
+      }
+      if (unmountingRef.current) return;
+      // Focus restore is best-effort. Under Vitest coverage workers the jsdom
+      // `document` can be torn down before this rAF/setTimeout pair fires; bare
+      // `document` access then becomes an unhandled ReferenceError that fails
+      // the whole suite even when every test assertion passed.
+      restoreTimers.frame = window.requestAnimationFrame(() => {
+        restoreTimers.frame = null;
+        if (typeof document === "undefined" || !restoreTarget?.isConnected) return;
         restoreTarget.focus({ preventScroll: true });
-        window.setTimeout(() => {
+        restoreTimers.timeout = window.setTimeout(() => {
+          restoreTimers.timeout = null;
+          if (typeof document === "undefined") return;
+          // Only retry when focus fell through to the document body. If another
+          // surface (e.g. a Guide dialog opened from a phone menu sheet) already
+          // took focus, do not steal it back.
           if (
-            restoreTarget.isConnected &&
-            typeof document !== "undefined" &&
-            document.activeElement !== restoreTarget &&
-            document.activeElement === document.body
+            !restoreTarget.isConnected ||
+            document.activeElement === restoreTarget ||
+            (document.activeElement !== document.body && document.activeElement != null)
           ) {
-            restoreTarget.focus({ preventScroll: true });
+            return;
           }
+          restoreTarget.focus({ preventScroll: true });
         }, 50);
       });
     };
@@ -300,7 +396,12 @@ export function Sheet({
                             "rounded-t-2xl motion-safe:animate-sheet-up",
                             defaultSheetUsesViewportSize
                               ? "min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] sm:min-h-0"
-                              : "max-h-[88dvh]",
+                              : // Skip a default max-h when the caller already caps height via
+                                // contentClassName — cn() does not last-win Tailwind utilities,
+                                // so two unprefixed max-h-* classes race in CSS source order.
+                                /\bmax-h-/.test(contentClassName ?? "")
+                                ? undefined
+                                : "max-h-[calc(100dvh-2rem)] sm:max-h-[88dvh]",
                           ),
                     ),
               ),

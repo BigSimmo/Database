@@ -117,6 +117,75 @@ describe("repository-wide heavyweight lock", () => {
     replacement.release();
   });
 
+  it("allows an explicit force-lock-release to replace a live owner", () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-force-lock-");
+    const repositoryIdentity = path.join(baseDirectory, "shared.git");
+    const first = acquireHeavyRunLock({
+      projectRoot: path.join(baseDirectory, "worktree-a"),
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      command: "first",
+    });
+
+    const replacement = acquireHeavyRunLock({
+      projectRoot: path.join(baseDirectory, "worktree-b"),
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      command: "replacement",
+      forceLockRelease: true,
+    });
+
+    expect(replacement.owner.token).not.toBe(first.owner.token);
+    expect(readFileSync(path.join(replacement.path, "owner.json"), "utf8")).toContain(replacement.owner.token);
+    first.release();
+    replacement.release();
+  });
+
+  it("keeps a live owner's lock even when startedAt is older than five minutes", () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-live-old-lock-");
+    const repositoryIdentity = path.join(baseDirectory, "shared.git");
+    const first = acquireHeavyRunLock({
+      projectRoot: path.join(baseDirectory, "worktree-a"),
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      processId: process.pid,
+      command: "long-running",
+    });
+
+    try {
+      const ownerPath = path.join(first.path, "owner.json");
+      const owner = JSON.parse(readFileSync(ownerPath, "utf8")) as {
+        pid: number;
+        token: string;
+        command: string;
+        worktree: string;
+        repositoryIdentity: string;
+        startedAt: string;
+      };
+      owner.startedAt = new Date(Date.now() - 6 * 60 * 1000).toISOString();
+      writeFileSync(ownerPath, `${JSON.stringify(owner, null, 2)}\n`, "utf8");
+
+      expect(() =>
+        acquireHeavyRunLock({
+          projectRoot: path.join(baseDirectory, "worktree-b"),
+          repositoryIdentity,
+          baseDirectory,
+          environment: {},
+          command: "second",
+        }),
+      ).toThrow(/Another Database heavyweight command is active/);
+
+      const retained = JSON.parse(readFileSync(ownerPath, "utf8")) as { token: string; pid: number };
+      expect(retained.token).toBe(first.owner.token);
+      expect(retained.pid).toBe(process.pid);
+    } finally {
+      first.release();
+    }
+  });
+
   it("never persists or repeats credentials embedded in a command", () => {
     const baseDirectory = temporaryDirectory("clinical-kb-secret-lock-");
     const repositoryIdentity = path.join(baseDirectory, "shared.git");

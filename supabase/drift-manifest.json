@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-25T11:36:54.504Z",
+  "generated_at": "2026-07-25T15:26:27.983Z",
   "generator": "scripts/generate-drift-manifest.ts",
-  "postgres_image": "supabase/postgres:17.6.1.127",
-  "schema_sha256": "e15600503c3a133c7cb7b1ac3fe66213be230a4af4fd429e10e38497422874a1",
-  "replay_seconds": 64,
+  "postgres_image": "supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83",
+  "schema_sha256": "e29595579b9b77ea4b3605665695a51428c9a4dfca22c58b659d7403cea34e40",
+  "replay_seconds": 15,
   "snapshot": {
     "views": [
       {
@@ -6661,7 +6661,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "55f95e3b799f7716a7fd264d2b3cdd5a",
+        "def_hash": "d061668633026acc816e1d63403765d1",
         "signature": "public.claim_indexing_v3_agent_jobs(text,integer,integer)"
       },
       {
@@ -6898,7 +6898,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "6e95d81f1c01d31a5405fba42ba4b089",
+        "def_hash": "066ef1277bc11fa8092086fc66352d15",
         "signature": "public.invoke_ingestion_worker(integer)"
       },
       {
@@ -7098,7 +7098,7 @@
           "postgres=X/postgres",
           "service_role=X/postgres"
         ],
-        "def_hash": "b8569b910ab5fb3b6b23af78eeeed374",
+        "def_hash": "f68e03ca96f8403d171509a59a769682",
         "signature": "public.match_document_table_facts_text(text,integer,uuid[],uuid)"
       },
       {
@@ -7220,6 +7220,14 @@
         ],
         "def_hash": "baa8c0bda37cc561026baecdf1cca1c2",
         "signature": "public.request_indexing_v3_enrichment(uuid,uuid)"
+      },
+      {
+        "acl": [
+          "postgres=X/postgres",
+          "service_role=X/postgres"
+        ],
+        "def_hash": "608a60e6ec287dda67f9ae93c5889ceb",
+        "signature": "public.request_ingestion_reindex_if_agent_idle(uuid,uuid,timestamp with time zone,integer)"
       },
       {
         "acl": [

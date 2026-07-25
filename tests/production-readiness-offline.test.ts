@@ -19,4 +19,11 @@ describe("production readiness provider policy", () => {
   it("allows a missing OpenAI key only for explicit offline mode", () => {
     expect(openAIReadinessPolicy("offline")).toEqual({ required: false, ready: true });
   });
+
+  it("documents local presence fill guidance for safety/query-hash/deep-probe gaps", () => {
+    const source = readFileSync(new URL("../scripts/production-readiness.ts", import.meta.url), "utf8");
+    expect(source).toContain("check:local-presence");
+    expect(source).toContain("HEALTH_DEEP_PROBE_SECRET is not set");
+    expect(source).toContain("OPENAI_SAFETY_IDENTIFIER_SECRET is not set");
+  });
 });

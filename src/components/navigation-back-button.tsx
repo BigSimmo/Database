@@ -3,57 +3,42 @@
 import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { cn } from "@/components/ui-primitives";
+import { cn, floatingControl, IconButton } from "@/components/ui-primitives";
 
 type NavigationBackButtonProps = {
   label?: string;
   fallbackHref?: string;
   className?: string;
-  onClick?: () => void;
+  /**
+   * Optional gate before navigation. Return `false` to cancel (for example a
+   * dirty-form confirmation). When omitted, navigation always proceeds.
+   */
+  onBeforeNavigate?: () => boolean;
 };
 
-type NavigationBackButtonControlProps = Pick<NavigationBackButtonProps, "className" | "label"> & {
-  onClick: () => void;
-};
-
-function NavigationBackButtonControl({ label = "Go back", className, onClick }: NavigationBackButtonControlProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      className={cn(
-        "universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-        className,
-      )}
-    >
-      <ArrowLeft aria-hidden="true" className="h-5 w-5" />
-    </button>
-  );
-}
-
-function RoutedNavigationBackButton({
-  label,
+/**
+ * Deterministic in-app back control. Always navigates to `fallbackHref` rather
+ * than `history.back()`, so deep links / external referrers cannot eject the
+ * user out of Clinical KB (same contract as form detail pages).
+ */
+export function NavigationBackButton({
+  label = "Go back",
   fallbackHref = "/",
   className,
-}: Omit<NavigationBackButtonProps, "onClick">) {
+  onBeforeNavigate,
+}: NavigationBackButtonProps) {
   const router = useRouter();
 
   return (
-    <NavigationBackButtonControl
+    <IconButton
       label={label}
-      className={className}
+      icon={ArrowLeft}
       onClick={() => {
+        if (onBeforeNavigate && !onBeforeNavigate()) return;
         router.push(fallbackHref);
       }}
+      className={cn(floatingControl, "rounded-full text-[color:var(--text-muted)]", className)}
+      iconClassName="h-5 w-5"
     />
-  );
-}
-
-export function NavigationBackButton({ onClick, ...props }: NavigationBackButtonProps) {
-  return onClick ? (
-    <NavigationBackButtonControl {...props} onClick={onClick} />
-  ) : (
-    <RoutedNavigationBackButton {...props} />
   );
 }

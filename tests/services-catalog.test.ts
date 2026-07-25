@@ -57,6 +57,21 @@ describe("services catalogue", () => {
     expect(compacted.length).toBeLessThanOrEqual(140);
   });
 
+  it("compacts pipe-joined patient-group blobs in best-use card detail", () => {
+    const snapshot = loadServicesSnapshot();
+    const communitySru = snapshot.services.find(
+      (service) => service.canonical_name_key === "community-supported-residential-units",
+    );
+    expect(communitySru?.patient_group?.includes("|")).toBe(true);
+    expect(communitySru!.patient_group.length).toBeGreaterThan(140);
+
+    const record = catalogToServiceRecord(communitySru!);
+    const bestUseCard = record.summaryCards?.find((card) => card.id === "best-use");
+    expect(bestUseCard?.detail).toBeTruthy();
+    expect(bestUseCard!.detail!.length).toBeLessThanOrEqual(140);
+    expect(bestUseCard!.detail).not.toContain("|");
+  });
+
   it("produces unique slugs and non-empty titles", () => {
     const records = mapCatalogToServiceRecords(loadServicesSnapshot().services);
     const slugs = records.map((record) => record.slug);

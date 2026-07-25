@@ -324,9 +324,10 @@ describe("analyzeQueryWithClassifierFallback corpus grounding", () => {
       },
     }));
     const { rag, analyzeClinicalQuery } = await loadRag({ classifierMock, rows: [] });
-    const analysis = analyzeClinicalQuery("bipolar disorder");
+    const query = "bipolar disorder long term care";
+    const analysis = analyzeClinicalQuery(query);
 
-    const result = await rag.analyzeQueryWithClassifierFallback("bipolar disorder", analysis);
+    const result = await rag.analyzeQueryWithClassifierFallback(query, analysis);
 
     expect(classifierMock).toHaveBeenCalledTimes(1);
     expect(result.queryClass).toBe("broad_summary");

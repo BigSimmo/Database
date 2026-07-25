@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Square,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 
 import {
   answerProgressDisplayMessage,
@@ -19,6 +18,7 @@ import {
   answerProgressSteps,
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
+import { useClientTime } from "@/lib/use-client-time";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
@@ -168,7 +168,6 @@ export function AnswerProgressStepper({
     fallback: startedAt ?? 0,
     updateInterval: active && !finished && startedAt ? 1_000 : undefined,
   });
-
   const currentStep = latest ? answerProgressStepIndex(latest.stage) : 0;
 
   const clientElapsedMs = startedAt ? Math.max(0, (finished ? (latest?.receivedAt ?? now) : now) - startedAt) : 0;
@@ -183,6 +182,7 @@ export function AnswerProgressStepper({
       data-testid="answer-progress-stepper"
       data-progress-state={finished ? "complete" : "active"}
       aria-label={finished ? "Answer generation complete" : "Answer generation progress"}
+      aria-live="polite"
       className="rounded-lg border border-[color:var(--clinical-accent)]/20 bg-[color:var(--clinical-accent-soft)] px-3 py-2 text-[color:var(--text-heading)]"
     >
       <div className="flex min-h-8 items-center gap-2">
@@ -196,7 +196,7 @@ export function AnswerProgressStepper({
             aria-hidden
           />
         )}
-        <p className="min-w-0 flex-1 text-sm font-semibold" role="status" aria-live="polite">
+        <p className="min-w-0 flex-1 text-sm font-semibold">
           {finished
             ? `Answer ready in ${elapsedLabel(elapsedMs)}`
             : latest

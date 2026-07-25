@@ -24,10 +24,23 @@ async function safeCount(label: string, query: PromiseLike<CountResult>) {
   }
 }
 
+async function safeDerivedCount(label: string, load: () => Promise<unknown[]>) {
+  try {
+    return { label, count: (await load()).length, error: null };
+  } catch (error) {
+    return { label, count: null, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 async function main() {
-  const [{ requireServerEnv }, { createAdminClient }] = await Promise.all([
+  const [
+    { requireServerEnv },
+    { createAdminClient },
+    { listStrandedQueuedDocuments, STRANDED_QUEUED_DEFAULT_LIMIT, STRANDED_QUEUED_DEFAULT_MIN_AGE_MINUTES },
+  ] = await Promise.all([
     import("@/lib/env"),
     import("@/lib/supabase/admin"),
+    import("@/lib/stranded-queued-recovery"),
   ]);
   requireServerEnv();
   const supabase = createAdminClient();
@@ -58,6 +71,7 @@ async function main() {
     pendingJobs,
     processingJobs,
     failedJobs,
+    strandedQueued,
     chunksWithSynopsis,
   ] = await Promise.all([
     safeCount(
@@ -88,6 +102,13 @@ async function main() {
       "jobs_failed",
       supabase.from("ingestion_jobs").select("id", { count: "exact", head: true }).eq("status", "failed"),
     ),
+    safeDerivedCount("documents_stranded_queued", () =>
+      listStrandedQueuedDocuments({
+        supabase,
+        minAgeMinutes: STRANDED_QUEUED_DEFAULT_MIN_AGE_MINUTES,
+        limit: STRANDED_QUEUED_DEFAULT_LIMIT,
+      }),
+    ),
     safeCount(
       "chunks_with_retrieval_synopsis",
       supabase
@@ -113,6 +134,7 @@ async function main() {
     pendingJobs,
     processingJobs,
     failedJobs,
+    strandedQueued,
     chunksWithSynopsis,
   ];
   const countErrors = counts.filter((item) => item.error);
@@ -131,7 +153,7 @@ async function main() {
         openJobs: openJobs ?? [],
         recommendation:
           countErrors.length === 0 && !jobsError
-            ? "If no jobs are processing unexpectedly, run npm run recover:ingestion -- --apply before resuming conservative worker:once."
+            ? "If no jobs are processing unexpectedly, run npm run recover:ingestion -- --include-stranded-queued --apply before resuming conservative worker:once."
             : "Fix the reported read errors before running workers or evals.",
       },
       null,
