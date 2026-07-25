@@ -3147,13 +3147,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await openSourcesButton.click();
     const resultsLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(resultsLibraryDialog).toBeVisible();
-    await expect
-      .poll(
-        async () =>
-          resultsLibraryDialog.getByPlaceholder("Find a document").evaluate((el) => el === document.activeElement),
-        { timeout: 15_000 },
-      )
-      .toBe(true);
+    // Prefer Playwright's focus waiter over a raw activeElement poll — Sheet
+    // autofocus can land after lazy DocumentDrawer mount + composer focus=1.
+    await expect(resultsLibraryDialog.getByPlaceholder("Find a document")).toBeFocused({ timeout: 15_000 });
     const sourceDialogBox = await resultsLibraryDialog.boundingBox();
     expect(sourceDialogBox).not.toBeNull();
     expect(sourceDialogBox?.y ?? -1).toBeGreaterThanOrEqual(0);

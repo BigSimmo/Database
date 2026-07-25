@@ -204,25 +204,28 @@ export function Sheet({
     }
     pushSheet(sheetId);
     const focusFrame = window.requestAnimationFrame(() => {
-      const resolveFocusTarget = () =>
+      const resolveAutofocusTarget = () =>
         initialFocusRef?.current ??
         panelRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus="true"]') ??
-        closeRef.current;
+        null;
       const focusIfNeeded = () => {
         // Never reclaim focus once a newer Sheet is stacked above this one.
         if (!isTopmostSheet(sheetId)) return null;
-        const focusTarget = resolveFocusTarget();
+        const preferredAutofocus = resolveAutofocusTarget();
+        const focusTarget = preferredAutofocus ?? closeRef.current;
         if (!focusTarget?.isConnected) return null;
         if (document.activeElement === focusTarget) return focusTarget;
         // Reclaim when focus is outside the panel (or still on body after a
-        // remount). Do not steal from another in-panel control the user tabbed to —
-        // except the close-button fallback chosen before a late-mounted
-        // data-sheet-autofocus target appears (Sources Find field race).
+        // remount). Also upgrade from the close-button fallback once a deferred
+        // `data-sheet-autofocus` child mounts (lazy DocumentDrawer / UtilityDrawer).
+        // Do not steal from another in-panel control the user tabbed to.
         const active = document.activeElement;
+        const activeIsCloseFallback =
+          preferredAutofocus != null && closeRef.current != null && active === closeRef.current;
         if (
           active == null ||
           active === document.body ||
-          active === closeRef.current ||
+          activeIsCloseFallback ||
           (panelRef.current != null && !panelRef.current.contains(active))
         ) {
           focusTarget.focus({ preventScroll: true });
@@ -232,19 +235,16 @@ export function Sheet({
       focusIfNeeded();
       // Retries cover sibling-sheet teardown and late-mounted autofocus inputs
       // (UtilityDrawer media sync / deferred drawer children). Keep retrying long
-      // enough to outlast focus=1 hydration (rAF + ~300ms) and composer reclaim.
-      // Do not treat the close-button fallback as settled — otherwise the first
-      // frame stops retries before data-sheet-autofocus children mount (Sources).
+      // enough to outlast focus=1 hydration (rAF + ~300ms), composer reclaim, and
+      // a slow dynamic import of DocumentDrawer before the Find field mounts.
       let attempts = 0;
       const retryTimer = window.setInterval(() => {
         attempts += 1;
+        // Keep defending preferred autofocus for the full window. An early stop
+        // after the first successful focus lets focus=1 / composer reclaim steal
+        // the Find field and leave UI smoke stuck on a non-focused dialog input.
         focusIfNeeded();
-        const preferredFocus =
-          initialFocusRef?.current ?? panelRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus="true"]');
-        // Only preferred targets end retries early. Settling on the close fallback
-        // would abort before late-mounted data-sheet-autofocus inputs appear.
-        const settledOnPreferred = preferredFocus != null && document.activeElement === preferredFocus;
-        if (attempts >= 80 || !isTopmostSheet(sheetId) || settledOnPreferred) {
+        if (attempts >= 200 || !isTopmostSheet(sheetId)) {
           window.clearInterval(retryTimer);
           if (restoreTimers.openFocusRetry === retryTimer) {
             restoreTimers.openFocusRetry = null;
