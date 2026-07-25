@@ -270,12 +270,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
       // evaluate. Undefined explicitly clears stale geometry for numeric reports.
       lastMaxOffsetRef.current = maxOffset;
       if (offset < 0) return;
-      if (
-        !sourceChanged &&
-        !comparableRangeChanged &&
-        Math.abs(delta) < minimumDelta &&
-        offset > topRevealOffset
-      )
+      if (!sourceChanged && !comparableRangeChanged && Math.abs(delta) < minimumDelta && offset > topRevealOffset)
         return;
       const update = computeScrollHideUpdate({
         offset,
