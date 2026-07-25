@@ -1,12 +1,13 @@
 import { spawnSync } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import PDFDocument from "pdfkit";
 import { describe, expect, it } from "vitest";
 
 import { resolvePythonBin } from "@/lib/python-bin";
+import { extractPdf } from "@/lib/extractors/document";
 
 const pythonBin = resolvePythonBin();
 const hasPyMuPDF = spawnSync(pythonBin, ["-c", "import fitz"], { encoding: "utf8" }).status === 0;
@@ -198,5 +199,29 @@ describe.runIf(hasPyMuPDF)("Python PDF table extraction", () => {
         : (payload.warnings ?? []).some((warning) => warning.includes("table_crop_edge_incomplete"));
     expect(hasScoreRow || incomplete).toBe(true);
     expect(tableCrop?.metadata?.edge_content_extended).toBe(true);
+  });
+});
+
+describe.runIf(hasPyMuPDF)("Python extractor fallback", () => {
+  it("rejects cleanly if the python process dies with SIGKILL", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-extractor-test-"));
+    try {
+      const pdfPath = path.join(root, "table.pdf");
+      const scriptPath = path.join(root, "kill_self.py");
+
+      await mkdir(root, { recursive: true });
+      await writeSyntheticTablePdf(pdfPath);
+
+      // Write a python script that sends SIGKILL to itself immediately
+      await writeFile(scriptPath, "import os, signal\nos.kill(os.getpid(), signal.SIGKILL)\n");
+
+      const pdfBuffer = await readFile(pdfPath);
+
+      await expect(extractPdf(pdfBuffer, { scriptPathOverride: scriptPath })).rejects.toThrow(
+        /PDF extractor exited with code/,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
