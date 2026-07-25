@@ -26,6 +26,9 @@ Last reviewed: 2026-07-10. Applies to any feature branch or release candidate.
 - [x] Added one-command production preflight:
   - `npm run check:production-readiness`
   - runs env validation, Supabase target checks, lockfile/env-file presence checks, and placeholder checks.
+- [x] Added local/dev secret presence helper:
+  - `npm run check:local-presence` (optional `--fill`)
+  - names + length buckets only; fills only safety-identifier / query-hash / deep-probe into gitignored `.env.local`; never prints values or invents provider credentials.
 - [x] Added deployment startup readiness gate:
   - `npm run check:deployment-readiness`
   - verifies `next start` boot behavior and local project identity guard on a managed local port.
