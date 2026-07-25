@@ -45,6 +45,7 @@ Rules that keep this working:
 - **Keep `chrome-safe-area-top` outside the hide mechanism.** Collapse hosts render an always-on `h-[var(--safe-area-top)]` spacer sibling; the 0fr grid / `-translate-y-full` only moves the controls. Sticky chrome pins at `top: var(--safe-area-top)` so the spacer stays put while the bar slides away.
 - **Transform only while hidden.** A standing transform on the wrapper would become the containing block for the fixed-position menus and composers rendered inside it.
 - **Rebase the reporter on geometry switches.** Pass `resetKey` when the host changes the scrollport under it (`ClinicalDashboard` passes `searchMode`, which swaps `<main>`'s header reserve); otherwise the carried-over offset spends the first post-switch scroll on a spurious hide or reveal.
+- **Do not carry composer focus into submitted result views.** Focus pins both chrome edges for keyboard safety. `GlobalSearchShell` must not pass `focus: true` with `run: true`, must gate `queryInputAutoFocus` on `!hasSubmittedModeSearch`, and must blur the dock input when the result canvas scrolls so hide-on-scroll can reclaim the header and the bottom dock (including its white safe-area rail).
 
 Coverage: `tests/header-scroll-hide-contract.test.ts` (wiring), `tests/use-hide-on-scroll.test.ts` (decision logic), `tests/ui-chrome-scroll.spec.ts` (tablet/desktop hide and reveal), `tests/ui-phone-scroll.spec.ts` (phone scroll geometry).
 

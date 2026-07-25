@@ -236,6 +236,51 @@ test("phone scroll stays smooth on /formulation at 430x932", async ({ page }) =>
 });
 
 /**
+ * Forms/services search used to keep focus=1 after submit. Composer focus
+ * pins both chrome edges, so neither header nor the bottom dock (white
+ * safe-area rail) could hide while scrolling results.
+ */
+test("phone forms search hides header and footer after submit without stale focus", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/forms?q=Form&run=1&focus=1");
+  await expect(page.locator("form.answer-footer-search-dock")).toBeVisible({ timeout: 20_000 });
+
+  // Stale focus=1 on a submitted result view must not win — the shell blurs.
+  const input = page.getByTestId("global-search-input");
+  await expect(input).not.toBeFocused({ timeout: 5_000 });
+
+  const initial = await readGeometry(page);
+  expect(initial.headerHidden, "header visible at the top").toBe(false);
+
+  await dragScrollBy(page, Math.min(Math.max(initial.maxOffset, 240), 800), 24);
+  await page.waitForTimeout(500);
+
+  const afterHide = await page.evaluate(() => {
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const dock = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
+    const reserve = document.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
+    const dockRect = dock?.getBoundingClientRect();
+    return {
+      headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
+      dockHidden: dock?.getAttribute("data-scroll-hidden") === "true",
+      reservePb: reserve ? getComputedStyle(reserve).paddingBottom : "",
+      dockTop: dockRect?.top ?? -1,
+      viewportHeight: window.innerHeight,
+      inputFocused: document.activeElement?.getAttribute("data-testid") === "global-search-input",
+    };
+  });
+
+  expect(afterHide.inputFocused, "scroll must not leave the dock focused").toBe(false);
+  expect(afterHide.headerHidden, "header hides on forms result scroll").toBe(true);
+  expect(afterHide.dockHidden, "footer dock hides on forms result scroll").toBe(true);
+  expect(afterHide.dockTop, "hidden dock clears the viewport bottom").toBeGreaterThanOrEqual(
+    afterHide.viewportHeight - 1,
+  );
+  expect(Number.parseFloat(afterHide.reservePb) || 0, "hidden reserve releases the bottom rail").toBeLessThanOrEqual(1);
+});
+
+/**
  * Status-bar safe-area guard: collapsing the phone header must reclaim the
  * chrome controls, never the OS top inset. Without the always-on
  * `chrome-safe-area-top` spacer, service-detail text painted under the

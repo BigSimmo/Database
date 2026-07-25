@@ -369,6 +369,15 @@ function GlobalStandaloneSearchShellClient({
   }
 
   useEffect(() => {
+    // Submitted result views must not keep the dock focused. Composer focus
+    // pins both chrome edges (keyboard safety), which is what left Forms /
+    // services search stuck with a visible header + bottom white rail while
+    // scrolling results. Match ClinicalDashboard: focus only the empty/home
+    // composer, and blur once a run=1 result view is showing.
+    if (hasSubmittedModeSearch) {
+      if (document.activeElement === inputRef.current) inputRef.current?.blur();
+      return undefined;
+    }
     if (!requestedFocus) return undefined;
     const focusInput = () => {
       // The focus=1 hydration retry (rAF + 300ms) can land after a user/test opens
@@ -393,7 +402,7 @@ function GlobalStandaloneSearchShellClient({
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
     };
-  }, [pathname, requestedFocus, searchParamString]);
+  }, [pathname, requestedFocus, searchParamString, hasSubmittedModeSearch]);
 
   // Recent queries are owner-scoped session state (2026-07-13 audit, finding 4):
   // the legacy unscoped localStorage value could resurface another account's
@@ -486,7 +495,9 @@ function GlobalStandaloneSearchShellClient({
     navigateToMode(searchMode, {
       query: trimmedQuery || undefined,
       run: Boolean(trimmedQuery),
-      focus: true,
+      // Running a search must not carry focus into the result dock — that pin
+      // disables hide-on-scroll for both chrome edges.
+      focus: !trimmedQuery,
     });
   }
 
@@ -516,7 +527,7 @@ function GlobalStandaloneSearchShellClient({
 
   function pickRecentQuery(recentQuery: string) {
     setMobileMenuOpen(false);
-    navigateToMode(searchMode, { query: recentQuery, focus: true, run: true });
+    navigateToMode(searchMode, { query: recentQuery, focus: false, run: true });
   }
 
   function crossModeSearch(mode: AppModeId, crossQuery: string) {
@@ -531,11 +542,17 @@ function GlobalStandaloneSearchShellClient({
     setCommandScopes([]);
     setSearchMode(mode);
     setMobileMenuOpen(false);
-    navigateToMode(mode, { query: crossQuery, focus: true, run: true });
+    navigateToMode(mode, { query: crossQuery, focus: false, run: true });
   }
 
   function handleMainScroll(event: UIEvent<HTMLDivElement>) {
     const target = event.currentTarget;
+    // Scrolling the result canvas while the dock input is focused (user
+    // retapped the pill) must release the focus pin before the hide reporter
+    // runs; otherwise both chrome edges stay locked for the whole session.
+    if (target.scrollTop > 8 && inputRef.current && document.activeElement === inputRef.current) {
+      inputRef.current.blur();
+    }
     chromeScrollHide.reportScroll({
       offset: target.scrollTop,
       maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
@@ -559,6 +576,9 @@ function GlobalStandaloneSearchShellClient({
       const target = event.target;
       if (!(target instanceof HTMLElement) || !main.contains(target)) return;
       if (target.scrollHeight <= target.clientHeight + 1) return;
+      if (target.scrollTop > 8 && inputRef.current && document.activeElement === inputRef.current) {
+        inputRef.current.blur();
+      }
       reportChromeScrollHideRef.current({
         offset: target.scrollTop,
         maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
@@ -724,7 +744,7 @@ function GlobalStandaloneSearchShellClient({
             // viewport top and slides away instead of releasing flow space.
             hideOnScroll={{ strategy: "collapse", wide: "sticky", scrollHidden: chromeScrollHide.hidden }}
             onBottomComposerHiddenChange={setBottomComposerHidden}
-            queryInputAutoFocus={searchParams.get("focus") === "1"}
+            queryInputAutoFocus={requestedFocus && !hasSubmittedModeSearch}
           />
         </div>
 

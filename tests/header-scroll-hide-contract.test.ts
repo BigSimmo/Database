@@ -105,6 +105,18 @@ describe("shared header hide/reveal wiring", () => {
     expect(headerSource).toContain("const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;");
   });
 
+  it("does not carry dock focus into GlobalSearchShell submitted result views", () => {
+    // focus=1 + run=1 left the Forms/services dock focused, which pins both
+    // chrome edges and freezes hide-on-scroll with the bottom white rail visible.
+    expect(shellSource).toContain("focus: !trimmedQuery");
+    expect(shellSource).toContain("queryInputAutoFocus={requestedFocus && !hasSubmittedModeSearch}");
+    expect(shellSource).toContain("if (hasSubmittedModeSearch)");
+    expect(shellSource).toContain(
+      "if (target.scrollTop > 8 && inputRef.current && document.activeElement === inputRef.current)",
+    );
+    expect(behaviourDocSource).toContain("Do not carry composer focus into submitted result views");
+  });
+
   it("documents the cross-breakpoint behaviour alongside the code", () => {
     expect(behaviourDocSource).toContain("Header hide/reveal is cross-breakpoint");
   });
