@@ -902,7 +902,6 @@ async function main() {
     ? allCases.filter((item) => item.query.toLowerCase().includes(args.query!.toLowerCase()) || item.id === args.query)
     : allCases;
   const cases = filteredCases.slice(0, args.limit ?? filteredCases.length);
-  const results: GoldenRetrievalResult[] = [];
   const readinessWarnings = await visualReadinessWarnings(supabase, cases);
 
   if (!args.json) {
@@ -912,70 +911,92 @@ async function main() {
     for (const warning of readinessWarnings) console.warn(`WARN ${warning}`);
   }
 
-  for (let caseIndex = 0; caseIndex < cases.length; caseIndex += 1) {
-    const testCase = cases[caseIndex]!;
-    await pauseBetweenEvalCases({
-      caseIndex,
-      forceEmbedding: testCase.forceEmbedding || args.forceEmbedding,
-    });
-    const startedAt = Date.now();
-    const searchPromise = withProviderBackoff(`retrieval:${testCase.id}`, () =>
-      searchChunksWithTelemetry({
-        query: testCase.query,
-        ownerId,
-        topK: retrievalLimitForGoldenCase(testCase),
-        minSimilarity: 0.12,
-        skipCache: args.mode !== "latency",
-        forceEmbedding: testCase.forceEmbedding || args.forceEmbedding,
-      }),
-    );
-    const searchOutcome = await withCaseTimeout(searchPromise, args.caseTimeoutMs);
-    const search = searchOutcome.timedOut
-      ? {
-          results: [] as SearchResult[],
-          telemetry: {
-            query_class: testCase.expectedQueryClass,
-            retrieval_strategy: "timeout",
-            embedding_skipped: false,
-            text_fast_path_latency_ms: 0,
-            embedding_latency_ms: 0,
-            supabase_rpc_latency_ms: args.caseTimeoutMs,
-            rerank_latency_ms: 0,
-            retrieval_layer_counts: {},
-            retrieval_layer_top_scores: {},
-            retrieval_layer_latencies_ms: {},
-          },
-        }
-      : searchOutcome.value;
-    const latencyMs = searchOutcome.timedOut
-      ? args.caseTimeoutMs
-      : latencyFromTelemetry(search.telemetry) || Date.now() - startedAt;
-    const latencyFailures = latencyFailuresForCase({ latencyMs, timedOut: searchOutcome.timedOut }, args);
-    const result = evaluateGoldenRetrievalCase({
-      testCase,
-      results: search.results,
-      telemetry: search.telemetry,
-      latencyMs,
-      timedOut: searchOutcome.timedOut,
-      latencyFailures,
-      globalForceEmbedding: args.forceEmbedding,
-    });
-    results.push(result);
-
-    if (!args.json) {
-      const status =
-        args.mode === "latency"
-          ? result.latencyFailures?.length
-            ? "SLOW"
-            : "OK"
-          : result.failures.length
-            ? "FAIL"
-            : "PASS";
-      console.log(
-        `${status} ${result.id} hit@${result.topK}=${result.hitAtK ? "1" : "0"} docRecall@5=${result.documentRecallAt5.toFixed(2)} contentRecall@5=${result.contentRecallAt5.toFixed(2)} rr@10=${result.reciprocalRankAt10.toFixed(2)} contentRR@10=${result.contentReciprocalRankAt10.toFixed(2)} ndcg@10=${result.ndcgAt10.toFixed(2)} irrelevant@10=${result.irrelevantSourceRateAt10.toFixed(2)} signalCoverage@10=${result.requiredSignalCoverageAt10.toFixed(2)} latency=${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} gate=${result.coverageGateReason ?? "none"} layers=${JSON.stringify(result.retrievalLayerCounts ?? {})}`,
-      );
-    }
+  function pLimit(concurrency: number) {
+    let active = 0;
+    const queue: Array<() => void> = [];
+    return async <T>(fn: () => Promise<T>): Promise<T> => {
+      if (active >= concurrency) await new Promise<void>((resolve) => queue.push(resolve));
+      active += 1;
+      try {
+        return await fn();
+      } finally {
+        active -= 1;
+        queue.shift()?.();
+      }
+    };
   }
+
+  // Latency mode stays serial so p50/p90 timing is not distorted by concurrent load.
+  const concurrency = args.mode === "latency" ? 1 : 5;
+  const limitEvaluations = pLimit(concurrency);
+
+  const results: GoldenRetrievalResult[] = await Promise.all(
+    cases.map((testCase, caseIndex) =>
+      limitEvaluations(async () => {
+        await pauseBetweenEvalCases({
+          caseIndex,
+          forceEmbedding: testCase.forceEmbedding || args.forceEmbedding,
+        });
+        const startedAt = Date.now();
+        const searchPromise = withProviderBackoff(`retrieval:${testCase.id}`, () =>
+          searchChunksWithTelemetry({
+            query: testCase.query,
+            ownerId,
+            topK: retrievalLimitForGoldenCase(testCase),
+            minSimilarity: 0.12,
+            skipCache: args.mode !== "latency",
+            forceEmbedding: testCase.forceEmbedding || args.forceEmbedding,
+          }),
+        );
+        const searchOutcome = await withCaseTimeout(searchPromise, args.caseTimeoutMs);
+        const search = searchOutcome.timedOut
+          ? {
+              results: [] as SearchResult[],
+              telemetry: {
+                query_class: testCase.expectedQueryClass,
+                retrieval_strategy: "timeout",
+                embedding_skipped: false,
+                text_fast_path_latency_ms: 0,
+                embedding_latency_ms: 0,
+                supabase_rpc_latency_ms: args.caseTimeoutMs,
+                rerank_latency_ms: 0,
+                retrieval_layer_counts: {},
+                retrieval_layer_top_scores: {},
+                retrieval_layer_latencies_ms: {},
+              },
+            }
+          : searchOutcome.value;
+        const latencyMs = searchOutcome.timedOut
+          ? args.caseTimeoutMs
+          : latencyFromTelemetry(search.telemetry) || Date.now() - startedAt;
+        const latencyFailures = latencyFailuresForCase({ latencyMs, timedOut: searchOutcome.timedOut }, args);
+        const result = evaluateGoldenRetrievalCase({
+          testCase,
+          results: search.results,
+          telemetry: search.telemetry,
+          latencyMs,
+          timedOut: searchOutcome.timedOut,
+          latencyFailures,
+          globalForceEmbedding: args.forceEmbedding,
+        });
+
+        if (!args.json) {
+          const status =
+            args.mode === "latency"
+              ? result.latencyFailures?.length
+                ? "SLOW"
+                : "OK"
+              : result.failures.length
+                ? "FAIL"
+                : "PASS";
+          console.log(
+            `${status} ${result.id} hit@${result.topK}=${result.hitAtK ? "1" : "0"} docRecall@5=${result.documentRecallAt5.toFixed(2)} contentRecall@5=${result.contentRecallAt5.toFixed(2)} rr@10=${result.reciprocalRankAt10.toFixed(2)} contentRR@10=${result.contentReciprocalRankAt10.toFixed(2)} ndcg@10=${result.ndcgAt10.toFixed(2)} irrelevant@10=${result.irrelevantSourceRateAt10.toFixed(2)} signalCoverage@10=${result.requiredSignalCoverageAt10.toFixed(2)} latency=${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} gate=${result.coverageGateReason ?? "none"} layers=${JSON.stringify(result.retrievalLayerCounts ?? {})}`,
+          );
+        }
+        return result;
+      }),
+    ),
+  );
 
   const summary = summarizeGoldenRetrievalResults(results);
   const latencyThresholdFailures =
