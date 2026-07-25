@@ -78,6 +78,7 @@ type ScopeDocumentRow = {
 };
 
 type ScopeLabelRow = {
+  id: string;
   document_id: string;
   label: string;
   label_type: DocumentLabelType;
@@ -326,15 +327,24 @@ export async function resolveSearchScope(args: {
     hasValues(filters.labelTypesAny);
   let labelsByDocument = new Map<string, ScopeLabelRow[]>();
   if (needsLabels) {
-    const { data: labelRows, error: labelError } = await args.supabase
-      .from("document_labels")
-      .select("document_id,label,label_type")
-      .in("document_id", candidateIds)
-      .in("label_type", [...labelTypes]);
-    if (labelError) throw new Error(labelError.message);
     labelsByDocument = new Map();
-    for (const label of (labelRows ?? []) as ScopeLabelRow[]) {
-      labelsByDocument.set(label.document_id, [...(labelsByDocument.get(label.document_id) ?? []), label]);
+    for (let offset = 0; ; offset += documentScopeQueryPageSize) {
+      let labelQuery = args.supabase
+        .from("document_labels")
+        .select("id,document_id,label,label_type")
+        .in("document_id", candidateIds)
+        .in("label_type", [...labelTypes])
+        // `id` is unique, so range pages cannot silently skip or repeat rows
+        // when PostgREST applies its default 1,000-row response cap.
+        .order("id", { ascending: true })
+        .range(offset, offset + documentScopeQueryPageSize - 1);
+      if (args.signal) labelQuery = labelQuery.abortSignal(args.signal);
+      const { data: labelRows, error: labelError } = await labelQuery;
+      if (labelError) throw new Error(labelError.message);
+      for (const label of (labelRows ?? []) as ScopeLabelRow[]) {
+        labelsByDocument.set(label.document_id, [...(labelsByDocument.get(label.document_id) ?? []), label]);
+      }
+      if ((labelRows ?? []).length < documentScopeQueryPageSize) break;
     }
   }
 
