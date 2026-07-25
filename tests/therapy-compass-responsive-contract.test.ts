@@ -6,8 +6,10 @@ const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`
 const therapyPath = "src/components/therapy-compass";
 
 const therapyCssSource = read(`${therapyPath}/therapy-compass.css`);
+const therapyNavSource = read(`${therapyPath}/nav.tsx`);
 const therapyCardSource = read(`${therapyPath}/therapy-card.tsx`);
 const homeSource = read(`${therapyPath}/screens/home-screen.tsx`);
+const modeHomeComposerSource = read("src/lib/mode-home-composer.ts");
 const modeHomeTemplateSource = read("src/components/mode-home-template.tsx");
 const detailSource = read(`${therapyPath}/screens/detail-screen.tsx`);
 const compareSource = read(`${therapyPath}/screens/compare-screen.tsx`);
@@ -52,6 +54,8 @@ describe("Therapy Compass responsive contract", () => {
     const workspaceRule = therapyCssSource.match(/\.tc-root \.tc-workspace-006\s*\{([^}]*)\}/)?.[1] ?? "";
     const navShellRule = therapyCssSource.match(/\.tc-root \.tc-nav-001\s*\{([^}]*)\}/)?.[1] ?? "";
     const navScrollerRule = therapyCssSource.match(/\.tc-root \.tc-nav-007\s*\{([^}]*)\}/)?.[1] ?? "";
+    const portaledNavRule =
+      therapyCssSource.match(/#therapy-header-collapse-addon-slot \.tc-nav-001\s*\{([^}]*)\}/)?.[1] ?? "";
 
     expect(rootRule).toContain("background: var(--background);");
     expect(workspaceRule).toContain("background: var(--background);");
@@ -63,6 +67,19 @@ describe("Therapy Compass responsive contract", () => {
     expect(navScrollerRule).toContain("max-width: 100%;");
     expect(navScrollerRule).toContain("margin-inline: auto;");
     expect(navScrollerRule).toContain("overflow-x: auto;");
+    // Portaled phone chrome must not keep sticky — the collapse row owns hide.
+    expect(portaledNavRule).toContain("position: relative;");
+    expect(portaledNavRule).toContain("top: auto;");
+  });
+
+  it("portals the section nav into the header collapse host on phones", () => {
+    expect(modeHomeComposerSource).toContain(
+      'export const therapyHeaderCollapseAddonSlotId = "therapy-header-collapse-addon-slot"',
+    );
+    expect(therapyNavSource).toContain("createPortal");
+    expect(therapyNavSource).toContain("therapyHeaderCollapseAddonSlotId");
+    expect(therapyNavSource).toContain('"(max-width: 639px)"');
+    expect(therapyNavSource).toContain('data-testid="therapy-compass-section-nav"');
   });
 
   it("defines one scoped phone reflow and a local comparison scroller", () => {
