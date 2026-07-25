@@ -3010,7 +3010,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await acamprosateResult.click();
     await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
     await expectSingleMedicationPage(page);
-    await expect(page.getByRole("link", { name: "Back to medication search" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Medications" })).toBeVisible();
 
     expect(parentNodeErrors).toEqual([]);
   });
@@ -3042,7 +3042,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await acamprosateCard.click();
     await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
-    const backLink = page.getByRole("link", { name: "Back", exact: true });
+    const backLink = page.getByRole("link", { name: "Medications", exact: true });
     await expect(backLink).toBeVisible();
     await expectMinTouchTarget(backLink);
     await backLink.click();
