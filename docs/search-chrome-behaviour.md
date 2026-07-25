@@ -19,8 +19,7 @@ This repo uses one shared search experience across the global shell, dashboard r
 3. A visible fixed phone dock may include `var(--safe-area-bottom)` so the pill clears the home indicator.
 4. A hidden phone dock must release the content-facing reserve to `0rem`; do not use `env(safe-area-inset-bottom)` or `var(--safe-area-bottom)` for hidden content padding.
 5. Edge-to-edge phone dock mode is `left: 0; right: 0; bottom: 0; width: 100%`; inset the pill with padding, not with a non-zero bottom offset.
-6. Header and footer chrome that share the same scroll signal should hide/reveal symmetrically: when hidden, underlying content must be visible to the viewport edge.
-6a. Header hide/reveal is cross-breakpoint; the bottom search dock is phone-only. See "Scroll hide/reveal" below before changing either.
+6. Header and footer chrome that share the same scroll signal should hide/reveal symmetrically: when hidden, underlying content must be visible to the viewport edge. Header hide/reveal is cross-breakpoint; the bottom search dock is phone-only. Read "Scroll hide/reveal" below before changing either.
 7. Do not add page-local dock-sized `pb-[calc(...safe-area...)]` under a shell-owned dock. Put clearance in the shared reserve or the page-owned composer, never both.
 8. `GlobalSearchShell` uses an inner `mobile-composer-reserve-pad` so phone padding contributes to scroll height; do not move phone shell clearance back to scrollport padding without a browser proof.
 
@@ -30,11 +29,11 @@ The universal header hides on a deliberate scroll down and returns on a delibera
 
 Choose the hide mechanism from where the host's scrollport lives, because that decides what hiding costs the reader:
 
-| Host                              | Scrollport                                     | `hideOnScroll`                        | Mechanism                                                            |
-| --------------------------------- | ---------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------- |
-| `ClinicalDashboard` (answer view)  | `<main>` at every width                        | `strategy: "overlay", allBreakpoints` | Absolute glass bar translates off; `<main>` keeps its top reserve      |
-| `ClinicalDashboard` (other modes)  | `<main>` at every width                        | `strategy: "collapse", wide: "collapse"` | 1fr -> 0fr grid row; the released strip goes straight to the content |
-| `GlobalSearchShell`                | `#main-content` on phones, the document above  | `strategy: "collapse", wide: "sticky"`   | Grid collapse on phones; sticks to the viewport top and translates above |
+| Host                              | Scrollport                                    | `hideOnScroll`                           | Mechanism                                                                |
+| --------------------------------- | --------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------ |
+| `ClinicalDashboard` (answer view) | `<main>` at every width                       | `strategy: "overlay", allBreakpoints`    | Absolute glass bar translates off; `<main>` keeps its top reserve        |
+| `ClinicalDashboard` (other modes) | `<main>` at every width                       | `strategy: "collapse", wide: "collapse"` | 1fr -> 0fr grid row; the released strip goes straight to the content     |
+| `GlobalSearchShell`               | `#main-content` on phones, the document above | `strategy: "collapse", wide: "sticky"`   | Grid collapse on phones; sticks to the viewport top and translates above |
 
 Rules that keep this working:
 
