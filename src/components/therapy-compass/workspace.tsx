@@ -26,7 +26,7 @@ function TherapyCompassDataError() {
   const b = useTcBindings();
   return (
     <section role="alert" aria-live="assertive" aria-busy={b.loading} className="tc-workspace-002">
-      <h1 className="tc-workspace-003">Therapy mode could not load</h1>
+      <h1 className="tc-workspace-003">Therapy could not load</h1>
       <p className="tc-workspace-004">
         The therapy catalogue is unavailable. No results are being shown as a substitute.
       </p>
@@ -74,7 +74,7 @@ export function TherapyCompassWorkspace({ children }: { children: ReactNode }) {
 
   return (
     <TcProvider>
-      <div className={`tc-root tc-workspace-006${isHome ? " tc-root--home" : ""}`}>
+      <div className="tc-root tc-workspace-006">
         {isHome ? null : <TherapyCompassNav />}
         <TherapyCompassMain showFooter={!isHome} asMain={!isHome}>
           {children}
