@@ -28,12 +28,13 @@ export const SHEET_INERT_SKIP_ATTRIBUTE = "data-sheet-inert-skip";
 
 /**
  * How long a newly opened sheet keeps listening for the conditions that steal
- * its initial focus (a sibling sheet finishing teardown, a late-mounted
- * autofocus child, `focus=1` hydration reclaiming the composer). Listening is
- * idle work, so the window is generous; it ends early on success or on the
- * first user interaction.
+ * its initial focus: a sibling sheet finishing teardown, `focus=1` hydration
+ * reclaiming the composer, or a `data-sheet-autofocus` child arriving behind a
+ * slow dynamic import (the DocumentDrawer Find field). Listening is idle, so
+ * the window matches the widest case rather than the common one; it ends on the
+ * first user interaction, when this sheet stops being top-most, or here.
  */
-export const SHEET_FOCUS_SETTLE_MS = 2000;
+export const SHEET_FOCUS_SETTLE_MS = 10_000;
 
 /**
  * Fallback re-attempt schedule, in milliseconds after the first attempt. Covers
@@ -44,12 +45,13 @@ export const SHEET_FOCUS_SETTLE_MS = 2000;
 const FALLBACK_ATTEMPT_DELAYS_MS = [16, 32, 64, 128, 256];
 
 /**
- * Ceiling on how many times one open may pull focus back. Another component
- * that re-focuses itself from its own focus handler would otherwise trade
- * `focus()` calls with this controller synchronously until the stack blows.
- * Giving up leaves focus where the other surface put it.
+ * Ceiling on reclaims that do not stick. A component that re-focuses itself
+ * from its own focus handler would otherwise trade `focus()` calls with this
+ * controller synchronously until the stack blows; giving up leaves focus where
+ * that surface put it. A reclaim that holds resets the count, so defending the
+ * panel repeatedly over the settle window is unaffected.
  */
-const MAX_FOCUS_RECLAIMS = 12;
+const MAX_CONSECUTIVE_RECLAIMS = 12;
 
 /**
  * Elements that must keep working behind a modal: stylesheets and scripts carry
@@ -251,12 +253,17 @@ export function startSheetOpenFocus({
     if (active === target) return;
     if (active !== lastAppliedTarget && !shouldReclaimFocus(getPanel(), active)) return;
     reclaims += 1;
-    if (reclaims > MAX_FOCUS_RECLAIMS) {
+    if (reclaims > MAX_CONSECUTIVE_RECLAIMS) {
       finish();
       return;
     }
     target.focus({ preventScroll: true });
-    if (document.activeElement === target) lastAppliedTarget = target;
+    if (document.activeElement === target) {
+      lastAppliedTarget = target;
+      // The reclaim held, so this was ordinary defence rather than a fight.
+      // Only focus that is taken straight back accumulates against the budget.
+      reclaims = 0;
+    }
   }
 
   const frame = window.requestAnimationFrame(() => {

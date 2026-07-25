@@ -186,6 +186,9 @@ export function Sheet({
     openFocusRef.current = startSheetOpenFocus({
       sheetId,
       getPanel: () => panelRef.current,
+      // The close button is only a fallback: the controller upgrades to a
+      // deferred `data-sheet-autofocus` child (lazy DocumentDrawer Find field /
+      // UtilityDrawer) as soon as it mounts.
       resolveTarget: () =>
         initialFocusRef?.current ??
         panelRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus="true"]') ??
