@@ -937,8 +937,8 @@ function DocumentPreview({ selectedEvidence }: { selectedEvidence?: EvidenceFixt
           <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-[color:var(--text-heading)]">
             <mark className="rounded bg-amber-100 px-1">Regular haematological monitoring</mark> is essential to reduce
             risk and ensure treatment can continue safely.{" "}
-            <a className="font-bold text-[color:var(--clinical-accent)]">Table 3</a> outlines the recommended monitoring
-            schedule.
+            <span className="font-bold text-[color:var(--clinical-accent)]">Table 3</span> outlines the recommended
+            monitoring schedule.
           </p>
         </div>
         <div>
