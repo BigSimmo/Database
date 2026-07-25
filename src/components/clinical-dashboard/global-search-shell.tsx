@@ -37,6 +37,7 @@ import {
 import { readChromeCollapseBudget, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
+import { useSidebarColumnTransitionReady } from "@/components/clinical-dashboard/use-sidebar-column-transition";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import { cn } from "@/components/ui-primitives";
 import {
@@ -319,13 +320,7 @@ function GlobalStandaloneSearchShellClient({
   );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
-  // Skip grid-template-columns transition on first paint / remount so Answer ↔
-  // namespaced mode swaps do not animate the sidebar width from the default track.
-  const [sidebarColumnTransitionReady, setSidebarColumnTransitionReady] = useState(false);
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setSidebarColumnTransitionReady(true));
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
+  const sidebarColumnTransitionReady = useSidebarColumnTransitionReady();
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);

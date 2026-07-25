@@ -55,6 +55,7 @@ import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
+import { useSidebarColumnTransitionReady } from "@/components/clinical-dashboard/use-sidebar-column-transition";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import {
   deriveSidebarIdentity,
@@ -169,7 +170,11 @@ import {
   type PrivateScopeRestorationStatus,
   type SearchNavigationContext,
 } from "@/lib/search-navigation-context";
-import { persistPrivateSearchScope, restorePrivateSearchScope } from "@/lib/private-search-scope";
+import {
+  persistPrivateSearchScope,
+  removePrivateScopeRefFromUrl,
+  restorePrivateSearchScope,
+} from "@/lib/private-search-scope";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
 import { answerLifecycleReducer, initialAnswerLifecycle } from "@/lib/answer-lifecycle";
 import { useDeferredRegistrySearch } from "@/components/clinical-dashboard/use-deferred-registry-search";
@@ -508,11 +513,7 @@ export function ClinicalDashboard({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
-  const [sidebarColumnTransitionReady, setSidebarColumnTransitionReady] = useState(false);
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setSidebarColumnTransitionReady(true));
-    return () => window.cancelAnimationFrame(frame);
-  }, []);
+  const sidebarColumnTransitionReady = useSidebarColumnTransitionReady();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
   const documentsDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
   const [documentScopeOpen, setDocumentScopeOpen] = useState(false);
@@ -3303,13 +3304,6 @@ export function ClinicalDashboard({
     () => [...priorAnswerTurns.map((turn) => turn.query), latestAnswerQuery],
     [priorAnswerTurns, latestAnswerQuery],
   );
-
-  function removePrivateScopeRefFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    params.delete("scopeRef");
-    const next = params.toString();
-    window.history.replaceState(null, "", `${window.location.pathname}${next ? `?${next}` : ""}`);
-  }
 
   function reselectUnavailablePrivateScope() {
     removePrivateScopeRefFromUrl();
