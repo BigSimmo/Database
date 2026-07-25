@@ -310,13 +310,13 @@ arm (a deep-memory pass after an agent pass).
   scoping only units+cards leaves agent memory-cards detached via
   `section_id ON DELETE SET NULL`.
 
-**Required work (design, not patch):** decide the section_index ownership model
+**Required work (design, not patch):** decide the section*index ownership model
 between the agent and deep-memory — e.g. give the agent a disjoint index range
 or stop it writing `document_sections`, or make deep-memory's section write an
 `on conflict (document_id, section_index)` upsert with a defined winner. Then
 scope index_units + memory_cards deletes with the NULL-safe filter above.
-_Retrieval-affecting → eval gate. Touches `src/lib/deep-memory.ts` and the edge
-agent._
+\_Retrieval-affecting → eval gate. Touches `src/lib/deep-memory.ts` and the edge
+agent.*
 
 **Files:** `src/lib/deep-memory.ts`, `supabase/functions/indexing-v3-agent/*`,
 possibly a migration.
