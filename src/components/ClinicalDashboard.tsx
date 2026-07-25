@@ -3398,8 +3398,7 @@ export function ClinicalDashboard({
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
           // Mode homes keep the composer in the centred hero slot at every
-          // breakpoint so documents, therapy, and the other homes share the
-          // same phone/tablet structure instead of switching to a bottom dock.
+          // breakpoint; documents, therapy, and other homes share the phone/tablet structure.
           heroComposerBreakpoint={heroComposerBreakpoint}
           // Answer view: the header overlays the scrolling <main> at every width
           // (main reserves matching top padding) so content frosts under the
