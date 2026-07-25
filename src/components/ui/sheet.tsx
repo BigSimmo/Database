@@ -259,12 +259,7 @@ export function Sheet({
         restoreTimers.timeout = window.setTimeout(() => {
           restoreTimers.timeout = null;
           if (typeof document === "undefined") return;
-          if (
-            typeof document === "undefined" ||
-            !restoreTarget.isConnected ||
-            document.activeElement === restoreTarget ||
-            document.activeElement !== document.body
-          ) {
+          if (!restoreTarget.isConnected || document.activeElement === restoreTarget) {
             return;
           }
           restoreTarget.focus({ preventScroll: true });
