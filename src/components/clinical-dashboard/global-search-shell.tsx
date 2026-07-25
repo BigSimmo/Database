@@ -57,7 +57,11 @@ import {
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { isInformationPage } from "@/lib/information-pages";
-import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import {
+  differentialsMobileCompareAddonSlotId,
+  modeHomeDesktopComposerSlotId,
+  therapyHeaderCollapseAddonSlotId,
+} from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import { shouldRenderClinicalDashboard, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
 import type { SearchScopeFilters } from "@/lib/search-scope";
@@ -730,6 +734,13 @@ function GlobalStandaloneSearchShellClient({
             mobileBottomSearchAddonSlotId={
               differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
             }
+            // Therapy non-home screens portal their section strip into the
+            // collapsing top-bar track so it hides/reveals with the header.
+            headerCollapseAddonSlotId={
+              pathname.startsWith("/therapy-compass") && pathname !== "/therapy-compass"
+                ? therapyHeaderCollapseAddonSlotId
+                : undefined
+            }
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
@@ -739,9 +750,10 @@ function GlobalStandaloneSearchShellClient({
             // docking to the bottom edge.
             heroComposerBreakpoint="all"
             // Phones: #main-content owns vertical scroll, so hide-on-scroll
-            // collapses the header/composer to hand space back to content.
-            // Tablet/desktop: the document scrolls, so the chrome sticks to the
-            // viewport top and slides away instead of releasing flow space.
+            // collapses the top bar to hand space back to content.
+            // Tablet/desktop: the document scrolls, so an outer sticky stack
+            // pins [top bar | search] and only the top-bar row collapses —
+            // translating the whole stack would take the search field with it.
             hideOnScroll={{ strategy: "collapse", wide: "sticky", scrollHidden: chromeScrollHide.hidden }}
             onBottomComposerHiddenChange={setBottomComposerHidden}
             queryInputAutoFocus={requestedFocus && !hasSubmittedModeSearch}
