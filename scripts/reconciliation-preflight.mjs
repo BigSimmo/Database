@@ -134,13 +134,13 @@ export function classifyReconciliationState({ baseCommit, baseRef, worktrees }) 
   };
 }
 
-function resolveBaseRef(explicitBaseRef) {
+function resolveBaseRef(explicitBaseRef, root = repositoryRoot) {
   if (explicitBaseRef) return explicitBaseRef;
-  const remoteHead = git(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], repositoryRoot, {
+  const remoteHead = git(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"], root, {
     allowFailure: true,
   });
   if (remoteHead) return remoteHead;
-  if (git(["rev-parse", "--verify", "--quiet", "origin/main"], repositoryRoot, { allowFailure: true })) {
+  if (git(["rev-parse", "--verify", "--quiet", "origin/main"], root, { allowFailure: true })) {
     return "origin/main";
   }
   return "main";
@@ -191,14 +191,29 @@ export function collectProcessDiagnostics(worktrees, listProcesses = listRepoNod
   };
 }
 
-export function collectReconciliationState({ baseRef: explicitBaseRef, includeProcesses = false } = {}) {
-  const baseRef = resolveBaseRef(explicitBaseRef);
-  const baseCommit = git(["rev-parse", "--verify", "--quiet", baseRef], repositoryRoot, { allowFailure: true });
-  const rawWorktrees = parseWorktreePorcelain(git(["worktree", "list", "--porcelain"]));
+/**
+ * @param {{
+ *   baseRef?: string,
+ *   includeProcesses?: boolean,
+ *   repositoryRoot?: string,
+ *   now?: () => Date,
+ * }} [options]
+ */
+export function collectReconciliationState({
+  baseRef: explicitBaseRef,
+  includeProcesses = false,
+  repositoryRoot: root = repositoryRoot,
+  now = () => new Date(),
+} = {}) {
+  const resolvedRoot = path.resolve(root);
+  const baseRef = resolveBaseRef(explicitBaseRef, resolvedRoot);
+  const baseCommit = git(["rev-parse", "--verify", "--quiet", baseRef], resolvedRoot, { allowFailure: true });
+  const rawWorktrees = parseWorktreePorcelain(git(["worktree", "list", "--porcelain"], resolvedRoot));
   const worktrees = rawWorktrees.map((item) => inspectWorktree(item, baseRef, baseCommit));
   const summary = classifyReconciliationState({ baseCommit, baseRef, worktrees });
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt: now().toISOString(),
+    repositoryRoot: resolvedRoot,
     cachedRefsOnly: true,
     fetched: false,
     processDiagnostics: includeProcesses
