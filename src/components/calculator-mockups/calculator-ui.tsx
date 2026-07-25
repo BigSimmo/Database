@@ -26,7 +26,7 @@ export function itemScore(item: CalculatorItem, selection: number | undefined): 
 }
 
 /** True for scales whose every item is a yes/no checkbox (CAGE, SAD PERSONS). */
-export function isCheckboxOnly(calc: CalculatorFixture): boolean {
+function isCheckboxOnly(calc: CalculatorFixture): boolean {
   return calc.items.length > 0 && calc.items.every((item) => item.kind === "checkbox");
 }
 
@@ -36,7 +36,7 @@ export function isCheckboxOnly(calc: CalculatorFixture): boolean {
  * CAGE/SAD PERSONS screen reads as a valid 0 result (started + complete) only
  * once the user chooses to record it, not merely by opening the scale.
  */
-export function seedCheckboxDefaults(calc: CalculatorFixture, answers: AnswerMap): AnswerMap {
+function seedCheckboxDefaults(calc: CalculatorFixture, answers: AnswerMap): AnswerMap {
   if (!isCheckboxOnly(calc)) return answers;
   if (calc.items.every((item) => answers[item.id] !== undefined)) return answers;
   const next: AnswerMap = { ...answers };
@@ -46,13 +46,13 @@ export function seedCheckboxDefaults(calc: CalculatorFixture, answers: AnswerMap
   return next;
 }
 
-export type CalculatorResult = {
+type CalculatorResult = {
   label: string;
   tone: CalculatorTone;
   guidance: string;
 };
 
-export type CalculatorState = {
+type CalculatorState = {
   answers: AnswerMap;
   score: number;
   /** Options-style items answered so far. */
@@ -157,17 +157,17 @@ export function deriveCalculator(calc: CalculatorFixture, answers: AnswerMap): D
   };
 }
 
-export function toggleCheckboxAnswer(answers: AnswerMap, itemId: string): AnswerMap {
+function toggleCheckboxAnswer(answers: AnswerMap, itemId: string): AnswerMap {
   // Toggle between explicit 1 ("Yes") and 0 ("No") rather than clearing to
   // undefined, so an unticked box stays a recorded negative answer.
   return { ...answers, [itemId]: answers[itemId] === 1 ? 0 : 1 };
 }
 
-export function selectOptionAnswer(answers: AnswerMap, itemId: string, optionIndex: number): AnswerMap {
+function selectOptionAnswer(answers: AnswerMap, itemId: string, optionIndex: number): AnswerMap {
   return { ...answers, [itemId]: answers[itemId] === optionIndex ? undefined : optionIndex };
 }
 
-export function useCalculatorState(calc: CalculatorFixture): CalculatorState {
+function useCalculatorState(calc: CalculatorFixture): CalculatorState {
   const [answers, setAnswers] = useState<AnswerMap>({});
 
   const toggleCheckbox = useCallback((itemId: string) => {
@@ -188,7 +188,7 @@ export function useCalculatorState(calc: CalculatorFixture): CalculatorState {
 
 /* ---------- tone styling ---------- */
 
-export const toneChip: Record<CalculatorTone, string> = {
+const toneChip: Record<CalculatorTone, string> = {
   success: "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]",
   info: "border-[color:var(--info-border)] bg-[color:var(--info-soft)] text-[color:var(--info)]",
   warning: "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]",
@@ -294,7 +294,7 @@ export function BandLegend({ calc, activeBand }: { calc: CalculatorFixture; acti
 
 /* ---------- interactive item controls ---------- */
 
-export function CheckboxRow({
+function CheckboxRow({
   item,
   checked,
   onToggle,
@@ -357,7 +357,7 @@ export function CheckboxRow({
   );
 }
 
-export function OptionScale({
+function OptionScale({
   item,
   value,
   onSelect,
@@ -547,14 +547,14 @@ export function formatResultSummary(calc: CalculatorFixture, state: DerivedCalcu
  * carry bespoke option sets (then items render stacked full labels instead
  * of numbered chips plus one response key).
  */
-export function sharedOptionKey(calc: CalculatorFixture) {
+function sharedOptionKey(calc: CalculatorFixture) {
   const optionItems = calc.items.filter((item) => item.kind === "options");
   if (optionItems.length < 2) return null;
   const first = optionItems[0].options;
   return optionItems.every((item) => item.options === first) ? (first ?? null) : null;
 }
 
-export function ResponseKey({ calc }: { calc: CalculatorFixture }) {
+function ResponseKey({ calc }: { calc: CalculatorFixture }) {
   const key = sharedOptionKey(calc);
   if (!key) return null;
   return (
