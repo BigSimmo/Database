@@ -15,8 +15,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title:
       record && record.patientSheetAvailable
-        ? `${record.name} · Patient sheet - Therapy mode`
-        : "Therapy not found - Therapy mode",
+        ? `${record.name} · Patient sheet - Therapy`
+        : "Therapy not found - Therapy",
   };
 }
 
