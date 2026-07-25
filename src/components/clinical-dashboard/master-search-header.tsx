@@ -67,6 +67,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
+import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
 import { tagSearchText } from "@/lib/document-tags";
@@ -391,6 +392,7 @@ export function MasterSearchHeader({
   const scopePopoverRef = useRef<HTMLDivElement | null>(null);
   const actionMenuTriggerRef = useRef<HTMLButtonElement | null>(null);
   const scopeFilterInputRef = useRef<HTMLInputElement | null>(null);
+  const touchStartY = useRef<number | null>(null);
   const selectedDocumentIdSet = useMemo(() => new Set(selectedDocumentIds), [selectedDocumentIds]);
   const documentById = useMemo(() => new Map(documents.map((document) => [document.id, document])), [documents]);
   const selectedDocuments = useMemo(
@@ -1380,6 +1382,25 @@ export function MasterSearchHeader({
     return (
       <form
         onSubmit={submit}
+        onTouchStart={(e) => {
+          touchStartY.current = e.touches[0].clientY;
+        }}
+        onTouchMove={(e) => {
+          if (touchStartY.current === null) return;
+          // Ignore swipes that originate inside a scrollable container
+          if (e.target instanceof Element && e.target.closest(".overflow-y-auto, .overflow-auto, .overflow-x-auto")) {
+            touchStartY.current = null;
+            return;
+          }
+          const currentY = e.touches[0].clientY;
+          const diff = currentY - touchStartY.current;
+          if (diff > 50) {
+            if (document.activeElement instanceof HTMLElement) {
+              document.activeElement.blur();
+            }
+            touchStartY.current = null;
+          }
+        }}
         data-footer-variant={usesPhoneFooterDock ? (usesCompactMobileBottomStyle ? "compact" : "default") : undefined}
         data-footer-addon={usesPhoneFooterDock && mobileBottomSearchAddonSlotId ? "differentials-compare" : undefined}
         data-command-open={
@@ -1519,6 +1540,9 @@ export function MasterSearchHeader({
                 ref={bindQueryInputRef}
                 data-testid="global-search-input"
                 autoFocus={queryInputAutoFocus}
+                onFocus={(e) => {
+                  e.target.scrollIntoView({ block: "nearest", behavior: resolveScrollBehavior() });
+                }}
                 value={query}
                 enterKeyHint="search"
                 inputMode="search"
@@ -1543,7 +1567,7 @@ export function MasterSearchHeader({
                 <button
                   type="button"
                   onClick={onClearQuery}
-                  className="grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:h-12 sm:w-12"
+                  className="grid min-h-tap min-w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] sm:h-12 sm:w-12"
                   aria-label="Clear search question"
                 >
                   <X aria-hidden="true" className="h-4 w-4" />
