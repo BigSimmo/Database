@@ -379,6 +379,21 @@ export function MasterSearchHeader({
   const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
   const bottomComposerHidden = bottomComposerScrollHiddenActive && scrollHidden && !sharedChromePinned;
 
+  // Portal swaps and breakpoint changes can remove focused chrome without a
+  // blur event. Clear those latches asynchronously once their owning surface
+  // is inactive so a later dock/header activation cannot inherit stale focus.
+  useEffect(() => {
+    if (hideOnScrollEnabled && phoneBottomSearchDockActive) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      if (!phoneBottomSearchDockActive) setComposerChromeFocused(false);
+      if (!hideOnScrollEnabled) {
+        setComposerChromeFocused(false);
+        setHeaderChromeFocused(false);
+      }
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [hideOnScrollEnabled, phoneBottomSearchDockActive]);
+
   useEffect(() => {
     onBottomComposerHiddenChange?.(bottomComposerHidden);
   }, [bottomComposerHidden, onBottomComposerHiddenChange]);
