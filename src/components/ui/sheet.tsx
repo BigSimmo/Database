@@ -204,22 +204,28 @@ export function Sheet({
     }
     pushSheet(sheetId);
     const focusFrame = window.requestAnimationFrame(() => {
-      const resolveFocusTarget = () =>
+      const resolveAutofocusTarget = () =>
         initialFocusRef?.current ??
         panelRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus="true"]') ??
-        closeRef.current;
+        null;
       const focusIfNeeded = () => {
         // Never reclaim focus once a newer Sheet is stacked above this one.
         if (!isTopmostSheet(sheetId)) return null;
-        const focusTarget = resolveFocusTarget();
+        const preferredAutofocus = resolveAutofocusTarget();
+        const focusTarget = preferredAutofocus ?? closeRef.current;
         if (!focusTarget?.isConnected) return null;
         if (document.activeElement === focusTarget) return focusTarget;
         // Reclaim when focus is outside the panel (or still on body after a
-        // remount). Do not steal from another in-panel control the user tabbed to.
+        // remount). Also upgrade from the close-button fallback once a deferred
+        // `data-sheet-autofocus` child mounts (lazy DocumentDrawer / UtilityDrawer).
+        // Do not steal from another in-panel control the user tabbed to.
         const active = document.activeElement;
+        const activeIsCloseFallback =
+          preferredAutofocus != null && closeRef.current != null && active === closeRef.current;
         if (
           active == null ||
           active === document.body ||
+          activeIsCloseFallback ||
           (panelRef.current != null && !panelRef.current.contains(active))
         ) {
           focusTarget.focus({ preventScroll: true });
@@ -229,16 +235,17 @@ export function Sheet({
       focusIfNeeded();
       // Retries cover sibling-sheet teardown and late-mounted autofocus inputs
       // (UtilityDrawer media sync / deferred drawer children). Keep retrying long
-      // enough to outlast focus=1 hydration (rAF + ~300ms) and composer reclaim.
+      // enough to outlast focus=1 hydration (rAF + ~300ms), composer reclaim, and
+      // a slow dynamic import of DocumentDrawer before the Find field mounts.
       let attempts = 0;
       const retryTimer = window.setInterval(() => {
         attempts += 1;
+        const preferredAutofocus = resolveAutofocusTarget();
         const focusTarget = focusIfNeeded();
-        if (
-          attempts >= 40 ||
-          !isTopmostSheet(sheetId) ||
-          (focusTarget != null && document.activeElement === focusTarget)
-        ) {
+        const preferredFocused = preferredAutofocus != null && document.activeElement === preferredAutofocus;
+        const settledOnFallback =
+          preferredAutofocus == null && focusTarget != null && document.activeElement === focusTarget;
+        if (attempts >= 100 || !isTopmostSheet(sheetId) || preferredFocused || settledOnFallback) {
           window.clearInterval(retryTimer);
           if (restoreTimers.openFocusRetry === retryTimer) {
             restoreTimers.openFocusRetry = null;
