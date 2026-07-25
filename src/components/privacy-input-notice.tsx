@@ -15,7 +15,7 @@ export function PrivacyInputNotice({ className, id, testId }: { className?: stri
       className={cn(
         // z sits above the composer dock backdrop (z-0) but below the command
         // surface (z-10) so the suggestions dropdown can cover the notice.
-        "relative z-[5] flex w-full min-w-0 flex-wrap items-center gap-x-1 gap-y-0 text-2xs leading-4",
+        "relative z-10 flex w-full min-w-0 flex-wrap items-center gap-x-1 gap-y-0 text-2xs leading-4",
         textMuted,
         className,
       )}

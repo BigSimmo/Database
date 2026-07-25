@@ -1,3 +1,4 @@
+import { useSettingsState } from "./clinical-dashboard/SettingsStateProvider";
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -545,16 +546,18 @@ export function ClinicalDashboard({
   const [pendingFeedback, setPendingFeedback] = useState<AnswerFeedbackType | null>(null);
   const [actionNotice, setActionNotice] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [activeHash, setActiveHash] = useState("#search");
-  const [guideOpen, setGuideOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
-  const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
-  const [documentScopeOpen, setDocumentScopeOpen] = useState(false);
-  const [documentsDrawerMode, setDocumentsDrawerMode] = useState<DocumentDrawerMode>("library");
-  const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
-  const [uploadMobileTab, setUploadMobileTab] = useState<UploadIndexingTab>("upload");
-  const uploadUsesDesktopRegions = useUploadDesktopLayout();
+  const {
+    guideOpen, setGuideOpen,
+    settingsOpen, setSettingsOpen,
+    mobileSidebarOpen, setMobileSidebarOpen,
+    sidebarCollapsed, setSidebarCollapsed,
+    documentsDrawerOpen, setDocumentsDrawerOpen,
+    documentScopeOpen, setDocumentScopeOpen,
+    documentsDrawerMode, setDocumentsDrawerMode,
+    uploadDrawerOpen, setUploadDrawerOpen,
+    uploadMobileTab, setUploadMobileTab
+  } = useSettingsState();
+                    const uploadUsesDesktopRegions = useUploadDesktopLayout();
   const uploadTabRefs = useRef(new Map<UploadIndexingTab, HTMLButtonElement>());
   const [documentDrawerStatusFilter, setDocumentDrawerStatusFilter] = useState<DocumentDrawerStatusFilter>("indexed");
   const [indexingMonitorFilter, setIndexingMonitorFilter] = useState<IndexingMonitorFilter>("all");
@@ -3313,10 +3316,9 @@ export function ClinicalDashboard({
     <div
       className={cn(
         appBackdrop,
-        // Phone: fixed inset-0 (not 100dvh) — matches GlobalSearchShell; avoids Safari toolbar dead band.
-        "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] max-sm:fixed max-sm:inset-0 max-sm:h-auto max-sm:min-h-0 max-sm:overflow-hidden md:grid md:grid-cols-[5.25rem_minmax(0,1fr)] md:overflow-hidden",
+        "mobile-app-shell @container/dashboard flex flex-col overflow-hidden text-[color:var(--text)] @max-@sm:fixed @max-@sm:inset-0 @max-@sm:h-auto @max-@sm:min-h-0 @max-@sm:overflow-hidden @md:grid @md:grid-cols-[5.25rem_minmax(0,1fr)] @md:overflow-hidden",
         "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
-        sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
+        sidebarCollapsed ? "@lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "@lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={
         {
@@ -3343,7 +3345,7 @@ export function ClinicalDashboard({
         showAccountLibrary={favouritesAccessible}
       />
 
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col @md:h-full">
         <MasterSearchHeader
           demoMode={clientDemoMode}
           documents={documents}
@@ -3447,10 +3449,10 @@ export function ClinicalDashboard({
                   // dock inside its scrollable content. Padding can collapse when the
                   // dock hides without exposing the app-shell background; the
                   // bottom-clamp guard in use-hide-on-scroll prevents false reveals.
-                  "max-sm:pb-[var(--mobile-composer-reserve)] max-sm:[scroll-padding-bottom:var(--mobile-composer-reserve)] sm:mb-24"
+                  "@max-sm:pb-[var(--mobile-composer-reserve)] @max-sm:[scroll-padding-bottom:var(--mobile-composer-reserve)] @sm:mb-24"
               : hasMobileBottomSearch
                 ? // Phone dock reserve; sm+ keeps hero/sticky composers.
-                  "max-sm:pb-[var(--mobile-composer-reserve)] max-sm:[scroll-padding-bottom:var(--mobile-composer-reserve)] sm:mb-0"
+                  "@max-sm:pb-[var(--mobile-composer-reserve)] @max-sm:[scroll-padding-bottom:var(--mobile-composer-reserve)] @sm:mb-0"
                 : "mb-0",
           )}
         >
@@ -3466,7 +3468,7 @@ export function ClinicalDashboard({
               role="alert"
               data-testid="private-scope-unavailable"
               className={cn(
-                "sticky z-20 mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] sm:mx-4 lg:mx-8",
+                "sticky z-20 mx-3 mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm text-[color:var(--text)] @sm:mx-4 @lg:mx-8",
                 searchMode === "answer" ? "top-[calc(4.5rem+max(0.5rem,env(safe-area-inset-top)))]" : "top-2",
               )}
             >
@@ -3490,8 +3492,8 @@ export function ClinicalDashboard({
                 // overflow-x-CLIP, not -hidden: hidden makes this wrapper a scroll
                 // container (overflow-y computes to auto), which clips the composer's
                 // command dropdown mid-panel and shows a phantom inner scrollbar.
-                "mx-auto max-w-7xl space-y-4 overflow-x-clip px-3 py-4 sm:space-y-5 sm:px-4 sm:py-5 lg:px-8",
-                compactMobileModeHome && "max-sm:px-0",
+                "mx-auto max-w-7xl space-y-4 overflow-x-clip px-3 py-4 @sm:space-y-5 @sm:px-4 @sm:py-5 @lg:px-8",
+                compactMobileModeHome && "@max-sm:px-0",
                 // Centred mode homes carry little content, so drop the large
                 // mobile bottom padding (the fixed composer already has its own
                 // reserved margin on <main>) to avoid a needless scrollbar.
@@ -3504,14 +3506,14 @@ export function ClinicalDashboard({
                       // long answer's last line high above the dock (and padded a short
                       // answer's empty space further). Keep it small here; sm+/desktop
                       // keep the original generous padding.
-                      "pb-4 sm:pb-36 lg:pb-40"
+                      "pb-4 @sm:pb-36 @lg:pb-40"
                   : hasMobileBottomSearch
                     ? // The <main> reserve clears the compact dock on phones, so
                       // content keeps only a small pad of its own.
                       compactMobileModeHome
-                      ? "pb-4 sm:pb-10 lg:pb-12"
-                      : "pb-8 sm:pb-10 lg:pb-12"
-                    : "pb-8 sm:pb-10 lg:pb-12",
+                      ? "pb-4 @sm:pb-10 @lg:pb-12"
+                      : "pb-8 @sm:pb-10 @lg:pb-12"
+                    : "pb-8 @sm:pb-10 @lg:pb-12",
               )}
             >
               {actionNotice && (
@@ -3520,7 +3522,7 @@ export function ClinicalDashboard({
                 </InlineNotice>
               )}
               {showDegradedNotice && renderDegradedNotice()}
-              {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
+              {showSystemNotice && answer ? renderSystemNotice("hidden @sm:block") : null}
 
               <section
                 className={cn(
@@ -3529,8 +3531,8 @@ export function ClinicalDashboard({
                         // Every breakpoint keeps a viewport-height floor so
                         // justify/place-items-center has free space to centre the
                         // home block instead of hugging the header.
-                        "max-sm:flex max-sm:min-h-[calc(100dvh-12.5rem)] max-sm:flex-col sm:min-h-[calc(100dvh-11rem)]",
-                        centeredModeHome && "max-sm:justify-center",
+                        "@max-sm:flex @max-sm:min-h-[calc(100dvh-12.5rem)] @max-sm:flex-col @sm:min-h-[calc(100dvh-11rem)]",
+                        centeredModeHome && "@max-sm:justify-center",
                       )
                     : // A rendered answer is content-sized and top-aligned on phones:
                       // it must NOT inherit the viewport-height floor (that floor exists
@@ -3540,13 +3542,13 @@ export function ClinicalDashboard({
                       // question with calm space below and no phantom scroll. Other
                       // result kinds keep the floor; sm+/desktop is unchanged.
                       activeModeResultKind === "answer" && answer
-                      ? "sm:min-h-[calc(100dvh-11rem)]"
-                      : "min-h-[calc(100dvh-12.5rem)] sm:min-h-[calc(100dvh-11rem)]",
+                      ? "@sm:min-h-[calc(100dvh-11rem)]"
+                      : "min-h-[calc(100dvh-12.5rem)] @sm:min-h-[calc(100dvh-11rem)]",
                   centeredModeHome || showAnswerHome
                     ? // Phones centre the home block mid-screen, matching the
                       // standalone-route homes; the pop-up action surface picks
                       // its own up/down placement so it stays unclipped either way.
-                      "grid w-full place-items-center max-sm:pt-2"
+                      "grid w-full place-items-center @max-sm:pt-2"
                     : activeModeResultKind === "tools" ||
                         activeModeResultKind === "favourites" ||
                         activeModeResultKind === "differentials"
@@ -3846,7 +3848,7 @@ export function ClinicalDashboard({
                 ) : null}
               </section>
 
-              {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
+              {showSystemNotice && answer ? renderSystemNotice("@sm:hidden") : null}
 
               {activeModeResultKind === "answer" && answer && (
                 <RelatedDocumentsPanel
@@ -3856,7 +3858,7 @@ export function ClinicalDashboard({
                 />
               )}
               {(documentsDrawerOpen || uploadDrawerOpen) && (
-                <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 sm:scroll-mt-6">
+                <section id="sources" className="mx-auto grid w-full max-w-4xl gap-3 scroll-mt-4 @sm:scroll-mt-6">
                   <p className="px-1 pt-1 text-2xs font-bold uppercase tracking-[0.1em] text-[color:var(--text-muted)]">
                     {drawerGroupTitle}
                   </p>
@@ -3877,16 +3879,16 @@ export function ClinicalDashboard({
                       }
                       sheetTitleAccessory={
                         documentsDrawerIsAdmin ? (
-                          <span className="nums hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-bold text-[color:var(--text-muted)] sm:inline-flex">
+                          <span className="nums hidden rounded-full border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2.5 py-1 text-2xs font-bold text-[color:var(--text-muted)] @sm:inline-flex">
                             {indexedDocumentTotal.toLocaleString()} indexed
                           </span>
                         ) : null
                       }
                       sheetDescription={documentsDrawerSummary}
-                      sheetHeaderClassName="bg-[color:var(--surface-raised)] px-4 py-3 sm:px-5 sm:py-4"
+                      sheetHeaderClassName="bg-[color:var(--surface-raised)] px-4 py-3 @sm:px-5 @sm:py-4"
                       sheetCloseButtonClassName="grid h-tap w-tap shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                      sheetContentClassName="max-h-[min(82dvh,40rem)] sm:max-h-[min(88dvh,46rem)] sm:max-w-2xl lg:max-w-3xl"
-                      sheetBodyClassName="bg-[color:var(--surface-subtle)] p-3 sm:p-4"
+                      sheetContentClassName="max-h-[min(82dvh,40rem)] @sm:max-h-[min(88dvh,46rem)] @sm:max-w-2xl @lg:max-w-3xl"
+                      sheetBodyClassName="bg-[color:var(--surface-subtle)] p-3 @sm:p-4"
                       sheetChildrenClassName="space-y-3"
                     >
                       {documentsDrawerIsAdmin ? (
@@ -3944,7 +3946,7 @@ export function ClinicalDashboard({
                         role="tablist"
                         aria-label="Upload and indexing sections"
                         onKeyDown={handleUploadTabKeyDown}
-                        className="grid grid-cols-4 gap-2 lg:hidden"
+                        className="grid grid-cols-4 gap-2 @lg:hidden"
                       >
                         {uploadTabs.map((tab) => {
                           const active = uploadMobileTab === tab.id;
@@ -3986,7 +3988,7 @@ export function ClinicalDashboard({
                           );
                         })}
                       </div>
-                      <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="grid gap-4 @lg:grid-cols-2">
                         <div
                           id="dashboard-setup-section"
                           role={uploadUsesDesktopRegions ? "region" : "tabpanel"}
@@ -3994,8 +3996,8 @@ export function ClinicalDashboard({
                             uploadUsesDesktopRegions ? "dashboard-setup-section-heading" : "dashboard-upload-tab-setup"
                           }
                           className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-1",
-                            uploadMobileTab !== "setup" && "hidden lg:block",
+                            "space-y-3 scroll-mt-4 @lg:col-start-1 @lg:row-start-1",
+                            uploadMobileTab !== "setup" && "hidden @lg:block",
                           )}
                         >
                           <p
@@ -4016,8 +4018,8 @@ export function ClinicalDashboard({
                               : "dashboard-upload-tab-upload"
                           }
                           className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-start-1 lg:row-start-2",
-                            uploadMobileTab !== "upload" && "hidden lg:block",
+                            "space-y-3 scroll-mt-4 @lg:col-start-1 @lg:row-start-2",
+                            uploadMobileTab !== "upload" && "hidden @lg:block",
                           )}
                         >
                           <p
@@ -4045,8 +4047,8 @@ export function ClinicalDashboard({
                               : "dashboard-upload-tab-jobs"
                           }
                           className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-start-2 lg:row-span-2 lg:row-start-1",
-                            uploadMobileTab !== "jobs" && "hidden lg:block",
+                            "space-y-3 scroll-mt-4 @lg:col-start-2 @lg:row-span-2 @lg:row-start-1",
+                            uploadMobileTab !== "jobs" && "hidden @lg:block",
                           )}
                         >
                           <p
@@ -4074,8 +4076,8 @@ export function ClinicalDashboard({
                               : "dashboard-upload-tab-quality"
                           }
                           className={cn(
-                            "space-y-3 scroll-mt-4 lg:col-span-2 lg:row-start-3",
-                            uploadMobileTab !== "quality" && "hidden lg:block",
+                            "space-y-3 scroll-mt-4 @lg:col-span-2 @lg:row-start-3",
+                            uploadMobileTab !== "quality" && "hidden @lg:block",
                           )}
                         >
                           <p

@@ -15,6 +15,7 @@ import {
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { ClinicalDashboard } from "@/components/ClinicalDashboard";
+import { SettingsStateProvider } from "@/components/clinical-dashboard/SettingsStateProvider";
 import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
@@ -147,12 +148,14 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
   return (
     <PatientProfileProvider>
       {rendersClinicalDashboard ? (
-        <ClinicalDashboard
-          initialSearchMode={resolvedSearchMode}
-          initialQuery={requestedQuery}
-          focusSearch={searchParams.get("focus") === "1"}
-          autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
-        />
+        <SettingsStateProvider>
+          <ClinicalDashboard
+            initialSearchMode={resolvedSearchMode}
+            initialQuery={requestedQuery}
+            focusSearch={searchParams.get("focus") === "1"}
+            autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
+          />
+        </SettingsStateProvider>
       ) : (
         <GlobalStandaloneSearchShellClient {...props} />
       )}

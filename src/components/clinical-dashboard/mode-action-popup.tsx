@@ -818,7 +818,7 @@ export function ModeActionPopup({
   // subtitle sits on its own full-width line so it can never be crushed.
   function renderPopoverHeader() {
     return (
-      <div className="relative z-[1] flex items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-4 py-3.5">
+      <div className="relative z-10 flex items-center gap-3 border-b border-[color:var(--border)] bg-[color:var(--surface-raised)] px-4 py-3.5">
         <span
           aria-hidden="true"
           className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
