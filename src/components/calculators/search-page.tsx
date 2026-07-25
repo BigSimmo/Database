@@ -692,6 +692,3 @@ export function CalculatorsSearchPage() {
     </>
   );
 }
-
-/** @deprecated Prefer {@link CalculatorsSearchPage}; kept for mockup route imports. */
-export const CalculatorsSearchPageMockup = CalculatorsSearchPage;
