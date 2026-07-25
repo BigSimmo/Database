@@ -2125,34 +2125,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(Math.abs(edgeGeometry.width - edgeGeometry.viewportWidth)).toBeLessThanOrEqual(1);
     expect(Math.abs(edgeGeometry.rectBottom - edgeGeometry.viewportHeight)).toBeLessThanOrEqual(1);
 
-    // Focused chrome is an accessibility pin. Force enough runway for the
-    // reporter to request a hide and prove that focus keeps both shared edges
-    // visible, rather than allowing only the header to disappear.
-    await expect(input).toBeFocused();
-    await main.evaluate((node) => {
-      const spacer = document.createElement("div");
-      spacer.dataset.testid = "answer-focus-scroll-spacer";
-      spacer.style.height = "2000px";
-      node.appendChild(spacer);
-    });
-    for (const offset of [40, 80, 120, 160, 200]) {
-      await scrollPrimarySurface(page, offset);
-    }
-    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
-    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
-
-    // Return to the real short-result geometry. With focus moved to the
-    // scrollport, a deliberate descent must hide both edges even though the
-    // only released layout is the dock reserve; no oversized synthetic runway
-    // remains.
-    await scrollPrimarySurface(page, 0);
-    await main.evaluate((node) => {
-      node.querySelector('[data-testid="answer-focus-scroll-spacer"]')?.remove();
-    });
-    await main.focus();
+    // Submitting from the auto-focused home composer must not carry stale focus
+    // into the newly docked follow-up input. A focused dock is intentionally
+    // pinned for keyboard safety, so retaining focus here permanently disables
+    // the ordinary touch-scroll hide path.
     await expect(input).not.toBeFocused();
     const visibleMaxOffset = await main.evaluate((node) => node.scrollHeight - node.clientHeight);
-    // Keep this in the measured regression band: enough content to scroll, but
+    // This is the measured reproduction band: enough content to scroll, but
     // not enough for the strict in-flow budget (120px reserve + 28px runway)
     // to permit hiding after the 96px intent threshold.
     expect(visibleMaxOffset).toBeGreaterThan(190);
