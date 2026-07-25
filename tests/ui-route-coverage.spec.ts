@@ -218,7 +218,7 @@ test.describe("previously uncovered production routes", () => {
       "/therapy-compass",
       async (currentPage) => {
         await expect(currentPage.getByRole("main")).toBeVisible();
-        await expect(currentPage.getByRole("heading", { name: "Therapy mode", level: 1, exact: true })).toBeVisible({
+        await expect(currentPage.getByRole("heading", { name: "Therapy", level: 1, exact: true })).toBeVisible({
           timeout: 30_000,
         });
       },
@@ -228,7 +228,21 @@ test.describe("previously uncovered production routes", () => {
           .getByRole("button", { name: "Anxiety in outpatient care", exact: true });
         await expect(search).toBeEnabled();
         await search.click();
-        await expect(currentPage.getByRole("heading", { name: "Therapy Search", level: 1 })).toBeVisible();
+        await expect(currentPage.getByRole("heading", { name: "Therapy", level: 1, exact: true })).toBeVisible();
+        const nav = currentPage.getByRole("navigation", { name: "Therapy sections" });
+        const layout = await nav.evaluate((element) => {
+          const navRect = element.getBoundingClientRect();
+          const shellRect = element.parentElement?.getBoundingClientRect();
+          const root = element.closest(".tc-root");
+          return {
+            centerDelta: shellRect
+              ? navRect.left + navRect.width / 2 - (shellRect.left + shellRect.width / 2)
+              : Number.POSITIVE_INFINITY,
+            backgroundColor: root ? getComputedStyle(root).backgroundColor : "",
+          };
+        });
+        expect(Math.abs(layout.centerDelta)).toBeLessThanOrEqual(1);
+        expect(layout.backgroundColor).toBe("rgb(255, 255, 255)");
       },
     );
   });

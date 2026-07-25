@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { DsmHeaderActions, DsmPageHeader } from "@/components/dsm/dsm-page-header";
+import { InformationPageShell } from "@/components/information-page-shell";
 import { cn, codeText, metadataPill, pageContainer } from "@/components/ui-primitives";
 import { dsmCriteria, resolveDsmDifferential, type DsmDiagnosis, type DsmLabeledText } from "@/lib/dsm";
 
@@ -36,7 +37,7 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
   const compareHref = `/dsm/compare?ids=${encodeURIComponent(diagnosis.slug)}`;
 
   return (
-    <article data-testid="dsm-diagnosis-page" className="min-h-full bg-[color:var(--background)] pb-8">
+    <InformationPageShell testId="dsm-diagnosis-page" width="bleed" className="pb-8">
       <DsmPageHeader
         eyebrow="Diagnosis information"
         title={diagnosis.title}
@@ -270,6 +271,6 @@ export function DsmDiagnosisPage({ diagnosis }: { diagnosis: DsmDiagnosis }) {
           <span className={metadataPill}>Supplied local catalogue</span>
         </div>
       </div>
-    </article>
+    </InformationPageShell>
   );
 }
