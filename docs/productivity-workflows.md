@@ -24,9 +24,13 @@ The repository exposes seven offline-first workflow planners. Each planner inspe
 - Use `-- --files pathA,pathB` to plan an explicit proposed change before editing.
 - Use `workflow:triage -- --log <path>` to classify a captured failure.
 - Use lifecycle phase `reconcile` for broad multi-worktree work. It selects the report-only
-  `node scripts/reconciliation-preflight.mjs` locally and keeps `git fetch --prune origin` approval-gated. Add
+  `node scripts/reconciliation-preflight.mjs` and
+  `node scripts/reconciliation-evidence-pack.mjs --output .local/reconciliation-evidence/pack.json`
+  locally and keeps `git fetch --prune origin` approval-gated. Add
   `--include-processes` to the preflight only when process ownership may block cleanup; it never
-  serializes raw command lines.
+  serializes raw command lines. Lifecycle `start`/`cleanup` select
+  `node scripts/primary-checkout-lease.mjs --check` so primary writes fail closed under another
+  owner or dirty/operation state without blocking read-only or feature worktrees.
 
 The existing shared `workflow:run`, `workflow:status`, `workflow:verify`, `workflow:deps`, `workflow:clean-state`, `workflow:export`, and `workflow:handoff` commands now resolve their shared implementation through the repository's Git common directory. This keeps them portable in linked and detached Codex worktrees. Set `CODEX_LOCAL_WORKFLOW_ROOT` only when the shared tools live somewhere non-standard.
 
