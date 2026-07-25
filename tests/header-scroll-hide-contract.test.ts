@@ -127,5 +127,14 @@ describe("shared header hide/reveal wiring", () => {
     expect(behaviourDocSource).toContain("Hide the top bar, not the search field, above phones");
     expect(behaviourDocSource).toContain("Top-bar hide/reveal is cross-breakpoint");
     expect(behaviourDocSource).toContain("Page chrome that must match the top bar portals into the collapse host");
+    expect(behaviourDocSource).toContain("Drop the sticky search top offset while the top bar is hidden");
+  });
+
+  it("drops the sticky search top offset while the collapsing top bar is hidden", () => {
+    // Leaving top: 4.75rem after the mode bar collapses left a dead band above
+    // dashboard result search on tablet/desktop.
+    expect(headerSource).toContain("const stickySearchClearsTopBar");
+    expect(headerSource).toContain('hideStrategy === "collapse" && headerChromeHidden');
+    expect(headerSource).toContain('"top-0 sm:top-0"');
   });
 });
