@@ -122,7 +122,7 @@ function Pill({ children, tone = "neutral" }: { children: ReactNode; tone?: "neu
 }
 
 function Action({ children, primary = false }: { children: ReactNode; primary?: boolean }) {
-  const baseClass = `inline-flex min-h-10 max-w-full min-w-0 items-center justify-center gap-2 rounded-md px-3 text-center text-xs font-semibold leading-tight transition hover:-translate-y-px hover:shadow-[var(--shadow-tight)] active:translate-y-0 ${focusRing} [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0 sm:min-h-11 sm:text-sm`;
+  const baseClass = `inline-flex min-h-10 max-w-full min-w-0 items-center justify-center gap-2 rounded-md px-3 text-center text-xs font-semibold leading-tight transition duration-160 ease-[var(--ease-spring)] hover:-translate-y-px hover:shadow-[var(--shadow-tight)] active:translate-y-0 active:scale-[0.99] ${focusRing} [&>svg]:h-3.5 [&>svg]:w-3.5 [&>svg]:shrink-0 sm:min-h-11 sm:text-sm`;
   return (
     <button
       type="button"
@@ -142,7 +142,7 @@ function CloseButton({ label = "Close popup" }: { label?: string }) {
     <button
       type="button"
       aria-label={label}
-      className={`grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:border-[color:var(--clinical-accent)]/35 hover:text-[color:var(--text)] ${focusRing} sm:h-11 sm:w-11`}
+      className={`grid h-10 w-10 shrink-0 place-items-center rounded-md border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition duration-160 ease-[var(--ease-spring)] hover:border-[color:var(--clinical-accent)]/35 hover:text-[color:var(--text)] active:scale-[0.98] ${focusRing} sm:h-11 sm:w-11`}
     >
       <X className="h-4 w-4" />
     </button>
@@ -155,7 +155,7 @@ function SourceCapsule() {
       type="button"
       aria-haspopup="dialog"
       aria-expanded="true"
-      className={`mt-2 inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition hover:-translate-y-px hover:border-[color:var(--clinical-accent)]/45 hover:shadow-[var(--shadow-tight)] ${focusRing}`}
+      className={`mt-2 inline-flex min-h-10 max-w-full items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/25 bg-[color:var(--clinical-accent-soft)] px-3 py-1 text-xs font-semibold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] transition duration-160 ease-[var(--ease-spring)] hover:-translate-y-px hover:border-[color:var(--clinical-accent)]/45 hover:shadow-[var(--shadow-tight)] active:scale-[0.99] ${focusRing}`}
     >
       <span className="min-w-0 truncate">Source-backed</span>
       <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-[color:var(--surface-raised)] px-2 text-2xs font-bold text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">

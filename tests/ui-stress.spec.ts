@@ -494,13 +494,22 @@ test.describe("Medication responsive stress coverage", () => {
     }
 
     await page.setViewportSize({ width: 320, height: 720 });
-    const scrollGeometry = await page.locator("main#main-content").evaluate((main) => ({
-      clientHeight: main.clientHeight,
-      scrollHeight: main.scrollHeight,
-      pageHeight: document.documentElement.scrollHeight,
-      viewportHeight: document.documentElement.clientHeight,
-    }));
-    expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight);
-    expect(scrollGeometry.pageHeight - scrollGeometry.viewportHeight).toBeLessThanOrEqual(2);
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
+    await expect
+      .poll(async () => {
+        const scrollGeometry = await page.locator("main#main-content").evaluate((main) => ({
+          clientHeight: main.clientHeight,
+          scrollHeight: main.scrollHeight,
+          pageHeight: document.documentElement.scrollHeight,
+          viewportHeight: document.documentElement.clientHeight,
+          keyboardHeight: document.documentElement.style.getPropertyValue("--keyboard-height").trim(),
+        }));
+        expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight);
+        expect(scrollGeometry.keyboardHeight === "" || scrollGeometry.keyboardHeight === "0px").toBe(true);
+        return scrollGeometry.pageHeight - scrollGeometry.viewportHeight;
+      })
+      .toBeLessThanOrEqual(2);
   });
 });
