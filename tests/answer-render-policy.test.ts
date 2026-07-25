@@ -97,17 +97,6 @@ function answer(overrides: Partial<RagAnswer> = {}): RagAnswer {
     answer: "For red-range blood results, withhold clozapine and contact the monitoring service.",
     grounded: true,
     confidence: "high",
-    relevance: {
-      verdict: "direct",
-      label: "Direct source support",
-      matchedTerms: ["clozapine", "monitoring"],
-      missingTerms: [],
-      directSourceCount: 1,
-      weakSourceCount: 0,
-      score: 0.95,
-      supportReason: "A direct source supports the answer.",
-      isSourceBacked: true,
-    },
     citations: [citation()],
     sources: [baseSource],
     answerSections: [
