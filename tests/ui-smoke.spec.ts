@@ -1403,6 +1403,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Medication\b/ })).toBeAttached();
 
     // Scroll the sheet body so a lower mode is interactable, then select it.
+    // Tools is canonical at /tools (PT-11); selecting it navigates off the dashboard.
     const toolsMode = appModeMenu.getByRole("menuitemradio", { name: /^Tools\b/ });
     await toolsMode.scrollIntoViewIfNeeded();
     await expect(toolsMode).toBeVisible();
@@ -1410,8 +1411,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(modeSheet).toHaveCount(0);
     await expect(appModeMenu).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Mode Tools" })).toBeFocused();
+    await expect(page).toHaveURL(/\/tools(?:\?|$)/);
+    await expect(page.getByRole("heading", { name: /tools/i }).first()).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
