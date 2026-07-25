@@ -47,6 +47,24 @@ function contrastRatio(firstHex: string, secondHex: string) {
 }
 
 describe("Therapy Compass responsive contract", () => {
+  it("uses the shared page canvas and centers the top navigation without breaking phone overflow", () => {
+    const rootRule = therapyCssSource.match(/\.tc-root\s*\{([^}]*)\}/)?.[1] ?? "";
+    const workspaceRule = therapyCssSource.match(/\.tc-root \.tc-workspace-006\s*\{([^}]*)\}/)?.[1] ?? "";
+    const navShellRule = therapyCssSource.match(/\.tc-root \.tc-nav-001\s*\{([^}]*)\}/)?.[1] ?? "";
+    const navScrollerRule = therapyCssSource.match(/\.tc-root \.tc-nav-007\s*\{([^}]*)\}/)?.[1] ?? "";
+
+    expect(rootRule).toContain("background: var(--background);");
+    expect(workspaceRule).toContain("background: var(--background);");
+    expect(rootRule).not.toContain("var(--surface-chrome)");
+    expect(workspaceRule).not.toContain("var(--surface-chrome)");
+    expect(navShellRule).toContain("justify-content: center;");
+    expect(navScrollerRule).toContain("flex: 0 1 auto;");
+    expect(navScrollerRule).toContain("width: fit-content;");
+    expect(navScrollerRule).toContain("max-width: 100%;");
+    expect(navScrollerRule).toContain("margin-inline: auto;");
+    expect(navScrollerRule).toContain("overflow-x: auto;");
+  });
+
   it("defines one scoped phone reflow and a local comparison scroller", () => {
     expect(therapyCssSource).toMatch(/@media \(max-width: 640px\)/);
     expect(therapyCssSource).toContain(".tc-root .tc-mobile-stack");
@@ -61,7 +79,7 @@ describe("Therapy Compass responsive contract", () => {
     expect(responsiveStackCount(therapyCardSource)).toBeGreaterThanOrEqual(2);
     expect(homeSource).toContain("ModeHomeMain");
     expect(homeSource).toContain("ModeHomeTemplate");
-    expect(modeHomeTemplateSource).toContain("sm:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
+    expect(modeHomeTemplateSource).toContain("lg:grid-cols-[repeat(auto-fit,minmax(15rem,1fr))]");
     expect(modeHomeTemplateSource).toContain("sm:flex-wrap");
     expect(homeSource).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
     expect(homeSource).toContain("ModeHomeVerificationFooter");

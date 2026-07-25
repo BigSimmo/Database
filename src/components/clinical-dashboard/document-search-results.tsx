@@ -8,7 +8,6 @@ import {
   FileImage,
   FileText,
   Filter,
-  FolderOpen,
   ListChecks,
   Loader2,
   Pill,
@@ -29,7 +28,10 @@ import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
-import { ResultSortControl } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -63,7 +65,7 @@ import type { ServiceSearchMatch } from "@/lib/services";
 import type { FormSearchMatch } from "@/lib/forms";
 import type { ClinicalDocument, DocumentMatch, SearchResult, SearchScopeSummary } from "@/lib/types";
 import type { RegistryRequestStatus } from "@/lib/use-registry-records";
-import { sortResultItems, type ResultSortValue } from "@/lib/result-sort";
+import { sortResultItems } from "@/lib/result-sort";
 import { documentRelevancePercent } from "./relevance-score";
 
 type SearchFacet = { value: string; count: number };
@@ -327,9 +329,9 @@ function DocumentSearchHome({
       action: onOpenRecentDocuments,
     },
     {
-      label: "Browse library",
-      description: "All indexed sources.",
-      icon: FolderOpen,
+      label: "Browse sources",
+      description: "Filter all indexed sources.",
+      icon: BookOpen,
       action: onOpenLibrary,
     },
     {
@@ -360,7 +362,7 @@ function DocumentSearchHome({
           <ModeHomeVerificationFooter
             icon={ShieldCheck}
             label="Searches indexed clinical sources"
-            body="Clinical document library"
+            body="Clinical source collection"
           />
           {documentCount > 0 ? (
             <p className="text-xs font-semibold text-[color:var(--text-soft)]" aria-live="polite">
@@ -373,117 +375,57 @@ function DocumentSearchHome({
   );
 }
 
-function SearchResultsHeader({
-  resultLabel,
-  trimmedQuery,
-  sortValue,
-  onSortChange,
-  showSort = true,
-}: {
-  resultLabel: string;
-  trimmedQuery: string;
-  sortValue: ResultSortValue;
-  onSortChange: (value: ResultSortValue) => void;
-  showSort?: boolean;
-}) {
-  return (
-    <section className="flex items-start justify-between gap-3" aria-label="Document search results">
-      <div className="min-w-0">
-        <div className="flex items-center gap-3">
-          <span className="grid h-tap w-tap shrink-0 place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
-            <FileText aria-hidden="true" className="h-5 w-5" />
-          </span>
-          <div className="min-w-0">
-            <h3 className="text-lg font-semibold leading-6 text-[color:var(--text-heading)]">{resultLabel}</h3>
-            {trimmedQuery ? (
-              <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)] sm:truncate">
-                <span className="block sm:inline">Results for</span>{" "}
-                <span className="line-clamp-2 font-semibold text-[color:var(--clinical-accent)] sm:inline sm:line-clamp-none">
-                  {trimmedQuery}
-                </span>
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </div>
-      {showSort ? <ResultSortControl value={sortValue} onChange={onSortChange} className="min-h-tap shrink-0" /> : null}
-    </section>
-  );
-}
-
-function DocumentResultsControls({
+function DocumentSourceTypeFilters({
   resultTabs,
   activeResultType,
   onResultTypeChange,
-  sortValue,
-  onSortChange,
-  onOpenLibrary,
 }: {
   resultTabs: Array<{ key: ResultTypeFilter; label: string; count: number }>;
   activeResultType: ResultTypeFilter;
   onResultTypeChange: (value: ResultTypeFilter) => void;
-  sortValue: ResultSortValue;
-  onSortChange: (value: ResultSortValue) => void;
-  onOpenLibrary: () => void;
 }) {
-  const showTypeFilters = resultTabs.length > 1;
+  const resultTypeIcons: Record<ResultTypeFilter, LucideIcon> = {
+    all: BookOpen,
+    tables: ListChecks,
+    images: FileImage,
+    pdfs: FileText,
+  };
 
   return (
-    <section
-      aria-label="Sort and filter documents"
-      data-testid="document-results-controls"
-      className="flex flex-nowrap items-center gap-1.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-1 shadow-[var(--shadow-inset)]"
-    >
-      {showTypeFilters ? (
-        <div
-          role="group"
-          aria-label="Filter by result type"
-          className="polished-scroll flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
-        >
-          {resultTabs.map((tab) => {
-            const active = tab.key === activeResultType;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                aria-pressed={active}
-                onClick={() => onResultTypeChange(tab.key)}
-                className={cn(
-                  "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-md px-2.5 text-2xs font-bold transition motion-reduce:transition-none",
-                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                  active
-                    ? "bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                    : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]",
-                )}
-              >
-                {tab.label}
-                <span className="nums opacity-75">{tab.count}</span>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="min-w-0 flex-1" aria-hidden="true" />
-      )}
-      <div className="flex shrink-0 items-center gap-1">
-        <ResultSortControl
-          value={sortValue}
-          onChange={onSortChange}
-          compact
-          className="min-h-tap border-[color:var(--border)] bg-[color:var(--surface)]"
-        />
-        <button
-          type="button"
-          onClick={onOpenLibrary}
-          aria-label="Open document library"
-          title="Open document library"
-          className={cn(floatingControl, "min-h-tap min-w-tap gap-1.5 rounded-lg px-2.5 text-xs sm:px-3")}
-        >
-          <FolderOpen aria-hidden="true" className="size-icon-md shrink-0" />
-          <span className="hidden sm:inline">Library</span>
-        </button>
+    <div data-testid="document-results-controls" className="flex min-w-0 items-center gap-2">
+      <span className="shrink-0 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-soft)]">
+        Source type
+      </span>
+      <div
+        role="group"
+        aria-label="Filter by source type"
+        className="polished-scroll flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto"
+      >
+        {resultTabs.map((tab) => {
+          const active = tab.key === activeResultType;
+          const Icon = resultTypeIcons[tab.key];
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onResultTypeChange(tab.key)}
+              className={cn(
+                "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-2xs font-bold transition motion-reduce:transition-none sm:text-xs",
+                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+                active
+                  ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
+                  : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+              )}
+            >
+              <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+              {tab.label}
+              <span className="nums opacity-75">{tab.count}</span>
+            </button>
+          );
+        })}
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -907,7 +849,6 @@ function DocumentSearchResultsPanelImpl({
   const selectedDocument =
     sortedMatches.find((document) => document.document_id === selectedDocumentId) ?? sortedMatches[0] ?? null;
   const recordMatchCount = recordMatches.length;
-  const recordCopy = searchRecordConfig[recordMode];
   const shouldShowHome = showHome || !trimmedQuery;
 
   function toggleTagFacet(facet: SmartDocumentTagFacet) {
@@ -929,23 +870,6 @@ function DocumentSearchResultsPanelImpl({
       : !realDataReady
         ? setupWarning || "Complete the search setup before using Documents mode."
         : null;
-  const resultLabel = (() => {
-    if (loading) {
-      return showRecordMatches
-        ? `Finding matching ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"}`
-        : "Finding matching documents";
-    }
-    if (recordMatchCount > 0 && matches.length > 0) {
-      return `${recordMatchCount} ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"} and ${
-        sortedMatches.length
-      } document${sortedMatches.length === 1 ? "" : "s"}`;
-    }
-    if (recordMatchCount > 0)
-      return `${recordMatchCount} ${recordCopy.recordLabel}${recordMatchCount === 1 ? "" : "s"}`;
-    if (matches.length) return `${sortedMatches.length} document${sortedMatches.length === 1 ? "" : "s"}`;
-    if (trimmedQuery) return "No matching documents";
-    return `${documentCount} document${documentCount === 1 ? "" : "s"}`;
-  })();
   const showResultsControls = matches.length > 0 && !loading;
   const showIdentityHeader =
     recordMatchCount > 0 ||
@@ -957,23 +881,55 @@ function DocumentSearchResultsPanelImpl({
   return (
     <div data-testid="document-search-workspace" className="w-full space-y-3">
       {showIdentityHeader ? (
-        <SearchResultsHeader
-          resultLabel={resultLabel}
-          trimmedQuery={trimmedQuery}
+        <SearchResultsHeaderBand
+          modeId={showRecordMatches ? recordMode : "documents"}
+          query={trimmedQuery}
+          matchCount={recordMatchCount + sortedMatches.length}
+          loading={loading}
           sortValue={sortValue}
-          onSortChange={setSortValue}
-          showSort={!showResultsControls}
-        />
-      ) : null}
-
-      {showResultsControls ? (
-        <DocumentResultsControls
-          resultTabs={resultTabs}
-          activeResultType={effectiveResultType}
-          onResultTypeChange={setActiveResultType}
-          sortValue={sortValue}
-          onSortChange={setSortValue}
-          onOpenLibrary={onOpenLibrary}
+          onSortChange={matches.length > 0 ? setSortValue : undefined}
+          utilityControls={
+            !loading && !shouldShowHome ? (
+              <button
+                type="button"
+                onClick={onOpenLibrary}
+                aria-label="Open source filters"
+                title="Filter and browse sources"
+                className={cn(
+                  floatingControl,
+                  "min-h-tap min-w-tap gap-1.5 rounded-lg bg-[color:var(--surface)] px-2.5 text-xs sm:min-h-10 sm:min-w-10 sm:px-3",
+                )}
+              >
+                <BookOpen aria-hidden="true" className="size-icon-md shrink-0" />
+                <span>Sources</span>
+              </button>
+            ) : null
+          }
+          filterLabel="Filter documents by source type"
+          mobileControls={
+            showResultsControls && resultTabs.length > 1 ? (
+              <MobileResultFilterControl
+                label="Show"
+                ariaLabel="Filter by source type"
+                testId="document-source-type-select"
+                value={effectiveResultType}
+                options={resultTabs.map((tab) => ({
+                  value: tab.key,
+                  label: `${tab.label} (${tab.count})`,
+                }))}
+                onChange={setActiveResultType}
+              />
+            ) : null
+          }
+          filterControls={
+            showResultsControls && resultTabs.length > 1 ? (
+              <DocumentSourceTypeFilters
+                resultTabs={resultTabs}
+                activeResultType={effectiveResultType}
+                onResultTypeChange={setActiveResultType}
+              />
+            ) : null
+          }
         />
       ) : null}
 

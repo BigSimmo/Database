@@ -650,6 +650,21 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
               matchCount={displayedMatches.length}
               sortValue={sortValue}
               onSortChange={setSortValue}
+              filterLabel="Filter form results"
+              filterControls={
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="min-w-0 flex-1 overflow-x-auto">
+                    <ResultTabs formsCount={displayedMatches.length} />
+                  </div>
+                  {supportsPathwayClaims ? (
+                    <RefineBar
+                      open={refineOpen}
+                      onToggle={() => setRefineOpen((open) => !open)}
+                      panelId={refinePanelId}
+                    />
+                  ) : null}
+                </div>
+              }
             />
             {query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
               <SearchResultsEmptyState
@@ -662,20 +677,6 @@ function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {
               />
             ) : (
               <>
-                <div className="flex min-w-0 items-end gap-3 border-b border-[color:var(--border)]">
-                  <div className="min-w-0 flex-1 overflow-x-auto">
-                    <ResultTabs formsCount={displayedMatches.length} />
-                  </div>
-                  <div className="flex items-center gap-2 pb-1.5">
-                    {supportsPathwayClaims ? (
-                      <RefineBar
-                        open={refineOpen}
-                        onToggle={() => setRefineOpen((open) => !open)}
-                        panelId={refinePanelId}
-                      />
-                    ) : null}
-                  </div>
-                </div>
                 {supportsPathwayClaims ? <RefinePanel open={refineOpen} panelId={refinePanelId} /> : null}
                 <div className="hidden md:block">
                   <ResultsTable matches={displayedMatches} query={query} sortValue={sortValue} />
