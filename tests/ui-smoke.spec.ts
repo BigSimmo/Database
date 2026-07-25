@@ -2080,6 +2080,95 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectNoPageHorizontalOverflow(page);
   });
 
+  test("phone answer result keeps the edge dock and shared chrome synchronized on a short runway", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockDemoApi(page);
+    await gotoApp(page, "/?mode=answer&focus=1");
+    await waitForDemoDashboardReady(page);
+
+    const input = await fillVisibleQuestionInput(page, "lithium dosing");
+    await visibleAnswerSubmitButton(page).click();
+    await expect(page.getByTestId("plain-answer-response")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
+
+    const main = page.locator("main#main-content");
+    const header = page.locator("header.universal-header");
+    const dock = page.locator("form.answer-footer-search-dock");
+    await expect(dock).toBeVisible();
+    // Keep the deterministic fixture in the measured user-reproduction band:
+    // the mocked answer is 64px shorter than the captured result, so model the
+    // missing content rather than injecting the 2000px runway used by older
+    // hide tests (which makes the collapse-budget defect impossible to see).
+    await main.evaluate((node) => {
+      const tail = document.createElement("div");
+      tail.dataset.testid = "answer-regression-content-tail";
+      tail.style.height = "64px";
+      node.appendChild(tail);
+    });
+    const edgeGeometry = await dock.evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      const style = window.getComputedStyle(node);
+      return {
+        bottom: style.bottom,
+        left: style.left,
+        right: style.right,
+        width: rect.width,
+        viewportWidth: window.innerWidth,
+        rectBottom: rect.bottom,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(edgeGeometry.bottom).toBe("0px");
+    expect(edgeGeometry.left).toBe("0px");
+    expect(edgeGeometry.right).toBe("0px");
+    expect(Math.abs(edgeGeometry.width - edgeGeometry.viewportWidth)).toBeLessThanOrEqual(1);
+    expect(Math.abs(edgeGeometry.rectBottom - edgeGeometry.viewportHeight)).toBeLessThanOrEqual(1);
+
+    // Focused chrome is an accessibility pin. Force enough runway for the
+    // reporter to request a hide and prove that focus keeps both shared edges
+    // visible, rather than allowing only the header to disappear.
+    await expect(input).toBeFocused();
+    await main.evaluate((node) => {
+      const spacer = document.createElement("div");
+      spacer.dataset.testid = "answer-focus-scroll-spacer";
+      spacer.style.height = "2000px";
+      node.appendChild(spacer);
+    });
+    for (const offset of [40, 80, 120, 160, 200]) {
+      await scrollPrimarySurface(page, offset);
+    }
+    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+
+    // Return to the real short-result geometry. With focus moved to the
+    // scrollport, a deliberate descent must hide both edges even though the
+    // only released layout is the dock reserve; no oversized synthetic runway
+    // remains.
+    await scrollPrimarySurface(page, 0);
+    await main.evaluate((node) => {
+      node.querySelector('[data-testid="answer-focus-scroll-spacer"]')?.remove();
+    });
+    await main.focus();
+    await expect(input).not.toBeFocused();
+    const visibleMaxOffset = await main.evaluate((node) => node.scrollHeight - node.clientHeight);
+    // Keep this in the measured regression band: enough content to scroll, but
+    // not enough for the strict in-flow budget (120px reserve + 28px runway)
+    // to permit hiding after the 96px intent threshold.
+    expect(visibleMaxOffset).toBeGreaterThan(190);
+    expect(visibleMaxOffset).toBeLessThan(250);
+    for (const offset of [40, 80, 120, 160, 200, visibleMaxOffset]) {
+      await scrollPrimarySurface(page, Math.min(offset, visibleMaxOffset));
+    }
+    await expect(header).toHaveAttribute("data-scroll-hidden", "true");
+    await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
+    await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(1);
+
+    await scrollPrimarySurface(page, 60);
+    await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
+    await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+  });
+
   test("recent searches appear on the answer home and re-run on tap", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     const answerRequests: string[] = [];

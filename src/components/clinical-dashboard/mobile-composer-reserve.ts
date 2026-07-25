@@ -14,7 +14,7 @@
  * zero so content can paint all the way to the viewport edge once the dock is
  * invisible. The rem number is exported separately so the scroll-hide
  * collapse budget
- * (use-hide-on-scroll's readChromeCollapseBudget) measures against the same
+ * (use-hide-on-scroll's readChromeCollapseMetrics) measures against the same
  * value; tests/mobile-composer-reserve.test.ts pins the pair together.
  */
 export const mobileComposerHiddenReserveRem = 0;

@@ -293,6 +293,40 @@ describe("computeScrollHideUpdate", () => {
     });
   });
 
+  it("allows a reserve-only overlay to hide when its post-collapse range retains the activation band", () => {
+    // Measured compact Answer result at 390x844: the visible result has 223px
+    // of range and releases a 120px dock reserve. The fixed viewport remains
+    // stable and the resulting 103px range still clears the 72px activation
+    // band, so the in-flow collapse gate must not pin both edges forever.
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 223,
+        collapseBudget: 120,
+        collapseKind: "reserve-only",
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(true);
+
+    // A genuinely short result would collapse below the hide threshold and
+    // still risks a top/bottom clamp cycle, so it remains visible.
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 180,
+        collapseBudget: 120,
+        collapseKind: "reserve-only",
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(false);
+  });
+
   it("hides normally when ample runway remains below the collapse release", () => {
     expect(
       computeScrollHideUpdate({

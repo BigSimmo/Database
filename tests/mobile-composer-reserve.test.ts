@@ -23,7 +23,7 @@ describe("mobile composer reserve contract", () => {
   it("collapses to zero hidden pad without Safari toolbar safe-area", () => {
     expect(mobileComposerHiddenReserve).toBe("0rem");
     expect(mobileComposerHiddenReserveRem).toBe(0);
-    // The rem number feeds readChromeCollapseBudget's px math; it must stay
+    // The rem number feeds readChromeCollapseMetrics' px math; it must stay
     // equal to the CSS string above or the collapse budget silently drifts.
     expect(`${mobileComposerHiddenReserveRem}rem`).toBe(mobileComposerHiddenReserve);
     expect(resolveMobileComposerReserve(true, mobileComposerVisibleReserve.shellAnswer)).toBe(

@@ -90,7 +90,7 @@ import {
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
-import { readChromeCollapseBudget, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { readChromeCollapseMetrics, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   answerReferencesDocument,
@@ -2804,7 +2804,7 @@ export function ClinicalDashboard({
         reportPhoneScrollHideRef.current({
           offset: main.scrollTop,
           maxOffset: Math.max(0, main.scrollHeight - main.clientHeight),
-          collapseBudget: readChromeCollapseBudget(main),
+          ...readChromeCollapseMetrics(main),
           source: main,
         });
       });

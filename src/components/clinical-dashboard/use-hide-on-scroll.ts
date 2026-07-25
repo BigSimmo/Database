@@ -46,12 +46,18 @@ export interface ScrollMetrics {
   maxOffset?: number;
   /**
    * Layout px the chrome would release if it hid right now (see
-   * readChromeCollapseBudget). When provided together with maxOffset, hiding
-   * is refused unless enough runway remains below the offset to absorb the
-   * release. Omitted by consumers whose chrome does not change scroll
-   * geometry when hiding.
+   * readChromeCollapseMetrics). In-flow collapse requires enough runway below
+   * the current offset to absorb the release; reserve-only overlays require
+   * the resulting range to retain the activation band. Omitted by consumers
+   * whose chrome does not change scroll geometry when hiding.
    */
   collapseBudget?: number;
+  /**
+   * A fixed-viewport overlay only removes tail clearance; it does not collapse
+   * an in-flow header or resize the scrollport. That path can safely hide when
+   * the post-collapse range still reaches the activation band.
+   */
+  collapseKind?: "in-flow" | "reserve-only";
   source?: EventTarget;
 }
 
@@ -61,6 +67,7 @@ export function computeScrollHideUpdate(params: {
   lastOffset: number;
   maxOffset?: number;
   collapseBudget?: number;
+  collapseKind?: "in-flow" | "reserve-only";
   sourceChanged?: boolean;
   currentlyHidden: boolean;
   direction?: ScrollDirection;
@@ -76,6 +83,7 @@ export function computeScrollHideUpdate(params: {
     lastOffset,
     maxOffset,
     collapseBudget,
+    collapseKind,
     sourceChanged = false,
     currentlyHidden,
     direction = null,
@@ -129,16 +137,27 @@ export function computeScrollHideUpdate(params: {
     // Only count travel beyond the activation band. This stops a single flick
     // from the top hiding the chrome the instant it clears the header height.
     const travelPastActivation = Math.min(nextDirectionTravel, offset - hideActivationOffset);
-    // Refuse to hide when the geometry the chrome would release exceeds the
-    // remaining runway (see collapseRunwaySlack above). Short pages then keep
-    // their chrome and scroll plainly; long pages simply never start a hide
-    // this close to the bottom edge.
+    // In-flow chrome must have enough remaining runway to absorb its release
+    // (see collapseRunwaySlack above). Reserve-only overlays use the separate
+    // post-collapse range test below.
     const runwayAfterCollapse =
       maxOffset === undefined || collapseBudget === undefined
         ? Number.POSITIVE_INFINITY
         : maxOffset - offset - collapseBudget;
-    hidden =
-      travelPastActivation >= hideIntentDistance && runwayAfterCollapse > revealIntentDistance + collapseRunwaySlack;
+    const postCollapseMaxOffset =
+      maxOffset === undefined || collapseBudget === undefined
+        ? Number.POSITIVE_INFINITY
+        : Math.max(0, maxOffset - collapseBudget);
+    // Reserve-only overlays keep the viewport geometry stable; only bottom
+    // tail clearance is removed. Requiring the resulting scroll range to retain
+    // the activation band prevents a collapse back toward the top on genuinely
+    // short pages without applying the stricter in-flow runway rule that made
+    // compact Answer results impossible to hide.
+    const collapseHasSafeRunway =
+      collapseKind === "reserve-only"
+        ? postCollapseMaxOffset >= hideActivationOffset
+        : runwayAfterCollapse > revealIntentDistance + collapseRunwaySlack;
+    hidden = travelPastActivation >= hideIntentDistance && collapseHasSafeRunway;
   } else if (currentlyHidden && nextDirection === "up" && nextDirectionTravel >= revealIntentDistance) {
     hidden = false;
   }
@@ -161,9 +180,12 @@ export function computeScrollHideUpdate(params: {
  * `document-viewer-content` for DocumentViewer's own clearance (its hidden
  * `pb-3` equals the shared 0.75rem hidden reserve), falling back to the
  * scroller's own padding exactly like tests/playwright-scroll.ts. Call from
- * inside a scroll handler, where layout is already flushed.
+ * inside a scroll handler, where layout is already flushed. The returned kind
+ * distinguishes in-flow collapse from a fixed overlay that only sheds reserve.
  */
-export function readChromeCollapseBudget(scroller: HTMLElement): number {
+export function readChromeCollapseMetrics(
+  scroller: HTMLElement,
+): Pick<ScrollMetrics, "collapseBudget" | "collapseKind"> {
   const collapse = document.querySelector('[data-testid="universal-header-collapse"]');
   const headerRelease = collapse instanceof HTMLElement ? collapse.getBoundingClientRect().height : 0;
   const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
@@ -177,7 +199,10 @@ export function readChromeCollapseBudget(scroller: HTMLElement): number {
   const viewerPad = scroller.querySelector('[data-testid="document-viewer-content"]');
   const reserveRelease =
     reservePad || viewerPad ? padRelease(reservePad) + padRelease(viewerPad) : padRelease(scroller);
-  return headerRelease + reserveRelease;
+  return {
+    collapseBudget: headerRelease + reserveRelease,
+    collapseKind: collapse instanceof HTMLElement ? "in-flow" : reserveRelease > 0 ? "reserve-only" : undefined,
+  };
 }
 
 function subscribeToPhoneMedia(onChange: () => void) {
@@ -215,9 +240,15 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
 
   const reportScroll = useCallback(
     (report: number | ScrollMetrics) => {
-      const { offset, maxOffset, collapseBudget, source } =
+      const { offset, maxOffset, collapseBudget, collapseKind, source } =
         typeof report === "number"
-          ? { offset: report, maxOffset: undefined, collapseBudget: undefined, source: undefined }
+          ? {
+              offset: report,
+              maxOffset: undefined,
+              collapseBudget: undefined,
+              collapseKind: undefined,
+              source: undefined,
+            }
           : report;
       if (!active || offset < 0) return;
       const lastOffset = lastOffsetRef.current;
@@ -233,6 +264,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
         lastOffset,
         maxOffset,
         collapseBudget,
+        collapseKind,
         sourceChanged,
         currentlyHidden: hiddenRef.current,
         direction: directionRef.current,
@@ -329,7 +361,7 @@ export function useHideOnScroll({
         return {
           offset: container.scrollTop,
           maxOffset: Math.max(0, container.scrollHeight - container.clientHeight),
-          collapseBudget: readChromeCollapseBudget(container),
+          ...readChromeCollapseMetrics(container),
           source: container,
         };
       }
