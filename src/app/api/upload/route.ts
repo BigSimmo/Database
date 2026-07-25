@@ -58,7 +58,7 @@ async function duplicateUploadResponse(args: {
         storagePath: args.storagePath,
         message: cleanupStorageError.message,
       });
-      await args.supabase.from("storage_cleanup_jobs").insert({
+      const { error: cleanupLedgerError } = await args.supabase.from("storage_cleanup_jobs").insert({
         document_bucket: env.SUPABASE_DOCUMENT_BUCKET,
         document_paths: [args.storagePath],
         owner_id: args.ownerId,
@@ -66,6 +66,13 @@ async function duplicateUploadResponse(args: {
         image_bucket: env.SUPABASE_IMAGE_BUCKET,
         image_paths: [],
       });
+      if (cleanupLedgerError) {
+        // Keep the duplicate response path fail-closed for orphaned objects: without a
+        // ledger row there is no durable recovery record after storage.remove() failed.
+        throw new Error(
+          `Duplicate upload cleanup ledger insert failed: ${cleanupLedgerError.message}`,
+        );
+      }
     }
   }
 

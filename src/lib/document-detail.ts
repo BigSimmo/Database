@@ -201,9 +201,12 @@ function selectedImageIds(selectedChunk: DocumentDetailChunk | null) {
   );
 }
 
+const documentViewImageVisibility =
+  "or(searchable.eq.true,source_kind.eq.table_crop,metadata->>retained_for_document_view.eq.true)";
+
 function imageWindowFilter(pageWindow: { from: number; to: number }, imageIds: string[]) {
   const filters = [
-    `and(image_type.neq.logo_decorative,or(searchable.eq.true,source_kind.eq.table_crop),page_number.gte.${pageWindow.from},page_number.lte.${pageWindow.to})`,
+    `and(image_type.neq.logo_decorative,${documentViewImageVisibility},page_number.gte.${pageWindow.from},page_number.lte.${pageWindow.to})`,
   ];
   if (imageIds.length > 0) filters.push(`id.in.(${imageIds.join(",")})`);
   return filters.join(",");
@@ -435,9 +438,7 @@ export async function loadAuthorizedDocumentDetail(args: {
   if (query.assetScope === "window") {
     imagesRequest = imagesRequest.or(imageWindowFilter(pageRange, preservedImageIds));
   } else {
-    imagesRequest = imagesRequest
-      .neq("image_type", "logo_decorative")
-      .or("searchable.eq.true,source_kind.eq.table_crop");
+    imagesRequest = imagesRequest.neq("image_type", "logo_decorative").or(documentViewImageVisibility);
   }
   const imagesPending = imagesRequest.order("page_number", { ascending: true }).abortSignal(args.request.signal);
 
