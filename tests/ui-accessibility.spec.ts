@@ -280,9 +280,7 @@ test.describe("Clinical KB accessibility coverage", () => {
       page.evaluate(() => {
         const marked = Array.from(document.querySelectorAll('[data-sheet-inert="true"]'));
         const dialog = document.querySelector('[role="dialog"]');
-        const background = marked
-          .flatMap((element) => Array.from(element.querySelectorAll("button, a[href]")))
-          .at(0);
+        const background = marked.flatMap((element) => Array.from(element.querySelectorAll("button, a[href]"))).at(0);
         let focusRefused: boolean | null = null;
         if (background instanceof HTMLElement) {
           const before = document.activeElement;
