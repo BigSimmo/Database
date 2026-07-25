@@ -677,6 +677,7 @@ export function MobileEvidenceSheetContent({
           </button>
           <button
             type="button"
+            disabled
             aria-disabled="true"
             aria-describedby="visual-evidence-add-unavailable"
             title="Add to favourites — coming soon"
