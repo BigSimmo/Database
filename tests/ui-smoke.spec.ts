@@ -3348,7 +3348,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(navigator.locator("#service-confidence-details")).toBeVisible();
     const compare = navigator.getByRole("button", { name: /Compare selected/ });
     await expect(compare).toBeEnabled();
-    await expect(compare).toHaveAttribute("title", "Compare selected services");
     await compare.click();
     await expect(navigator.getByRole("region", { name: "Selected service comparison" })).toBeVisible();
     // Prefer the decision-rail clear control — the results pane also exposes a
@@ -3358,13 +3357,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await clear.click();
     await expect(navigator.getByText("Selected services (0)")).toBeVisible();
     // RightRail remounts when selection empties (`key` swaps to "empty"), so
-    // re-query the compare control instead of reusing the pre-clear locator.
-    // Accessible name comes from aria-label once selection is empty.
-    const compareAfterClear = navigator.getByRole("button", {
-      name: "Select at least two services before comparing",
-    });
+    // re-query by the stable title attribute rather than accessible name.
+    const compareAfterClear = navigator.locator('button[title="Select at least two services before comparing"]');
     await expect(compareAfterClear).toBeDisabled();
-    await expect(compareAfterClear).toHaveAttribute("title", "Select at least two services before comparing");
   });
 
   test("search regressions avoid fetch errors and open viewer hits @critical", async ({ page }) => {

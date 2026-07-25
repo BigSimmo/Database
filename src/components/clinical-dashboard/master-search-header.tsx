@@ -1382,6 +1382,18 @@ export function MasterSearchHeader({
     );
   }
 
+  const hideStrategy = hideOnScroll?.strategy;
+  // Overlay hosts that opt into all breakpoints take the header fully out of
+  // flow (absolute over the scrolling <main>, which reserves matching top
+  // padding) so content frosts under the glass bar at every width.
+  const overlayAllBreakpoints = hideStrategy === "overlay" && Boolean(hideOnScroll?.allBreakpoints);
+  const wideCollapseBehaviour = hideStrategy === "collapse" ? hideOnScroll?.wide : undefined;
+  // Collapse hosts whose scrollport is internal at every width release the
+  // header row at every width too; hosts that hand scrolling back to the
+  // document above the phone breakpoint stick and translate there instead.
+  const collapsesAtEveryWidth = wideCollapseBehaviour === "collapse";
+  const sticksAbovePhones = wideCollapseBehaviour === "sticky";
+
   function renderSearchComposer(placement: "default" | "desktop-home") {
     const isDesktopHomeComposer = placement === "desktop-home";
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
@@ -1477,15 +1489,17 @@ export function MasterSearchHeader({
                     usesPhoneFooterDock
                       ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
                       : cn(
-                          "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
+                          // Sticky-stack hosts must not keep a bare `fixed` class:
+                          // if `sm:relative` loses the cascade fight, the composer
+                          // overlays the page (e.g. Services decision rail).
+                          "document-mobile-search-edge universal-top-search-edge z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
+                          stickySearchOwnedByOuterStack ? "max-sm:fixed" : "fixed",
                           isHeroDesktopComposer ? "sm:hidden" : stickySearchPositionClass,
                         ),
                   )
                 : cn(
                     "universal-top-search-edge mx-auto box-border w-full px-3 py-3 sm:px-4",
-                    stickySearchOwnedByOuterStack
-                      ? "relative z-20"
-                      : cn("sticky z-20", stickySearchTopClass),
+                    stickySearchOwnedByOuterStack ? "relative z-20" : cn("sticky z-20", stickySearchTopClass),
                   ),
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
@@ -1731,17 +1745,6 @@ export function MasterSearchHeader({
     );
   }
 
-  const hideStrategy = hideOnScroll?.strategy;
-  // Overlay hosts that opt into all breakpoints take the header fully out of
-  // flow (absolute over the scrolling <main>, which reserves matching top
-  // padding) so content frosts under the glass bar at every width.
-  const overlayAllBreakpoints = hideStrategy === "overlay" && Boolean(hideOnScroll?.allBreakpoints);
-  const wideCollapseBehaviour = hideStrategy === "collapse" ? hideOnScroll?.wide : undefined;
-  // Collapse hosts whose scrollport is internal at every width release the
-  // header row at every width too; hosts that hand scrolling back to the
-  // document above the phone breakpoint stick and translate there instead.
-  const collapsesAtEveryWidth = wideCollapseBehaviour === "collapse";
-  const sticksAbovePhones = wideCollapseBehaviour === "sticky";
   const chromeFocusProps = hideOnScroll
     ? {
         onFocusCapture: () => setHeaderChromeFocused(true),
