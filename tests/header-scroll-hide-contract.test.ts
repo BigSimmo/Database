@@ -128,6 +128,7 @@ describe("shared header hide/reveal wiring", () => {
     expect(behaviourDocSource).toContain("Top-bar hide/reveal is cross-breakpoint");
     expect(behaviourDocSource).toContain("Page chrome that must match the top bar portals into the collapse host");
     expect(behaviourDocSource).toContain("Do not double-sticky the search inside an outer sticky stack");
+    expect(behaviourDocSource).toContain("Pinned search can cover wide side rails");
     expect(behaviourDocSource).toContain(
       "Collapse-everywhere hosts still drop their own sticky search offset while the top bar is hidden",
     );
