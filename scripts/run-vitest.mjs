@@ -10,10 +10,10 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const vitestBin = path.join(projectRoot, "node_modules", "vitest", "vitest.mjs");
 const originalArgs = process.argv.slice(2);
 const isStandalone = originalArgs.includes("--no-heavy-lock");
-const args = originalArgs.filter(arg => arg !== "--no-heavy-lock");
+const args = originalArgs.filter((arg) => arg !== "--no-heavy-lock");
 
-const lock = isStandalone 
-  ? { environment: process.env, release() {} } 
+const lock = isStandalone
+  ? { environment: process.env, release() {} }
   : acquireHeavyRunLock({ projectRoot, command: `vitest ${args.join(" ")}` });
 
 let exitCode = 1;

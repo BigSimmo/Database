@@ -246,7 +246,6 @@ export async function POST(request: Request) {
         max_upload_mb: env.MAX_UPLOAD_MB,
         confidentiality_scope: "guidelines-only",
         content_hash: contentHash,
-<<<<<<< ours
         status: "queued",
         metadata: {
           source_title: title,
@@ -275,19 +274,6 @@ export async function POST(request: Request) {
       })
       .select()
       .single();
-=======
-      },
-    };
-
-    assertUploadNotAborted(request);
-    const { data: uploadRecord, error: uploadRecordError } = await supabase.rpc(
-      "create_uploaded_document_with_ingestion_job",
-      {
-        p_document: documentPayload,
-        p_max_attempts: env.WORKER_MAX_ATTEMPTS,
-      },
-    );
->>>>>>> theirs
 
     if (uploadRecordError) {
       if (isContentHashDuplicateError(uploadRecordError)) {
@@ -378,3 +364,4 @@ export async function POST(request: Request) {
     releaseAdmission?.();
   }
 }
+

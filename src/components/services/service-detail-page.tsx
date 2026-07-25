@@ -156,12 +156,7 @@ function summaryCardsFor(service: ServiceRecord): ServiceSummaryCard[] {
     {
       id: "best-use",
       label: "Best use",
-<<<<<<< ours
-<<<<<<< ours
       title: displayText(service.bestUse, "Assess service fit"),
-=======
-      title: bestUseCardTitle(service.bestUse),
->>>>>>> theirs
 =======
       title: bestUseCardTitle(service.bestUse),
 >>>>>>> theirs
@@ -455,12 +450,7 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     summaryCardById.get("best-use") ?? {
       id: "best-use",
       label: "Best use",
-<<<<<<< ours
-<<<<<<< ours
       title: displayText(service.bestUse, "Assess service fit"),
-=======
-      title: bestUseCardTitle(service.bestUse),
->>>>>>> theirs
 =======
       title: bestUseCardTitle(service.bestUse),
 >>>>>>> theirs
@@ -772,3 +762,4 @@ export function ServiceDetailPage({ service }: { service: ServiceRecord }) {
     </main>
   );
 }
+

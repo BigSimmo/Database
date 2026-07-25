@@ -41,12 +41,7 @@ import { sortResultItems } from "@/lib/result-sort";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 
-<<<<<<< ours
-<<<<<<< ours
 const defaultQuery = "13YARN crisis Aboriginal and Torres Strait Islander phone";
-=======
-const defaultQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
->>>>>>> theirs
 =======
 const defaultQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
 >>>>>>> theirs
@@ -656,12 +651,7 @@ export function ServicesNavigatorPage() {
             <div className="relative flex min-w-0 items-start justify-between gap-3 bg-[linear-gradient(135deg,var(--surface-chrome),var(--surface)_62%,var(--clinical-accent-soft))] p-4 sm:p-5">
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,var(--clinical-accent),transparent)] opacity-55" />
               <div className="grid min-w-0 flex-1 grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[3.5rem_minmax(0,1fr)] sm:gap-4">
-<<<<<<< ours
-<<<<<<< ours
                 <span className="grid h-11 w-11 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-14 sm:w-14">
-=======
-                <span className="grid size-tap place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:size-14">
->>>>>>> theirs
 =======
                 <span className="grid size-tap place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:size-14">
 >>>>>>> theirs
@@ -703,12 +693,7 @@ export function ServicesNavigatorPage() {
                 {[
                   { label: "Best fit", query: defaultQuery },
                   { label: "Crisis", query: "crisis" },
-<<<<<<< ours
-<<<<<<< ours
                   { label: "Culturally safe", query: "Aboriginal and Torres Strait Islander" },
-=======
-                  { label: "Culturally safe", query: "Aboriginal Torres Strait Islander" },
->>>>>>> theirs
 =======
                   { label: "Culturally safe", query: "Aboriginal Torres Strait Islander" },
 >>>>>>> theirs
@@ -759,3 +744,4 @@ export function ServicesNavigatorPage() {
     </SearchResultsLayout>
   );
 }
+
