@@ -25,10 +25,12 @@ const minimumDelta = 4;
 // chrome at a direction change.
 const hideIntentDistance = 24;
 const revealIntentDistance = 12;
-// How close to the bottom edge (px) counts as "pinned to the bottom". When the
-// offset is this near the maximum, an upward reading is the viewport growing
-// under a collapsing header rather than a real scroll, so it must not reveal.
-const bottomClampTolerance = 1;
+// How close to the bottom edge (CSS px) counts as "pinned to the bottom".
+// scrollHeight/clientHeight expose integer maxima while composited scrolling
+// can report fractional scrollTop values just over 1px below that edge during
+// a reserve transition. Keep this below minimumDelta so a real upward move is
+// still required to reveal.
+const bottomClampTolerance = 2;
 // Hiding the chrome releases its layout space back to the scroller (header
 // grid collapse + dock reserve-pad shrink), shrinking maxOffset by the same
 // amount. When the runway left below the current offset is smaller than that

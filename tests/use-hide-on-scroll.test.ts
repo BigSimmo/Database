@@ -356,6 +356,30 @@ describe("computeScrollHideUpdate", () => {
     ).toBe(false);
   });
 
+  it("holds a reserve-only overlay through the captured fractional bottom clamp", () => {
+    // Real PageDown frame from the compact Answer result at 390x844. The
+    // animated reserve shrink moved the browser's maximum from 160px to 127px;
+    // compositor rounding left scrollTop 1.03px below that integer maximum.
+    // This is layout feedback near the new bottom, not upward user intent.
+    expect(
+      computeScrollHideUpdate({
+        offset: 125.9683,
+        lastOffset: 160.5079,
+        maxOffset: 127,
+        collapseBudget: 23.3347,
+        collapseKind: "reserve-only",
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 160.5079,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 125.9683,
+      direction: null,
+      directionTravel: 0,
+    });
+  });
+
   it("hides normally when ample runway remains below the collapse release", () => {
     expect(
       computeScrollHideUpdate({

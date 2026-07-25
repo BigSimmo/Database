@@ -2168,7 +2168,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
         Number.parseFloat(window.getComputedStyle(node).paddingBottom);
       return { maxOffset, collapseBudget, postCollapseMaxOffset: Math.max(0, maxOffset - collapseBudget) };
     });
-    const visibleMaxOffset = geometry.maxOffset;
     // Pin the unmodified short-result geometry. Its 39px post-collapse range
     // clears top-reveal + hide-intent distance (32px), but not the 72px in-flow
     // activation band; synthetic tail content would hide this distinction.
@@ -2178,11 +2177,30 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(geometry.collapseBudget).toBeLessThan(128);
     expect(geometry.postCollapseMaxOffset).toBeGreaterThanOrEqual(32);
     expect(geometry.postCollapseMaxOffset).toBeLessThan(48);
-    for (const offset of [40, 80, 120, 160, 200, visibleMaxOffset]) {
-      await scrollPrimarySurface(page, Math.min(offset, visibleMaxOffset));
-    }
+    await main.focus();
+    await page.keyboard.press("PageDown");
     await expect(header).toHaveAttribute("data-scroll-hidden", "true");
     await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
+    // The reserve and both chrome edges animate for 240ms. The hidden state
+    // must survive the browser clamping scrollTop against the shrinking range,
+    // and the actual painted elements must finish outside the viewport.
+    await page.waitForTimeout(320);
+    await expect(header).toHaveAttribute("data-scroll-hidden", "true");
+    await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
+    const settledHiddenGeometry = await page.evaluate(() => {
+      const headerNode = document.querySelector<HTMLElement>("header.universal-header");
+      const dockNode = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
+      if (!headerNode || !dockNode) throw new Error("Expected shared phone chrome");
+      const headerRect = headerNode.getBoundingClientRect();
+      const dockRect = dockNode.getBoundingClientRect();
+      return {
+        headerBottom: headerRect.bottom,
+        dockTop: dockRect.top,
+        viewportHeight: window.innerHeight,
+      };
+    });
+    expect(settledHiddenGeometry.headerBottom).toBeLessThanOrEqual(1);
+    expect(settledHiddenGeometry.dockTop).toBeGreaterThanOrEqual(settledHiddenGeometry.viewportHeight - 1);
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(1);
 
     await scrollPrimarySurface(page, 20);
