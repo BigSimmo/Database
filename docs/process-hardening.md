@@ -12,8 +12,14 @@ The reusable procedure is [`docs/reconciliation-playbook.md`](reconciliation-pla
   cleanup. It uses cached Git refs, never fetches, and reports primary/worktree dirty state,
   detached worktrees, ahead/behind counts, and operation markers. Add `--include-processes` only
   when ownership could block cleanup; that path emits metadata/counts and never raw command lines.
-- `workflow:lifecycle -- --phase reconcile` selects the preflight locally and lists remote fetch as
-  a separate approval-required action.
+- `node scripts/reconciliation-evidence-pack.mjs --output <path>` writes one deterministic secret-safe
+  local evidence pack (atomic) covering dispositions, markers, archive refs, bundle verification,
+  hashes, worktree counts, and local/base tree equality without fetching or deleting.
+- `node scripts/primary-checkout-lease.mjs --check` is the cooperative primary-write gate: refuse a
+  second primary writer while another live owner or dirty/operation state exists; keep read-only
+  work and independent feature worktrees unblocked.
+- `workflow:lifecycle -- --phase reconcile` selects the preflight and evidence pack locally and lists remote fetch as
+  a separate approval-required action. `start`/`cleanup` select the primary-checkout lease check.
 - Candidate filtering is cheap-first: owner/open-PR/review-ledger/ancestry before patch comparison;
   `merge-tree` remains a last resort. This avoids repeating the slow all-ref sweep that dominated the
   historical reconciliation.
