@@ -32,6 +32,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ var
       inset={conf.inset}
       colors={"colors" in conf ? conf.colors : undefined}
     />,
-    { width: conf.size, height: conf.size },
+    { 
+      width: conf.size, 
+      height: conf.size,
+      headers: {
+        "Cache-Control": "public, max-age=31536000, immutable",
+      },
+    },
   );
 }

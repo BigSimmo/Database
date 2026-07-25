@@ -51,6 +51,12 @@ export const SignedImage = memo(function SignedImage({
   caption?: string;
   /** Optional intrinsic width/height ratio for document crops that are not 4:3. */
   aspectRatio?: number | null;
+  /** Optional width for image transformation. */
+  width?: number;
+  /** Optional height for image transformation. */
+  height?: number;
+  /** Optional resize mode for image transformation. */
+  resize?: "cover" | "contain" | "fill";
 }) {
   const [shouldLoad, setShouldLoad] = useState(() => Boolean(getCachedSignedUrl(endpoint)));
   const [loaded, setLoaded] = useState(false);
@@ -98,6 +104,8 @@ export const SignedImage = memo(function SignedImage({
     return (
       <div
         ref={frameRef}
+        role="status"
+        aria-live="polite"
         className={cn(
           className,
           "grid aspect-[4/3] w-full place-items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--warning-soft)] p-4 text-center text-xs font-semibold text-[color:var(--warning)]",
@@ -137,13 +145,34 @@ export const SignedImage = memo(function SignedImage({
       )}
     >
       {url ? (
-        // Keep next/image for fill/layout/sizes, but mark private signed previews
-        // `unoptimized` so bearer URLs never enter the unauthenticated
-        // `/_next/image` optimizer cache (stale-while-revalidate can outlive the
-        // signed token). Authorization stays on `/api/.../signed-url` issuance.
-        <Image
-          src={url}
-          alt={alt}
+        (() => {
+          let finalUrl = url;
+          const isSidebarContext = className?.includes("max-h-52");
+          const hasTransformParams = width !== undefined || height !== undefined || resize !== undefined;
+          const w = width ?? (hasTransformParams ? undefined : (isSidebarContext ? 384 : undefined));
+          const h = height ?? (hasTransformParams ? undefined : (isSidebarContext ? 384 : undefined));
+          const r = resize ?? (hasTransformParams ? undefined : (isSidebarContext ? "contain" : undefined));
+
+          if (w || h || r) {
+            try {
+              const urlObj = new URL(finalUrl);
+              if (w) urlObj.searchParams.set("width", String(w));
+              if (h) urlObj.searchParams.set("height", String(h));
+              if (r) urlObj.searchParams.set("resize", r);
+              finalUrl = urlObj.toString();
+            } catch (e) {
+              // Ignore invalid URLs
+            }
+          }
+
+          return (
+            // Keep next/image for fill/layout/sizes, but mark private signed previews
+            // `unoptimized` so bearer URLs never enter the unauthenticated
+            // `/_next/image` optimizer cache (stale-while-revalidate can outlive the
+            // signed token). Authorization stays on `/api/.../signed-url` issuance.
+            <Image
+              src={finalUrl}
+              alt={alt}
           fill
           sizes="(max-width: 768px) 92vw, 320px"
           unoptimized
@@ -154,6 +183,8 @@ export const SignedImage = memo(function SignedImage({
             loaded ? "opacity-100" : "opacity-0",
           )}
         />
+          );
+        })()
       ) : null}
       {zoomable && url && loaded ? (
         <>

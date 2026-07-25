@@ -138,14 +138,16 @@ function InlineImagePreview({
 
   return (
     <div className="flex flex-col items-center gap-3 bg-[color:var(--surface-inset)] p-3 sm:p-4">
-      <img
-        src={signedUrl}
-        alt={title}
-        loading="lazy"
-        decoding="async"
-        onError={() => setFailed(true)}
-        className="max-h-[70vh] w-auto max-w-full rounded-lg bg-[color:var(--surface)] object-contain shadow-[var(--shadow-tight)]"
-      />
+      <div className="relative w-full aspect-[4/3] overflow-hidden rounded-lg bg-[color:var(--surface)] shadow-[var(--shadow-tight)]">
+        <img
+          src={signedUrl}
+          alt={title}
+          loading="lazy"
+          decoding="async"
+          onError={() => setFailed(true)}
+          className="absolute inset-0 h-full w-full object-contain"
+        />
+      </div>
       <a href={signedUrl} target="_blank" rel="noreferrer" className={secondaryButton}>
         <ExternalLink aria-hidden="true" className="h-4 w-4" />
         Open full image
