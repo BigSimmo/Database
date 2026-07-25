@@ -175,15 +175,40 @@ export function MobileKeyboardProvider({ children }: { children: ReactNode }) {
       const isMobile = window.matchMedia("(max-width: 1023px)").matches;
       if (!isMobile) {
         applyKeyboardState({ isKeyboardOpen: false, keyboardHeight: 0 });
+        // Drop mobile occlusion maxima while desktop so a later phone resize
+        // cannot treat the desktop visual height as an unobstructed baseline.
+        maxViewportHeight = viewport.height;
+        maxLayoutHeight = window.innerHeight;
         prevIsMobile = isMobile;
         pendingOrientationRebase = false;
         deferredOccludedVisualHeight = null;
+        prevViewportWidth = viewport.width;
         prevViewportHeight = viewport.height;
         prevLayoutHeight = window.innerHeight;
         return;
       }
 
       const hasEditableFocus = isEditableTarget(document.activeElement);
+      // Playwright (and browser chrome) shrink the viewport without a focused
+      // field. Never accumulate that as keyboard occlusion — only editable
+      // focus may arm --keyboard-height.
+      if (!hasEditableFocus) {
+        maxViewportHeight = viewport.height;
+        maxLayoutHeight = window.innerHeight;
+        pendingOrientationRebase = false;
+        deferredOccludedVisualHeight = null;
+        prevViewportWidth = viewport.width;
+        prevIsMobile = isMobile;
+        prevViewportHeight = viewport.height;
+        prevLayoutHeight = window.innerHeight;
+        baselinesByWidth.set(Math.round(viewport.width), {
+          maxVisualHeight: maxViewportHeight,
+          maxLayoutHeight,
+        });
+        applyKeyboardState({ isKeyboardOpen: false, keyboardHeight: 0 });
+        return;
+      }
+
       const widthChanged = viewport.width !== prevViewportWidth || (!prevIsMobile && isMobile);
       const widthKey = Math.round(viewport.width);
       const nextBaselines = resolveMobileKeyboardBaselines({
