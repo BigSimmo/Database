@@ -16,7 +16,11 @@ function unsupportedSoftTailEligible(analysis: ClinicalQueryAnalysis) {
   return true;
 }
 
+export const MEDICAL_TERMS_REGEX =
+  /\b(?:bipolar|lithium|toxicity|clozapine|schizophrenia|depression|anorexia|anxiety|ssri|ssnri|psychosis|dosing|titration|olanzapine|quetiapine|risperidone|aripiprazole|haloperidol|valproate|lamotrigine|carbamazepine|cbt|ect)\b/i;
+
 export function shouldShortCircuitUnsupportedSearch(query: string, analysis: ClinicalQueryAnalysis) {
+  if (MEDICAL_TERMS_REGEX.test(query)) return false;
   if (unavailableDocumentNoisePattern.test(query)) return true;
   if (clearlyOutsideCorpusMedicalPattern.test(query) && analysis.documentTitleTerms.length === 0) return true;
   if (!unsupportedSoftTailEligible(analysis)) return false;
