@@ -912,8 +912,24 @@ async function main() {
     for (const warning of readinessWarnings) console.warn(`WARN ${warning}`);
   }
 
-  for (let caseIndex = 0; caseIndex < cases.length; caseIndex += 1) {
-    const testCase = cases[caseIndex]!;
+  function pLimit(concurrency: number) {
+    let active = 0;
+    const queue: Array<() => void> = [];
+    return async <T>(fn: () => Promise<T>): Promise<T> => {
+      if (active >= concurrency) await new Promise<void>((resolve) => queue.push(resolve));
+      active++;
+      try { return await fn(); }
+      finally {
+        active--;
+        if (queue.length > 0) queue.shift()!();
+      }
+    };
+  }
+
+  const concurrency = args.mode === "latency" ? 1 : 5;
+  const limitEvaluations = pLimit(concurrency);
+
+  const results: GoldenRetrievalResult[] = await Promise.all(cases.map((testCase, caseIndex) => limitEvaluations(async () => {
     await pauseBetweenEvalCases({
       caseIndex,
       forceEmbedding: testCase.forceEmbedding || args.forceEmbedding,
@@ -960,7 +976,6 @@ async function main() {
       latencyFailures,
       globalForceEmbedding: args.forceEmbedding,
     });
-    results.push(result);
 
     if (!args.json) {
       const status =
@@ -975,7 +990,8 @@ async function main() {
         `${status} ${result.id} hit@${result.topK}=${result.hitAtK ? "1" : "0"} docRecall@5=${result.documentRecallAt5.toFixed(2)} contentRecall@5=${result.contentRecallAt5.toFixed(2)} rr@10=${result.reciprocalRankAt10.toFixed(2)} contentRR@10=${result.contentReciprocalRankAt10.toFixed(2)} ndcg@10=${result.ndcgAt10.toFixed(2)} irrelevant@10=${result.irrelevantSourceRateAt10.toFixed(2)} signalCoverage@10=${result.requiredSignalCoverageAt10.toFixed(2)} latency=${result.latencyMs}ms strategy=${result.retrievalStrategy ?? "none"} gate=${result.coverageGateReason ?? "none"} layers=${JSON.stringify(result.retrievalLayerCounts ?? {})}`,
       );
     }
-  }
+    return result;
+  })));
 
   const summary = summarizeGoldenRetrievalResults(results);
   const latencyThresholdFailures =

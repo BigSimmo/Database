@@ -815,29 +815,29 @@ export function LibraryHealthStrip({
     {
       target: "documents" as const,
       label: "Documents",
-      value: loading ? "Loading" : `${indexedDocuments} indexed`,
+      value: loading ? "" : `${indexedDocuments} indexed`,
       tone: loading ? toneNeutral : indexedDocuments ? toneSuccess : toneWarning,
       actionLabel: "Show indexed document files",
     },
     {
       target: "setup" as const,
       label: "Setup",
-      value: `${readyChecks}/${checks.length || fallbackSetupChecks.length} ready`,
-      tone: readyChecks === (checks.length || fallbackSetupChecks.length) ? toneSuccess : toneWarning,
+      value: loading ? "" : `${readyChecks}/${checks.length || fallbackSetupChecks.length} ready`,
+      tone: loading ? toneNeutral : readyChecks === (checks.length || fallbackSetupChecks.length) ? toneSuccess : toneWarning,
       actionLabel: "Show setup checks",
     },
     {
       target: "indexing" as const,
       label: "Indexing",
-      value: activeJobs + activeBatches ? `${activeJobs + activeBatches} active` : "Idle",
-      tone: activeJobs + activeBatches ? toneInfo : toneNeutral,
+      value: loading ? "" : (activeJobs + activeBatches ? `${activeJobs + activeBatches} active` : "Idle"),
+      tone: loading ? toneNeutral : (activeJobs + activeBatches ? toneInfo : toneNeutral),
       actionLabel: "Show indexing progress",
     },
     {
       target: "failures" as const,
       label: "Failures",
-      value: failedWork ? `${failedWork} needs review` : "None",
-      tone: failedWork ? toneDanger : toneNeutral,
+      value: loading ? "" : (failedWork ? `${failedWork} needs review` : "None"),
+      tone: loading ? toneNeutral : (failedWork ? toneDanger : toneNeutral),
       actionLabel: "Show failed indexing work",
     },
   ];
@@ -847,6 +847,7 @@ export function LibraryHealthStrip({
       data-testid="library-health-strip"
       className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3 shadow-[var(--shadow-inset)]"
       aria-label="Library health"
+      style={{ containIntrinsicSize: "auto 76px", contentVisibility: "auto" }}
     >
       <div className="mb-2 flex min-h-7 items-center justify-between gap-2">
         <p className="text-xs font-bold uppercase tracking-[0.08em] text-[color:var(--text-muted)]">Library health</p>
@@ -863,9 +864,15 @@ export function LibraryHealthStrip({
               item.tone,
             )}
             aria-label={item.actionLabel}
+            aria-busy={loading}
+            style={{ containIntrinsicSize: "auto 48px", contentVisibility: "auto" }}
           >
             <p className="text-2xs font-bold uppercase tracking-[0.06em]">{item.label}</p>
-            <p className="mt-1 text-xs font-semibold">{item.value}</p>
+            {loading ? (
+              <div className="mt-1 h-4 w-16 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
+            ) : (
+              <p className="mt-1 text-xs font-semibold">{item.value}</p>
+            )}
           </button>
         ))}
       </div>

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Coverage Review"
+  short_description: "Review test coverage for the repository"
+  default_prompt: "Use $test-coverage-review to review test coverage."

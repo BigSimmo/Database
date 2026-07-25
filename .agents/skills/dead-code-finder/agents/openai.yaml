@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dead Code Finder"
+  short_description: "Find dead code in the repository"
+  default_prompt: "Use $dead-code-finder to find dead code."

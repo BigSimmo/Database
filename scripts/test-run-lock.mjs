@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync, utimesSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
@@ -83,6 +83,7 @@ export function acquireHeavyRunLock({
   baseDirectory,
   repositoryIdentity = resolveRepositoryIdentity(projectRoot),
   processId = process.pid,
+  forceLockRelease = false,
 }) {
   if (!projectRoot) throw new Error("projectRoot is required for the Database heavyweight-run lock.");
   const lockPath = lockPathFor(repositoryIdentity, baseDirectory);
@@ -115,7 +116,18 @@ export function acquireHeavyRunLock({
         startedAt: new Date().toISOString(),
       };
       writeFileSync(path.join(lockPath, "owner.json"), `${JSON.stringify(owner, null, 2)}\n`, "utf8");
+      
       let released = false;
+      const heartbeatInterval = setInterval(() => {
+        try {
+          const now = new Date();
+          utimesSync(path.join(lockPath, "owner.json"), now, now);
+        } catch {
+          // ignore if lock owner file is gone
+        }
+      }, 60_000);
+      heartbeatInterval.unref();
+
       return {
         path: lockPath,
         owner,
@@ -128,12 +140,34 @@ export function acquireHeavyRunLock({
         release() {
           if (released) return;
           released = true;
+          clearInterval(heartbeatInterval);
           if (readOwner(lockPath)?.token === token) rmSync(lockPath, { recursive: true, force: true });
         },
       };
     } catch (error) {
       if (error?.code !== "EEXIST") throw error;
       const owner = readOwner(lockPath);
+      
+      let isStale = false;
+      if (owner) {
+        if (!processIsAlive(owner.pid)) {
+          isStale = true;
+        } else {
+          try {
+            const mtime = statSync(path.join(lockPath, "owner.json")).mtimeMs;
+            if (Date.now() - mtime > 30 * 60 * 1000) {
+              isStale = true;
+            }
+          } catch {}
+        }
+      }
+
+      if (forceLockRelease || isStale) {
+        console.warn(`[AUDIT] Breaking ${isStale ? "stale" : "forced"} heavyweight lock at ${lockPath} (was PID ${owner?.pid || "unknown"})`);
+        rmSync(lockPath, { recursive: true, force: true });
+        continue;
+      }
+
       if (owner && processIsAlive(owner.pid)) {
         throw new Error(
           `Another Database heavyweight command is active (PID ${owner.pid}, worktree ${owner.worktree ?? "unknown"}, started ${owner.startedAt ?? "unknown"}): ${redactSensitiveText(owner.command ?? "unknown command")}`,

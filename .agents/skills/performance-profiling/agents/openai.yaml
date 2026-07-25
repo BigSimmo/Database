@@ -1,0 +1,4 @@
+interface:
+  display_name: "Performance Profiling"
+  short_description: "Profile performance of database queries"
+  default_prompt: "Use $performance-profiling to profile performance."

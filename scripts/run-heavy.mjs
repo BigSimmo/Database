@@ -13,8 +13,10 @@ if (args[0] !== "--npm-script" || !args[1]) {
 }
 
 const script = args[1];
-const forwarded = args.slice(2);
-const lock = acquireHeavyRunLock({ projectRoot, command: `npm run ${script}` });
+const rawForwarded = args.slice(2);
+const forceLockRelease = rawForwarded.includes("--force-lock-release");
+const forwarded = rawForwarded.filter(a => a !== "--force-lock-release");
+const lock = acquireHeavyRunLock({ projectRoot, command: `npm run ${script}`, forceLockRelease });
 let exitCode = 1;
 try {
   const npmExecPath = process.env.npm_execpath;

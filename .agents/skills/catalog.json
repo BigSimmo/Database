@@ -3,19 +3,59 @@
   "categories": [
     {
       "name": "Everyday",
-      "skills": ["skills", "plan", "run", "test", "fix", "review", "task", "handover", "health", "audit", "export", "prompt-perfector"]
+      "skills": [
+        "skills",
+        "plan",
+        "run",
+        "test",
+        "fix",
+        "review",
+        "task",
+        "handover",
+        "health",
+        "audit",
+        "export",
+        "prompt-perfector",
+        "dead-code-finder",
+        "performance-profiling",
+        "test-coverage-review"
+      ]
     },
     {
       "name": "Clinical and app",
-      "skills": ["clinical", "ui", "rag", "sources", "ingest", "reindex", "documents"]
+      "skills": [
+        "clinical",
+        "ui",
+        "rag",
+        "sources",
+        "ingest",
+        "reindex",
+        "documents"
+      ]
     },
     {
       "name": "Database, API, and security",
-      "skills": ["migrate", "drift", "access", "security", "privacy", "api", "data"]
+      "skills": [
+        "migrate",
+        "drift",
+        "access",
+        "security",
+        "privacy",
+        "api",
+        "data"
+      ]
     },
     {
       "name": "Operations and release",
-      "skills": ["release", "deploy", "operations", "incident", "recovery", "performance", "dependencies"]
+      "skills": [
+        "release",
+        "deploy",
+        "operations",
+        "incident",
+        "recovery",
+        "performance",
+        "dependencies"
+      ]
     }
   ],
   "aliases": {

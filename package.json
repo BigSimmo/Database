@@ -176,6 +176,8 @@
     "workflow:rag-lab": "node scripts/productivity-workflow.mjs rag-lab",
     "workflow:operator-closeout": "node scripts/productivity-workflow.mjs operator-closeout",
     "workflow:lifecycle": "node scripts/productivity-workflow.mjs lifecycle",
+    "skill:create": "node scripts/skill-create.mjs",
+    "branch:cleanup": "node scripts/sweep-merged-branches.mjs",
     "skills": "node scripts/list-database-skills.mjs",
     "check:skills": "node scripts/list-database-skills.mjs --check",
     "check:drift": "node scripts/run-tsx.mjs scripts/check-drift.ts",
