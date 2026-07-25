@@ -1439,14 +1439,10 @@ export function MasterSearchHeader({
     // clearance while the bar is hidden.
     const stickySearchOwnedByOuterStack = sticksAbovePhones;
     const stickySearchClearsTopBar = !(hideStrategy === "collapse" && headerChromeHidden);
-    const stickySearchTopClass = stickySearchOwnedByOuterStack
-      ? undefined
-      : stickySearchClearsTopBar
-        ? "top-[calc(4.75rem+env(safe-area-inset-top))] sm:top-[calc(4.75rem+env(safe-area-inset-top))]"
-        : "top-0 sm:top-0";
-    const stickySearchPositionClass = stickySearchOwnedByOuterStack
-      ? "relative sm:relative"
-      : cn("sm:sticky", stickySearchTopClass);
+    const stickySearchTopClass = stickySearchClearsTopBar
+      ? "top-[calc(4.75rem+env(safe-area-inset-top))] sm:top-[calc(4.75rem+env(safe-area-inset-top))]"
+      : "top-0 sm:top-0";
+    const stickySearchPositionClass = cn("sm:sticky", stickySearchTopClass);
 
     return (
       <form
@@ -1489,12 +1485,14 @@ export function MasterSearchHeader({
                     usesPhoneFooterDock
                       ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
                       : cn(
-                          // Sticky-stack hosts must not keep a bare `fixed` class:
-                          // if `sm:relative` loses the cascade fight, the composer
-                          // overlays the page (e.g. Services decision rail).
                           "document-mobile-search-edge universal-top-search-edge z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                          stickySearchOwnedByOuterStack ? "max-sm:fixed" : "fixed",
-                          isHeroDesktopComposer ? "sm:hidden" : stickySearchPositionClass,
+                          // Sticky-stack hosts already pin [top bar | search]. Never
+                          // leave a `fixed`/`sticky` composer in that stack — it
+                          // overlays page controls (Services decision rail).
+                          stickySearchOwnedByOuterStack
+                            ? "relative"
+                            : cn("fixed", isHeroDesktopComposer ? "sm:hidden" : stickySearchPositionClass),
+                          stickySearchOwnedByOuterStack && isHeroDesktopComposer && "sm:hidden",
                         ),
                   )
                 : cn(

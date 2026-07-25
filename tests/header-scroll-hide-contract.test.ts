@@ -135,9 +135,14 @@ describe("shared header hide/reveal wiring", () => {
 
   it("keeps sticky-stack search in normal flow and only self-stickies collapse-everywhere hosts", () => {
     // Double sticky (outer stack + composer top offset) overlays page controls
-    // once the top bar collapses — that blocked the services Clear control.
+    // once the top bar collapses — that blocked the services decision rail.
     expect(headerSource).toContain("const stickySearchOwnedByOuterStack = sticksAbovePhones");
-    expect(headerSource).toContain('stickySearchOwnedByOuterStack\n      ? "relative sm:relative"');
+    // Bare `fixed` must not remain on sticky-stack composers (cascade fight).
+    expect(headerSource).toMatch(/stickySearchOwnedByOuterStack\s*\?\s*"relative"/);
+    expect(headerSource).toContain(
+      'stickySearchOwnedByOuterStack\n                            ? "relative"\n                            : cn("fixed"',
+    );
+    expect(headerSource).toContain('stickySearchOwnedByOuterStack ? "relative z-20" : cn("sticky z-20"');
     // Dashboard collapse-everywhere composers still drop the 4.75rem clearance.
     expect(headerSource).toContain("const stickySearchClearsTopBar");
     expect(headerSource).toContain('hideStrategy === "collapse" && headerChromeHidden');
