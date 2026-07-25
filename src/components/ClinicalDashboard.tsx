@@ -344,13 +344,13 @@ export function ClinicalDashboard({
   const [answerThreadBootstrapped, setAnswerThreadBootstrapped] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
-  // Answer mode hides the glass header at every breakpoint (all-breakpoints
-  // overlay); other modes keep the phone-only collapse, so the reporter only
-  // widens past the phone media gate while in answer mode.
-  const phoneScrollHide = useScrollHideReporter(false, searchMode === "answer");
+  // The header hides at every breakpoint in every mode (answer mode through the
+  // all-breakpoints glass overlay, the rest through the collapse row). Switching
+  // mode swaps <main>'s header reserve, so it also rebases the reporter.
+  const chromeScrollHide = useScrollHideReporter(false, true, searchMode);
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
-  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
-  reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
+  const reportChromeScrollHideRef = useRef(chromeScrollHide.reportScroll);
+  reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
     Boolean(autoRunSearch && initialQuery.trim() && initialSearchMode !== "tools"),
   );
@@ -2801,7 +2801,7 @@ export function ClinicalDashboard({
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         frame = 0;
-        reportPhoneScrollHideRef.current({
+        reportChromeScrollHideRef.current({
           offset: main.scrollTop,
           maxOffset: Math.max(0, main.scrollHeight - main.clientHeight),
           collapseBudget: readChromeCollapseBudget(main),
@@ -3395,12 +3395,14 @@ export function ClinicalDashboard({
           // Answer view: the header overlays the scrolling <main> at every width
           // (main reserves matching top padding) so content frosts under the
           // glass bar, and it slides away/returns with scroll direction. Other
-          // modes keep the phone-only collapse (their sm+ composer renders
-          // in-flow below the header, which an absolute header would bury).
+          // modes collapse the header row instead — an absolute header would
+          // bury their in-flow composer — which works at every width here
+          // because <main> is the scrollport at every width, so the released
+          // strip goes straight to the content.
           hideOnScroll={
             searchMode === "answer"
-              ? { strategy: "overlay", allBreakpoints: true, scrollHidden: phoneScrollHide.hidden }
-              : { strategy: "collapse", scrollHidden: phoneScrollHide.hidden }
+              ? { strategy: "overlay", allBreakpoints: true, scrollHidden: chromeScrollHide.hidden }
+              : { strategy: "collapse", wide: "collapse", scrollHidden: chromeScrollHide.hidden }
           }
           onBottomComposerHiddenChange={setBottomComposerHidden}
         />
