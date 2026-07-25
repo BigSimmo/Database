@@ -32,6 +32,14 @@ public/therapy-compass-data/
 docs/branch-review-ledger.md
 docs/archive/
 
+# Design-scratch mockup routes/components — keep out of @Codebase discovery
+src/app/mockups/
+mockups/
+src/components/*mockup*
+
+# One-off Codex review prompt dumps (not product code)
+codex-cloud-review/
+
 # Generated schema-drift inventory (large JSON)
 supabase/drift-manifest.json
 
