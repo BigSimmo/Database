@@ -1319,6 +1319,23 @@ export async function analyzeQueryWithClassifierFallback(
     analysis = { ...analysis, corpusGrounding: "inconclusive" };
   }
 
+  // Finding #2: Deterministic fallback routing for short clinical queries.
+  // Short, bare clinical search queries (e.g., "bipolar disorder", "anorexia management")
+  // can be misclassified by the generative LLM. We route them deterministically.
+  if (
+    analysis.needsClassifierFallback &&
+    analysis.corpusGrounding !== "inconclusive" &&
+    query.trim().split(/\s+/).length <= 4 &&
+    (analysis.documentTitleTerms.length > 0 || analysis.canonicalTerms.length > 0)
+  ) {
+    return {
+      ...analysis,
+      queryClass: "broad_summary",
+      needsClassifierFallback: false,
+      reasons: uniqueTextValues([...analysis.reasons, "deterministic_short_clinical_query_fallback"], 12),
+    } satisfies ClinicalQueryAnalysis;
+  }
+
   if (!analysis.needsClassifierFallback || !env.OPENAI_API_KEY) return analysis;
 
   const memoKey = classifierVerdictMemoKey(query, analysis);
