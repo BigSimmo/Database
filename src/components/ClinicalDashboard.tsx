@@ -62,11 +62,6 @@ import {
   ClinicalDesktopSidebar,
   ClinicalMobileSidebar,
 } from "@/components/clinical-dashboard/ClinicalSidebar";
-import {
-  SetupChecklist,
-  UploadPanel,
-  IndexingMonitor,
-  IngestionQualityConsole,
   LibraryHealthStrip,
   fallbackSetupChecks,
   hasReadyRequiredPublicSearchConfig,
@@ -75,6 +70,7 @@ import {
   type IngestionQualityReviewItem,
 } from "@/components/clinical-dashboard/DocumentManagerPanel";
 import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
+import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/dashboard-notices";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import { isPreformattedGroundedAnswer, ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
 import { AnswerEmptyState, AnswerProgressStepper, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
@@ -149,6 +145,26 @@ const RelatedDocumentsPanel = dynamic(
 );
 const DocumentSearchResultsPanel = dynamic(
   () => import("@/components/clinical-dashboard/document-search-results").then((m) => m.DocumentSearchResultsPanel),
+  { ssr: false },
+);
+
+const SetupChecklist = dynamic(
+  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((mod) => mod.SetupChecklist),
+  { ssr: false },
+);
+
+const UploadPanel = dynamic(
+  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((mod) => mod.UploadPanel),
+  { ssr: false },
+);
+
+const IndexingMonitor = dynamic(
+  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((mod) => mod.IndexingMonitor),
+  { ssr: false },
+);
+
+const IngestionQualityConsole = dynamic(
+  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((mod) => mod.IngestionQualityConsole),
   { ssr: false },
 );
 
@@ -1338,9 +1354,7 @@ export function ClinicalDashboard({
       ),
     );
     setSources((current) =>
-      current.map((source) =>
-        source.document_id === documentId ? { ...source, document_labels: mergeLabel(source.document_labels) } : source,
-      ),
+      current.map((source) => (source.document_id === documentId ? { ...source, document_labels: mergeLabel(source.document_labels) } : source)),
     );
   }, []);
 
@@ -3054,23 +3068,6 @@ export function ClinicalDashboard({
       empty: !answer || (answerRenderModel?.reviewSources.length ?? 0) === 0,
     },
   ] as const;
-  const renderSystemNotice = (className?: string) => (
-    <UtilityDrawer
-      icon={CircleAlert}
-      title={demoMode ? "Demo mode" : "Setup required"}
-      summary={
-        demoMode ? "Synthetic data only; not clinical guidance." : "Configuration is needed before real uploads."
-      }
-      mobileSummary={demoMode ? "Synthetic data" : "Setup needed"}
-      className={className}
-    >
-      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
-        {demoMode
-          ? "Demo mode is active with three synthetic indexed documents, citations, source cards, image captions, and document links. Synthetic data only; not clinical guidance."
-          : `Configure .env.local and run supabase/schema.sql before uploading or searching. ${setupWarning}`}
-      </p>
-    </UtilityDrawer>
-  );
   const showAuthPanel = false;
   const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const submittedAnswerSearchActive =
@@ -3124,28 +3121,6 @@ export function ClinicalDashboard({
       hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
       differentialsCompareAddonActive,
     }),
-  );
-  const renderDegradedNotice = () => (
-    <UtilityDrawer
-      icon={!isOnline ? WifiOff : CircleAlert}
-      title={!isOnline ? "Offline" : "Service unavailable"}
-      summary={
-        !isOnline
-          ? "Your browser is offline. Existing content may remain visible, but private search and uploads need network access."
-          : isDeployedClinicalKb()
-            ? "The app could not reach its API. Try again in a moment."
-            : "The local API did not respond. Check the app server and setup status before retrying."
-      }
-      mobileSummary={!isOnline ? "Offline" : "API unavailable"}
-    >
-      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
-        {!isOnline
-          ? "Reconnect before uploading documents, refreshing source URLs, or generating answers."
-          : isDeployedClinicalKb()
-            ? "The app will preserve the current view. If this keeps happening, check your connection and try again shortly."
-            : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
-      </p>
-    </UtilityDrawer>
   );
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
   const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;
@@ -3519,8 +3494,8 @@ export function ClinicalDashboard({
                   {actionNotice.message}
                 </InlineNotice>
               )}
-              {showDegradedNotice && renderDegradedNotice()}
-              {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
+              {showDegradedNotice && <DegradedNotice isOnline={isOnline} />}
+              {showSystemNotice ? <SystemNotice demoMode={demoMode} setupWarning={setupWarning} className="my-6 lg:my-10" /> : null}
 
               <section
                 className={cn(
