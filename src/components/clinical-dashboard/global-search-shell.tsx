@@ -13,8 +13,9 @@ import {
   useState,
 } from "react";
 
+import dynamic from "next/dynamic";
+
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
-import { ClinicalDashboard } from "@/components/ClinicalDashboard";
 import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
@@ -37,7 +38,6 @@ import { readChromeCollapseBudget, useScrollHideReporter } from "@/components/cl
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
-import { ClientHydrationBoundary } from "@/components/client-hydration-boundary";
 import { cn } from "@/components/ui-primitives";
 import {
   appModeHomeHref,
@@ -46,6 +46,13 @@ import {
   visibleAppModeDefinitions,
   type AppModeId,
 } from "@/lib/app-modes";
+
+// Namespaced mode homes share this client shell but never render the dashboard
+// body — keep ClinicalDashboard out of their parse/eval path until `/` needs it.
+const ClinicalDashboard = dynamic(
+  () => import("@/components/ClinicalDashboard").then((mod) => ({ default: mod.ClinicalDashboard })),
+  { ssr: true, loading: () => <ModeHomeRouteLoading /> },
+);
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -312,6 +319,13 @@ function GlobalStandaloneSearchShellClient({
   );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
+  // Skip grid-template-columns transition on first paint / remount so Answer ↔
+  // namespaced mode swaps do not animate the sidebar width from the default track.
+  const [sidebarColumnTransitionReady, setSidebarColumnTransitionReady] = useState(false);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setSidebarColumnTransitionReady(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
@@ -614,6 +628,7 @@ function GlobalStandaloneSearchShellClient({
         "sm:min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         shouldShowDesktopSidebar &&
+          sidebarColumnTransitionReady &&
           "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
         shouldShowDesktopSidebar &&
           (effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]"),
@@ -788,11 +803,9 @@ function GlobalStandaloneSearchShellClient({
             its height, so end-of-page content clears the visible dock.
           */}
           <div data-testid="mobile-composer-reserve-pad" className="max-sm:pb-[var(--mobile-composer-reserve)]">
-            <ClientHydrationBoundary
-              fallback={<div className="min-h-[calc(100dvh-var(--shell-header-h))] overflow-x-hidden" aria-hidden />}
-            >
-              <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
-            </ClientHydrationBoundary>
+            {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here
+                blanked every standalone mode until JS mounted (hard-load LCP hit). */}
+            <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
           </div>
         </div>
       </div>

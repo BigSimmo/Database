@@ -25,10 +25,9 @@ export function ModeHomePageSkeleton() {
 
 export function ModeHomeRouteLoading() {
   return (
-    // Match the live shell canvas (header token + idle content pad), not a
-    // larger 13.5rem chrome budget — that taller skeleton jumped when the
-    // real mode home mounted inside GlobalSearchShell.
-    <div className="grid min-h-[calc(100dvh-var(--shell-header-h))] items-center justify-items-center bg-[color:var(--background)]">
+    // Match ModeHomeMain startOnPhone: top-align on phones, centre from sm up.
+    // A phone-centred skeleton jumped when content-rich homes mounted top-aligned.
+    <div className="grid min-h-[calc(100dvh-var(--shell-header-h))] items-start justify-items-center bg-[color:var(--background)] pt-3 sm:items-center sm:pt-0">
       <ModeHomePageSkeleton />
     </div>
   );

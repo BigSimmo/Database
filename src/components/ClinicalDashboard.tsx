@@ -508,6 +508,11 @@ export function ClinicalDashboard({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
+  const [sidebarColumnTransitionReady, setSidebarColumnTransitionReady] = useState(false);
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setSidebarColumnTransitionReady(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
   const documentsDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
   const [documentScopeOpen, setDocumentScopeOpen] = useState(false);
@@ -3327,7 +3332,8 @@ export function ClinicalDashboard({
         appBackdrop,
         // Phone: fixed inset-0 (not 100dvh) — matches GlobalSearchShell; avoids Safari toolbar dead band.
         "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] max-sm:fixed max-sm:inset-0 max-sm:h-auto max-sm:min-h-0 max-sm:overflow-hidden md:grid md:grid-cols-[5.25rem_minmax(0,1fr)] md:overflow-hidden",
-        "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
+        sidebarColumnTransitionReady &&
+          "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
         sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={

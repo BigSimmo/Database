@@ -76,5 +76,17 @@ export default async function Home({ searchParams }: HomeProps) {
     redirect(suffix ? `/formulation?${suffix}` : "/formulation");
   }
 
+  // Services/forms are namespaced mode homes; keep /?mode=* from mounting the
+  // full ClinicalDashboard + registry path for those surfaces.
+  if (initialSearchMode === "services" || initialSearchMode === "forms") {
+    redirect(
+      appModeHomeHref(initialSearchMode, {
+        query: firstSearchParam(params.q)?.trim(),
+        focus: firstSearchParam(params.focus) === "1",
+        run: firstSearchParam(params.run) === "1",
+      }),
+    );
+  }
+
   return <HomePageClient initialMode={initialSearchMode} />;
 }

@@ -608,7 +608,8 @@ function RegistryStatusNotice({ status }: { status: RegistryRequestStatus }) {
 }
 
 export function FormsSearchResultsPage(props: FormsSearchResultsPageProps) {
-  return <FormsSearchResultsPageContent key={props.query} {...props} />;
+  // No key={query} remount: query is a pure prop (favourites already documents this).
+  return <FormsSearchResultsPageContent {...props} />;
 }
 
 function FormsSearchResultsPageContent({ query }: FormsSearchResultsPageProps) {

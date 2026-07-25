@@ -22,34 +22,38 @@ import {
   type ModeHomePill,
 } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { defaultFormSlug } from "@/lib/forms";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-registry-records";
 
-const taskCards: ModeHomeAction[] = [
-  {
-    title: "Find a form",
-    description: "Title, purpose, or workflow detail.",
-    icon: Search,
-    href: appModeHomeHref("forms", { focus: true }),
-  },
-  {
-    title: "Readiness checks",
-    description: "Review status, source, and local confirmation.",
-    icon: ClipboardCheck,
-    href: `/forms/${defaultFormSlug() ?? ""}`,
-  },
-  {
-    title: "Check source status",
-    description: "Find records that still need local confirmation.",
-    icon: ShieldAlert,
-    href: appModeHomeHref("forms", {
-      query: "local confirmation required",
-      focus: true,
-      run: true,
-    }),
-  },
-];
+// The default form slug is computed server-side (app/forms/page.tsx) and passed
+// as a prop: a direct `@/lib/forms` value import here would compile the full
+// forms catalog into this client route chunk.
+function buildTaskCards(defaultFormSlug: string | null): ModeHomeAction[] {
+  return [
+    {
+      title: "Find a form",
+      description: "Title, purpose, or workflow detail.",
+      icon: Search,
+      href: appModeHomeHref("forms", { focus: true }),
+    },
+    {
+      title: "Readiness checks",
+      description: "Review status, source, and local confirmation.",
+      icon: ClipboardCheck,
+      href: `/forms/${defaultFormSlug ?? ""}`,
+    },
+    {
+      title: "Check source status",
+      description: "Find records that still need local confirmation.",
+      icon: ShieldAlert,
+      href: appModeHomeHref("forms", {
+        query: "local confirmation required",
+        focus: true,
+        run: true,
+      }),
+    },
+  ];
+}
 
 const commonTasks: ModeHomePill[] = [
   {
@@ -74,7 +78,8 @@ const commonTasks: ModeHomePill[] = [
   },
 ];
 
-export function FormsHomePage() {
+export function FormsHomePage({ defaultFormSlug = null }: { defaultFormSlug?: string | null }) {
+  const taskCards = buildTaskCards(defaultFormSlug);
   const registry = useRegistryRecords("form");
   const verifiedCount = countVerifiedRegistryRecords(registry);
   const registryReady = registry.status === "ready";

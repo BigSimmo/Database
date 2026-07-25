@@ -37,7 +37,9 @@ export default async function DocumentPage({
 
   return (
     <DocumentViewer
-      key={`${id}:${initialPage}:${query.chunk ?? ""}`}
+      // Key on document identity only — page/chunk updates are handled inside
+      // DocumentViewer via URL sync. Remounting on every page flip reloaded the PDF.
+      key={id}
       documentId={id}
       initialPage={initialPage}
       chunkId={query.chunk}
