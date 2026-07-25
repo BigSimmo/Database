@@ -32,10 +32,17 @@ public/therapy-compass-data/
 docs/branch-review-ledger.md
 docs/archive/
 
-# Design-scratch mockup routes/components — keep out of @Codebase discovery
+# Design-scratch mockup routes/components — keep out of @Codebase discovery.
+# Do not use a repo-wide *mockup* glob: tests/env-mockups-gate and
+# tests/production-mockup-boundary must stay indexed.
 src/app/mockups/
 mockups/
-src/components/*mockup*
+src/components/calculator-mockups/
+src/components/favourites-page-mockups/
+src/components/settings-search-mockups/
+src/components/tools-page-mockups/
+src/components/*mockups.tsx
+src/components/clinical-dashboard/global-mockup-search-shell.tsx
 
 # One-off Codex review prompt dumps (not product code)
 codex-cloud-review/
