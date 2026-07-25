@@ -1,4 +1,4 @@
--- Medical RAG Knowledge Base schema.
+﻿-- Medical RAG Knowledge Base schema.
 -- Run this in the Supabase SQL editor or with the Supabase CLI.
 -- Tables are RLS protected; the local Next.js API and worker use the service role.
 --
@@ -9141,3 +9141,7 @@ revoke execute on function public.detect_legacy_ivfflat_indexes() from public, a
 revoke execute on function public.document_summary_text(uuid) from public, anon, authenticated;
 revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
 revoke execute on function public.set_document_embedding_field_content_hash() from public, anon, authenticated;
+grant execute on function public.detect_legacy_ivfflat_indexes() to service_role;
+grant execute on function public.document_summary_text(uuid) to service_role;
+grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;
+grant execute on function public.set_document_embedding_field_content_hash() to service_role;
