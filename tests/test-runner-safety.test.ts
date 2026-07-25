@@ -117,6 +117,32 @@ describe("repository-wide heavyweight lock", () => {
     replacement.release();
   });
 
+  it("allows an explicit force-lock-release to replace a live owner", () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-force-lock-");
+    const repositoryIdentity = path.join(baseDirectory, "shared.git");
+    const first = acquireHeavyRunLock({
+      projectRoot: path.join(baseDirectory, "worktree-a"),
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      command: "first",
+    });
+
+    const replacement = acquireHeavyRunLock({
+      projectRoot: path.join(baseDirectory, "worktree-b"),
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      command: "replacement",
+      forceLockRelease: true,
+    });
+
+    expect(replacement.owner.token).not.toBe(first.owner.token);
+    expect(readFileSync(path.join(replacement.path, "owner.json"), "utf8")).toContain(replacement.owner.token);
+    first.release();
+    replacement.release();
+  });
+
   it("keeps a live owner's lock even when startedAt is older than five minutes", () => {
     const baseDirectory = temporaryDirectory("clinical-kb-live-old-lock-");
     const repositoryIdentity = path.join(baseDirectory, "shared.git");
