@@ -14,7 +14,7 @@ RAG impact: no retrieval behaviour change — clamps non-finite/out-of-range sim
 ## Risk and rollout
 
 - Risk: medium — touches public API rate-limit identity, semantic-rerank score sanitization, document extraction error handling, and PWA update UX; lock/skills fixes are tooling-only.
-- Rollback: revert this PR branch merge commit(s) on main; no schema/migration dependency.
+- Rollback: after squash-merge, revert the single squash commit on main; no schema/migration dependency.
 - Provider or production effects: None
 
 ## Clinical Governance Preflight

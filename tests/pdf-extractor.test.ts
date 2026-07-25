@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import PDFDocument from "pdfkit";
@@ -205,19 +205,23 @@ describe.runIf(hasPyMuPDF)("Python PDF table extraction", () => {
 describe.runIf(hasPyMuPDF)("Python extractor fallback", () => {
   it("rejects cleanly if the python process dies with SIGKILL", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-extractor-test-"));
-    const pdfPath = path.join(root, "table.pdf");
-    const scriptPath = path.join(root, "kill_self.py");
+    try {
+      const pdfPath = path.join(root, "table.pdf");
+      const scriptPath = path.join(root, "kill_self.py");
 
-    await mkdir(root, { recursive: true });
-    await writeSyntheticTablePdf(pdfPath);
+      await mkdir(root, { recursive: true });
+      await writeSyntheticTablePdf(pdfPath);
 
-    // Write a python script that sends SIGKILL to itself immediately
-    await writeFile(scriptPath, "import os, signal\nos.kill(os.getpid(), signal.SIGKILL)\n");
+      // Write a python script that sends SIGKILL to itself immediately
+      await writeFile(scriptPath, "import os, signal\nos.kill(os.getpid(), signal.SIGKILL)\n");
 
-    const pdfBuffer = await readFile(pdfPath);
+      const pdfBuffer = await readFile(pdfPath);
 
-    await expect(extractPdf(pdfBuffer, { scriptPathOverride: scriptPath })).rejects.toThrow(
-      /PDF extractor exited with code/,
-    );
+      await expect(extractPdf(pdfBuffer, { scriptPathOverride: scriptPath })).rejects.toThrow(
+        /PDF extractor exited with code/,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

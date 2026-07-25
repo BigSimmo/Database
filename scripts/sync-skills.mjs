@@ -3,6 +3,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { discoverSkillDefinitions, catalogPath, loadSkillCatalog, skillsRoot } from "./list-database-skills.mjs";
 
+function escapeYamlDoubleQuoted(value) {
+  return String(value ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, "\\n")
+    .replace(/\r/g, "\\r");
+}
+
 function ensureYamlManifest(skill, aliasTarget) {
   const metadataDir = path.join(skillsRoot, skill.directory, "agents");
   const metadataFile = path.join(metadataDir, "openai.yaml");
@@ -10,10 +18,13 @@ function ensureYamlManifest(skill, aliasTarget) {
   if (!fs.existsSync(metadataFile)) {
     fs.mkdirSync(metadataDir, { recursive: true });
 
-    // Create a 25-64 character short description
+    // Create a 25-64 character short description. Pad with a long enough
+    // suffix so even empty/3-char seeds still reach the 25-character floor.
+    const pad = " for the Database productivity skill catalog";
     let shortDesc = skill.description.trim().split(".")[0];
     if (shortDesc.length < 25) {
-      shortDesc = (shortDesc + " for the Database app").slice(0, 64);
+      shortDesc = (shortDesc + pad).slice(0, 64);
+      if (shortDesc.length < 25) shortDesc = shortDesc.padEnd(25, ".");
     } else if (shortDesc.length > 64) {
       shortDesc = shortDesc.slice(0, 61) + "...";
     }
@@ -22,9 +33,9 @@ function ensureYamlManifest(skill, aliasTarget) {
     // database-skills tests accept them, while still directing agents to the
     // canonical target skill.
     const defaultPrompt = aliasTarget ? `Run $${skill.name} (alias for $${aliasTarget})` : `Run $${skill.name}`;
-    const yaml = `name: "${skill.name}"
-short_description: "${shortDesc}"
-default_prompt: "${defaultPrompt}"
+    const yaml = `name: "${escapeYamlDoubleQuoted(skill.name)}"
+short_description: "${escapeYamlDoubleQuoted(shortDesc)}"
+default_prompt: "${escapeYamlDoubleQuoted(defaultPrompt)}"
 allow_implicit_invocation: ${aliasTarget ? "false" : "true"}
 `;
     fs.writeFileSync(metadataFile, yaml, "utf8");
