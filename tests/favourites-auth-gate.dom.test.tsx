@@ -99,7 +99,7 @@ describe("favourites auth gate DOM", () => {
       { name: "Services", href: "/services" },
       { name: "Medications", href: "/?mode=prescribing" },
       { name: "Factsheets", href: "/factsheets" },
-      { name: "Tools", href: "/?mode=tools" },
+      { name: "Tools", href: "/tools" },
     ]);
     expect(screen.queryByRole("link", { name: "Favourites" })).toBeNull();
     expect(screen.queryByRole("button", { name: /^Guide & help$/ })).toBeNull();

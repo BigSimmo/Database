@@ -95,8 +95,9 @@ Intentional exceptions are documented, not silenced:
 
 ## Known wiring debts
 
-Tracked in `docs/outstanding-issues.md` (`/issues`): the `/tools` vs `/?mode=tools` duplicate Tools
-entry point remains open (`#007`).
+Tracked in `docs/outstanding-issues.md` (`/issues`): the unused `document-flow-routes.ts` href
+builders remain open. `#007` (`/tools` vs `/?mode=tools`) is resolved: `/tools` is the canonical entry
+(PT-11); `/?mode=tools` remains a dashboard-mode alias.
 
 ### Closed wiring audits (2026-07-24)
 
