@@ -851,7 +851,7 @@ async function expectAdminOnlyUploadNotice(page: Page) {
   await expect(uploadAction).toBeVisible();
   await uploadAction.click();
   await expect(page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only." })).toContainText(
-    "Use the source library to open indexed documents.",
+    "Use Sources to open indexed documents.",
   );
   await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
 }
@@ -1104,7 +1104,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       // The rail speaks the catalogue-maturity badge as part of the Forms name.
       { name: "Forms (Early access)", href: "/forms" },
       { name: "Tools", href: "/?mode=tools" },
-      { name: "Therapy mode", href: "/therapy-compass" },
+      { name: "Therapy", href: "/therapy-compass" },
       // Demo mode still exposes Favourites via the account-library rail entry.
       { name: "Favourites", href: "/favourites" },
     ] as const) {
@@ -1126,7 +1126,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { path: "/?mode=documents", label: "Documents" },
       { path: "/favourites", label: "Favourites" },
       { path: "/?mode=tools", label: "Tools" },
-      { path: "/therapy-compass", label: "Therapy mode" },
+      { path: "/therapy-compass", label: "Therapy" },
     ] as const) {
       await gotoApp(page, route.path);
       if (route.path.includes("mode=answer")) {
@@ -2572,6 +2572,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
       timeout: 30_000,
     });
     await expect(page.getByTestId("dsm-search-page")).toBeVisible();
+    const queryRibbon = page.getByTestId("search-query-ribbon");
+    await expect(queryRibbon.getByRole("heading", { name: "major depressive" })).toBeVisible();
+    await expect(queryRibbon.getByRole("group", { name: "Filter diagnoses by category" })).toBeVisible();
 
     const result = page.getByTestId("dsm-search-result").filter({ hasText: "Major depressive disorder" });
     await expect(result).toBeVisible();
@@ -2584,6 +2587,31 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Major depressive disorder" })).toBeVisible();
     await expect(page.getByRole("link", { name: "DSM-5 Diagnosis home" })).toHaveAttribute("href", "/dsm");
     await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("factsheet search keeps query, view, and category filters in the universal results ribbon", async ({ page }) => {
+    await mockDemoApi(page);
+
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 1440, height: 900 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await gotoApp(page, "/factsheets/search?q=sertraline");
+      const factsheetsPage = page.getByTestId("factsheets-search-page");
+      const queryRibbon = factsheetsPage.getByTestId("search-query-ribbon");
+      await expect(queryRibbon.getByRole("heading", { name: "sertraline" })).toBeVisible();
+      await expect(queryRibbon.getByRole("group", { name: "Result view" })).toBeVisible();
+      await expect(queryRibbon.getByRole("group", { name: "Filter factsheets by category" })).toBeVisible();
+      const categorySelect = queryRibbon.getByTestId("factsheet-category-select");
+      if (viewport.width < 640) {
+        await expect(categorySelect).toBeVisible();
+        await expect(categorySelect).toHaveAccessibleName("Filter factsheets by category");
+      } else {
+        await expect(categorySelect).toBeHidden();
+      }
+      await expectNoPageHorizontalOverflow(page);
+    }
   });
 
   test("DSM category filter dropdown opens to the correct option by keyboard", async ({ page }) => {
@@ -2638,7 +2666,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     // /?mode=specifiers → /specifiers (Specifiers is its own mode, distinct from Formulation)
     await expect(page).toHaveURL(/\/specifiers\?q=anxious\+distress&focus=1&run=1$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Matches for “anxious distress”" })).toBeVisible();
+    const queryRibbon = page.getByTestId("search-query-ribbon");
+    await expect(queryRibbon.getByRole("heading", { level: 1, name: "anxious distress" })).toBeVisible();
+    await expect(queryRibbon.getByRole("group", { name: "Filter specifier results" })).toBeVisible();
   });
 
   test("dashboard formulation mode param redirects to the standalone formulation route", async ({ page }) => {
@@ -2647,9 +2677,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=formulation&q=I+keep+going+over+it&focus=1&run=1");
 
     await expect(page).toHaveURL(/\/formulation\?q=I\+keep\+going\+over\+it&focus=1&run=1$/);
-    await expect(
-      page.getByRole("heading", { level: 1, name: "Mechanisms matching “I keep going over it”" }),
-    ).toBeVisible();
+    const queryRibbon = page.getByTestId("search-query-ribbon");
+    await expect(queryRibbon.getByRole("heading", { level: 1, name: "I keep going over it" })).toBeVisible();
+    await expect(queryRibbon.getByRole("group", { name: "Filter formulation mechanisms" })).toBeVisible();
   });
 
   test("submitted differentials searches stay on the standalone differentials route", async ({ page }) => {
@@ -2714,7 +2744,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page.getByTestId("favourites-hub")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
-    await expect(page.getByTestId("favourites-active-filters")).toBeVisible();
+    const queryRibbon = page.getByTestId("search-query-ribbon");
+    await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
+    await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
   });
 
   test("favourites route opens the favourites home", async ({ page }) => {
@@ -2729,7 +2761,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(globalSearchInput).toHaveValue("lithium set");
     await expect(page.getByTestId("favourites-hub")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Favourites command library" })).toBeVisible();
-    await expect(page.getByTestId("favourites-active-filters")).toBeVisible();
+    const queryRibbon = page.getByTestId("search-query-ribbon");
+    await expect(queryRibbon.getByRole("heading", { name: "lithium set" })).toBeVisible();
+    await expect(page.getByTestId("favourites-active-filters")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Start a new chat" }).click();
     await expect(page).toHaveURL(/\?mode=answer&focus=1$/);
@@ -2965,11 +2999,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(startHereBox).not.toBeNull();
     expect(documentsHeadingBox).not.toBeNull();
     expect((documentsHeadingBox?.y ?? 0) + (documentsHeadingBox?.height ?? 0)).toBeLessThan(searchInputBox?.y ?? 0);
-    // Phones dock the compact composer at the bottom edge, below the hero content.
-    expect(searchInputBox?.y ?? 0).toBeGreaterThan(startHereBox?.y ?? 0);
-    await expect(page.locator('form.answer-footer-search-dock[data-footer-variant="compact"]')).toHaveCount(1);
+    // Phones keep the compact composer in the mode-home hero (above Start here),
+    // matching every other mode home — no fixed bottom dock on the empty home.
+    expect(searchInputBox?.y ?? 0).toBeLessThan(startHereBox?.y ?? 0);
+    await expect(page.locator('form.answer-footer-search-dock[data-footer-variant="compact"]')).toHaveCount(0);
+    await expect(page.locator(".mode-home-composer-slot").getByTestId("global-search-input")).toHaveCount(1);
     const recentDocumentsButton = page.getByRole("button", { name: /Recent documents/i }).first();
-    const browseLibraryButton = page.getByRole("button", { name: /Browse library/i }).first();
+    const browseLibraryButton = page.getByRole("button", { name: /Browse sources/i }).first();
     const sourcePdfButton = page.getByRole("button", { name: /Open a source PDF/i }).first();
     await expect(recentDocumentsButton).toBeVisible();
     await expect(browseLibraryButton).toBeVisible();
@@ -2983,11 +3019,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(recentDocumentsDialog).toHaveCount(0);
 
     await browseLibraryButton.click();
-    const sourceLibraryDialog = page.getByRole("dialog", { name: "Source library" });
+    const sourceLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(sourceLibraryDialog).toBeVisible();
-    await expect(sourceLibraryDialog.getByPlaceholder("Find a document")).toBeVisible();
+    await expect(sourceLibraryDialog.getByPlaceholder("Find a document")).toBeFocused();
+    await expect(sourceLibraryDialog.getByRole("group", { name: "Refine sources" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(sourceLibraryDialog).toHaveCount(0);
+    await expect(browseLibraryButton).toBeFocused();
 
     await sourcePdfButton.click();
     const sourcePdfDialog = page.getByRole("dialog", { name: "Source PDFs" });
@@ -3009,13 +3047,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await expect(page).toHaveURL(/\/documents\/search\?.*q=lithium\+monitoring/);
     const documentWorkspace = page.getByTestId("document-search-workspace");
-    await expect(documentWorkspace.getByRole("heading", { name: /document/i }).first()).toBeVisible();
-    await expect(documentWorkspace.getByTestId("document-results-controls")).toBeVisible();
-    const resultsControls = documentWorkspace.getByTestId("document-results-controls");
-    await expect(resultsControls.getByLabel("Sort results")).toBeVisible();
-    await expect(resultsControls.getByRole("button", { name: "Open document library" })).toBeVisible();
+    const queryRibbon = documentWorkspace.getByTestId("search-query-ribbon");
+    await expect(queryRibbon).toBeVisible();
+    const resultsControls = queryRibbon.getByTestId("document-results-controls");
+    await expect(resultsControls).toBeHidden();
+    await expect(queryRibbon.getByLabel("Sort results")).toBeVisible();
+    const mobileTypeFilter = queryRibbon.getByTestId("document-source-type-select");
+    await expect(mobileTypeFilter).toBeVisible();
+    await expect(mobileTypeFilter).toHaveAccessibleName("Filter by source type");
+    const ribbonSourcesButton = queryRibbon.getByRole("button", { name: "Open source filters" });
+    await expect(ribbonSourcesButton).toBeVisible();
+    await expectMinTouchTarget(ribbonSourcesButton);
     await expect(documentWorkspace.getByText("Documents overview")).toHaveCount(0);
-    await expect(documentWorkspace.getByRole("button", { name: /Browse library/i })).toHaveCount(0);
+    await expect(documentWorkspace.getByRole("button", { name: /Browse sources/i })).toHaveCount(0);
     await expect(page.getByTestId("cross-mode-links")).toHaveCount(0);
     await expect(page.getByText(/Also in your library/i)).toHaveCount(0);
 
@@ -3024,19 +3068,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults).toContainText("Best match");
     await expect(documentResults).toContainText("1 table");
 
-    const typeFilters = resultsControls.getByLabel("Filter by result type");
-    if ((await typeFilters.count()) > 0) {
-      const tablesFilter = typeFilters.getByRole("button", { name: /Tables/i });
-      await expect(tablesFilter).toBeVisible();
-      await tablesFilter.click();
-      await expect(tablesFilter).toHaveAttribute("aria-pressed", "true");
+    if ((await mobileTypeFilter.locator('option[value="tables"]').count()) > 0) {
+      await mobileTypeFilter.selectOption("tables");
+      await expect(mobileTypeFilter).toHaveValue("tables");
       await expect(documentResults).toBeVisible();
-      await typeFilters.getByRole("button", { name: /^All/i }).click();
+      await mobileTypeFilter.selectOption("all");
     }
 
-    await resultsControls.getByLabel("Sort results").selectOption("alpha");
+    await queryRibbon.getByLabel("Sort results").selectOption("alpha");
     await expect(page).toHaveURL(/[?&]sort=alpha/);
-    await resultsControls.getByLabel("Sort results").selectOption("relevance");
+    await queryRibbon.getByLabel("Sort results").selectOption("relevance");
 
     const openDocumentLink = documentResults
       .getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })
@@ -3051,11 +3092,31 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("complementary", { name: "Selected document evidence" })).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
 
-    await resultsControls.getByRole("button", { name: "Open document library" }).click();
-    const resultsLibraryDialog = page.getByRole("dialog", { name: "Source library" });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expectNoPageHorizontalOverflow(page);
+    await expect(resultsControls).toBeVisible();
+    const typeFilters = resultsControls.getByLabel("Filter by source type");
+    if ((await typeFilters.count()) > 0) {
+      const tablesFilter = typeFilters.getByRole("button", { name: /Tables/i });
+      await expect(tablesFilter).toBeVisible();
+      await expectMinTouchTarget(tablesFilter);
+    }
+    const dashboardMain = page.locator("main#main-content");
+    const scrollTopBeforeSources = await dashboardMain.evaluate((element) => element.scrollTop);
+    const openSourcesButton = queryRibbon.getByRole("button", { name: "Open source filters" });
+    await openSourcesButton.click();
+    const resultsLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(resultsLibraryDialog).toBeVisible();
+    await expect(resultsLibraryDialog.getByPlaceholder("Find a document")).toBeFocused();
+    const sourceDialogBox = await resultsLibraryDialog.boundingBox();
+    expect(sourceDialogBox).not.toBeNull();
+    expect(sourceDialogBox?.y ?? -1).toBeGreaterThanOrEqual(0);
+    expect((sourceDialogBox?.y ?? 0) + (sourceDialogBox?.height ?? 0)).toBeLessThanOrEqual(900);
+    await expect.poll(() => dashboardMain.evaluate((element) => element.scrollTop)).toBe(scrollTopBeforeSources);
+    await expect(page.locator("details#dashboard-documents-drawer")).not.toHaveAttribute("open", "");
     await page.keyboard.press("Escape");
     await expect(resultsLibraryDialog).toHaveCount(0);
+    await expect(openSourcesButton).toBeFocused();
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(documentResults).toBeVisible();
@@ -3087,7 +3148,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await switchToDocumentSearchMode(page);
     await page
-      .getByRole("button", { name: /Browse library/i })
+      .getByRole("button", { name: /Browse sources/i })
       .first()
       .click();
     await expect.poll(() => requestCounts.documents).toBe(1);
@@ -3104,7 +3165,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.getByRole("button", { name: "Mode Tools" })).toBeVisible();
     await expect(page.locator('input[placeholder="Search tools..."]:visible').first()).toHaveValue("medications");
     await expect(page.getByTestId("tools-hub")).toBeVisible();
-    await expect(page.getByTestId("tools-hub").getByRole("heading", { name: "All tools" })).toBeVisible();
+    const queryRibbon = page.getByTestId("tools-hub").getByTestId("search-query-ribbon");
+    await expect(queryRibbon.getByRole("heading", { name: "medications" })).toBeVisible();
+    await expect(queryRibbon.getByRole("group", { name: "Filter tools by category" })).toBeVisible();
     await expect(page.getByTestId("tools-hub").getByTestId("application-row-medication-prescribing")).toContainText(
       "Medication Prescribing",
     );
