@@ -106,13 +106,21 @@ export function computeScrollHideUpdate(params: {
   // offset beyond the new maximum becomes impossible. The browser clamps both
   // values downward; that apparent upward movement is geometry feedback, not
   // reveal intent. Hold hidden and rebase until the range stabilizes.
+  //
+  // Guard: only suppress when the net offset is within revealIntentDistance of
+  // the new bottom edge. RAF debouncing coalesces a layout-clamp event with any
+  // immediately-following user scroll into one evaluation. If the combined
+  // offset is more than revealIntentDistance below the new maximum the user has
+  // already supplied enough upward intent to reveal; treat it as user gesture,
+  // not geometry feedback.
   if (
     currentlyHidden &&
     maxOffset !== undefined &&
     previousMaxOffset !== undefined &&
     maxOffset < previousMaxOffset &&
     offset < lastOffset &&
-    lastOffset > maxOffset
+    lastOffset > maxOffset &&
+    offset >= maxOffset - revealIntentDistance
   ) {
     return { hidden: true, lastOffset: offset, direction: null, directionTravel: 0 };
   }
