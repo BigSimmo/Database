@@ -152,7 +152,9 @@ describe("ClinicalDashboard merge-artifact guards", () => {
 
     expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
     expect(documentViewerSource).toContain('"max-sm:pb-0"');
-    expect(documentViewerSource).toContain('"max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"');
+    expect(documentViewerSource).toContain(
+      '"max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]"',
+    );
     // Hidden document content must not reintroduce Safari toolbar inset padding.
     expect(documentViewerSource).not.toMatch(/composerScrollHidden\s*\?\s*["']max-sm:pb-\[calc\([^"']*safe-area/);
     expect(documentViewerSource).toContain("max-sm:duration-[240ms]");

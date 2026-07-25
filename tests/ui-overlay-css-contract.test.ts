@@ -72,8 +72,11 @@ describe("overlay and global CSS contracts", () => {
     expect(read("src/components/clinical-dashboard/mobile-composer-reserve.ts")).toContain(
       'export const mobileComposerHiddenReserve = "0rem"',
     );
+    expect(globalStylesSource).toContain(
+      '.document-viewer-composer.floating-composer-edge:not([data-scroll-hidden="true"])',
+    );
     expect(read("src/components/DocumentViewer.tsx")).toContain(
-      'composerScrollHidden ? "max-sm:pb-0" : "max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"',
+      '"max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]"',
     );
   });
   it("keeps the remembered search chrome rules aligned with the hidden reserve contract", () => {

@@ -1846,6 +1846,13 @@ summary::-webkit-details-marker {
     transform: translateY(calc(100% + 0.75rem + env(safe-area-inset-bottom)));
   }
 
+  /* Document viewer owns its floating composer (not the shared dock). Lift it
+     with the same --keyboard-height signal so overlay/visual keyboards do not
+     cover the focused input on document detail/source routes. */
+  .document-viewer-composer.floating-composer-edge:not([data-scroll-hidden="true"]) {
+    transform: translateY(calc(-1 * var(--keyboard-height, 0px)));
+  }
+
   /* Document viewer bottom composer mirrors the dock's hide-on-scroll. Unlike
      the full-bleed dock it floats with a bottom gap (.floating-composer-edge,
      bottom: max(0.75rem, safe-area)), so the exit transform must also clear
