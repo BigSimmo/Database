@@ -428,59 +428,61 @@
 }
 
 /* Reset and base document styles */
-* {
-  box-sizing: border-box;
-}
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
 
-html {
-  min-width: 320px;
-  min-height: 100%;
-  min-height: 100svh;
-  min-height: 100dvh;
-  background-color: var(--background);
-  overflow-x: clip;
-  overscroll-behavior-x: none;
-  scroll-padding-top: calc(4rem + env(safe-area-inset-top));
-}
+  html {
+    min-width: 320px;
+    min-height: 100%;
+    min-height: 100svh;
+    min-height: 100dvh;
+    background-color: var(--background);
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+    scroll-padding-top: calc(4rem + env(safe-area-inset-top));
+  }
 
-/*
- * Interface density scales the rem baseline so every rem-based size shifts
- * together. "Comfortable" is the browser default (16px) and sets no attribute,
- * so the untouched default experience is unchanged. The attribute is applied on
- * <html> before first paint (layout.tsx inline script) and kept in sync by
- * useAppPreferences. The unlayered 16px mobile input floor above still wins for
- * form controls so iOS never zooms.
- */
-html[data-density="compact"] {
-  font-size: 15px;
-}
+  /*
+   * Interface density scales the rem baseline so every rem-based size shifts
+   * together. "Comfortable" is the browser default (16px) and sets no attribute,
+   * so the untouched default experience is unchanged. The attribute is applied on
+   * <html> before first paint (layout.tsx inline script) and kept in sync by
+   * useAppPreferences. The unlayered 16px mobile input floor above still wins for
+   * form controls so iOS never zooms.
+   */
+  html[data-density="compact"] {
+    font-size: 15px;
+  }
 
-html[data-density="spacious"] {
-  font-size: 17px;
-}
+  html[data-density="spacious"] {
+    font-size: 17px;
+  }
 
-body {
-  min-height: 100%;
-  min-height: 100svh;
-  min-height: 100dvh;
-  background: var(--background);
-  color: var(--text);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
-  font-feature-settings:
-    "liga" 1,
-    "calt" 1,
-    "ss01" 1;
-  text-rendering: optimizeLegibility;
-  overflow-x: clip;
-  overscroll-behavior-x: none;
-}
+  body {
+    min-height: 100%;
+    min-height: 100svh;
+    min-height: 100dvh;
+    background: var(--background);
+    color: var(--text);
+    font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+    font-feature-settings:
+      "liga" 1,
+      "calt" 1,
+      "ss01" 1;
+    text-rendering: optimizeLegibility;
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+  }
 
-/* Interactive element defaults */
-button,
-input,
-textarea,
-select {
-  font: inherit;
+  /* Interactive element defaults */
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
 }
 
 /*

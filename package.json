@@ -27,6 +27,7 @@
     "typecheck": "node scripts/run-heavy.mjs --npm-script typecheck:internal",
     "typecheck:internal": "node ./node_modules/typescript/bin/tsc --noEmit",
     "test": "node scripts/run-vitest.mjs run --reporter=dot",
+    "test:standalone": "node scripts/run-vitest.mjs --no-heavy-lock run --reporter=dot",
     "test:focused": "node scripts/test-focused.mjs",
     "test:live": "node scripts/run-live-tests.mjs",
     "test:coverage": "node scripts/run-vitest.mjs run --coverage",

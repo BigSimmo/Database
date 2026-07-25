@@ -3581,6 +3581,7 @@ AS $function$
 declare
   v_request_id bigint;
   v_jwt text;
+  v_base_url text;
   v_limit integer := greatest(1, least(coalesce("p_limit", 25), 200));
 begin
   select "decrypted_secret" into v_jwt
@@ -3592,8 +3593,13 @@ begin
     raise exception 'Missing Vault secret: cron_ingestion_jwt';
   end if;
 
+  v_base_url := coalesce(
+    nullif(current_setting('app.ingestion_worker_base_url', true), ''),
+    'https://sjrfecxgysukkwxsowpy.supabase.co'
+  );
+
   select "net"."http_post"(
-    url := 'https://sjrfecxgysukkwxsowpy.supabase.co/functions/v1/ingestion-worker?limit=' || v_limit::text,
+    url := v_base_url || '/functions/v1/ingestion-worker?limit=' || v_limit::text,
     headers := jsonb_build_object(
       'Content-Type','application/json',
       'Authorization','Bearer ' || v_jwt
@@ -9093,3 +9099,9 @@ begin
   end if;
 end;
 $$;
+
+-- Explicit function revokes (ISSUE-05)
+revoke execute on function public.detect_legacy_ivfflat_indexes() from public, anon, authenticated;
+revoke execute on function public.document_summary_text(uuid) from public, anon, authenticated;
+revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
+revoke execute on function public.set_document_embedding_field_content_hash() from public, anon, authenticated;

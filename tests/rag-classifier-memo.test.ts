@@ -42,7 +42,7 @@ function fallbackQueryAnalysis(
 ) {
   // A bare condition query is exactly the class that needs the LLM fallback (deterministic
   // confidence below 0.58 with class unsupported_or_general) — the finding #11 shape.
-  const query = "bipolar disorder";
+  const query = "unknown obscure disease";
   const analysis = analyzeClinicalQuery(query);
   expect(analysis.needsClassifierFallback).toBe(true);
   return { query, analysis };

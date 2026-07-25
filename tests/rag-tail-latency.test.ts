@@ -346,7 +346,7 @@ describe("RAG search bootstrap and latency telemetry", () => {
     const controller = new AbortController();
 
     const pending = loaded.searchChunksWithTelemetry({
-      query: "bipolar disorder",
+      query: "unknown obscure disease",
       ownerId,
       lexicalOnly: true,
       signal: controller.signal,
