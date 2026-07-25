@@ -179,6 +179,39 @@ describe("computeScrollHideUpdate", () => {
     expect(revealed.direction).toBe("up");
   });
 
+  it("reveals when a genuine upward scroll is coalesced with a prior layout clamp", () => {
+    // RAF debouncing coalesces a layout-clamp scroll event with any
+    // immediately-following user scroll into a single RAF evaluation. The hook
+    // reads the FINAL offset (newMaxOffset - userScroll) but lastMaxOffsetRef
+    // still holds the pre-collapse maximum. The net offset is more than
+    // revealIntentDistance (12px) below the new bottom edge, so the clamp
+    // detection must yield to the upward-scroll reveal path.
+    const result = computeScrollHideUpdate({
+      offset: 904, // newMaxOffset (928) - 24px deliberate scroll
+      lastOffset: 1000, // stale: pre-collapse jump-to-bottom offset
+      maxOffset: 928, // new max after 72px in-flow header collapse
+      previousMaxOffset: 1000, // stale: pre-collapse max (lastMaxOffsetRef)
+      currentlyHidden: true,
+      direction: null,
+      directionTravel: 0,
+    });
+    expect(result.hidden).toBe(false);
+    expect(result.direction).toBe("up");
+
+    // A small simultaneous bounce (<= revealIntentDistance) must still be
+    // treated as geometry feedback, not user intent.
+    const stillHidden = computeScrollHideUpdate({
+      offset: 918, // newMaxOffset (928) - 10px (below revealIntentDistance)
+      lastOffset: 1000,
+      maxOffset: 928,
+      previousMaxOffset: 1000,
+      currentlyHidden: true,
+      direction: null,
+      directionTravel: 0,
+    });
+    expect(stillHidden.hidden).toBe(true);
+  });
+
   it("does not reveal on a small phantom clamp when the offset stays pinned to the bottom", () => {
     // Single frame: a 4px upward clamp while glued to the bottom edge. The old
     // guard required the previous offset to sit more than `minimumDelta` above
@@ -291,6 +324,139 @@ describe("computeScrollHideUpdate", () => {
       direction: "down",
       directionTravel: 100,
     });
+  });
+
+  it("allows a reserve-only overlay to hide when its post-collapse range retains deliberate hide intent", () => {
+    // Measured compact Answer result at 390x844 without synthetic content:
+    // 159px visible range - 120px reserve = 39px after hiding. A fixed overlay
+    // can hide after the 8px top band + 24px intent without collapsing in-flow
+    // header geometry or clamping materially.
+    const hidden = computeScrollHideUpdate({
+      offset: 40,
+      lastOffset: 0,
+      maxOffset: 159,
+      collapseBudget: 120,
+      collapseKind: "reserve-only",
+      currentlyHidden: false,
+    });
+    expect(hidden.hidden).toBe(true);
+
+    const clamped = computeScrollHideUpdate({
+      offset: 39,
+      lastOffset: hidden.lastOffset,
+      maxOffset: 39,
+      currentlyHidden: hidden.hidden,
+      direction: hidden.direction,
+      directionTravel: hidden.directionTravel,
+    });
+    expect(clamped.hidden).toBe(true);
+    expect(
+      computeScrollHideUpdate({
+        offset: 20,
+        lastOffset: clamped.lastOffset,
+        maxOffset: 39,
+        currentlyHidden: clamped.hidden,
+        direction: clamped.direction,
+        directionTravel: clamped.directionTravel,
+      }).hidden,
+    ).toBe(false);
+
+    // The same geometry remains protected when an in-flow header participates.
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 159,
+        collapseBudget: 120,
+        collapseKind: "in-flow",
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(false);
+
+    // A genuinely short reserve-only result would collapse below the deliberate
+    // hide threshold and still risks a top/bottom clamp cycle, so it stays visible.
+    expect(
+      computeScrollHideUpdate({
+        offset: 40,
+        lastOffset: 0,
+        maxOffset: 145,
+        collapseBudget: 120,
+        collapseKind: "reserve-only",
+        currentlyHidden: false,
+      }).hidden,
+    ).toBe(false);
+
+    // Near-bottom hides must stay refused even when the post-collapse range is
+    // long enough: offset 180 would clamp onto 80 and jump content under the finger.
+    expect(
+      computeScrollHideUpdate({
+        offset: 180,
+        lastOffset: 160,
+        maxOffset: 200,
+        collapseBudget: 120,
+        collapseKind: "reserve-only",
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(false);
+  });
+
+  it("uses a shrinking scroll range, not pixel tolerance, to identify a reserve-collapse clamp", () => {
+    // Real PageDown frame from the compact Answer result at 390x844. The
+    // animated reserve shrink moved the browser's maximum from 160px to 127px;
+    // compositor rounding left scrollTop 1.03px below that integer maximum.
+    // This is layout feedback near the new bottom, not upward user intent.
+    expect(
+      computeScrollHideUpdate({
+        offset: 125.9683,
+        lastOffset: 160.5079,
+        maxOffset: 127,
+        previousMaxOffset: 160,
+        collapseBudget: 23.3347,
+        collapseKind: "reserve-only",
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 160.5079,
+      }),
+    ).toEqual({
+      hidden: true,
+      lastOffset: 125.9683,
+      direction: null,
+      directionTravel: 0,
+    });
+
+    // The same fractional positions are a genuine upward gesture once the
+    // scroll range is stable; no bottom-edge tolerance may suppress it.
+    expect(
+      computeScrollHideUpdate({
+        offset: 125.9683,
+        lastOffset: 160.5079,
+        maxOffset: 127,
+        previousMaxOffset: 127,
+        collapseKind: "reserve-only",
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 160.5079,
+      }).hidden,
+    ).toBe(false);
+
+    // Range shrink alone is insufficient: if the old position still fits
+    // inside the new range, the browser did not have to clamp it.
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 120,
+        maxOffset: 127,
+        previousMaxOffset: 160,
+        collapseKind: "reserve-only",
+        currentlyHidden: true,
+        direction: "down",
+        directionTravel: 120,
+      }).hidden,
+    ).toBe(false);
   });
 
   it("hides normally when ample runway remains below the collapse release", () => {

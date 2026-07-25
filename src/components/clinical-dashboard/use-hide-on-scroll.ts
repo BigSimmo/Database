@@ -26,9 +26,9 @@ const minimumDelta = 4;
 // chrome at a direction change.
 const hideIntentDistance = 24;
 const revealIntentDistance = 12;
-// How close to the bottom edge (px) counts as "pinned to the bottom". When the
-// offset is this near the maximum, an upward reading is the viewport growing
-// under a collapsing header rather than a real scroll, so it must not reveal.
+// How close to the stable bottom edge (px) counts as "pinned to the bottom".
+// Keep this strict for iOS rubber-band readings; animated layout clamps are
+// identified from the changing scroll range instead of pixel proximity.
 const bottomClampTolerance = 1;
 // Hiding the chrome releases its layout space back to the scroller (header
 // grid collapse + dock reserve-pad shrink), shrinking maxOffset by the same
@@ -47,12 +47,18 @@ export interface ScrollMetrics {
   maxOffset?: number;
   /**
    * Layout px the chrome would release if it hid right now (see
-   * readChromeCollapseBudget). When provided together with maxOffset, hiding
-   * is refused unless enough runway remains below the offset to absorb the
-   * release. Omitted by consumers whose chrome does not change scroll
-   * geometry when hiding.
+   * readChromeCollapseMetrics). In-flow collapse requires enough runway below
+   * the current offset to absorb the release; reserve-only overlays require
+   * the resulting range to retain top reveal plus deliberate hide intent.
+   * Omitted by consumers whose chrome does not change scroll geometry.
    */
   collapseBudget?: number;
+  /**
+   * A fixed-viewport overlay only removes tail clearance; it does not collapse
+   * an in-flow header or resize the scrollport. That path can safely hide when
+   * the post-collapse range retains the top reveal band plus deliberate intent.
+   */
+  collapseKind?: "in-flow" | "reserve-only";
   source?: EventTarget;
 }
 
@@ -61,7 +67,9 @@ export function computeScrollHideUpdate(params: {
   offset: number;
   lastOffset: number;
   maxOffset?: number;
+  previousMaxOffset?: number;
   collapseBudget?: number;
+  collapseKind?: "in-flow" | "reserve-only";
   sourceChanged?: boolean;
   currentlyHidden: boolean;
   direction?: ScrollDirection;
@@ -76,7 +84,9 @@ export function computeScrollHideUpdate(params: {
     offset,
     lastOffset,
     maxOffset,
+    previousMaxOffset,
     collapseBudget,
+    collapseKind,
     sourceChanged = false,
     currentlyHidden,
     direction = null,
@@ -93,20 +103,31 @@ export function computeScrollHideUpdate(params: {
     return { hidden: false, lastOffset: offset, direction: null, directionTravel: 0 };
   }
 
-  // Collapsing in-flow chrome grows the scroll viewport: as the header hands its
-  // height back to the content, the browser clamps scrollTop to the new, smaller
-  // maximum and emits an apparent upward scroll even though the user is moving
-  // down or holding at the bottom. A collapse animates over several frames, so
-  // this clamp repeats frame after frame; if any frame's phantom "up" reveals
-  // the chrome, the viewport shrinks again and a hide/reveal scroll-bounce
-  // begins. While the chrome is hidden and the offset stays pinned to the bottom
-  // edge, treat every upward reading as layout feedback — hold the hidden state
-  // and rebase intent so only a genuine upward scroll (one that pulls the offset
-  // clear of the bottom) can reveal. This intentionally does not depend on the
-  // previous offset's relationship to the maximum, which the browser's per-frame
-  // clamping makes unreliable during the collapse.
+  // When hidden chrome releases layout, the scroll range shrinks and a previous
+  // offset beyond the new maximum becomes impossible. The browser clamps both
+  // values downward; that apparent upward movement is geometry feedback, not
+  // reveal intent. Hold hidden and rebase until the range stabilizes.
   //
-  // The bottom test is deliberately one-sided (`offset >= maxOffset - tol`, not
+  // Guard: only suppress when the net offset is within revealIntentDistance of
+  // the new bottom edge. RAF debouncing coalesces a layout-clamp event with any
+  // immediately-following user scroll into one evaluation. If the combined
+  // offset is more than revealIntentDistance below the new maximum the user has
+  // already supplied enough upward intent to reveal; treat it as user gesture,
+  // not geometry feedback.
+  if (
+    currentlyHidden &&
+    maxOffset !== undefined &&
+    previousMaxOffset !== undefined &&
+    maxOffset < previousMaxOffset &&
+    offset < lastOffset &&
+    lastOffset > maxOffset &&
+    offset >= maxOffset - revealIntentDistance
+  ) {
+    return { hidden: true, lastOffset: offset, direction: null, directionTravel: 0 };
+  }
+
+  // The stable-bottom test is deliberately one-sided
+  // (`offset >= maxOffset - tol`, not
   // `|offset - maxOffset| <= tol`): iOS rubber-band overscroll at the bottom can
   // report a scrollTop *past* the maximum, and while the content springs back
   // the reading moves up. That is still the bottom edge, not a scroll away from
@@ -126,20 +147,34 @@ export function computeScrollHideUpdate(params: {
   const nextDirectionTravel = nextDirection === direction ? directionTravel + Math.abs(delta) : Math.abs(delta);
   let hidden = currentlyHidden;
 
-  if (!currentlyHidden && nextDirection === "down" && offset > hideActivationOffset) {
-    // Only count travel beyond the activation band. This stops a single flick
-    // from the top hiding the chrome the instant it clears the header height.
-    const travelPastActivation = Math.min(nextDirectionTravel, offset - hideActivationOffset);
-    // Refuse to hide when the geometry the chrome would release exceeds the
-    // remaining runway (see collapseRunwaySlack above). Short pages then keep
-    // their chrome and scroll plainly; long pages simply never start a hide
-    // this close to the bottom edge.
+  const effectiveHideActivationOffset = collapseKind === "reserve-only" ? topRevealOffset : hideActivationOffset;
+  if (!currentlyHidden && nextDirection === "down" && offset > effectiveHideActivationOffset) {
+    // In-flow chrome waits beyond its header-height band; fixed overlays begin
+    // counting deliberate intent after the small top reveal band.
+    const travelPastActivation = Math.min(nextDirectionTravel, offset - effectiveHideActivationOffset);
+    // In-flow chrome must have enough remaining runway to absorb its release
+    // (see collapseRunwaySlack above). Reserve-only overlays use the separate
+    // post-collapse range test below.
     const runwayAfterCollapse =
       maxOffset === undefined || collapseBudget === undefined
         ? Number.POSITIVE_INFINITY
         : maxOffset - offset - collapseBudget;
-    hidden =
-      travelPastActivation >= hideIntentDistance && runwayAfterCollapse > revealIntentDistance + collapseRunwaySlack;
+    const postCollapseMaxOffset =
+      maxOffset === undefined || collapseBudget === undefined
+        ? Number.POSITIVE_INFINITY
+        : Math.max(0, maxOffset - collapseBudget);
+    // Reserve-only overlays keep the viewport geometry stable; requiring their
+    // resulting range to retain top-reveal + hide-intent distance prevents a
+    // material clamp while allowing genuinely compact results to hide. Also
+    // refuse when the current offset would not fit the post-collapse range —
+    // otherwise a near-bottom hide clamps the page under the finger even when
+    // the resulting range itself is long enough for deliberate intent.
+    const collapseHasSafeRunway =
+      collapseKind === "reserve-only"
+        ? postCollapseMaxOffset >= effectiveHideActivationOffset + hideIntentDistance &&
+          offset <= postCollapseMaxOffset + bottomClampTolerance
+        : runwayAfterCollapse > revealIntentDistance + collapseRunwaySlack;
+    hidden = travelPastActivation >= hideIntentDistance && collapseHasSafeRunway;
   } else if (currentlyHidden && nextDirection === "up" && nextDirectionTravel >= revealIntentDistance) {
     hidden = false;
   }
@@ -162,9 +197,12 @@ export function computeScrollHideUpdate(params: {
  * `document-viewer-content` for DocumentViewer's own clearance (its hidden
  * `pb-3` equals the shared 0.75rem hidden reserve), falling back to the
  * scroller's own padding exactly like tests/playwright-scroll.ts. Call from
- * inside a scroll handler, where layout is already flushed.
+ * inside a scroll handler, where layout is already flushed. The returned kind
+ * distinguishes in-flow collapse from a fixed overlay that only sheds reserve.
  */
-export function readChromeCollapseBudget(scroller: HTMLElement): number {
+export function readChromeCollapseMetrics(
+  scroller: HTMLElement,
+): Pick<ScrollMetrics, "collapseBudget" | "collapseKind"> {
   const collapse = document.querySelector('[data-testid="universal-header-collapse"]');
   // The 1fr -> 0fr grid IS the collapse mechanism, so the wrapper only hands
   // layout back while it is a grid at the current width. Where it sticks and
@@ -185,7 +223,10 @@ export function readChromeCollapseBudget(scroller: HTMLElement): number {
   const viewerPad = scroller.querySelector('[data-testid="document-viewer-content"]');
   const reserveRelease =
     reservePad || viewerPad ? padRelease(reservePad) + padRelease(viewerPad) : padRelease(scroller);
-  return headerRelease + reserveRelease;
+  return {
+    collapseBudget: headerRelease + reserveRelease,
+    collapseKind: collapse instanceof HTMLElement ? "in-flow" : reserveRelease > 0 ? "reserve-only" : undefined,
+  };
 }
 
 function subscribeToPhoneMedia(onChange: () => void) {
@@ -217,6 +258,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
   const [hidden, setHidden] = useState(false);
   const hiddenRef = useRef(false);
   const lastOffsetRef = useRef(0);
+  const lastMaxOffsetRef = useRef<number | undefined>(undefined);
   const directionRef = useRef<ScrollDirection>(null);
   const directionTravelRef = useRef(0);
   const scrollSourceRef = useRef<EventTarget | null>(null);
@@ -225,24 +267,40 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
 
   const reportScroll = useCallback(
     (report: number | ScrollMetrics) => {
-      const { offset, maxOffset, collapseBudget, source } =
+      const { offset, maxOffset, collapseBudget, collapseKind, source } =
         typeof report === "number"
-          ? { offset: report, maxOffset: undefined, collapseBudget: undefined, source: undefined }
+          ? {
+              offset: report,
+              maxOffset: undefined,
+              collapseBudget: undefined,
+              collapseKind: undefined,
+              source: undefined,
+            }
           : report;
-      if (!active || offset < 0) return;
+      if (!active) return;
       const lastOffset = lastOffsetRef.current;
       const delta = offset - lastOffset;
       const sourceChanged = source !== undefined && hasScrollSourceRef.current && scrollSourceRef.current !== source;
+      const previousMaxOffset = sourceChanged ? undefined : lastMaxOffsetRef.current;
+      const comparableRangeChanged =
+        previousMaxOffset !== undefined && maxOffset !== undefined && previousMaxOffset !== maxOffset;
       if (source !== undefined) {
         scrollSourceRef.current = source;
         hasScrollSourceRef.current = true;
       }
-      if (!sourceChanged && Math.abs(delta) < minimumDelta && offset > topRevealOffset) return;
+      // Baseline each metrics report, even when movement itself is too small to
+      // evaluate. Undefined explicitly clears stale geometry for numeric reports.
+      lastMaxOffsetRef.current = maxOffset;
+      if (offset < 0) return;
+      if (!sourceChanged && !comparableRangeChanged && Math.abs(delta) < minimumDelta && offset > topRevealOffset)
+        return;
       const update = computeScrollHideUpdate({
         offset,
         lastOffset,
         maxOffset,
+        previousMaxOffset,
         collapseBudget,
+        collapseKind,
         sourceChanged,
         currentlyHidden: hiddenRef.current,
         direction: directionRef.current,
@@ -261,6 +319,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     if (active) return undefined;
     hiddenRef.current = false;
     lastOffsetRef.current = 0;
+    lastMaxOffsetRef.current = undefined;
     directionRef.current = null;
     directionTravelRef.current = 0;
     scrollSourceRef.current = null;
@@ -277,6 +336,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
   useEffect(() => {
     hiddenRef.current = false;
     lastOffsetRef.current = 0;
+    lastMaxOffsetRef.current = undefined;
     directionRef.current = null;
     directionTravelRef.current = 0;
     scrollSourceRef.current = null;
@@ -378,7 +438,7 @@ export function useHideOnScroll({
         return {
           offset: container.scrollTop,
           maxOffset: Math.max(0, container.scrollHeight - container.clientHeight),
-          collapseBudget: readChromeCollapseBudget(container),
+          ...readChromeCollapseMetrics(container),
           source: container,
         };
       }
