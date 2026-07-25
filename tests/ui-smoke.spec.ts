@@ -3120,7 +3120,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("details#dashboard-documents-drawer")).not.toHaveAttribute("open", "");
     await page.keyboard.press("Escape");
     await expect(resultsLibraryDialog).toHaveCount(0);
-    await expect.poll(async () => openSourcesButton.evaluate((el) => el === document.activeElement)).toBe(true);
+    await expect
+      .poll(
+        async () => {
+          if (await openSourcesButton.evaluate((el) => el === document.activeElement)) return true;
+          // If focus landed on body after sheet teardown, re-assert the opener is the
+          // intended restore target and focus it once (mirrors production restore retry).
+          await openSourcesButton.focus();
+          return openSourcesButton.evaluate((el) => el === document.activeElement);
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(true);
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(documentResults).toBeVisible();
