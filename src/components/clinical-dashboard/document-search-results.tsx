@@ -28,7 +28,10 @@ import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { isDeployedClinicalKb } from "@/lib/deployed-app";
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 import { SafeBoldText } from "@/components/SafeBoldText";
@@ -408,7 +411,7 @@ function DocumentSourceTypeFilters({
               aria-pressed={active}
               onClick={() => onResultTypeChange(tab.key)}
               className={cn(
-                "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-2xs font-bold transition motion-reduce:transition-none sm:min-h-9 sm:text-xs",
+                "inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-2xs font-bold transition motion-reduce:transition-none sm:text-xs",
                 "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
                 active
                   ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]"
@@ -903,6 +906,21 @@ function DocumentSearchResultsPanelImpl({
             ) : null
           }
           filterLabel="Filter documents by source type"
+          mobileControls={
+            showResultsControls && resultTabs.length > 1 ? (
+              <MobileResultFilterControl
+                label="Show"
+                ariaLabel="Filter by source type"
+                testId="document-source-type-select"
+                value={effectiveResultType}
+                options={resultTabs.map((tab) => ({
+                  value: tab.key,
+                  label: `${tab.label} (${tab.count})`,
+                }))}
+                onChange={setActiveResultType}
+              />
+            ) : null
+          }
           filterControls={
             showResultsControls && resultTabs.length > 1 ? (
               <DocumentSourceTypeFilters

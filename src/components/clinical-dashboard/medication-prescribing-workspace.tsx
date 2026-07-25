@@ -21,7 +21,10 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { considerationSummaryBadge } from "@/components/clinical-dashboard/medication-considerations";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
@@ -467,6 +470,19 @@ function MedicationResults({
         matchCount={resultCount}
         loading={catalog.loading}
         filterLabel="Filter medication results"
+        mobileControls={
+          <MobileResultFilterControl
+            label="Show"
+            ariaLabel="Filter medication results"
+            testId="medication-result-filter-select"
+            value={activeFilter}
+            options={medicationResultFilters.map((filter) => ({
+              value: filter.id,
+              label: `${filter.label} (${counts[filter.id]})`,
+            }))}
+            onChange={setActiveFilter}
+          />
+        }
         filterControls={<FilterStrip activeFilter={activeFilter} counts={counts} onFilterChange={setActiveFilter} />}
       />
 

@@ -14,7 +14,10 @@ import {
 } from "lucide-react";
 
 import { ModeHomeMain, ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import {
   CategoryTag,
   ReviewStatusBadge,
@@ -30,7 +33,7 @@ import {
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
-import { searchSpecifiers, specifierSearchPresets, type SpecifierFamily } from "@/lib/specifiers";
+import { searchSpecifiers, specifierFamilies, specifierSearchPresets, type SpecifierFamily } from "@/lib/specifiers";
 import { searchSpecifierCatalog, type SpecifierCatalogMatch } from "@/lib/specifiers-search-index";
 
 // The curated set covers a small number of high-signal mood-episode specifiers.
@@ -262,6 +265,26 @@ function SpecifierResults({ query }: { query: string }) {
         matchCount={totalMatches}
         headingLevel={1}
         filterLabel="Filter specifier results"
+        mobileControls={
+          <div className="grid min-w-0 grid-cols-2 gap-1.5">
+            <MobileResultFilterControl
+              label="Family"
+              ariaLabel="Filter by specifier family"
+              testId="specifier-family-select"
+              value={family}
+              options={specifierFamilies.map((option) => ({ value: option.id, label: option.shortLabel }))}
+              onChange={setFamily}
+            />
+            <MobileResultFilterControl
+              label="Diagnosis"
+              ariaLabel="Filter by diagnosis"
+              testId="specifier-diagnosis-select"
+              value={diagnosis}
+              options={diagnosisOptions}
+              onChange={setDiagnosis}
+            />
+          </div>
+        }
         filterControls={
           <div className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2.5">
             <SpecifierFamilyFilterChips value={family} onChange={setFamily} />

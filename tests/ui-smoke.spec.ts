@@ -2603,6 +2603,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect(queryRibbon.getByRole("heading", { name: "sertraline" })).toBeVisible();
       await expect(queryRibbon.getByRole("group", { name: "Result view" })).toBeVisible();
       await expect(queryRibbon.getByRole("group", { name: "Filter factsheets by category" })).toBeVisible();
+      const categorySelect = queryRibbon.getByTestId("factsheet-category-select");
+      if (viewport.width < 640) {
+        await expect(categorySelect).toBeVisible();
+        await expect(categorySelect).toHaveAccessibleName("Filter factsheets by category");
+      } else {
+        await expect(categorySelect).toBeHidden();
+      }
       await expectNoPageHorizontalOverflow(page);
     }
   });
@@ -3042,9 +3049,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const documentWorkspace = page.getByTestId("document-search-workspace");
     const queryRibbon = documentWorkspace.getByTestId("search-query-ribbon");
     await expect(queryRibbon).toBeVisible();
-    await expect(queryRibbon.getByTestId("document-results-controls")).toBeVisible();
     const resultsControls = queryRibbon.getByTestId("document-results-controls");
+    await expect(resultsControls).toBeHidden();
     await expect(queryRibbon.getByLabel("Sort results")).toBeVisible();
+    const mobileTypeFilter = queryRibbon.getByTestId("document-source-type-select");
+    await expect(mobileTypeFilter).toBeVisible();
+    await expect(mobileTypeFilter).toHaveAccessibleName("Filter by source type");
     const ribbonSourcesButton = queryRibbon.getByRole("button", { name: "Open source filters" });
     await expect(ribbonSourcesButton).toBeVisible();
     await expectMinTouchTarget(ribbonSourcesButton);
@@ -3058,15 +3068,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(documentResults).toContainText("Best match");
     await expect(documentResults).toContainText("1 table");
 
-    const typeFilters = resultsControls.getByLabel("Filter by source type");
-    if ((await typeFilters.count()) > 0) {
-      const tablesFilter = typeFilters.getByRole("button", { name: /Tables/i });
-      await expect(tablesFilter).toBeVisible();
-      await expectMinTouchTarget(tablesFilter);
-      await tablesFilter.click();
-      await expect(tablesFilter).toHaveAttribute("aria-pressed", "true");
+    if ((await mobileTypeFilter.locator('option[value="tables"]').count()) > 0) {
+      await mobileTypeFilter.selectOption("tables");
+      await expect(mobileTypeFilter).toHaveValue("tables");
       await expect(documentResults).toBeVisible();
-      await typeFilters.getByRole("button", { name: /^All/i }).click();
+      await mobileTypeFilter.selectOption("all");
     }
 
     await queryRibbon.getByLabel("Sort results").selectOption("alpha");
@@ -3088,6 +3094,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await expectNoPageHorizontalOverflow(page);
+    await expect(resultsControls).toBeVisible();
+    const typeFilters = resultsControls.getByLabel("Filter by source type");
+    if ((await typeFilters.count()) > 0) {
+      const tablesFilter = typeFilters.getByRole("button", { name: /Tables/i });
+      await expect(tablesFilter).toBeVisible();
+      await expectMinTouchTarget(tablesFilter);
+    }
     const dashboardMain = page.locator("main#main-content");
     const scrollTopBeforeSources = await dashboardMain.evaluate((element) => element.scrollTop);
     const openSourcesButton = queryRibbon.getByRole("button", { name: "Open source filters" });

@@ -26,6 +26,7 @@ import { cn } from "@/components/ui-primitives";
 import { ModeHomeStatusNotice } from "@/components/mode-home-template";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
+  MobileResultFilterControl,
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
   SearchResultsSkeleton,
@@ -600,6 +601,10 @@ export function ServicesNavigatorPage() {
     }
   }
 
+  const activeQuickFilter = serviceQuickFilters.find(
+    (filter) => filter.query.toLowerCase() === query.trim().toLowerCase(),
+  );
+
   return (
     <SearchResultsLayout
       testId="services-navigator"
@@ -620,6 +625,23 @@ export function ServicesNavigatorPage() {
             sortValue={sortValue}
             onSortChange={setSortValue}
             filterLabel="Quick service filters"
+            mobileControls={
+              <MobileResultFilterControl
+                label="Filter"
+                ariaLabel="Apply a quick service filter"
+                testId="service-quick-filter-select"
+                value={activeQuickFilter?.query ?? "current"}
+                options={[
+                  ...(activeQuickFilter
+                    ? []
+                    : [{ value: "current", label: query.trim() ? "Current search" : "All services", disabled: true }]),
+                  ...serviceQuickFilters.map((filter) => ({ value: filter.query, label: filter.label })),
+                ]}
+                onChange={(value) => {
+                  if (value !== "current") applyServiceQuery(value);
+                }}
+              />
+            }
             filterControls={
               <div className="flex min-w-0 items-center gap-2">
                 <span className="hidden shrink-0 items-center gap-1.5 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-soft)] sm:inline-flex">
