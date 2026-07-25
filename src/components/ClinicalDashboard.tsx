@@ -2621,10 +2621,7 @@ export function ClinicalDashboard({
       const input = retainTarget ? requestedInput : composerInputRef.current;
       if (input?.isConnected && composerInputRef.current === input) input.focus({ preventScroll: true });
     };
-    window.requestAnimationFrame(() => {
-      focusBoundInput();
-      window.setTimeout(focusBoundInput, 150);
-    });
+    window.requestAnimationFrame(() => { focusBoundInput(); window.setTimeout(focusBoundInput, 150); });
   }
 
   function stageAnswerFollowUpDraft(draft: string) {
