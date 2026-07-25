@@ -85,7 +85,8 @@ import {
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
-import { readChromeCollapseBudget, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { focusComposerInput as scheduleComposerFocus } from "@/components/clinical-dashboard/focus-composer-input";
+import { readChromeCollapseMetrics, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   answerReferencesDocument,
@@ -354,6 +355,10 @@ export function ClinicalDashboard({
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
     Boolean(autoRunSearch && initialQuery.trim() && initialSearchMode !== "tools"),
   );
+  // focus=1 means "focus on entry", not "keep the dock focused after results".
+  // Suppress autofocus once a mode search/answer has been submitted so hide-on-
+  // scroll can reclaim chrome on result views (Answer and other bottom docks).
+  const shouldAutoFocusComposer = focusSearch && !modeSearchSubmitted;
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sources, setSources] = useState<SearchResult[]>([]);
   // Answer-mode conversation thread. `priorAnswerTurns` holds completed
@@ -1495,11 +1500,14 @@ export function ClinicalDashboard({
   }, []);
 
   useEffect(() => {
-    if (!focusSearch) return undefined;
-    focusComposerInput();
-    const timeout = window.setTimeout(focusComposerInput, 500);
+    if (!shouldAutoFocusComposer) {
+      if (document.activeElement === composerInputRef.current) composerInputRef.current?.blur();
+      return undefined;
+    }
+    focusComposerInput(true);
+    const timeout = window.setTimeout(() => focusComposerInput(true), 500);
     return () => window.clearTimeout(timeout);
-  }, [focusSearch]);
+  }, [shouldAutoFocusComposer]);
 
   // Abort any in-flight answer/library search if the dashboard unmounts.
   useEffect(() => {
@@ -1536,7 +1544,7 @@ export function ClinicalDashboard({
       setLoading(false);
       setError(null);
       setAnswerProgress(null);
-      if (shouldFocusComposer) focusComposerInput();
+      if (shouldFocusComposer) focusComposerInput(true);
     });
     return () => window.cancelAnimationFrame(frame);
   }, [searchParams, clearDifferentialModeResultState]);
@@ -1555,8 +1563,9 @@ export function ClinicalDashboard({
       setSearchMode(targetMode);
       // run=1 URLs name the latest answered question; the composer stays empty
       // while an answer thread is active (including after localStorage restore).
+      // Do not reclaim focus on result deep-links — that pins phone chrome.
       if (searchText && params.get("run") !== "1") setQuery(searchText);
-      if (shouldFocusComposer) focusComposerInput();
+      if (shouldFocusComposer && params.get("run") !== "1") focusComposerInput(true);
     });
     return () => window.cancelAnimationFrame(frame);
   }, [clearDifferentialModeResultState]);
@@ -2611,11 +2620,8 @@ export function ClinicalDashboard({
     router.push(appModeHomeHref(mode, { queryMode, scopeFilters }));
   }
 
-  function focusComposerInput() {
-    window.requestAnimationFrame(() => {
-      composerInputRef.current?.focus({ preventScroll: true });
-      window.setTimeout(() => composerInputRef.current?.focus({ preventScroll: true }), 150);
-    });
+  function focusComposerInput(retainTarget = false) {
+    scheduleComposerFocus(composerInputRef, retainTarget);
   }
 
   function stageAnswerFollowUpDraft(draft: string) {
@@ -2804,7 +2810,7 @@ export function ClinicalDashboard({
         reportChromeScrollHideRef.current({
           offset: main.scrollTop,
           maxOffset: Math.max(0, main.scrollHeight - main.clientHeight),
-          collapseBudget: readChromeCollapseBudget(main),
+          ...readChromeCollapseMetrics(main),
           source: main,
         });
       });
@@ -3328,7 +3334,7 @@ export function ClinicalDashboard({
           }}
           queryModeOptions={clinicalQueryModeOptions}
           queryInputRef={composerInputRef}
-          queryInputAutoFocus={focusSearch}
+          queryInputAutoFocus={shouldAutoFocusComposer}
           recentQueries={recentQueries}
           commandScopes={commandScopes}
           onCommandScopesChange={setCommandScopes}
@@ -3350,8 +3356,7 @@ export function ClinicalDashboard({
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
           // Mode homes keep the composer in the centred hero slot at every
-          // breakpoint so documents, therapy, and the other homes share the
-          // same phone/tablet structure instead of switching to a bottom dock.
+          // breakpoint; documents, therapy, and other homes share the phone/tablet structure.
           heroComposerBreakpoint={heroComposerBreakpoint}
           // Answer view: the header overlays the scrolling <main> at every width
           // (main reserves matching top padding) so content frosts under the

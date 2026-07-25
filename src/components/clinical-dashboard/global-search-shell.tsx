@@ -32,7 +32,7 @@ import {
   resolveShellVisibleMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
 import {
-  readChromeCollapseBudget,
+  readChromeCollapseMetrics,
   useDocumentScrollHideReporter,
   useScrollHideReporter,
 } from "@/components/clinical-dashboard/use-hide-on-scroll";
@@ -539,7 +539,7 @@ function GlobalStandaloneSearchShellClient({
     chromeScrollHide.reportScroll({
       offset: target.scrollTop,
       maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
-      collapseBudget: readChromeCollapseBudget(target),
+      ...readChromeCollapseMetrics(target),
       source: target,
     });
   }
@@ -564,7 +564,7 @@ function GlobalStandaloneSearchShellClient({
         maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
         // Collapsing chrome releases layout into nested scrollers too (their
         // flex height cap grows with the shell), so the same budget applies.
-        collapseBudget: readChromeCollapseBudget(main),
+        ...readChromeCollapseMetrics(main),
         source: target,
       });
     };
