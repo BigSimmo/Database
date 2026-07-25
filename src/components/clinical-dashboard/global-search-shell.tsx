@@ -27,7 +27,7 @@ import { landingModeForPreference, readAppPreferences } from "@/components/clini
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import {
-  isDocumentViewerOwnedRoute,
+  isPageOwnedComposerRoute,
   resolveMobileComposerReserve,
   resolveShellVisibleMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
@@ -334,7 +334,7 @@ function GlobalStandaloneSearchShellClient({
     bottomComposerHidden,
     resolveShellVisibleMobileComposerReserve({
       shouldShowSearchComposer,
-      documentViewerOwnedRoute: isDocumentViewerOwnedRoute(pathname),
+      pageOwnedComposerRoute: isPageOwnedComposerRoute(pathname),
       isStandaloneModeHome,
       searchMode,
       differentialsCompareAddonActive,
