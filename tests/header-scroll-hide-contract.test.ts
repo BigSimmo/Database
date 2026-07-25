@@ -86,13 +86,25 @@ describe("shared header hide/reveal wiring", () => {
     // nowhere to stick. `contents` removes that box on GlobalSearchShell.
     expect(shellSource).toContain('className={mobileChromeVisible ? "sm:contents" : "hidden lg:contents"}');
     expect(shellSource).not.toContain('mobileChromeVisible ? undefined : "hidden lg:block"');
-    // Sticky pins the outer [top bar | search] stack; translating that whole
-    // stack would take the search field off-screen. Overlay hosts still use
-    // max-sm:-translate-y-full — strip that before asserting sticky collapse
-    // does not revive the sm: translate path.
-    expect(headerSource).toContain('className="sm:sticky sm:top-0 sm:z-30"');
+    // Sticky pins the outer [top bar | search] stack below the always-on
+    // safe-area spacer. Translating that whole stack would take the search
+    // field off-screen. Overlay hosts still use max-sm:-translate-y-full —
+    // strip that before asserting sticky collapse does not revive the sm:
+    // translate path.
+    expect(headerSource).toContain('data-testid="chrome-safe-area-top"');
+    expect(headerSource).toContain('className="sm:sticky sm:top-[var(--safe-area-top)] sm:z-30"');
     expect(headerSource.replaceAll("max-sm:-translate-y-full", "")).not.toContain("sm:-translate-y-full");
     expect(headerSource).not.toContain('sticksAbovePhones && headerChromeHidden && "sm:-translate-y-full"');
+  });
+
+  it("keeps the OS top safe-area outside the collapse hide", () => {
+    // Releasing the status-bar inset with the chrome lets scrolled text paint
+    // under the system clock/signal icons on notched phones (service detail).
+    expect(headerSource).toContain('data-testid="chrome-safe-area-top"');
+    expect(headerSource).toContain("h-[var(--safe-area-top)]");
+    expect(headerSource).toContain("relative z-[32] h-[var(--safe-area-top)]");
+    expect(headerSource).toContain('hideStrategy === "collapse" ? "pt-2" : "pt-[max(0.5rem,var(--safe-area-top))]"');
+    expect(behaviourDocSource).toContain("OS top safe-area band");
   });
 
   it("keeps the header out of sticky positioning wherever its row collapses", () => {
@@ -129,9 +141,22 @@ describe("shared header hide/reveal wiring", () => {
     expect(behaviourDocSource).toContain("Page chrome that must match the top bar portals into the collapse host");
     expect(behaviourDocSource).toContain("Do not double-sticky the search inside an outer sticky stack");
     expect(behaviourDocSource).toContain("Pinned search can cover wide side rails");
+    expect(behaviourDocSource).toContain("Keep `chrome-safe-area-top` outside the hide mechanism");
     expect(behaviourDocSource).toContain(
       "Collapse-everywhere hosts still drop their own sticky search offset while the top bar is hidden",
     );
+  });
+
+  it("does not carry dock focus into GlobalSearchShell submitted result views", () => {
+    // focus=1 + run=1 left the Forms/services dock focused, which pins both
+    // chrome edges and freezes hide-on-scroll with the bottom white rail visible.
+    expect(shellSource).toContain("focus: !trimmedQuery");
+    expect(shellSource).toContain("queryInputAutoFocus={requestedFocus && !hasSubmittedModeSearch}");
+    expect(shellSource).toContain("if (hasSubmittedModeSearch)");
+    expect(shellSource).toContain(
+      "if (target.scrollTop > 8 && inputRef.current && document.activeElement === inputRef.current)",
+    );
+    expect(behaviourDocSource).toContain("Do not carry composer focus into submitted result views");
   });
 
   it("keeps sticky-stack search in normal flow and only self-stickies collapse-everywhere hosts", () => {

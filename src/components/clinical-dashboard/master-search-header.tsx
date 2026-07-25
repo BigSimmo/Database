@@ -1772,7 +1772,12 @@ export function MasterSearchHeader({
         // No backdrop-filter on the header itself: it would form a backdrop
         // root and starve the .edge-glass-header-backdrop scrim (the single
         // source of the bar's frost) of the real page behind it.
-        "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)]",
+        // Collapse hosts own the OS top inset via the always-on
+        // `chrome-safe-area-top` spacer outside the 0fr row, so this bar only
+        // needs its aesthetic 0.5rem pad. Overlay hosts still paint the inset
+        // themselves (answer mode keeps an equivalent reserve on <main>).
+        "edge-glass-header universal-header z-30 py-2 text-[color:var(--text)]",
+        hideStrategy === "collapse" ? "pt-2" : "pt-[max(0.5rem,var(--safe-area-top))]",
         // Collapse hosts keep the top bar above an internally scrolling <main>,
         // so sticky is unnecessary wherever the row collapses and fights the
         // 0fr grid by pinning the bar inside the viewport. Sticky hosts pin an
@@ -2013,10 +2018,11 @@ export function MasterSearchHeader({
     // tree via `position: fixed`; hero composers portal out.
     //
     // Above the phone breakpoint a `wide: "sticky"` host scrolls the document,
-    // so an outer sticky stack pins [top bar | search] to the viewport and the
-    // collapse row still only wraps the top bar — translating the whole stack
-    // would take the search field with it. Releasing only the top-bar row lets
-    // the search rise to the viewport top.
+    // so an outer sticky stack pins [top bar | search] below the always-on
+    // safe-area spacer. Only the top-bar row collapses — translating the whole
+    // stack would take the search field with it. Return a fragment (never a
+    // wrapping block): GlobalSearchShell uses `sm:contents` on the chrome
+    // parent so sticky can travel against the viewport.
     const collapsingTopBar = (
       <div
         data-scroll-hidden={headerChromeHidden ? "true" : undefined}
@@ -2059,17 +2065,35 @@ export function MasterSearchHeader({
       </div>
     );
 
+    const chromeSafeAreaTop = (
+      <div
+        aria-hidden="true"
+        data-testid="chrome-safe-area-top"
+        className={cn(
+          // relative + z above the collapsing header: the 0fr row still lets
+          // header#search's box extend upward into this band for layout, and
+          // without a higher stack the status-bar fill can lose to that paint.
+          "relative z-[32] h-[var(--safe-area-top)] shrink-0 bg-[color:var(--background)]",
+          sticksAbovePhones && "sm:sticky sm:top-0",
+        )}
+      />
+    );
+
     if (sticksAbovePhones) {
       return (
-        <div className="sm:sticky sm:top-0 sm:z-30">
-          {collapsingTopBar}
-          {searchComposer}
-        </div>
+        <>
+          {chromeSafeAreaTop}
+          <div className="sm:sticky sm:top-[var(--safe-area-top)] sm:z-30">
+            {collapsingTopBar}
+            {searchComposer}
+          </div>
+        </>
       );
     }
 
     return (
       <>
+        {chromeSafeAreaTop}
         {collapsingTopBar}
         {searchComposer}
       </>
