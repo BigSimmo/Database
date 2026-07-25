@@ -752,8 +752,22 @@ async function openMobileClinicalGuideMenu(page: Page) {
   await expect(menu.getByRole("button", { name: "New chat" })).toBeVisible();
   await expect(menu.getByPlaceholder("Search chats")).toBeVisible();
   await expect(menu.getByText("Recent chats", { exact: true })).toBeVisible();
-  await expect(menu.getByRole("link", { name: "Tools", exact: true })).toBeVisible();
-  await expect(menu.getByRole("button", { name: "Guide & help" })).toBeVisible();
+  const navigation = menu.getByRole("navigation", { name: "Navigation" });
+  await expect(navigation).toBeVisible();
+  expect(
+    await navigation
+      .getByRole("link")
+      .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
+  ).toEqual([
+    { name: "Answer", href: "/?mode=answer" },
+    { name: "Documents", href: "/?mode=documents" },
+    { name: "Services", href: "/services" },
+    { name: "Medications", href: "/?mode=prescribing" },
+    { name: "Factsheets", href: "/factsheets" },
+    { name: "Tools", href: "/tools" },
+  ]);
+  await expect(menu.getByRole("button", { name: "Guide & help", exact: true })).toHaveCount(0);
+  await expect(menu.getByRole("button", { name: /^(Switch to )?(dark|light) mode$/i })).toHaveCount(0);
   await expect(menu.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
   await expect(menu.getByText("Guest")).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Clinical KB guide" })).toHaveCount(0);
@@ -784,24 +798,32 @@ async function waitForPersistedAnswerThread(page: Page, minPriorTurns = 1) {
 }
 
 async function openGuide(page: Page) {
-  const viewport = page.viewportSize();
   const dialog = page.getByRole("dialog", { name: "Clinical KB guide" });
-  const expandedGuide = page.locator("#clinical-tools-sidebar").getByRole("button", { name: "Guide & help" });
-  const railGuide = page.getByRole("button", { name: "Guide and help", exact: true });
+  const settings = accountSettingsDialog(page);
+  const viewport = page.viewportSize();
 
-  if (viewport && viewport.width >= 768) {
-    const trigger = (await expandedGuide.isVisible().catch(() => false)) ? expandedGuide : railGuide;
-    await expect(trigger).toBeVisible();
-    await expect(trigger).toBeEnabled();
-    await waitForReactEventHandler(trigger, "onClick");
-    await trigger.click();
-    await expect(dialog).toBeVisible({ timeout: uiAssertionTimeoutMs });
-  } else {
-    const menu = await openMobileClinicalGuideMenu(page);
-    await menu.getByRole("button", { name: "Guide & help" }).click();
-    await expect(dialog).toBeVisible();
+  // Guide now lives inside Settings. If Settings is already open (e.g. after
+  // closing Guide restores it), skip the reopen click that would hit the overlay.
+  if (!(await settings.isVisible().catch(() => false))) {
+    if (viewport && viewport.width < 768) {
+      const menu = await openMobileClinicalGuideMenu(page);
+      await menu.getByRole("button", { name: "Settings", exact: true }).click();
+    } else if (viewport && viewport.width < 1024) {
+      const rail = page.getByLabel("Clinical Guide collapsed sidebar");
+      await expect(rail.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+      await rail.getByRole("button", { name: "Settings", exact: true }).click();
+    } else {
+      const sidebar = page.locator("#clinical-tools-sidebar");
+      const settingsTrigger = (await sidebar.isVisible().catch(() => false))
+        ? sidebar.getByRole("button", { name: "Settings", exact: true })
+        : page.getByLabel("Clinical Guide collapsed sidebar").getByRole("button", { name: "Settings", exact: true });
+      await expect(settingsTrigger).toBeVisible();
+      await settingsTrigger.click();
+    }
   }
 
+  await expect(settings).toBeVisible({ timeout: uiAssertionTimeoutMs });
+  await settings.getByRole("button", { name: "Guide & help", exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("Ask and verify")).toBeVisible();
   await expect(dialog.getByText("Top source and citations")).toBeVisible();
@@ -1031,7 +1053,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await gotoApp(page, "/?mode=answer");
     await waitForDemoDashboardReady(page);
 
-    // No stored preference (PT-10): eight icon-only destinations demand recall,
+    // No stored preference (PT-10): the labelled navigation remains the default,
     // so first-run desktop shows the labelled sidebar; collapse is remembered.
     await expect(page.locator("#clinical-tools-sidebar")).toBeVisible();
     await expect(page.getByRole("button", { name: "Collapse sidebar" })).toBeVisible();
@@ -1097,23 +1119,39 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("#clinical-tools-sidebar")).toBeHidden();
     await expect(page.getByLabel("Clinical Guide collapsed sidebar")).toBeVisible();
 
-    for (const tool of [
+    const rail = page.getByLabel("Clinical Guide collapsed sidebar");
+    const scrollRegion = rail.getByTestId("collapsed-sidebar-scroll-region");
+    const navigation = rail.getByRole("navigation", { name: "Navigation" });
+    const library = rail.getByRole("navigation", { name: "Your library" });
+    await expect(rail.getByRole("button", { name: "New chat" })).toBeVisible();
+    await expect(rail.getByRole("button", { name: "Settings" })).toBeVisible();
+    await expect(scrollRegion.getByRole("button", { name: "New chat" })).toHaveCount(0);
+    await expect(scrollRegion.getByRole("button", { name: "Settings" })).toHaveCount(0);
+    expect(
+      await navigation
+        .getByRole("link")
+        .evaluateAll((links) =>
+          links.map((link) => ({ name: link.getAttribute("aria-label"), href: link.getAttribute("href") })),
+        ),
+    ).toEqual([
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/services" },
-      // The rail speaks the catalogue-maturity badge as part of the Forms name.
-      { name: "Forms (Early access)", href: "/forms" },
+      { name: "Medications", href: "/?mode=prescribing" },
+      { name: "Factsheets", href: "/factsheets" },
       { name: "Tools", href: "/tools" },
-      { name: "Therapy", href: "/therapy-compass" },
-
-      // Demo mode still exposes Favourites via the account-library rail entry.
-      { name: "Favourites", href: "/favourites" },
-    ] as const) {
-      await expect(page.getByRole("link", { name: tool.name, exact: true })).toHaveAttribute("href", tool.href);
-    }
+    ]);
+    expect(
+      await library
+        .getByRole("link")
+        .evaluateAll((links) =>
+          links.map((link) => ({ name: link.getAttribute("aria-label"), href: link.getAttribute("href") })),
+        ),
+    ).toEqual([{ name: "Favourites", href: "/favourites" }]);
     // Specialist catalogues stay out of the persistent rail (MODE picker / Tools hub).
     await expect(page.getByRole("link", { name: "Differentials", exact: true })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Medication", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Therapy", exact: true })).toHaveCount(0);
 
     await expectNoPageHorizontalOverflow(page);
   });
@@ -1126,8 +1164,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
       { path: "/?mode=answer", label: "Answer" },
       { path: "/?mode=documents", label: "Documents" },
       { path: "/favourites", label: "Favourites" },
+      { path: "/?mode=prescribing", label: "Medications" },
       { path: "/?mode=tools", label: "Tools" },
-      { path: "/therapy-compass", label: "Therapy" },
     ] as const) {
       await gotoApp(page, route.path);
       if (route.path.includes("mode=answer")) {
@@ -2940,7 +2978,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await acamprosateResult.click();
     await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
     await expectSingleMedicationPage(page);
-    await expect(page.getByRole("link", { name: "Medications" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Medications", exact: true }).first()).toBeVisible();
 
     expect(parentNodeErrors).toEqual([]);
   });
@@ -3996,6 +4034,9 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await expect.poll(async () => dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
       await dialog.getByRole("button", { name: "Close guide" }).click();
       await expect(dialog).toBeHidden();
+      const restoredSettings = accountSettingsDialog(page);
+      await expect(restoredSettings).toBeVisible();
+      await expect(restoredSettings.getByRole("button", { name: "Guide & help", exact: true })).toBeFocused();
 
       const reopenedDialog = await openGuide(page);
       await tapOutsideActiveSurface(page);
