@@ -40,3 +40,21 @@ export const DocumentSearchResultsPanel = dynamic(
   () => import("@/components/clinical-dashboard/document-search-results").then((m) => m.DocumentSearchResultsPanel),
   { ssr: false },
 );
+
+// Admin/setup tools are rare paths — keep them out of the initial dashboard chunk.
+export const SetupChecklist = dynamic(
+  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.SetupChecklist),
+  { ssr: false },
+);
+export const UploadPanel = dynamic(
+  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.UploadPanel),
+  { ssr: false },
+);
+export const IndexingMonitor = dynamic(
+  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.IndexingMonitor),
+  { ssr: false },
+);
+export const IngestionQualityConsole = dynamic(
+  () => import("@/components/clinical-dashboard/DocumentManagerPanel").then((m) => m.IngestionQualityConsole),
+  { ssr: false },
+);
