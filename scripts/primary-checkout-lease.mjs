@@ -369,7 +369,9 @@ function main() {
     console.log("Primary checkout write lease check (cooperative; read-only worktrees unaffected)\n");
     console.log(`Primary: ${inspection.primaryPath}`);
     console.log(`Write allowed: ${inspection.writeAllowed}`);
-    console.log(`Dirty: ${inspection.primary.dirty}; operations: ${inspection.primary.operations.join(", ") || "none"}`);
+    console.log(
+      `Dirty: ${inspection.primary.dirty}; operations: ${inspection.primary.operations.join(", ") || "none"}`,
+    );
     if (inspection.owner) {
       console.log(
         `Owner: PID ${inspection.owner.pid} alive=${inspection.owner.alive} stale=${inspection.owner.stale} purpose=${inspection.owner.purpose}`,

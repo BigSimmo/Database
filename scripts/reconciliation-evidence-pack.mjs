@@ -44,11 +44,9 @@ async function sha256File(filePath) {
 }
 
 function listArchiveRefs(repositoryRoot) {
-  const output = git(
-    ["for-each-ref", "--format=%(refname)%09%(objectname)", "refs/archive"],
-    repositoryRoot,
-    { allowFailure: true },
-  );
+  const output = git(["for-each-ref", "--format=%(refname)%09%(objectname)", "refs/archive"], repositoryRoot, {
+    allowFailure: true,
+  });
   if (!output) return [];
   return output
     .split(/\r?\n/)
@@ -193,7 +191,8 @@ export async function buildReconciliationEvidencePack({
     archiveRefs: listArchiveRefs(resolvedRoot),
     bundle: await inspectBundle(bundlePath, resolvedRoot),
     localBaseTreeEquality: treeEquality(resolvedRoot, state.baseRef, state.baseCommit, primaryHead),
-    remotePrState: remotePrState === undefined ? { included: false } : { included: true, value: deepRedact(remotePrState) },
+    remotePrState:
+      remotePrState === undefined ? { included: false } : { included: true, value: deepRedact(remotePrState) },
   };
   return deepRedact(pack);
 }
