@@ -114,25 +114,43 @@ export function expectedFileCoverage(
   sources: Array<Pick<SearchResult, "file_name" | "title">>,
   limit = 3,
 ): ExpectedFileCoverage {
-  const topFiles = sources.slice(0, limit).map(resultDocumentText);
-  // Distinct source identities (#030): each retrieved top-file may satisfy at most one
-  // expectedFiles slot. Without this, a single combo-titled document (or overlapping
-  // aliases) can make allHit true even when a true second source is missing.
-  const usedSourceIndexes = new Set<number>();
-  const matchedFiles = expectedFiles.filter((expected) => {
+  // Distinct source identities (#030): dedupe the window by document text, because one
+  // physical document appears many times in answer.citations (one entry per chunk). Matching
+  // on positions alone would let the same document fill every expected slot.
+  const topFiles = Array.from(new Set(sources.slice(0, limit).map(resultDocumentText)));
+  const candidateSourcesByExpectation = expectedFiles.map((expected) => {
     const alternatives = documentExpectationAlternatives(expected);
-    const matchIndex = topFiles.findIndex(
-      (file, index) => !usedSourceIndexes.has(index) && alternatives.some((alternative) => file.includes(alternative)),
-    );
-    if (matchIndex < 0) return false;
-    usedSourceIndexes.add(matchIndex);
-    return true;
+    return topFiles.reduce<number[]>((indexes, file, index) => {
+      if (alternatives.some((alternative) => file.includes(alternative))) indexes.push(index);
+      return indexes;
+    }, []);
   });
+
+  // Maximum bipartite matching (Kuhn's augmenting path) rather than first-come assignment:
+  // a combo-titled document that matches two expectations must not consume the only source a
+  // narrower expectation could have used, which would make coverage depend on expectedFiles order.
+  const expectationBySource = new Map<number, number>();
+  const claimSource = (expectationIndex: number, visitedSources: Set<number>): boolean => {
+    for (const sourceIndex of candidateSourcesByExpectation[expectationIndex]) {
+      if (visitedSources.has(sourceIndex)) continue;
+      visitedSources.add(sourceIndex);
+      const holder = expectationBySource.get(sourceIndex);
+      if (holder === undefined || claimSource(holder, visitedSources)) {
+        expectationBySource.set(sourceIndex, expectationIndex);
+        return true;
+      }
+    }
+    return false;
+  };
+  expectedFiles.forEach((_, expectationIndex) => claimSource(expectationIndex, new Set()));
+
+  const matchedExpectations = new Set(expectationBySource.values());
+  const matchedFiles = expectedFiles.filter((_, index) => matchedExpectations.has(index));
 
   return {
     expectedFiles,
     matchedFiles,
-    missingFiles: expectedFiles.filter((expected) => !matchedFiles.includes(expected)),
+    missingFiles: expectedFiles.filter((_, index) => !matchedExpectations.has(index)),
     anyHit: matchedFiles.length > 0,
     allHit: expectedFiles.length > 0 && matchedFiles.length === expectedFiles.length,
   };
