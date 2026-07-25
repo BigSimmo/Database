@@ -13,7 +13,7 @@ import { enforceDocumentReadRateLimit, withOwnerReadScope } from "@/lib/public-a
 
 export const runtime = "nodejs";
 
-const signedUrlTtlSeconds = 60 * 10;
+const signedUrlTtlSeconds = env.DOCUMENT_SIGNED_URL_TTL_SECONDS;
 const routeIdSchema = z.string().uuid();
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -25,7 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       const document = getDemoDocument(id);
       if (!document) return NextResponse.json({ error: "Demo document not found." }, { status: 404 });
       return NextResponse.json({
-        url: document.storage_path,
+        url: shouldDownload ? `${document.storage_path}?download=1` : document.storage_path,
         fileType: document.file_type,
         expiresAt: new Date(Date.now() + signedUrlTtlSeconds * 1000).toISOString(),
         demoMode: true,
