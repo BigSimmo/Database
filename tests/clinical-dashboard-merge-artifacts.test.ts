@@ -117,8 +117,9 @@ describe("ClinicalDashboard merge-artifact guards", () => {
   it("releases the Safari toolbar reserve only after phone composers hide", () => {
     expect(mobileComposerReserveSource).toContain('export const mobileComposerHiddenReserve = "0rem"');
     expect(mobileComposerReserveSource).toContain(
-      'export const mobileComposerDifferentialsCompareReserve = "calc(12.5rem + var(--safe-area-bottom))"',
+      "calc(12.5rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))",
     );
+    expect(mobileComposerReserveSource).toContain("export const mobileComposerDifferentialsCompareReserve");
     expect(mobileComposerReserveSource).toContain("export function resolveMobileComposerReserve");
     expect(mobileComposerReserveSource).toContain("export function isDocumentViewerOwnedRoute");
     expect(mobileComposerReserveSource).not.toContain("env(safe-area-inset-bottom)");
@@ -151,7 +152,9 @@ describe("ClinicalDashboard merge-artifact guards", () => {
 
     expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
     expect(documentViewerSource).toContain('"max-sm:pb-0"');
-    expect(documentViewerSource).toContain('"max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"');
+    expect(documentViewerSource).toContain(
+      '"max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]"',
+    );
     // Hidden document content must not reintroduce Safari toolbar inset padding.
     expect(documentViewerSource).not.toMatch(/composerScrollHidden\s*\?\s*["']max-sm:pb-\[calc\([^"']*safe-area/);
     expect(documentViewerSource).toContain("max-sm:duration-[240ms]");
@@ -159,6 +162,8 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalStylesSource).toContain("@media (max-width: 639px) and (prefers-reduced-motion: reduce)");
     expect(globalStylesSource).toContain('#main-content[data-bottom-composer-hidden="true"]');
     expect(globalStylesSource).toContain('[data-testid="mobile-composer-reserve-pad"]');
+    expect(globalStylesSource).toContain("transition: padding-bottom 200ms var(--ease-out-soft)");
+    expect(globalStylesSource).toContain("transition: padding-bottom 240ms var(--ease-out-soft)");
     expect(globalStylesSource).toContain("--phone-dock-differentials-compare-clearance: 12.5rem");
     expect(globalStylesSource).toContain("var(--phone-dock-differentials-compare-clearance)");
     // Child pages must not stack a second dock-sized safe-area pad under the

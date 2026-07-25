@@ -3178,7 +3178,11 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await openSourcesButton.click();
     const resultsLibraryDialog = page.getByRole("dialog", { name: "Sources" });
     await expect(resultsLibraryDialog).toBeVisible();
-    await expect(resultsLibraryDialog.getByPlaceholder("Find a document")).toBeFocused();
+    await expect
+      .poll(async () =>
+        resultsLibraryDialog.getByPlaceholder("Find a document").evaluate((el) => el === document.activeElement),
+      )
+      .toBe(true);
     const sourceDialogBox = await resultsLibraryDialog.boundingBox();
     expect(sourceDialogBox).not.toBeNull();
     expect(sourceDialogBox?.y ?? -1).toBeGreaterThanOrEqual(0);
@@ -3187,7 +3191,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(page.locator("details#dashboard-documents-drawer")).not.toHaveAttribute("open", "");
     await page.keyboard.press("Escape");
     await expect(resultsLibraryDialog).toHaveCount(0);
-    await expect(openSourcesButton).toBeFocused();
+    await expect.poll(async () => openSourcesButton.evaluate((el) => el === document.activeElement)).toBe(true);
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(documentResults).toBeVisible();
