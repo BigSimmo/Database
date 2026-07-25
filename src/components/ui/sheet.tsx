@@ -120,9 +120,14 @@ export function Sheet({
   // Pending focus-restore timers from the previous close. Cleared on the next
   // open and on unmount so a torn-down jsdom environment cannot throw from a
   // stale 50ms retry under Vitest coverage workers.
-  const restoreTimersRef = useRef<{ frame: number | null; timeout: number | null }>({
+  const restoreTimersRef = useRef<{
+    frame: number | null;
+    timeout: number | null;
+    openFocusRetry: number | null;
+  }>({
     frame: null,
     timeout: null,
+    openFocusRetry: null,
   });
   const unmountingRef = useRef(false);
   const titleId = useId();
@@ -145,6 +150,10 @@ export function Sheet({
       if (restoreTimers.timeout != null) {
         window.clearTimeout(restoreTimers.timeout);
         restoreTimers.timeout = null;
+      }
+      if (restoreTimers.openFocusRetry != null) {
+        window.clearInterval(restoreTimers.openFocusRetry);
+        restoreTimers.openFocusRetry = null;
       }
     };
   }, []);
@@ -188,21 +197,48 @@ export function Sheet({
 
     const explicitReturnElement = returnFocusRef?.current ?? null;
     const previousActiveElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const restoreTimers = restoreTimersRef.current;
+    if (restoreTimers.openFocusRetry != null) {
+      window.clearInterval(restoreTimers.openFocusRetry);
+      restoreTimers.openFocusRetry = null;
+    }
     pushSheet(sheetId);
     const focusFrame = window.requestAnimationFrame(() => {
-      const focusTarget =
+      const resolveFocusTarget = () =>
         initialFocusRef?.current ??
         panelRef.current?.querySelector<HTMLElement>('[data-sheet-autofocus="true"]') ??
         closeRef.current;
-      focusTarget?.focus({ preventScroll: true });
-      // One retry if open-time focus lost the race to a closing sibling sheet
-      // (phone Guide menu → Guide dialog, or Sources opener teardown).
-      window.setTimeout(() => {
-        if (!focusTarget?.isConnected || document.activeElement === focusTarget) return;
-        if (panelRef.current && !panelRef.current.contains(document.activeElement)) {
+      const focusIfNeeded = () => {
+        const focusTarget = resolveFocusTarget();
+        if (!focusTarget?.isConnected) return null;
+        if (document.activeElement === focusTarget) return focusTarget;
+        // Reclaim when focus is outside the panel (or still on body after a
+        // remount). Do not steal from another in-panel control the user tabbed to.
+        const active = document.activeElement;
+        if (
+          active == null ||
+          active === document.body ||
+          (panelRef.current != null && !panelRef.current.contains(active))
+        ) {
           focusTarget.focus({ preventScroll: true });
         }
+        return focusTarget;
+      };
+      focusIfNeeded();
+      // Retries cover sibling-sheet teardown and late-mounted autofocus inputs
+      // (UtilityDrawer media sync / deferred drawer children).
+      let attempts = 0;
+      const retryTimer = window.setInterval(() => {
+        attempts += 1;
+        const focusTarget = focusIfNeeded();
+        if (attempts >= 8 || (focusTarget != null && document.activeElement === focusTarget)) {
+          window.clearInterval(retryTimer);
+          if (restoreTimers.openFocusRetry === retryTimer) {
+            restoreTimers.openFocusRetry = null;
+          }
+        }
       }, 50);
+      restoreTimers.openFocusRetry = retryTimer;
     });
 
     function onKeyDown(event: KeyboardEvent) {
@@ -243,7 +279,6 @@ export function Sheet({
     }
 
     window.addEventListener("keydown", onKeyDown);
-    const restoreTimers = restoreTimersRef.current;
     return () => {
       window.cancelAnimationFrame(focusFrame);
       window.removeEventListener("keydown", onKeyDown);
@@ -254,6 +289,10 @@ export function Sheet({
       }
       if (restoreTimers.timeout != null) {
         window.clearTimeout(restoreTimers.timeout);
+      }
+      if (restoreTimers.openFocusRetry != null) {
+        window.clearInterval(restoreTimers.openFocusRetry);
+        restoreTimers.openFocusRetry = null;
       }
       if (unmountingRef.current) return;
       // Focus restore is best-effort. Under Vitest coverage workers the jsdom
