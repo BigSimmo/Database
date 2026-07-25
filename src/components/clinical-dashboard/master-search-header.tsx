@@ -360,39 +360,37 @@ export function MasterSearchHeader({
     !heroComposerOwnsPhones &&
     (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
   const hideOnScrollEnabled = Boolean(hideOnScroll);
+  // Focus-capture pins can survive dock teardown when React skips blur (portal
+  // swap, hero reclaim, breakpoint change). Ignore latched focus unless that
+  // surface is still the active hide/reveal owner, then clear the latch async
+  // (repo pattern — avoids react-hooks/set-state-in-effect).
+  const composerFocusPinsChrome = composerChromeFocused && phoneBottomSearchDockActive && hideOnScrollEnabled;
+  const headerFocusPinsChrome = headerChromeFocused && hideOnScrollEnabled;
   // Header and composer share one scroll signal, so any active surface or
   // focus inside either edge pins both edges. This preserves keyboard focus
   // safety without letting the unfocused header disappear above a still-
-  // focused composer (or vice versa). Focus pins are gated by their active
-  // surface to avoid cascading renders from synchronous setState in effects.
+  // focused composer (or vice versa).
   const sharedChromePinned =
     modeMenuOpen ||
     actionMenuOpen ||
     commandDropdownOpen ||
     scopeOpen ||
     scopeSheetOpen ||
-    (hideOnScrollEnabled && headerChromeFocused) ||
-    (hideOnScrollEnabled && phoneBottomSearchDockActive && composerChromeFocused);
+    headerFocusPinsChrome ||
+    composerFocusPinsChrome;
   const headerChromeHidden = scrollHidden && !sharedChromePinned;
   // Compare addon chrome lives inside the phone dock; hide/reveal with it so
   // the search pill and Compare selected bar reclaim space together.
   const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
   const bottomComposerHidden = bottomComposerScrollHiddenActive && scrollHidden && !sharedChromePinned;
 
-  // Portal swaps and breakpoint changes can remove focused chrome without a
-  // blur event. Clear those latches asynchronously once their owning surface
-  // is inactive so a later dock/header activation cannot inherit stale focus.
   useEffect(() => {
-    if (hideOnScrollEnabled && phoneBottomSearchDockActive) return undefined;
-    const frame = window.requestAnimationFrame(() => {
-      if (!phoneBottomSearchDockActive) setComposerChromeFocused(false);
-      if (!hideOnScrollEnabled) {
-        setComposerChromeFocused(false);
-        setHeaderChromeFocused(false);
-      }
+    if (phoneBottomSearchDockActive && hideOnScrollEnabled) return;
+    queueMicrotask(() => {
+      if (!phoneBottomSearchDockActive || !hideOnScrollEnabled) setComposerChromeFocused(false);
+      if (!hideOnScrollEnabled) setHeaderChromeFocused(false);
     });
-    return () => window.cancelAnimationFrame(frame);
-  }, [hideOnScrollEnabled, phoneBottomSearchDockActive]);
+  }, [phoneBottomSearchDockActive, hideOnScrollEnabled]);
 
   useEffect(() => {
     onBottomComposerHiddenChange?.(bottomComposerHidden);
