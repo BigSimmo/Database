@@ -109,11 +109,23 @@ describe("productivity workflow planning", () => {
 
     expect(plan.localChecks.map((item: { command: string }) => item.command)).toEqual([
       "node scripts/reconciliation-preflight.mjs",
+      "node scripts/reconciliation-evidence-pack.mjs --output .local/reconciliation-evidence/pack.json",
     ]);
     expect(plan.approvalRequired.map((item: { command: string }) => item.command)).toEqual([
       "git fetch --prune origin",
     ]);
     expect(plan.proof.join(" ")).toContain("never print raw process command lines");
+    expect(plan.proof.join(" ")).toContain("evidence pack");
+  });
+
+  it("plans a cooperative primary-checkout lease check for start and cleanup", () => {
+    for (const phase of ["start", "cleanup"] as const) {
+      const plan = buildWorkflowPlan("lifecycle", [], { phase });
+      expect(plan.localChecks.map((item: { command: string }) => item.command)).toEqual([
+        "node scripts/primary-checkout-lease.mjs --check",
+      ]);
+      expect(plan.proof.join(" ")).toContain("independent feature worktrees");
+    }
   });
 
   it("classifies common failure signatures", () => {
