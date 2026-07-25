@@ -69,9 +69,7 @@ async function duplicateUploadResponse(args: {
       if (cleanupLedgerError) {
         // Keep the duplicate response path fail-closed for orphaned objects: without a
         // ledger row there is no durable recovery record after storage.remove() failed.
-        throw new Error(
-          `Duplicate upload cleanup ledger insert failed: ${cleanupLedgerError.message}`,
-        );
+        throw new Error(`Duplicate upload cleanup ledger insert failed: ${cleanupLedgerError.message}`);
       }
     }
   }

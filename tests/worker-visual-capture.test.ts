@@ -37,7 +37,9 @@ describe("worker visual capture hardening", () => {
   });
 
   it("keeps view-only retained images out of retrieval index inputs", () => {
-    expect(workerSource).toContain("const persistedSearchable = !retainedWithoutCaptioning && policyAssessment.searchable");
+    expect(workerSource).toContain(
+      "const persistedSearchable = !retainedWithoutCaptioning && policyAssessment.searchable",
+    );
     expect(workerSource).toContain("if (data.searchable !== false) {");
     expect(workerSource).toContain("insertedImages.push({");
     // The prior broadening pulled document-view-only rows into chunk/index/embedding inputs.

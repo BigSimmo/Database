@@ -4,7 +4,12 @@ import { z } from "zod";
 import { getDemoDocumentPayload } from "@/lib/demo-data";
 import { isDemoMode } from "@/lib/env";
 import { PublicApiError } from "@/lib/http";
-import { callerOwnsDocumentRow, enforceDocumentReadRateLimit, withOwnerReadScope, redactNonOwnedDocumentFields } from "@/lib/public-api-access";
+import {
+  callerOwnsDocumentRow,
+  enforceDocumentReadRateLimit,
+  withOwnerReadScope,
+  redactNonOwnedDocumentFields,
+} from "@/lib/public-api-access";
 import { committedIndexGeneration, isCommittedGenerationMetadata } from "@/lib/reindex-pipeline";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthenticationError } from "@/lib/supabase/auth";
@@ -343,8 +348,6 @@ function loadDemoDocumentDetail(rawId: string, query: DocumentDetailQuery): Docu
     ...metadata,
   };
 }
-
-
 
 /**
  * Loads the minimal authorized document-detail DTO shared by the API route and

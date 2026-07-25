@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  infoPageBackHref,
-  mobileBackHref,
-} from "@/components/clinical-dashboard/global-search-shell";
+import { infoPageBackHref, mobileBackHref } from "@/components/clinical-dashboard/global-search-shell";
 
 describe("infoPageBackHref", () => {
   it.each([
@@ -37,8 +34,6 @@ describe("mobileBackHref", () => {
   });
 
   it("still prefers info-page parents over mode-home fallbacks", () => {
-    expect(mobileBackHref("/differentials/diagnoses/delirium", "differentials", true)).toBe(
-      "/differentials",
-    );
+    expect(mobileBackHref("/differentials/diagnoses/delirium", "differentials", true)).toBe("/differentials");
   });
 });

@@ -72,7 +72,6 @@ describe("services catalogue", () => {
     expect(bestUseCard!.detail).not.toContain("|");
   });
 
-
   it("produces unique slugs and non-empty titles", () => {
     const records = mapCatalogToServiceRecords(loadServicesSnapshot().services);
     const slugs = records.map((record) => record.slug);

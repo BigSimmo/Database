@@ -222,7 +222,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@babel/parser": "^8.0.4",
-    "@next/bundle-analyzer": "^16.2.11",
+    "@next/bundle-analyzer": "^16.2.10",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.0",
@@ -236,7 +236,7 @@
     "@vitest/coverage-v8": "^4.1.10",
     "esbuild": "0.28.1",
     "eslint": "^9.39.5",
-    "eslint-config-next": "16.2.11",
+    "eslint-config-next": "16.2.10",
     "fast-check": "^4.8.0",
     "jsdom": "^29.1.1",
     "knip": "^6.29.0",
