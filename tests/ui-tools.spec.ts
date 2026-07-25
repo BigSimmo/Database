@@ -971,12 +971,14 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
 
-    await expect(page.getByRole("heading", { level: 1, name: /referral matches/i })).toBeVisible();
+    // Eyebrow copy is "Referral matches"; the H1 is "{n} referral match(es)".
+    await expect(page.getByText("Referral matches", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /\d+\s+referral match(?:es)?/i })).toBeVisible();
     await expect(
       page.getByText("Prioritised for crisis support, culturally safe access, and phone referral."),
     ).toBeVisible();
-    await expect(page.getByRole("button", { name: "Advanced service filters" })).toBeDisabled();
-    await expect(page.getByText("Advanced service filters are coming soon.")).toHaveCount(1);
+    await expect(page.getByRole("group", { name: "Quick service filters" })).toBeVisible();
+    await expect(page.getByText("Quick filters")).toBeVisible();
 
     const culturallySafe = page.getByRole("button", { name: "Culturally safe" });
     await expect(culturallySafe).toBeVisible();
