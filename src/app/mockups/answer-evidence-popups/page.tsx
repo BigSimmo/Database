@@ -279,7 +279,7 @@ function MobileSheetFrame({
       <div className="mx-auto mt-2 h-1 w-9 rounded-full bg-[color:var(--border-strong)]" />
       <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-3 sm:p-4">
         <div className="min-w-0">
-          <h2 className="text-base font-semibold text-[color:var(--text-heading)]">{title}</h2>
+          <h3 className="text-base font-semibold text-[color:var(--text-heading)]">{title}</h3>
           <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)] sm:text-sm sm:leading-6">{description}</p>
         </div>
         <CloseButton label={`Close ${title.toLowerCase()} sheet`} />
@@ -609,7 +609,7 @@ function DesktopEvidenceModal() {
         <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-3 sm:p-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Evidence</h2>
+              <h3 className="text-base font-semibold text-[color:var(--text-heading)]">Evidence</h3>
               <Pill tone="success">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Source-backed
@@ -639,7 +639,7 @@ function TableDialog() {
     <div className="rounded-2xl border border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-elevated)]">
       <div className="flex items-start justify-between gap-3 border-b border-[color:var(--border)] p-4">
         <div>
-          <h2 className="text-base font-semibold text-[color:var(--text-heading)]">Clozapine monitoring table</h2>
+          <h3 className="text-base font-semibold text-[color:var(--text-heading)]">Clozapine monitoring table</h3>
           <p className="mt-1 text-sm text-[color:var(--text-muted)]">
             Expanded from visual evidence. Use the source PDF for final verification.
           </p>
@@ -662,7 +662,7 @@ function WeakEvidencePopup() {
         </span>
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-semibold text-[color:var(--text-heading)]">Evidence support is limited</h2>
+            <h3 className="text-sm font-semibold text-[color:var(--text-heading)]">Evidence support is limited</h3>
             <Pill tone="warn">Do not copy into notes</Pill>
           </div>
           <p className="mt-1 text-sm leading-6 text-[color:var(--text-muted)]">
