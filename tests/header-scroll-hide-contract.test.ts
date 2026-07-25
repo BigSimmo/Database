@@ -55,7 +55,20 @@ describe("shared header hide/reveal wiring", () => {
     // page and only reappeared at scroll top. `contents` removes that box.
     expect(shellSource).toContain('className={mobileChromeVisible ? "sm:contents" : "hidden lg:contents"}');
     expect(shellSource).not.toContain('mobileChromeVisible ? undefined : "hidden lg:block"');
-    expect(headerSource).toContain("sm:sticky sm:top-0 sm:z-30 sm:transition-transform");
+    // Collapse returns a fragment (spacer + wrapper). Wrapping both in a block
+    // would recreate the zero-travel sticky bug under `sm:contents`.
+    expect(headerSource).toContain('data-testid="chrome-safe-area-top"');
+    expect(headerSource).toContain("sm:sticky sm:top-[var(--safe-area-top)] sm:z-30 sm:transition-transform");
+  });
+
+  it("keeps the OS top safe-area outside the collapse / translate hide", () => {
+    // Releasing the status-bar inset with the chrome lets scrolled text paint
+    // under the system clock/signal icons on notched phones (service detail).
+    expect(headerSource).toContain('data-testid="chrome-safe-area-top"');
+    expect(headerSource).toContain("h-[var(--safe-area-top)]");
+    expect(headerSource).toContain("relative z-[32] h-[var(--safe-area-top)]");
+    expect(headerSource).toContain('hideStrategy === "collapse" ? "pt-2" : "pt-[max(0.5rem,var(--safe-area-top))]"');
+    expect(behaviourDocSource).toContain("OS top safe-area band");
   });
 
   it("transforms the sticky wrapper only while the chrome is hidden", () => {
@@ -90,6 +103,18 @@ describe("shared header hide/reveal wiring", () => {
     );
     expect(headerSource).toMatch(/const phoneBottomSearchDockActive =\s*\n\s*usesPhoneSearchLayout &&/);
     expect(headerSource).toContain("const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;");
+  });
+
+  it("does not carry dock focus into GlobalSearchShell submitted result views", () => {
+    // focus=1 + run=1 left the Forms/services dock focused, which pins both
+    // chrome edges and freezes hide-on-scroll with the bottom white rail visible.
+    expect(shellSource).toContain("focus: !trimmedQuery");
+    expect(shellSource).toContain("queryInputAutoFocus={requestedFocus && !hasSubmittedModeSearch}");
+    expect(shellSource).toContain("if (hasSubmittedModeSearch)");
+    expect(shellSource).toContain(
+      "if (target.scrollTop > 8 && inputRef.current && document.activeElement === inputRef.current)",
+    );
+    expect(behaviourDocSource).toContain("Do not carry composer focus into submitted result views");
   });
 
   it("documents the cross-breakpoint behaviour alongside the code", () => {
