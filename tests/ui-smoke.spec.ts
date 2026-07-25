@@ -2978,7 +2978,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await acamprosateResult.click();
     await expect(page).toHaveURL(/\/medications\/acamprosate$/, { timeout: 30_000 });
     await expectSingleMedicationPage(page);
-    await expect(page.getByRole("link", { name: "Medications" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Medications", exact: true }).first()).toBeVisible();
 
     expect(parentNodeErrors).toEqual([]);
   });
