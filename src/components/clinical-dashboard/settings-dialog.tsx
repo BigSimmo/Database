@@ -281,7 +281,7 @@ export function SettingsDialog({
       type="button"
       onClick={onClose}
       aria-label="Close settings"
-      className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:h-10 lg:w-10 lg:border-transparent lg:bg-transparent lg:shadow-none"
+      className="grid size-tap shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:h-10 lg:w-10 lg:border-transparent lg:bg-transparent lg:shadow-none"
     >
       <X aria-hidden="true" className="size-icon-lg" />
     </button>
@@ -844,7 +844,7 @@ function SettingsGroup({ children }: { children: ReactNode }) {
 
 function IconBadge({ icon: Icon }: { icon: LucideIcon }) {
   return (
-    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+    <span className="grid size-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
       <Icon aria-hidden="true" className="h-4 w-4" />
     </span>
   );
@@ -967,7 +967,7 @@ function SegmentedControl<T extends string>({
             aria-checked={checked}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex min-h-8 flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]",
+              "flex min-h-tap flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]",
               checked
                 ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
                 : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
@@ -1204,7 +1204,7 @@ function SettingsProviderRow({
 
 function SettingsClinicalContextStrip({ jurisdictionShort }: { jurisdictionShort: string }) {
   return (
-    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
+    <div className="mt-2.5 flex min-h-tap items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
       <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0 truncate">
         Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}

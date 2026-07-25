@@ -184,8 +184,8 @@ const variants: Record<
     description: "A scalable library console with the action-first confidence of the command desk.",
     selectedId: "acamprosate-renal-screen",
     accent: "#007c89",
-    pageClassName: "bg-[#edf5f6] text-[#102033]",
-    commandClassName: "bg-[#007c89] text-white shadow-[0_14px_34px_rgba(0,124,137,0.24)] hover:bg-[#006c78]",
+    pageClassName: "bg-[color:var(--surface-lux)] text-[color:var(--text-heading)]",
+    commandClassName: "bg-[color:var(--clinical-accent)] text-white shadow-[0_14px_34px_rgba(0,124,137,0.24)] hover:bg-[color:var(--clinical-accent-hover)]",
     resumeTitle: "Resume Acamprosate renal screen",
     resumeBody: "Open the ward-round renal caution page with source count, set context, and next action visible.",
     primaryFilter: "Recent",
@@ -197,8 +197,8 @@ const variants: Record<
     description: "A governance-heavy version for source state, review due work, and selected-item inspection.",
     selectedId: "lithium-monitoring-guideline",
     accent: "#1d4ed8",
-    pageClassName: "bg-[#f3f6fb] text-[#0f172a]",
-    commandClassName: "bg-[#1d4ed8] text-white shadow-[0_14px_34px_rgba(29,78,216,0.22)] hover:bg-[#1e40af]",
+    pageClassName: "bg-[color:var(--surface-raised)] text-[color:var(--text-heading)]",
+    commandClassName: "bg-[color:var(--primary)] text-white shadow-[0_14px_34px_rgba(29,78,216,0.22)] hover:bg-[color:var(--primary-hover)]",
     resumeTitle: "Review lithium monitoring guideline",
     resumeBody: "Check pages 4-9, mark the PDF as reviewed, then ask against the document if needed.",
     primaryFilter: "Review due",
@@ -210,8 +210,8 @@ const variants: Record<
     description: "A library-first page that makes workflow sets the fastest way into saved material.",
     selectedId: "renal-dose-search",
     accent: "#047857",
-    pageClassName: "bg-[#eef6f1] text-[#10231d]",
-    commandClassName: "bg-[#047857] text-white shadow-[0_14px_34px_rgba(4,120,87,0.24)] hover:bg-[#03694c]",
+    pageClassName: "bg-[color:var(--surface-lux)] text-[color:var(--text-heading)]",
+    commandClassName: "bg-[color:var(--success)] text-white shadow-[0_14px_34px_rgba(4,120,87,0.24)] hover:bg-[color:var(--success-hover)]",
     resumeTitle: "Run renal dose saved search",
     resumeBody: "Restart the ward-round saved query across medicines and documents before opening individual items.",
     primaryFilter: "Ward round",
@@ -225,16 +225,16 @@ const variantRoutes: Array<{ id: FavouritesLibraryRedesignVariant; href: string 
 ];
 
 function statusClassName(state: ReviewState) {
-  if (state === "review-due") return "border-[#f5c56f] bg-[#fff7e8] text-[#9a5a00]";
-  if (state === "recent") return "border-[#b8c7ff] bg-[#eef3ff] text-[#244bc1]";
-  return "border-[#9fd8ce] bg-[#ecfbf7] text-[#006b57]";
+  if (state === "review-due") return "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning)]";
+  if (state === "recent") return "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]";
+  return "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
 }
 
 function kindClassName(kind: FavouriteKind) {
-  if (kind === "Medication") return "border-[#9fd8ce] bg-[#ecfbf7] text-[#006b57]";
-  if (kind === "Document") return "border-[#b8c7ff] bg-[#eef3ff] text-[#244bc1]";
-  if (kind === "Source") return "border-[#dec2ff] bg-[#f6efff] text-[#6d28a8]";
-  return "border-[#c9d3df] bg-[#f6f8fb] text-[#46586d]";
+  if (kind === "Medication") return "border-[color:var(--success-border)] bg-[color:var(--success-soft)] text-[color:var(--success)]";
+  if (kind === "Document") return "border-[color:var(--type-document-border)] bg-[color:var(--type-document-soft)] text-[color:var(--type-document)]";
+  if (kind === "Source") return "border-[color:var(--type-source-border)] bg-[color:var(--type-source-soft)] text-[color:var(--type-source)]";
+  return "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]";
 }
 
 function ShellPill({
@@ -250,7 +250,7 @@ function ShellPill({
     <span
       className={cn(
         "inline-flex min-h-9 items-center gap-2 rounded-lg border px-3 text-xs font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]",
-        active ? "border-[#8fcdd2] bg-white text-[#005f6b]" : "border-[#d8e1e8] bg-white/72 text-[#536577]",
+        active ? "border-[color:var(--border)] bg-white text-[color:var(--text-muted)]" : "border-[color:var(--border)] bg-[color:var(--surface-highlight)] text-[color:var(--text-muted)]",
       )}
     >
       {Icon ? <Icon className="h-3.5 w-3.5" aria-hidden /> : null}
@@ -264,7 +264,7 @@ function IconTile({ icon: Icon, active = false }: { icon: LucideIcon; active?: b
     <span
       className={cn(
         "grid h-10 w-10 shrink-0 place-items-center rounded-lg border",
-        active ? "border-[#8fcdd2] bg-[#e6f7f8] text-[#007c89]" : "border-[#d8e1e8] bg-white text-[#536577]",
+        active ? "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]" : "border-[color:var(--border)] bg-white text-[color:var(--text-muted)]",
       )}
     >
       <Icon className="h-4.5 w-4.5" aria-hidden />
@@ -303,8 +303,8 @@ function VariantSwitch({ active }: { active: FavouritesLibraryRedesignVariant })
               "inline-flex min-h-9 items-center rounded-lg border px-3 text-xs font-extrabold transition",
               focusRing,
               isActive
-                ? "border-[#8fcdd2] bg-white text-[#005f6b] shadow-[0_10px_26px_rgba(15,31,44,0.08)]"
-                : "border-[#d6e0e7] bg-white/68 text-[#536577] hover:bg-white",
+                ? "border-[color:var(--border)] bg-white text-[color:var(--text-muted)] shadow-[0_10px_26px_rgba(15,31,44,0.08)]"
+                : "border-[color:var(--border)] bg-[color:var(--surface-highlight)] text-[color:var(--text-muted)] hover:bg-white",
             )}
           >
             {config.eyebrow}: {config.label}
@@ -323,28 +323,28 @@ function PageHeader({ variant, selected }: { variant: FavouritesLibraryRedesignV
         <VariantSwitch active={variant} />
         <div className="mt-4 flex min-w-0 items-start gap-3">
           <span
-            className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[#b7dce0] bg-[#e7f6f7] text-[#007c89]"
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
             style={{ color: config.accent }}
           >
             <Heart className="h-6 w-6" aria-hidden />
           </span>
           <div className="min-w-0">
-            <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#64748b]">{config.eyebrow}</p>
-            <h1 className="mt-1 text-balance text-3xl font-black leading-tight tracking-normal text-[#0f1f33] sm:text-4xl">
+            <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{config.eyebrow}</p>
+            <h1 className="mt-1 text-balance text-3xl font-black leading-tight tracking-normal text-[color:var(--text-muted)] sm:text-4xl">
               {config.title}
             </h1>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[#526579]">{config.description}</p>
+            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-[color:var(--text-muted)]">{config.description}</p>
           </div>
         </div>
       </div>
 
       <div className="grid gap-3 lg:min-w-[34rem]">
-        <form className="grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-[#cfdbe5] bg-white px-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_14px_30px_rgba(15,31,44,0.06)]">
-          <Search className="h-5 w-5 text-[#64748b]" aria-hidden />
-          <span className="truncate text-sm font-bold text-[#526579]">
+        <form className="grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-[color:var(--border)] bg-white px-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_14px_30px_rgba(15,31,44,0.06)]">
+          <Search className="h-5 w-5 text-[color:var(--text-muted)]" aria-hidden />
+          <span className="truncate text-sm font-bold text-[color:var(--text-muted)]">
             Search favourites, sets, source notes or saved searches...
           </span>
-          <kbd className="rounded-md border border-[#d6e0e7] bg-[#f6f8fb] px-2 py-1 text-xs font-bold text-[#64748b]">
+          <kbd className="rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 py-1 text-xs font-bold text-[color:var(--text-muted)]">
             Ctrl K
           </kbd>
         </form>
@@ -355,7 +355,7 @@ function PageHeader({ variant, selected }: { variant: FavouritesLibraryRedesignV
           <button
             type="button"
             className={cn(
-              "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[#d4dee8] bg-white px-3 text-sm font-extrabold text-[#0f1f33] shadow-[0_10px_24px_rgba(15,31,44,0.06)] transition hover:bg-[#f8fafc]",
+              "inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-white px-3 text-sm font-extrabold text-[color:var(--text-muted)] shadow-[0_10px_24px_rgba(15,31,44,0.06)] transition hover:bg-[color:var(--surface-subtle)]",
               focusRing,
             )}
           >
@@ -379,7 +379,7 @@ function ResumeBand({ variant, selected }: { variant: FavouritesLibraryRedesignV
 
   return (
     <section className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(18rem,0.8fr)]">
-      <div className="overflow-hidden rounded-xl border border-[#bfd7df] bg-white shadow-[0_18px_50px_rgba(16,32,51,0.08)]">
+      <div className="overflow-hidden rounded-xl border border-[color:var(--border)] bg-white shadow-[0_18px_50px_rgba(16,32,51,0.08)]">
         <div className="grid gap-4 p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
           <IconTile icon={selected.icon} active />
           <div className="min-w-0">
@@ -396,9 +396,9 @@ function ResumeBand({ variant, selected }: { variant: FavouritesLibraryRedesignV
                 {selected.reviewLabel}
               </span>
             </div>
-            <h2 className="mt-3 text-2xl font-black tracking-normal text-[#0f1f33]">{config.resumeTitle}</h2>
-            <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-[#526579]">{config.resumeBody}</p>
-            <p className="mt-3 text-xs font-bold text-[#64748b]">
+            <h2 className="mt-3 text-2xl font-black tracking-normal text-[color:var(--text-muted)]">{config.resumeTitle}</h2>
+            <p className="mt-1 max-w-3xl text-sm font-semibold leading-6 text-[color:var(--text-muted)]">{config.resumeBody}</p>
+            <p className="mt-3 text-xs font-bold text-[color:var(--text-muted)]">
               {selected.set} / {selected.provenance} / {selected.lastUsed}
             </p>
           </div>
@@ -406,20 +406,20 @@ function ResumeBand({ variant, selected }: { variant: FavouritesLibraryRedesignV
             {selected.action}
           </CommandButton>
         </div>
-        <div className="grid border-t border-[#dbe5ec] bg-[#f8fbfc] sm:grid-cols-4">
+        <div className="grid border-t border-[color:var(--border)] bg-[color:var(--surface-subtle)] sm:grid-cols-4">
           {stats.map((stat) => {
             const Icon = stat.icon;
             return (
               <div
                 key={stat.label}
-                className="grid min-h-20 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 border-t border-[#dbe5ec] px-4 first:border-t-0 sm:border-l sm:border-t-0 sm:first:border-l-0"
+                className="grid min-h-20 grid-cols-[auto_minmax(0,1fr)] items-center gap-3 border-t border-[color:var(--border)] px-4 first:border-t-0 sm:border-l sm:border-t-0 sm:first:border-l-0"
               >
-                <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-[#007c89] shadow-[inset_0_0_0_1px_var(--border)]">
+                <span className="grid h-9 w-9 place-items-center rounded-lg bg-white text-[color:var(--text-muted)] shadow-[inset_0_0_0_1px_var(--border)]">
                   <Icon className="h-4 w-4" aria-hidden />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-xl font-black leading-none text-[#0f1f33]">{stat.value}</span>
-                  <span className="mt-1 block truncate text-xs font-bold text-[#64748b]">{stat.label}</span>
+                  <span className="block text-xl font-black leading-none text-[color:var(--text-muted)]">{stat.value}</span>
+                  <span className="mt-1 block truncate text-xs font-bold text-[color:var(--text-muted)]">{stat.label}</span>
                 </span>
               </div>
             );
@@ -435,32 +435,32 @@ function ResumeBand({ variant, selected }: { variant: FavouritesLibraryRedesignV
 function ReviewQueue({ variant }: { variant: FavouritesLibraryRedesignVariant }) {
   const dueItem = favouriteRecords.find((item) => item.reviewState === "review-due") ?? favouriteRecords[1];
   return (
-    <aside className="rounded-xl border border-[#f2ce87] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(119,72,0,0.08)]">
+    <aside className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-4 shadow-[0_18px_50px_rgba(119,72,0,0.08)]">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#9a5a00]">Review queue</p>
-          <h2 className="mt-1 text-xl font-black text-[#301c00]">1 item needs confirmation</h2>
+          <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[color:var(--text-muted)]">Review queue</p>
+          <h2 className="mt-1 text-xl font-black text-[color:var(--text-muted)]">1 item needs confirmation</h2>
         </div>
-        <span className="grid h-10 w-10 place-items-center rounded-lg border border-[#f4c972] bg-white text-[#b66c00]">
+        <span className="grid h-10 w-10 place-items-center rounded-lg border border-[color:var(--border)] bg-white text-[color:var(--text-muted)]">
           <Clock3 className="h-4.5 w-4.5" aria-hidden />
         </span>
       </div>
-      <div className="mt-4 rounded-lg border border-[#f4c972] bg-white p-3">
+      <div className="mt-4 rounded-lg border border-[color:var(--border)] bg-white p-3">
         <div className="flex items-start gap-3">
           <IconTile icon={dueItem.icon} active={variant === "review-console"} />
           <div className="min-w-0">
-            <p className="truncate text-sm font-black text-[#0f1f33]">{dueItem.title}</p>
-            <p className="mt-1 text-xs font-bold text-[#6b7280]">
+            <p className="truncate text-sm font-black text-[color:var(--text-muted)]">{dueItem.title}</p>
+            <p className="mt-1 text-xs font-bold text-[color:var(--text-muted)]">
               {dueItem.set} / {dueItem.provenance}
             </p>
-            <p className="mt-2 text-xs font-extrabold text-[#b66c00]">Clinical review due in 7 days</p>
+            <p className="mt-2 text-xs font-extrabold text-[color:var(--text-muted)]">Clinical review due in 7 days</p>
           </div>
         </div>
       </div>
       <button
         type="button"
         className={cn(
-          "mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-[#f4c972] bg-white px-3 text-sm font-extrabold text-[#7c4700] transition hover:bg-[#fff4dc]",
+          "mt-3 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-white px-3 text-sm font-extrabold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)]",
           focusRing,
         )}
       >
@@ -482,10 +482,10 @@ function FilterRail({ variant }: { variant: FavouritesLibraryRedesignVariant }) 
   ];
 
   return (
-    <aside className="min-w-0 rounded-xl border border-[#d6e0e7] bg-white/84 p-3 shadow-[0_16px_40px_rgba(15,31,44,0.06)]">
+    <aside className="min-w-0 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-glass)] p-3 shadow-[0_16px_40px_rgba(15,31,44,0.06)]">
       <div className="flex items-center justify-between gap-2 px-1 py-2">
-        <h2 className="text-base font-black text-[#0f1f33]">Filters</h2>
-        <button type="button" className={cn("text-xs font-extrabold text-[#0b7285]", focusRing)}>
+        <h2 className="text-base font-black text-[color:var(--text-muted)]">Filters</h2>
+        <button type="button" className={cn("text-xs font-extrabold text-[color:var(--text-muted)]", focusRing)}>
           Reset
         </button>
       </div>
@@ -501,7 +501,7 @@ function FilterRail({ variant }: { variant: FavouritesLibraryRedesignVariant }) 
               className={cn(
                 "grid min-h-11 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2.5 text-left text-sm font-extrabold transition",
                 focusRing,
-                active ? "bg-[#eaf6f8] text-[#005f6b]" : "text-[#536577] hover:bg-[#f6f8fb] hover:text-[#0f1f33]",
+                active ? "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]" : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text-muted)]",
               )}
             >
               <Icon className="h-4 w-4" aria-hidden />
@@ -511,10 +511,10 @@ function FilterRail({ variant }: { variant: FavouritesLibraryRedesignVariant }) 
           );
         })}
       </div>
-      <div className="my-4 border-t border-[#dbe5ec]" />
+      <div className="my-4 border-t border-[color:var(--border)]" />
       <div className="flex items-center justify-between gap-2 px-1">
-        <h3 className="text-sm font-black text-[#0f1f33]">Saved sets</h3>
-        <button type="button" className={cn("text-xs font-extrabold text-[#0b7285]", focusRing)}>
+        <h3 className="text-sm font-black text-[color:var(--text-muted)]">Saved sets</h3>
+        <button type="button" className={cn("text-xs font-extrabold text-[color:var(--text-muted)]", focusRing)}>
           New set
         </button>
       </div>
@@ -531,8 +531,8 @@ function FilterRail({ variant }: { variant: FavouritesLibraryRedesignVariant }) 
                 "grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border px-2.5 text-left transition",
                 focusRing,
                 active
-                  ? "border-[#8fcdd2] bg-[#eaf6f8] text-[#005f6b]"
-                  : "border-[#dbe5ec] bg-white text-[#536577] hover:bg-[#f8fafc]",
+                  ? "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]"
+                  : "border-[color:var(--border)] bg-white text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]",
               )}
             >
               <Icon className="h-4 w-4" aria-hidden />
@@ -562,27 +562,27 @@ function SetNavigatorStrip({ variant }: { variant: FavouritesLibraryRedesignVari
             key={set.title}
             className={cn(
               "rounded-xl border bg-white p-4 shadow-[0_16px_40px_rgba(15,31,44,0.06)]",
-              active ? "border-[#7fc9b1] ring-2 ring-[color:var(--clinical-accent-border)]" : "border-[#d6e0e7]",
+              active ? "border-[color:var(--border)] ring-2 ring-[color:var(--clinical-accent-border)]" : "border-[color:var(--border)]",
             )}
           >
             <div className="flex items-start justify-between gap-3">
               <span
                 className={cn(
                   "grid h-11 w-11 place-items-center rounded-xl",
-                  active ? "bg-[#dff5eb] text-[#047857]" : "bg-[#f2f6f8] text-[#536577]",
+                  active ? "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]" : "bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)]",
                 )}
               >
                 <Icon className="h-5 w-5" aria-hidden />
               </span>
-              <span className="rounded-lg border border-[#d6e0e7] bg-[#f8fafc] px-2 py-1 text-xs font-black text-[#536577]">
+              <span className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-2 py-1 text-xs font-black text-[color:var(--text-muted)]">
                 {set.count} items
               </span>
             </div>
-            <h2 className="mt-4 text-lg font-black text-[#0f1f33]">{set.title}</h2>
-            <p className="mt-1 min-h-10 text-sm font-semibold leading-5 text-[#526579]">{set.summary}</p>
-            <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold text-[#536577]">
+            <h2 className="mt-4 text-lg font-black text-[color:var(--text-muted)]">{set.title}</h2>
+            <p className="mt-1 min-h-10 text-sm font-semibold leading-5 text-[color:var(--text-muted)]">{set.summary}</p>
+            <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold text-[color:var(--text-muted)]">
               <span>Last used {set.lastUsed}</span>
-              <span className={cn("text-right", set.reviewDue ? "text-[#b66c00]" : "text-[#047857]")}>
+              <span className={cn("text-right", set.reviewDue ? "text-[color:var(--text-muted)]" : "text-[color:var(--text-muted)]")}>
                 {set.reviewDue ? `${set.reviewDue} review due` : "No review due"}
               </span>
             </div>
@@ -597,14 +597,14 @@ function LibraryTable({ variant, selected }: { variant: FavouritesLibraryRedesig
   const config = variants[variant];
 
   return (
-    <section className="min-w-0 overflow-hidden rounded-xl border border-[#d6e0e7] bg-white shadow-[0_18px_50px_rgba(15,31,44,0.08)]">
-      <div className="grid gap-3 border-b border-[#dbe5ec] bg-white p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+    <section className="min-w-0 overflow-hidden rounded-xl border border-[color:var(--border)] bg-white shadow-[0_18px_50px_rgba(15,31,44,0.08)]">
+      <div className="grid gap-3 border-b border-[color:var(--border)] bg-white p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-xl font-black text-[#0f1f33]">All favourites</h2>
-            <span className="rounded-md bg-[#eef3f6] px-2 py-1 text-xs font-black text-[#536577]">5 items</span>
+            <h2 className="text-xl font-black text-[color:var(--text-muted)]">All favourites</h2>
+            <span className="rounded-md bg-[color:var(--surface-subtle)] px-2 py-1 text-xs font-black text-[color:var(--text-muted)]">5 items</span>
           </div>
-          <p className="mt-1 text-sm font-semibold text-[#526579]">
+          <p className="mt-1 text-sm font-semibold text-[color:var(--text-muted)]">
             Primary action, source state, set context, and review state stay visible.
           </p>
         </div>
@@ -619,7 +619,7 @@ function LibraryTable({ variant, selected }: { variant: FavouritesLibraryRedesig
 
       <div className="overflow-x-auto">
         <div className="min-w-[38rem]">
-          <div className="grid min-h-12 grid-cols-[4.25rem_minmax(8.5rem,1.2fr)_5rem_5.5rem_5.75rem_5rem] items-center gap-2 border-b border-[#dbe5ec] bg-[#f7fafc] px-3 text-xs font-black uppercase tracking-[0.08em] text-[#64748b]">
+          <div className="grid min-h-12 grid-cols-[4.25rem_minmax(8.5rem,1.2fr)_5rem_5.5rem_5.75rem_5rem] items-center gap-2 border-b border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-xs font-black uppercase tracking-[0.08em] text-[color:var(--text-muted)]">
             <span aria-hidden />
             <span>Name</span>
             <span>Type</span>
@@ -635,16 +635,16 @@ function LibraryTable({ variant, selected }: { variant: FavouritesLibraryRedesig
                 key={record.id}
                 href={record.href}
                 className={cn(
-                  "grid min-h-[5.5rem] grid-cols-[4.25rem_minmax(8.5rem,1.2fr)_5rem_5.5rem_5.75rem_5rem] items-center gap-2 border-b border-[#e4ebf1] px-3 py-3 last:border-b-0 transition",
+                  "grid min-h-[5.5rem] grid-cols-[4.25rem_minmax(8.5rem,1.2fr)_5rem_5.5rem_5.75rem_5rem] items-center gap-2 border-b border-[color:var(--border)] px-3 py-3 last:border-b-0 transition",
                   focusRing,
-                  isSelected ? "bg-[#edf7fb] shadow-[inset_3px_0_0_var(--clinical-accent)]" : "hover:bg-[#f8fafc]",
+                  isSelected ? "bg-[color:var(--surface-subtle)] shadow-[inset_3px_0_0_var(--clinical-accent)]" : "hover:bg-[color:var(--surface-subtle)]",
                 )}
               >
                 <span className="flex items-center gap-2">
                   <span
                     className={cn(
                       "grid h-5 w-5 place-items-center rounded border",
-                      isSelected ? "border-[#0b7285] bg-[#0b7285]" : "border-[#cbd8e3] bg-white",
+                      isSelected ? "border-[color:var(--border)] bg-[color:var(--surface-subtle)]" : "border-[color:var(--border)] bg-white",
                     )}
                   >
                     {isSelected ? <CheckCircle2 className="h-3.5 w-3.5 text-white" aria-hidden /> : null}
@@ -652,8 +652,8 @@ function LibraryTable({ variant, selected }: { variant: FavouritesLibraryRedesig
                   <IconTile icon={Icon} active={isSelected} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-black text-[#0f1f33]">{record.title}</span>
-                  <span className="mt-1 block truncate text-xs font-bold text-[#526579]">{record.summary}</span>
+                  <span className="block truncate text-sm font-black text-[color:var(--text-muted)]">{record.title}</span>
+                  <span className="mt-1 block truncate text-xs font-bold text-[color:var(--text-muted)]">{record.summary}</span>
                   <span className="mt-2 flex flex-wrap gap-1.5">
                     <span
                       className={cn(
@@ -663,7 +663,7 @@ function LibraryTable({ variant, selected }: { variant: FavouritesLibraryRedesig
                     >
                       {record.reviewLabel}
                     </span>
-                    <span className="inline-flex min-h-6 items-center rounded-md border border-[#d6e0e7] bg-white px-2 text-2xs font-black text-[#536577]">
+                    <span className="inline-flex min-h-6 items-center rounded-md border border-[color:var(--border)] bg-white px-2 text-2xs font-black text-[color:var(--text-muted)]">
                       {record.lastUsed}
                     </span>
                   </span>
@@ -673,18 +673,18 @@ function LibraryTable({ variant, selected }: { variant: FavouritesLibraryRedesig
                 >
                   {record.kind}
                 </span>
-                <span className="truncate text-xs font-bold text-[#334155]">{record.set}</span>
-                <span className="truncate text-xs font-bold text-[#047857]">{record.provenance}</span>
+                <span className="truncate text-xs font-bold text-[color:var(--text-muted)]">{record.set}</span>
+                <span className="truncate text-xs font-bold text-[color:var(--text-muted)]">{record.provenance}</span>
                 <span className="flex justify-end gap-1.5">
                   <span
                     className={cn(
-                      "inline-flex min-h-9 items-center justify-center rounded-lg border border-[#cfdbe5] bg-white px-2 text-xs font-black text-[#0f1f33]",
-                      isSelected && "border-[#8fcdd2] text-[#005f6b]",
+                      "inline-flex min-h-9 items-center justify-center rounded-lg border border-[color:var(--border)] bg-white px-2 text-xs font-black text-[color:var(--text-muted)]",
+                      isSelected && "border-[color:var(--border)] text-[color:var(--text-muted)]",
                     )}
                   >
                     {record.action}
                   </span>
-                  <span className="grid h-9 w-9 place-items-center rounded-lg border border-[#cfdbe5] bg-white text-[#64748b]">
+                  <span className="grid h-9 w-9 place-items-center rounded-lg border border-[color:var(--border)] bg-white text-[color:var(--text-muted)]">
                     <MoreHorizontal className="h-4 w-4" aria-hidden />
                   </span>
                 </span>
@@ -702,16 +702,16 @@ function Inspector({ selected, variant }: { selected: FavouriteRecord; variant: 
   const related = favouriteRecords.filter((item) => item.id !== selected.id).slice(0, 3);
 
   return (
-    <aside className="min-w-0 rounded-xl border border-[#d6e0e7] bg-white shadow-[0_18px_50px_rgba(15,31,44,0.08)]">
-      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-[#dbe5ec] px-4">
-        <h2 className="text-sm font-black text-[#0f1f33]">Selected item</h2>
-        <ChevronDown className="h-4 w-4 text-[#64748b]" aria-hidden />
+    <aside className="min-w-0 rounded-xl border border-[color:var(--border)] bg-white shadow-[0_18px_50px_rgba(15,31,44,0.08)]">
+      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-[color:var(--border)] px-4">
+        <h2 className="text-sm font-black text-[color:var(--text-muted)]">Selected item</h2>
+        <ChevronDown className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
       </div>
       <div className="p-4">
         <div className="flex items-start gap-3">
           <IconTile icon={selected.icon} active />
           <div className="min-w-0">
-            <h3 className="text-xl font-black leading-tight text-[#0f1f33]">{selected.title}</h3>
+            <h3 className="text-xl font-black leading-tight text-[color:var(--text-muted)]">{selected.title}</h3>
             <div className="mt-2 flex flex-wrap gap-1.5">
               <span
                 className={cn(
@@ -733,8 +733,8 @@ function Inspector({ selected, variant }: { selected: FavouriteRecord; variant: 
           </div>
         </div>
 
-        <div className="mt-4 rounded-lg border border-[#d6e0e7] bg-[#f8fafc] p-3">
-          <p className="text-xs font-black uppercase tracking-[0.1em] text-[#64748b]">Source details</p>
+        <div className="mt-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
+          <p className="text-xs font-black uppercase tracking-[0.1em] text-[color:var(--text-muted)]">Source details</p>
           <dl className="mt-3 grid gap-2 text-sm">
             {[
               ["Set", selected.set],
@@ -743,21 +743,21 @@ function Inspector({ selected, variant }: { selected: FavouriteRecord; variant: 
               ["Next action", selected.action],
             ].map(([label, value]) => (
               <div key={label} className="grid grid-cols-[6rem_minmax(0,1fr)] gap-3">
-                <dt className="font-bold text-[#64748b]">{label}</dt>
-                <dd className="min-w-0 truncate font-extrabold text-[#0f1f33]">{value}</dd>
+                <dt className="font-bold text-[color:var(--text-muted)]">{label}</dt>
+                <dd className="min-w-0 truncate font-extrabold text-[color:var(--text-muted)]">{value}</dd>
               </div>
             ))}
           </dl>
         </div>
 
-        <div className="mt-4 rounded-lg border border-[#f4c972] bg-[#fffaf0] p-3">
+        <div className="mt-4 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] p-3">
           <div className="flex items-start gap-2">
-            <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[#b66c00]" aria-hidden />
+            <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--text-muted)]" aria-hidden />
             <div>
-              <p className="text-sm font-black text-[#7c4700]">
+              <p className="text-sm font-black text-[color:var(--text-muted)]">
                 {selected.reviewState === "review-due" ? "Clinical review due" : "Governance note"}
               </p>
-              <p className="mt-1 text-xs font-semibold leading-5 text-[#7c5a20]">
+              <p className="mt-1 text-xs font-semibold leading-5 text-[color:var(--text-muted)]">
                 Keep source state visible before opening, asking, copying, or running saved material.
               </p>
             </div>
@@ -780,35 +780,35 @@ function Inspector({ selected, variant }: { selected: FavouriteRecord; variant: 
                 key={action.label}
                 type="button"
                 className={cn(
-                  "inline-flex min-h-10 items-center justify-start gap-2 rounded-lg border border-[#d6e0e7] bg-white px-3 text-sm font-extrabold text-[#0f1f33] transition hover:bg-[#f8fafc]",
+                  "inline-flex min-h-10 items-center justify-start gap-2 rounded-lg border border-[color:var(--border)] bg-white px-3 text-sm font-extrabold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)]",
                   focusRing,
                 )}
               >
-                <Icon className="h-4 w-4 text-[#64748b]" aria-hidden />
+                <Icon className="h-4 w-4 text-[color:var(--text-muted)]" aria-hidden />
                 {action.label}
               </button>
             );
           })}
         </div>
 
-        <div className="mt-5 border-t border-[#dbe5ec] pt-4">
-          <p className="text-xs font-black uppercase tracking-[0.1em] text-[#64748b]">Related items</p>
+        <div className="mt-5 border-t border-[color:var(--border)] pt-4">
+          <p className="text-xs font-black uppercase tracking-[0.1em] text-[color:var(--text-muted)]">Related items</p>
           <div className="mt-3 grid gap-2">
             {related.map((item) => (
               <Link
                 key={item.id}
                 href={item.href}
                 className={cn(
-                  "grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[#d6e0e7] bg-white px-2.5 transition hover:bg-[#f8fafc]",
+                  "grid min-h-12 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[color:var(--border)] bg-white px-2.5 transition hover:bg-[color:var(--surface-subtle)]",
                   focusRing,
                 )}
               >
                 <IconTile icon={item.icon} />
                 <span className="min-w-0">
-                  <span className="block truncate text-xs font-black text-[#0f1f33]">{item.title}</span>
-                  <span className="block truncate text-2xs font-bold text-[#64748b]">{item.set}</span>
+                  <span className="block truncate text-xs font-black text-[color:var(--text-muted)]">{item.title}</span>
+                  <span className="block truncate text-2xs font-bold text-[color:var(--text-muted)]">{item.set}</span>
                 </span>
-                <ArrowRight className="h-3.5 w-3.5 text-[#64748b]" aria-hidden />
+                <ArrowRight className="h-3.5 w-3.5 text-[color:var(--text-muted)]" aria-hidden />
               </Link>
             ))}
           </div>
