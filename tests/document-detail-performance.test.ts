@@ -18,7 +18,10 @@ describe("document detail loading contract", () => {
     expect(page).toContain("loadAuthorizedDocumentDetail");
     expect(page).toContain("initialDetail={initialDetail}");
     expect(page).toContain("initialError={initialError}");
-    expect(page).toContain('key={`${id}:${initialPage}:${query.chunk ?? ""}`}');
+    // Page/chunk updates stay inside DocumentViewer via URL sync — remounting
+    // on every page flip reloaded the PDF and felt like loading lag.
+    expect(page).toContain("key={id}");
+    expect(page).not.toContain('key={`${id}:${initialPage}:${query.chunk ?? ""}`}');
   });
 
   it("supports document and window asset scopes and starts independent detail reads together", () => {
