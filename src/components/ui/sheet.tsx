@@ -240,12 +240,11 @@ export function Sheet({
       let attempts = 0;
       const retryTimer = window.setInterval(() => {
         attempts += 1;
-        const preferredAutofocus = resolveAutofocusTarget();
-        const focusTarget = focusIfNeeded();
-        const preferredFocused = preferredAutofocus != null && document.activeElement === preferredAutofocus;
-        const settledOnFallback =
-          preferredAutofocus == null && focusTarget != null && document.activeElement === focusTarget;
-        if (attempts >= 100 || !isTopmostSheet(sheetId) || preferredFocused || settledOnFallback) {
+        // Keep defending preferred autofocus for the full window. An early stop
+        // after the first successful focus lets focus=1 / composer reclaim steal
+        // the Find field and leave UI smoke stuck on a non-focused dialog input.
+        focusIfNeeded();
+        if (attempts >= 200 || !isTopmostSheet(sheetId)) {
           window.clearInterval(retryTimer);
           if (restoreTimers.openFocusRetry === retryTimer) {
             restoreTimers.openFocusRetry = null;
