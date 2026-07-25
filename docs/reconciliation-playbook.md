@@ -9,11 +9,26 @@ focused verification path.
 ```powershell
 npm run workflow:lifecycle -- --phase reconcile --write-evidence
 node scripts/reconciliation-preflight.mjs
+node scripts/reconciliation-evidence-pack.mjs --output .local/reconciliation-evidence/pack.json
 ```
 
 The preflight is local, read-only, and cached-ref-only. It inventories the primary checkout,
 worktrees, dirty entries, detached state, ahead/behind counts, and Git operation markers. It never
 fetches, scans providers, deletes anything, or treats a preserved branch as approved.
+
+The evidence pack writes one deterministic JSON report (atomic rename) with frozen base/HEAD,
+per-worktree dispositions, operation markers, archive refs, optional bundle path/size/SHA-256/verify,
+retained worktree counts, and local/base tree equality. Secrets are redacted; interrupted runs leave
+only a `.partial` file, never a false completion record at the final path.
+
+Before any primary checkout write, branch switch, fast-forward, or cleanup:
+
+```powershell
+node scripts/primary-checkout-lease.mjs --check
+```
+
+That cooperative lease refuses a second primary writer while another live owner or dirty/operation
+state exists. Read-only commands and independent feature worktrees stay unblocked.
 
 When process ownership may block cleanup, add the explicit process check:
 
