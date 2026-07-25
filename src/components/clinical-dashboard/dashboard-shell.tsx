@@ -118,7 +118,9 @@ export function UtilityDrawer({
   sheetReturnFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
-  const [usesSheet, setUsesSheet] = useState(false);
+  // `all` always matches; default true so the first open does not mount drawer
+  // children in the hidden <details> (browser autoFocus) then remount into Sheet.
+  const [usesSheet, setUsesSheet] = useState(sheetBreakpoint === "all");
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
   const open = controlledOpen ?? uncontrolledOpen;
   const sheetTriggerClassName =
