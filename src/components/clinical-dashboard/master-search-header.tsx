@@ -364,8 +364,6 @@ export function MasterSearchHeader({
     disabled: !hideOnScroll || hideOnScroll.scrollHidden !== undefined,
   });
   const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
-  const headerChromeHidden =
-    scrollHidden && !modeMenuOpen && !actionMenuOpen && !scopeOpen && !scopeSheetOpen && !headerChromeFocused;
   // Mode homes portal the composer into the hero slot. With "all" the hero owns
   // every width (the answer home keeps its in-flow pill on phones); "sm-up"
   // hero hosts hand phones the bottom dock instead.
@@ -375,17 +373,38 @@ export function MasterSearchHeader({
     searchComposerVisible &&
     !heroComposerOwnsPhones &&
     (isAnswerFooterComposer || mobileSearchPlacement === "bottom");
+  const hideOnScrollEnabled = Boolean(hideOnScroll);
+  // Focus-capture pins can survive dock teardown when React skips blur (portal
+  // swap, hero reclaim, breakpoint change). Ignore latched focus unless that
+  // surface is still the active hide/reveal owner, then clear the latch async
+  // (repo pattern — avoids react-hooks/set-state-in-effect).
+  const composerFocusPinsChrome = composerChromeFocused && phoneBottomSearchDockActive && hideOnScrollEnabled;
+  const headerFocusPinsChrome = headerChromeFocused && hideOnScrollEnabled;
+  // Header and composer share one scroll signal, so any active surface or
+  // focus inside either edge pins both edges. This preserves keyboard focus
+  // safety without letting the unfocused header disappear above a still-
+  // focused composer (or vice versa).
+  const sharedChromePinned =
+    modeMenuOpen ||
+    actionMenuOpen ||
+    commandDropdownOpen ||
+    scopeOpen ||
+    scopeSheetOpen ||
+    headerFocusPinsChrome ||
+    composerFocusPinsChrome;
+  const headerChromeHidden = scrollHidden && !sharedChromePinned;
   // Compare addon chrome lives inside the phone dock; hide/reveal with it so
   // the search pill and Compare selected bar reclaim space together.
   const bottomComposerScrollHiddenActive = Boolean(hideOnScroll && phoneBottomSearchDockActive);
-  const bottomComposerHidden =
-    bottomComposerScrollHiddenActive &&
-    scrollHidden &&
-    !actionMenuOpen &&
-    !commandDropdownOpen &&
-    !scopeOpen &&
-    !scopeSheetOpen &&
-    !composerChromeFocused;
+  const bottomComposerHidden = bottomComposerScrollHiddenActive && scrollHidden && !sharedChromePinned;
+
+  useEffect(() => {
+    if (phoneBottomSearchDockActive && hideOnScrollEnabled) return;
+    queueMicrotask(() => {
+      if (!phoneBottomSearchDockActive || !hideOnScrollEnabled) setComposerChromeFocused(false);
+      if (!hideOnScrollEnabled) setHeaderChromeFocused(false);
+    });
+  }, [phoneBottomSearchDockActive, hideOnScrollEnabled]);
 
   useEffect(() => {
     onBottomComposerHiddenChange?.(bottomComposerHidden);
