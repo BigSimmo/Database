@@ -82,6 +82,17 @@ describe("shared header hide/reveal wiring", () => {
     expect(hookSource).toContain("}, [allowAllBreakpoints, resetKey]);");
   });
 
+  it("keeps tablet/desktop search composers page-anchored outside sticky header chrome", () => {
+    // PR #1222 wrapped header+composer in the sticky collapse wrapper, which
+    // glued the results search pill under the top bar on sm+. Only header#search
+    // belongs in that wrapper; the in-flow composer must stay outside it and
+    // must not reintroduce sticky-under-header positioning.
+    expect(headerSource).toContain("Only the top bar lives inside this wrapper");
+    expect(headerSource).toContain("sm:static sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl");
+    expect(headerSource).not.toContain("sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]");
+    expect(headerSource).not.toContain("universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))]");
+  });
+
   it("keeps the bottom search dock a phone-only behaviour", () => {
     // The user-visible contract: the header hides everywhere, the footer search
     // bar hides on phones only. Both gates below require the phone layout.

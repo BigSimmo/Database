@@ -720,8 +720,9 @@ function GlobalStandaloneSearchShellClient({
             heroComposerBreakpoint="all"
             // Phones: #main-content owns vertical scroll, so hide-on-scroll
             // collapses the header/composer to hand space back to content.
-            // Tablet/desktop: the document scrolls, so the chrome sticks to the
-            // viewport top and slides away instead of releasing flow space.
+            // Tablet/desktop: the document scrolls, so only the top bar sticks
+            // to the viewport top and slides away; the search composer stays
+            // page-anchored outside that sticky wrapper.
             hideOnScroll={{ strategy: "collapse", wide: "sticky", scrollHidden: chromeScrollHide.hidden }}
             onBottomComposerHiddenChange={setBottomComposerHidden}
             queryInputAutoFocus={searchParams.get("focus") === "1"}

@@ -1379,7 +1379,7 @@ export function MasterSearchHeader({
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
-    // Sticky-top result composers (tablet+) share the footer chip layout so the
+    // In-flow result composers (tablet+) share the footer chip layout so the
     // pill + chip row looks identical across homes, results, and the answer dock.
     const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer || usesMobileBottomStyle;
     // Keep footer suggestion chips on tablet/desktop; phones reach the same actions via "+".
@@ -1453,13 +1453,14 @@ export function MasterSearchHeader({
                     usesPhoneFooterDock
                       ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
                       : cn(
-                          "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                          isHeroDesktopComposer
-                            ? "sm:hidden"
-                            : "sm:sticky sm:top-[calc(4.75rem+env(safe-area-inset-top))]",
+                          // Tablet/desktop results: in-flow under the top bar, not sticky.
+                          // Sticky-under-header pulled the search into the chrome strip;
+                          // page-anchored keeps only mode/new-chat in the sticky header.
+                          "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:static sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
+                          isHeroDesktopComposer ? "sm:hidden" : null,
                         ),
                   )
-                : "universal-top-search-edge sticky top-[calc(4.75rem+env(safe-area-inset-top))] z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
+                : "universal-top-search-edge relative z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
@@ -1732,259 +1733,263 @@ export function MasterSearchHeader({
       }
     : undefined;
 
-  const headerAndComposer = (
-    <>
-      <header
-        id="search"
-        data-scroll-hidden={hideStrategy === "overlay" && headerChromeHidden ? "true" : undefined}
+  // Top bar only — mode, new chat, etc. The search composer is intentionally
+  // outside the sticky/collapse chrome so tablet/desktop results keep the
+  // pill page-anchored (scrolls with content) rather than glued under the bar.
+  const headerChrome = (
+    <header
+      id="search"
+      data-scroll-hidden={hideStrategy === "overlay" && headerChromeHidden ? "true" : undefined}
+      className={cn(
+        // No backdrop-filter on the header itself: it would form a backdrop
+        // root and starve the .edge-glass-header-backdrop scrim (the single
+        // source of the bar's frost) of the real page behind it.
+        "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)]",
+        // Collapse hosts keep the header above an internally scrolling <main>,
+        // so sticky is unnecessary wherever the row collapses and fights the
+        // 0fr grid by pinning the bar inside the viewport. Where the chrome
+        // sticks instead, the pinning belongs to the collapse wrapper: this
+        // <header> sits inside two header-height boxes, which leaves a sticky
+        // rule here zero travel — the bar simply scrolled off with the page
+        // and only came back at scroll top. All-breakpoints overlay hosts take
+        // the header out of flow entirely (absolute over the padded <main>) —
+        // sticky would be inert there because the scroll container is <main>,
+        // not an ancestor of the header. Legacy overlay hosts keep sticky
+        // (they ride document scroll) and translate away with no layout shift.
+        hideStrategy === "collapse"
+          ? sticksAbovePhones || collapsesAtEveryWidth
+            ? "relative"
+            : "max-sm:relative sm:sticky sm:top-0"
+          : overlayAllBreakpoints
+            ? "absolute inset-x-0 top-0"
+            : "sticky top-0",
+        // Overlay hide-on-scroll: a plain translate reveals the content already
+        // flowing beneath it. No transform is applied while visible so the
+        // fixed-position mobile mode menu keeps the viewport as its containing block.
+        hideStrategy === "overlay" &&
+          (overlayAllBreakpoints
+            ? cn(
+                "transition-transform motion-reduce:transition-none",
+                headerChromeHidden
+                  ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+              )
+            : cn(
+                "max-sm:transition-transform motion-reduce:transition-none",
+                headerChromeHidden
+                  ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+              )),
+        hideStrategy === "overlay" &&
+          headerChromeHidden &&
+          (overlayAllBreakpoints ? "-translate-y-full" : "max-sm:-translate-y-full"),
+      )}
+      {...(hideStrategy === "overlay" ? chromeFocusProps : undefined)}
+    >
+      <div className="edge-glass-header-backdrop" aria-hidden="true" />
+      <div
         className={cn(
-          // No backdrop-filter on the header itself: it would form a backdrop
-          // root and starve the .edge-glass-header-backdrop scrim (the single
-          // source of the bar's frost) of the real page behind it.
-          "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)]",
-          // Collapse hosts keep the header above an internally scrolling <main>,
-          // so sticky is unnecessary wherever the row collapses and fights the
-          // 0fr grid by pinning the bar inside the viewport. Where the chrome
-          // sticks instead, the pinning belongs to the collapse wrapper: this
-          // <header> sits inside two header-height boxes, which leaves a sticky
-          // rule here zero travel — the bar simply scrolled off with the page
-          // and only came back at scroll top. All-breakpoints overlay hosts take
-          // the header out of flow entirely (absolute over the padded <main>) —
-          // sticky would be inert there because the scroll container is <main>,
-          // not an ancestor of the header. Legacy overlay hosts keep sticky
-          // (they ride document scroll) and translate away with no layout shift.
-          hideStrategy === "collapse"
-            ? sticksAbovePhones || collapsesAtEveryWidth
-              ? "relative"
-              : "max-sm:relative sm:sticky sm:top-0"
-            : overlayAllBreakpoints
-              ? "absolute inset-x-0 top-0"
-              : "sticky top-0",
-          // Overlay hide-on-scroll: a plain translate reveals the content already
-          // flowing beneath it. No transform is applied while visible so the
-          // fixed-position mobile mode menu keeps the viewport as its containing block.
-          hideStrategy === "overlay" &&
-            (overlayAllBreakpoints
-              ? cn(
-                  "transition-transform motion-reduce:transition-none",
-                  headerChromeHidden
-                    ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                )
-              : cn(
-                  "max-sm:transition-transform motion-reduce:transition-none",
-                  headerChromeHidden
-                    ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
-                )),
-          hideStrategy === "overlay" &&
-            headerChromeHidden &&
-            (overlayAllBreakpoints ? "-translate-y-full" : "max-sm:-translate-y-full"),
+          "relative mx-auto grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3",
+          isWorkflowHeader
+            ? "max-w-none px-3 sm:px-5 lg:grid-cols-[auto_auto_minmax(0,1fr)] lg:gap-4 lg:px-6"
+            : "max-w-7xl lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]",
         )}
-        {...(hideStrategy === "overlay" ? chromeFocusProps : undefined)}
       >
-        <div className="edge-glass-header-backdrop" aria-hidden="true" />
-        <div
-          className={cn(
-            "relative mx-auto grid min-h-14 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3",
-            isWorkflowHeader
-              ? "max-w-none px-3 sm:px-5 lg:grid-cols-[auto_auto_minmax(0,1fr)] lg:gap-4 lg:px-6"
-              : "max-w-7xl lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]",
-          )}
-        >
-          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <button
-              type="button"
-              onClick={useMobileBackControl ? onMobileBack : onOpenMobileSidebar}
-              className={cn(
-                "universal-header-icon-control h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                // From md the desktop icon rail owns navigation, so the drawer
-                // trigger is phone-only outside workflow headers.
-                isWorkflowHeader || useMobileBackControl ? "grid" : "grid md:hidden",
-              )}
-              aria-label={useMobileBackControl ? "Go back" : "Open Clinical Guide menu"}
-            >
-              {useMobileBackControl ? (
-                <ArrowLeft aria-hidden="true" className="h-5 w-5" />
-              ) : (
-                <Menu aria-hidden="true" className="h-5 w-5" />
-              )}
-            </button>
-            {isServicesMode ? (
-              <div className="hidden min-w-0 items-center gap-3 lg:flex">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
-                  <ShieldCheck className="h-5 w-5" aria-hidden />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-lg font-extrabold leading-5 text-[color:var(--text-heading)]">
-                    Services Navigator
-                  </span>
-                  <span className="block truncate text-xs font-semibold text-[color:var(--text-muted)]">
-                    Psychiatry referral directory
-                  </span>
-                </span>
-              </div>
-            ) : null}
-          </div>
-
-          <div
-            ref={modeMenuRef}
-            onBlur={(event) => {
-              // Phone Mode menu is portaled into Sheet; blur-leave on this wrapper
-              // would close the sheet as soon as focus moved into the dialog.
-              if (usesPhoneSearchLayout) return;
-              const nextFocusedElement = event.relatedTarget;
-              if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) return;
-              setModeMenuOpen(false);
-            }}
-            className={cn("relative z-[60] min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={useMobileBackControl ? onMobileBack : onOpenMobileSidebar}
+            className={cn(
+              "universal-header-icon-control h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              // From md the desktop icon rail owns navigation, so the drawer
+              // trigger is phone-only outside workflow headers.
+              isWorkflowHeader || useMobileBackControl ? "grid" : "grid md:hidden",
+            )}
+            aria-label={useMobileBackControl ? "Go back" : "Open Clinical Guide menu"}
           >
-            <button
-              ref={modeButtonRef}
-              type="button"
-              onClick={toggleModeMenu}
-              onKeyDown={handleModeTriggerKeyDown}
-              className={cn(
-                // Size utilities live in the per-variant branch, never the shared
-                // base: cn() is plain concat (no tailwind-merge), so keeping the
-                // default h-/w-/min-w- here too made the workflow overrides dead —
-                // Tailwind v4 emits same-property utilities in canonical order and
-                // the base won at every breakpoint but lg:.
-                "universal-header-mode-button inline-grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                isWorkflowHeader
-                  ? "h-tap w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
-                  : "h-12 w-[min(13rem,calc(100vw-11.5rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
-              )}
-              aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}
-              aria-expanded={modeMenuOpen}
-              aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
-              aria-label={`Mode ${selectedAppMode.label}`}
-            >
-              <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
-                <SelectedAppModeIcon aria-hidden="true" className="h-3.5 w-3.5" />
+            {useMobileBackControl ? (
+              <ArrowLeft aria-hidden="true" className="h-5 w-5" />
+            ) : (
+              <Menu aria-hidden="true" className="h-5 w-5" />
+            )}
+          </button>
+          {isServicesMode ? (
+            <div className="hidden min-w-0 items-center gap-3 lg:flex">
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+                <ShieldCheck className="h-5 w-5" aria-hidden />
               </span>
               <span className="min-w-0">
-                <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-muted)] sm:block">
-                  Mode
+                <span className="block truncate text-lg font-extrabold leading-5 text-[color:var(--text-heading)]">
+                  Services Navigator
                 </span>
-                <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
-                  {selectedAppMode.label}
+                <span className="block truncate text-xs font-semibold text-[color:var(--text-muted)]">
+                  Psychiatry referral directory
                 </span>
               </span>
-              <ChevronDown
-                aria-hidden="true"
-                className={cn(
-                  "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
-                  modeMenuOpen && "rotate-180",
-                )}
-              />
-            </button>
+            </div>
+          ) : null}
+        </div>
 
-            {!usesPhoneSearchLayout && modeMenuOpen ? (
-              <div
-                id="app-mode-menu"
-                role="menu"
-                aria-label="Choose app mode"
-                className={cn(
-                  glassOverlaySurface,
-                  "polished-scroll absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] w-[min(21rem,calc(100vw-2rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)]",
-                )}
+        <div
+          ref={modeMenuRef}
+          onBlur={(event) => {
+            // Phone Mode menu is portaled into Sheet; blur-leave on this wrapper
+            // would close the sheet as soon as focus moved into the dialog.
+            if (usesPhoneSearchLayout) return;
+            const nextFocusedElement = event.relatedTarget;
+            if (nextFocusedElement instanceof Node && event.currentTarget.contains(nextFocusedElement)) return;
+            setModeMenuOpen(false);
+          }}
+          className={cn("relative z-[60] min-w-0", isWorkflowHeader ? "justify-self-start" : "justify-self-center")}
+        >
+          <button
+            ref={modeButtonRef}
+            type="button"
+            onClick={toggleModeMenu}
+            onKeyDown={handleModeTriggerKeyDown}
+            className={cn(
+              // Size utilities live in the per-variant branch, never the shared
+              // base: cn() is plain concat (no tailwind-merge), so keeping the
+              // default h-/w-/min-w- here too made the workflow overrides dead —
+              // Tailwind v4 emits same-property utilities in canonical order and
+              // the base won at every breakpoint but lg:.
+              "universal-header-mode-button inline-grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] px-2.5 text-left transition hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
+              isWorkflowHeader
+                ? "h-tap w-[min(11rem,calc(100vw-11rem))] sm:w-[12rem] sm:min-w-0 lg:w-[12.5rem]"
+                : "h-12 w-[min(13rem,calc(100vw-11.5rem))] sm:w-auto sm:min-w-[13rem] sm:pr-3",
+            )}
+            aria-haspopup={usesPhoneSearchLayout ? "dialog" : "menu"}
+            aria-expanded={modeMenuOpen}
+            aria-controls={modeMenuOpen ? "app-mode-menu" : undefined}
+            aria-label={`Mode ${selectedAppMode.label}`}
+          >
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]">
+              <SelectedAppModeIcon aria-hidden="true" className="h-3.5 w-3.5" />
+            </span>
+            <span className="min-w-0">
+              <span className="hidden truncate text-2xs font-extrabold uppercase leading-3 tracking-[0.08em] text-[color:var(--text-muted)] sm:block">
+                Mode
+              </span>
+              <span className="block truncate text-sm font-extrabold leading-5 text-[color:var(--text-heading)]">
+                {selectedAppMode.label}
+              </span>
+            </span>
+            <ChevronDown
+              aria-hidden="true"
+              className={cn(
+                "h-4 w-4 text-[color:var(--text-soft)] transition-transform motion-reduce:transition-none",
+                modeMenuOpen && "rotate-180",
+              )}
+            />
+          </button>
+
+          {!usesPhoneSearchLayout && modeMenuOpen ? (
+            <div
+              id="app-mode-menu"
+              role="menu"
+              aria-label="Choose app mode"
+              className={cn(
+                glassOverlaySurface,
+                "polished-scroll absolute left-0 top-[calc(100%+0.5rem)] z-50 max-h-[min(20rem,calc(100dvh-5.5rem))] w-[min(21rem,calc(100vw-2rem))] overflow-y-auto rounded-lg bg-[color:var(--surface-lux)] p-1.5 text-[color:var(--text)] shadow-[var(--shadow-lux)]",
+              )}
+            >
+              {renderModeMenuOptions()}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
+          {isWorkflowHeader ? (
+            <>
+              <button
+                type="button"
+                aria-disabled="true"
+                aria-describedby="workflow-language-region-unavailable"
+                className="universal-header-icon-control grid h-tap w-tap shrink-0 cursor-not-allowed place-items-center rounded-full text-[color:var(--text-muted)] opacity-60 transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                aria-label="Language and region settings (coming soon)"
+                title="Language and region — coming soon"
               >
-                {renderModeMenuOptions()}
-              </div>
-            ) : null}
-          </div>
-
-          <div className="relative flex min-w-0 shrink-0 items-center justify-end gap-1.5 justify-self-end sm:gap-2">
-            {isWorkflowHeader ? (
-              <>
-                <button
-                  type="button"
-                  aria-disabled="true"
-                  aria-describedby="workflow-language-region-unavailable"
-                  className="universal-header-icon-control grid h-tap w-tap shrink-0 cursor-not-allowed place-items-center rounded-full text-[color:var(--text-muted)] opacity-60 transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label="Language and region settings (coming soon)"
-                  title="Language and region — coming soon"
-                >
-                  <Globe2 className="h-5 w-5" aria-hidden />
-                </button>
-                <span id="workflow-language-region-unavailable" className="sr-only">
-                  Language and region settings are coming soon.
-                </span>
-                <span className="hidden h-8 w-px bg-[color:var(--border)] sm:block" aria-hidden />
-                <button
-                  type="button"
-                  onClick={onNewChat}
-                  className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
-                  aria-label="Start a new comparison"
-                  title="New comparison"
-                >
-                  <Plus className="h-5 w-5" aria-hidden />
-                </button>
-              </>
-            ) : null}
-            {!isWorkflowHeader ? (
+                <Globe2 className="h-5 w-5" aria-hidden />
+              </button>
+              <span id="workflow-language-region-unavailable" className="sr-only">
+                Language and region settings are coming soon.
+              </span>
+              <span className="hidden h-8 w-px bg-[color:var(--border)] sm:block" aria-hidden />
               <button
                 type="button"
                 onClick={onNewChat}
-                className="universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]"
-                aria-label="Start a new chat"
-                title="New chat"
+                className="universal-header-icon-control grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                aria-label="Start a new comparison"
+                title="New comparison"
               >
-                <MessageSquarePlus aria-hidden="true" className="h-5 w-5 xl:h-4 xl:w-4" />
-                <span className="hidden whitespace-nowrap xl:inline">New chat</span>
+                <Plus className="h-5 w-5" aria-hidden />
               </button>
-            ) : null}
-          </div>
+            </>
+          ) : null}
+          {!isWorkflowHeader ? (
+            <button
+              type="button"
+              onClick={onNewChat}
+              className="universal-header-icon-control inline-flex h-tap w-tap shrink-0 items-center justify-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] transition hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] xl:w-auto xl:px-3 xl:text-xs xl:font-semibold xl:text-[color:var(--text)]"
+              aria-label="Start a new chat"
+              title="New chat"
+            >
+              <MessageSquarePlus aria-hidden="true" className="h-5 w-5 xl:h-4 xl:w-4" />
+              <span className="hidden whitespace-nowrap xl:inline">New chat</span>
+            </button>
+          ) : null}
         </div>
+      </div>
 
-        {/* Portaled outside the 3-column header grid so a non-portal regression
+      {/* Portaled outside the 3-column header grid so a non-portal regression
             cannot steal a grid track and shove trailing actions onto a new row. */}
-        {usesPhoneSearchLayout ? (
-          <Sheet
-            open={modeMenuOpen}
-            onClose={dismissModeMenu}
-            title="Choose mode"
-            description="Switch the clinical workspace mode."
-            closeLabel="Close mode menu"
-            returnFocusRef={modeButtonRef}
-            portal
-            mobilePlacement="bottom"
-            mobileSize="content"
-            testId="app-mode-menu-sheet"
-            contentClassName="max-h-[min(88dvh,36rem)] sm:max-w-md"
-            bodyClassName="p-2"
-            headerClassName="bg-[color:var(--surface-lux)] px-4 py-3"
-          >
-            <div id="app-mode-menu" role="menu" aria-label="Choose app mode" className="grid gap-0.5">
-              {renderModeMenuOptions()}
-            </div>
-          </Sheet>
-        ) : null}
-      </header>
-
-      {searchComposerVisible ? (
-        <>
-          {(desktopHomeComposerActive && desktopHomeComposerHost) ||
-          (desktopHomeComposerSlotId && !desktopHomeComposerFallback)
-            ? null
-            : renderSearchComposer("default")}
-          {desktopHomeComposerActive && desktopHomeComposerHost
-            ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
-            : null}
-        </>
+      {usesPhoneSearchLayout ? (
+        <Sheet
+          open={modeMenuOpen}
+          onClose={dismissModeMenu}
+          title="Choose mode"
+          description="Switch the clinical workspace mode."
+          closeLabel="Close mode menu"
+          returnFocusRef={modeButtonRef}
+          portal
+          mobilePlacement="bottom"
+          mobileSize="content"
+          testId="app-mode-menu-sheet"
+          contentClassName="max-h-[min(88dvh,36rem)] sm:max-w-md"
+          bodyClassName="p-2"
+          headerClassName="bg-[color:var(--surface-lux)] px-4 py-3"
+        >
+          <div id="app-mode-menu" role="menu" aria-label="Choose app mode" className="grid gap-0.5">
+            {renderModeMenuOptions()}
+          </div>
+        </Sheet>
       ) : null}
-    </>
+    </header>
   );
+
+  const searchComposerBlock = searchComposerVisible ? (
+    <>
+      {(desktopHomeComposerActive && desktopHomeComposerHost) ||
+      (desktopHomeComposerSlotId && !desktopHomeComposerFallback)
+        ? null
+        : renderSearchComposer("default")}
+      {desktopHomeComposerActive && desktopHomeComposerHost
+        ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
+        : null}
+    </>
+  ) : null;
 
   if (hideStrategy === "collapse") {
     // Collapse hide-on-scroll: the host renders the header above an internally
     // scrolling element, so hiding must also release the header's layout space.
     // A 1fr -> 0fr grid row animates the collapse without any height
     // measurement; the bottom-anchored inner track makes the chrome slide up
-    // out of the viewport top. Fixed-position composers (answer footer, mobile
-    // bottom search) escape the wrapper naturally because it carries no
-    // transform in this mode.
+    // out of the viewport top.
+    //
+    // Only the top bar lives inside this wrapper. In-flow tablet/desktop search
+    // composers stay outside so they remain page-anchored and scroll with the
+    // content; fixed phone docks / answer footers and hero-portaled composers
+    // never needed the wrapper either.
     //
     // Above the phone breakpoint a `wide: "sticky"` host scrolls the document
     // instead, so this wrapper — not the <header> inside it, which has no
@@ -1992,55 +1997,63 @@ export function MasterSearchHeader({
     // and translates away. Releasing the row there would pull the whole page up
     // by the header height mid-scroll; translating leaves the geometry alone.
     return (
-      <div
-        data-scroll-hidden={headerChromeHidden ? "true" : undefined}
-        data-testid="universal-header-collapse"
-        className={cn(
-          "motion-reduce:transition-none",
-          collapsesAtEveryWidth
-            ? cn(
-                "grid transition-[grid-template-rows]",
-                headerChromeHidden
-                  ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
-                  : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                headerChromeHidden ? "[grid-template-rows:0fr]" : "[grid-template-rows:1fr]",
-              )
-            : cn(
-                "max-sm:grid max-sm:transition-[grid-template-rows]",
-                headerChromeHidden
-                  ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                  : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
-                headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
-                sticksAbovePhones &&
-                  cn(
-                    "sm:sticky sm:top-0 sm:z-30 sm:transition-transform",
-                    headerChromeHidden
-                      ? "sm:duration-[240ms] sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                      : "sm:duration-200 sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
-                  ),
-                // Transform only while hidden: a standing transform would make
-                // this wrapper the containing block for the fixed-position menus
-                // and composers rendered inside it.
-                sticksAbovePhones && headerChromeHidden && "sm:-translate-y-full",
-              ),
-        )}
-        {...chromeFocusProps}
-      >
+      <>
         <div
+          data-scroll-hidden={headerChromeHidden ? "true" : undefined}
+          data-testid="universal-header-collapse"
           className={cn(
-            "max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
-            collapsesAtEveryWidth && "sm:flex sm:min-h-0 sm:flex-col sm:justify-end",
-            // Clip only while hiding so the edge-glass-header gradient that
-            // extends below the header keeps painting when the chrome is shown.
-            headerChromeHidden && "max-sm:overflow-hidden",
-            collapsesAtEveryWidth && headerChromeHidden && "sm:overflow-hidden",
+            "motion-reduce:transition-none",
+            collapsesAtEveryWidth
+              ? cn(
+                  "grid transition-[grid-template-rows]",
+                  headerChromeHidden
+                    ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                    : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  headerChromeHidden ? "[grid-template-rows:0fr]" : "[grid-template-rows:1fr]",
+                )
+              : cn(
+                  "max-sm:grid max-sm:transition-[grid-template-rows]",
+                  headerChromeHidden
+                    ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                    : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
+                  sticksAbovePhones &&
+                    cn(
+                      "sm:sticky sm:top-0 sm:z-30 sm:transition-transform",
+                      headerChromeHidden
+                        ? "sm:duration-[240ms] sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                        : "sm:duration-200 sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    ),
+                  // Transform only while hidden: a standing transform would make
+                  // this wrapper the containing block for the fixed-position menus
+                  // rendered inside the header.
+                  sticksAbovePhones && headerChromeHidden && "sm:-translate-y-full",
+                ),
           )}
+          {...chromeFocusProps}
         >
-          {headerAndComposer}
+          <div
+            className={cn(
+              "max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
+              collapsesAtEveryWidth && "sm:flex sm:min-h-0 sm:flex-col sm:justify-end",
+              // Clip only while hiding so the edge-glass-header gradient that
+              // extends below the header keeps painting when the chrome is shown.
+              headerChromeHidden && "max-sm:overflow-hidden",
+              collapsesAtEveryWidth && headerChromeHidden && "sm:overflow-hidden",
+            )}
+          >
+            {headerChrome}
+          </div>
         </div>
-      </div>
+        {searchComposerBlock}
+      </>
     );
   }
 
-  return headerAndComposer;
+  return (
+    <>
+      {headerChrome}
+      {searchComposerBlock}
+    </>
+  );
 }

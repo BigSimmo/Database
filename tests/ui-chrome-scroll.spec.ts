@@ -166,7 +166,7 @@ for (const { name: sizeName, viewport } of breakpoints) {
 
     test(`${sizeName}: bottom search composer never scroll-hides on ${surfaceName}`, async ({ page }) => {
       // The phone dock hide is phone-only by contract; above that breakpoint the
-      // composer lives in the hero or the header and has nothing to reclaim.
+      // composer is page-anchored (or in the mode-home hero) and has nothing to reclaim.
       await page.setViewportSize(viewport);
       await page.goto(route, { waitUntil: "domcontentloaded" });
       await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
@@ -182,4 +182,56 @@ for (const { name: sizeName, viewport } of breakpoints) {
       expect(scrolledDown.hiddenBottomComposers, "no composer hides above the phone breakpoint").toBe(0);
     });
   }
+}
+
+for (const { name: sizeName, viewport } of breakpoints) {
+  test(`${sizeName}: services results search stays page-anchored outside sticky header`, async ({ page }) => {
+    // Regression for the defect where PR #1222's sticky collapse wrapper also
+    // wrapped the search composer, so /services?q=… glued the pill under the
+    // top bar on tablet/desktop. Only header#search may stick; the composer
+    // must leave the viewport as the page scrolls.
+    await page.setViewportSize(viewport);
+    await page.goto("/services?q=services&focus=1&run=1", { waitUntil: "domcontentloaded" });
+    await expect(page.locator("header#search").first()).toBeVisible({ timeout: 15_000 });
+
+    const composer = page.locator("form.universal-top-search-edge, form.document-mobile-search-edge").first();
+    await expect(composer).toBeVisible({ timeout: 15_000 });
+
+    const atTop = await page.evaluate(() => {
+      const header = document.querySelector("header#search");
+      const collapse = document.querySelector('[data-testid="universal-header-collapse"]');
+      const form = document.querySelector("form.universal-top-search-edge, form.document-mobile-search-edge");
+      const headerRect = header?.getBoundingClientRect();
+      const formRect = form?.getBoundingClientRect();
+      return {
+        formInsideCollapse: Boolean(collapse && form && collapse.contains(form)),
+        formTop: formRect ? Math.round(formRect.top) : Number.NaN,
+        headerBottom: headerRect ? Math.round(headerRect.bottom) : Number.NaN,
+        formPosition: form ? getComputedStyle(form).position : "",
+      };
+    });
+    expect(atTop.formInsideCollapse, "search composer must not live inside sticky header chrome").toBe(false);
+    expect(atTop.formPosition, "results search is in normal flow, not sticky/fixed under the bar").toBe("static");
+    expect(atTop.formTop, "composer starts below the top bar").toBeGreaterThanOrEqual(atTop.headerBottom - 2);
+
+    await waitForRunway(page, requiredRunway);
+    await page.waitForTimeout(400);
+    await scrollBy(page, 900, 150);
+    await page.waitForTimeout(300);
+
+    const afterScroll = await page.evaluate(() => {
+      const header = document.querySelector("header#search");
+      const form = document.querySelector("form.universal-top-search-edge, form.document-mobile-search-edge");
+      const headerRect = header?.getBoundingClientRect();
+      const formRect = form?.getBoundingClientRect();
+      return {
+        formBottom: formRect ? Math.round(formRect.bottom) : Number.NaN,
+        headerTop: headerRect ? Math.round(headerRect.top) : Number.NaN,
+        headerBottom: headerRect ? Math.round(headerRect.bottom) : Number.NaN,
+        scrollY: Math.round(window.scrollY),
+      };
+    });
+    expect(afterScroll.scrollY, "page actually scrolled").toBeGreaterThan(400);
+    expect(afterScroll.formBottom, "page-anchored search scrolled off with the content").toBeLessThanOrEqual(8);
+  });
 }
