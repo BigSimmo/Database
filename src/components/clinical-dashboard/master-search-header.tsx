@@ -1723,19 +1723,19 @@ export function MasterSearchHeader({
           // root and starve the .edge-glass-header-backdrop scrim (the single
           // source of the bar's frost) of the real page behind it.
           "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)]",
-          // Collapse hosts keep the header above an internally scrolling <main>, so
-          // sticky is unnecessary on phones and fights the 0fr grid collapse by
-          // pinning the bar inside the viewport. Above phones the pinning belongs
-          // to the collapse wrapper instead: this <header> sits inside two
-          // header-height boxes, which leaves a sticky rule here zero travel — the
-          // bar simply scrolled off with the page and only came back at scroll
-          // top. All-breakpoints overlay hosts take the header out of flow
-          // entirely (absolute over the padded <main>) — sticky would be inert
-          // there because the scroll container is <main>, not an ancestor of the
-          // header. Legacy overlay hosts keep sticky (they ride document scroll)
-          // and can translate away with zero layout shift.
+          // Collapse hosts keep the header above an internally scrolling <main>,
+          // so sticky is unnecessary wherever the row collapses and fights the
+          // 0fr grid by pinning the bar inside the viewport. Where the chrome
+          // sticks instead, the pinning belongs to the collapse wrapper: this
+          // <header> sits inside two header-height boxes, which leaves a sticky
+          // rule here zero travel — the bar simply scrolled off with the page
+          // and only came back at scroll top. All-breakpoints overlay hosts take
+          // the header out of flow entirely (absolute over the padded <main>) —
+          // sticky would be inert there because the scroll container is <main>,
+          // not an ancestor of the header. Legacy overlay hosts keep sticky
+          // (they ride document scroll) and translate away with no layout shift.
           hideStrategy === "collapse"
-            ? sticksAbovePhones
+            ? sticksAbovePhones || collapsesAtEveryWidth
               ? "relative"
               : "max-sm:relative sm:sticky sm:top-0"
             : overlayAllBreakpoints
