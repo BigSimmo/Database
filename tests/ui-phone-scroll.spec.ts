@@ -82,6 +82,7 @@ interface ScrollGeometry {
   headerHidden: boolean;
   docScrollableExcess: number;
   horizontalOverflow: number;
+  reserveTransitionDuration: string;
 }
 
 function readGeometry(page: Page): Promise<ScrollGeometry> {
@@ -89,12 +90,14 @@ function readGeometry(page: Page): Promise<ScrollGeometry> {
     const main = document.getElementById("main-content");
     const header = document.querySelector('[data-testid="universal-header-collapse"]');
     const doc = document.documentElement;
+    const reserveHost = main?.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]') ?? main;
     return {
       scrollTop: main?.scrollTop ?? 0,
       maxOffset: main ? Math.max(0, main.scrollHeight - main.clientHeight) : 0,
       headerHidden: header?.getAttribute("data-scroll-hidden") === "true",
       docScrollableExcess: doc.scrollHeight - doc.clientHeight,
       horizontalOverflow: Math.max(doc.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
+      reserveTransitionDuration: reserveHost ? getComputedStyle(reserveHost).transitionDuration : "",
     };
   });
 }
@@ -163,6 +166,7 @@ for (const route of [...modeHomeRoutes, ...dashboardRoutes, ...longRoutes]) {
     expect(initial.horizontalOverflow, "no horizontal overflow").toBeLessThanOrEqual(2);
     expect(initial.scrollTop).toBe(0);
     expect(initial.headerHidden, "header visible at the top").toBe(false);
+    expect(initial.reserveTransitionDuration, "phone reserve transition remains exercised").toContain("0.2s");
 
     // Drag to the bottom in deliberate 24px steps, then let transitions settle.
     await dragScrollBy(page, initial.maxOffset + 400, 24);
