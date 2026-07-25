@@ -85,7 +85,7 @@ type ScopeDocumentRow = {
 };
 
 type ScopeLabelRow = {
-  id?: string;
+  id: string;
   document_id: string;
   label: string;
   label_type: DocumentLabelType;
