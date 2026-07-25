@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import manifest from "../src/app/manifest";
-import { APP_THEME_COLORS, DEFAULT_THEME } from "../src/lib/theme";
 
 describe("PWA manifest and public bootstrap resources", () => {
   const appManifest = manifest();
@@ -16,10 +15,12 @@ describe("PWA manifest and public bootstrap resources", () => {
       display: "standalone",
       lang: "en-AU",
       dir: "ltr",
-      background_color: APP_THEME_COLORS[DEFAULT_THEME],
-      theme_color: APP_THEME_COLORS[DEFAULT_THEME],
       prefer_related_applications: false,
     });
+    // Theme colours stay on viewport.themeColor / meta theme-color so light/dark
+    // can update at runtime; a static PWA manifest colour would lock install chrome.
+    expect(appManifest).not.toHaveProperty("background_color");
+    expect(appManifest).not.toHaveProperty("theme_color");
     expect(appManifest.name).toBeTruthy();
     expect(appManifest.short_name).toBeTruthy();
     expect(appManifest.description).toBeTruthy();
