@@ -2136,16 +2136,6 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const header = page.locator("header.universal-header");
     const dock = page.locator("form.answer-footer-search-dock");
     await expect(dock).toBeVisible();
-    // Keep the deterministic fixture in the measured user-reproduction band:
-    // the mocked answer is 64px shorter than the captured result, so model the
-    // missing content rather than injecting the 2000px runway used by older
-    // hide tests (which makes the collapse-budget defect impossible to see).
-    await main.evaluate((node) => {
-      const tail = document.createElement("div");
-      tail.dataset.testid = "answer-regression-content-tail";
-      tail.style.height = "64px";
-      node.appendChild(tail);
-    });
     const edgeGeometry = await dock.evaluate((node) => {
       const rect = node.getBoundingClientRect();
       const style = window.getComputedStyle(node);
@@ -2170,12 +2160,24 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // pinned for keyboard safety, so retaining focus here permanently disables
     // the ordinary touch-scroll hide path.
     await expect(input).not.toBeFocused();
-    const visibleMaxOffset = await main.evaluate((node) => node.scrollHeight - node.clientHeight);
-    // This is the measured reproduction band: enough content to scroll, but
-    // not enough for the strict in-flow budget (120px reserve + 28px runway)
-    // to permit hiding after the 96px intent threshold.
-    expect(visibleMaxOffset).toBeGreaterThan(190);
-    expect(visibleMaxOffset).toBeLessThan(250);
+    const geometry = await main.evaluate((node) => {
+      const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+      const maxOffset = node.scrollHeight - node.clientHeight;
+      const collapseBudget =
+        (collapse?.getBoundingClientRect().height ?? 0) +
+        Number.parseFloat(window.getComputedStyle(node).paddingBottom);
+      return { maxOffset, collapseBudget, postCollapseMaxOffset: Math.max(0, maxOffset - collapseBudget) };
+    });
+    const visibleMaxOffset = geometry.maxOffset;
+    // Pin the unmodified short-result geometry. Its 39px post-collapse range
+    // clears top-reveal + hide-intent distance (32px), but not the 72px in-flow
+    // activation band; synthetic tail content would hide this distinction.
+    expect(geometry.maxOffset).toBeGreaterThan(140);
+    expect(geometry.maxOffset).toBeLessThan(180);
+    expect(geometry.collapseBudget).toBeGreaterThan(112);
+    expect(geometry.collapseBudget).toBeLessThan(128);
+    expect(geometry.postCollapseMaxOffset).toBeGreaterThanOrEqual(32);
+    expect(geometry.postCollapseMaxOffset).toBeLessThan(48);
     for (const offset of [40, 80, 120, 160, 200, visibleMaxOffset]) {
       await scrollPrimarySurface(page, Math.min(offset, visibleMaxOffset));
     }
@@ -2183,7 +2185,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(1);
 
-    await scrollPrimarySurface(page, 60);
+    await scrollPrimarySurface(page, 20);
     await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 

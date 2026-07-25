@@ -48,14 +48,14 @@ export interface ScrollMetrics {
    * Layout px the chrome would release if it hid right now (see
    * readChromeCollapseMetrics). In-flow collapse requires enough runway below
    * the current offset to absorb the release; reserve-only overlays require
-   * the resulting range to retain the activation band. Omitted by consumers
-   * whose chrome does not change scroll geometry when hiding.
+   * the resulting range to retain top reveal plus deliberate hide intent.
+   * Omitted by consumers whose chrome does not change scroll geometry.
    */
   collapseBudget?: number;
   /**
    * A fixed-viewport overlay only removes tail clearance; it does not collapse
    * an in-flow header or resize the scrollport. That path can safely hide when
-   * the post-collapse range still reaches the activation band.
+   * the post-collapse range retains the top reveal band plus deliberate intent.
    */
   collapseKind?: "in-flow" | "reserve-only";
   source?: EventTarget;
@@ -133,10 +133,11 @@ export function computeScrollHideUpdate(params: {
   const nextDirectionTravel = nextDirection === direction ? directionTravel + Math.abs(delta) : Math.abs(delta);
   let hidden = currentlyHidden;
 
-  if (!currentlyHidden && nextDirection === "down" && offset > hideActivationOffset) {
-    // Only count travel beyond the activation band. This stops a single flick
-    // from the top hiding the chrome the instant it clears the header height.
-    const travelPastActivation = Math.min(nextDirectionTravel, offset - hideActivationOffset);
+  const effectiveHideActivationOffset = collapseKind === "reserve-only" ? topRevealOffset : hideActivationOffset;
+  if (!currentlyHidden && nextDirection === "down" && offset > effectiveHideActivationOffset) {
+    // In-flow chrome waits beyond its header-height band; fixed overlays begin
+    // counting deliberate intent after the small top reveal band.
+    const travelPastActivation = Math.min(nextDirectionTravel, offset - effectiveHideActivationOffset);
     // In-flow chrome must have enough remaining runway to absorb its release
     // (see collapseRunwaySlack above). Reserve-only overlays use the separate
     // post-collapse range test below.
@@ -148,14 +149,12 @@ export function computeScrollHideUpdate(params: {
       maxOffset === undefined || collapseBudget === undefined
         ? Number.POSITIVE_INFINITY
         : Math.max(0, maxOffset - collapseBudget);
-    // Reserve-only overlays keep the viewport geometry stable; only bottom
-    // tail clearance is removed. Requiring the resulting scroll range to retain
-    // the activation band prevents a collapse back toward the top on genuinely
-    // short pages without applying the stricter in-flow runway rule that made
-    // compact Answer results impossible to hide.
+    // Reserve-only overlays keep the viewport geometry stable; requiring their
+    // resulting range to retain top-reveal + hide-intent distance prevents a
+    // material clamp while allowing genuinely compact results to hide.
     const collapseHasSafeRunway =
       collapseKind === "reserve-only"
-        ? postCollapseMaxOffset >= hideActivationOffset
+        ? postCollapseMaxOffset >= effectiveHideActivationOffset + hideIntentDistance
         : runwayAfterCollapse > revealIntentDistance + collapseRunwaySlack;
     hidden = travelPastActivation >= hideIntentDistance && collapseHasSafeRunway;
   } else if (currentlyHidden && nextDirection === "up" && nextDirectionTravel >= revealIntentDistance) {

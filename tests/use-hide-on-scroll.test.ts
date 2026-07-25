@@ -293,36 +293,65 @@ describe("computeScrollHideUpdate", () => {
     });
   });
 
-  it("allows a reserve-only overlay to hide when its post-collapse range retains the activation band", () => {
-    // Measured compact Answer result at 390x844: the visible result has 223px
-    // of range and releases a 120px dock reserve. The fixed viewport remains
-    // stable and the resulting 103px range still clears the 72px activation
-    // band, so the in-flow collapse gate must not pin both edges forever.
+  it("allows a reserve-only overlay to hide when its post-collapse range retains deliberate hide intent", () => {
+    // Measured compact Answer result at 390x844 without synthetic content:
+    // 159px visible range - 120px reserve = 39px after hiding. A fixed overlay
+    // can hide after the 8px top band + 24px intent without collapsing in-flow
+    // header geometry or clamping materially.
+    const hidden = computeScrollHideUpdate({
+      offset: 40,
+      lastOffset: 0,
+      maxOffset: 159,
+      collapseBudget: 120,
+      collapseKind: "reserve-only",
+      currentlyHidden: false,
+    });
+    expect(hidden.hidden).toBe(true);
+
+    const clamped = computeScrollHideUpdate({
+      offset: 39,
+      lastOffset: hidden.lastOffset,
+      maxOffset: 39,
+      currentlyHidden: hidden.hidden,
+      direction: hidden.direction,
+      directionTravel: hidden.directionTravel,
+    });
+    expect(clamped.hidden).toBe(true);
+    expect(
+      computeScrollHideUpdate({
+        offset: 20,
+        lastOffset: clamped.lastOffset,
+        maxOffset: 39,
+        currentlyHidden: clamped.hidden,
+        direction: clamped.direction,
+        directionTravel: clamped.directionTravel,
+      }).hidden,
+    ).toBe(false);
+
+    // The same geometry remains protected when an in-flow header participates.
     expect(
       computeScrollHideUpdate({
         offset: 100,
         lastOffset: 80,
-        maxOffset: 223,
+        maxOffset: 159,
         collapseBudget: 120,
-        collapseKind: "reserve-only",
+        collapseKind: "in-flow",
         currentlyHidden: false,
         direction: "down",
         directionTravel: 80,
       }).hidden,
-    ).toBe(true);
+    ).toBe(false);
 
-    // A genuinely short result would collapse below the hide threshold and
-    // still risks a top/bottom clamp cycle, so it remains visible.
+    // A genuinely short reserve-only result would collapse below the deliberate
+    // hide threshold and still risks a top/bottom clamp cycle, so it stays visible.
     expect(
       computeScrollHideUpdate({
-        offset: 100,
-        lastOffset: 80,
-        maxOffset: 180,
+        offset: 40,
+        lastOffset: 0,
+        maxOffset: 145,
         collapseBudget: 120,
         collapseKind: "reserve-only",
         currentlyHidden: false,
-        direction: "down",
-        directionTravel: 80,
       }).hidden,
     ).toBe(false);
   });
