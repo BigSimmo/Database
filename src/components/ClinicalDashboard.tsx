@@ -2617,16 +2617,13 @@ export function ClinicalDashboard({
 
   function focusComposerInput(retainTarget = false) {
     const requestedInput = retainTarget ? composerInputRef.current : null;
-    const resolveInput = () => (retainTarget ? requestedInput : composerInputRef.current);
+    const focusBoundInput = () => {
+      const input = retainTarget ? requestedInput : composerInputRef.current;
+      if (input?.isConnected && composerInputRef.current === input) input.focus({ preventScroll: true });
+    };
     window.requestAnimationFrame(() => {
-      const input = resolveInput();
-      if (!input?.isConnected || composerInputRef.current !== input) return;
-      input.focus({ preventScroll: true });
-      window.setTimeout(() => {
-        const retryInput = resolveInput();
-        if (retryInput?.isConnected && composerInputRef.current === retryInput)
-          retryInput.focus({ preventScroll: true });
-      }, 150);
+      focusBoundInput();
+      window.setTimeout(focusBoundInput, 150);
     });
   }
 
