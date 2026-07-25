@@ -234,6 +234,9 @@ jobs:
       - name: Brand asset check
         run: npm run brand:check
 
+      - name: Asset linting
+        run: npm run check:assets
+
       # More generated-output drift detectors that were local-only in
       # verify:cheap — same rationale as the design-system guards above. Without
       # them a stale site map, therapy index, or design-system contract merged
