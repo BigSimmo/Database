@@ -313,6 +313,13 @@ async function globalSearchComposerMetrics(page: Page, homeTestId?: string) {
       const formRect = form.getBoundingClientRect();
       const homeRect = home?.getBoundingClientRect();
       const style = window.getComputedStyle(form);
+      // Sticky-stack hosts (`wide: "sticky"`) keep the composer `relative` inside
+      // an outer sticky [top bar | search] wrapper — do not require the form itself
+      // to be `position: sticky`.
+      let stickyAncestor = style.position === "sticky";
+      for (let node: HTMLElement | null = form.parentElement; node && !stickyAncestor; node = node.parentElement) {
+        if (window.getComputedStyle(node).position === "sticky") stickyAncestor = true;
+      }
 
       return {
         formLeft: formRect.left,
@@ -326,6 +333,7 @@ async function globalSearchComposerMetrics(page: Page, homeTestId?: string) {
         homeRight: homeRect?.right ?? null,
         homeCenterX: homeRect ? homeRect.left + homeRect.width / 2 : null,
         position: style.position,
+        stickyAncestor,
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
         pillClassName: pill?.className?.toString() ?? "",
@@ -930,7 +938,12 @@ test.describe("Clinical KB tools launcher", () => {
             expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(viewport.height - 2);
           }
         } else {
-          expect(metrics?.position).toBe("sticky");
+          // Sticky-stack shells pin via an outer wrapper; collapse-everywhere hosts
+          // still self-sticky the form. Either keeps the composer in the top band.
+          expect(
+            metrics?.position === "sticky" || metrics?.stickyAncestor,
+            `${route.path} at ${viewport.name} should stick via the form or its sticky stack`,
+          ).toBe(true);
           expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.25);
           await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
         }
