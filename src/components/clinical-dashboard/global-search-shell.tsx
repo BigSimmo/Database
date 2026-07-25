@@ -13,12 +13,10 @@ import {
   useState,
 } from "react";
 
-import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { ClinicalDashboard } from "@/components/ClinicalDashboard";
 import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import {
   ClinicalDesktopSidebar,
   ClinicalMobileSidebar,
@@ -36,7 +34,13 @@ import {
 import { readChromeCollapseBudget, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
-import { useTheme } from "@/components/clinical-dashboard/use-theme";
+import {
+  loadSettingsDialog,
+  prefetchAccountDialog,
+  SidebarAccountSetupDialog,
+  SidebarSettingsDialog,
+} from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
+import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
 import { ClientHydrationBoundary } from "@/components/client-hydration-boundary";
 import { cn } from "@/components/ui-primitives";
 import {
@@ -48,6 +52,7 @@ import {
 } from "@/lib/app-modes";
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
+import { isInformationPage } from "@/lib/information-pages";
 import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import { shouldRenderClinicalDashboard, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
@@ -66,7 +71,6 @@ const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>
 ];
 // Re-apply focus shortly after the first frame to survive initial hydration remounts.
 const focusHydrationRetryDelayMs = 300;
-
 type GlobalSearchShellProps = {
   children: ReactNode;
   initialMode?: AppModeId;
@@ -164,65 +168,6 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
   );
 }
 
-function isInformationPage(pathname: string): boolean {
-  // Services detail: /services/[slug]
-  if (pathname.startsWith("/services/") && pathname !== "/services") return true;
-
-  // Forms detail: /forms/[slug]
-  if (pathname.startsWith("/forms/") && pathname !== "/forms") return true;
-
-  // Medications detail: /medications/[slug]
-  if (pathname.startsWith("/medications/") && pathname !== "/medications") return true;
-
-  // Psychiatric specifier detail: /specifiers/[slug]
-  if (
-    pathname.startsWith("/specifiers/") &&
-    pathname !== "/specifiers" &&
-    pathname !== "/specifiers/builder" &&
-    pathname !== "/specifiers/compare" &&
-    pathname !== "/specifiers/map"
-  )
-    return true;
-
-  // Clinical formulation detail: /formulation/[slug]
-  if (
-    pathname.startsWith("/formulation/") &&
-    pathname !== "/formulation" &&
-    pathname !== "/formulation/builder" &&
-    pathname !== "/formulation/compare" &&
-    pathname !== "/formulation/map"
-  )
-    return true;
-
-  // Factsheets detail: /factsheets/[slug]
-  if (pathname.startsWith("/factsheets/") && pathname !== "/factsheets" && pathname !== "/factsheets/search")
-    return true;
-
-  // Therapy compass detail: /therapy-compass/[slug]/brief or /therapy-compass/[slug]/sheet
-  if (
-    pathname.startsWith("/therapy-compass/") &&
-    pathname !== "/therapy-compass" &&
-    pathname !== "/therapy-compass/compare" &&
-    pathname !== "/therapy-compass/pathways" &&
-    pathname !== "/therapy-compass/recommend" &&
-    pathname !== "/therapy-compass/review" &&
-    pathname !== "/therapy-compass/search"
-  )
-    return true;
-
-  // Differential diagnosis detail: /differentials/diagnoses/[slug] or /differentials/presentations/[slug]
-  if (pathname.startsWith("/differentials/diagnoses/") || pathname.startsWith("/differentials/presentations/"))
-    return true;
-
-  // DSM-5 Diagnosis detail: /dsm/diagnoses/[slug] or /dsm/diagnoses/[slug]/differentials or /dsm/compare
-  if (pathname.startsWith("/dsm/diagnoses/")) return true;
-
-  // Document detail: /documents/[id] (excluding /documents/search)
-  if (pathname.startsWith("/documents/") && pathname !== "/documents/search") return true;
-
-  return false;
-}
-
 export function infoPageBackHref(pathname: string): string | null {
   if (pathname.startsWith("/services/")) return appModeHomeHref("services");
   if (pathname.startsWith("/forms/")) return appModeHomeHref("forms");
@@ -234,6 +179,16 @@ export function infoPageBackHref(pathname: string): string | null {
   if (pathname.startsWith("/therapy-compass/")) return appModeHomeHref("therapy-compass");
   if (pathname.startsWith("/factsheets/")) return appModeHomeHref("factsheets");
   if (pathname.startsWith("/documents/")) return documentsSearchHref();
+  return null;
+}
+
+/** Stable in-app back target for non-info mobile back (e.g. submitted differential search). */
+export function mobileBackHref(pathname: string, searchMode: string, hasQuery: boolean): string | null {
+  const infoHref = infoPageBackHref(pathname);
+  if (infoHref) return infoHref;
+  if (pathname === "/differentials" && searchMode === "differentials" && hasQuery) {
+    return appModeHomeHref("differentials", { focus: true });
+  }
   return null;
 }
 
@@ -325,7 +280,6 @@ function GlobalStandaloneSearchShellClient({
     }),
     [query, searchMode, commandScopes, removeCommandScope, clearCommandScopes],
   );
-  const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
@@ -414,6 +368,10 @@ function GlobalStandaloneSearchShellClient({
       // Guard both: open menu DOM (activeElement is often <body> mid-transition) and
       // any intentional focus already moved off the composer.
       if (document.getElementById("app-mode-menu")) return;
+      // Do not reclaim composer focus while a modal Sheet is open (Sources /
+      // Guide / filters). The focus=1 hydration retry otherwise races sheet
+      // autofocus and can leave the Find field unfocused in UI smoke.
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       const active = document.activeElement;
       if (active instanceof HTMLElement && active !== document.body && active !== inputRef.current) {
         return;
@@ -456,7 +414,7 @@ function GlobalStandaloneSearchShellClient({
   }, [recentQueriesOwnerId]);
 
   function prefetchApplications() {
-    router.prefetch("/?mode=tools");
+    router.prefetch("/tools");
     if (favouritesAccessible) router.prefetch("/favourites");
     router.prefetch("/differentials");
     router.prefetch("/dsm");
@@ -490,6 +448,20 @@ function GlobalStandaloneSearchShellClient({
     setSettingsOpen(false);
     openAccountSetup("default");
   }
+
+  const {
+    settingsInitialFocus,
+    openGuideFromSettings,
+    closeGuideWithRestore,
+    openSettingsWithDefaultFocus,
+    openAccountProfileWithDefaultFocus,
+  } = useSettingsGuideFlow({
+    openGuide,
+    closeGuide: () => setGuideOpen(false),
+    openSettings,
+    openAccountProfile,
+    setSettingsOpen,
+  });
 
   function navigateToMode(mode: AppModeId, options: SearchNavigationOptions = {}) {
     const nextOptions = { queryMode, scopeFilters, ...options };
@@ -617,8 +589,6 @@ function GlobalStandaloneSearchShellClient({
         "sm:min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         shouldShowDesktopSidebar &&
-          "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
-        shouldShowDesktopSidebar &&
           (effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]"),
       )}
       style={
@@ -642,11 +612,10 @@ function GlobalStandaloneSearchShellClient({
               onCollapsedChange={setSidebarCollapsed}
               onNewChat={startNewAnswerChat}
               onPickRecent={pickRecentQuery}
-              onOpenGuide={openGuide}
-              onOpenSettings={openSettings}
-              onOpenAccount={openAccountProfile}
-              theme={theme}
-              onToggleTheme={toggleTheme}
+              onOpenSettings={openSettingsWithDefaultFocus}
+              onOpenAccount={openAccountProfileWithDefaultFocus}
+              onPrefetchSettings={loadSettingsDialog}
+              onPrefetchAccount={prefetchAccountDialog}
               onPrefetchApplications={prefetchApplications}
             />
           </div>
@@ -698,9 +667,18 @@ function GlobalStandaloneSearchShellClient({
                   : "menu"
             }
             onMobileBack={() => {
-              const fallbackHref = isInfoPage ? infoPageBackHref(pathname) : null;
-              if (fallbackHref) router.push(fallbackHref);
-              else router.back();
+              const fallbackHref = mobileBackHref(pathname, searchMode, Boolean(requestedQuery));
+              if (fallbackHref) {
+                if (!isInfoPage) setQuery("");
+                router.push(fallbackHref);
+                return;
+              }
+              if (!isInfoPage) {
+                setQuery("");
+                navigateToMode(searchMode, { focus: true });
+                return;
+              }
+              router.back();
             }}
             queryModeOptions={mockupQueryModeOptions}
             queryInputRef={inputRef}
@@ -775,15 +753,16 @@ function GlobalStandaloneSearchShellClient({
         </div>
       </div>
 
-      <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
-      <SettingsDialog
+      <GuideDialog open={guideOpen} onClose={closeGuideWithRestore} />
+      <SidebarSettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         identity={sidebarIdentity}
         onSignOut={auth.signOut}
-        onOpenGuide={openGuide}
+        onOpenGuide={openGuideFromSettings}
+        initialFocus={settingsInitialFocus}
       />
-      <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
+      <SidebarAccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
         // The workflow header keeps its menu trigger past md, so the drawer
@@ -796,11 +775,10 @@ function GlobalStandaloneSearchShellClient({
         onOpenChange={setMobileMenuOpen}
         onNewChat={startNewAnswerChat}
         onPickRecent={pickRecentQuery}
-        onOpenGuide={openGuide}
-        onOpenSettings={openSettings}
-        onOpenAccount={openAccountProfile}
-        theme={theme}
-        onToggleTheme={toggleTheme}
+        onOpenSettings={openSettingsWithDefaultFocus}
+        onOpenAccount={openAccountProfileWithDefaultFocus}
+        onPrefetchSettings={loadSettingsDialog}
+        onPrefetchAccount={prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
       />
     </div>

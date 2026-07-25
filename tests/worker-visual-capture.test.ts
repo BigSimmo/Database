@@ -36,6 +36,14 @@ describe("worker visual capture hardening", () => {
     expect(workerSource).toContain('indexing_v3_agent_status: "completed"');
   });
 
+  it("keeps view-only retained images out of retrieval index inputs", () => {
+    expect(workerSource).toContain("const persistedSearchable = !retainedWithoutCaptioning && policyAssessment.searchable");
+    expect(workerSource).toContain("if (data.searchable !== false) {");
+    expect(workerSource).toContain("insertedImages.push({");
+    // The prior broadening pulled document-view-only rows into chunk/index/embedding inputs.
+    expect(workerSource).not.toContain("if (data.searchable !== false || retainForDocumentView)");
+  });
+
   it("fails closed when the lease-fenced commit RPC is unavailable and keeps image uploads generation-scoped", () => {
     expect(workerSource).toContain("p_job_id: args.jobId");
     expect(workerSource).toContain("p_worker_id: workerId");

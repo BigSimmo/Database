@@ -53,6 +53,7 @@
 !/.agents/skills/performance/
 !/.agents/skills/plan/
 !/.agents/skills/privacy/
+!/.agents/skills/prompt-perfector/
 !/.agents/skills/rag-change-lab/
 !/.agents/skills/rag/
 !/.agents/skills/recovery/

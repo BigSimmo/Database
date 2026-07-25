@@ -10,11 +10,17 @@ describe("/api/setup-status", () => {
   it("keeps schema diagnostics when the readiness probe reports a query failure", async () => {
     vi.stubEnv("NODE_ENV", "production");
     const failedResult = async () => ({ error: { message: "relation is missing" }, data: [], count: 0 });
-    const select = vi.fn(() => ({
-      limit: vi.fn(failedResult),
-      order: vi.fn(() => ({ limit: vi.fn(failedResult) })),
-      in: vi.fn(failedResult),
-    }));
+    const select = vi.fn(() => {
+      const chain = {
+        limit: vi.fn(failedResult),
+        order: vi.fn(() => ({ limit: vi.fn(failedResult) })),
+        in: vi.fn(failedResult),
+        eq: vi.fn(failedResult),
+        then: undefined as undefined,
+      };
+      // Head-count probes (`select(..., { head: true }).eq(...)`) await the eq() result.
+      return chain;
+    });
     const from = vi.fn(() => ({ select }));
     const createAdminClient = vi.fn(() => ({
       from,
