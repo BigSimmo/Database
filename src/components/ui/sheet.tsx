@@ -335,7 +335,12 @@ export function Sheet({
                             "rounded-t-2xl motion-safe:animate-sheet-up",
                             defaultSheetUsesViewportSize
                               ? "min-h-[calc(100dvh-2rem)] max-h-[calc(100dvh-1rem)] sm:min-h-0"
-                              : "max-h-[calc(100dvh-2rem)] sm:max-h-[88dvh]",
+                              : // Skip a default max-h when the caller already caps height via
+                                // contentClassName — cn() does not last-win Tailwind utilities,
+                                // so two unprefixed max-h-* classes race in CSS source order.
+                                /\bmax-h-/.test(contentClassName ?? "")
+                                ? undefined
+                                : "max-h-[calc(100dvh-2rem)] sm:max-h-[88dvh]",
                           ),
                     ),
               ),
