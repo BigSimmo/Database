@@ -2344,8 +2344,15 @@ html[data-motion="reduced"] .pwa-notice-card {
       width: 100%;
       min-height: 100vh;
       height: 100vh;
-      min-height: 100svh;
-      height: 100svh;
+    }
+  }
+
+  @supports (height: 100svh) {
+    @media (max-width: 639px) {
+      .phone-viewport-shell {
+        min-height: 100svh;
+        height: 100svh;
+      }
     }
   }
 
