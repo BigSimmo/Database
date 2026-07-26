@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
 import {
   CircleAlert,
   BookOpen,
@@ -19,7 +18,6 @@ import {
   ShieldAlert,
   Square,
   UploadCloud,
-  WifiOff,
   Wrench,
 } from "lucide-react";
 import {
@@ -50,23 +48,18 @@ import {
   textMuted,
 } from "@/components/ui-primitives";
 import { useAuthSession } from "@/lib/supabase/client";
-import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
-import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
-import { useTheme } from "@/components/clinical-dashboard/use-theme";
+import * as SidebarDialogs from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
+import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
 import {
   deriveSidebarIdentity,
   ClinicalDesktopSidebar,
   ClinicalMobileSidebar,
 } from "@/components/clinical-dashboard/ClinicalSidebar";
 import {
-  SetupChecklist,
-  UploadPanel,
-  IndexingMonitor,
-  IngestionQualityConsole,
   LibraryHealthStrip,
   fallbackSetupChecks,
   hasReadyRequiredPublicSearchConfig,
@@ -75,6 +68,7 @@ import {
   type IngestionQualityReviewItem,
 } from "@/components/clinical-dashboard/DocumentManagerPanel";
 import { GuideDialog, GuideTrigger, UtilityDrawer } from "@/components/clinical-dashboard/dashboard-shell";
+import { SystemNotice, DegradedNotice } from "@/components/clinical-dashboard/dashboard-notices";
 import { sanitizeAnswerDisplayText, sanitizeDisplayText } from "@/components/clinical-dashboard/display-text";
 import { isPreformattedGroundedAnswer, ScopeAndGovernanceNotice } from "@/components/clinical-dashboard/answer-content";
 import { AnswerEmptyState, AnswerProgressStepper, AnswerSkeleton } from "@/components/clinical-dashboard/answer-status";
@@ -91,7 +85,8 @@ import {
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
-import { readChromeCollapseBudget, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { focusComposerInput as scheduleComposerFocus } from "@/components/clinical-dashboard/focus-composer-input";
+import { readChromeCollapseMetrics, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   answerReferencesDocument,
@@ -101,6 +96,8 @@ import {
   hasActiveIndexingWork,
   hasNonProductionSupabaseApiKeyFallback,
   isAbortError,
+  releaseOwnedAbortController,
+  replaceOwnedAbortController,
   mergeDocumentRefresh,
   normalizeNavigationHash,
   setupNeedsSlowRecheck,
@@ -115,42 +112,20 @@ import {
   type DocumentPagination,
   type LabelReviewMutationBody,
 } from "@/components/clinical-dashboard/dashboard-contracts";
-const DifferentialsHome = dynamic(
-  () => import("@/components/clinical-dashboard/differentials-home").then((m) => m.DifferentialsHome),
-  { ssr: false },
-);
-const FavouritesHub = dynamic(
-  () => import("@/components/clinical-dashboard/favourites-hub").then((m) => m.FavouritesHub),
-  { ssr: false },
-);
-const MedicationPrescribingWorkspace = dynamic(
-  () =>
-    import("@/components/clinical-dashboard/medication-prescribing-workspace").then(
-      (m) => m.MedicationPrescribingWorkspace,
-    ),
-  { ssr: false },
-);
-const DocumentDrawer = dynamic(
-  () => import("@/components/clinical-dashboard/document-admin").then((m) => m.DocumentDrawer),
-  { ssr: false },
-);
-
-// Results surfaces load lazily. Preload the primary answer surface after hydration so a cold
-// browser does not finish a fast/cached answer before the result UI chunk is available.
-const loadStagedAnswerResultSurface = () =>
-  import("@/components/clinical-dashboard/answer-result-surface").then((m) => m.StagedAnswerResultSurface);
-const StagedAnswerResultSurface = dynamic(loadStagedAnswerResultSurface, {
-  ssr: false,
-  loading: () => <AnswerSkeleton />,
-});
-const RelatedDocumentsPanel = dynamic(
-  () => import("@/components/clinical-dashboard/document-results").then((m) => m.RelatedDocumentsPanel),
-  { ssr: false },
-);
-const DocumentSearchResultsPanel = dynamic(
-  () => import("@/components/clinical-dashboard/document-search-results").then((m) => m.DocumentSearchResultsPanel),
-  { ssr: false },
-);
+import {
+  DifferentialsHome,
+  DocumentDrawer,
+  DocumentSearchResultsPanel,
+  FavouritesHub,
+  IndexingMonitor,
+  IngestionQualityConsole,
+  loadStagedAnswerResultSurface,
+  MedicationPrescribingWorkspace,
+  RelatedDocumentsPanel,
+  SetupChecklist,
+  StagedAnswerResultSurface,
+  UploadPanel,
+} from "@/components/clinical-dashboard/clinical-dashboard-lazy";
 
 import { clearLegacyRecentQueries, demoRecentQueryOwnerId, recentQueryStorageKey } from "@/lib/recent-query-storage";
 import type { SearchFacets } from "@/components/clinical-dashboard/document-search-results";
@@ -196,9 +171,7 @@ import {
 import { persistPrivateSearchScope, restorePrivateSearchScope } from "@/lib/private-search-scope";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
 import { answerLifecycleReducer, initialAnswerLifecycle } from "@/lib/answer-lifecycle";
-import { rankFormRecords } from "@/lib/form-ranker";
-import { rankServiceRecords } from "@/lib/service-ranker";
-import { useRegistryRecords } from "@/lib/use-registry-records";
+import { useDeferredRegistrySearch } from "@/components/clinical-dashboard/use-deferred-registry-search";
 import { buildAnswerFollowUpQuery, buildAnswerFollowUpSuggestions } from "@/lib/answer-follow-up";
 import {
   clearPersistedAnswerThread,
@@ -206,7 +179,7 @@ import {
   maxStoredAnswerTurns,
   savePersistedAnswerThread,
 } from "@/lib/answer-thread-storage";
-import { buildAnswerRenderModel } from "@/lib/answer-render-policy";
+import { buildAnswerRenderModel, isAnswerSourceBacked } from "@/lib/answer-render-policy";
 import {
   frontendSourceGovernanceWarnings,
   groupSourceGovernanceWarnings,
@@ -228,7 +201,11 @@ import type {
   DocumentLabel,
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
-import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import {
+  desktopPageComposerSlotId,
+  differentialsMobileCompareAddonSlotId,
+  modeHomeDesktopComposerSlotId,
+} from "@/lib/mode-home-composer";
 import { toolCatalogRecords } from "@/lib/tools-catalog";
 import { createQuoteFollowUp, type AnswerViewMode, shouldPollForUpdates } from "@/lib/ward-output";
 import {
@@ -236,7 +213,6 @@ import {
   maxVisiblePriorTurns,
   PriorAnswerTurnSurface,
 } from "@/components/clinical-dashboard/answer-thread-turn";
-
 const documentPageSize = 150;
 const activeIndexingPollFallbackMs = 5_000;
 const indexingWorkDetailsPollMs = 15_000;
@@ -287,7 +263,6 @@ type IngestionQualityPayload = {
   items?: IngestionQualityReviewItem[];
   demoMode?: boolean;
 };
-
 export const clinicalQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }> = [
   { value: "auto", label: "Auto" },
   { value: "monitoring_schedule", label: "Monitoring" },
@@ -297,7 +272,6 @@ export const clinicalQueryModeOptions: Array<{ value: ClinicalQueryMode; label: 
   { value: "required_documentation", label: "Documentation" },
   { value: "compare_guidance", label: "Compare" },
 ];
-
 type SearchResultModePayload =
   | {
       kind: "documents";
@@ -315,9 +289,7 @@ type SearchResultModePayload =
       query: string;
       payload: AnswerPayload;
     };
-
 type SourceLibrarySearchMode = Extract<AppModeSearchKind, "documents" | "differentials">;
-
 type LibraryHealthTarget = "documents" | "setup" | "indexing" | "failures";
 type IndexingMonitorFilter = "all" | "active" | "failed";
 type UploadIndexingTab = "setup" | "upload" | "jobs" | "quality";
@@ -377,16 +349,20 @@ export function ClinicalDashboard({
   const [answerThreadBootstrapped, setAnswerThreadBootstrapped] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
-  // Answer mode hides the glass header at every breakpoint (all-breakpoints
-  // overlay); other modes keep the phone-only collapse, so the reporter only
-  // widens past the phone media gate while in answer mode.
-  const phoneScrollHide = useScrollHideReporter(false, searchMode === "answer");
+  // The header hides at every breakpoint in every mode (answer mode through the
+  // all-breakpoints glass overlay, the rest through the collapse row). Switching
+  // mode swaps <main>'s header reserve, so it also rebases the reporter.
+  const chromeScrollHide = useScrollHideReporter(false, true, searchMode);
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
-  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
-  reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
+  const reportChromeScrollHideRef = useRef(chromeScrollHide.reportScroll);
+  reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
     Boolean(autoRunSearch && initialQuery.trim() && initialSearchMode !== "tools"),
   );
+  // focus=1 means "focus on entry", not "keep the dock focused after results".
+  // Suppress autofocus once a mode search/answer has been submitted so hide-on-
+  // scroll can reclaim chrome on result views (Answer and other bottom docks).
+  const shouldAutoFocusComposer = focusSearch && !modeSearchSubmitted;
   const [answer, setAnswer] = useState<RagAnswer | null>(null);
   const [sources, setSources] = useState<SearchResult[]>([]);
   // Answer-mode conversation thread. `priorAnswerTurns` holds completed
@@ -431,24 +407,9 @@ export function ClinicalDashboard({
   const [restoredPrivateScopeRef, setRestoredPrivateScopeRef] = useState<string | null>(null);
 
   // Record matches come from the owner-scoped registry API (mock fixtures in
-  // demo mode); ranking stays client-side so live-typing behaviour is
-  // unchanged and the registry is fetched once per active mode.
-  const registryRecords = useRegistryRecords(searchMode === "forms" ? "form" : "service", {
-    enabled: searchMode === "services" || searchMode === "forms",
-  });
-  const serviceSearchMatches = useMemo(
-    () => (searchMode === "services" ? rankServiceRecords(registryRecords.records, query) : []),
-    [query, searchMode, registryRecords.records],
-  );
-  const formSearchMatches = useMemo(
-    () => (searchMode === "forms" ? rankFormRecords(registryRecords.records, query) : []),
-    [query, searchMode, registryRecords.records],
-  );
-  const recordSearchMatches = useMemo(
-    () => (searchMode === "forms" ? formSearchMatches : searchMode === "services" ? serviceSearchMatches : []),
-    [searchMode, formSearchMatches, serviceSearchMatches],
-  );
-  const recordSearchMode = searchMode === "forms" ? "forms" : "services";
+  // demo mode); ranking stays client-side (deferred) so live-typing stays
+  // responsive and the registry is fetched once per active mode.
+  const { recordSearchMatches, recordSearchMode, recordStatus } = useDeferredRegistrySearch(searchMode, query);
   // The thread mirror ref must never outlive the answer it describes: every
   // reset path nulls `answer`, so clearing here covers them all (mode
   // switches, new chat, differentials/services clears) without each caller
@@ -550,6 +511,7 @@ export function ClinicalDashboard({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
+  const documentsDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
   const [documentScopeOpen, setDocumentScopeOpen] = useState(false);
   const [documentsDrawerMode, setDocumentsDrawerMode] = useState<DocumentDrawerMode>("library");
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
@@ -579,7 +541,6 @@ export function ClinicalDashboard({
   const [indexingActive, setIndexingActive] = useState(false);
   const [userStartedIngestion, setUserStartedIngestion] = useState(false);
   const [nextRefreshDelayMs, setNextRefreshDelayMs] = useState<number | null>(null);
-  const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const {
     status: authStatus,
@@ -705,6 +666,13 @@ export function ClinicalDashboard({
     setDocumentsDrawerOpen,
     setUploadDrawerOpen,
     prefetch: (href) => router.prefetch(href),
+  });
+  const settingsGuideFlow = useSettingsGuideFlow({
+    openGuide,
+    closeGuide,
+    openSettings,
+    openAccountProfile,
+    setSettingsOpen,
   });
   const answerThreadOwnerId = auth.session?.user.id ?? (clientDemoMode ? demoRecentQueryOwnerId : null);
   const previousAnswerThreadOwnerIdRef = useRef(answerThreadOwnerId);
@@ -1536,11 +1504,14 @@ export function ClinicalDashboard({
   }, []);
 
   useEffect(() => {
-    if (!focusSearch) return undefined;
-    focusComposerInput();
-    const timeout = window.setTimeout(focusComposerInput, 500);
+    if (!shouldAutoFocusComposer) {
+      if (document.activeElement === composerInputRef.current) composerInputRef.current?.blur();
+      return undefined;
+    }
+    focusComposerInput(true);
+    const timeout = window.setTimeout(() => focusComposerInput(true), 500);
     return () => window.clearTimeout(timeout);
-  }, [focusSearch]);
+  }, [shouldAutoFocusComposer]);
 
   // Abort any in-flight answer/library search if the dashboard unmounts.
   useEffect(() => {
@@ -1577,7 +1548,7 @@ export function ClinicalDashboard({
       setLoading(false);
       setError(null);
       setAnswerProgress(null);
-      if (shouldFocusComposer) focusComposerInput();
+      if (shouldFocusComposer) focusComposerInput(true);
     });
     return () => window.cancelAnimationFrame(frame);
   }, [searchParams, clearDifferentialModeResultState]);
@@ -1596,8 +1567,9 @@ export function ClinicalDashboard({
       setSearchMode(targetMode);
       // run=1 URLs name the latest answered question; the composer stays empty
       // while an answer thread is active (including after localStorage restore).
+      // Do not reclaim focus on result deep-links — that pins phone chrome.
       if (searchText && params.get("run") !== "1") setQuery(searchText);
-      if (shouldFocusComposer) focusComposerInput();
+      if (shouldFocusComposer && params.get("run") !== "1") focusComposerInput(true);
     });
     return () => window.cancelAnimationFrame(frame);
   }, [clearDifferentialModeResultState]);
@@ -2007,14 +1979,12 @@ export function ClinicalDashboard({
     };
     // A newer search already invalidated any prior request via requestId; abort
     // its network work too so the server stops generating, then own the signal.
-    searchAbortRef.current?.abort();
-    const abortController = new AbortController();
+    const abortController = replaceOwnedAbortController(searchAbortRef);
     const authRequest = registerAuthRequest(abortController);
     requestIsCurrent = () =>
       requestId === searchRequestSeqRef.current &&
       isAuthEpochCurrent(authRequest.epoch) &&
       !abortController.signal.aborted;
-    searchAbortRef.current = abortController;
     setLoading(true);
     setError(null);
     setSearchRelevance(null);
@@ -2193,7 +2163,7 @@ export function ClinicalDashboard({
       answerWatchdog.cancel();
       authRequest.release();
       answerTimedOutRef.current = false;
-      if (searchAbortRef.current === abortController) searchAbortRef.current = null;
+      releaseOwnedAbortController(searchAbortRef, abortController);
       if (requestIsCurrent()) {
         setLoading(false);
         setAnswerProgress(null);
@@ -2507,23 +2477,29 @@ export function ClinicalDashboard({
     window.requestAnimationFrame(() => mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() }));
     if (updateUrl) updateDocumentSearchUrl(trimmedSearchText, targetMode, filtersOverride);
 
+    const abortController = replaceOwnedAbortController(searchAbortRef);
     const requestId = ++searchRequestSeqRef.current;
-
     try {
       const shortcutQueryMode = appModeQueryMode(targetMode, queryMode);
       const payload = await runWithRetries(() =>
-        requestSourceLibrarySearch(trimmedSearchText, sourceLibraryMode, filtersOverride, shortcutQueryMode),
+        requestSourceLibrarySearch(
+          trimmedSearchText,
+          sourceLibraryMode,
+          filtersOverride,
+          shortcutQueryMode,
+          abortController.signal,
+        ),
       );
-      if (requestId === searchRequestSeqRef.current) {
-        applySearchResult(payload);
-      }
+      if (requestId === searchRequestSeqRef.current) applySearchResult(payload);
     } catch (requestError) {
+      if (abortController.signal.aborted || isAbortError(requestError)) return;
       if (requestId === searchRequestSeqRef.current) {
         setError(requestError instanceof Error ? requestError.message : "Document search failed");
         setErrorKind(null);
         setLastFailedQuery(null);
       }
     } finally {
+      releaseOwnedAbortController(searchAbortRef, abortController);
       if (requestId === searchRequestSeqRef.current) {
         setLoading(false);
         setAnswerProgress(null);
@@ -2648,11 +2624,8 @@ export function ClinicalDashboard({
     router.push(appModeHomeHref(mode, { queryMode, scopeFilters }));
   }
 
-  function focusComposerInput() {
-    window.requestAnimationFrame(() => {
-      composerInputRef.current?.focus({ preventScroll: true });
-      window.setTimeout(() => composerInputRef.current?.focus({ preventScroll: true }), 150);
-    });
+  function focusComposerInput(retainTarget = false) {
+    scheduleComposerFocus(composerInputRef, retainTarget);
   }
 
   function stageAnswerFollowUpDraft(draft: string) {
@@ -2697,18 +2670,13 @@ export function ClinicalDashboard({
   }
 
   function openDocumentsDrawer(mode: DocumentDrawerMode) {
+    documentsDrawerReturnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeDashboardTransientSurfaces("documents");
     setSearchMode("documents");
     setDocumentDrawerStatusFilter("indexed");
     setDocumentsDrawerMode(mode);
     setDocumentsDrawerOpen(true);
-    if (window.matchMedia("(min-width: 1024px)").matches) {
-      window.requestAnimationFrame(() => {
-        document
-          .getElementById("dashboard-documents-drawer")
-          ?.scrollIntoView({ block: "start", behavior: resolveScrollBehavior() });
-      });
-    }
   }
 
   function openRecentDocuments() {
@@ -2728,7 +2696,7 @@ export function ClinicalDashboard({
       openDocumentsDrawer("library");
       setActionNotice({
         tone: "warning",
-        message: "Upload and indexing tools are admin-only. Use the source library to open indexed documents.",
+        message: "Upload and indexing tools are admin-only. Use Sources to open indexed documents.",
       });
       return;
     }
@@ -2843,10 +2811,10 @@ export function ClinicalDashboard({
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         frame = 0;
-        reportPhoneScrollHideRef.current({
+        reportChromeScrollHideRef.current({
           offset: main.scrollTop,
           maxOffset: Math.max(0, main.scrollHeight - main.clientHeight),
-          collapseBudget: readChromeCollapseBudget(main),
+          ...readChromeCollapseMetrics(main),
           source: main,
         });
       });
@@ -2907,7 +2875,7 @@ export function ClinicalDashboard({
   const answerGrounded =
     answer?.grounded === true &&
     answer.confidence !== "unsupported" &&
-    currentRelevance?.isSourceBacked !== false &&
+    isAnswerSourceBacked(answer) &&
     answerRenderModel?.trust !== "unsupported";
   const sourceLookup = useMemo(() => new Map(sources.map((source) => [source.id, source])), [sources]);
   const answerPreformatted = isPreformattedGroundedAnswer(answer);
@@ -3054,23 +3022,6 @@ export function ClinicalDashboard({
       empty: !answer || (answerRenderModel?.reviewSources.length ?? 0) === 0,
     },
   ] as const;
-  const renderSystemNotice = (className?: string) => (
-    <UtilityDrawer
-      icon={CircleAlert}
-      title={demoMode ? "Demo mode" : "Setup required"}
-      summary={
-        demoMode ? "Synthetic data only; not clinical guidance." : "Configuration is needed before real uploads."
-      }
-      mobileSummary={demoMode ? "Synthetic data" : "Setup needed"}
-      className={className}
-    >
-      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
-        {demoMode
-          ? "Demo mode is active with three synthetic indexed documents, citations, source cards, image captions, and document links. Synthetic data only; not clinical guidance."
-          : `Configure .env.local and run supabase/schema.sql before uploading or searching. ${setupWarning}`}
-      </p>
-    </UtilityDrawer>
-  );
   const showAuthPanel = false;
   const showDegradedNotice = !isOnline || (apiUnavailable && !canRunSearch);
   const submittedAnswerSearchActive =
@@ -3091,17 +3042,32 @@ export function ClinicalDashboard({
   const showDesktopHomeComposer =
     !error &&
     (activeModeResultKind === "tools" ||
-      activeModeResultKind === "favourites" ||
+      (activeModeResultKind === "favourites" && favouritesAccessible) ||
       (!loading &&
         (showAnswerHome ||
           (searchMode === "documents" &&
             activeModeResultKind === "documents" &&
             documentMatches.length === 0 &&
             !modeSearchSubmitted) ||
-          (searchMode === "prescribing" && activeModeResultKind === "documents" && !modeSearchSubmitted) ||
-          (activeModeResultKind === "differentials" && !modeSearchSubmitted))));
+          // Prescribing home unmounts as soon as the query is non-empty, so keep
+          // the hero/phone-composer slot only while MedicationHome actually mounts.
+          (searchMode === "prescribing" &&
+            activeModeResultKind === "documents" &&
+            !modeSearchSubmitted &&
+            !query.trim()) ||
+          // DifferentialsHome leaves ModeHomeTemplate when a draft query coincides
+          // with stale evidence matches — keep the hero slot only while home mounts.
+          (activeModeResultKind === "differentials" &&
+            !modeSearchSubmitted &&
+            !(query.trim() && documentMatches.length > 0)))));
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
-  const heroComposerBreakpoint = showDesktopHomeComposer || showAnswerHome ? "all" : "sm-up";
+  const desktopResultComposerSlotId =
+    !desktopHomeComposerSlotId && searchMode !== "answer" ? desktopPageComposerSlotId : undefined;
+  // Any mounted mode home (answer, documents, prescribing, differentials, tools,
+  // favourites) keeps the in-flow hero pill on phones ("all") per the
+  // page-ownership contract. Only result/submitted views fall back to "sm-up"
+  // so phones get the compact bottom dock.
+  const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";
   const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
   const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer;
   // Favourites and Tools are content-rich hubs: they share the centred hero but
@@ -3123,29 +3089,8 @@ export function ClinicalDashboard({
       searchMode,
       hasAnswerFollowUps: answerFollowUpSuggestions.length > 0,
       differentialsCompareAddonActive,
+      heroOwnsPhoneComposer,
     }),
-  );
-  const renderDegradedNotice = () => (
-    <UtilityDrawer
-      icon={!isOnline ? WifiOff : CircleAlert}
-      title={!isOnline ? "Offline" : "Service unavailable"}
-      summary={
-        !isOnline
-          ? "Your browser is offline. Existing content may remain visible, but private search and uploads need network access."
-          : isDeployedClinicalKb()
-            ? "The app could not reach its API. Try again in a moment."
-            : "The local API did not respond. Check the app server and setup status before retrying."
-      }
-      mobileSummary={!isOnline ? "Offline" : "API unavailable"}
-    >
-      <p className="text-base-minus leading-6 text-[color:var(--warning)]">
-        {!isOnline
-          ? "Reconnect before uploading documents, refreshing source URLs, or generating answers."
-          : isDeployedClinicalKb()
-            ? "The app will preserve the current view. If this keeps happening, check your connection and try again shortly."
-            : "The app will preserve the current view. Retry after confirming the local server, Supabase, OpenAI, and worker setup."}
-      </p>
-    </UtilityDrawer>
   );
   const setupReadyCount = setupChecks.filter((check) => check.status === "ready").length;
   const setupCheckCount = setupChecks.length || fallbackSetupChecks.length;
@@ -3233,7 +3178,7 @@ export function ClinicalDashboard({
         ? "Source PDFs"
         : documentsDrawerIsAdmin
           ? "Document admin"
-          : "Source library";
+          : "Sources";
   const documentsDrawerSummary = dashboardDataLoading
     ? "Loading indexed document status."
     : documentsDrawerMode === "recent"
@@ -3244,14 +3189,14 @@ export function ClinicalDashboard({
           ? `${indexedDocumentTotal.toLocaleString()} indexed documents available.`
           : "Search and open indexed clinical sources.";
   const documentsDrawerMobileSummary = dashboardDataLoading
-    ? "Loading library"
+    ? "Loading sources"
     : documentsDrawerMode === "recent"
       ? "Recent sources"
       : documentsDrawerMode === "source"
         ? "PDF sources"
         : documentsDrawerIsAdmin
           ? "Admin"
-          : "Library";
+          : "Sources";
   const DocumentsDrawerIcon =
     documentsDrawerMode === "recent"
       ? Clock3
@@ -3260,7 +3205,7 @@ export function ClinicalDashboard({
         : documentsDrawerIsAdmin
           ? UploadCloud
           : FolderOpen;
-  const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Library and admin" : "Sources";
+  const drawerGroupTitle = uploadDrawerOpen || documentsDrawerIsAdmin ? "Sources and admin" : "Sources";
 
   // Stable-identity handlers for the React.memo children (StagedAnswerResultSurface,
   // DocumentSearchResultsPanel). These close over the draft `query` or call the
@@ -3276,6 +3221,25 @@ export function ClinicalDashboard({
   const handleDocumentTagSearch = useEventCallback(handleTagSearch);
   const handleOpenRecentDocuments = useEventCallback(openRecentDocuments);
   const handleOpenSourceLibrary = useEventCallback(openSourceLibrary);
+  const handleDocumentsDrawerOpenChange = useEventCallback((nextOpen: boolean) => {
+    setDocumentsDrawerOpen(nextOpen);
+    if (nextOpen) return;
+
+    const returnTarget = documentsDrawerReturnFocusRef.current;
+    window.requestAnimationFrame(() => {
+      const fallbackTarget = Array.from(
+        document.querySelectorAll<HTMLElement>('button[aria-haspopup="menu"][aria-label$=" options"]'),
+      ).find((element) => element.isConnected && element.getClientRects().length > 0);
+      const focusTarget = returnTarget?.isConnected ? returnTarget : fallbackTarget;
+      focusTarget?.focus({ preventScroll: true });
+      // Sheet autofocus teardown and composer focus listeners can win the first
+      // frame after Escape; retry once if the opener did not keep focus.
+      window.setTimeout(() => {
+        if (!focusTarget?.isConnected || document.activeElement === focusTarget) return;
+        focusTarget.focus({ preventScroll: true });
+      }, 50);
+    });
+  });
   const handleOpenSourcePdfBrowser = useEventCallback(openSourcePdfBrowser);
   const handleCopyAnswer = useEventCallback(() => {
     copyText("answer", answerRenderModel?.copyText || safeAnswerText || answer?.answer || "");
@@ -3334,11 +3298,10 @@ export function ClinicalDashboard({
         onCollapsedChange={setSidebarCollapsed}
         onNewChat={startNewChat}
         onPickRecent={pickRecentQuery}
-        onOpenGuide={openGuide}
-        onOpenSettings={openSettings}
-        onOpenAccount={openAccountProfile}
-        theme={theme}
-        onToggleTheme={toggleTheme}
+        onOpenSettings={settingsGuideFlow.openSettingsWithDefaultFocus}
+        onOpenAccount={settingsGuideFlow.openAccountProfileWithDefaultFocus}
+        onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
+        onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
         showAccountLibrary={favouritesAccessible}
       />
@@ -3381,7 +3344,7 @@ export function ClinicalDashboard({
           }}
           queryModeOptions={clinicalQueryModeOptions}
           queryInputRef={composerInputRef}
-          queryInputAutoFocus={focusSearch}
+          queryInputAutoFocus={shouldAutoFocusComposer}
           recentQueries={recentQueries}
           commandScopes={commandScopes}
           onCommandScopesChange={setCommandScopes}
@@ -3402,19 +3365,21 @@ export function ClinicalDashboard({
             differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
           }
           desktopHomeComposerSlotId={desktopHomeComposerSlotId}
+          desktopPageComposerSlotId={desktopResultComposerSlotId}
           // Mode homes keep the composer in the centred hero slot at every
-          // breakpoint so documents, therapy, and the other homes share the
-          // same phone/tablet structure instead of switching to a bottom dock.
+          // breakpoint; documents, therapy, and other homes share the phone/tablet structure.
           heroComposerBreakpoint={heroComposerBreakpoint}
           // Answer view: the header overlays the scrolling <main> at every width
           // (main reserves matching top padding) so content frosts under the
           // glass bar, and it slides away/returns with scroll direction. Other
-          // modes keep the phone-only collapse (their sm+ composer renders
-          // in-flow below the header, which an absolute header would bury).
+          // modes collapse the header row instead — an absolute header would
+          // bury their in-flow composer — which works at every width here
+          // because <main> is the scrollport at every width, so the released
+          // strip goes straight to the content.
           hideOnScroll={
             searchMode === "answer"
-              ? { strategy: "overlay", allBreakpoints: true, scrollHidden: phoneScrollHide.hidden }
-              : { strategy: "collapse", scrollHidden: phoneScrollHide.hidden }
+              ? { strategy: "overlay", allBreakpoints: true, scrollHidden: chromeScrollHide.hidden }
+              : { strategy: "collapse", wide: "collapse", scrollHidden: chromeScrollHide.hidden }
           }
           onBottomComposerHiddenChange={setBottomComposerHidden}
         />
@@ -3514,13 +3479,22 @@ export function ClinicalDashboard({
                     : "pb-8 sm:pb-10 lg:pb-12",
               )}
             >
+              {desktopResultComposerSlotId ? (
+                <div
+                  id={desktopResultComposerSlotId}
+                  data-testid="desktop-page-search-composer-slot"
+                  className="hidden lg:block lg:empty:hidden"
+                />
+              ) : null}
               {actionNotice && (
                 <InlineNotice tone={actionNotice.tone} onDismiss={() => setActionNotice(null)} animated>
                   {actionNotice.message}
                 </InlineNotice>
               )}
-              {showDegradedNotice && renderDegradedNotice()}
-              {showSystemNotice && answer ? renderSystemNotice("hidden sm:block") : null}
+              {showDegradedNotice && <DegradedNotice isOnline={isOnline} />}
+              {showSystemNotice && answer ? (
+                <SystemNotice demoMode={demoMode} setupWarning={setupWarning} className="hidden sm:block" />
+              ) : null}
 
               <section
                 className={cn(
@@ -3752,7 +3726,7 @@ export function ClinicalDashboard({
                         matches={documentMatches}
                         recordMatches={recordSearchMatches}
                         recordMode={recordSearchMode}
-                        recordStatus={registryRecords.status}
+                        recordStatus={recordStatus}
                         showRecordMatches={searchMode === "services" || searchMode === "forms"}
                         query={query}
                         loading={loading}
@@ -3846,13 +3820,15 @@ export function ClinicalDashboard({
                 ) : null}
               </section>
 
-              {showSystemNotice && answer ? renderSystemNotice("sm:hidden") : null}
+              {showSystemNotice && answer ? (
+                <SystemNotice demoMode={demoMode} setupWarning={setupWarning} className="sm:hidden" />
+              ) : null}
 
               {activeModeResultKind === "answer" && answer && (
                 <RelatedDocumentsPanel
                   documents={relatedDocuments}
-                  onScopeDocument={scopeOnlyDocument}
-                  onTagSearch={handleTagSearch}
+                  onScopeDocument={handleScopeDocument}
+                  onTagSearch={handleDocumentTagSearch}
                 />
               )}
               {(documentsDrawerOpen || uploadDrawerOpen) && (
@@ -3868,8 +3844,9 @@ export function ClinicalDashboard({
                       summary={documentsDrawerSummary}
                       mobileSummary={documentsDrawerMobileSummary}
                       open={documentsDrawerOpen}
-                      onOpenChange={setDocumentsDrawerOpen}
-                      sheetBreakpoint="lg"
+                      onOpenChange={handleDocumentsDrawerOpenChange}
+                      sheetBreakpoint={documentsDrawerIsAdmin ? "lg" : "all"}
+                      sheetReturnFocusRef={documentsDrawerReturnFocusRef}
                       sheetHeaderLeading={
                         <span className="grid h-10 w-10 place-items-center rounded-xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)]">
                           <DocumentsDrawerIcon className="h-5 w-5" aria-hidden="true" />
@@ -4110,15 +4087,20 @@ export function ClinicalDashboard({
           hidden
           onNavigate={navigateMobileSection}
         />
-        <GuideDialog open={guideOpen} onClose={closeGuide} />
-        <SettingsDialog
+        <GuideDialog open={guideOpen} onClose={settingsGuideFlow.closeGuideWithRestore} />
+        <SidebarDialogs.SidebarSettingsDialog
           open={settingsOpen}
           onClose={closeSettings}
           identity={sidebarIdentity}
           onSignOut={auth.signOut}
-          onOpenGuide={openGuide}
+          onOpenGuide={settingsGuideFlow.openGuideFromSettings}
+          initialFocus={settingsGuideFlow.settingsInitialFocus}
         />
-        <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
+        <SidebarDialogs.SidebarAccountSetupDialog
+          open={accountSetupOpen}
+          onClose={closeAccountSetup}
+          intent={accountSetupIntent}
+        />
         <ClinicalMobileSidebar
           open={mobileSidebarOpen}
           recentQueries={recentQueries}
@@ -4127,11 +4109,10 @@ export function ClinicalDashboard({
           onOpenChange={setMobileSidebarOpen}
           onNewChat={startNewChat}
           onPickRecent={pickRecentQuery}
-          onOpenGuide={openGuide}
-          onOpenSettings={openSettings}
-          onOpenAccount={openAccountProfile}
-          theme={theme}
-          onToggleTheme={toggleTheme}
+          onOpenSettings={settingsGuideFlow.openSettingsWithDefaultFocus}
+          onOpenAccount={settingsGuideFlow.openAccountProfileWithDefaultFocus}
+          onPrefetchSettings={SidebarDialogs.loadSettingsDialog}
+          onPrefetchAccount={SidebarDialogs.prefetchAccountDialog}
           onPrefetchApplications={prefetchApplications}
           showAccountLibrary={favouritesAccessible}
         />

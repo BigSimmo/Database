@@ -2,6 +2,7 @@
 
 import { type FormEvent, type ReactNode, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   Bell,
   BookOpen,
   Check,
@@ -33,7 +34,6 @@ import {
 
 import { type SidebarIdentity } from "@/components/clinical-dashboard/ClinicalSidebar";
 import { useAccountData } from "@/components/account-data-provider";
-import { NavigationBackButton } from "@/components/navigation-back-button";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import {
   ANSWER_STYLE_OPTIONS,
@@ -110,14 +110,17 @@ export function SettingsDialog({
   identity,
   onSignOut,
   onOpenGuide,
+  initialFocus = "close",
 }: {
   open: boolean;
   onClose: () => void;
   identity: SidebarIdentity;
   onSignOut: () => void;
   onOpenGuide: () => void;
+  initialFocus?: "close" | "guide";
 }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const guideButtonRef = useRef<HTMLButtonElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const settingsEmailInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -261,19 +264,18 @@ export function SettingsDialog({
     return () => window.cancelAnimationFrame(focusFrame);
   }, [emailEntryOpen]);
 
-<<<<<<< ours
-  const backButton = <NavigationBackButton onClick={onClose} label="Back from settings" />;
-=======
   const backButton = (
     <IconButton
       label="Back from settings"
       icon={ArrowLeft}
       onClick={onClose}
-      className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] lg:border-transparent lg:bg-transparent lg:shadow-none"
+      className={cn(
+        floatingControl,
+        "rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] lg:hidden",
+      )}
       iconClassName="size-icon-lg"
     />
   );
->>>>>>> theirs
 
   const closeButton = (
     <button
@@ -281,7 +283,7 @@ export function SettingsDialog({
       type="button"
       onClick={onClose}
       aria-label="Close settings"
-      className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:h-10 lg:w-10 lg:border-transparent lg:bg-transparent lg:shadow-none"
+      className="grid size-tap shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:h-10 lg:w-10 lg:border-transparent lg:bg-transparent lg:shadow-none"
     >
       <X aria-hidden="true" className="size-icon-lg" />
     </button>
@@ -293,7 +295,7 @@ export function SettingsDialog({
       onClose={onClose}
       closeLabel="Close settings"
       labelledBy="account-settings-title"
-      initialFocusRef={closeButtonRef}
+      initialFocusRef={initialFocus === "guide" ? guideButtonRef : closeButtonRef}
       mobilePlacement="fullscreen"
       contentClassName="w-full max-w-none border-[color:var(--border-lux)] bg-[color:var(--background)] font-sans shadow-none max-lg:!pb-0 lg:max-w-[940px] lg:bg-[color:var(--surface-lux)] lg:shadow-[var(--shadow-lux)]"
       bodyClassName="p-0"
@@ -794,7 +796,9 @@ export function SettingsDialog({
                   primary guideline before acting.
                 </p>
                 <button
+                  ref={guideButtonRef}
                   type="button"
+                  data-settings-guide-trigger
                   onClick={() => {
                     onClose();
                     onOpenGuide();
@@ -803,7 +807,7 @@ export function SettingsDialog({
                   data-testid="settings-row-guide-help"
                 >
                   <BookOpen aria-hidden="true" className="h-4 w-4" />
-                  Open the clinical guide
+                  Guide & help
                 </button>
               </div>
             </SettingsSection>
@@ -844,7 +848,7 @@ function SettingsGroup({ children }: { children: ReactNode }) {
 
 function IconBadge({ icon: Icon }: { icon: LucideIcon }) {
   return (
-    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+    <span className="grid size-tap shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
       <Icon aria-hidden="true" className="h-4 w-4" />
     </span>
   );
@@ -967,7 +971,7 @@ function SegmentedControl<T extends string>({
             aria-checked={checked}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex min-h-8 flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]",
+              "flex min-h-tap flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]",
               checked
                 ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
                 : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
@@ -1204,7 +1208,7 @@ function SettingsProviderRow({
 
 function SettingsClinicalContextStrip({ jurisdictionShort }: { jurisdictionShort: string }) {
   return (
-    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
+    <div className="mt-2.5 flex min-h-tap items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
       <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
       <span className="min-w-0 truncate">
         Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}

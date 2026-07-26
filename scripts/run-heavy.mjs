@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { childProcessExitCode } from "./child-process-result.mjs";
@@ -13,25 +13,42 @@ if (args[0] !== "--npm-script" || !args[1]) {
 }
 
 const script = args[1];
-const forwarded = args.slice(2);
-const lock = acquireHeavyRunLock({ projectRoot, command: `npm run ${script}` });
-let exitCode = 1;
-try {
+const rawForwarded = args.slice(2);
+const forceLockRelease = rawForwarded.includes("--force-lock-release");
+const forwarded = rawForwarded.filter((argument) => argument !== "--force-lock-release");
+const lock = acquireHeavyRunLock({
+  projectRoot,
+  command: `npm run ${script}`,
+  forceLockRelease,
+});
+
+function runNpmScript() {
   const npmExecPath = process.env.npm_execpath;
-  const result = npmExecPath
-    ? spawnSync(process.execPath, [npmExecPath, "run", script, ...(forwarded.length ? ["--", ...forwarded] : [])], {
+  const child = npmExecPath
+    ? spawn(process.execPath, [npmExecPath, "run", script, ...(forwarded.length ? ["--", ...forwarded] : [])], {
         cwd: projectRoot,
         env: lock.environment,
         stdio: "inherit",
       })
-    : spawnSync(
+    : spawn(
         process.platform === "win32" ? "cmd.exe" : "npm",
         process.platform === "win32"
           ? ["/d", "/s", "/c", `npm run ${script}`]
           : ["run", script, ...(forwarded.length ? ["--", ...forwarded] : [])],
         { cwd: projectRoot, env: lock.environment, stdio: "inherit" },
       );
-  exitCode = childProcessExitCode(result);
+
+  return new Promise((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", (status, signal) => {
+      resolve(childProcessExitCode({ status, signal }));
+    });
+  });
+}
+
+let exitCode = 1;
+try {
+  exitCode = await runNpmScript();
 } finally {
   lock.release();
 }

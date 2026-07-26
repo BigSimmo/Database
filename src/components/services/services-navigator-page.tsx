@@ -20,12 +20,13 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useDeferredValue } from "react";
 
 import { cn } from "@/components/ui-primitives";
 import { ModeHomeStatusNotice } from "@/components/mode-home-template";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
+  MobileResultFilterControl,
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
   SearchResultsSkeleton,
@@ -41,15 +42,15 @@ import { sortResultItems } from "@/lib/result-sort";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { useResultSort } from "@/components/use-result-sort";
 
-<<<<<<< ours
-<<<<<<< ours
-const defaultQuery = "13YARN crisis Aboriginal and Torres Strait Islander phone";
-=======
 const defaultQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
->>>>>>> theirs
-=======
-const defaultQuery = "13YARN crisis Aboriginal Torres Strait Islander phone";
->>>>>>> theirs
+const serviceQuickFilters = [
+  { label: "Best fit", query: defaultQuery },
+  { label: "Crisis", query: "crisis" },
+  { label: "Culturally safe", query: "Aboriginal Torres Strait Islander" },
+  { label: "Phone referral", query: "phone referral" },
+  { label: "Free", query: "free" },
+  { label: "WA", query: "WA" },
+];
 
 function text(value: string | null | undefined, fallback = "Confirm locally") {
   return value?.trim() ? value.trim() : fallback;
@@ -335,12 +336,16 @@ function RightRail({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
+      <section
+        data-testid="services-referral-decision"
+        className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]"
+      >
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Referral decision</h3>
           <button
             className="inline-flex min-h-tap items-center text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
             type="button"
+            data-testid="services-clear-selected"
             onClick={clearSelectedServices}
             disabled={selected.length === 0}
             title={selected.length === 0 ? "No selected services to clear" : "Clear selected services"}
@@ -348,7 +353,9 @@ function RightRail({
             Clear
           </button>
         </div>
-        <p className="mt-3 text-sm font-bold text-[color:var(--text-heading)]">Selected services ({selected.length})</p>
+        <p data-testid="services-selected-count" className="mt-3 text-sm font-bold text-[color:var(--text-heading)]">
+          Selected services ({selected.length})
+        </p>
         <div className="mt-3 grid gap-2">
           {selected.map((service, index) => (
             <button
@@ -391,7 +398,7 @@ function RightRail({
           ))}
         </div>
         <button
-          className="mt-4 inline-flex min-h-tap items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
+          className="mt-4 inline-flex min-h-tap scroll-mt-40 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:scroll-mt-44 lg:scroll-mt-20"
           type="button"
           onClick={() => setShowChecklistDetails((current) => !current)}
           disabled={selected.length === 0}
@@ -488,8 +495,14 @@ function RightRail({
       <button
         className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50"
         type="button"
+        data-testid="services-compare-selected"
         disabled={!comparisonAvailable}
         title={comparisonAvailable ? "Compare selected services" : "Select at least two services before comparing"}
+        aria-label={
+          comparisonAvailable
+            ? `Compare selected services (${selected.length})`
+            : "Select at least two services before comparing"
+        }
         onClick={() => setShowComparison((current) => !current)}
         aria-expanded={comparisonExpanded}
         aria-controls={comparisonExpanded ? "selected-services-comparison" : undefined}
@@ -544,6 +557,7 @@ export function ServicesNavigatorPage() {
   const initialQuery = urlQuery || defaultQuery;
   const [localQuery, setLocalQuery] = useState(() => ({ urlQuery, value: initialQuery }));
   const query = localQuery.urlQuery === urlQuery ? localQuery.value : initialQuery;
+  const deferredQuery = useDeferredValue(query);
   const registry = useRegistryRecords("service");
   const registryLoading = registry.status === "loading";
   // Demo mode is served by the registry API as status "ready" with fixture
@@ -555,9 +569,15 @@ export function ServicesNavigatorPage() {
     [registry.records, registry.status],
   );
   const matches = useMemo(() => {
-    const ranked = rankServiceRecords(searchableRecords, query);
-    return ranked.length ? ranked.map((match) => match.service) : query.trim() ? [] : searchableRecords;
-  }, [query, searchableRecords]);
+    // Cleared live query should restore the full catalogue immediately, even if
+    // deferredQuery still holds the previous term for a frame.
+    if (!query.trim()) return searchableRecords;
+    const ranked = rankServiceRecords(searchableRecords, deferredQuery);
+    if (ranked.length) return ranked.map((match) => match.service);
+    // Deferred empty while the live query has text means ranking is lagging —
+    // never dump the full catalogue as if the box were cleared.
+    return [];
+  }, [deferredQuery, query, searchableRecords]);
   const scopedMatches = useMemo(() => {
     const scopes = command?.commandScopes ?? [];
     if (!scopes.length) return matches;
@@ -593,6 +613,10 @@ export function ServicesNavigatorPage() {
     }
   }
 
+  const activeQuickFilter = serviceQuickFilters.find(
+    (filter) => filter.query.toLowerCase() === query.trim().toLowerCase(),
+  );
+
   return (
     <SearchResultsLayout
       testId="services-navigator"
@@ -612,6 +636,58 @@ export function ServicesNavigatorPage() {
             loading={registryLoading}
             sortValue={sortValue}
             onSortChange={setSortValue}
+            filterLabel="Quick service filters"
+            mobileControls={
+              <MobileResultFilterControl
+                label="Filter"
+                ariaLabel="Apply a quick service filter"
+                testId="service-quick-filter-select"
+                value={activeQuickFilter?.query ?? "current"}
+                options={[
+                  ...(activeQuickFilter
+                    ? []
+                    : [{ value: "current", label: query.trim() ? "Current search" : "All services", disabled: true }]),
+                  ...serviceQuickFilters.map((filter) => ({ value: filter.query, label: filter.label })),
+                ]}
+                onChange={(value) => {
+                  if (value !== "current") applyServiceQuery(value);
+                }}
+              />
+            }
+            filterControls={
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="hidden shrink-0 items-center gap-1.5 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-soft)] sm:inline-flex">
+                  <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+                  Quick filters
+                </span>
+                <div className="polished-scroll flex min-w-0 flex-1 gap-1.5 overflow-x-auto">
+                  {serviceQuickFilters.map((filter) => (
+                    <button
+                      key={filter.label}
+                      type="button"
+                      onClick={() => applyServiceQuery(filter.query)}
+                      aria-pressed={query.trim().toLowerCase() === filter.query.toLowerCase()}
+                      className={cn(
+                        "inline-flex min-h-tap shrink-0 items-center rounded-lg border px-2.5 text-2xs font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] sm:min-h-9 sm:text-xs",
+                        query.trim().toLowerCase() === filter.query.toLowerCase()
+                          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                          : "border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text-muted)] hover:border-[color:var(--border-strong)] hover:text-[color:var(--text)]",
+                      )}
+                    >
+                      {filter.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLocalQuery({ urlQuery, value: "" })}
+                  aria-label="Clear quick filters"
+                  className="inline-flex min-h-tap shrink-0 items-center rounded-lg px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] sm:min-h-9"
+                >
+                  Clear
+                </button>
+              </div>
+            }
           />
         </>
       }
@@ -643,7 +719,7 @@ export function ServicesNavigatorPage() {
             body="The services registry could not be loaded. Try again shortly."
           />
         )
-      ) : query.trim() && displayedMatches.length === 0 ? (
+      ) : query.trim() && deferredQuery === query && displayedMatches.length === 0 ? (
         <SearchResultsEmptyState
           modeId="services"
           query={query}
@@ -656,15 +732,7 @@ export function ServicesNavigatorPage() {
             <div className="relative flex min-w-0 items-start justify-between gap-3 bg-[linear-gradient(135deg,var(--surface-chrome),var(--surface)_62%,var(--clinical-accent-soft))] p-4 sm:p-5">
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-[linear-gradient(90deg,transparent,var(--clinical-accent),transparent)] opacity-55" />
               <div className="grid min-w-0 flex-1 grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-3 sm:grid-cols-[3.5rem_minmax(0,1fr)] sm:gap-4">
-<<<<<<< ours
-<<<<<<< ours
-                <span className="grid h-11 w-11 place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:h-14 sm:w-14">
-=======
                 <span className="grid size-tap place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:size-14">
->>>>>>> theirs
-=======
-                <span className="grid size-tap place-items-center rounded-2xl border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)] shadow-[var(--shadow-inset)] sm:size-14">
->>>>>>> theirs
                   <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden />
                 </span>
                 <div className="min-w-0">
@@ -681,64 +749,6 @@ export function ServicesNavigatorPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  className="inline-flex min-h-10 w-10 cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] px-2 text-sm font-bold text-[color:var(--text-muted)] opacity-75 shadow-[var(--shadow-tight)] sm:min-h-tap sm:w-auto sm:px-4"
-                  type="button"
-                  aria-label="Advanced service filters"
-                  aria-describedby="services-filters-unavailable"
-                  disabled
-                  title="Advanced service filters — coming soon"
-                >
-                  <SlidersHorizontal className="h-4 w-4" aria-hidden />
-                  <span className="hidden sm:inline">Filters</span>
-                </button>
-                <span id="services-filters-unavailable" className="sr-only">
-                  Advanced service filters are coming soon. Use the quick filters below for now.
-                </span>
-              </div>
-            </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-2 border-t border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2.5 sm:px-4">
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 overflow-hidden">
-                {[
-                  { label: "Best fit", query: defaultQuery },
-                  { label: "Crisis", query: "crisis" },
-<<<<<<< ours
-<<<<<<< ours
-                  { label: "Culturally safe", query: "Aboriginal and Torres Strait Islander" },
-=======
-                  { label: "Culturally safe", query: "Aboriginal Torres Strait Islander" },
->>>>>>> theirs
-=======
-                  { label: "Culturally safe", query: "Aboriginal Torres Strait Islander" },
->>>>>>> theirs
-                  { label: "Phone referral", query: "phone referral" },
-                  { label: "Free", query: "free" },
-                  { label: "WA", query: "WA" },
-                ].map((chip, index) => (
-                  <button
-                    key={chip.label}
-                    type="button"
-                    onClick={() => applyServiceQuery(chip.query)}
-                    className={cn(
-                      "min-h-8 rounded-full border px-3 text-xs font-bold transition hover:-translate-y-px hover:shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]",
-                      index > 2 ? "max-sm:hidden" : "",
-                      index === 0
-                        ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-                        : "border-[color:var(--border)] bg-[color:var(--surface-subtle)] text-[color:var(--text-muted)] hover:border-[color:var(--clinical-accent-border)] hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent)]",
-                    )}
-                  >
-                    {chip.label}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setLocalQuery({ urlQuery, value: "" })}
-                className="min-h-8 shrink-0 rounded-full px-2 text-xs font-bold text-[color:var(--clinical-accent)] hover:bg-[color:var(--clinical-accent-soft)] hover:text-[color:var(--clinical-accent-hover)] max-sm:hidden"
-              >
-                Clear all
-              </button>
             </div>
           </div>
           <div data-testid="service-search-results" className="grid gap-3">

@@ -344,7 +344,7 @@ test.describe("Clinical KB long-content stress coverage", () => {
         await expect(dailyActions).toBeHidden();
         await expect(
           page.getByRole("alert").filter({ hasText: "Upload and indexing tools are admin-only." }),
-        ).toContainText("Use the source library to open indexed documents.");
+        ).toContainText("Use Sources to open indexed documents.");
         await expect(page.getByRole("dialog", { name: "Upload and indexing" })).toHaveCount(0);
       }
       await expectNoPageHorizontalOverflow(page);
@@ -442,12 +442,15 @@ test.describe("Medication responsive stress coverage", () => {
         await expect(phoneResult).toBeVisible();
         await expect(desktopResult).toBeHidden();
 
-        const metrics = await page.evaluate(() => {
+        const metrics = await page.evaluate((viewportWidth) => {
           const workspace = document.querySelector<HTMLElement>(".medication-results-workspace");
           const patient = document.querySelector<HTMLElement>(".medication-patient-strip");
           const filters = document.querySelector<HTMLElement>(".medication-filter-strip");
           const card = document.querySelector<HTMLElement>('[data-testid="medication-result-acamprosate-phone"]');
-          const firstFilter = filters?.querySelector<HTMLElement>("button");
+          const firstFilter =
+            viewportWidth < 640
+              ? document.querySelector<HTMLElement>('[data-testid="medication-result-filter-select"]')
+              : filters?.querySelector<HTMLElement>("button");
           if (!workspace || !patient || !filters || !card || !firstFilter) return null;
           const workspaceRect = workspace.getBoundingClientRect();
           const patientRect = patient.getBoundingClientRect();
@@ -466,7 +469,7 @@ test.describe("Medication responsive stress coverage", () => {
             filterLeft: filterRect.left,
             filterHeight: filterRect.height,
           };
-        });
+        }, viewport.width);
         expect(metrics).not.toBeNull();
         expect(metrics?.filterHeight ?? 0).toBeGreaterThanOrEqual(42);
 
@@ -491,13 +494,22 @@ test.describe("Medication responsive stress coverage", () => {
     }
 
     await page.setViewportSize({ width: 320, height: 720 });
-    const scrollGeometry = await page.locator("main#main-content").evaluate((main) => ({
-      clientHeight: main.clientHeight,
-      scrollHeight: main.scrollHeight,
-      pageHeight: document.documentElement.scrollHeight,
-      viewportHeight: document.documentElement.clientHeight,
-    }));
-    expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight);
-    expect(scrollGeometry.pageHeight - scrollGeometry.viewportHeight).toBeLessThanOrEqual(2);
+    await page.evaluate(
+      () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
+    );
+    await expect
+      .poll(async () => {
+        const scrollGeometry = await page.locator("main#main-content").evaluate((main) => ({
+          clientHeight: main.clientHeight,
+          scrollHeight: main.scrollHeight,
+          pageHeight: document.documentElement.scrollHeight,
+          viewportHeight: document.documentElement.clientHeight,
+          keyboardHeight: document.documentElement.style.getPropertyValue("--keyboard-height").trim(),
+        }));
+        expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight);
+        expect(scrollGeometry.keyboardHeight === "" || scrollGeometry.keyboardHeight === "0px").toBe(true);
+        return scrollGeometry.pageHeight - scrollGeometry.viewportHeight;
+      })
+      .toBeLessThanOrEqual(2);
   });
 });

@@ -12,10 +12,9 @@ vi.mock("@/components/account-data-provider", () => ({
 }));
 
 describe("Form detail back navigation", () => {
-  it("leaves the single back action to the shared information-page header", () => {
+  it("links to the canonical Forms home with focus", () => {
     render(<FormDetailPage form={formRecords[0]} />);
-
-    expect(screen.queryByRole("button", { name: "Back to forms" })).not.toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Form breadcrumbs" })).toBeInTheDocument();
+    const back = screen.getByRole("link", { name: /Forms/i });
+    expect(back).toHaveAttribute("href", "/forms?focus=1");
   });
 });

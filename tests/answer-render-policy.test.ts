@@ -289,6 +289,23 @@ describe("answer render policy", () => {
     expect(model.warnings).not.toContain("A supporting source is due for review.");
   });
 
+  it("fails closed when answer relevance metadata is absent", () => {
+    const model = buildAnswerRenderModel(
+      answer({
+        relevance: undefined,
+        smartPanel: undefined,
+      }),
+    );
+
+    expect(model.trust).toBe("low");
+    expect(model.allowedBlocks).not.toContain("quoteCards");
+    expect(model.allowedBlocks).not.toContain("visualEvidence");
+    expect(model.allowedBlocks).not.toContain("relatedDocuments");
+    expect(model.visualEvidence).toEqual([]);
+    expect(model.tables).toEqual([]);
+    expect(model.copyText).not.toContain("Displayed table evidence");
+  });
+
   it("does not render high trust for high-risk claims supported only by unverified evidence", () => {
     const model = buildAnswerRenderModel(
       answer({

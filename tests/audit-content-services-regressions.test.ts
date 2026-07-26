@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { generateMetadata as generateFormMetadata } from "@/app/forms/[slug]/page";
-import { generateMetadata as generateServiceMetadata } from "@/app/services/[slug]/page";
+import { generateMetadata as generateFormMetadata } from "@/app/(search-app)/forms/[slug]/page";
+import { generateMetadata as generateServiceMetadata } from "@/app/(search-app)/services/[slug]/page";
 import { sourceToneClass } from "@/components/forms/form-detail-page";
 import { toneNeutral, toneSuccess, toneWarning } from "@/components/ui-primitives";
 import { formRecords, getFormRecord, type FormRecord } from "@/lib/forms";

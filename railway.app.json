@@ -20,7 +20,8 @@
       "/scripts/check-client-bundle-secrets.mjs",
       "/scripts/check-node-engine.cjs",
       "/scripts/guard-next-build.mjs",
-      "/scripts/install-git-hooks.mjs"
+      "/scripts/install-git-hooks.mjs",
+      "/scripts/run-heavy.mjs"
     ]
   },
   "deploy": {

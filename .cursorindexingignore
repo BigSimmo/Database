@@ -1,9 +1,56 @@
 # Exclude from Cursor semantic index only — still reachable via @Files when needed.
+# Use this for large tracked blobs that pollute @Codebase without helping discovery.
+
+# Lockfiles (version pins; not useful as semantic chunks)
+package-lock.json
+deno.lock
+*.lock
 
 # Golden eval fixtures (large JSON, low day-to-day search value)
 scripts/fixtures/
 
-# Playwright auth state and reports (already in .cursorignore via .gitignore patterns)
+# Generated / snapshot clinical data dumps (~7MB JSON)
+data/
+
+# In-app clinical content JSON (large; reference via @Files when editing those surfaces)
+src/data/*.json
+
+# Static binaries and mockup assets (PDFs/PNGs — no useful code embeddings)
+public/forms-pdf/
+public/mockups/
+public/demo-documents/
+public/therapy-compass-data/
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.ico
+
+# Append-only review ledger and archived evidence dumps
+docs/branch-review-ledger.md
+docs/archive/
+
+# Design-scratch mockup routes/components — keep out of @Codebase discovery.
+# Do not use a repo-wide *mockup* glob: tests/env-mockups-gate and
+# tests/production-mockup-boundary must stay indexed.
+src/app/mockups/
+mockups/
+# note: src/components/calculators/ is production (promoted from mockups) — keep indexed
+src/components/favourites-page-mockups/
+src/components/settings-search-mockups/
+src/components/tools-page-mockups/
+src/components/*mockups.tsx
+src/components/clinical-dashboard/global-mockup-search-shell.tsx
+
+# One-off Codex review prompt dumps (not product code)
+codex-cloud-review/
+
+# Generated schema-drift inventory (large JSON)
+supabase/drift-manifest.json
+
+# Playwright auth state and reports
 playwright/.auth/
 playwright-report/
 

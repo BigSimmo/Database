@@ -30,10 +30,6 @@ const srcRoot = path.join(repoRoot, "src");
 /** Intentionally-unlinked static page routes, each with the reason it is exempt. */
 const REACHABILITY_ALLOWLIST = new Map<string, string>([
   [
-    "/tools",
-    "Orphan parallel to /?mode=tools; nothing links to the standalone page. Tracked as issue #007 (decide the canonical Tools entry point). Reachable via URL and the /applications redirect.",
-  ],
-  [
     "/documents/source",
     "Legacy compatibility redirect target reached by external/legacy deep links, not in-app navigation (frontend-architecture.md).",
   ],

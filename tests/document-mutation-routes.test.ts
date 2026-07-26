@@ -255,6 +255,170 @@ describe("/api/documents/bulk", () => {
     expect(JSON.stringify(payload)).not.toContain("documents_secret_internal_idx");
     expect(JSON.stringify(payload)).not.toContain("unique constraint");
   });
+
+  it("clears a stale publisher_code when publisherCode is null", async () => {
+    const supabase = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return {
+          data: [
+            {
+              id: documentId,
+              title: "WACHS lithium",
+              metadata: {
+                publisher_code: "WACHS",
+                publisher: "WA Country Health Service",
+                jurisdiction: "Australia/WA",
+              },
+            },
+          ],
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    });
+    mockRouteRuntime(supabase.client);
+    const { POST } = await import("../src/app/api/documents/bulk/route");
+
+    const response = await POST(
+      new Request("http://localhost/api/documents/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          documentIds: [documentId],
+          metadata: { publisherCode: null, publisher: "Unknown clinic", jurisdiction: null },
+        }),
+      }),
+    );
+    const payload = await response.json();
+    const documentUpdate = supabase.calls.find((call) => call.table === "documents" && call.operation === "update");
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({ ok: true, updatedCount: 1 });
+    expect(documentUpdate?.payload).toMatchObject({
+      metadata: {
+        publisher: "Unknown clinic",
+        bulk_metadata_updated_by: ownerId,
+      },
+    });
+    expect(documentUpdate?.payload).toEqual(
+      expect.objectContaining({
+        metadata: expect.not.objectContaining({
+          publisher_code: expect.anything(),
+          jurisdiction: expect.anything(),
+        }),
+      }),
+    );
+  });
+
+  it("clears a stale publisher_code when only publisher/jurisdiction are corrected", async () => {
+    const supabase = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return {
+          data: [
+            {
+              id: documentId,
+              title: "Misclassified note",
+              metadata: {
+                publisher_code: "WACHS",
+                publisher: "WA Country Health Service",
+                jurisdiction: "Australia/WA",
+              },
+            },
+          ],
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    });
+    mockRouteRuntime(supabase.client);
+    const { POST } = await import("../src/app/api/documents/bulk/route");
+
+    const response = await POST(
+      new Request("http://localhost/api/documents/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          documentIds: [documentId],
+          metadata: { publisher: "Local clinic handout", jurisdiction: "Australia/WA" },
+        }),
+      }),
+    );
+    const documentUpdate = supabase.calls.find((call) => call.table === "documents" && call.operation === "update");
+
+    expect(response.status).toBe(200);
+    expect(documentUpdate?.payload).toMatchObject({
+      metadata: {
+        publisher: "Local clinic handout",
+        jurisdiction: "Australia/WA",
+      },
+    });
+    expect(
+      (documentUpdate?.payload as { metadata?: Record<string, unknown> } | undefined)?.metadata,
+    ).not.toHaveProperty("publisher_code");
+  });
+
+  it("rejects an unknown publisherCode with HTTP 400 before per-document updates", async () => {
+    const supabase = createSupabaseMock(() => ({ data: null, error: null }));
+    mockRouteRuntime(supabase.client);
+    const { POST } = await import("../src/app/api/documents/bulk/route");
+
+    const response = await POST(
+      new Request("http://localhost/api/documents/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          documentIds: [documentId],
+          metadata: { publisherCode: "NOT_A_REAL_CODE" },
+        }),
+      }),
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(payload).toMatchObject({ error: "Unknown publisher code." });
+    expect(supabase.calls.some((call) => call.table === "documents")).toBe(false);
+  });
+
+  it("applies a registered publisherCode and overwrites publisher locality fields", async () => {
+    const supabase = createSupabaseMock((call) => {
+      if (call.table === "documents" && call.operation === "select") {
+        return {
+          data: [
+            {
+              id: documentId,
+              title: "Lithium",
+              metadata: { publisher_code: "BMJ", publisher: "BMJ Best Practice", jurisdiction: "International" },
+            },
+          ],
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    });
+    mockRouteRuntime(supabase.client);
+    const { POST } = await import("../src/app/api/documents/bulk/route");
+
+    const response = await POST(
+      new Request("http://localhost/api/documents/bulk", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          documentIds: [documentId],
+          metadata: { publisherCode: "WACHS" },
+        }),
+      }),
+    );
+    const documentUpdate = supabase.calls.find((call) => call.table === "documents" && call.operation === "update");
+
+    expect(response.status).toBe(200);
+    expect(documentUpdate?.payload).toMatchObject({
+      metadata: {
+        publisher_code: "WACHS",
+        publisher: "WA Country Health Service",
+        jurisdiction: "Australia/WA",
+      },
+    });
+  });
 });
 
 describe("/api/documents/[id]/table-facts", () => {

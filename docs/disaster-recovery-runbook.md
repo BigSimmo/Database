@@ -25,27 +25,38 @@ restorability is re-proven every time the drift manifest is regenerated**.
 
 ```sh
 # 1. Scratch Supabase Postgres matching live (17.6.1.127)
-docker run -d --name kb-restore -e POSTGRES_PASSWORD=postgres -p 56543:5432 supabase/postgres:17.6.1.127
-docker exec kb-restore pg_isready -U postgres   # wait until ready
+drift_image='supabase/postgres:17.6.1.127@sha256:be60aee15997daca475b710b734bc6bfe52cd544dcd7e9fd2ff58210b6747d83'
+docker image inspect "${drift_image}" >/dev/null  # pull separately only with registry approval
+restore_container="kb-restore-$$"
+restore_password="$(openssl rand -hex 16)"
+POSTGRES_PASSWORD="${restore_password}" docker run -d --pull=never --name "${restore_container}" \
+  -e POSTGRES_PASSWORD -p 127.0.0.1:56543:5432 "${drift_image}"
+unset restore_password
+trap 'docker rm -f "${restore_container}" >/dev/null 2>&1 || true' EXIT
+docker exec "${restore_container}" pg_isready -U postgres   # wait until ready
 
 # 2. Storage scaffold (bare image ships an empty storage schema; the hosted
 #    platform provisions the real one). Discover the local image owner instead
 #    of hard-coding a platform-reserved role; never use this scaffold on hosted.
-docker cp scripts/sql/drift-replay-scaffold.sql kb-restore:/tmp/scaffold.sql
+docker cp scripts/sql/drift-replay-scaffold.sql "${restore_container}":/tmp/scaffold.sql
 storage_owner="$(
-  docker exec kb-restore psql -U postgres -d postgres -tAc \
+  docker exec "${restore_container}" psql -U postgres -d postgres -tAc \
     "select pg_catalog.pg_get_userbyid(nspowner) from pg_catalog.pg_namespace where nspname = 'storage'"
 )"
 test -n "${storage_owner}"
-docker exec kb-restore psql -U "${storage_owner}" -d postgres -v ON_ERROR_STOP=1 -f /tmp/scaffold.sql
+docker exec "${restore_container}" psql -U "${storage_owner}" -d postgres -v ON_ERROR_STOP=1 -f /tmp/scaffold.sql
 unset storage_owner
 
 # 3. Replay the canonical schema as postgres (matches how live is administered)
-docker cp supabase/schema.sql kb-restore:/tmp/schema.sql
-docker exec kb-restore psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/schema.sql
+docker cp supabase/schema.sql "${restore_container}":/tmp/schema.sql
+docker exec "${restore_container}" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/schema.sql
 
 # 4. Verify
-docker exec kb-restore psql -U postgres -d postgres -tAc "select (public.search_schema_health())->>'ok'"   # must print: true
+docker exec "${restore_container}" psql -U postgres -d postgres -tAc "select (public.search_schema_health())->>'ok'"   # must print: true
+
+# 5. Remove the exact rehearsal container when verification is complete
+docker rm -f "${restore_container}"
+trap - EXIT
 ```
 
 On a hosted target, prefer the migration chain (`supabase db push` /
@@ -72,8 +83,10 @@ vs schema.sql (buckets, two triggers, a handful of indexes — item 10 in
    plus `OPENAI_API_KEY` and service-role env. After a _data_ restore, point
    `.env.local` at the restored project (update `NEXT_PUBLIC_SUPABASE_URL`,
    `SUPABASE_PROJECT_REF`, keys), run `npm run check:supabase-project`, then
-   `npm run eval:retrieval:quality` and require the 23/23 pass before serving
-   traffic. This is the acceptance test for a real recovery.
+   `npm run eval:retrieval:quality` and require the current golden set to pass
+   (**36/36** as of 2026-07; see the PR template and
+   `docs/rag-behaviour/safeguards.md`) before serving traffic. This is the
+   acceptance test for a real recovery.
 
 ## What did NOT survive the schema restore (verified)
 

@@ -30,6 +30,10 @@ const documentChangeWebhookMigration = readFileSync(
   new URL("../supabase/migrations/20260723150000_document_change_ingestion_webhook.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
+const atomicReindexAgentGuardMigration = readFileSync(
+  new URL("../supabase/migrations/20260724060000_atomic_reindex_agent_guard.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
 const dropStageJobIdFkMigration = readFileSync(
   new URL("../supabase/migrations/20260708140000_drop_ingestion_job_stages_job_id_fk.sql", import.meta.url),
   "utf8",
@@ -233,6 +237,14 @@ const documentTitleWordsBackendPolicyMigration = readFileSync(
 ).replace(/\s+/g, " ");
 const publicTitleCorrectorMigration = readFileSync(
   new URL("../supabase/migrations/20260717171000_public_title_corrector.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const baseMatchRpcExecuteGrantsMigration = readFileSync(
+  new URL("../supabase/migrations/20260724130000_explicit_base_match_rpc_execute_grants.sql", import.meta.url),
+  "utf8",
+).replace(/\s+/g, " ");
+const invokeIngestionWorkerGucMigration = readFileSync(
+  new URL("../supabase/migrations/20260724130100_fix_invoke_ingestion_worker_url_to_guc.sql", import.meta.url),
   "utf8",
 ).replace(/\s+/g, " ");
 
@@ -551,6 +563,37 @@ describe("Supabase schema Data API grants", () => {
         body.lastIndexOf("from public.documents"),
       );
       expect(body).toContain("'indexing_v3_agent_attempt_count' - 'indexing_v3_agent_max_attempts'");
+    }
+  });
+
+  it("serializes agent claims with transactional reindex enqueue", () => {
+    for (const sql of [schema, atomicReindexAgentGuardMigration]) {
+      const claimStart = sql.indexOf("create or replace function public.claim_indexing_v3_agent_jobs(");
+      const claimBody = sql.slice(claimStart, sql.indexOf("$$;", claimStart));
+      const reindexStart = sql.indexOf("create or replace function public.request_ingestion_reindex_if_agent_idle(");
+      const reindexBody = sql.slice(reindexStart, sql.indexOf("$$;", reindexStart));
+
+      expect(claimStart).toBeGreaterThanOrEqual(0);
+      expect(claimBody).toContain("on conflict do nothing");
+      expect(claimBody).toContain("for update of j, d skip locked");
+      expect(reindexStart).toBeGreaterThanOrEqual(0);
+      expect(reindexBody).toContain("and d.owner_id = p_owner_id for update;");
+      expect(reindexBody.indexOf("for update;")).toBeLessThan(
+        reindexBody.indexOf("from public.indexing_v3_agent_jobs a"),
+      );
+      expect(reindexBody.indexOf("from public.indexing_v3_agent_jobs a")).toBeLessThan(
+        reindexBody.indexOf("update public.documents"),
+      );
+      expect(reindexBody.indexOf("update public.documents")).toBeLessThan(
+        reindexBody.indexOf("insert into public.ingestion_jobs"),
+      );
+      expect(reindexBody).toContain("exception when unique_violation then");
+      expect(sql).toContain(
+        "revoke all on function public.request_ingestion_reindex_if_agent_idle(uuid, uuid, timestamptz, integer) from public, anon, authenticated;",
+      );
+      expect(sql).toContain(
+        "grant execute on function public.request_ingestion_reindex_if_agent_idle(uuid, uuid, timestamptz, integer) to service_role;",
+      );
     }
   });
 
@@ -1649,6 +1692,26 @@ describe("Supabase Preview replay guards", () => {
     );
     expect(tableFactsRpc).toContain(`${rpcExpression} % q.normalized`);
   });
+
+  it("plans table-facts text matching via plpgsql EXECUTE for per-call custom plans", () => {
+    const tableFactsMigration = readFileSync(
+      new URL("../supabase/migrations/20260724120000_table_facts_plpgsql_execute.sql", import.meta.url),
+      "utf8",
+    );
+    const tableFactsRpc = finalSqlSegment(
+      schema,
+      "create or replace function public.match_document_table_facts_text(",
+      "$function$;",
+    );
+    expect(tableFactsRpc).toContain("language plpgsql");
+    expect(tableFactsRpc).toContain("return query execute");
+    expect(tableFactsRpc).toContain("using query_text, match_count, document_filters, owner_filter");
+    expect(tableFactsMigration).toContain("language plpgsql");
+    expect(tableFactsMigration).toContain("return query execute");
+    expect(tableFactsMigration).toContain(
+      "revoke execute on function public.match_document_table_facts_text(text, integer, uuid[], uuid)",
+    );
+  });
 });
 
 describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () => {
@@ -1700,5 +1763,65 @@ describe("Clinical query-term corrector — tenant-safe vocabulary (F10)", () =>
     expect(correctorPublicTitlesMigration).toContain(
       "grant execute on function public.correct_clinical_query_terms(text, real) to service_role;",
     );
+  });
+
+  it("defines correct_clinical_query_terms exactly once with owner-scoped rag_aliases probes", () => {
+    // Schema hygiene: a superseded unscoped duplicate previously lived earlier in
+    // schema.sql and only lost because CREATE OR REPLACE order favored the later
+    // definition. Pin a single authoritative body so reorder/extract cannot revive
+    // the cross-tenant alias side-channel.
+    const definitionMatches = schema.match(/create or replace function public\.correct_clinical_query_terms/gi);
+    expect(definitionMatches).toHaveLength(1);
+
+    const corrector = finalSqlSegment(
+      schema,
+      "create or replace function public.correct_clinical_query_terms",
+      "revoke execute on function public.correct_clinical_query_terms",
+    );
+    const aliasProbeBlocks = corrector.match(/from public\.rag_aliases[\s\S]*?limit 32/gi) ?? [];
+    expect(aliasProbeBlocks.length).toBeGreaterThanOrEqual(2);
+    for (const block of aliasProbeBlocks) {
+      expect(block).toMatch(/owner_id\s+is\s+null/i);
+    }
+    expect(corrector).not.toContain("array_agg(distinct term)");
+    expect(corrector).not.toContain("unnest(vocab)");
+  });
+
+  it("keeps base match RPC execute grants explicit in schema and the forward migration", () => {
+    // 2026-07-24 interface audit P3: do not rely solely on roles.sql / default
+    // privilege churn for the live match_* signatures.
+    for (const sql of [schema, baseMatchRpcExecuteGrantsMigration]) {
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)",
+      );
+      expect(sql).toContain(
+        "grant execute on function public.match_document_chunks(extensions.vector, integer, double precision, uuid, uuid)",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_chunks_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_chunks_text(text, integer, uuid[], uuid)",
+      );
+      expect(sql).toContain(
+        "revoke execute on function public.match_document_memory_cards_hybrid(extensions.vector, text, integer, double precision, uuid[], uuid)",
+      );
+      expect(sql).toContain("revoke execute on function public.match_documents_for_query(text, integer, uuid)");
+      expect(sql).toContain("grant execute on function public.match_documents_for_query(text, integer, uuid)");
+    }
+  });
+
+  it("moves invoke_ingestion_worker to the GUC base-URL pattern with service-role-only execute", () => {
+    for (const sql of [schema, invokeIngestionWorkerGucMigration]) {
+      expect(sql).toContain("alter database %I set app.ingestion_worker_base_url = %L");
+      expect(sql).toContain("when insufficient_privilege then");
+      expect(sql).toContain("nullif(current_setting('app.ingestion_worker_base_url', true), '')");
+      expect(sql).toContain("v_base_url || '/functions/v1/ingestion-worker?limit='");
+      expect(sql).not.toContain("[REDACTED]/functions/v1/ingestion-worker");
+      expect(sql).toContain(
+        "revoke execute on function public.invoke_ingestion_worker(integer) from public, anon, authenticated",
+      );
+      expect(sql).toContain("grant execute on function public.invoke_ingestion_worker(integer) to service_role");
+    }
   });
 });

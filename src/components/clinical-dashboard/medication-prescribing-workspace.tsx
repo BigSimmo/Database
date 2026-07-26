@@ -21,7 +21,10 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { ModeHomeTemplate, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
 import { considerationSummaryBadge } from "@/components/clinical-dashboard/medication-considerations";
 import { usePatientProfile } from "@/components/clinical-dashboard/patient-profile-context";
@@ -193,15 +196,6 @@ function StatusNotice({
     >
       {message}
     </div>
-  );
-}
-
-function QueryChip({ query }: { query: string }) {
-  return (
-    <span className="inline-flex min-h-tap max-w-full items-center gap-2 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-xs font-semibold text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
-      <Pill className="h-3.5 w-3.5 shrink-0 text-[color:var(--clinical-accent)]" aria-hidden="true" />
-      <span className="min-w-0 truncate">{query}</span>
-    </span>
   );
 }
 
@@ -406,6 +400,10 @@ function MedicationResults({
   "query" | "realDataReady" | "authUnavailable" | "apiUnavailable" | "setupWarning"
 >) {
   const command = useSearchCommand();
+  // Debounced + aborted fetches (see useMedicationCatalog) stop keystroke storms.
+  // Keep the full catalogue payload here: Safety/Monitoring chips and patient
+  // alerts need sections/stats/quick that `fields=index` strips. Cross-mode
+  // identity consumers still use `fields=index`.
   const catalog = useMedicationCatalog(query);
   const { profile, isEmpty: profileEmpty } = usePatientProfile();
   const [activeFilter, setActiveFilter] = useState<MedicationResultFilter>("best");
@@ -466,24 +464,29 @@ function MedicationResults({
 
   return (
     <div className={cn(pageContainer, "medication-results-workspace space-y-3 py-0 sm:py-2")}>
-      <div className="hidden lg:block">
-        <SearchResultsHeaderBand modeId="prescribing" query={query} matchCount={resultCount} />
-      </div>
-      <div className="medication-results-inset min-w-0 space-y-2 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:space-y-0">
-        <div className="min-w-0 space-y-1">
-          <p className="text-xs font-semibold uppercase text-[color:var(--text-soft)]">Medication search</p>
-          <h3 className="text-2xl font-semibold leading-tight text-[color:var(--text-heading)] sm:text-3xl-minus">
-            {resultCount} prescribing matches
-          </h3>
-        </div>
-        <div className="min-w-0 sm:pb-0.5">
-          <QueryChip query={query} />
-        </div>
-      </div>
+      <SearchResultsHeaderBand
+        modeId="prescribing"
+        query={query}
+        matchCount={resultCount}
+        loading={catalog.loading}
+        filterLabel="Filter medication results"
+        mobileControls={
+          <MobileResultFilterControl
+            label="Show"
+            ariaLabel="Filter medication results"
+            testId="medication-result-filter-select"
+            value={activeFilter}
+            options={medicationResultFilters.map((filter) => ({
+              value: filter.id,
+              label: `${filter.label} (${counts[filter.id]})`,
+            }))}
+            onChange={setActiveFilter}
+          />
+        }
+        filterControls={<FilterStrip activeFilter={activeFilter} counts={counts} onFilterChange={setActiveFilter} />}
+      />
 
       <PatientProfilePanel variant="compact" className="medication-patient-strip" />
-
-      <FilterStrip activeFilter={activeFilter} counts={counts} onFilterChange={setActiveFilter} />
 
       {catalog.loading || catalog.error ? (
         <div className="medication-results-inset">

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ClipboardCheck,
@@ -588,6 +588,12 @@ export function DocumentDrawer({
     sourceType: "",
     category: "",
   });
+  const findInputRef = useRef<HTMLInputElement>(null);
+  // Sheet open-focus can land on Close before this drawer mounts; claim Find as
+  // soon as the field is in the DOM (Sources ribbon + empty-home Browse paths).
+  useLayoutEffect(() => {
+    findInputRef.current?.focus({ preventScroll: true });
+  }, [mode]);
 
   const allTypes = useMemo(() => {
     const types = new Set<string>();
@@ -648,7 +654,7 @@ export function DocumentDrawer({
         ? "Source PDFs"
         : mode === "admin"
           ? statusFilterLabel(statusFilter)
-          : "Source library";
+          : "Sources";
   const modeSummary =
     mode === "recent"
       ? "Recently updated indexed sources."
@@ -744,6 +750,9 @@ export function DocumentDrawer({
       <label className="relative block">
         <Search aria-hidden="true" className={fieldIcon} />
         <input
+          ref={findInputRef}
+          autoFocus
+          data-sheet-autofocus="true"
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
           placeholder={mode === "source" ? "Find a source PDF" : "Find a document"}
@@ -752,23 +761,22 @@ export function DocumentDrawer({
         />
       </label>
 
-      {/* Dynamic Browse Library Filters */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label="Refine sources">
         <div>
           <label
             htmlFor="browse-filter-type"
             className="text-2xs font-bold uppercase tracking-wider text-[color:var(--text-muted)]"
           >
-            Type
+            Source type
           </label>
           <select
             id="browse-filter-type"
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value)}
-            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            className={cn(fieldControlPlain, "mt-1 text-xs")}
             aria-label="Filter by document type"
           >
-            <option value="all">All Types</option>
+            <option value="all">All source types</option>
             {allTypes.map((t) => (
               <option key={t} value={t}>
                 {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -787,7 +795,7 @@ export function DocumentDrawer({
             id="browse-filter-site"
             value={selectedSite}
             onChange={(e) => setSelectedSite(e.target.value)}
-            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            className={cn(fieldControlPlain, "mt-1 text-xs")}
             aria-label="Filter by site"
           >
             <option value="all">All Sites</option>
@@ -809,7 +817,7 @@ export function DocumentDrawer({
             id="browse-filter-topic"
             value={selectedTopic}
             onChange={(e) => setSelectedTopic(e.target.value)}
-            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            className={cn(fieldControlPlain, "mt-1 text-xs")}
             aria-label="Filter by topic"
           >
             <option value="all">All Topics</option>
@@ -831,7 +839,7 @@ export function DocumentDrawer({
             id="browse-filter-population"
             value={selectedPopulation}
             onChange={(e) => setSelectedPopulation(e.target.value)}
-            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            className={cn(fieldControlPlain, "mt-1 text-xs")}
             aria-label="Filter by population"
           >
             <option value="all">All Populations</option>
@@ -853,7 +861,7 @@ export function DocumentDrawer({
             id="browse-filter-designation"
             value={selectedDesignation}
             onChange={(e) => setSelectedDesignation(e.target.value as SourceDesignation | "all")}
-            className="w-full mt-1 px-2.5 py-1.5 text-xs rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] text-[color:var(--text)] focus:border-[color:var(--primary)] focus:outline-none"
+            className={cn(fieldControlPlain, "mt-1 text-xs")}
             aria-label="Filter by source provenance designation"
           >
             <option value="all">All provenance</option>

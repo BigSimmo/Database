@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const read = (relativePath: string) => readFileSync(new URL(`../${relativePath}`, import.meta.url), "utf8");
 const answerResultSurfaceSource = read("src/components/clinical-dashboard/answer-result-surface.tsx");
 const sheetSource = read("src/components/ui/sheet.tsx");
+const sheetFocusSource = read("src/components/ui/sheet-focus.ts");
 const globalStylesSource = read("src/app/globals.css");
 const agentsSource = read("AGENTS.md");
 const searchChromeBehaviourSource = read("docs/search-chrome-behaviour.md");
@@ -27,6 +28,21 @@ describe("overlay and global CSS contracts", () => {
     expect(sheetSource).toContain(
       "if (event.target !== event.currentTarget || !backdropPointerDownRef.current) return",
     );
+  });
+
+  it("settles Sheet open focus from events rather than a polling interval", () => {
+    expect(sheetSource).not.toContain("setInterval");
+    expect(sheetFocusSource).not.toContain("setInterval");
+    expect(sheetFocusSource).toContain("new MutationObserver(attempt)");
+    expect(sheetFocusSource).toContain('document.addEventListener("focusin", attempt)');
+  });
+
+  it("holds the close-restore behind the open-sheet stack", () => {
+    // A sheet opened while another was closing must keep focus; without this
+    // guard the new sheet has to fight the old sheet's restore back. Closing a
+    // stacked sheet must still hand focus back down to the sheet below.
+    expect(sheetSource).toContain("if (!canRestoreFocusTo(restoreTarget)) return;");
+    expect(sheetFocusSource).toContain("return topRoot.contains(target);");
   });
 
   it("defines the shared easing tokens only once", () => {
@@ -66,12 +82,17 @@ describe("overlay and global CSS contracts", () => {
 
   it("keeps hidden phone composers from reserving or painting a bottom white band", () => {
     expect(globalStylesSource).toMatch(/--phone-dock-hidden-pad:\s*0rem;/);
+    expect(globalStylesSource).toMatch(/--keyboard-height:\s*0px;/);
+    expect(globalStylesSource).toContain("transform: translateY(calc(-1 * var(--keyboard-height, 0px)))");
     expect(globalStylesSource).not.toContain("--phone-dock-hidden-pad: 0.75rem");
     expect(read("src/components/clinical-dashboard/mobile-composer-reserve.ts")).toContain(
       'export const mobileComposerHiddenReserve = "0rem"',
     );
+    expect(globalStylesSource).toContain(
+      '.document-viewer-composer.floating-composer-edge:not([data-scroll-hidden="true"])',
+    );
     expect(read("src/components/DocumentViewer.tsx")).toContain(
-      'composerScrollHidden ? "max-sm:pb-0" : "max-sm:pb-[calc(9rem+var(--safe-area-bottom))]"',
+      '"max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]"',
     );
   });
   it("keeps the remembered search chrome rules aligned with the hidden reserve contract", () => {
