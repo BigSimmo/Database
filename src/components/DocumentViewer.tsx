@@ -30,6 +30,7 @@ import {
   clinicalDivider,
   cn,
   codeText,
+  EmptyState,
   eyebrowText,
   floatingControl,
   glassOverlaySurface,
@@ -1371,38 +1372,42 @@ export function DocumentViewer({
                   </div>
                 </div>
               ) : effectiveViewerError || previewError ? (
-                <div className="grid min-h-64 place-items-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--danger-soft)_62%,transparent),transparent_22rem),var(--surface-inset)] p-5 text-center text-sm text-[color:var(--danger)] sm:min-h-72">
-                  <div>
-                    <CircleAlert aria-hidden="true" className="mx-auto mb-2 h-8 w-8" />
-                    <p className="font-semibold">{effectiveViewerError ?? previewError}</p>
-                    <div className="mt-3 flex flex-wrap justify-center gap-2">
-                      <button type="button" onClick={retryPreview} className={secondaryButton}>
-                        <RefreshCw aria-hidden="true" className="h-4 w-4" />
-                        Retry preview
-                      </button>
-                      {signedUrl && (
-                        <a href={signedUrl} target="_blank" rel="noreferrer" className={secondaryButton}>
-                          <ExternalLink aria-hidden="true" className="h-4 w-4" />
-                          Source PDF
-                        </a>
-                      )}
-                      {downloadSignedUrl && (
-                        <button
-                          type="button"
-                          onClick={() => void openSourceDownload()}
-                          disabled={downloadingSource}
-                          className={secondaryButton}
-                        >
-                          {downloadingSource ? (
-                            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Download aria-hidden="true" className="h-4 w-4" />
-                          )}
-                          {downloadingSource ? "Preparing PDF" : "Download PDF"}
+                <div className="flex min-h-64 items-center justify-center bg-[radial-gradient(circle_at_50%_0%,color-mix(in_srgb,var(--danger-soft)_62%,transparent),transparent_22rem),var(--surface-inset)] p-5 sm:min-h-72">
+                  <EmptyState
+                    icon={CircleAlert}
+                    title="Preview unavailable"
+                    body={effectiveViewerError ?? previewError ?? "Source preview could not be loaded."}
+                    tone="danger"
+                    actions={
+                      <div className="mt-3 flex flex-wrap justify-center gap-2">
+                        <button type="button" onClick={retryPreview} className={secondaryButton}>
+                          <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                          Retry preview
                         </button>
-                      )}
-                    </div>
-                  </div>
+                        {signedUrl && (
+                          <a href={signedUrl} target="_blank" rel="noreferrer" className={secondaryButton}>
+                            <ExternalLink aria-hidden="true" className="h-4 w-4" />
+                            Source PDF
+                          </a>
+                        )}
+                        {downloadSignedUrl && (
+                          <button
+                            type="button"
+                            onClick={() => void openSourceDownload()}
+                            disabled={downloadingSource}
+                            className={secondaryButton}
+                          >
+                            {downloadingSource ? (
+                              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Download aria-hidden="true" className="h-4 w-4" />
+                            )}
+                            {downloadingSource ? "Preparing PDF" : "Download PDF"}
+                          </button>
+                        )}
+                      </div>
+                    }
+                  />
                 </div>
               ) : signedUrl && document?.file_type === "application/pdf" ? (
                 <>
@@ -1622,7 +1627,12 @@ export function DocumentViewer({
               {effectiveLoadingDocument ? (
                 <LoadingPanel label="Loading extracted tables" />
               ) : clinicalImages.length === 0 ? (
-                <p className={cn("text-base-minus", textMuted)}>No indexed clinically useful tables or diagrams.</p>
+                <EmptyState
+                  icon={FileImage}
+                  title="No diagrams found"
+                  body="No indexed clinically useful tables or diagrams."
+                  tone="neutral"
+                />
               ) : (
                 clinicalImages.map((image) => <DocumentImage key={image.id} image={image} />)
               )}

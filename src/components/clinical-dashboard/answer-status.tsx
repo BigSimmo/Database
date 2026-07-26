@@ -77,6 +77,7 @@ export function AnswerEmptyState({
 
   return (
     <ModeHomeTemplate
+      className="animate-in fade-in duration-500"
       testId="answer-empty-state"
       title={answerEmptyState.heading}
       subtitle={answerEmptyState.subheading}
@@ -120,7 +121,7 @@ export function AnswerSkeleton() {
   // the aria-label sits on a plain div and screen readers stay silent until the
   // progress stepper (its own role=status) mounts.
   return (
-    <div className="space-y-4" role="status" aria-label={answerLoading.ariaLabel}>
+    <div className="space-y-4 animate-in fade-in duration-500" role="status" aria-label={answerLoading.ariaLabel}>
       <div className="space-y-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-4">
         <div className="h-4 w-10/12 animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
         <div className="h-4 w-full animate-skeleton-shimmer rounded bg-[color:var(--surface-inset)]" />
@@ -162,24 +163,9 @@ export function AnswerProgressStepper({
   active: boolean;
   onStop: () => void;
 }) {
-<<<<<<< ours
-<<<<<<< ours
   const [now, setNow] = useState(() => Date.now());
   const latest = events.at(-1) ?? null;
   const finished = latest?.stage === "complete";
-=======
-=======
->>>>>>> theirs
-  const latest = events.at(-1) ?? null;
-  const finished = latest?.stage === "complete";
-  const now = useClientTime({
-    fallback: startedAt ?? 0,
-    updateInterval: active && !finished && startedAt ? 1_000 : undefined,
-  });
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
   const currentStep = latest ? answerProgressStepIndex(latest.stage) : 0;
 
   useEffect(() => {

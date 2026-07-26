@@ -10,6 +10,7 @@ export default function ErrorBoundary({ error, reset }: { error: Error & { diges
       title="Failed to load tools"
       description="An unexpected error occurred while loading the tools launcher."
       logLabel="Unhandled runtime error captured in tools segment:"
+      minHeightClass="min-h-[300px]"
     />
   );
 }

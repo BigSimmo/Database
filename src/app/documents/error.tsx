@@ -10,6 +10,7 @@ export default function ErrorBoundary({ error, reset }: { error: Error & { diges
       title="Failed to load documents"
       description="An unexpected error occurred while loading source documents."
       logLabel="Unhandled runtime error captured in documents segment:"
+      minHeightClass="min-h-[300px]"
     />
   );
 }

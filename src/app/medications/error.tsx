@@ -7,9 +7,9 @@ export default function ErrorBoundary({ error, reset }: { error: Error & { diges
     <RouteErrorBoundary
       error={error}
       reset={reset}
-      title="Failed to load differentials"
-      description="An unexpected error occurred while loading differential diagnoses and presentations."
-      logLabel="Unhandled runtime error captured in differentials segment:"
+      title="Failed to load medications"
+      description="An unexpected error occurred while loading the medications module."
+      logLabel="Unhandled runtime error captured in medications segment:"
       minHeightClass="min-h-[300px]"
     />
   );

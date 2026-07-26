@@ -583,7 +583,7 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
  * content from untrusted sections, quotes, or documentBreakdown (visual
  * evidence is passed separately).
  */
-function trustGatedAnswerForClinicalNotes(
+export function trustGatedAnswerForClinicalNotes(
   answer: RagAnswer,
   visualEvidence: VisualEvidenceCard[] = answer.visualEvidence ?? [],
 ): RagAnswer {

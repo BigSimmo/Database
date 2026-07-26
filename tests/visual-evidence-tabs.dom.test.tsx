@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { MobileEvidenceSheetContent } from "@/components/clinical-dashboard/visual-evidence";
+import { ClinicalNotesChecklistPanel } from "@/components/clinical-dashboard/evidence-panels";
 import type { AnswerRenderModel } from "@/lib/answer-render-policy";
 import type { RagAnswer } from "@/lib/types";
 import type { AnswerEvidenceMapRow } from "@/lib/ward-output";
@@ -137,8 +138,7 @@ describe("MobileEvidenceSheetContent tabs (jsdom)", () => {
     expect(claims).toHaveAttribute("tabindex", "-1");
   });
 });
-<<<<<<< ours
-=======
+
 
 describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
   it("does not expose raw table evidence suppressed by the render model", () => {
@@ -376,4 +376,4 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
     expect(screen.queryByText("monthly when stable")).not.toBeInTheDocument();
   });
 });
->>>>>>> theirs
+

@@ -40,6 +40,7 @@ export function ImageLightbox({
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [translate, setTranslate] = useState({ x: 0, y: 0 });
+  const [retrying, setRetrying] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const scaleRef = useRef(1);
 
@@ -67,6 +68,13 @@ export function ImageLightbox({
     if (scaleRef.current <= 1) return; // nothing to pan when the image fits
     setTranslate((current) => ({ x: current.x + dx, y: current.y + dy }));
   }, []);
+
+  const handleRetry = useCallback(() => {
+    if (retrying) return;
+    setRetrying(true);
+    retry();
+    window.setTimeout(() => setRetrying(false), 1500);
+  }, [retry, retrying]);
 
   const { handlers } = useViewerGestures({
     targetRef: stageRef,
@@ -125,10 +133,15 @@ export function ImageLightbox({
             Image could not load.
             <button
               type="button"
-              onClick={retry}
-              className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
+              onClick={handleRetry}
+              disabled={retrying}
+              className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)] disabled:opacity-50"
             >
-              <RefreshCw aria-hidden="true" className="h-4 w-4" />
+              {retrying ? (
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw aria-hidden="true" className="h-4 w-4" />
+              )}
               Retry
             </button>
           </div>

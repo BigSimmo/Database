@@ -10,7 +10,7 @@ function SkeletonBlock({ className }: { className?: string }) {
 export function ModeHomePageSkeleton() {
   return (
     <div
-      className="mx-auto grid w-full max-w-[60rem] justify-items-center gap-3.5 px-4 py-8 sm:gap-6"
+      className="mx-auto grid w-full max-w-[60rem] justify-items-center gap-3.5 px-4 py-8 sm:gap-6 animate-in fade-in duration-500"
       role="status"
       aria-label="Loading"
     >
@@ -41,7 +41,7 @@ export function ModeHomeRouteLoading() {
 export function DocumentSearchPageSkeleton() {
   return (
     <div
-      className="mx-auto w-full max-w-[104rem] space-y-4 px-3 py-4 sm:px-5"
+      className="mx-auto w-full max-w-[104rem] space-y-4 px-3 py-4 sm:px-5 animate-in fade-in duration-500"
       role="status"
       aria-label="Loading documents"
     >
@@ -60,7 +60,7 @@ export function DocumentSearchPageSkeleton() {
 export function DocumentViewerPageSkeleton() {
   return (
     <div
-      className="flex h-[calc(100dvh-var(--shell-header-h))] flex-col gap-4 px-4 py-4"
+      className="flex h-[calc(100dvh-var(--shell-header-h))] flex-col gap-4 px-4 py-4 animate-in fade-in duration-500"
       role="status"
       aria-label="Loading document"
     >

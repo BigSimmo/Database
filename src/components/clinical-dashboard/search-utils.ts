@@ -312,3 +312,32 @@ export function classifyAnswerError(error: unknown): AnswerErrorKind {
   }
   return "failure";
 }
+
+/**
+ * Generate intelligent query rephrasing suggestions for zero-result states.
+ */
+export function generateQuerySuggestions(query: string): string[] {
+  if (!query || query.trim() === "") {
+    return [
+      "Check for spelling errors",
+      "Try broader search terms",
+      "Remove strict filters",
+    ];
+  }
+
+  const suggestions: string[] = [];
+  const trimmed = query.trim();
+
+  if (trimmed.split(/\s+/).length > 3) {
+    suggestions.push("Use fewer words");
+  }
+
+  if (trimmed.includes('"') || trimmed.includes("'")) {
+    suggestions.push("Remove quotes for a broader search");
+  }
+
+  suggestions.push("Try more general medical terms");
+  suggestions.push("Check for alternate spellings");
+
+  return suggestions.slice(0, 3);
+}

@@ -4921,21 +4921,9 @@ describe("private document API access", () => {
     expectFeedbackTokenBoundToAnswer(body);
   });
 
-<<<<<<< ours
-  it("runs non-stream document summaries through the governed summary path", async () => {
-    const answerQuestionWithScope = vi.fn();
-    const summarizeDocument = vi.fn(async () => ({
-      answer: "Full non-stream document summary.",
-      grounded: true,
-      confidence: "high",
-      citations: [],
-      sources: [],
-    }));
-=======
   it("rejects non-stream document summaries before RAG/provider work", async () => {
     const answerQuestionWithScope = vi.fn();
     const summarizeDocument = vi.fn();
->>>>>>> theirs
     const client = createSupabaseMock();
     mockRuntime(client, { answerQuestionWithScope, summarizeDocument });
     const { POST } = await import("../src/app/api/answer/route");
@@ -4950,30 +4938,6 @@ describe("private document API access", () => {
         }),
       }),
     );
-<<<<<<< ours
-    const body = await payload(response);
-
-    expect(response.status).toBe(200);
-    expect(body).toMatchObject({
-      answer: "Full non-stream document summary.",
-      interactionId: expect.any(String),
-      feedbackToken: expect.any(String),
-    });
-    expect(summarizeDocument).toHaveBeenCalledWith(documentId, userId, {
-      signal: expect.any(AbortSignal),
-    });
-    expect(client.rpc).toHaveBeenCalledTimes(1);
-    expect(client.rpc).toHaveBeenCalledWith(
-      "consume_summary_rate_limits_atomic",
-      expect.objectContaining({
-        p_owner_id: userId,
-        p_subject_key: null,
-        p_answer_limit: 30,
-        p_summary_limit: 12,
-      }),
-    );
-=======
-
     expect(response.status).toBe(400);
     await expect(payload(response)).resolves.toMatchObject({
       error: "Document summaries require the streaming answer endpoint.",
@@ -4981,7 +4945,6 @@ describe("private document API access", () => {
     });
     expect(client.rpc).not.toHaveBeenCalled();
     expect(summarizeDocument).not.toHaveBeenCalled();
->>>>>>> theirs
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 

@@ -10,6 +10,7 @@ export default function ErrorBoundary({ error, reset }: { error: Error & { diges
       title="Failed to load favourites"
       description="An unexpected error occurred while loading your saved favourites."
       logLabel="Unhandled runtime error captured in favourites segment:"
+      minHeightClass="min-h-[300px]"
     />
   );
 }

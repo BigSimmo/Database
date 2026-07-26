@@ -492,7 +492,7 @@ export function EmptyState({
   title,
   body,
   actions,
-  live,
+  live = "polite",
   tone = "neutral",
   testId,
 }: {
@@ -510,6 +510,7 @@ export function EmptyState({
     <div
       data-testid={testId}
       role={live === "assertive" ? "alert" : live === "polite" ? "status" : undefined}
+      aria-live={live}
       className={cn(
         "rounded-lg border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-inset)] p-4 text-sm shadow-[var(--shadow-inset)] sm:p-5",
         tone === "info" && "border-[color:var(--info-border)] bg-[color:var(--info-soft)]",

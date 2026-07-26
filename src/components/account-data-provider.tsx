@@ -11,6 +11,7 @@ import {
   subscribeSavedRegistrySlugs,
   writeSavedRegistrySlugs,
 } from "@/lib/saved-registry-storage";
+import { drainOfflineQueue, enqueueOfflineAction } from "@/lib/offline-queue";
 
 export type FavouriteContentType = "service" | "form" | "differential";
 
@@ -112,6 +113,16 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
     return () => controller.abort();
   }, [auth.authEpoch, auth.authorizationHeader, auth.status]);
 
+  useEffect(() => {
+    if (auth.status !== "authenticated") return;
+    const handleOnline = () => {
+      void drainOfflineQueue(() => auth.authorizationHeader);
+    };
+    window.addEventListener("online", handleOnline);
+    handleOnline(); // drain initially in case we're online
+    return () => window.removeEventListener("online", handleOnline);
+  }, [auth.status, auth.authorizationHeader]);
+
   const setFavourite = useCallback(
     async (contentType: FavouriteContentType, contentKey: string, saved: boolean) => {
       if (auth.status !== "authenticated") {
@@ -143,11 +154,20 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
         headers: { "Content-Type": "application/json", ...auth.authorizationHeader },
         body: JSON.stringify({ contentType, contentKey: key, saved }),
       }).catch(() => null);
-      if (!response?.ok) {
+      if (!response) {
+        void enqueueOfflineAction({
+          endpoint: "/api/account/favourites",
+          method: "PUT",
+          body: JSON.stringify({ contentType, contentKey: key, saved }),
+        });
+        setError("You are offline. Changes will sync when reconnected.");
+        return true;
+      }
+      if (!response.ok) {
         setFavourites(previous);
-        const payload = await response?.json().catch(() => ({}));
-        setError(payload?.message ?? payload?.error ?? "Saved items could not be updated.");
-        if (response?.status === 401) auth.markSessionExpired();
+        const payload = await response.json().catch(() => ({}));
+        setError(payload.message ?? payload.error ?? "Saved items could not be updated.");
+        if (response.status === 401) auth.markSessionExpired();
         return false;
       }
       setError(null);
@@ -167,10 +187,19 @@ export function AccountDataProvider({ children }: { children: ReactNode }) {
       method: "DELETE",
       headers: auth.authorizationHeader,
     }).catch(() => null);
-    if (!response?.ok) {
+    if (!response) {
+      void enqueueOfflineAction({
+        endpoint: "/api/account/favourites",
+        method: "DELETE",
+        body: "",
+      });
+      setError("You are offline. Changes will sync when reconnected.");
+      return true;
+    }
+    if (!response.ok) {
       setFavourites(previous);
       setError("Saved items could not be cleared.");
-      if (response?.status === 401) auth.markSessionExpired();
+      if (response.status === 401) auth.markSessionExpired();
       return false;
     }
     setError(null);

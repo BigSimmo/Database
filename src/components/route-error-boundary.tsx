@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { TriangleAlert, RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { TriangleAlert, RefreshCw, ClipboardCopy, Check } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 import { cn, primaryControl } from "@/components/ui-primitives";
 
@@ -39,10 +40,27 @@ export function RouteErrorBoundary({
   minHeightClass = "min-h-[50vh]",
 }: RouteErrorBoundaryProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const pathname = usePathname();
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     console.error(logLabel, error);
     headingRef.current?.focus({ preventScroll: true });
   }, [error, logLabel]);
+
+  const copyDiagnostics = () => {
+    const payload = {
+      errorName: error.name,
+      errorMessage: error.message,
+      digest: error.digest,
+      routeUrl: pathname,
+      userAgent: window.navigator.userAgent,
+      timestamp: new Date().toISOString(),
+    };
+    window.navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div
@@ -82,6 +100,15 @@ export function RouteErrorBoundary({
           >
             <RefreshCw aria-hidden="true" className="h-4 w-4" />
             Try again
+          </button>
+
+          <button
+            type="button"
+            onClick={copyDiagnostics}
+            className="flex items-center justify-center gap-2 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-4 py-2 text-sm font-medium text-[color:var(--text)] transition hover:bg-[color:var(--surface-subtle)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          >
+            {copied ? <Check aria-hidden="true" className="h-4 w-4 text-[color:var(--success)]" /> : <ClipboardCopy aria-hidden="true" className="h-4 w-4" />}
+            {copied ? "Copied" : "Copy Error Diagnostics"}
           </button>
 
           {showReload && (

@@ -59,6 +59,8 @@ export const SignedImage = memo(function SignedImage({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const { url, failed, retry, markFailed } = useSignedImageUrl(endpoint, shouldLoad);
 
+  const [retrying, setRetrying] = useState(false);
+
   // Defer the request until the frame is near the viewport. A cached URL seeds
   // `shouldLoad` synchronously, so already-fetched images skip the observer.
   useEffect(() => {
@@ -84,9 +86,12 @@ export const SignedImage = memo(function SignedImage({
   }, [rootMargin, shouldLoad]);
 
   function retryImage() {
+    if (retrying) return;
     setLoaded(false);
+    setRetrying(true);
     setShouldLoad(true);
     retry();
+    window.setTimeout(() => setRetrying(false), 1500);
   }
 
   function handleImageError() {
@@ -109,8 +114,10 @@ export const SignedImage = memo(function SignedImage({
           <button
             type="button"
             onClick={retryImage}
-            className="mt-3 inline-flex min-h-tap items-center rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)]"
+            disabled={retrying}
+            className="mt-3 inline-flex min-h-tap items-center justify-center gap-1.5 rounded-lg border border-[color:var(--warning)]/30 bg-[color:var(--surface)] px-3 text-[color:var(--warning)] disabled:opacity-50"
           >
+            {retrying ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : null}
             {retryLabel}
           </button>
         </div>

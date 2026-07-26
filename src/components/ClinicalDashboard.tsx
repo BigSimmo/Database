@@ -3771,6 +3771,7 @@ export function ClinicalDashboard({
                         onOpenLibrary={handleOpenSourceLibrary}
                         onOpenSourcePdf={handleOpenSourcePdfBrowser}
                         onTagSearch={handleDocumentTagSearch}
+                        onSearch={(q) => void runDocumentSearchShortcut(q, searchFacets ?? undefined, true, searchMode)}
                         showHome={searchMode === "documents" && !modeSearchSubmitted}
                         desktopComposerSlotId={desktopHomeComposerSlotId}
                       />

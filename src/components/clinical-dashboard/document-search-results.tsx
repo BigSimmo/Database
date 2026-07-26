@@ -41,9 +41,13 @@ import {
   documentFileKind,
   documentTileTone,
 } from "@/components/clinical-dashboard/document-ui";
+import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
+import { generateQuerySuggestions } from "@/components/clinical-dashboard/search-utils";
+import { emptyStates } from "@/lib/ui-copy";
 import {
   cn,
   floatingControl,
+  EmptyState,
   LoadingPanel,
   metadataPill,
   panelSubtle,
@@ -819,6 +823,7 @@ function DocumentSearchResultsPanelImpl({
   onOpenLibrary,
   onOpenSourcePdf,
   onTagSearch,
+  onSearch,
   showHome = false,
   desktopComposerSlotId,
 }: {
@@ -842,8 +847,9 @@ function DocumentSearchResultsPanelImpl({
   onAnswerFromDocument: (documentId: string) => void;
   onOpenRecentDocuments: () => void;
   onOpenLibrary: () => void;
-  onOpenSourcePdf: () => void;
+  onOpenSourcePdf: (href: string) => void;
   onTagSearch: (tag: SmartDocumentTag | SmartDocumentTagFacet) => void;
+  onSearch?: (query: string) => void;
   showHome?: boolean;
   desktopComposerSlotId?: string;
 }) {
@@ -970,17 +976,19 @@ function DocumentSearchResultsPanelImpl({
         <LoadingPanel label="Finding matching documents" />
       ) : matches.length === 0 ? (
         recordMatchCount > 0 ? null : trimmedQuery && !shouldShowHome ? (
-          <div className={cn(panelSubtle, "grid gap-3 p-5 text-center sm:p-6")}>
-            <span className="mx-auto grid h-tap w-tap place-items-center rounded-lg bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]">
-              <FileText aria-hidden="true" className="h-5 w-5" />
-            </span>
-            <div>
-              <h3 className="text-base font-semibold text-[color:var(--text-heading)]">No matching documents</h3>
-              <p className={cn("mx-auto mt-1 max-w-md text-sm leading-6", textMuted)}>
-                {`No documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
-              </p>
-            </div>
-          </div>
+          <EmptyState
+            icon={FileText}
+            title={emptyStates.documentsNoMatch.title}
+            body={`No documents matched "${trimmedQuery}". Try a medication, acronym, policy name, or workflow term.`}
+            actions={
+              <AnswerSuggestionChips
+                suggestions={generateQuerySuggestions(trimmedQuery)}
+                onPick={(s) => {
+                  if (onSearch) onSearch(s);
+                }}
+              />
+            }
+          />
         ) : (
           <DocumentSearchHome
             documentCount={documentCount}

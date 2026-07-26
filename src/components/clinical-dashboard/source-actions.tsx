@@ -6,6 +6,7 @@ import { cn, floatingControl, metadataPill, primaryControl } from "@/components/
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import type { CrossModeLink } from "@/lib/cross-mode-links";
 import type { SearchResult } from "@/lib/types";
+import { enqueueOfflineAction } from "@/lib/offline-queue";
 
 export function SourceActionRow({
   viewerHref,
@@ -78,31 +79,43 @@ export function sourceResultHref(source: SearchResult) {
 
 export function logSourceOpen(query: string, source: SearchResult) {
   if (!query.trim()) return;
-  void fetch("/api/search/interaction", {
+  const body = JSON.stringify({
+    query,
+    documentId: source.document_id,
+    chunkId: source.id,
+    fileName: source.file_name,
+    title: source.title,
+  });
+  fetch("/api/search/interaction", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query,
-      documentId: source.document_id,
-      chunkId: source.id,
-      fileName: source.file_name,
-      title: source.title,
-    }),
-    keepalive: true,
-  }).catch(() => undefined);
+    body,
+  }).catch(() => {
+    void enqueueOfflineAction({
+      endpoint: "/api/search/interaction",
+      method: "POST",
+      body,
+    });
+  });
 }
 
 export function logCrossModeLinkOpen(query: string, link: Pick<CrossModeLink, "modeId" | "slug" | "title">) {
   if (!query.trim()) return;
-  void fetch("/api/search/interaction", {
+  const body = JSON.stringify({
+    query,
+    crossMode: { mode: link.modeId, slug: link.slug, title: link.title },
+  });
+  fetch("/api/search/interaction", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query,
-      crossMode: { mode: link.modeId, slug: link.slug, title: link.title },
-    }),
-    keepalive: true,
-  }).catch(() => undefined);
+    body,
+  }).catch(() => {
+    void enqueueOfflineAction({
+      endpoint: "/api/search/interaction",
+      method: "POST",
+      body,
+    });
+  });
 }
 
 export function SourcePassageLinks({

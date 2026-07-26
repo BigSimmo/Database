@@ -8,6 +8,7 @@ import {
   type LandingPreference,
 } from "@/lib/account-preferences";
 import { useAuthSession } from "@/lib/supabase/client";
+import { enqueueOfflineAction } from "@/lib/offline-queue";
 
 export {
   ANSWER_STYLE_OPTIONS,
@@ -192,17 +193,20 @@ export function useAppPreferences() {
   const persistAccountPreferences = useCallback(
     (next: AppPreferences) => {
       if (authStatus !== "authenticated") return;
+      const body = JSON.stringify(next);
       fetch("/api/account/preferences", {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...authorizationHeader },
-        body: JSON.stringify(next),
-      })
-        .then((response) => {
-          if (response.status === 401) markSessionExpired();
-        })
-        .catch(() => undefined);
+        body,
+      }).catch(() => {
+        void enqueueOfflineAction({
+          endpoint: "/api/account/preferences",
+          method: "PUT",
+          body,
+        });
+      });
     },
-    [authStatus, authorizationHeader, markSessionExpired],
+    [authStatus, authorizationHeader],
   );
 
   const setPreference = useCallback(
