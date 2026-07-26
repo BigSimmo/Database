@@ -156,8 +156,8 @@ describe("shared header hide/reveal wiring", () => {
     // opaque band. It must share the hidden state, while sm+ sticky chrome keeps
     // its safe-area offset independently.
     expect(headerSource).toContain('data-testid="chrome-safe-area-top"');
-    expect(headerSource).toContain('headerChromeHidden\n            ? "max-sm:h-0');
-    expect(headerSource).toContain(': "max-sm:h-[var(--safe-area-top)]');
+    expect(headerSource).toMatch(/headerChromeHidden\s*\?\s*"max-sm:h-0/);
+    expect(headerSource).toMatch(/:\s*"max-sm:h-\[var\(--safe-area-top\)\]/);
     expect(headerSource).toContain("sm:h-[var(--safe-area-top)]");
     expect(headerSource).toContain("max-sm:transition-[height]");
     expect(headerSource).toContain('hideStrategy === "collapse" ? "pt-2" : "pt-[max(0.5rem,var(--safe-area-top))]"');
