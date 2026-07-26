@@ -174,6 +174,7 @@ test("phone chrome has an opaque header, one edge-to-edge footer, and releases b
     const dockRect = dock?.getBoundingClientRect();
     return {
       headerBackground: header ? getComputedStyle(header).backgroundColor : "",
+      headerBackdropFilter: header ? getComputedStyle(header).backdropFilter : "",
       headerBackdropDisplay: headerBackdrop ? getComputedStyle(headerBackdrop).display : "missing",
       dockBackdropDisplay: dockBackdrop ? getComputedStyle(dockBackdrop).display : "missing",
       dockLeft: dockRect?.left ?? -1,
@@ -184,6 +185,7 @@ test("phone chrome has an opaque header, one edge-to-edge footer, and releases b
   });
 
   expect(visible.headerBackground).toMatch(/^rgb\(/);
+  expect(visible.headerBackdropFilter).toBe("none");
   expect(visible.headerBackdropDisplay).toBe("none");
   expect(["missing", "none"]).toContain(visible.dockBackdropDisplay);
   expect(visible.dockLeft).toBeCloseTo(0, 0);
