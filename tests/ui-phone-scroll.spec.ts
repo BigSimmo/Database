@@ -211,6 +211,7 @@ test("Services results own the phone's final pixel after shared chrome releases"
   await expect(page.locator("form.answer-footer-search-dock")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("global-search-input")).not.toBeFocused({ timeout: 5_000 });
   await expect(page.getByTestId("services-navigator")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("service-search-results")).toBeVisible({ timeout: 20_000 });
 
   const visible = await page.evaluate(() => {
     const header = document.querySelector<HTMLElement>("header#search");
@@ -294,7 +295,7 @@ test("Services results own the phone's final pixel after shared chrome releases"
     const shell = main?.closest<HTMLElement>(".phone-viewport-shell");
     const shellRect = shell?.getBoundingClientRect();
     const mainRect = main?.getBoundingClientRect();
-    const resultLayer = document.querySelector<HTMLElement>('[data-testid="services-navigator"]');
+    const resultList = document.querySelector<HTMLElement>('[data-testid="service-search-results"]');
     const bottomPaintOwner = document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 1);
     return {
       collapseHeight: collapse?.getBoundingClientRect().height ?? -1,
@@ -309,7 +310,8 @@ test("Services results own the phone's final pixel after shared chrome releases"
       shellTop: shellRect?.top ?? -1,
       shellBottom: shellRect?.bottom ?? -1,
       mainBottom: mainRect?.bottom ?? -1,
-      bottomPaintOwnedByResults: Boolean(resultLayer && bottomPaintOwner && resultLayer.contains(bottomPaintOwner)),
+      bottomPaintOwnedByResults: Boolean(resultList && bottomPaintOwner && resultList.contains(bottomPaintOwner)),
+      anchorTop: resultList?.getBoundingClientRect().top ?? -1,
       scrollTop: main?.scrollTop ?? -1,
       viewportHeight: window.innerHeight,
     };
@@ -338,14 +340,13 @@ test("Services results own the phone's final pixel after shared chrome releases"
   const afterViewportResize = await page.evaluate(() => {
     const main = document.getElementById("main-content");
     const shell = main?.closest<HTMLElement>(".phone-viewport-shell");
-    const results = document.querySelector<HTMLElement>('[data-testid="services-navigator"]');
-    const resultAnchor = document.querySelector<HTMLElement>('[data-testid="service-search-results"]');
+    const resultList = document.querySelector<HTMLElement>('[data-testid="service-search-results"]');
     const bottomPaintOwner = document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 1);
     return {
       shellBottom: shell?.getBoundingClientRect().bottom ?? -1,
       mainBottom: main?.getBoundingClientRect().bottom ?? -1,
-      bottomPaintOwnedByResults: Boolean(results && bottomPaintOwner && results.contains(bottomPaintOwner)),
-      anchorTop: resultAnchor?.getBoundingClientRect().top ?? -1,
+      bottomPaintOwnedByResults: Boolean(resultList && bottomPaintOwner && resultList.contains(bottomPaintOwner)),
+      anchorTop: resultList?.getBoundingClientRect().top ?? -1,
       scrollTop: main?.scrollTop ?? -1,
       viewportHeight: window.innerHeight,
     };
@@ -353,6 +354,10 @@ test("Services results own the phone's final pixel after shared chrome releases"
   expect(afterViewportResize.shellBottom).toBeCloseTo(afterViewportResize.viewportHeight, 0);
   expect(afterViewportResize.mainBottom).toBeCloseTo(afterViewportResize.viewportHeight, 0);
   expect(afterViewportResize.bottomPaintOwnedByResults).toBe(true);
+  expect(afterViewportResize.anchorTop, "viewport shrink keeps the result content anchor stable").toBeCloseTo(
+    hidden.anchorTop,
+    0,
+  );
   expect(afterViewportResize.scrollTop, "viewport resize does not jump the reading position").toBeCloseTo(
     hidden.scrollTop,
     0,
@@ -362,12 +367,11 @@ test("Services results own the phone's final pixel after shared chrome releases"
   await page.waitForTimeout(100);
   const afterViewportRestore = await page.evaluate(() => {
     const main = document.getElementById("main-content");
-    const results = document.querySelector<HTMLElement>('[data-testid="services-navigator"]');
-    const resultAnchor = document.querySelector<HTMLElement>('[data-testid="service-search-results"]');
+    const resultList = document.querySelector<HTMLElement>('[data-testid="service-search-results"]');
     const bottomPaintOwner = document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 1);
     return {
-      bottomPaintOwnedByResults: Boolean(results && bottomPaintOwner && results.contains(bottomPaintOwner)),
-      anchorTop: resultAnchor?.getBoundingClientRect().top ?? -1,
+      bottomPaintOwnedByResults: Boolean(resultList && bottomPaintOwner && resultList.contains(bottomPaintOwner)),
+      anchorTop: resultList?.getBoundingClientRect().top ?? -1,
       scrollTop: main?.scrollTop ?? -1,
     };
   });
@@ -377,7 +381,7 @@ test("Services results own the phone's final pixel after shared chrome releases"
     0,
   );
   expect(afterViewportRestore.anchorTop, "viewport resize keeps the result content anchor stable").toBeCloseTo(
-    afterViewportResize.anchorTop,
+    hidden.anchorTop,
     0,
   );
 });

@@ -118,14 +118,18 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalStylesSource).not.toMatch(/^\s*-webkit-backdrop-filter\s*:/m);
   });
 
-  it("keeps shared phone shells out of the iOS fixed-viewport compositor path", () => {
+  it("keeps shared phone shells on the fixed inset contract without a viewport-unit height clamp", () => {
     expect(globalSearchShellSource).toContain('"phone-viewport-shell sm:min-h-dvh');
     expect(clinicalDashboardSource).toContain('"mobile-app-shell phone-viewport-shell flex');
-    expect(globalSearchShellSource).not.toContain("max-sm:fixed max-sm:inset-0");
-    expect(clinicalDashboardSource).not.toContain("max-sm:fixed max-sm:inset-0");
-    expect(globalStylesSource).toContain(".phone-viewport-shell {");
-    expect(globalStylesSource).toContain("position: relative;");
-    expect(globalStylesSource).toContain("height: 100dvh;");
+    const phoneShellBlocks = [...globalStylesSource.matchAll(/\.phone-viewport-shell\s*\{[\s\S]*?\}/g)].map(
+      ([block]) => block,
+    );
+    const fixedPhoneShellBlock = phoneShellBlocks.find((block) => block.includes("position: fixed;"));
+
+    expect(fixedPhoneShellBlock).toBeDefined();
+    expect(fixedPhoneShellBlock).toContain("position: fixed;");
+    expect(fixedPhoneShellBlock).toContain("inset: 0;");
+    expect(fixedPhoneShellBlock).not.toMatch(/(?:min-)?height:\s*100(?:d|s)?vh/);
   });
 
   it("releases the Safari toolbar reserve only after phone composers hide", () => {
