@@ -15,7 +15,7 @@ import {
   sleep,
   normalizeLabelCandidate,
   canonicalUnitType,
-  canonicalFieldType
+  canonicalFieldType,
 } from "./utils.ts";
 
 import {

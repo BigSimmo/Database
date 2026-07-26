@@ -36,6 +36,7 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 **Purpose:** Make all later checks representative before changing behavior.
 
 **Smallest actions**
+
 1. Switch local runtime to Node 24 and npm 11 using `.nvmrc`, host tool manager, or the repo container image.
 2. Run `node scripts/check-node-engine.cjs`.
 3. Run `npm ci` without changing package manager or lockfile.
@@ -47,11 +48,13 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 5. Before any Next/framework code change, read the relevant installed guide in `node_modules/next/dist/docs/`.
 
 **Verification ladder**
+
 1. `npm run check:runtime`
 2. `npm run typecheck`
 3. Stop and triage if either fails before touching product code.
 
 **Risk control**
+
 - No lockfile or dependency edits unless `npm ci` proves the manifest/lockfile is inconsistent.
 - Do not run provider-backed checks.
 
@@ -60,23 +63,27 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 **Why second:** This is the highest clinical/source-governance risk.
 
 **Patch scope**
+
 - `src/lib/validation/answer-request.ts`
 - `src/app/api/answer/route.ts`
 - `src/app/api/answer/stream/route.ts`
 - `tests/private-access-routes.test.ts`
 
 **Smallest safe implementation**
+
 1. Add a shared summary-mode validation invariant: `summaryMode: true` requires exactly one `documentId`; `documentIds` must be absent or exactly `[documentId]`; filters are rejected unless a product owner explicitly wants filtered summaries.
 2. Prefer making non-stream `/api/answer` call the same governed `summarizeDocument(documentId, ownerId, { signal })` path as streaming. If wiring the response parity is unexpectedly large, choose the safer fallback: reject non-stream `summaryMode` with a clear 400.
 3. In stream route, validate the summary invariant before calling `resolveSearchScope`, so conflicting `documentIds` cannot satisfy scoping for another document.
 4. Keep all other answer behavior unchanged: no prompt changes, ranking changes, citation formatting changes, or telemetry schema expansion unless needed for the tests.
 
 **Focused proof**
+
 1. `npm run test -- tests/private-access-routes.test.ts -t "summaryMode"`
 2. `npm run test -- tests/rag-answer-fallback.test.ts tests/answer-response.test.ts`
 3. `npm run eval:rag:offline`
 
 **Done criteria**
+
 - Non-stream summary requests no longer silently run normal RAG.
 - Stream mismatched `documentId`/`documentIds` requests fail closed.
 - Existing normal answer tests still pass.
@@ -87,11 +94,13 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 **Why third:** These are high-leverage governance/supply-chain fixes with low product risk.
 
 **Patch scope**
+
 - `.github/workflows/pr-policy.yml`
 - `scripts/check-github-action-pins.mjs`
 - existing or new local self-test fixture for the checker
 
 **Smallest safe implementation**
+
 1. Add `"release/**"` to PR Policy `pull_request_target.branches` so PR Policy mirrors CI protected PR branches.
 2. Extend checker discovery to include workflow YAML plus composite action definitions:
    - `.github/workflows/*.yml`
@@ -101,11 +110,13 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 3. Add a self-test that would fail if an unpinned external `uses:` in a composite action is ignored.
 
 **Focused proof**
+
 1. Checker self-test or direct script test for composite action discovery.
 2. `npm run check:github-actions`
 3. `npm run check:pr-policy`
 
 **Done criteria**
+
 - Release PRs are covered by PR Policy.
 - Composite action `uses:` lines are scanned.
 - Existing pinned local actions still pass.
@@ -117,20 +128,24 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 **Why fourth:** User-facing polish, but lower clinical/governance risk than Batches 1-2.
 
 **Patch scope**
+
 - `src/components/master-document-flow-mockups.tsx`
 - `src/components/clinical-dashboard/favourites-hub.tsx`
 - `src/components/differentials/differential-presentation-workflow-page.tsx`
 
 **Smallest safe implementation**
+
 1. Convert the mockup `Table 3` anchor to a real in-page link only if a stable target exists; otherwise use a styled `span`.
 2. Change favourites “Recent” and “Add favourite” to native `disabled` buttons, or replace them with non-button status pills if they are roadmap-only. Keep existing visual treatment as much as possible.
 3. Replace `title="Soon"` on differential density controls with visible accessible “Coming soon” text, or remove the disabled toggle until the feature exists.
 
 **Focused proof**
+
 1. `npm run test:focused -- --files src/components/master-document-flow-mockups.tsx,src/components/clinical-dashboard/favourites-hub.tsx,src/components/differentials/differential-presentation-workflow-page.tsx`
 2. If visual UI changes are material: `npm run ensure`, then `npm run verify:ui`.
 
 **Done criteria**
+
 - No href-less actionable-looking anchor remains in the touched mockup.
 - Unavailable controls no longer create misleading keyboard/AT affordances.
 - No new route/state behavior is introduced.
@@ -141,20 +156,24 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 **Why fifth:** It is a tooling warning, not product behavior.
 
 **Patch scope**
+
 - `.npmrc`
 - optional docs note only if keeping the setting intentionally
 
 **Smallest safe implementation**
+
 1. Search for repo consumers of `allowScripts` and `allow-scripts`.
 2. If no repo consumer needs `.npmrc allow-scripts=true`, remove only that line.
 3. If it is needed, keep it and document the exact consumer and expected npm warning.
 
 **Focused proof**
+
 1. `rg -n "allowScripts|allow-scripts" . --glob '!node_modules'`
 2. `npm run check:runtime`
 3. Any install check only after Node 24 is active. Use `npm run format:check` only after dependencies are installed.
 
 **Done criteria**
+
 - Either the npm warning source is removed, or the repo documents why it remains.
 - No dependency versions, lockfile entries, or package-manager choices change.
 
@@ -163,19 +182,23 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 **Why last:** Keeps logic/security/clinical diffs reviewable.
 
 **Patch scope**
+
 - Only files changed by Prettier.
 
 **Smallest safe implementation**
+
 1. Start from a clean worktree after Batches 1-4 are complete or parked.
 2. Run `npm run format`.
 3. Review the diff for formatting-only changes.
 
 **Focused proof**
+
 1. `npm run format:check`
 2. `git diff --check`
 3. If Prettier touched behavior-sensitive test/source files, rerun the focused checks from the relevant earlier batch.
 
 **Done criteria**
+
 - `format:check` passes.
 - The commit contains no semantic edits.
 - Keep this as its own commit/PR. Do not mix with clinical/RAG or CI logic changes.
@@ -183,6 +206,7 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 ## Final local handoff gate
 
 Run after all batches are complete under Node 24 with dependencies installed:
+
 1. `npm run verify:cheap`
 2. `npm run verify:pr-local`
 3. `npm run eval:rag:offline` if Batch 1 changed answer behavior and it was not already run after final rebasing.
@@ -191,6 +215,7 @@ Run after all batches are complete under Node 24 with dependencies installed:
 ## Provider-backed approval gates
 
 Ask before running any of these (do not run without explicit confirmation):
+
 - `npm run check:supabase-project`
 - `npm run check:production-readiness`
 - `npm run eval:retrieval:quality`
@@ -203,6 +228,7 @@ Ask before running any of these (do not run without explicit confirmation):
 **Order:** Batch 0 (prerequisites) → Batch 1 (clinical RAG) → Batch 2 (CI governance) → Batch 3 (UI/a11y) → Batch 4 (`.npmrc` decision) → Batch 5 (formatting) → Final handoff gate. This fixes the highest clinical/governance risk first, avoids formatting noise during logic review, and keeps provider-backed uncertainty outside local development until explicit approval is given.
 
 **PR Split:**
+
 1. PR A: Batch 0 docs/prerequisite proof only if environment setup requires repo documentation; otherwise no PR.
 2. PR B: Batch 1 answer `summaryMode` contract and tests.
 3. PR C: Batch 2 CI governance/action-pin guardrails.

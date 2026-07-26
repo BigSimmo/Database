@@ -51,7 +51,6 @@ export const LABEL_STOPWORDS = new Set([
   "without",
 ]);
 
-
 export const GENERIC_LABELS = new Set([
   "document",
   "documents",
@@ -71,11 +70,9 @@ export const GENERIC_LABELS = new Set([
   "treatment",
 ]);
 
-
 export function normalizeText(v: string): string {
   return v.replace(/\s+/g, " ").trim();
 }
-
 
 export function tokenize(v: string): string[] {
   return Array.from(
@@ -88,17 +85,14 @@ export function tokenize(v: string): string[] {
   ).slice(0, 40);
 }
 
-
 export function safeRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
-
 
 export function compactString(value: unknown, limit = 180): string {
   const text = normalizeText(String(value ?? ""));
   return text.length > limit ? text.slice(0, limit).trim() : text;
 }
-
 
 export function uniqueStrings(values: string[], limit = 20): string[] {
   const seen = new Set<string>();
@@ -114,17 +108,14 @@ export function uniqueStrings(values: string[], limit = 20): string[] {
   return out;
 }
 
-
 export function structuredProfileFromMetadata(metadata: Record<string, unknown>): Record<string, unknown> {
   return safeRecord(metadata.structured_visual_profile ?? metadata.v3_structured_visual);
 }
-
 
 export function stringArrayFrom(value: unknown, limit = 20): string[] {
   if (!Array.isArray(value)) return [];
   return uniqueStrings(value.map((entry) => compactString(entry, 180)).filter(Boolean), limit);
 }
-
 
 export function textItemsFrom(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -136,7 +127,6 @@ export function textItemsFrom(value: unknown): string[] {
       .filter(Boolean);
   });
 }
-
 
 export function sourceRegionsFromMetadata(metadata: Record<string, unknown>): Array<Record<string, unknown>> {
   const profile = structuredProfileFromMetadata(metadata);
@@ -152,7 +142,6 @@ export function sourceRegionsFromMetadata(metadata: Record<string, unknown>): Ar
   ].slice(0, 12);
 }
 
-
 export function isLowQualityLabel(normalized: string): boolean {
   const tokens = normalized.split(/\s+/).filter(Boolean);
   if (tokens.length === 0 || tokens.length > 8) return true;
@@ -162,7 +151,6 @@ export function isLowQualityLabel(normalized: string): boolean {
   if (tokens.filter((token) => !LABEL_STOPWORDS.has(token)).length === 0) return true;
   return false;
 }
-
 
 export function phraseLabelCandidates(text: string, limit = 6): string[] {
   const phrases = Array.from(text.matchAll(CLINICAL_PHRASE_PATTERN)).map((match) => match[0]);
@@ -186,7 +174,6 @@ export function phraseLabelCandidates(text: string, limit = 6): string[] {
   );
 }
 
-
 export async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", data);
@@ -195,11 +182,9 @@ export async function sha256Hex(input: string): Promise<string> {
     .join("");
 }
 
-
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
 
 export function normalizeLabel(value: string): string {
   const cleaned = normalizeText(
@@ -211,7 +196,6 @@ export function normalizeLabel(value: string): string {
   return cleaned.slice(0, 72).trim();
 }
 
-
 export function normalizeLabelCandidate(rawLabel: string): string | null {
   const normalized = normalizeLabel(rawLabel);
   if (!normalized || normalized.length < 3) return null;
@@ -219,7 +203,6 @@ export function normalizeLabelCandidate(rawLabel: string): string | null {
   if (isLowQualityLabel(normalized)) return null;
   return normalized;
 }
-
 
 export function canonicalUnitType(unitType: string): string {
   switch (unitType) {
@@ -240,7 +223,6 @@ export function canonicalUnitType(unitType: string): string {
   }
 }
 
-
 export function canonicalFieldType(unitType: string): string {
   switch (unitType) {
     case "flowchart_step":
@@ -257,5 +239,3 @@ export function canonicalFieldType(unitType: string): string {
       return "image_caption";
   }
 }
-
-

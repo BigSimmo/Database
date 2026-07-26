@@ -174,7 +174,6 @@ if (!/^      image: semgrep\/semgrep@sha256:[0-9a-f]{64}\s*$/m.test(semgrepGateJ
 // setup-node v5 vs v7) was previously invisible. Assert each action name resolves
 // to a single SHA everywhere it is used.
 
-
 const actionPinPattern = /uses:\s*([^@\s]+)@([0-9a-f]{40})(?:\s*#\s*(\S+))?/;
 const shasByAction = new Map();
 for (const filePath of [...discoverGitHubActionFiles(process.cwd()), ...discoverCompositeActionFiles(process.cwd())]) {

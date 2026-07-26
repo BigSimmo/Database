@@ -1354,7 +1354,9 @@ export function ClinicalDashboard({
       ),
     );
     setSources((current) =>
-      current.map((source) => (source.document_id === documentId ? { ...source, document_labels: mergeLabel(source.document_labels) } : source)),
+      current.map((source) =>
+        source.document_id === documentId ? { ...source, document_labels: mergeLabel(source.document_labels) } : source,
+      ),
     );
   }, []);
 
@@ -3495,7 +3497,9 @@ export function ClinicalDashboard({
                 </InlineNotice>
               )}
               {showDegradedNotice && <DegradedNotice isOnline={isOnline} />}
-              {showSystemNotice ? <SystemNotice demoMode={demoMode} setupWarning={setupWarning} className="my-6 lg:my-10" /> : null}
+              {showSystemNotice ? (
+                <SystemNotice demoMode={demoMode} setupWarning={setupWarning} className="my-6 lg:my-10" />
+              ) : null}
 
               <section
                 className={cn(

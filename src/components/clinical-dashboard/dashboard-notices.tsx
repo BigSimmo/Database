@@ -30,11 +30,7 @@ export function SystemNotice({
   );
 }
 
-export function DegradedNotice({
-  isOnline,
-}: {
-  isOnline: boolean;
-}) {
+export function DegradedNotice({ isOnline }: { isOnline: boolean }) {
   return (
     <UtilityDrawer
       icon={!isOnline ? WifiOff : CircleAlert}

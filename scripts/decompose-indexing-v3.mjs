@@ -22,16 +22,12 @@ const utilsToExtract = [
   "normalizeLabel",
   "normalizeLabelCandidate",
   "canonicalUnitType",
-  "canonicalFieldType"
+  "canonicalFieldType",
 ];
 
 let utilsContent = `// Extracted utilities for indexing-v3-agent\nimport { EXPECTED_EMBED_DIM, type GeneratedLabelCandidate } from "./behavior.ts";\n\n`;
 
-const regexesToExtract = [
-  "LABEL_STOPWORDS",
-  "GENERIC_LABELS",
-  "CLINICAL_PHRASE_PATTERN"
-];
+const regexesToExtract = ["LABEL_STOPWORDS", "GENERIC_LABELS", "CLINICAL_PHRASE_PATTERN"];
 
 let modifiedContent = content;
 
@@ -59,7 +55,10 @@ const imports = `import {
   ${utilsToExtract.join(",\n  ")}
 } from "./utils.ts";\n`;
 
-modifiedContent = modifiedContent.replace('import postgres from "npm:postgres@3.4.7";', `import postgres from "npm:postgres@3.4.7";\n` + imports);
+modifiedContent = modifiedContent.replace(
+  'import postgres from "npm:postgres@3.4.7";',
+  `import postgres from "npm:postgres@3.4.7";\n` + imports,
+);
 
 fs.writeFileSync(utilsFile, utilsContent);
 fs.writeFileSync(indexFile, modifiedContent);
