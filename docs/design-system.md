@@ -95,9 +95,10 @@ Icon **glyphs** use the parallel `--spacing-icon-*` scale in `@theme`:
   sizes non-icons), so migrating the long tail onto `size-icon-*` is opportunistic, not enforced.
 - **Responsive** icons add a breakpoint variant — `size-icon-md sm:size-icon-lg`. Reserve it for
   a few roles (nav, composer, hero, panel headings); most icons stay one fixed size.
-- **Not** for container tiles (`iconTile` h-9, empty-state tile h-10) or non-icon boxes (the
-  `ToggleSwitch` knob, status dots) — those keep the integer spacing scale. Icon glyph size is
-  independent of the 44px tap target (§3), which stays on `--spacing-tap`.
+- **Not** for container tiles (`iconTilePremium` / panel-heading tile h-9, empty-state tile h-10)
+  or non-icon boxes (the `ToggleSwitch` knob, status dots) — those keep the integer spacing
+  scale. Icon glyph size is independent of the 44px tap target (§3), which stays on
+  `--spacing-tap`.
 
 ## 3. Spacing & tap targets
 
