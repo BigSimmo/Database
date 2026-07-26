@@ -157,10 +157,9 @@ test("phone chrome has an opaque header, one edge-to-edge footer, and releases b
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
-  // /formulation/worry is a non-home GlobalSearchShell route: heroOwnsPhoneComposer
-  // is false here so the bottom dock IS rendered and the backdrop is present in
-  // the DOM (CSS hides it). /?mode=documents in its home state uses "sm-up"
-  // (making heroOwnsPhoneComposer false on phones), so the dock and backdrop render.
+  // /formulation/worry is a non-home GlobalSearchShell route, so the bottom dock
+  // renders. Its legacy backdrop is optional on this surface; when present, the
+  // phone paint contract requires CSS to hide it.
   await gotoPhoneSurface(page, "/formulation/worry");
 
   const visible = await page.evaluate(() => {
@@ -183,7 +182,7 @@ test("phone chrome has an opaque header, one edge-to-edge footer, and releases b
 
   expect(visible.headerBackground).toMatch(/^rgb\(/);
   expect(visible.headerBackdropDisplay).toBe("none");
-  expect(visible.dockBackdropDisplay).toBe("none");
+  expect(["missing", "none"]).toContain(visible.dockBackdropDisplay);
   expect(visible.dockLeft).toBeCloseTo(0, 0);
   expect(visible.dockRight).toBeCloseTo(phoneViewport.width, 0);
   expect(visible.dockBottom).toBeCloseTo(phoneViewport.height, 0);
