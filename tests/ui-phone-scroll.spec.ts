@@ -149,6 +149,49 @@ test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
 });
 
+test("phone chrome has an opaque header, one edge-to-edge footer, and releases both edges when hidden", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/?mode=answer");
+
+  const header = page.locator("header#search");
+  const dock = page.locator(".answer-footer-search-dock");
+  const headerBackdrop = page.locator(".edge-glass-header-backdrop");
+  const dockBackdrop = dock.locator(".answer-footer-search-backdrop");
+  const pill = dock.locator(".answer-footer-search-pill");
+
+  await expect(header).toBeVisible();
+  await expect(dock).toBeVisible();
+
+  const headerBg = await header.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(headerBg).toMatch(/^rgb\(/);
+
+  const dockBox = await dock.boundingBox();
+  expect(dockBox?.x).toBeCloseTo(0, 0);
+  expect((dockBox?.x ?? 0) + (dockBox?.width ?? 0)).toBeCloseTo(phoneViewport.width, 0);
+  expect((dockBox?.y ?? 0) + (dockBox?.height ?? 0)).toBeCloseTo(phoneViewport.height, 0);
+
+  const pillBg = await pill.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(pillBg).toMatch(/(?:^rgba\(|\/ 0\.92\))/);
+
+  const geometry = await readGeometry(page);
+  await dragScrollBy(page, Math.min(geometry.maxOffset, 500), 24);
+  await expect(page.getByTestId("universal-header-collapse")).toHaveAttribute("data-scroll-hidden", "true");
+  await expect(page.locator(".answer-footer-search-dock")).toHaveAttribute("data-scroll-hidden", "true");
+
+  const collapseBox = await page.getByTestId("universal-header-collapse").boundingBox();
+  const dockBox = await page.locator(".answer-footer-search-dock").boundingBox();
+  const reserve = await page.locator("#main-content").evaluate((main) =>
+    getComputedStyle(main).getPropertyValue("--mobile-composer-reserve").trim(),
+  );
+
+  expect(collapseBox?.height ?? 0).toBeLessThanOrEqual(1);
+  expect(dockBox?.y ?? -1).toBeGreaterThanOrEqual(phoneViewport.height - 1);
+  expect(reserve).toBe("0rem");
+});
+
 for (const route of [...modeHomeRoutes, ...dashboardRoutes, ...longRoutes]) {
   test(`phone scroll stays smooth and bottom-stable on ${route}`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });

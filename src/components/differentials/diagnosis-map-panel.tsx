@@ -309,7 +309,7 @@ function NodeDetails({
     <section
       data-testid="diagnosis-map-node-details"
       aria-label={`Details for ${title}`}
-      className="grid gap-4 rounded-t-2xl border border-b-0 border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-4 shadow-[0_-20px_60px_rgb(15_23_42_/_18%)] lg:rounded-2xl lg:border lg:p-5"
+      className="grid gap-4 rounded-t-2xl border border-b-0 border-[color:var(--border-lux)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--shadow-elevated)] lg:rounded-2xl lg:border lg:p-5"
     >
       <div className="mx-auto h-1 w-12 rounded-full bg-[color:var(--border-strong)] lg:hidden" aria-hidden />
       <div className="flex items-start justify-between gap-3">
