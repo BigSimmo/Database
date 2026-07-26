@@ -234,6 +234,11 @@ function ShellSearchParamsBridgeInner({ onParamString }: { onParamString: (value
   return null;
 }
 
+function readInitialBrowserSearchParamString(): string {
+  if (typeof window === "undefined") return "";
+  return window.location.search.startsWith("?") ? window.location.search.slice(1) : window.location.search;
+}
+
 export function infoPageBackHref(pathname: string): string | null {
   if (pathname.startsWith("/services/")) return appModeHomeHref("services");
   if (pathname.startsWith("/forms/")) return appModeHomeHref("forms");
@@ -270,12 +275,17 @@ function GlobalStandaloneSearchShellClient(props: GlobalSearchShellProps) {
   // Empty until the bridge resolves — matches SSR/hydration, then syncs. Keeps
   // `{children}` outside the useSearchParams Suspense (no nested S: page clone).
   const [searchParamString, setSearchParamString] = useState("");
+  // Hard loads of always-standalone submitted routes need the browser query
+  // before the Suspense-delayed bridge hydrates, otherwise the shell briefly
+  // paints the mode-home hero before snapping to the submitted bottom dock.
+  const browserSearchParamString = useSyncExternalStore(subscribeNoop, readInitialBrowserSearchParamString, () => "");
+  const effectiveSearchParamString = searchParamString || browserSearchParamString;
   return (
     <>
       <Suspense fallback={null}>
         <ShellSearchParamsBridge onParamString={setSearchParamString} />
       </Suspense>
-      <GlobalStandaloneSearchShellBody {...props} searchParamString={searchParamString} />
+      <GlobalStandaloneSearchShellBody {...props} searchParamString={effectiveSearchParamString} />
     </>
   );
 }

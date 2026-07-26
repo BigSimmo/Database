@@ -107,6 +107,19 @@ describe("shared-search route ownership", () => {
     );
   });
 
+  it("seeds always-standalone submitted params before the bridge hydrates", () => {
+    const shellSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
+      "utf8",
+    );
+    expect(shellSource).toContain("function readInitialBrowserSearchParamString()");
+    expect(shellSource).toContain("window.location.search.slice(1)");
+    expect(shellSource).toMatch(
+      /useSyncExternalStore\(subscribeNoop, readInitialBrowserSearchParamString, \(\) => ""\)/,
+    );
+    expect(shellSource).toContain("searchParamString || browserSearchParamString");
+  });
+
   it("resets shared phone scroll chrome when the pathname changes", () => {
     const shellSource = readFileSync(
       resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
