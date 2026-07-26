@@ -520,17 +520,15 @@ export function CalculatorsSearchPage() {
   const dockHidden = footerHidden && !dockFocused;
   const reserveTransitioning = useReserveTransitionMarker(dockHidden, activeCalc);
   useEffect(() => {
-    if (!activeCalc) return undefined;
-    let cancelled = false;
+    if (!activeCalc) return;
     // Submitting a focused dock input unmounts the dock before React is
     // guaranteed to dispatch blur. Clear the latch after teardown so the dock
-    // can resume hide-on-scroll when the calculator sheet closes.
+    // can resume hide-on-scroll when the calculator sheet closes. This reset
+    // must survive a fast close: cancelling the microtask during effect cleanup
+    // can otherwise leave the remounted dock permanently focus-pinned.
     queueMicrotask(() => {
-      if (!cancelled) setDockFocused(false);
+      setDockFocused(false);
     });
-    return () => {
-      cancelled = true;
-    };
   }, [activeCalc]);
 
   const compact = density === "compact";
