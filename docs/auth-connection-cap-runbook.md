@@ -53,8 +53,7 @@ Concretely, the desired end state is:
 
 1. Sign in to the Supabase dashboard and open the **`Clinical KB Database`**
    project (ref `sjrfecxgysukkwxsowpy`). Confirm the ref in the URL before
-   touching any control — it must be `sjrfecxgysukkwxsowpy`, never the stale
-   `qjgitjyhxrwxsrydablr`.
+   touching any control. Use the active project `sjrfecxgysukkwxsowpy`.
 2. **Project Settings → Database → Connection pooling** — direct URL
    `https://supabase.com/dashboard/project/sjrfecxgysukkwxsowpy/database/settings`.
    Fields here: **Pool Size** and **Max Client Connections**. Set **Pool Size**

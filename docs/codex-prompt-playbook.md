@@ -15,7 +15,7 @@ Before using any prompt, keep these project defaults in mind:
 - Do not attach to a local server unless `/api/local-project-id` confirms this
   project.
 - Treat the live Supabase project as `Clinical KB Database`
-  (`sjrfecxgysukkwxsowpy`). Do not use the stale `qjgitjyhxrwxsrydablr` ref.
+  (`sjrfecxgysukkwxsowpy`).
 - Ask before running live provider/API work, OpenAI calls, Supabase mutations,
   production data operations, deploys, commits, pushes, or destructive cleanup.
 - For source/config/test changes, prefer `npm run verify:cheap` as the first
@@ -325,7 +325,7 @@ Start read-only:
 - inspect supabase/schema.sql, relevant migrations, generated types/usages,
   scripts/check-supabase-project.ts, and tests
 - confirm expected project ref is sjrfecxgysukkwxsowpy
-- do not use qjgitjyhxrwxsrydablr
+- Verify target ref is sjrfecxgysukkwxsowpy
 
 Before live commands or mutations, stop and ask for explicit approval.
 

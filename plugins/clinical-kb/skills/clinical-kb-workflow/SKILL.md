@@ -14,7 +14,7 @@ Root `AGENTS.md` remains authoritative. If these notes drift, inspect the repo b
 - Package manager: npm with `package-lock.json`.
 - Main app routes live under `src/app`; shared RAG, OpenAI, Supabase, safety, and validation logic live under `src/lib`.
 - This project targets the live Supabase project `Clinical KB Database` with project ref `sjrfecxgysukkwxsowpy`.
-- Treat the older Supabase ref `qjgitjyhxrwxsrydablr` as stale.
+- Verify the Supabase ref is `sjrfecxgysukkwxsowpy`.
 
 ## Local Server Safety
 

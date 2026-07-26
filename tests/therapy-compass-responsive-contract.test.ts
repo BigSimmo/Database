@@ -85,11 +85,11 @@ describe("Therapy Compass responsive contract", () => {
   it("defines one scoped phone reflow and a local comparison scroller", () => {
     expect(therapyCssSource).toMatch(/@media \(max-width: 640px\)/);
     expect(therapyCssSource).toContain(".tc-root .tc-mobile-stack");
-    expect(therapyCssSource).toContain("grid-template-columns: minmax(0, 1fr) !important;");
+    expect(therapyCssSource).toContain("grid-template-columns: minmax(0, 1fr);");
     expect(therapyCssSource).toContain(".tc-root .tc-mobile-grid-2");
     expect(therapyCssSource).toContain(".tc-root .tc-mobile-static");
     expect(therapyCssSource).toContain(".tc-root .tc-compare-table");
-    expect(therapyCssSource).toContain("overflow-x: auto !important;");
+    expect(therapyCssSource).toContain("overflow-x: auto;");
   });
 
   it("marks every fixed screen/card grid for phone reflow without changing its desktop template", () => {

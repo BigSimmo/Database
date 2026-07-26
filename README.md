@@ -33,8 +33,7 @@ SUPABASE_PROJECT_REF=sjrfecxgysukkwxsowpy
 SUPABASE_PROJECT_NAME=Clinical KB Database
 ```
 
-Do not use the older unused Supabase project `Database`
-(`qjgitjyhxrwxsrydablr`). Local checks and runtime guards warn or fall back to
+Database uses the live Supabase project `Clinical KB Database` (`sjrfecxgysukkwxsowpy`). Local checks and runtime guards warn or fall back to
 demo mode if that stale ref appears in `.env.local`.
 
 5. Database bootstrap:

@@ -228,7 +228,7 @@ The shared search chrome must adapt by page ownership, not by ad-hoc padding or 
 
 - This repo targets the live Supabase project `Clinical KB Database`.
 - Expected project ref: `sjrfecxgysukkwxsowpy`.
-- Older unused project ref `qjgitjyhxrwxsrydablr` belongs to `Database`; treat it as stale and do not use it.
+- Supabase project is `Clinical KB Database` (`sjrfecxgysukkwxsowpy`).
 - Hosted migrations, `supabase/schema.sql`, `supabase/roles.sql`, CI, and deployment tooling must target role `postgres`; never assume a platform-reserved role. The single older applied migration is immutable and pinned by `npm run check:migration-role`.
 - Bare-image storage scaffolding must discover its local schema owner at runtime and must never be reused as hosted migration SQL.
 - Run `npm run check:migration-role` after changing Supabase SQL, migration tooling, CI replay, or disaster-recovery instructions.

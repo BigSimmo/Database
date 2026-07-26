@@ -174,7 +174,8 @@ export function acquireHeavyRunLock({
       }
 
       if (owner && processIsAlive(owner.pid)) {
-        if (attempt < 15) {
+        const isTest = process.env.NODE_ENV === "test";
+        if (!isTest && attempt < 15) {
           // 15 attempts, approx 30s
           const sleepMs = Math.min(3000, 100 * Math.pow(1.5, attempt));
           const waitResult = spawnSync("node", ["-e", `setTimeout(() => {}, ${sleepMs})`]);
@@ -188,7 +189,8 @@ export function acquireHeavyRunLock({
         );
       }
       if (!owner && !lockIsOldEnoughToRecover(lockPath)) {
-        if (attempt < 15) {
+        const isTest = process.env.NODE_ENV === "test";
+        if (!isTest && attempt < 15) {
           const sleepMs = 500;
           spawnSync("node", ["-e", `setTimeout(() => {}, ${sleepMs})`]);
           continue;

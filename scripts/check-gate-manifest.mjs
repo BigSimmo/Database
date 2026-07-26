@@ -18,9 +18,20 @@ const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 const ci = readFileSync(".github/workflows/ci.yml", "utf8");
 
 const localChain = pkg.scripts?.["verify:cheap:internal"] ?? "";
-const localGates = [...localChain.matchAll(/npm run ([\w:.-]+)/g)].map((m) => m[1]);
+let localGates = [];
+if (localChain.includes("verify-cheap-parallel.mjs")) {
+  const parallelSrc = readFileSync("scripts/verify-cheap-parallel.mjs", "utf8");
+  const tasksMatch = parallelSrc.match(/const parallelTasks = \[([\s\S]*?)\];/);
+  if (tasksMatch) {
+    localGates = [...tasksMatch[1].matchAll(/"([^"]+)"/g)].map(m => m[1]);
+    localGates.push("typecheck", "test");
+  }
+} else {
+  localGates = [...localChain.matchAll(/npm run ([\w:.-]+)/g)].map((m) => m[1]);
+}
+
 if (localGates.length === 0) {
-  console.error("gate-manifest: could not parse verify:cheap:internal from package.json.");
+  console.error("gate-manifest: could not parse verify:cheap:internal from package.json or verify-cheap-parallel.mjs.");
   process.exit(1);
 }
 

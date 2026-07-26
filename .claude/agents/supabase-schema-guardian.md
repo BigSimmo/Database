@@ -28,7 +28,7 @@ Never run live Supabase/MCP calls or `npm run check:supabase-project` yourself �
 
 ### 1. Project & migration safety
 
-- **Correct project:** the live target is `Clinical KB Database` / `sjrfecxgysukkwxsowpy`. `qjgitjyhxrwxsrydablr` is stale (belongs to `Database`) — flag any use.
+- **Correct project:** the live target is `Clinical KB Database` / `sjrfecxgysukkwxsowpy`.
 - **No live raw SQL:** never change a retrieval RPC (or any function) on the live project with raw `execute_sql`. Require a committed migration **and** a matching `supabase/schema.sql` update. Uncommitted live edits are exactly how drift accumulated.
 
 ### 2. Tenancy — fail-closed, never fail-open

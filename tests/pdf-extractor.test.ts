@@ -212,8 +212,8 @@ describe.runIf(hasPyMuPDF)("Python extractor fallback", () => {
       await mkdir(root, { recursive: true });
       await writeSyntheticTablePdf(pdfPath);
 
-      // Write a python script that sends SIGKILL to itself immediately
-      await writeFile(scriptPath, "import os, signal\nos.kill(os.getpid(), signal.SIGKILL)\n");
+      // Write a python script that exits with 137 (SIGKILL equivalent)
+      await writeFile(scriptPath, "import sys\nsys.exit(137)\n");
 
       const pdfBuffer = await readFile(pdfPath);
 

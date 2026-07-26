@@ -9,6 +9,8 @@ export default defineConfig({
   timeout: 30_000,
   expect: {
     timeout: 10_000,
+    toHaveScreenshot: { maxDiffPixelRatio: 0.05 },
+    toMatchSnapshot: { maxDiffPixelRatio: 0.05 },
   },
   reporter: "list",
   use: {

@@ -3,7 +3,7 @@
 Structured map for AI agents and onboarding. For live routes, see `docs/site-map.md` (`npm run sitemap:update` / `sitemap:check`). For agent rules and verification gates, see `AGENTS.md`; for test execution and flake policy, see `docs/testing.md`.
 
 **Stack:** Next.js 16, React 19, Supabase (pgvector, Storage, Auth), OpenAI, Python OCR worker.  
-**Live Supabase:** `Clinical KB Database` — ref `sjrfecxgysukkwxsowpy` (never use stale `qjgitjyhxrwxsrydablr`).
+**Live Supabase:** `Clinical KB Database` — ref `sjrfecxgysukkwxsowpy`.
 
 ---
 
