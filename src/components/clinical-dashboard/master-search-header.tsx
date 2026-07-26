@@ -5,14 +5,14 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useState,
   useRef,
+  useState,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import {
   Check,
@@ -305,7 +305,6 @@ export function MasterSearchHeader({
   // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
   // Do not OR demoMode again here — that would reopen Favourites when props diverge.
   const router = useRouter();
-  const pathname = usePathname();
   const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
     authenticated: canAccessFavourites,
     demoMode: false,
@@ -452,7 +451,7 @@ export function MasterSearchHeader({
       observer.disconnect();
       queueMicrotask(clearHeaderFocus);
     };
-  }, [headerCollapseOwnsPhoneAddonFocus, hideOnScrollEnabled, pathname, phoneHeaderCollapseAddonHost]);
+  }, [headerCollapseOwnsPhoneAddonFocus, hideOnScrollEnabled, phoneHeaderCollapseAddonHost]);
 
   useEffect(() => {
     onBottomComposerHiddenChange?.(bottomComposerHidden);
