@@ -7,7 +7,7 @@ import {
 
 import { useTcBindings } from "../bindings";
 import { outlineControl, softControl } from "../controls";
-import { SearchIcon, SearchXIcon, XIcon } from "../icons";
+import { SearchXIcon, XIcon } from "../icons";
 import { EmptyState, LoadingState } from "../ui";
 import { ResultCard } from "../therapy-card";
 
@@ -24,29 +24,12 @@ export function SearchScreen() {
 
   return (
     <section data-screen-label="Search" className="tc-screens-search-screen-001">
-      <h1 className="tc-screens-search-screen-002">Therapy</h1>
-      <p className="tc-screens-search-screen-003">
-        Find source-grounded therapy records by problem, symptom, skill or population.
-      </p>
-
-      <div className="tc-screens-search-screen-004">
-        <label className="tc-screens-search-screen-005">
-          <SearchIcon size={19} strokeWidth={1.8} className="tc-screens-search-screen-006" />
-          <input
-            value={q}
-            onChange={(e) => b.setQuery(e.target.value)}
-            placeholder="Search anxiety, trauma, CBT, relapse prevention…"
-            aria-label="Search therapies"
-            className="tc-screens-search-screen-007"
-          />
-        </label>
-      </div>
-
       <SearchResultsHeaderBand
         modeId="therapy-compass"
         query={q}
         matchCount={results.length}
         loading={b.loading}
+        headingLevel={1}
         filterLabel="Filter therapy results"
         mobileControls={
           <div className="grid min-w-0 grid-cols-2 gap-1.5">
