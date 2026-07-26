@@ -10,11 +10,9 @@ import {
   stringArrayFrom,
   textItemsFrom,
   sourceRegionsFromMetadata,
-  isLowQualityLabel,
   phraseLabelCandidates,
   sha256Hex,
   sleep,
-  normalizeLabel,
   normalizeLabelCandidate,
   canonicalUnitType,
   canonicalFieldType
@@ -246,9 +244,6 @@ function assertEmbeddingDim(vec: unknown, context: string): asserts vec is numbe
     throw new Error(`${context} embedding has a non-finite number at index ${badIndex}`);
   }
 }
-
-const CLINICAL_PHRASE_PATTERN =
-  /\b(?:clozapine|lithium|olanzapine|haloperidol|benzodiazepine|lorazepam|diazepam|antipsychotic|antidepressant|insulin|heparin|warfarin|digoxin|dose|route|threshold|monitoring|observation|escalation|self harm|suicide|violence|agitation|risk matrix|flowchart|care plan|discharge|admission|assessment|screening|contraindication|side effect|adverse effect|fbc|anc|wbc|mmol|mg)\b(?:[\s:/-]+[a-z0-9]{3,}){0,3}/gi;
 
 async function fetchEmbeddingBatch(texts: string[]): Promise<number[][]> {
   let lastError: unknown = null;

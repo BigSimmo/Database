@@ -40,7 +40,7 @@ const factsheetCategoryIcons: Record<FactsheetCategory, LucideIcon> = {
   "Tests & procedures": ClipboardList,
 };
 
-function factsheetIcon(key: FactsheetIconKey): LucideIcon {
+export function factsheetIcon(key: FactsheetIconKey): LucideIcon {
   return factsheetIcons[key];
 }
 

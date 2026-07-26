@@ -32,19 +32,31 @@ function NavigationBackButtonControl({ label = "Go back", className, onClick }: 
   );
 }
 
+function useOptionalRouter() {
+  try {
+    return useRouter();
+  } catch {
+    return null;
+  }
+}
+
 function RoutedNavigationBackButton({
   label,
   fallbackHref = "/",
   className,
 }: Omit<NavigationBackButtonProps, "onClick">) {
-  const router = useRouter();
+  const router = useOptionalRouter();
 
   return (
     <NavigationBackButtonControl
       label={label}
       className={className}
       onClick={() => {
-        router.push(fallbackHref);
+        if (router) {
+          router.push(fallbackHref);
+        } else if (typeof window !== "undefined") {
+          window.location.href = fallbackHref;
+        }
       }}
     />
   );

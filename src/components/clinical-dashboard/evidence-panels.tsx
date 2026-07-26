@@ -575,15 +575,13 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
 }
 
 /**
-<<<<<<< ours
-=======
  * Align clinical-notes inputs with the fail-closed render model: when an answer
  * is not explicitly source-backed, strip structured clinical payloads so the
  * notes sheet cannot reconstruct actionable monitoring/escalation/comparison
  * content from untrusted sections, quotes, or documentBreakdown (visual
  * evidence is passed separately).
  */
-function trustGatedAnswerForClinicalNotes(
+export function trustGatedAnswerForClinicalNotes(
   answer: RagAnswer,
   visualEvidence: VisualEvidenceCard[] = answer.visualEvidence ?? [],
 ): RagAnswer {

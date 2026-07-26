@@ -4921,7 +4921,6 @@ describe("private document API access", () => {
     expectFeedbackTokenBoundToAnswer(body);
   });
 
-<<<<<<< ours
   it("runs non-stream document summaries through the governed summary path", async () => {
     const answerQuestionWithScope = vi.fn();
     const summarizeDocument = vi.fn(async () => ({
@@ -4931,11 +4930,6 @@ describe("private document API access", () => {
       citations: [],
       sources: [],
     }));
-=======
-  it("rejects non-stream document summaries before RAG/provider work", async () => {
-    const answerQuestionWithScope = vi.fn();
-    const summarizeDocument = vi.fn();
->>>>>>> theirs
     const client = createSupabaseMock();
     mockRuntime(client, { answerQuestionWithScope, summarizeDocument });
     const { POST } = await import("../src/app/api/answer/route");
@@ -4950,7 +4944,6 @@ describe("private document API access", () => {
         }),
       }),
     );
-<<<<<<< ours
     const body = await payload(response);
 
     expect(response.status).toBe(200);
@@ -4972,16 +4965,6 @@ describe("private document API access", () => {
         p_summary_limit: 12,
       }),
     );
-=======
-
-    expect(response.status).toBe(400);
-    await expect(payload(response)).resolves.toMatchObject({
-      error: "Document summaries require the streaming answer endpoint.",
-      code: "summary_mode_stream_required",
-    });
-    expect(client.rpc).not.toHaveBeenCalled();
-    expect(summarizeDocument).not.toHaveBeenCalled();
->>>>>>> theirs
     expect(answerQuestionWithScope).not.toHaveBeenCalled();
   });
 

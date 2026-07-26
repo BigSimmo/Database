@@ -622,7 +622,7 @@ export const calculators: CalculatorFixture[] = [
   },
 ];
 
-const calculatorById = (id: string): CalculatorFixture => {
+export const calculatorById = (id: string): CalculatorFixture => {
   const found = calculators.find((calc) => calc.id === id);
   if (!found) throw new Error(`Unknown calculator fixture: ${id}`);
   return found;

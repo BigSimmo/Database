@@ -23,7 +23,7 @@ export const FACTSHEET_DEMO_NOTICE =
 
 export type FactsheetCategory = "Medications" | "Conditions" | "Therapies" | "Tests & procedures";
 
-type FactsheetKind = "medRich" | "medLite" | "condition" | "therapy" | "procedure";
+export type FactsheetKind = "medRich" | "medLite" | "condition" | "therapy" | "procedure";
 
 export type FactsheetIconKey =
   | "capsule"

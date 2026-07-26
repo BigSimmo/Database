@@ -167,7 +167,7 @@ function selectOptionAnswer(answers: AnswerMap, itemId: string, optionIndex: num
   return { ...answers, [itemId]: answers[itemId] === optionIndex ? undefined : optionIndex };
 }
 
-function useCalculatorState(calc: CalculatorFixture): CalculatorState {
+export function useCalculatorState(calc: CalculatorFixture): CalculatorState {
   const [answers, setAnswers] = useState<AnswerMap>({});
 
   const toggleCheckbox = useCallback((itemId: string) => {

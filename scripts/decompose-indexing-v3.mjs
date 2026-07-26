@@ -1,5 +1,4 @@
 import fs from "fs";
-import path from "path";
 
 const indexFile = "supabase/functions/indexing-v3-agent/index.ts";
 const utilsFile = "supabase/functions/indexing-v3-agent/utils.ts";

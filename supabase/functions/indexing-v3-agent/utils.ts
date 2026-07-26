@@ -1,5 +1,4 @@
 // Extracted utilities for indexing-v3-agent
-import { EXPECTED_EMBED_DIM, type GeneratedLabelCandidate } from "./behavior.ts";
 
 export const LABEL_STOPWORDS = new Set([
   "about",
@@ -188,7 +187,7 @@ export function phraseLabelCandidates(text: string, limit = 6): string[] {
 }
 
 
-async export function sha256Hex(input: string): Promise<string> {
+export async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(digest))

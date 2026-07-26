@@ -100,7 +100,7 @@ function stripSuffixes(value) {
   if (result.startsWith("./")) result = result.slice(2);
   // Drop #anchor fragments and :line / :line-line / :line:col suffixes.
   result = result.replace(/#[^#]*$/, "");
-  result = result.replace(/:\d+([-:]\d+)?$/, "");
+  result = result.replace(/:[L]?\d+([-:][L]?\d+)?$/i, "");
   return result;
 }
 
