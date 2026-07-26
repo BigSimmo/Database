@@ -80,6 +80,7 @@ interface ScrollGeometry {
   scrollTop: number;
   maxOffset: number;
   headerHidden: boolean;
+  bottomComposerHidden: boolean;
   docScrollableExcess: number;
   horizontalOverflow: number;
   reserveTransitionDuration: string;
@@ -95,6 +96,7 @@ function readGeometry(page: Page): Promise<ScrollGeometry> {
       scrollTop: main?.scrollTop ?? 0,
       maxOffset: main ? Math.max(0, main.scrollHeight - main.clientHeight) : 0,
       headerHidden: header?.getAttribute("data-scroll-hidden") === "true",
+      bottomComposerHidden: main?.getAttribute("data-bottom-composer-hidden") === "true",
       docScrollableExcess: doc.scrollHeight - doc.clientHeight,
       horizontalOverflow: Math.max(doc.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
       reserveTransitionDuration: reserveHost ? getComputedStyle(reserveHost).transitionDuration : "",
@@ -227,7 +229,9 @@ for (const route of [...modeHomeRoutes, ...dashboardRoutes, ...longRoutes]) {
     expect(initial.horizontalOverflow, "no horizontal overflow").toBeLessThanOrEqual(2);
     expect(initial.scrollTop).toBe(0);
     expect(initial.headerHidden, "header visible at the top").toBe(false);
-    expect(initial.reserveTransitionDuration, "phone reserve transition remains exercised").toContain("0.2s");
+    // Mode/route reserve flips snap (0s). Padding only animates while
+    // data-bottom-composer-hidden="true" (scroll-hide), asserted below.
+    expect(initial.reserveTransitionDuration, "visible reserve must snap on mode/route flips").toBe("0s");
 
     // Drag to the bottom in deliberate 24px steps, then let transitions settle.
     await dragScrollBy(page, initial.maxOffset + 400, 24);
@@ -242,6 +246,11 @@ for (const route of [...modeHomeRoutes, ...dashboardRoutes, ...longRoutes]) {
       Math.abs(atBottom.scrollTop - atBottom.maxOffset),
       "settled scroll sits on the true bottom edge",
     ).toBeLessThanOrEqual(2);
+    if (atBottom.bottomComposerHidden) {
+      expect(atBottom.reserveTransitionDuration, "scroll-hide reserve transition remains exercised").toContain(
+        "0.24s",
+      );
+    }
     // At most one chrome transition on a pure descent (hide, when the page is
     // long enough to afford it) — more means hide/reveal oscillation.
     expect(flipsAfterDescent, "no chrome oscillation while scrolling down").toBeLessThanOrEqual(1);

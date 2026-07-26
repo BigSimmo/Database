@@ -70,6 +70,10 @@ import { appModeIcons } from "@/lib/app-mode-icons";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
+import {
+  desktopComposerSlotReadyAttr,
+  isDesktopComposerSlotReady,
+} from "@/lib/mode-home-composer";
 import { tagSearchText } from "@/lib/document-tags";
 
 // Shared between the composer input's aria-describedby and the rendered
@@ -1030,13 +1034,17 @@ export function MasterSearchHeader({
     // compositing, which stalled portal activation for seconds and made the
     // hero composer flake out of the mode-home slot. A microtask-driven sync
     // settles the portal on the same tick the slot mounts, no frame required.
+    //
+    // Ready-gate: page-owned slots mark `data-composer-slot-ready` only after
+    // their React segment hydrates. Adopting the slot before that injects a
+    // display:contents host into still-unhydrated RSC HTML (React #418).
     const syncTarget = () => {
       if (retryTimeout !== null) {
         window.clearTimeout(retryTimeout);
         retryTimeout = null;
       }
       const slot = mediaQuery.matches ? document.getElementById(composerSlotId) : null;
-      if (slot) {
+      if (slot && isDesktopComposerSlotReady(slot)) {
         portalRetryCount = 0;
         if (host.parentNode !== slot) slot.appendChild(host);
         setDesktopComposerPortalHost(host);
@@ -1052,7 +1060,12 @@ export function MasterSearchHeader({
     };
 
     const observer = new MutationObserver(syncTarget);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: [desktopComposerSlotReadyAttr],
+    });
     syncTarget();
     mediaQuery.addEventListener("change", syncTarget);
     return () => {

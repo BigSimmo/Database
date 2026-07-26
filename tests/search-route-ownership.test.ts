@@ -120,6 +120,20 @@ describe("shared-search route ownership", () => {
     );
   });
 
+  it("waits for page-owned composer slots to hydrate before portal adoption", () => {
+    const headerSource = readFileSync(
+      resolve(process.cwd(), "src/components/clinical-dashboard/master-search-header.tsx"),
+      "utf8",
+    );
+    const slotSource = readFileSync(resolve(process.cwd(), "src/components/desktop-composer-portal-slot.tsx"), "utf8");
+    const composerLibSource = readFileSync(resolve(process.cwd(), "src/lib/mode-home-composer.ts"), "utf8");
+    expect(composerLibSource).toContain('desktopComposerSlotReadyAttr = "data-composer-slot-ready"');
+    expect(slotSource).toContain("desktopComposerSlotReadyAttr");
+    expect(slotSource).toContain("useEffect");
+    expect(headerSource).toContain("isDesktopComposerSlotReady(slot)");
+    expect(headerSource).toContain("attributeFilter: [desktopComposerSlotReadyAttr]");
+  });
+
   it("leaves the dashboard shell without eager chrome thrash", () => {
     const dashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
     expect(dashboardSource).toContain("isDashboardModeHref");

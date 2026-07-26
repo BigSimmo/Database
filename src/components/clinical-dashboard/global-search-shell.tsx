@@ -65,6 +65,7 @@ const ClinicalDashboard = dynamic(
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { isInformationPage } from "@/lib/information-pages";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import {
   desktopPageComposerSlotId,
   differentialsMobileCompareAddonSlotId,
@@ -819,7 +820,7 @@ function GlobalStandaloneSearchShellClient({
           */}
           <div data-testid="mobile-composer-reserve-pad" className="max-sm:pb-[var(--mobile-composer-reserve)]">
             {shouldShowSearchComposer && !isStandaloneModeHome ? (
-              <div
+              <DesktopComposerPortalSlot
                 id={desktopPageComposerSlotId}
                 data-testid="desktop-page-search-composer-slot"
                 className="hidden lg:block lg:empty:hidden"
