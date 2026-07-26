@@ -53,7 +53,8 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(searchSrc).not.toContain("Search therapies");
     expect(searchSrc).not.toContain("Find source-grounded therapy records");
     expect(workspaceSrc).toContain("Therapy could not load");
-    expect(sidebarSrc).toContain('label: appModeDefinition("therapy-compass").label');
+    // Therapy stays out of the six-item sidebar; mode discovery is via Tools/search.
+    expect(sidebarSrc).not.toContain('id: "therapy-compass"');
     expect(appModesSrc).not.toContain("Therapy mode");
     expect(homeSrc).not.toContain("Therapy mode");
     expect(searchSrc).not.toContain("Therapy Search");
