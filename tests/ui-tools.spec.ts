@@ -637,7 +637,12 @@ test.describe("Clinical KB tools launcher", () => {
       { path: "/tools", testId: "tools-home" },
     ] as const) {
       await gotoLauncher(page, home.path);
-      await expect(page.getByTestId(home.testId)).toBeVisible();
+      const homeSurface = page.getByTestId(home.testId);
+      // Production hydration can briefly overlap the outgoing server tree and
+      // the settled client tree. Require the DOM to converge to one owner
+      // before using strict locators; duplicate settled homes still fail.
+      await expect(homeSurface).toHaveCount(1, { timeout: 15_000 });
+      await expect(homeSurface).toBeVisible();
       await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
 
       // The composer sits in the middle of the hero (in-flow) at phone width too,
@@ -689,12 +694,14 @@ test.describe("Clinical KB tools launcher", () => {
         await mockAnswerDashboardApi(page);
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         await gotoLauncher(page, home.path);
-        await expect(page.getByTestId(home.testId)).toBeVisible();
+        const homeSurface = page.getByTestId(home.testId);
+        await expect(homeSurface).toHaveCount(1, { timeout: 15_000 });
+        await expect(homeSurface).toBeVisible();
         // The composer must never vanish: exactly one visible search input.
         await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
         // The hero owns the composer at every width: the answer home and every
         // standalone mode home keep the in-flow hero pill, phones included.
-        await expect(page.getByTestId(home.testId).getByTestId("global-search-input")).toBeVisible();
+        await expect(homeSurface.getByTestId("global-search-input")).toBeVisible();
       });
     }
   }
