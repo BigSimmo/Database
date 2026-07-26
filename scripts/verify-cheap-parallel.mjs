@@ -23,15 +23,15 @@ const parallelTasks = [
   "check:migration-role",
   "check:function-grants",
   "check:owner-scope",
-  "lint"
+  "lint",
 ];
 
 async function runTask(task) {
   return new Promise((resolve, reject) => {
     const child = spawn("npm", ["run", task], { shell: true, stdio: "pipe" });
     let output = "";
-    child.stdout.on("data", (data) => output += data.toString());
-    child.stderr.on("data", (data) => output += data.toString());
+    child.stdout.on("data", (data) => (output += data.toString()));
+    child.stderr.on("data", (data) => (output += data.toString()));
     child.on("close", (code) => {
       if (code !== 0) {
         console.error(output);

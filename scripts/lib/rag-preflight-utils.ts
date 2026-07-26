@@ -7,7 +7,7 @@ export interface RAGPreflightChecks {
 export function validatePreflightConstraints(
   estimatedTokens: number,
   estimatedCost: number,
-  constraints: RAGPreflightChecks
+  constraints: RAGPreflightChecks,
 ): string[] {
   const errors: string[] = [];
 

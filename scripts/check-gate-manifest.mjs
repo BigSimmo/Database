@@ -23,7 +23,7 @@ if (localChain.includes("verify-cheap-parallel.mjs")) {
   const parallelSrc = readFileSync("scripts/verify-cheap-parallel.mjs", "utf8");
   const tasksMatch = parallelSrc.match(/const parallelTasks = \[([\s\S]*?)\];/);
   if (tasksMatch) {
-    localGates = [...tasksMatch[1].matchAll(/"([^"]+)"/g)].map(m => m[1]);
+    localGates = [...tasksMatch[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
     localGates.push("typecheck", "test");
   }
 } else {
