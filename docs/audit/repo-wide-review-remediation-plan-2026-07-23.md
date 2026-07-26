@@ -22,6 +22,7 @@ Resolve the outstanding issues from the repository-wide review sweep with the sm
 2. Run `node scripts/check-node-engine.cjs`.
 3. Run `npm ci` only after Node 24 is active.
 4. Confirm dependency/tool presence:
+
 # Repository-wide review remediation completion plan — 2026-07-24
 
 ## Objective
@@ -116,7 +117,7 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 
 1. In `.github/workflows/pr-policy.yml`, add `"release/**"` to `pull_request_target.branches` so PR Policy mirrors CI PR branches.
 2. In `scripts/check-github-action-pins.mjs`, extend discovery to include:
-5. Before any Next/framework code change, read the relevant installed guide in `node_modules/next/dist/docs/`.
+3. Before any Next/framework code change, read the relevant installed guide in `node_modules/next/dist/docs/`.
 
 **Verification ladder**
 
@@ -260,8 +261,7 @@ Run only after Node 24, dependencies, and focused checks are clean:
 
 ## Approval-required follow-up gates
 
-Ask before running any of these:
-3. Add a self-test that would fail if an unpinned external `uses:` in a composite action is ignored.
+Ask before running any of these: 3. Add a self-test that would fail if an unpinned external `uses:` in a composite action is ignored.
 
 **Focused proof**
 
@@ -386,6 +386,7 @@ Do not run these without explicit confirmation:
 7. Final handoff gate.
 
 This order fixes the highest clinical/governance risk first, avoids formatting noise during logic review, and keeps provider-backed uncertainty outside local development until explicit approval is given.
+
 ## Recommended PR split
 
 1. PR A: Batch 0 docs/prerequisite proof only if environment setup requires repo documentation; otherwise no PR.

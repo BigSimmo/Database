@@ -432,7 +432,7 @@
   * {
     box-sizing: border-box;
   }
-  
+
   html {
     min-width: 320px;
     min-height: 100%;
@@ -443,7 +443,7 @@
     overscroll-behavior-x: none;
     scroll-padding-top: calc(4rem + env(safe-area-inset-top));
   }
-  
+
   /*
    * Interface density scales the rem baseline so every rem-based size shifts
    * together. "Comfortable" is the browser default (16px) and sets no attribute,
@@ -455,11 +455,11 @@
   html[data-density="compact"] {
     font-size: 15px;
   }
-  
+
   html[data-density="spacious"] {
     font-size: 17px;
   }
-  
+
   body {
     min-height: 100%;
     min-height: 100svh;
@@ -475,7 +475,7 @@
     overflow-x: clip;
     overscroll-behavior-x: none;
   }
-  
+
   /* Interactive element defaults */
   button,
   input,
@@ -483,7 +483,7 @@
   select {
     font: inherit;
   }
-  
+
   /*
    * iOS Safari zooms the viewport when a focused form control renders below 16px.
    * This rule is intentionally unlayered so it wins over Tailwind's layered
@@ -497,7 +497,7 @@
       font-size: 16px;
     }
   }
-  
+
   button,
   a,
   summary,
@@ -508,7 +508,7 @@
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
-  
+
   /* One focus owner per interaction. Buttons and links use a single external
      outline; form fields draw the same outline inside their own box so scroll
      containers and sheets cannot clip it at an edge. Keeping these unlayered is
@@ -518,13 +518,13 @@
     outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
-  
+
   :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus-visible {
     box-shadow: var(--shadow-inset);
     outline: 2px solid var(--focus);
     outline-offset: -2px;
   }
-  
+
   button,
   a,
   summary {
@@ -532,29 +532,27 @@
     transition-duration: var(--duration-fast);
     transition-timing-function: var(--ease-out-soft);
   }
-  
+
   /* Tactile press only on button-like controls. Applying it to every `a` nudged
      inline body/citation links down 1px on tap, which reads oddly for text links. */
   button:active,
   summary:active {
     transform: translateY(1px);
   }
-  
+
   summary::-webkit-details-marker {
     display: none;
   }
-  
+
   ::selection {
     background: var(--primary-soft);
     color: var(--primary-strong);
   }
-  
+
   .dark ::selection {
     background: var(--primary-soft);
     color: #ecfeff;
   }
-  
-  
 }
 
 /*

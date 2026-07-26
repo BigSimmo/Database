@@ -137,5 +137,3 @@ describe("MobileEvidenceSheetContent tabs (jsdom)", () => {
     expect(claims).toHaveAttribute("tabindex", "-1");
   });
 });
-
-
