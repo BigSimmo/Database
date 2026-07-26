@@ -118,6 +118,16 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalStylesSource).not.toMatch(/^\s*-webkit-backdrop-filter\s*:/m);
   });
 
+  it("keeps shared phone shells out of the iOS fixed-viewport compositor path", () => {
+    expect(globalSearchShellSource).toContain('"phone-viewport-shell sm:min-h-dvh');
+    expect(clinicalDashboardSource).toContain('"mobile-app-shell phone-viewport-shell flex');
+    expect(globalSearchShellSource).not.toContain("max-sm:fixed max-sm:inset-0");
+    expect(clinicalDashboardSource).not.toContain("max-sm:fixed max-sm:inset-0");
+    expect(globalStylesSource).toContain(".phone-viewport-shell {");
+    expect(globalStylesSource).toContain("position: relative;");
+    expect(globalStylesSource).toContain("height: 100dvh;");
+  });
+
   it("releases the Safari toolbar reserve only after phone composers hide", () => {
     expect(mobileComposerReserveSource).toContain('export const mobileComposerHiddenReserve = "0rem"');
     expect(mobileComposerReserveSource).toContain(
