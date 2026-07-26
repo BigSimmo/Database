@@ -103,7 +103,8 @@ describe("shared-search route ownership", () => {
     );
     expect(hideSource).toContain("const reset = useCallback");
     expect(hideSource).toMatch(/return \{ hidden: active && hidden, reportScroll, reset \}/);
-    expect(shellSource).toContain("resetPhoneScrollHideRef.current()");
+    // Hide state resets via the reporter resetKey; scroll offset resets explicitly.
+    expect(shellSource).toContain("useScrollHideReporter(false, true, pathname)");
     expect(shellSource).toMatch(/main\.scrollTop = 0[\s\S]*\}, \[pathname\]\)/);
   });
 

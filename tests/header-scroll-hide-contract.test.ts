@@ -27,7 +27,9 @@ describe("shared header hide/reveal wiring", () => {
   it("widens both app shells past the phone media gate", () => {
     // Second argument is `allowAllBreakpoints`; leaving it off is what pinned
     // hide-on-scroll to phones.
-    expect(shellSource).toContain("useScrollHideReporter(false, true)");
+    // GlobalSearchShell also passes pathname as resetKey so shared mode homes
+    // do not inherit a collapsed top bar across routes.
+    expect(shellSource).toContain("useScrollHideReporter(false, true, pathname)");
     expect(dashboardSource).toContain("useScrollHideReporter(false, true, searchMode)");
     expect(hookSource).toContain("export function useScrollHideReporter(disabled = false, allowAllBreakpoints = false");
   });
