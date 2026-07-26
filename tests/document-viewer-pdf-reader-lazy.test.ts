@@ -22,7 +22,9 @@ describe("DocumentViewer PDF reader loading", () => {
       '() => import("@/components/document-viewer/pdf-canvas-viewer").then((module) => module.NativePdfEmbed)',
     );
 
-    expect(viewerSource).toContain('import { PdfPreviewLoading } from "@/components/document-viewer/pdf-preview-loading"');
+    expect(viewerSource).toContain(
+      'import { PdfPreviewLoading } from "@/components/document-viewer/pdf-preview-loading"',
+    );
 
     const canvasStart = viewerSource.indexOf("const PdfCanvasViewer = dynamic(");
     const nativeStart = viewerSource.indexOf("const NativePdfEmbed = dynamic(");
