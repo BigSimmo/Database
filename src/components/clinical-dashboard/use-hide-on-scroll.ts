@@ -45,6 +45,7 @@ const bottomClampTolerance = 1;
 // Keep this larger than the 12px reveal threshold: that threshold protects a
 // single owner, while this protects the combined release.
 const collapseRunwaySlack = 96;
+const singleOwnerRunwaySlack = 16;
 
 type ScrollDirection = "down" | "up" | null;
 export interface ScrollMetrics {
@@ -58,6 +59,8 @@ export interface ScrollMetrics {
    * Omitted by consumers whose chrome does not change scroll geometry.
    */
   collapseBudget?: number;
+  /** True when an in-flow header and a separate reserve owner collapse together. */
+  combinedChrome?: boolean;
   /**
    * A fixed-viewport overlay only removes tail clearance; it does not collapse
    * an in-flow header or resize the scrollport. That path can safely hide when
@@ -74,6 +77,7 @@ export function computeScrollHideUpdate(params: {
   maxOffset?: number;
   previousMaxOffset?: number;
   collapseBudget?: number;
+  combinedChrome?: boolean;
   collapseKind?: "in-flow" | "reserve-only";
   sourceChanged?: boolean;
   currentlyHidden: boolean;
@@ -91,6 +95,7 @@ export function computeScrollHideUpdate(params: {
     maxOffset,
     previousMaxOffset,
     collapseBudget,
+    combinedChrome = false,
     collapseKind,
     sourceChanged = false,
     currentlyHidden,
@@ -174,11 +179,12 @@ export function computeScrollHideUpdate(params: {
     // refuse when the current offset would not fit the post-collapse range —
     // otherwise a near-bottom hide clamps the page under the finger even when
     // the resulting range itself is long enough for deliberate intent.
+    const inFlowRunwaySlack = combinedChrome ? collapseRunwaySlack : singleOwnerRunwaySlack;
     const collapseHasSafeRunway =
       collapseKind === "reserve-only"
         ? postCollapseMaxOffset >= effectiveHideActivationOffset + hideIntentDistance &&
           offset <= postCollapseMaxOffset + bottomClampTolerance
-        : runwayAfterCollapse > revealIntentDistance + collapseRunwaySlack;
+        : runwayAfterCollapse > revealIntentDistance + inFlowRunwaySlack;
     hidden = travelPastActivation >= hideIntentDistance && collapseHasSafeRunway;
   } else if (currentlyHidden && nextDirection === "up" && nextDirectionTravel >= revealIntentDistance) {
     hidden = false;
@@ -211,7 +217,7 @@ export function computeScrollHideUpdate(params: {
  */
 export function readChromeCollapseMetrics(
   scroller: HTMLElement,
-): Pick<ScrollMetrics, "collapseBudget" | "collapseKind"> {
+): Pick<ScrollMetrics, "collapseBudget" | "collapseKind" | "combinedChrome"> {
   const collapse = document.querySelector('[data-testid="universal-header-collapse"]');
   // The 1fr -> 0fr grid IS the collapse mechanism, so the wrapper only hands
   // layout back while it is a grid at the current width. Where it sticks and
@@ -255,6 +261,7 @@ export function readChromeCollapseMetrics(
   return {
     collapseBudget: headerRelease + phoneSafeAreaRelease + reserveRelease,
     collapseKind: collapse instanceof HTMLElement ? "in-flow" : reserveRelease > 0 ? "reserve-only" : undefined,
+    combinedChrome: headerRelease > 0 && reserveRelease > 0,
   };
 }
 
@@ -326,13 +333,14 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
 
   const reportScroll = useCallback(
     (report: number | ScrollMetrics) => {
-      const { offset, maxOffset, collapseBudget, collapseKind, source } =
+      const { offset, maxOffset, collapseBudget, collapseKind, combinedChrome, source } =
         typeof report === "number"
           ? {
               offset: report,
               maxOffset: undefined,
               collapseBudget: undefined,
               collapseKind: undefined,
+              combinedChrome: undefined,
               source: undefined,
             }
           : report;
@@ -360,6 +368,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
         previousMaxOffset,
         collapseBudget,
         collapseKind,
+        combinedChrome,
         sourceChanged,
         currentlyHidden: hiddenRef.current,
         direction: directionRef.current,

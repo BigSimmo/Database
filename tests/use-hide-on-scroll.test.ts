@@ -339,6 +339,7 @@ describe("computeScrollHideUpdate", () => {
         maxOffset: 2_750,
         collapseBudget,
         collapseKind: "in-flow",
+        combinedChrome: true,
         currentlyHidden: false,
         direction: "down",
         directionTravel: 96,
@@ -501,6 +502,20 @@ describe("computeScrollHideUpdate", () => {
         offset: 100,
         lastOffset: 80,
         maxOffset: 266,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(true);
+  });
+
+  it("does not apply combined-phone runway slack to a zero-budget reporter", () => {
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 200,
+        collapseBudget: 0,
         currentlyHidden: false,
         direction: "down",
         directionTravel: 80,

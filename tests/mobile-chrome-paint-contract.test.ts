@@ -55,6 +55,8 @@ describe("mobile chrome paint baseline", () => {
 
   it("registers the calculator page reserve with the shared hide and transition contracts", () => {
     expect(calculatorsSource).toContain("useReserveTransitionMarker(dockHidden, activeCalc)");
+    expect(calculatorsSource).toContain("if (!activeCalc) return undefined");
+    expect(calculatorsSource).toContain("queueMicrotask(() =>");
     expect(calculatorsSource).toContain('reserveOwner="calculator"');
     expect(calculatorsSource).toContain('reserveHiddenPad="0rem"');
     expect(calculatorsSource).toContain("reserveTransitioning={reserveTransitioning}");

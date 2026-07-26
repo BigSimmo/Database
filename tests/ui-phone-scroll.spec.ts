@@ -342,6 +342,23 @@ test("calculators page-owned phone dock uses localized glass and releases its re
   await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 });
 
+test("calculator dock clears its focus pin after a focused submit opens and closes a sheet", async ({ page }) => {
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/calculators", 112);
+
+  const dock = page.getByTestId("calculators-phone-dock");
+  const input = dock.getByRole("searchbox", { name: "Search calculators" });
+  await input.fill("PHQ-9");
+  await input.press("Enter");
+  await expect(page.getByRole("button", { name: "Close", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+  await expect(dock).toBeVisible();
+
+  await addPhoneScrollRunway(page);
+  await dragScrollBy(page, 900, 24);
+  await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
+});
+
 test("calculator combined chrome stays visible with only 96px of near-bottom runway", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
