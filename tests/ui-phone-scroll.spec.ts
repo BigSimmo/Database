@@ -157,7 +157,11 @@ test("phone chrome has an opaque header, one edge-to-edge footer, and releases b
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
-  await gotoPhoneSurface(page, "/?mode=documents");
+  // /formulation/worry is a non-home GlobalSearchShell route: heroOwnsPhoneComposer
+  // is false here so the bottom dock IS rendered and the backdrop is present in
+  // the DOM (CSS hides it). /?mode=documents in its home state sets
+  // heroOwnsPhoneComposer=true and omits the dock entirely.
+  await gotoPhoneSurface(page, "/formulation/worry");
 
   const visible = await page.evaluate(() => {
     const header = document.querySelector<HTMLElement>("header#search");
