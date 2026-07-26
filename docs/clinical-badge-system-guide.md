@@ -432,7 +432,7 @@ Map semantic tones to existing tokens:
 | `neutral`     | `toneNeutral` / metadata pill               |
 | `clinical`    | clinical accent token (`--clinical-accent`) |
 | `success`     | `toneSuccess`                               |
-| `warning`     | `toneWarning` or `toneWarningQuiet`         |
+| `warning`     | `toneWarning` (quiet warning is private to source badges) |
 | `danger`      | `toneDanger`                                |
 | `info`        | `toneInfo`                                  |
 
