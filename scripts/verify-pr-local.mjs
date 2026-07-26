@@ -1,12 +1,8 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { childProcessExitCode } from "./child-process-result.mjs";
-import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 
 const isWindows = process.platform === "win32";
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baseScripts = ["check:runtime", "format:changed", "lint", "typecheck", "test"];
 
 function parseArgs(args) {
@@ -48,11 +44,11 @@ function parseArgs(args) {
   return options;
 }
 
-function runNpmScript(script, environment) {
+function runNpmScript(script) {
   console.log(`\n> npm run ${script}`);
   const result = isWindows
-    ? spawnSync("cmd.exe", ["/d", "/s", "/c", `npm run ${script}`], { env: environment, stdio: "inherit" })
-    : spawnSync("npm", ["run", script], { env: environment, stdio: "inherit" });
+    ? spawnSync("cmd.exe", ["/d", "/s", "/c", `npm run ${script}`], { stdio: "inherit" })
+    : spawnSync("npm", ["run", script], { stdio: "inherit" });
   return childProcessExitCode(result);
 }
 
@@ -91,15 +87,10 @@ if (options.dryRun) {
   process.exit(0);
 }
 
-const lock = acquireHeavyRunLock({ projectRoot, command: "npm run verify:pr-local" });
 let exitCode = 0;
-try {
-  for (const script of scripts) {
-    exitCode = runNpmScript(script, lock.environment);
-    if (exitCode !== 0) break;
-  }
-} finally {
-  lock.release();
+for (const script of scripts) {
+  exitCode = runNpmScript(script);
+  if (exitCode !== 0) break;
 }
 
 if (exitCode !== 0) process.exit(exitCode);

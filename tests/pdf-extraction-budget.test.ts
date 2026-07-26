@@ -99,6 +99,20 @@ describe("PDF extraction budgets", () => {
     );
   });
 
+  it("accepts fractional render dimensions within the pixel budget", () => {
+    const tracker = new PdfExtractionBudgetTracker({
+      ...PDF_EXTRACTION_BUDGET,
+      maxRenderPixels: 101 * 101,
+    });
+    expect(() => tracker.assertRenderDimensions(100.5, 100.5)).not.toThrow();
+    expect(() =>
+      new PdfExtractionBudgetTracker({ ...PDF_EXTRACTION_BUDGET, maxRenderPixels: 100 }).assertRenderDimensions(
+        100.5,
+        100.5,
+      ),
+    ).toThrow(/PDF_EXTRACTION_BUDGET_EXCEEDED/);
+  });
+
   it("terminates the Python child tree when the total deadline expires", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-pdf-deadline-"));
     roots.push(root);
