@@ -163,5 +163,5 @@ focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]` block
    isn't "corrected" to `focus-visible:`.
 
 Gaps 1, 3, and 4 are now closed. Remaining: **gap 2** (`active:` press feedback
-beyond the private `controlBase` family — an aesthetic/design-team call) and
-**gap 5** (inputs intentionally use `focus:`, no change needed).
+beyond the private `controlBase` family — an aesthetic/design-team call).
+**Gap 5** (inputs use `focus:` not `focus-visible:`) is an accepted convention.
