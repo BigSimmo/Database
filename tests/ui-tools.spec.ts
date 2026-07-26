@@ -334,6 +334,8 @@ async function globalSearchComposerMetrics(page: Page, homeTestId?: string) {
         homeCenterX: homeRect ? homeRect.left + homeRect.width / 2 : null,
         position: style.position,
         stickyAncestor,
+        composerPlacement: form.dataset.composerPlacement ?? null,
+        insideDesktopPageSlot: Boolean(form.closest('[data-testid="desktop-page-search-composer-slot"]')),
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
         pillClassName: pill?.className?.toString() ?? "",
@@ -937,14 +939,21 @@ test.describe("Clinical KB tools launcher", () => {
             // bottom (safe-area is padding inside the form, not a `bottom` gap).
             expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(viewport.height - 2);
           }
-        } else {
+        } else if (viewport.width < 1024) {
           // Sticky-stack shells pin via an outer wrapper; collapse-everywhere hosts
-          // still self-sticky the form. Either keeps the composer in the top band.
+          // still self-sticky the form. Tablet behaviour stays unchanged.
           expect(
             metrics?.position === "sticky" || metrics?.stickyAncestor,
             `${route.path} at ${viewport.name} should stick via the form or its sticky stack`,
           ).toBe(true);
           expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.25);
+          await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
+        } else {
+          expect(metrics?.composerPlacement).toBe("desktop-page");
+          expect(metrics?.insideDesktopPageSlot).toBe(true);
+          expect(metrics?.position).toBe("relative");
+          expect(metrics?.stickyAncestor).toBe(false);
+          expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.35);
           await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
         }
 

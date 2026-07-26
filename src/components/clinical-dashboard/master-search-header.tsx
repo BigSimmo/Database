@@ -78,7 +78,7 @@ const composerPrivacyWarningId = "answer-composer-privacy-warning";
 
 const phoneSearchLayoutMediaQuery = "(max-width: 639px)";
 const scopeSheetMediaQuery = "(max-width: 1023px)";
-const desktopHomeComposerMediaQuery = "(min-width: 1024px)";
+const desktopPageComposerMediaQuery = "(min-width: 1024px)";
 const modeHomeComposerMediaQuery = "(min-width: 0px)";
 const modeHomeComposerSmUpMediaQuery = "(min-width: 640px)";
 
@@ -183,6 +183,7 @@ export function MasterSearchHeader({
   desktopSearchPlacement = "default",
   searchComposerVisible = true,
   desktopHomeComposerSlotId,
+  desktopPageComposerSlotId,
   heroComposerBreakpoint = "all",
   mobileBottomSearchAddonSlotId,
   headerCollapseAddonSlotId,
@@ -244,6 +245,9 @@ export function MasterSearchHeader({
    *  middle of the hero instead of docking to the bottom edge. Which widths the
    *  hero owns is controlled by `heroComposerBreakpoint`. */
   desktopHomeComposerSlotId?: string;
+  /** Normal-flow page slot used by submitted/search views on desktop only.
+   * Below lg the existing phone dock/tablet sticky composer remains the owner. */
+  desktopPageComposerSlotId?: string;
   /** Widths where the mode-home hero slot hosts the composer. "all" keeps the
    *  hero pill on phones too (the answer home); "sm-up" reserves the hero for
    *  sm+ widths and hands phones the compact bottom dock instead. */
@@ -281,11 +285,11 @@ export function MasterSearchHeader({
      * whose scrollport is an internal element at every width (ClinicalDashboard's
      * `<main>`), where the released strip goes straight to the content.
      *
-     * "sticky" pins an outer stack (top bar + search) to the viewport top above
-     * phones and still collapses only the top-bar row inside that stack — for
-     * hosts that hand scrolling back to the document (GlobalSearchShell). The
-     * search composer must stay outside the collapsing row so tablet/desktop
-     * keep a usable search field.
+     * "sticky" pins an outer stack to the viewport top above phones and still
+     * collapses only the top-bar row inside that stack — for hosts that hand
+     * scrolling back to the document (GlobalSearchShell). Tablet search stays
+     * in that stack; desktop result search may portal into page flow, leaving
+     * the same stack to own only the top bar.
      */
     wide?: "collapse" | "sticky";
     /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
@@ -356,13 +360,13 @@ export function MasterSearchHeader({
   // unavailable on the server). Sync from matchMedia after mount; Mode open
   // paths also refresh from the live query so the first tap still picks Sheet.
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
-  const [desktopHomeComposerActive, setDesktopHomeComposerActive] = useState(false);
-  // True once the hero portal is conclusively unavailable — the media query
+  const [desktopComposerPortalActive, setDesktopComposerPortalActive] = useState(false);
+  // True once the requested page/hero portal is conclusively unavailable — the media query
   // does not match, or the slot never appeared after the retry budget. While a
   // slot id is present and this is false the inline composer stays suppressed
   // (no flash while the portal mounts); once it flips true the inline composer
   // renders, so the search can never vanish from the page at any width.
-  const [desktopHomeComposerFallback, setDesktopHomeComposerFallback] = useState(false);
+  const [desktopComposerPortalFallback, setDesktopComposerPortalFallback] = useState(false);
   // Phone-only hide-on-scroll: never hide while a header-owned surface is open
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
@@ -426,7 +430,7 @@ export function MasterSearchHeader({
 
   // Stable, header-owned element the composer is portaled into; we move it in and
   // out of the page-owned slot rather than portaling into the slot directly.
-  const [desktopHomeComposerHost, setDesktopHomeComposerHost] = useState<HTMLDivElement | null>(null);
+  const [desktopComposerPortalHost, setDesktopComposerPortalHost] = useState<HTMLDivElement | null>(null);
   const modeMenuRef = useRef<HTMLDivElement | null>(null);
   const modeButtonRef = useRef<HTMLButtonElement | null>(null);
   const modeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -981,16 +985,22 @@ export function MasterSearchHeader({
   }, [onScopeOpenChange, scopeOpen, scopeSheetOpen]);
 
   useEffect(() => {
-    if (!desktopHomeComposerSlotId) {
-      // No hero slot at this route: reset the portal state. Deferred to a
+    // A mode-home hero always takes precedence over the generic desktop page
+    // slot. Hosts normally pass only one, but this keeps ownership deterministic
+    // during route transitions where both slots can briefly coexist.
+    const composerSlotId = desktopHomeComposerSlotId ?? desktopPageComposerSlotId;
+    const composerSlotKind = desktopHomeComposerSlotId ? "home" : "page";
+
+    if (!composerSlotId) {
+      // No page-owned slot at this route: reset the portal state. Deferred to a
       // microtask (not requestAnimationFrame) so it stays off the synchronous
       // effect body without being frame-gated — headless CI can starve rAF.
       let cancelled = false;
       queueMicrotask(() => {
         if (cancelled) return;
-        setDesktopHomeComposerActive(false);
-        setDesktopHomeComposerFallback(false);
-        setDesktopHomeComposerHost(null);
+        setDesktopComposerPortalActive(false);
+        setDesktopComposerPortalFallback(false);
+        setDesktopComposerPortalHost(null);
       });
       return () => {
         cancelled = true;
@@ -999,24 +1009,22 @@ export function MasterSearchHeader({
 
     // The composer is portaled into a stable host we own, and we move that host
     // in and out of the page-owned slot as it appears/disappears. The slot is
-    // rendered by mode-home pages and unmounts on navigation; portaling directly
+    // rendered by page content and unmounts on navigation; portaling directly
     // into it made React reconcile the portal against a container that another
     // part of the tree had already removed, throwing a null-parentNode error.
     // Because the host is stable, React's portal container never disappears.
-    // heroComposerBreakpoint decides which widths use the slot: "all" keeps the
-    // composer in the middle of the hero on phones too (the answer home), while
-    // "sm-up" leaves phones to the compact bottom dock and reserves the hero
-    // for sm+ widths.
+    // Hero slots retain their existing all/sm-up ownership. Generic page slots
+    // are desktop-only so phone docks and tablet sticky composers do not change.
     const host = document.createElement("div");
     // Layout-transparent so the composer lays out as a direct child of the slot.
     host.style.display = "contents";
 
     const mediaQuery = window.matchMedia(
-      desktopHomeComposerSlotId
+      composerSlotKind === "home"
         ? heroComposerBreakpoint === "sm-up"
           ? modeHomeComposerSmUpMediaQuery
           : modeHomeComposerMediaQuery
-        : desktopHomeComposerMediaQuery,
+        : desktopPageComposerMediaQuery,
     );
 
     let retryTimeout: number | null = null;
@@ -1032,16 +1040,16 @@ export function MasterSearchHeader({
         window.clearTimeout(retryTimeout);
         retryTimeout = null;
       }
-      const slot = mediaQuery.matches ? document.getElementById(desktopHomeComposerSlotId) : null;
+      const slot = mediaQuery.matches ? document.getElementById(composerSlotId) : null;
       if (slot) {
         portalRetryCount = 0;
         if (host.parentNode !== slot) slot.appendChild(host);
-        setDesktopHomeComposerHost(host);
-        setDesktopHomeComposerActive(true);
-        setDesktopHomeComposerFallback(false);
+        setDesktopComposerPortalHost(host);
+        setDesktopComposerPortalActive(true);
+        setDesktopComposerPortalFallback(false);
       } else {
         host.parentNode?.removeChild(host);
-        setDesktopHomeComposerActive(false);
+        setDesktopComposerPortalActive(false);
         if (mediaQuery.matches && portalRetryCount < 24) {
           portalRetryCount += 1;
           retryTimeout = window.setTimeout(syncTarget, Math.min(40 * portalRetryCount, 400));
@@ -1050,7 +1058,7 @@ export function MasterSearchHeader({
           // appeared within the retry budget: release the inline fallback so
           // the search cannot vanish. The MutationObserver keeps watching, so
           // a slot that shows up later still reclaims the portal.
-          setDesktopHomeComposerFallback(true);
+          setDesktopComposerPortalFallback(true);
         }
       }
     };
@@ -1064,11 +1072,11 @@ export function MasterSearchHeader({
       observer.disconnect();
       mediaQuery.removeEventListener("change", syncTarget);
       host.parentNode?.removeChild(host);
-      setDesktopHomeComposerActive(false);
-      setDesktopHomeComposerFallback(false);
-      setDesktopHomeComposerHost(null);
+      setDesktopComposerPortalActive(false);
+      setDesktopComposerPortalFallback(false);
+      setDesktopComposerPortalHost(null);
     };
-  }, [desktopHomeComposerSlotId, heroComposerBreakpoint]);
+  }, [desktopHomeComposerSlotId, desktopPageComposerSlotId, heroComposerBreakpoint]);
 
   const dismissModeMenu = useCallback(() => setModeMenuOpen(false), []);
   function dismissScope(reason: "outside" | "escape") {
@@ -1394,8 +1402,9 @@ export function MasterSearchHeader({
   const collapsesAtEveryWidth = wideCollapseBehaviour === "collapse";
   const sticksAbovePhones = wideCollapseBehaviour === "sticky";
 
-  function renderSearchComposer(placement: "default" | "desktop-home") {
+  function renderSearchComposer(placement: "default" | "desktop-home" | "desktop-page") {
     const isDesktopHomeComposer = placement === "desktop-home";
+    const isDesktopPageComposer = placement === "desktop-page";
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
@@ -1447,6 +1456,7 @@ export function MasterSearchHeader({
     return (
       <form
         onSubmit={submit}
+        data-composer-placement={placement}
         onTouchStart={(e) => {
           touchStartY.current = e.touches[0].clientY;
         }}
@@ -1478,27 +1488,29 @@ export function MasterSearchHeader({
         className={cn(
           isDesktopHomeComposer
             ? "universal-home-search-edge mx-auto w-full"
-            : usesAnswerFooterStyle
-              ? "floating-composer-edge dashboard-composer-edge fixed bottom-0 z-40 mx-auto max-w-3xl lg:max-w-4xl"
-              : usesMobileBottomStyle
-                ? cn(
-                    usesPhoneFooterDock
-                      ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
-                      : cn(
-                          "document-mobile-search-edge universal-top-search-edge z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                          // Sticky-stack hosts already pin [top bar | search]. Never
-                          // leave a `fixed`/`sticky` composer in that stack — it
-                          // overlays page controls (Services decision rail).
-                          stickySearchOwnedByOuterStack
-                            ? "relative"
-                            : cn("fixed", isHeroDesktopComposer ? "sm:hidden" : stickySearchPositionClass),
-                          stickySearchOwnedByOuterStack && isHeroDesktopComposer && "sm:hidden",
-                        ),
-                  )
-                : cn(
-                    "universal-top-search-edge mx-auto box-border w-full px-3 py-3 sm:px-4",
-                    stickySearchOwnedByOuterStack ? "relative z-20" : cn("sticky z-20", stickySearchTopClass),
-                  ),
+            : isDesktopPageComposer
+              ? "document-mobile-search-edge universal-top-search-edge relative z-20 mx-auto w-full max-w-3xl px-4 py-3 lg:max-w-4xl"
+              : usesAnswerFooterStyle
+                ? "floating-composer-edge dashboard-composer-edge fixed bottom-0 z-40 mx-auto max-w-3xl lg:max-w-4xl"
+                : usesMobileBottomStyle
+                  ? cn(
+                      usesPhoneFooterDock
+                        ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
+                        : cn(
+                            "document-mobile-search-edge universal-top-search-edge z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
+                            // Sticky-stack hosts already pin [top bar | search]. Never
+                            // leave a `fixed`/`sticky` composer in that stack — it
+                            // overlays page controls (Services decision rail).
+                            stickySearchOwnedByOuterStack
+                              ? "relative"
+                              : cn("fixed", isHeroDesktopComposer ? "sm:hidden" : stickySearchPositionClass),
+                            stickySearchOwnedByOuterStack && isHeroDesktopComposer && "sm:hidden",
+                          ),
+                    )
+                  : cn(
+                      "universal-top-search-edge mx-auto box-border w-full px-3 py-3 sm:px-4",
+                      stickySearchOwnedByOuterStack ? "relative z-20" : cn("sticky z-20", stickySearchTopClass),
+                    ),
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
@@ -1997,14 +2009,16 @@ export function MasterSearchHeader({
     </header>
   );
 
+  const composerPortalRequested = desktopHomeComposerSlotId ?? desktopPageComposerSlotId;
+  const portalPlacement = desktopHomeComposerSlotId ? "desktop-home" : "desktop-page";
   const searchComposer = searchComposerVisible ? (
     <>
-      {(desktopHomeComposerActive && desktopHomeComposerHost) ||
-      (desktopHomeComposerSlotId && !desktopHomeComposerFallback)
+      {(desktopComposerPortalActive && desktopComposerPortalHost) ||
+      (composerPortalRequested && !desktopComposerPortalFallback)
         ? null
         : renderSearchComposer("default")}
-      {desktopHomeComposerActive && desktopHomeComposerHost
-        ? createPortal(renderSearchComposer("desktop-home"), desktopHomeComposerHost)
+      {desktopComposerPortalActive && desktopComposerPortalHost
+        ? createPortal(renderSearchComposer(portalPlacement), desktopComposerPortalHost)
         : null}
     </>
   ) : null;
@@ -2018,9 +2032,9 @@ export function MasterSearchHeader({
     // tree via `position: fixed`; hero composers portal out.
     //
     // Above the phone breakpoint a `wide: "sticky"` host scrolls the document,
-    // so an outer sticky stack pins [top bar | search] below the always-on
-    // safe-area spacer. Only the top-bar row collapses — translating the whole
-    // stack would take the search field with it. Return a fragment (never a
+    // so an outer sticky stack pins its chrome below the always-on safe-area
+    // spacer. Tablet search remains in that stack; desktop result search portals
+    // into page flow, so the stack contains only the top bar there. Return a fragment (never a
     // wrapping block): GlobalSearchShell uses `sm:contents` on the chrome
     // parent so sticky can travel against the viewport.
     const collapsingTopBar = (

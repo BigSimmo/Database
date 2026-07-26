@@ -678,7 +678,7 @@ export function FormulationBuilderPage({
               type="button"
               onClick={() => move(-1)}
               disabled={activeIndex === 0}
-              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] disabled:opacity-40"
+              className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-[color:var(--border-strong)] bg-[color:var(--surface)] px-4 text-sm font-bold text-[color:var(--text-muted)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)]"
             >
               <ArrowLeft className="h-4 w-4" aria-hidden />
               Previous
@@ -688,7 +688,7 @@ export function FormulationBuilderPage({
                 type="button"
                 onClick={() => move(1)}
                 disabled={activeStep === "select" && selectedMechanisms.length === 0}
-                className="inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] disabled:cursor-not-allowed disabled:opacity-45"
+                className="inline-flex min-h-tap items-center gap-2 rounded-lg border border-transparent bg-[color:var(--command)] px-4 text-sm font-bold text-[color:var(--command-contrast)] shadow-[var(--shadow-tight)] disabled:cursor-not-allowed disabled:border-[color:var(--border)] disabled:bg-[color:var(--surface-inset)] disabled:text-[color:var(--text-muted)] disabled:shadow-none"
               >
                 {activeStep === "select"
                   ? "Continue to framework"
