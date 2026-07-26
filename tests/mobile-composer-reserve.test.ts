@@ -100,16 +100,18 @@ describe("mobile composer reserve contract", () => {
     ).toBe(mobileComposerIdleReserve);
   });
 
-  it("derives hero phone ownership from the mounted hero slot, not answer-home alone", () => {
-    // Answer-home + !canRunSearch keeps showAnswerHome true while the hero slot
-    // is unset (showDesktopHomeComposer requires !error). Ownership must follow
-    // the slot so the dock reserve stays and the fixed composer cannot cover the
-    // setup/error message.
+  it("derives hero phone ownership from the mounted hero slot; only answer home uses all-widths breakpoint", () => {
+    // Only the answer home needs "all" (phones keep the in-flow hero pill).
+    // All other mode homes (documents, prescribing, tools, favourites) should
+    // hand phones the compact bottom dock via "sm-up". Using showAnswerHome
+    // alone is safe even when showAnswerHome=true but there is an error state:
+    // desktopHomeComposerSlotId is undefined in that case, so heroOwnsPhoneComposer
+    // stays false regardless of the breakpoint value.
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
     expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
     expect(dashboard).toContain(
-      'const heroComposerBreakpoint = showDesktopHomeComposer || showAnswerHome ? "all" : "sm-up";',
+      'const heroComposerBreakpoint = showAnswerHome ? "all" : "sm-up";',
     );
     expect(dashboard).toContain(
       'const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
