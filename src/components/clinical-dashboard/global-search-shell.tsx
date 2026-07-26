@@ -12,6 +12,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 
 import dynamic from "next/dynamic";
@@ -204,29 +205,32 @@ function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
   return <GlobalStandaloneSearchShellClient {...props} />;
 }
 
+function subscribeNoop() {
+  return () => undefined;
+}
+
 /**
  * Isolates `useSearchParams()` so the standalone shell body (and route children)
- * are not descendants of that Suspense boundary. Mount-gated so SSR never calls
- * `useSearchParams` on always-standalone routes (avoids an outer incomplete `S:`
- * boundary wrapping the page segment).
+ * are not descendants of that Suspense boundary. Client-only via
+ * useSyncExternalStore so SSR never calls `useSearchParams` on always-standalone
+ * routes (avoids an outer incomplete `S:` boundary wrapping the page segment).
  */
 function ShellSearchParamsBridge({ onParamString }: { onParamString: (value: string) => void }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-  if (!mounted) return null;
+  const ready = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
+  if (!ready) return null;
   return <ShellSearchParamsBridgeInner onParamString={onParamString} />;
 }
 
 function ShellSearchParamsBridgeInner({ onParamString }: { onParamString: (value: string) => void }) {
   const searchParams = useSearchParams();
   const paramString = searchParams.toString();
-  const onParamStringRef = useRef(onParamString);
-  onParamStringRef.current = onParamString;
   useLayoutEffect(() => {
-    onParamStringRef.current(paramString);
-  }, [paramString]);
+    onParamString(paramString);
+  }, [onParamString, paramString]);
   return null;
 }
 
