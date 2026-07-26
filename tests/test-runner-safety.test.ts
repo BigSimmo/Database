@@ -1,7 +1,7 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { childProcessExitCode, childProcessFailureSummary } from "../scripts/child-process-result.mjs";
@@ -11,7 +11,9 @@ import {
   providerEnvironmentKeys,
   requireProviderTestPermission,
 } from "../scripts/test-environment.mjs";
-import { acquireHeavyRunLock } from "../scripts/test-run-lock.mjs";
+import { acquireHeavyRunLock, testRunLockInternals } from "../scripts/test-run-lock.mjs";
+import { typescriptBuildInfoPath, vitestCacheDirectory } from "../scripts/test-cache-path.mjs";
+import { vitestLeaseMode } from "../scripts/test-run-selection.mjs";
 import { redactSensitiveText } from "../scripts/sensitive-text.mjs";
 
 const temporaryDirectories: string[] = [];
@@ -24,6 +26,20 @@ function temporaryDirectory(prefix: string) {
   const directory = mkdtempSync(path.join(os.tmpdir(), prefix));
   temporaryDirectories.push(directory);
   return directory;
+}
+
+function requireLeasePath(lease: { path?: string }) {
+  if (!lease.path) throw new Error("Expected an acquired test lease to have a path");
+  return lease.path;
+}
+
+async function waitForCondition(predicate: () => boolean, timeoutMs = 2000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error("Timed out waiting for coordinator test condition");
 }
 
 describe("child process results", () => {
@@ -44,6 +60,11 @@ describe("child process results", () => {
 });
 
 describe("repository-wide heavyweight lock", () => {
+  it("lets exclusive work queue through long browser or build leases without making focused runs wait indefinitely", () => {
+    expect(testRunLockInternals.defaultWaitTimeoutFor("shared")).toBe(30_000);
+    expect(testRunLockInternals.defaultWaitTimeoutFor("exclusive")).toBe(15 * 60_000);
+  });
+
   it("uses a workspace-local identity only when a packaged build context has no Git metadata", () => {
     const projectRoot = temporaryDirectory("clinical-kb-no-git-");
     const baseDirectory = temporaryDirectory("clinical-kb-no-git-lock-");
@@ -58,6 +79,54 @@ describe("repository-wide heavyweight lock", () => {
       process.platform === "win32" ? expectedIdentity.toLowerCase() : expectedIdentity,
     );
     lock.release();
+  });
+
+  it("waits for a newly-created ownerless coordinator root instead of entering partial state", () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-initializing-lock-");
+    const repositoryIdentity = path.join(baseDirectory, "shared.git");
+    const lockPath = testRunLockInternals.lockPathFor(repositoryIdentity, baseDirectory);
+    mkdirSync(lockPath, { recursive: true });
+
+    expect(() =>
+      acquireHeavyRunLock({
+        projectRoot: path.join(baseDirectory, "worktree-a"),
+        repositoryIdentity,
+        baseDirectory,
+        environment: {},
+        command: "focused-a",
+        mode: "shared",
+        waitTimeoutMs: 0,
+      }),
+    ).toThrow(/coordinator is being initialized/);
+  });
+
+  it("does not bypass a live legacy single-owner lock", () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-legacy-lock-");
+    const repositoryIdentity = path.join(baseDirectory, "shared.git");
+    const lockPath = testRunLockInternals.lockPathFor(repositoryIdentity, baseDirectory);
+    const legacyOwner = {
+      pid: process.pid,
+      token: "legacy-owner",
+      command: "legacy full suite",
+      worktree: path.join(baseDirectory, "legacy-worktree"),
+      repositoryIdentity,
+      startedAt: new Date().toISOString(),
+    };
+    mkdirSync(lockPath, { recursive: true });
+    writeFileSync(path.join(lockPath, "owner.json"), `${JSON.stringify(legacyOwner, null, 2)}\n`, "utf8");
+
+    expect(() =>
+      acquireHeavyRunLock({
+        projectRoot: path.join(baseDirectory, "worktree-a"),
+        repositoryIdentity,
+        baseDirectory,
+        environment: {},
+        command: "focused-a",
+        mode: "shared",
+        waitTimeoutMs: 0,
+      }),
+    ).toThrow(/focused-test capacity is full/);
+    expect(readFileSync(path.join(lockPath, "owner.json"), "utf8")).toContain("legacy-owner");
   });
 
   it("blocks another worktree but permits a nested child with the owner token", () => {
@@ -78,6 +147,7 @@ describe("repository-wide heavyweight lock", () => {
         baseDirectory,
         environment: {},
         command: "second",
+        waitTimeoutMs: 0,
       }),
     ).toThrow(/Another Database heavyweight command is active/);
 
@@ -91,6 +161,184 @@ describe("repository-wide heavyweight lock", () => {
     expect(nested.reentrant).toBe(true);
     nested.release();
     first.release();
+  });
+
+  it("admits two focused leases from different worktrees while keeping heavyweight work exclusive", () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-shared-lock-");
+    const repositoryIdentity = path.join(baseDirectory, "shared.git");
+    const first = acquireHeavyRunLock({
+      projectRoot: path.join(baseDirectory, "worktree-a"),
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      command: "focused-a",
+      mode: "shared",
+    });
+    const second = acquireHeavyRunLock({
+      projectRoot: path.join(baseDirectory, "worktree-b"),
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      command: "focused-b",
+      mode: "shared",
+    });
+
+    try {
+      expect(first.owner.mode).toBe("shared");
+      expect(second.owner.mode).toBe("shared");
+      expect(first.path).not.toBe(second.path);
+      const sentinel = JSON.parse(readFileSync(path.join(first.coordinatorPath, "owner.json"), "utf8")) as {
+        pid: number;
+        holderPid: number;
+        coordinator: boolean;
+      };
+      expect(sentinel.coordinator).toBe(true);
+      expect(sentinel.holderPid).toBe(process.pid);
+      expect(testRunLockInternals.processIsAlive(sentinel.pid)).toBe(true);
+      expect(() =>
+        acquireHeavyRunLock({
+          projectRoot: path.join(baseDirectory, "worktree-c"),
+          repositoryIdentity,
+          baseDirectory,
+          environment: {},
+          command: "focused-c",
+          mode: "shared",
+          waitTimeoutMs: 0,
+        }),
+      ).toThrow(/focused-test capacity is full/);
+      expect(() =>
+        acquireHeavyRunLock({
+          projectRoot: path.join(baseDirectory, "worktree-c"),
+          repositoryIdentity,
+          baseDirectory,
+          environment: {},
+          command: "full-suite",
+          waitTimeoutMs: 0,
+        }),
+      ).toThrow(/Another Database heavyweight command is active/);
+
+      const nested = acquireHeavyRunLock({
+        projectRoot: path.join(baseDirectory, "worktree-b"),
+        repositoryIdentity,
+        baseDirectory,
+        environment: second.environment,
+        command: "nested",
+        mode: "shared",
+      });
+      expect(nested.reentrant).toBe(true);
+
+      first.release();
+      const replacement = acquireHeavyRunLock({
+        projectRoot: path.join(baseDirectory, "worktree-c"),
+        repositoryIdentity,
+        baseDirectory,
+        environment: {},
+        command: "focused-c",
+        mode: "shared",
+        waitTimeoutMs: 0,
+      });
+      replacement.release();
+    } finally {
+      first.release();
+      second.release();
+    }
+  });
+
+  it("does not admit overlapping focused runs from the same worktree", () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-same-worktree-lock-");
+    const repositoryIdentity = path.join(baseDirectory, "shared.git");
+    const projectRoot = path.join(baseDirectory, "worktree-a");
+    const first = acquireHeavyRunLock({
+      projectRoot,
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      command: "focused-a",
+      mode: "shared",
+    });
+    try {
+      expect(() =>
+        acquireHeavyRunLock({
+          projectRoot,
+          repositoryIdentity,
+          baseDirectory,
+          environment: {},
+          command: "focused-a-second",
+          mode: "shared",
+          waitTimeoutMs: 0,
+        }),
+      ).toThrow(/focused-test capacity is full/);
+    } finally {
+      first.release();
+    }
+  });
+
+  it("gives a queued heavyweight process priority over later focused work", async () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-fair-lock-");
+    const repositoryIdentity = path.join(baseDirectory, "shared.git");
+    const first = acquireHeavyRunLock({
+      projectRoot: path.join(baseDirectory, "worktree-a"),
+      repositoryIdentity,
+      baseDirectory,
+      environment: {},
+      command: "focused-a",
+      mode: "shared",
+    });
+    const lockModuleUrl = new URL("../scripts/test-run-lock.mjs", import.meta.url).href;
+    const childSource = `
+      import path from "node:path";
+      import { acquireHeavyRunLock } from ${JSON.stringify(lockModuleUrl)};
+      const lock = acquireHeavyRunLock({
+        projectRoot: path.join(process.env.COORDINATOR_TEST_BASE, "worktree-exclusive"),
+        repositoryIdentity: process.env.COORDINATOR_TEST_IDENTITY,
+        baseDirectory: process.env.COORDINATOR_TEST_BASE,
+        environment: {},
+        command: "full-suite",
+        waitTimeoutMs: 5000,
+      });
+      console.log("exclusive-acquired");
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      lock.release();
+    `;
+    const child = spawn(process.execPath, ["--input-type=module", "-e", childSource], {
+      env: {
+        ...process.env,
+        COORDINATOR_TEST_BASE: baseDirectory,
+        COORDINATOR_TEST_IDENTITY: repositoryIdentity,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => (stdout += String(chunk)));
+    child.stderr.on("data", (chunk) => (stderr += String(chunk)));
+    const childResult = new Promise<number>((resolve) => child.on("close", (status) => resolve(status ?? 1)));
+
+    try {
+      const queueDirectory = testRunLockInternals.coordinatorPaths(first.coordinatorPath).queue;
+      await waitForCondition(() =>
+        readdirSync(queueDirectory).some((file) => {
+          const ticket = JSON.parse(readFileSync(path.join(queueDirectory, file), "utf8")) as { mode: string };
+          return ticket.mode === "exclusive";
+        }),
+      );
+      expect(() =>
+        acquireHeavyRunLock({
+          projectRoot: path.join(baseDirectory, "worktree-b"),
+          repositoryIdentity,
+          baseDirectory,
+          environment: {},
+          command: "focused-b",
+          mode: "shared",
+          waitTimeoutMs: 0,
+        }),
+      ).toThrow(/focused-test capacity is full/);
+    } finally {
+      first.release();
+    }
+
+    expect(await childResult, stderr).toBe(0);
+    expect(stdout).toContain("exclusive-acquired");
   });
 
   it("recovers a dead owner without allowing the old token to release the replacement", () => {
@@ -113,7 +361,9 @@ describe("repository-wide heavyweight lock", () => {
     });
 
     stale.release();
-    expect(readFileSync(path.join(replacement.path, "owner.json"), "utf8")).toContain(replacement.owner.token);
+    expect(readFileSync(path.join(requireLeasePath(replacement), "owner.json"), "utf8")).toContain(
+      replacement.owner.token,
+    );
     replacement.release();
   });
 
@@ -138,7 +388,9 @@ describe("repository-wide heavyweight lock", () => {
     });
 
     expect(replacement.owner.token).not.toBe(first.owner.token);
-    expect(readFileSync(path.join(replacement.path, "owner.json"), "utf8")).toContain(replacement.owner.token);
+    expect(readFileSync(path.join(requireLeasePath(replacement), "owner.json"), "utf8")).toContain(
+      replacement.owner.token,
+    );
     first.release();
     replacement.release();
   });
@@ -156,7 +408,7 @@ describe("repository-wide heavyweight lock", () => {
     });
 
     try {
-      const ownerPath = path.join(first.path, "owner.json");
+      const ownerPath = path.join(requireLeasePath(first), "owner.json");
       const owner = JSON.parse(readFileSync(ownerPath, "utf8")) as {
         pid: number;
         token: string;
@@ -175,6 +427,7 @@ describe("repository-wide heavyweight lock", () => {
           baseDirectory,
           environment: {},
           command: "second",
+          waitTimeoutMs: 0,
         }),
       ).toThrow(/Another Database heavyweight command is active/);
 
@@ -200,7 +453,7 @@ describe("repository-wide heavyweight lock", () => {
     });
 
     try {
-      const ownerText = readFileSync(path.join(first.path, "owner.json"), "utf8");
+      const ownerText = readFileSync(path.join(requireLeasePath(first), "owner.json"), "utf8");
       expect(ownerText).not.toContain(exposed);
       expect(ownerText).not.toContain(openAiExample);
       expect(ownerText).toContain("[REDACTED]");
@@ -211,11 +464,43 @@ describe("repository-wide heavyweight lock", () => {
           baseDirectory,
           environment: {},
           command: "second",
+          waitTimeoutMs: 0,
         }),
       ).toThrow(/\[REDACTED\]/);
     } finally {
       first.release();
     }
+  });
+});
+
+describe("focused test admission", () => {
+  it("shares only explicit focused selections and keeps broad or custom-worker runs exclusive", () => {
+    expect(vitestLeaseMode(["related", "--run", "src/lib/example.ts"])).toBe("shared");
+    expect(vitestLeaseMode(["run", "tests/example.test.ts", "--reporter=dot"])).toBe("shared");
+    expect(vitestLeaseMode(["run", "tests/example.dom.test.tsx"])).toBe("shared");
+    expect(vitestLeaseMode(["run", "--reporter=dot"])).toBe("exclusive");
+    expect(vitestLeaseMode(["run", "tests/example.test.ts", "--coverage"])).toBe("exclusive");
+    expect(vitestLeaseMode(["run", "tests/example.test.ts", "--coverage.enabled"])).toBe("exclusive");
+    expect(vitestLeaseMode(["run", "tests/example.test.ts", "--maxWorkers=4"])).toBe("exclusive");
+    expect(vitestLeaseMode(["run", "tests/example.test.ts", "--max-workers=4"])).toBe("exclusive");
+    expect(vitestLeaseMode(["run", "tests/example.test.ts", "-c", "vitest.other.mts"])).toBe("exclusive");
+  });
+
+  it("uses different transform-cache directories for different worktrees", () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-vitest-cache-");
+    const first = vitestCacheDirectory(path.join(baseDirectory, "worktree-a"), baseDirectory);
+    const second = vitestCacheDirectory(path.join(baseDirectory, "worktree-b"), baseDirectory);
+    expect(first).not.toBe(second);
+    expect(path.dirname(first)).toBe(path.join(baseDirectory, "clinical-kb-vitest-cache"));
+  });
+
+  it("uses different TypeScript incremental state for different worktrees", () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-tsc-cache-");
+    const first = typescriptBuildInfoPath(path.join(baseDirectory, "worktree-a"), baseDirectory);
+    const second = typescriptBuildInfoPath(path.join(baseDirectory, "worktree-b"), baseDirectory);
+    expect(first).not.toBe(second);
+    expect(path.dirname(path.dirname(first))).toBe(path.join(baseDirectory, "clinical-kb-tsc-cache"));
+    expect(path.basename(first)).toBe("tsconfig.tsbuildinfo");
   });
 });
 
