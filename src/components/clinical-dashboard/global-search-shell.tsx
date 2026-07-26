@@ -709,12 +709,11 @@ function GlobalStandaloneSearchShellBody({
   return (
     <div
       className={cn(
-        // Phone shell height comes from inset-0 alone, never 100dvh: iOS Safari
-        // re-resolves dvh lazily when its toolbar collapses/expands (especially
-        // with body scrolling disabled like here), leaving a dead band between
-        // the clipped shell and the toolbar. Fixed insets track the live
-        // viewport through the whole transition, so content stays edge to edge.
-        "sm:min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
+        // Keep the phone shell viewport-bounded without making the whole app a
+        // viewport-sized fixed layer. Physical iOS can paint a bottom gap under
+        // fixed inset shells while reporting correct geometry; the shared
+        // in-flow contract still bounds #main-content for internal scrolling.
+        "phone-viewport-shell sm:min-h-dvh max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         shouldShowDesktopSidebar &&
           sidebarColumnTransitionReady &&

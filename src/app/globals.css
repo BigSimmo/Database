@@ -2331,6 +2331,24 @@ html[data-motion="reduced"] .pwa-notice-card {
     height: 100svh;
   }
 
+  /*
+   * Phone search surfaces keep #main-content as their only scrollport, but the
+   * viewport shell itself must remain in normal flow. iOS can leave a painted
+   * gap under viewport-sized position:fixed containers even when CSSOM reports
+   * the correct bounds. A bounded dynamic-viewport block avoids that compositor
+   * path while still giving the flex scroller an exact height.
+   */
+  @media (max-width: 639px) {
+    .phone-viewport-shell {
+      position: relative;
+      width: 100%;
+      min-height: 100vh;
+      height: 100vh;
+      min-height: 100svh;
+      height: 100svh;
+    }
+  }
+
   .mobile-popover-scroll {
     max-height: min(70svh, 28rem);
   }
@@ -2341,18 +2359,15 @@ html[data-motion="reduced"] .pwa-notice-card {
       height: 100dvh;
     }
 
+    @media (max-width: 639px) {
+      .phone-viewport-shell {
+        min-height: 100dvh;
+        height: 100dvh;
+      }
+    }
+
     .mobile-popover-scroll {
       max-height: min(70dvh, 28rem);
-    }
-  }
-
-  /* Phones: ClinicalDashboard pins with fixed inset-0 utilities. Do not keep a
-     dvh height clamp here — it recreates the Safari toolbar dead band under
-     the shell even when inset-0 is present if height still resolves to dvh. */
-  @media (max-width: 639px) {
-    .mobile-app-shell {
-      min-height: 0;
-      height: auto;
     }
   }
 

@@ -290,6 +290,10 @@ test("phone chrome keeps an opaque header and a light edge-to-edge Therapy foote
     const dock = document.querySelector<HTMLElement>(".answer-footer-search-dock");
     const backdrop = dock?.querySelector<HTMLElement>(".answer-footer-search-backdrop");
     const main = document.getElementById("main-content");
+    const shell = main?.closest<HTMLElement>(".phone-viewport-shell");
+    const shellRect = shell?.getBoundingClientRect();
+    const mainRect = main?.getBoundingClientRect();
+    const bottomPaintOwner = document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 1);
     return {
       collapseHeight: collapse?.getBoundingClientRect().height ?? -1,
       dockTop: dock?.getBoundingClientRect().top ?? -1,
@@ -298,6 +302,13 @@ test("phone chrome keeps an opaque header and a light edge-to-edge Therapy foote
       backdropOpacity: backdrop ? getComputedStyle(backdrop).opacity : "",
       backdropVisibility: backdrop ? getComputedStyle(backdrop).visibility : "",
       reserve: main ? getComputedStyle(main).getPropertyValue("--mobile-composer-reserve").trim() : "",
+      shellPosition: shell ? getComputedStyle(shell).position : "missing",
+      shellTop: shellRect?.top ?? -1,
+      shellBottom: shellRect?.bottom ?? -1,
+      mainBottom: mainRect?.bottom ?? -1,
+      bottomPaintOwnedByMain: Boolean(main && bottomPaintOwner && main.contains(bottomPaintOwner)),
+      scrollTop: main?.scrollTop ?? -1,
+      viewportHeight: window.innerHeight,
     };
   });
   expect(hidden.collapseHeight).toBeLessThanOrEqual(1);
@@ -307,6 +318,37 @@ test("phone chrome keeps an opaque header and a light edge-to-edge Therapy foote
   expect(hidden.backdropOpacity).toBe("0");
   expect(hidden.backdropVisibility).toBe("hidden");
   expect(hidden.reserve).toBe("0rem");
+  expect(hidden.shellPosition).toBe("relative");
+  expect(hidden.shellTop).toBeCloseTo(0, 0);
+  expect(hidden.shellBottom).toBeCloseTo(hidden.viewportHeight, 0);
+  expect(hidden.mainBottom).toBeCloseTo(hidden.viewportHeight, 0);
+  expect(hidden.bottomPaintOwnedByMain, "hidden chrome leaves live content at the last viewport pixel").toBe(true);
+
+  // Safari toolbar changes resize the visual viewport after scrolling. The
+  // in-flow shell must track that new edge without moving the reading offset;
+  // a viewport-sized fixed root passes these DOM bounds but can still mispaint
+  // a white compositor band on physical iOS.
+  await page.setViewportSize({ width: phoneViewport.width, height: phoneViewport.height - 64 });
+  await page.waitForTimeout(100);
+  const afterViewportResize = await page.evaluate(() => {
+    const main = document.getElementById("main-content");
+    const shell = main?.closest<HTMLElement>(".phone-viewport-shell");
+    const bottomPaintOwner = document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 1);
+    return {
+      shellBottom: shell?.getBoundingClientRect().bottom ?? -1,
+      mainBottom: main?.getBoundingClientRect().bottom ?? -1,
+      bottomPaintOwnedByMain: Boolean(main && bottomPaintOwner && main.contains(bottomPaintOwner)),
+      scrollTop: main?.scrollTop ?? -1,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  expect(afterViewportResize.shellBottom).toBeCloseTo(afterViewportResize.viewportHeight, 0);
+  expect(afterViewportResize.mainBottom).toBeCloseTo(afterViewportResize.viewportHeight, 0);
+  expect(afterViewportResize.bottomPaintOwnedByMain).toBe(true);
+  expect(afterViewportResize.scrollTop, "viewport resize does not jump the reading position").toBeCloseTo(
+    hidden.scrollTop,
+    0,
+  );
 });
 
 test("calculators page-owned phone dock uses localized glass and releases its reserve when hidden", async ({

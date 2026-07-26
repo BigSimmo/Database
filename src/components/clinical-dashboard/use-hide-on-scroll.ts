@@ -434,7 +434,8 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
  * page scrolls the document above the phone breakpoint — GlobalSearchShell,
  * where `#main-content` is the scrollport only on phones and its `onScroll`
  * therefore never fires on tablet/desktop. Self-gating: while the document
- * cannot scroll (the phone shell is `fixed inset-0`) no scroll event arrives,
+ * cannot scroll (the phone shell is viewport-bounded and overflow-clipped) no
+ * scroll event arrives,
  * so the internal scroller stays the single source at that width.
  */
 export function useDocumentScrollHideReporter(reportScroll: (metrics: ScrollMetrics) => void) {
