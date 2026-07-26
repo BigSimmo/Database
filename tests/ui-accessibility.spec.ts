@@ -516,11 +516,11 @@ test.describe("Clinical KB accessibility coverage", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/therapy-compass/search", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "Therapy", exact: true })).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveAttribute("aria-current", "page");
     const therapyRibbon = page.getByTestId("search-query-ribbon");
-    await expect(therapyRibbon.getByRole("heading", { name: "All" })).toBeVisible();
+    await expect(therapyRibbon.getByRole("heading", { name: "All", level: 1 })).toBeVisible({ timeout: 60_000 });
     await expect(therapyRibbon.getByRole("group", { name: "Filter therapy results" })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Search therapies" })).toHaveCount(0);
     const therapyTopics = therapyRibbon.getByTestId("therapy-topic-filter-select");
     const therapyAvailability = therapyRibbon.getByTestId("therapy-availability-filter-select");
     await expect(therapyTopics).toBeVisible();
@@ -528,14 +528,13 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(therapyAvailability).toBeVisible();
     await expect(therapyAvailability).toHaveAccessibleName("Change therapy availability filters");
 
-    const searchInput = page.getByRole("textbox", { name: "Search therapies" });
-    await searchInput.focus();
-    const inputFocus = await searchInput.evaluate((element) => {
+    await therapyTopics.focus();
+    const topicsFocus = await therapyTopics.evaluate((element) => {
       const style = getComputedStyle(element);
       return { outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) };
     });
-    expect(inputFocus.outlineStyle).not.toBe("none");
-    expect(inputFocus.outlineWidth).toBeGreaterThanOrEqual(2);
+    expect(topicsFocus.outlineStyle).not.toBe("none");
+    expect(topicsFocus.outlineWidth).toBeGreaterThanOrEqual(2);
 
     await therapyTopics.selectOption("CBT");
     await expect(therapyTopics.locator('option[value=""]')).toHaveText("1 topics selected");
