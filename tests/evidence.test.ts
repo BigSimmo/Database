@@ -407,4 +407,48 @@ describe("detectConflictsOrGaps — cross-source withholding-threshold disagreem
     expect(found[0].message).toMatch(/>/);
     expect(found[0].source_chunk_ids).toEqual(expect.arrayContaining(["above", "below"]));
   });
+
+  it("flags inclusive and exclusive upper bounds at the same numeric threshold", () => {
+    const results = [
+      result({
+        id: "exclusive",
+        document_id: "doc-exclusive",
+        content: "Withhold treatment when QTc > 500 ms and arrange urgent review.",
+      }),
+      result({
+        id: "inclusive",
+        document_id: "doc-inclusive",
+        content: "Withhold treatment when QTc >= 500 ms pending specialist advice.",
+      }),
+    ];
+
+    const found = conflicts(results);
+    expect(found).toHaveLength(1);
+    expect(found[0].message).toMatch(/QTc/);
+    expect(found[0].message).toMatch(/> 500/);
+    expect(found[0].message).toMatch(/≥ 500/);
+    expect(found[0].source_chunk_ids).toEqual(expect.arrayContaining(["exclusive", "inclusive"]));
+  });
+
+  it("flags inclusive and exclusive lower bounds at the same numeric threshold", () => {
+    const results = [
+      result({
+        id: "exclusive",
+        document_id: "doc-exclusive",
+        content: "Withhold treatment when QTc < 500 ms and arrange urgent review.",
+      }),
+      result({
+        id: "inclusive",
+        document_id: "doc-inclusive",
+        content: "Withhold treatment when QTc <= 500 ms pending specialist advice.",
+      }),
+    ];
+
+    const found = conflicts(results);
+    expect(found).toHaveLength(1);
+    expect(found[0].message).toMatch(/QTc/);
+    expect(found[0].message).toMatch(/< 500/);
+    expect(found[0].message).toMatch(/≤ 500/);
+    expect(found[0].source_chunk_ids).toEqual(expect.arrayContaining(["exclusive", "inclusive"]));
+  });
 });

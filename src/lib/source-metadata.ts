@@ -31,7 +31,12 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
 
   return {
     source_kind: enumOrDefault(value.source_kind, knownSourceKinds, null, "source_kind"),
-    registry_record_kind: enumOrDefault(value.registry_record_kind, knownRegistryRecordKinds, null, "registry_record_kind"),
+    registry_record_kind: enumOrDefault(
+      value.registry_record_kind,
+      knownRegistryRecordKinds,
+      null,
+      "registry_record_kind",
+    ),
     registry_record_subkind: stringOrNull(value.registry_record_subkind),
     registry_record_id: stringOrNull(value.registry_record_id),
     registry_record_slug: stringOrNull(value.registry_record_slug),

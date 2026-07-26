@@ -280,9 +280,12 @@ export function sourceStatusDotClass(metadata: ReturnType<typeof normalizeSource
 
 type CapsulePreviewSource = {
   id: string;
+  documentId: string;
   title: string;
+  fileName?: string;
   pageNumber: number | null;
   metadata: ReturnType<typeof normalizeSourceMetadata>;
+  sourceMetadata?: SearchResult["source_metadata"];
   score: number;
   href: string;
   snippet?: string;
@@ -342,9 +345,12 @@ function capsulePreviewSources(
   sourceLinks.slice(0, 5).forEach((source) => {
     pushRow({
       id: source.chunk_id,
+      documentId: source.document_id,
       title: source.title || source.file_name || "Source",
+      fileName: source.file_name,
       pageNumber: source.page_number,
       metadata: normalizeSourceMetadata(source.sourceMetadata),
+      sourceMetadata: source.sourceMetadata,
       score: source.score ?? 0,
       href: source.href,
       snippet: source.snippet,
@@ -355,9 +361,12 @@ function capsulePreviewSources(
   if (bestSource) {
     pushRow({
       id: bestSource.chunk_id,
+      documentId: bestSource.document_id,
       title: bestSource.title || bestSource.file_name || "Source",
+      fileName: bestSource.file_name,
       pageNumber: bestSource.page_number,
       metadata: normalizeSourceMetadata(bestSource.source_metadata),
+      sourceMetadata: bestSource.source_metadata,
       score: bestSource.score,
       href: bestSource.viewer_href,
       sourceStrength: bestSource.source_strength,
@@ -367,9 +376,12 @@ function capsulePreviewSources(
   sources.slice(0, 5).forEach((source) => {
     pushRow({
       id: source.id,
+      documentId: source.document_id,
       title: source.title || source.file_name || "Source",
+      fileName: source.file_name,
       pageNumber: source.page_number,
       metadata: normalizeSourceMetadata(source.source_metadata),
+      sourceMetadata: source.source_metadata,
       score: source.hybrid_score ?? source.similarity ?? source.lexical_score ?? 0,
       href: sourceResultHref(source),
       sourceStrength: source.source_strength,

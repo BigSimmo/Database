@@ -145,7 +145,7 @@ export const SOURCE_GOVERNANCE_CODES = {
   REGISTRY_RECORD: "registry_record_source",
 } as const;
 
-export type SourceGovernanceCode = typeof SOURCE_GOVERNANCE_CODES[keyof typeof SOURCE_GOVERNANCE_CODES];
+export type SourceGovernanceCode = (typeof SOURCE_GOVERNANCE_CODES)[keyof typeof SOURCE_GOVERNANCE_CODES];
 
 export type SourceGovernanceUiToken = "destructive" | "warning" | "caution" | "neutral" | "muted";
 

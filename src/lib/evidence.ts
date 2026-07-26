@@ -519,15 +519,13 @@ const THRESHOLD_SPAN_PATTERN = new RegExp(
   "gi",
 );
 
-type ThresholdComparator = "lt" | "gt" | "unknown";
+type ThresholdComparator = "lt" | "lte" | "gt" | "gte" | "unknown";
 
 function normalizeThresholdComparator(raw: string | undefined): ThresholdComparator {
   if (!raw) return "unknown";
   const token = raw.toLowerCase();
   if (
     token === "<" ||
-    token === "≤" ||
-    token === "<=" ||
     token === "less than" ||
     token === "below" ||
     token === "under" ||
@@ -539,10 +537,11 @@ function normalizeThresholdComparator(raw: string | undefined): ThresholdCompara
   ) {
     return "lt";
   }
+  if (token === "≤" || token === "<=") {
+    return "lte";
+  }
   if (
     token === ">" ||
-    token === "≥" ||
-    token === ">=" ||
     token === "greater than" ||
     token === "above" ||
     token === "over" ||
@@ -550,6 +549,9 @@ function normalizeThresholdComparator(raw: string | undefined): ThresholdCompara
     token === "exceeds"
   ) {
     return "gt";
+  }
+  if (token === "≥" || token === ">=") {
+    return "gte";
   }
   return "unknown";
 }
@@ -560,7 +562,9 @@ function thresholdObservationKey(value: string, comparator: ThresholdComparator)
 
 function formatThresholdObservation(value: string, comparator: ThresholdComparator): string {
   if (comparator === "lt") return `< ${value}`;
+  if (comparator === "lte") return `≤ ${value}`;
   if (comparator === "gt") return `> ${value}`;
+  if (comparator === "gte") return `≥ ${value}`;
   return value;
 }
 

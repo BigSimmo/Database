@@ -75,7 +75,7 @@ function authorityMatchesInField(field: string) {
       candidate.pattern.lastIndex = 0;
       return candidate.pattern.test(field);
     })
-    .map(({ pattern, ...rest }) => rest);
+    .map((candidate) => ({ code: candidate.code, authority: candidate.authority }));
 }
 
 function preferredIdentityMatches(identity: SourceAuthorityDocumentIdentity) {

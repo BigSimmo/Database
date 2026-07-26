@@ -1,6 +1,14 @@
-import type { EvidenceRelevance, SearchResult, SourceGovernanceWarning, SourceGovernanceCode, SourceGovernanceUiToken } from "@/lib/types";
+import type {
+  EvidenceRelevance,
+  SearchResult,
+  SourceGovernanceWarning,
+  SourceGovernanceCode,
+  SourceGovernanceUiToken,
+} from "@/lib/types";
 import { SOURCE_GOVERNANCE_CODES } from "@/lib/types";
 import { normalizeSourceMetadata } from "@/lib/source-metadata";
+
+export type { SourceGovernanceWarning } from "@/lib/types";
 
 export type GroupedSourceGovernanceWarning = {
   code: SourceGovernanceWarning["code"];
@@ -12,18 +20,19 @@ export type GroupedSourceGovernanceWarning = {
   titles: string[];
 };
 
-export const GOVERNANCE_SEVERITY_MATRIX: Record<SourceGovernanceCode, SourceGovernanceWarning["severity"] | "dynamic"> = {
-  [SOURCE_GOVERNANCE_CODES.OUTDATED]: "danger",
-  [SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION]: "danger",
-  [SOURCE_GOVERNANCE_CODES.REVIEW_DUE]: "warning",
-  [SOURCE_GOVERNANCE_CODES.UNVERIFIED]: "warning",
-  [SOURCE_GOVERNANCE_CODES.PARTIAL_EXTRACTION]: "warning",
-  [SOURCE_GOVERNANCE_CODES.LOW_INDEX_QUALITY]: "warning",
-  [SOURCE_GOVERNANCE_CODES.WEAK_TABLE_EXTRACTION]: "warning",
-  [SOURCE_GOVERNANCE_CODES.NON_LOCAL]: "info",
-  [SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD]: "info",
-  [SOURCE_GOVERNANCE_CODES.WEAK_EVIDENCE]: "dynamic",
-} as const;
+export const GOVERNANCE_SEVERITY_MATRIX: Record<SourceGovernanceCode, SourceGovernanceWarning["severity"] | "dynamic"> =
+  {
+    [SOURCE_GOVERNANCE_CODES.OUTDATED]: "danger",
+    [SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION]: "danger",
+    [SOURCE_GOVERNANCE_CODES.REVIEW_DUE]: "warning",
+    [SOURCE_GOVERNANCE_CODES.UNVERIFIED]: "warning",
+    [SOURCE_GOVERNANCE_CODES.PARTIAL_EXTRACTION]: "warning",
+    [SOURCE_GOVERNANCE_CODES.LOW_INDEX_QUALITY]: "warning",
+    [SOURCE_GOVERNANCE_CODES.WEAK_TABLE_EXTRACTION]: "warning",
+    [SOURCE_GOVERNANCE_CODES.NON_LOCAL]: "info",
+    [SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD]: "info",
+    [SOURCE_GOVERNANCE_CODES.WEAK_EVIDENCE]: "dynamic",
+  } as const;
 
 export const GOVERNANCE_UI_TOKEN_MATRIX: Record<SourceGovernanceCode, SourceGovernanceUiToken | "dynamic"> = {
   [SOURCE_GOVERNANCE_CODES.OUTDATED]: "destructive",
@@ -101,7 +110,9 @@ export function sourceGovernanceWarnings(args: {
       code: SOURCE_GOVERNANCE_CODES.WEAK_EVIDENCE,
       severity: isDanger ? "danger" : "warning",
       uiToken: isDanger ? "destructive" : "warning",
-      message: isDanger ? WEAK_EVIDENCE_DANGER_MESSAGE : (args.relevance.supportReason || "The retrieved evidence is weak or nearby-only."),
+      message: isDanger
+        ? WEAK_EVIDENCE_DANGER_MESSAGE
+        : args.relevance.supportReason || "The retrieved evidence is weak or nearby-only.",
     });
   }
 
@@ -144,7 +155,9 @@ export function sourceGovernanceWarnings(args: {
     if (source.extraction_quality === "poor" || result.indexing_quality?.extraction_quality === "poor") {
       pushUnique(warnings, {
         code: SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION,
-        severity: GOVERNANCE_SEVERITY_MATRIX[SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION] as SourceGovernanceWarning["severity"],
+        severity: GOVERNANCE_SEVERITY_MATRIX[
+          SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION
+        ] as SourceGovernanceWarning["severity"],
         uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION] as SourceGovernanceUiToken,
         message: POOR_EXTRACTION_WARNING_MESSAGE,
         document_id,
@@ -153,7 +166,9 @@ export function sourceGovernanceWarnings(args: {
     } else if (source.extraction_quality === "partial" || result.indexing_quality?.extraction_quality === "partial") {
       pushUnique(warnings, {
         code: SOURCE_GOVERNANCE_CODES.PARTIAL_EXTRACTION,
-        severity: GOVERNANCE_SEVERITY_MATRIX[SOURCE_GOVERNANCE_CODES.PARTIAL_EXTRACTION] as SourceGovernanceWarning["severity"],
+        severity: GOVERNANCE_SEVERITY_MATRIX[
+          SOURCE_GOVERNANCE_CODES.PARTIAL_EXTRACTION
+        ] as SourceGovernanceWarning["severity"],
         uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.PARTIAL_EXTRACTION] as SourceGovernanceUiToken,
         message: "One or more supporting sources have partial extraction quality.",
         document_id,
@@ -164,7 +179,9 @@ export function sourceGovernanceWarnings(args: {
     if (typeof result.indexing_quality?.quality_score === "number" && result.indexing_quality.quality_score < 0.45) {
       pushUnique(warnings, {
         code: SOURCE_GOVERNANCE_CODES.LOW_INDEX_QUALITY,
-        severity: GOVERNANCE_SEVERITY_MATRIX[SOURCE_GOVERNANCE_CODES.LOW_INDEX_QUALITY] as SourceGovernanceWarning["severity"],
+        severity: GOVERNANCE_SEVERITY_MATRIX[
+          SOURCE_GOVERNANCE_CODES.LOW_INDEX_QUALITY
+        ] as SourceGovernanceWarning["severity"],
         uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.LOW_INDEX_QUALITY] as SourceGovernanceUiToken,
         message: "One or more supporting sources have a low indexing quality score.",
         document_id,
@@ -191,7 +208,9 @@ export function sourceGovernanceWarnings(args: {
     ) {
       pushUnique(warnings, {
         code: SOURCE_GOVERNANCE_CODES.WEAK_TABLE_EXTRACTION,
-        severity: GOVERNANCE_SEVERITY_MATRIX[SOURCE_GOVERNANCE_CODES.WEAK_TABLE_EXTRACTION] as SourceGovernanceWarning["severity"],
+        severity: GOVERNANCE_SEVERITY_MATRIX[
+          SOURCE_GOVERNANCE_CODES.WEAK_TABLE_EXTRACTION
+        ] as SourceGovernanceWarning["severity"],
         uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.WEAK_TABLE_EXTRACTION] as SourceGovernanceUiToken,
         message: "Some matched table evidence has been reviewed as administrative, unrelated, or poor extraction.",
         document_id,
@@ -202,7 +221,9 @@ export function sourceGovernanceWarnings(args: {
     if (source.source_kind === "registry_record") {
       pushUnique(warnings, {
         code: SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD,
-        severity: GOVERNANCE_SEVERITY_MATRIX[SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD] as SourceGovernanceWarning["severity"],
+        severity: GOVERNANCE_SEVERITY_MATRIX[
+          SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD
+        ] as SourceGovernanceWarning["severity"],
         uiToken: GOVERNANCE_UI_TOKEN_MATRIX[SOURCE_GOVERNANCE_CODES.REGISTRY_RECORD] as SourceGovernanceUiToken,
         message:
           "One or more supporting sources are curated registry summaries, not source documents; verify against linked source documents for clinical decisions.",
@@ -225,7 +246,8 @@ function plural(count: number, singular: string, pluralValue = `${singular}s`) {
 function groupedMessage(warning: SourceGovernanceWarning, count: number) {
   if (warning.code === SOURCE_GOVERNANCE_CODES.OUTDATED) return `${plural(count, "source")} marked outdated.`;
   if (warning.code === SOURCE_GOVERNANCE_CODES.REVIEW_DUE) return `${plural(count, "source")} due for review.`;
-  if (warning.code === SOURCE_GOVERNANCE_CODES.NON_LOCAL) return `${plural(count, "source")} may not be local WA/Perth guidance.`;
+  if (warning.code === SOURCE_GOVERNANCE_CODES.NON_LOCAL)
+    return `${plural(count, "source")} may not be local WA/Perth guidance.`;
   if (warning.code === SOURCE_GOVERNANCE_CODES.UNVERIFIED)
     return `${plural(count, "source")} ${count === 1 ? "has" : "have"} not been locally validated.`;
   if (warning.code === SOURCE_GOVERNANCE_CODES.POOR_EXTRACTION)

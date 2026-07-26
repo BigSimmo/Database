@@ -13,6 +13,7 @@ export function SourceActionRow({
   documentId,
   onScopeDocument,
   onFollowUp,
+  onOpenSource,
   imageCount = 0,
   divider = true,
 }: {
@@ -77,25 +78,45 @@ export function sourceResultHref(source: SearchResult) {
   return `/documents/${source.document_id}?page=${source.page_number ?? 1}&chunk=${source.id}`;
 }
 
-export function logSourceOpen(query: string, source: SearchResult) {
+type SourceOpenTelemetry = {
+  id: string;
+  title?: string;
+  document_id?: string;
+  documentId?: string;
+  file_name?: string;
+  fileName?: string;
+  source_strength?: string | null;
+  sourceStrength?: string | null;
+  similarity?: number | null;
+  score?: number | null;
+  source_metadata?: unknown;
+  metadata?: unknown;
+};
+
+export function logSourceOpen(query: string, source: SourceOpenTelemetry) {
   if (!query.trim()) return;
-  const metadata = source.source_metadata && typeof source.source_metadata === "object"
-    ? source.source_metadata as Record<string, unknown>
-    : null;
+  const documentId = source.document_id ?? source.documentId;
+  if (!documentId) return;
+  const metadata =
+    source.source_metadata && typeof source.source_metadata === "object"
+      ? (source.source_metadata as Record<string, unknown>)
+      : source.metadata && typeof source.metadata === "object"
+        ? (source.metadata as Record<string, unknown>)
+        : null;
 
   void fetch("/api/search/interaction", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       query,
-      documentId: source.document_id,
+      documentId,
       chunkId: source.id,
-      fileName: source.file_name,
+      fileName: source.file_name ?? source.fileName,
       title: source.title,
       citationTelemetry: {
         provenance: "retrieval_only",
-        source_strength: source.source_strength,
-        similarity: source.similarity,
+        source_strength: source.source_strength ?? source.sourceStrength,
+        similarity: source.similarity ?? source.score,
         document_status: metadata?.document_status,
       },
     }),
@@ -105,9 +126,10 @@ export function logSourceOpen(query: string, source: SearchResult) {
 
 export function logCitationOpen(query: string, citation: Citation, sourceStrength?: string) {
   if (!query.trim()) return;
-  const metadata = citation.source_metadata && typeof citation.source_metadata === "object"
-    ? citation.source_metadata as Record<string, unknown>
-    : null;
+  const metadata =
+    citation.source_metadata && typeof citation.source_metadata === "object"
+      ? (citation.source_metadata as Record<string, unknown>)
+      : null;
 
   void fetch("/api/search/interaction", {
     method: "POST",
