@@ -363,6 +363,7 @@ export function MasterSearchHeader({
   // into invisible controls).
   const [headerChromeFocused, setHeaderChromeFocused] = useState(false);
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
+  const phoneHeaderCollapseAddonRef = useRef<HTMLDivElement | null>(null);
   const internalScrollHidden = useHideOnScroll({
     disabled: !hideOnScroll || hideOnScroll.scrollHidden !== undefined,
   });
@@ -408,6 +409,29 @@ export function MasterSearchHeader({
       if (!hideOnScrollEnabled) setHeaderChromeFocused(false);
     });
   }, [phoneBottomSearchDockActive, hideOnScrollEnabled]);
+
+  useEffect(() => {
+    const addonHost = phoneHeaderCollapseAddonRef.current;
+    if (!addonHost || !hideOnScrollEnabled) return undefined;
+
+    // React portal focus events follow the source React tree, not the portal
+    // host's synthetic-event ancestry. Listen at the real DOM host so focused
+    // page-owned controls pin the same collapse track as the universal bar.
+    const handleFocusIn = () => setHeaderChromeFocused(true);
+    const handleFocusOut = (event: FocusEvent) => {
+      const nextTarget = event.relatedTarget;
+      if (!(nextTarget instanceof Node) || !addonHost.contains(nextTarget)) {
+        setHeaderChromeFocused(false);
+      }
+    };
+
+    addonHost.addEventListener("focusin", handleFocusIn);
+    addonHost.addEventListener("focusout", handleFocusOut);
+    return () => {
+      addonHost.removeEventListener("focusin", handleFocusIn);
+      addonHost.removeEventListener("focusout", handleFocusOut);
+    };
+  }, [hideOnScrollEnabled]);
 
   useEffect(() => {
     onBottomComposerHiddenChange?.(bottomComposerHidden);
@@ -2064,6 +2088,7 @@ export function MasterSearchHeader({
         >
           {topBar}
           <div
+            ref={phoneHeaderCollapseAddonRef}
             id={phoneHeaderCollapseAddonSlotId}
             data-testid="header-collapse-addon"
             className="w-full min-w-0 max-w-full empty:hidden"
