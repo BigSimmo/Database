@@ -364,10 +364,14 @@ export function MasterSearchHeader({
   const [headerChromeFocused, setHeaderChromeFocused] = useState(false);
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const [phoneHeaderCollapseAddonHost, setPhoneHeaderCollapseAddonHost] = useState<HTMLDivElement | null>(null);
+  const setPhoneHeaderCollapseAddonRef = useCallback((node: HTMLDivElement | null) => {
+    setPhoneHeaderCollapseAddonHost(node);
+  }, []);
   const internalScrollHidden = useHideOnScroll({
     disabled: !hideOnScroll || hideOnScroll.scrollHidden !== undefined,
   });
   const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
+  const headerCollapseOwnsPhoneAddonFocus = hideOnScroll?.strategy === "collapse";
   // Mode homes portal the composer into the hero slot. With "all" the hero owns
   // every width (the answer home keeps its in-flow pill on phones); "sm-up"
   // hero hosts hand phones the bottom dock instead.
@@ -412,31 +416,42 @@ export function MasterSearchHeader({
 
   useEffect(() => {
     const addonHost = phoneHeaderCollapseAddonHost;
-    if (!addonHost || !hideOnScrollEnabled) {
-      queueMicrotask(() => setHeaderChromeFocused(false));
+    const clearHeaderFocus = () => setHeaderChromeFocused(false);
+    if (!addonHost || !hideOnScrollEnabled || !headerCollapseOwnsPhoneAddonFocus) {
+      queueMicrotask(clearHeaderFocus);
       return undefined;
     }
 
     // React portal focus events follow the source React tree, not the portal
     // host's synthetic-event ancestry. Listen at the real DOM host so focused
     // page-owned controls pin the same collapse track as the universal bar.
-    // The observer covers navigation/remount removal, which need not emit a
-    // focusout event when the focused portaled control leaves the DOM.
-    const syncFocus = () => setHeaderChromeFocused(addonHost.contains(document.activeElement));
-    const scheduleFocusSync = () => queueMicrotask(syncFocus);
-    const observer = new MutationObserver(scheduleFocusSync);
-
-    scheduleFocusSync();
-    addonHost.addEventListener("focusin", scheduleFocusSync);
-    addonHost.addEventListener("focusout", scheduleFocusSync);
-    observer.observe(addonHost, { childList: true, subtree: true });
-    return () => {
-      addonHost.removeEventListener("focusin", scheduleFocusSync);
-      addonHost.removeEventListener("focusout", scheduleFocusSync);
-      observer.disconnect();
-      queueMicrotask(() => setHeaderChromeFocused(false));
+    const hostContainsActiveElement = () => {
+      const activeElement = document.activeElement;
+      return activeElement instanceof Node && addonHost.contains(activeElement);
     };
-  }, [phoneHeaderCollapseAddonHost, hideOnScrollEnabled]);
+    const clearIfFocusLeftHost = () => {
+      if (!hostContainsActiveElement()) setHeaderChromeFocused(false);
+    };
+    const handleFocusIn = () => setHeaderChromeFocused(true);
+    const handleFocusOut = (event: FocusEvent) => {
+      const nextTarget = event.relatedTarget;
+      if (!(nextTarget instanceof Node) || !addonHost.contains(nextTarget)) {
+        setHeaderChromeFocused(false);
+      }
+    };
+    queueMicrotask(() => setHeaderChromeFocused(hostContainsActiveElement()));
+    const observer = new MutationObserver(clearIfFocusLeftHost);
+    observer.observe(addonHost, { childList: true, subtree: true });
+
+    addonHost.addEventListener("focusin", handleFocusIn);
+    addonHost.addEventListener("focusout", handleFocusOut);
+    return () => {
+      addonHost.removeEventListener("focusin", handleFocusIn);
+      addonHost.removeEventListener("focusout", handleFocusOut);
+      observer.disconnect();
+      queueMicrotask(clearHeaderFocus);
+    };
+  }, [headerCollapseOwnsPhoneAddonFocus, hideOnScrollEnabled, phoneHeaderCollapseAddonHost]);
 
   useEffect(() => {
     onBottomComposerHiddenChange?.(bottomComposerHidden);
@@ -2093,7 +2108,7 @@ export function MasterSearchHeader({
         >
           {topBar}
           <div
-            ref={setPhoneHeaderCollapseAddonHost}
+            ref={setPhoneHeaderCollapseAddonRef}
             id={phoneHeaderCollapseAddonSlotId}
             data-testid="header-collapse-addon"
             className="w-full min-w-0 max-w-full empty:hidden"
