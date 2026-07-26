@@ -51,20 +51,20 @@ Values are tokens; the target sizes follow the `-11`/`-12` spacing scale (L6).
 
 ### Interactive controls (tap targets)
 
-| Recipe                    | Purpose                                       | Tap                 | Hover             | Active | Focus-visible                            | Disabled |
-| ------------------------- | --------------------------------------------- | ------------------- | ----------------- | ------ | ---------------------------------------- | -------- |
-| `primaryControl`          | Primary command button (uses private `controlBase`) | ✅            | ✅                | ✅     | ✅                                       | ✅       |
-| `floatingControl`         | Secondary / floating button                   | `min-h-11`          | ✅                | ❌     | ✅                                       | ✅       |
-| `toolbarButton`           | Square icon button                            | `h-11 w-11`         | ✅                | ❌     | ✅                                       | ✅       |
-| `navPill`                 | Nav / segmented pill                          | `min-h-11`          | ✅                | ❌     | ✅                                       | ✅       |
-| `chatMicroAction`         | Small chat action (copy, retry…)              | `min-h-11 min-w-11` | ✅                | ❌     | ✅                                       | ✅       |
-| `sourceCapsuleHit`        | Citation capsule tap target (button)          | `min-h-11`          | ✅ (drives face)  | ❌     | ✅ (`.source-capsule-hit:focus-visible`) | ❌       |
-| `sourceCapsule`           | Compact visible pill (`.source-capsule-face`) | — (inside hit)      | ✅ (via hit)      | ❌     | ✅ (via hit)                             | ❌       |
-| `sourceCapsuleCountBadge` | Inset count chip inside `sourceCapsule`       | — (non-tap)         | ❌                | ❌     | ❌                                       | ❌       |
-| `chatComposerIconButton`  | Composer icon button                          | `h-11 w-11`         | ✅                | ❌     | ✅                                       | ✅       |
-| `chatSendButton`          | Composer send (accent)                        | `h-11 w-11`         | ✅                | ❌     | ✅                                       | ✅       |
-| `sidebarItem`             | Sidebar nav row                               | `min-h-11`          | ✅                | ❌     | ✅                                       | ✅       |
-| `shellChip`               | Filter / mode chip                            | `min-h-11`          | ✅                | ❌     | ❌                                       | ❌       |
+| Recipe                    | Purpose                                             | Tap                 | Hover            | Active | Focus-visible                            | Disabled |
+| ------------------------- | --------------------------------------------------- | ------------------- | ---------------- | ------ | ---------------------------------------- | -------- |
+| `primaryControl`          | Primary command button (uses private `controlBase`) | ✅                  | ✅               | ✅     | ✅                                       | ✅       |
+| `floatingControl`         | Secondary / floating button                         | `min-h-11`          | ✅               | ❌     | ✅                                       | ✅       |
+| `toolbarButton`           | Square icon button                                  | `h-11 w-11`         | ✅               | ❌     | ✅                                       | ✅       |
+| `navPill`                 | Nav / segmented pill                                | `min-h-11`          | ✅               | ❌     | ✅                                       | ✅       |
+| `chatMicroAction`         | Small chat action (copy, retry…)                    | `min-h-11 min-w-11` | ✅               | ❌     | ✅                                       | ✅       |
+| `sourceCapsuleHit`        | Citation capsule tap target (button)                | `min-h-11`          | ✅ (drives face) | ❌     | ✅ (`.source-capsule-hit:focus-visible`) | ❌       |
+| `sourceCapsule`           | Compact visible pill (`.source-capsule-face`)       | — (inside hit)      | ✅ (via hit)     | ❌     | ✅ (via hit)                             | ❌       |
+| `sourceCapsuleCountBadge` | Inset count chip inside `sourceCapsule`             | — (non-tap)         | ❌               | ❌     | ❌                                       | ❌       |
+| `chatComposerIconButton`  | Composer icon button                                | `h-11 w-11`         | ✅               | ❌     | ✅                                       | ✅       |
+| `chatSendButton`          | Composer send (accent)                              | `h-11 w-11`         | ✅               | ❌     | ✅                                       | ✅       |
+| `sidebarItem`             | Sidebar nav row                                     | `min-h-11`          | ✅               | ❌     | ✅                                       | ✅       |
+| `shellChip`               | Filter / mode chip                                  | `min-h-11`          | ✅               | ❌     | ❌                                       | ❌       |
 
 ### Form fields
 
@@ -129,13 +129,13 @@ Removed (zero importers): `evidenceRow`, `clinicalNotesRow`. Metadata lines use
 
 ### React components
 
-| Component           | Variants / states                                                                                                        |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Component           | Variants / states                                                                                                           |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `SourceStatusBadge` | tone chosen from `document_status`: `current`→success, `outdated`→danger, `review_due`→warning, else private quiet warning. |
-| `SourceProvenance`  | dot-separated validation / review-date / jurisdiction / extraction-quality line; drops unknown segments.                 |
-| `PanelHeading`      | `icon` + `title` + optional `description`.                                                                               |
-| `LoadingPanel`      | `variant: "spinner" \| "skeleton"`, `lines` (skeleton count); `role="status"` + `aria-label`.                            |
-| `EmptyState`        | `icon` + `title` + `body`.                                                                                               |
+| `SourceProvenance`  | dot-separated validation / review-date / jurisdiction / extraction-quality line; drops unknown segments.                    |
+| `PanelHeading`      | `icon` + `title` + optional `description`.                                                                                  |
+| `LoadingPanel`      | `variant: "spinner" \| "skeleton"`, `lines` (skeleton count); `role="status"` + `aria-label`.                               |
+| `EmptyState`        | `icon` + `title` + `body`.                                                                                                  |
 
 ## Gaps to reconcile (follow-ups, not yet fixed)
 
