@@ -30,19 +30,28 @@ Dark mode is automatic via the `.dark` class — the variables flip; never write
 ## Class-string vocabulary (exported constants)
 
 The bundle exports ready-made class strings — compose them instead of
-re-deriving surfaces: `panel`, `quietPanel`, `glassPanel`, `raisedCard`,
-`insetCard`, `sourceCard`, `evidenceSurface`, `primaryControl`,
-`floatingControl`, `toolbarButton`, `navPill`, `metadataPill`, `shellChip`,
-`fieldLabel`, `fieldControl`, `fieldControlPlain`, `eyebrowText`, `textMuted`,
-`proseMeasure`, `codeText`, `compactMetadataRow`, `iconTile`, `clinicalDivider`.
-Join with the exported `cn(...)` helper.
+re-deriving surfaces: `panel`, `panelSubtle`, `raisedCard`, `sourceCard`,
+`answerSurface`, `primaryControl`, `floatingControl`, `toolbarButton`,
+`navPill`, `metadataPill`, `subtleStatusPill`, `shellChip`, `fieldLabel`,
+`fieldControl`, `fieldControlWithIcon`, `fieldControlPlain`, `fieldIcon`,
+`eyebrowText`, `textMuted`, `proseMeasure`, `codeText`, `iconTilePremium`,
+`clinicalDivider`, `tableCard`, `tableCardHeader`, plus the chat/search
+composer and tone recipes documented in
+`docs/redesign/09-ui-primitives-recipes.md`. Join with the exported `cn(...)`
+helper.
+
+Module-private helpers (`insetCard`, `iconTile`, `compactMetadataRow`,
+`toneWarningQuiet`, `controlBase`, `statusDotBase`, `chatComposerShellDelta`)
+power components inside `ui-primitives.tsx` and are **not** part of the import
+surface — use the exported components (`LoadingPanel`, `PanelHeading`,
+`SourceProvenance`, `SourceStatusBadge`, …) or the exported recipes above.
 
 ## Example
 
 ```tsx
-import { PanelHeading, quietPanel, primaryControl, cn, FileText } from "<pkg>";
+import { PanelHeading, panelSubtle, primaryControl, cn, FileText } from "<pkg>";
 
-<section className={cn(quietPanel, "p-4 space-y-3")}>
+<section className={cn(panelSubtle, "p-4 space-y-3")}>
   <PanelHeading icon={FileText} title="Document library" description="Indexed guidelines and protocols." />
   <button className={primaryControl}>Upload document</button>
 </section>;

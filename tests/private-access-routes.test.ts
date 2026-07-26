@@ -4424,6 +4424,70 @@ describe("private document API access", () => {
     expect(providerSignal?.aborted).toBe(true);
   });
 
+  it("does not poison a new healthy search caller after the last coalesced waiter disconnects", async () => {
+    let searchCalls = 0;
+    const searchChunksWithTelemetry = vi.fn(async (args: { signal?: AbortSignal }) => {
+      searchCalls += 1;
+      const signal = args.signal;
+      if (searchCalls === 1) {
+        return new Promise<never>((_resolve, reject) => {
+          signal?.addEventListener("abort", () => reject(signal.reason ?? new DOMException("aborted", "AbortError")), {
+            once: true,
+          });
+          if (signal?.aborted) {
+            reject(signal.reason ?? new DOMException("aborted", "AbortError"));
+          }
+        });
+      }
+      return {
+        results: [],
+        telemetry: {
+          search_cache_hit: false,
+          text_fast_path_latency_ms: 0,
+          embedding_skipped: true,
+          embedding_latency_ms: 0,
+          embedding_cache_hit: false,
+          supabase_rpc_latency_ms: 0,
+          rerank_latency_ms: 0,
+          retrieval_strategy: "text_fast_path",
+          weighted_top_score: 0,
+          rrf_top_score: 0,
+        },
+      };
+    });
+    const client = createSupabaseMock();
+    mockRuntime(client, { searchChunksWithTelemetry });
+    const searchRoute = await import("../src/app/api/search/route");
+    const firstController = new AbortController();
+    const searchRequest = (signal: AbortSignal) =>
+      authenticatedRequest("/api/search", {
+        method: "POST",
+        signal,
+        body: JSON.stringify({
+          query: "poison race monitoring search",
+          includeRelatedDocuments: false,
+        }),
+      });
+
+    const first = searchRoute.POST(searchRequest(firstController.signal));
+    for (let index = 0; index < 10 && searchCalls === 0; index += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(searchCalls).toBe(1);
+
+    firstController.abort(new DOMException("sole search waiter left", "AbortError"));
+    const firstResponse = await first;
+    expect(firstResponse.status).toBeGreaterThanOrEqual(400);
+
+    const healthyController = new AbortController();
+    const healthyResponse = await searchRoute.POST(searchRequest(healthyController.signal));
+    const healthyPayload = await payload(healthyResponse);
+    expect(healthyResponse.status).toBe(200);
+    expect(healthyController.signal.aborted).toBe(false);
+    expect(searchCalls).toBe(2);
+    expect(healthyPayload.telemetry).toMatchObject({ coalesced: false });
+  });
+
   it("streams only public progress details and exactly one completion before the final answer", async () => {
     const answerQuestionWithScope = vi.fn(async (args: { onProgress?: (event: unknown) => void | Promise<void> }) => {
       await args.onProgress?.({

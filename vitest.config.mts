@@ -1,6 +1,11 @@
+import { vitestCacheDirectory } from "./scripts/test-cache-path.mjs";
+
 const liveProviderTests = process.env.ALLOW_PROVIDER_TESTS === "true";
 
 const config = {
+  // Codex worktrees commonly share node_modules through a junction. Keep Vite's
+  // transform cache outside that shared dependency tree and unique per worktree.
+  cacheDir: vitestCacheDirectory(process.cwd()),
   test: {
     // Route and RAG tests cold-import large Next.js module graphs inside the test
     // body. Give those transforms headroom on slower worktree filesystems while

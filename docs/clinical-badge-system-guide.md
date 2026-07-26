@@ -427,14 +427,14 @@ Avoid code-facing colour names such as `green`, `red`, `amber`, or `slate` for n
 
 Map semantic tones to existing tokens:
 
-| Semantic tone | Existing style direction                    |
-| ------------- | ------------------------------------------- |
-| `neutral`     | `toneNeutral` / metadata pill               |
-| `clinical`    | clinical accent token (`--clinical-accent`) |
-| `success`     | `toneSuccess`                               |
-| `warning`     | `toneWarning` or `toneWarningQuiet`         |
-| `danger`      | `toneDanger`                                |
-| `info`        | `toneInfo`                                  |
+| Semantic tone | Existing style direction                                  |
+| ------------- | --------------------------------------------------------- |
+| `neutral`     | `toneNeutral` / metadata pill                             |
+| `clinical`    | clinical accent token (`--clinical-accent`)               |
+| `success`     | `toneSuccess`                                             |
+| `warning`     | `toneWarning` (quiet warning is private to source badges) |
+| `danger`      | `toneDanger`                                              |
+| `info`        | `toneInfo`                                                |
 
 ## Accessibility Requirements
 
