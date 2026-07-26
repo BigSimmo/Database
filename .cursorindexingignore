@@ -37,7 +37,7 @@ docs/archive/
 # tests/production-mockup-boundary must stay indexed.
 src/app/mockups/
 mockups/
-src/components/calculator-mockups/
+# note: src/components/calculators/ is production (promoted from mockups) — keep indexed
 src/components/favourites-page-mockups/
 src/components/settings-search-mockups/
 src/components/tools-page-mockups/
