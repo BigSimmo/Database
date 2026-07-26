@@ -3314,8 +3314,8 @@ export function ClinicalDashboard({
     <div
       className={cn(
         appBackdrop,
-        // Share the same in-flow phone viewport contract as GlobalSearchShell.
-        // Avoiding a viewport-sized fixed root prevents iOS compositor gaps.
+        // Share GlobalSearchShell's fixed inset phone viewport contract. It
+        // follows the live viewport without a Safari-vulnerable dvh height.
         "mobile-app-shell phone-viewport-shell flex flex-col overflow-hidden text-[color:var(--text)] max-sm:overflow-hidden md:grid md:grid-cols-[5.25rem_minmax(0,1fr)] md:overflow-hidden",
         sidebarColumnTransitionReady &&
           "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",

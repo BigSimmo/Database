@@ -10,6 +10,7 @@ const globalStylesSource = read("src/app/globals.css");
 const agentsSource = read("AGENTS.md");
 const searchChromeBehaviourSource = read("docs/search-chrome-behaviour.md");
 const clinicalDashboardSource = read("src/components/ClinicalDashboard.tsx");
+const globalSearchShellSource = read("src/components/clinical-dashboard/global-search-shell.tsx");
 
 function occurrenceCount(source: string, value: string) {
   return source.split(value).length - 1;
@@ -106,5 +107,20 @@ describe("overlay and global CSS contracts", () => {
     );
     expect(clinicalDashboardSource).toContain("Hidden dock pad must stay at 0rem");
     expect(clinicalDashboardSource).not.toContain("Hidden dock pad must stay at 0.75rem");
+  });
+
+  it("uses one fixed inset phone shell without a viewport-unit height clamp", () => {
+    const phoneShellBlocks = [...globalStylesSource.matchAll(/\.phone-viewport-shell\s*\{[\s\S]*?\}/g)].map(
+      ([block]) => block,
+    );
+    const phoneShellBlock = phoneShellBlocks.at(-1);
+
+    expect(phoneShellBlock).toBeDefined();
+    expect(phoneShellBlock).toContain("position: fixed;");
+    expect(phoneShellBlock).toContain("inset: 0;");
+    expect(phoneShellBlock).not.toMatch(/(?:min-)?height:\s*100(?:d|s)?vh/);
+    expect(globalSearchShellSource).toContain("phone-viewport-shell");
+    expect(clinicalDashboardSource).toContain("phone-viewport-shell");
+    expect(searchChromeBehaviourSource).toContain("Size it only with `inset: 0`");
   });
 });

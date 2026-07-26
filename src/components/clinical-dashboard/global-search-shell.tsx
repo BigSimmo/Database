@@ -709,10 +709,9 @@ function GlobalStandaloneSearchShellBody({
   return (
     <div
       className={cn(
-        // Keep the phone shell viewport-bounded without making the whole app a
-        // viewport-sized fixed layer. Physical iOS can paint a bottom gap under
-        // fixed inset shells while reporting correct geometry; the shared
-        // in-flow contract still bounds #main-content for internal scrolling.
+        // The shared CSS phone shell is fixed with physical insets (not a
+        // viewport-unit height) so Safari tabs and standalone PWAs paint the
+        // final pixel while #main-content remains the sole phone scrollport.
         "phone-viewport-shell sm:min-h-dvh max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         shouldShowDesktopSidebar &&

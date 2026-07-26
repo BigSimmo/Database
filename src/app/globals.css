@@ -2332,27 +2332,23 @@ html[data-motion="reduced"] .pwa-notice-card {
   }
 
   /*
-   * Phone search surfaces keep #main-content as their only scrollport, but the
-   * viewport shell itself must remain in normal flow. iOS can leave a painted
-   * gap under viewport-sized position:fixed containers even when CSSOM reports
-   * the correct bounds. A bounded dynamic-viewport block avoids that compositor
-   * path while still giving the flex scroller an exact height.
+   * Phone search surfaces keep #main-content as their only scrollport. The
+   * shared shell pins to the live viewport with physical insets instead of a
+   * 100vh/svh/dvh height: Safari can resolve those units lazily while browser
+   * chrome changes, leaving an unpainted bottom band. `inset: 0` tracks both
+   * Safari tabs and freshly launched standalone PWAs without clamping scroll.
    */
   @media (max-width: 639px) {
+    .mobile-app-shell,
     .phone-viewport-shell {
-      position: relative;
-      width: 100%;
-      min-height: 100vh;
-      height: 100vh;
+      min-height: 0;
+      height: auto;
     }
-  }
 
-  @supports (height: 100svh) {
-    @media (max-width: 639px) {
-      .phone-viewport-shell {
-        min-height: 100svh;
-        height: 100svh;
-      }
+    .phone-viewport-shell {
+      position: fixed;
+      inset: 0;
+      width: auto;
     }
   }
 
@@ -2361,13 +2357,8 @@ html[data-motion="reduced"] .pwa-notice-card {
   }
 
   @supports (height: 100dvh) {
-    .mobile-app-shell {
-      min-height: 100dvh;
-      height: 100dvh;
-    }
-
-    @media (max-width: 639px) {
-      .phone-viewport-shell {
+    @media (min-width: 640px) {
+      .mobile-app-shell {
         min-height: 100dvh;
         height: 100dvh;
       }

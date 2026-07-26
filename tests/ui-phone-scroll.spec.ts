@@ -200,16 +200,17 @@ test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
 });
 
-test("phone chrome keeps an opaque header and a light edge-to-edge Therapy footer that fully releases when hidden", async ({
-  page,
-}) => {
+test("Services results own the phone's final pixel after shared chrome releases", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
-  // The user's failing surface is a submitted Therapy search. Its exaggerated
-  // bottom inset catches paint that only leaks through a notched-phone safe area.
-  await gotoPhoneSurface(page, "/therapy-compass/search?q=CBT&run=1", 112);
+  // A submitted Services search exercises GlobalSearchShell's shared phone
+  // result canvas (rather than a mode-home or page-owned navigation surface).
+  // The exaggerated inset catches paint that leaks only through a freshly
+  // relaunched Home Screen PWA's notched-phone safe area.
+  await gotoPhoneSurface(page, "/services?q=clinic&run=1&focus=1", 112);
   await expect(page.locator("form.answer-footer-search-dock")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("global-search-input")).not.toBeFocused({ timeout: 5_000 });
+  await expect(page.getByTestId("services-navigator")).toBeVisible({ timeout: 20_000 });
 
   const visible = await page.evaluate(() => {
     const header = document.querySelector<HTMLElement>("header#search");
@@ -293,6 +294,7 @@ test("phone chrome keeps an opaque header and a light edge-to-edge Therapy foote
     const shell = main?.closest<HTMLElement>(".phone-viewport-shell");
     const shellRect = shell?.getBoundingClientRect();
     const mainRect = main?.getBoundingClientRect();
+    const resultLayer = document.querySelector<HTMLElement>('[data-testid="services-navigator"]');
     const bottomPaintOwner = document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 1);
     return {
       collapseHeight: collapse?.getBoundingClientRect().height ?? -1,
@@ -303,10 +305,11 @@ test("phone chrome keeps an opaque header and a light edge-to-edge Therapy foote
       backdropVisibility: backdrop ? getComputedStyle(backdrop).visibility : "",
       reserve: main ? getComputedStyle(main).getPropertyValue("--mobile-composer-reserve").trim() : "",
       shellPosition: shell ? getComputedStyle(shell).position : "missing",
+      shellInset: shell ? getComputedStyle(shell).inset : "missing",
       shellTop: shellRect?.top ?? -1,
       shellBottom: shellRect?.bottom ?? -1,
       mainBottom: mainRect?.bottom ?? -1,
-      bottomPaintOwnedByMain: Boolean(main && bottomPaintOwner && main.contains(bottomPaintOwner)),
+      bottomPaintOwnedByResults: Boolean(resultLayer && bottomPaintOwner && resultLayer.contains(bottomPaintOwner)),
       scrollTop: main?.scrollTop ?? -1,
       viewportHeight: window.innerHeight,
     };
@@ -318,35 +321,63 @@ test("phone chrome keeps an opaque header and a light edge-to-edge Therapy foote
   expect(hidden.backdropOpacity).toBe("0");
   expect(hidden.backdropVisibility).toBe("hidden");
   expect(hidden.reserve).toBe("0rem");
-  expect(hidden.shellPosition).toBe("relative");
+  expect(hidden.shellPosition).toBe("fixed");
+  expect(hidden.shellInset).toBe("0px");
   expect(hidden.shellTop).toBeCloseTo(0, 0);
   expect(hidden.shellBottom).toBeCloseTo(hidden.viewportHeight, 0);
   expect(hidden.mainBottom).toBeCloseTo(hidden.viewportHeight, 0);
-  expect(hidden.bottomPaintOwnedByMain, "hidden chrome leaves live content at the last viewport pixel").toBe(true);
+  expect(hidden.bottomPaintOwnedByResults, "hidden chrome leaves Services results at the last viewport pixel").toBe(
+    true,
+  );
 
-  // Safari toolbar changes resize the visual viewport after scrolling. The
-  // in-flow shell must track that new edge without moving the reading offset;
-  // a viewport-sized fixed root passes these DOM bounds but can still mispaint
-  // a white compositor band on physical iOS.
+  // Safari toolbar changes shrink and expand the visual viewport after a
+  // scroll. The shared fixed inset shell must keep the Services canvas painted
+  // to that edge without moving the reading offset or its content anchor.
   await page.setViewportSize({ width: phoneViewport.width, height: phoneViewport.height - 64 });
   await page.waitForTimeout(100);
   const afterViewportResize = await page.evaluate(() => {
     const main = document.getElementById("main-content");
     const shell = main?.closest<HTMLElement>(".phone-viewport-shell");
+    const results = document.querySelector<HTMLElement>('[data-testid="services-navigator"]');
+    const resultAnchor = document.querySelector<HTMLElement>('[data-testid="service-search-results"]');
     const bottomPaintOwner = document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 1);
     return {
       shellBottom: shell?.getBoundingClientRect().bottom ?? -1,
       mainBottom: main?.getBoundingClientRect().bottom ?? -1,
-      bottomPaintOwnedByMain: Boolean(main && bottomPaintOwner && main.contains(bottomPaintOwner)),
+      bottomPaintOwnedByResults: Boolean(results && bottomPaintOwner && results.contains(bottomPaintOwner)),
+      anchorTop: resultAnchor?.getBoundingClientRect().top ?? -1,
       scrollTop: main?.scrollTop ?? -1,
       viewportHeight: window.innerHeight,
     };
   });
   expect(afterViewportResize.shellBottom).toBeCloseTo(afterViewportResize.viewportHeight, 0);
   expect(afterViewportResize.mainBottom).toBeCloseTo(afterViewportResize.viewportHeight, 0);
-  expect(afterViewportResize.bottomPaintOwnedByMain).toBe(true);
+  expect(afterViewportResize.bottomPaintOwnedByResults).toBe(true);
   expect(afterViewportResize.scrollTop, "viewport resize does not jump the reading position").toBeCloseTo(
     hidden.scrollTop,
+    0,
+  );
+
+  await page.setViewportSize(phoneViewport);
+  await page.waitForTimeout(100);
+  const afterViewportRestore = await page.evaluate(() => {
+    const main = document.getElementById("main-content");
+    const results = document.querySelector<HTMLElement>('[data-testid="services-navigator"]');
+    const resultAnchor = document.querySelector<HTMLElement>('[data-testid="service-search-results"]');
+    const bottomPaintOwner = document.elementFromPoint(window.innerWidth / 2, window.innerHeight - 1);
+    return {
+      bottomPaintOwnedByResults: Boolean(results && bottomPaintOwner && results.contains(bottomPaintOwner)),
+      anchorTop: resultAnchor?.getBoundingClientRect().top ?? -1,
+      scrollTop: main?.scrollTop ?? -1,
+    };
+  });
+  expect(afterViewportRestore.bottomPaintOwnedByResults).toBe(true);
+  expect(afterViewportRestore.scrollTop, "viewport expansion does not jump the reading position").toBeCloseTo(
+    hidden.scrollTop,
+    0,
+  );
+  expect(afterViewportRestore.anchorTop, "viewport resize keeps the result content anchor stable").toBeCloseTo(
+    afterViewportResize.anchorTop,
     0,
   );
 });
