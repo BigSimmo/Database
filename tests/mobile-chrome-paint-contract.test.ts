@@ -3,6 +3,14 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const globalStylesSource = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
+const calculatorsSource = readFileSync(
+  new URL("../src/components/calculators/search-page.tsx", import.meta.url),
+  "utf8",
+);
+const scrollHideSource = readFileSync(
+  new URL("../src/components/clinical-dashboard/use-hide-on-scroll.ts", import.meta.url),
+  "utf8",
+);
 
 describe("mobile chrome paint baseline", () => {
   it("keeps the header opaque while the edge-to-edge footer uses localized soft glass", () => {
@@ -43,5 +51,15 @@ describe("mobile chrome paint baseline", () => {
     expect(`${footerBackdropSource}\n${supportsFallbackSource}\n${reducedTransparencySource}`).not.toContain(
       "var(--background) 100%",
     );
+  });
+
+  it("registers the calculator page reserve with the shared hide and transition contracts", () => {
+    expect(calculatorsSource).toContain("useReserveTransitionMarker(dockHidden, activeCalc)");
+    expect(calculatorsSource).toContain('reserveOwner="calculator"');
+    expect(calculatorsSource).toContain('reserveHiddenPad="0rem"');
+    expect(calculatorsSource).toContain("reserveTransitioning={reserveTransitioning}");
+    expect(globalStylesSource).toContain('[data-reserve-owner][data-reserve-transitioning="true"]');
+    expect(scrollHideSource).toContain('querySelectorAll("[data-reserve-owner]")');
+    expect(scrollHideSource).toContain("dataset.reserveHiddenPad");
   });
 });

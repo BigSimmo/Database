@@ -2683,12 +2683,23 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     will-change: padding-bottom;
     transition: padding-bottom 240ms var(--ease-out-soft);
   }
+  /* A page-owned reserve changes scroll height below the current viewport.
+     Suspend browser anchoring only for that transition so Chrome cannot turn
+     the intended padding release into a synthetic upward scroll/reveal loop. */
+  #main-content:has([data-reserve-owner][data-reserve-transitioning="true"]) {
+    overflow-anchor: none;
+  }
+  [data-reserve-owner][data-reserve-transitioning="true"] {
+    will-change: padding-bottom;
+    transition: padding-bottom 240ms var(--ease-out-soft);
+  }
 }
 
 @media (max-width: 639px) and (prefers-reduced-motion: reduce) {
   #main-content[data-reserve-transitioning="true"],
   #main-content[data-reserve-transitioning="true"] [data-testid="mobile-composer-reserve-pad"],
-  [data-testid="document-viewer-content"][data-reserve-transitioning="true"] {
+  [data-testid="document-viewer-content"][data-reserve-transitioning="true"],
+  [data-reserve-owner][data-reserve-transitioning="true"] {
     transition: none;
   }
 }

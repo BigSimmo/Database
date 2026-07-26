@@ -337,6 +337,140 @@ test("calculators page-owned phone dock uses localized glass and releases its re
       Number.parseFloat(await pageSurface.evaluate((element) => getComputedStyle(element).paddingBottom)),
     )
     .toBeLessThanOrEqual(1);
+
+  await dragScrollBy(page, -48, 8);
+  await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+});
+
+test("calculator combined chrome stays visible with only 96px of near-bottom runway", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/calculators", 112);
+  await addPhoneScrollRunway(page);
+
+  const frames = await page.evaluate(async () => {
+    const main = document.getElementById("main-content");
+    const dock = document.querySelector<HTMLElement>('[data-testid="calculators-phone-dock"]');
+    const reserve = document.querySelector<HTMLElement>('[data-testid="calculators-search-page"]');
+    if (!main || !dock || !reserve) throw new Error("calculator reserve geometry was not rendered");
+    const read = () => ({
+      dockHidden: dock.getAttribute("data-scroll-hidden") === "true",
+      headerHidden:
+        document.querySelector('[data-testid="universal-header-collapse"]')?.getAttribute("data-scroll-hidden") ===
+        "true",
+      scrollTop: main.scrollTop,
+      maxOffset: main.scrollHeight - main.clientHeight,
+    });
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+    const collapseBudget =
+      (collapse?.getBoundingClientRect().height ?? 0) +
+      (safeArea?.getBoundingClientRect().height ?? 0) +
+      Number.parseFloat(getComputedStyle(reserve).paddingBottom);
+    // This is the historical regression boundary: a realistic down-gesture
+    // with 96px remaining after the combined header, safe-area, and calculator
+    // reserve release. The gate must decline both owners rather than allow a
+    // later reserve transition to clamp the reader upward.
+    main.scrollTop = Math.max(0, main.scrollHeight - main.clientHeight - collapseBudget - 96);
+    main.dispatchEvent(new Event("scroll", { bubbles: true }));
+    const frames = [read()];
+    for (let index = 0; index < 18; index += 1) {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+      frames.push(read());
+    }
+    return frames;
+  });
+
+  expect(frames.every((frame) => !frame.headerHidden && !frame.dockHidden)).toBe(true);
+  for (let index = 1; index < frames.length; index += 1) {
+    expect(frames[index].scrollTop, "rejected near-bottom collapse cannot clamp scrollTop").toBeCloseTo(
+      frames[0].scrollTop,
+      0,
+    );
+    expect(frames[index].maxOffset, "rejected near-bottom collapse keeps the scroll range stable").toBeCloseTo(
+      frames[0].maxOffset,
+      0,
+    );
+  }
+});
+
+test("calculator reserve and dock hide and reveal monotonically with sufficient near-bottom runway", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/calculators", 112);
+  await addPhoneScrollRunway(page);
+
+  const frames = await page.evaluate(async () => {
+    const main = document.getElementById("main-content");
+    const dock = document.querySelector<HTMLElement>('[data-testid="calculators-phone-dock"]');
+    const reserve = document.querySelector<HTMLElement>('[data-testid="calculators-search-page"]');
+    if (!main || !dock || !reserve) throw new Error("calculator reserve geometry was not rendered");
+    const read = () => ({
+      hidden: dock.getAttribute("data-scroll-hidden") === "true",
+      dockTop: dock.getBoundingClientRect().top,
+      paddingBottom: Number.parseFloat(getComputedStyle(reserve).paddingBottom),
+      scrollTop: main.scrollTop,
+      scrollAnchor: getComputedStyle(main).overflowAnchor,
+      transitionDuration: getComputedStyle(reserve).transitionDuration,
+    });
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+    const collapseBudget =
+      (collapse?.getBoundingClientRect().height ?? 0) +
+      (safeArea?.getBoundingClientRect().height ?? 0) +
+      Number.parseFloat(getComputedStyle(reserve).paddingBottom);
+    main.scrollTop = Math.max(0, main.scrollHeight - main.clientHeight - collapseBudget - 256);
+    main.dispatchEvent(new Event("scroll", { bubbles: true }));
+    const hiding = [read()];
+    for (let index = 0; index < 18; index += 1) {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+      hiding.push(read());
+    }
+    main.scrollTop -= 12;
+    main.dispatchEvent(new Event("scroll", { bubbles: true }));
+    const reveal = [read()];
+    for (let index = 0; index < 16; index += 1) {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+      reveal.push(read());
+    }
+    return { hiding, reveal };
+  });
+
+  const firstHidden = frames.hiding.findIndex((frame) => frame.hidden);
+  expect(firstHidden, "sufficient-runway downward intent hides the calculator dock").toBeGreaterThan(-1);
+  const hiding = frames.hiding.slice(firstHidden);
+  expect(hiding.some((frame) => frame.transitionDuration.includes("0.24s"))).toBe(true);
+  expect(
+    hiding.some((frame) => frame.scrollAnchor === "none"),
+    "page-owned reserve transition disables anchoring",
+  ).toBe(true);
+  for (let index = 1; index < hiding.length; index += 1) {
+    expect(hiding[index].paddingBottom, "calculator reserve never reverses during hide").toBeLessThanOrEqual(
+      hiding[index - 1].paddingBottom + 1,
+    );
+    expect(hiding[index].dockTop, "dock never reverses during hide").toBeGreaterThanOrEqual(
+      hiding[index - 1].dockTop - 1,
+    );
+    expect(hiding[index].scrollTop, "scroll remains monotonic during hide").toBeGreaterThanOrEqual(
+      hiding[index - 1].scrollTop - 1,
+    );
+  }
+  const firstRevealed = frames.reveal.findIndex((frame) => !frame.hidden);
+  expect(firstRevealed, "upward intent reveals the calculator dock").toBeGreaterThan(-1);
+  const revealing = frames.reveal.slice(firstRevealed);
+  for (let index = 1; index < revealing.length; index += 1) {
+    expect(revealing[index].paddingBottom, "calculator reserve never reverses during reveal").toBeGreaterThanOrEqual(
+      revealing[index - 1].paddingBottom - 1,
+    );
+    expect(revealing[index].dockTop, "dock never reverses during reveal").toBeLessThanOrEqual(
+      revealing[index - 1].dockTop + 1,
+    );
+    expect(revealing[index].scrollTop, "scroll remains monotonic during reveal").toBeLessThanOrEqual(
+      revealing[index - 1].scrollTop + 1,
+    );
+  }
 });
 
 for (const route of [...modeHomeRoutes, ...dashboardRoutes, ...longRoutes]) {

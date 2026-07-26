@@ -20,7 +20,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
-import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { useHideOnScroll, useReserveTransitionMarker } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { chatComposerInput, chatComposerShellBase, chatSendButton, cn, eyebrowText } from "@/components/ui-primitives";
 
@@ -518,6 +518,7 @@ export function CalculatorsSearchPage() {
   // focused input off-screen or mark it aria-hidden while still tabbable.
   const [dockFocused, setDockFocused] = useState(false);
   const dockHidden = footerHidden && !dockFocused;
+  const reserveTransitioning = useReserveTransitionMarker(dockHidden, activeCalc);
 
   const compact = density === "compact";
 
@@ -535,6 +536,9 @@ export function CalculatorsSearchPage() {
       <SearchResultsLayout
         testId="calculators-search-page"
         resultsLabel="Calculators"
+        reserveOwner="calculator"
+        reserveHiddenPad="0rem"
+        reserveTransitioning={reserveTransitioning}
         // Page-owned phone dock: shell composer is hidden, so clear space here.
         // Collapse with the dock on scroll-hide so content reaches the viewport edge.
         className={cn(
