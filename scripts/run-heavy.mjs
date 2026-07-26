@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
+import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { childProcessExitCode } from "./child-process-result.mjs";
+import { typescriptBuildInfoPath } from "./test-cache-path.mjs";
 import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -17,6 +19,9 @@ const rawForwarded = args.slice(2);
 const forceLockRelease = rawForwarded.includes("--force-lock-release");
 const forwarded = rawForwarded.filter((argument) => argument !== "--force-lock-release");
 const mode = script === "typecheck:internal" ? "shared" : "exclusive";
+const typecheckBuildInfo = mode === "shared" ? typescriptBuildInfoPath(projectRoot) : null;
+if (typecheckBuildInfo) mkdirSync(path.dirname(typecheckBuildInfo), { recursive: true });
+const effectiveForwarded = typecheckBuildInfo ? [...forwarded, "--tsBuildInfoFile", typecheckBuildInfo] : forwarded;
 const lock = acquireHeavyRunLock({
   projectRoot,
   command: `npm run ${script}`,
@@ -27,11 +32,15 @@ const lock = acquireHeavyRunLock({
 function runNpmScript() {
   const npmExecPath = process.env.npm_execpath;
   const child = npmExecPath
-    ? spawn(process.execPath, [npmExecPath, "run", script, ...(forwarded.length ? ["--", ...forwarded] : [])], {
-        cwd: projectRoot,
-        env: lock.environment,
-        stdio: "inherit",
-      })
+    ? spawn(
+        process.execPath,
+        [npmExecPath, "run", script, ...(effectiveForwarded.length ? ["--", ...effectiveForwarded] : [])],
+        {
+          cwd: projectRoot,
+          env: lock.environment,
+          stdio: "inherit",
+        },
+      )
     : spawn(
         process.platform === "win32" ? "cmd.exe" : "npm",
         process.platform === "win32"

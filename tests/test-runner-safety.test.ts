@@ -12,7 +12,7 @@ import {
   requireProviderTestPermission,
 } from "../scripts/test-environment.mjs";
 import { acquireHeavyRunLock, testRunLockInternals } from "../scripts/test-run-lock.mjs";
-import { vitestCacheDirectory } from "../scripts/test-cache-path.mjs";
+import { typescriptBuildInfoPath, vitestCacheDirectory } from "../scripts/test-cache-path.mjs";
 import { vitestLeaseMode } from "../scripts/test-run-selection.mjs";
 import { redactSensitiveText } from "../scripts/sensitive-text.mjs";
 
@@ -492,6 +492,15 @@ describe("focused test admission", () => {
     const second = vitestCacheDirectory(path.join(baseDirectory, "worktree-b"), baseDirectory);
     expect(first).not.toBe(second);
     expect(path.dirname(first)).toBe(path.join(baseDirectory, "clinical-kb-vitest-cache"));
+  });
+
+  it("uses different TypeScript incremental state for different worktrees", () => {
+    const baseDirectory = temporaryDirectory("clinical-kb-tsc-cache-");
+    const first = typescriptBuildInfoPath(path.join(baseDirectory, "worktree-a"), baseDirectory);
+    const second = typescriptBuildInfoPath(path.join(baseDirectory, "worktree-b"), baseDirectory);
+    expect(first).not.toBe(second);
+    expect(path.dirname(path.dirname(first))).toBe(path.join(baseDirectory, "clinical-kb-tsc-cache"));
+    expect(path.basename(first)).toBe("tsconfig.tsbuildinfo");
   });
 });
 

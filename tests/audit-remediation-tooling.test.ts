@@ -36,6 +36,8 @@ describe("run-heavy lock holders stay async", () => {
     expect(source).toContain('import { spawn } from "node:child_process"');
     expect(source).not.toContain("spawnSync");
     expect(source).toContain("forceLockRelease");
+    expect(source).toContain("typescriptBuildInfoPath");
+    expect(source).toContain('"--tsBuildInfoFile"');
     expect(source).toContain("await runNpmScript()");
   });
 
