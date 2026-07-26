@@ -341,62 +341,82 @@ test("phone forms search hides header and footer after submit without stale focu
   expect(Number.parseFloat(afterHide.reservePb) || 0, "hidden reserve releases the bottom rail").toBeLessThanOrEqual(1);
 });
 
-/**
- * Status-bar safe-area guard: collapsing the phone header must reclaim the
- * chrome controls, never the OS top inset. Without the always-on
- * `chrome-safe-area-top` spacer, service-detail text painted under the
- * system clock/signal icons after a deliberate scroll-hide.
- */
-test("phone service detail keeps content below the status-bar inset after header hide", async ({ page }) => {
+/** Phone edge-to-edge guard for the shared header on Therapy results. */
+test("phone shared header releases its top safe-area band after hide", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
-  await gotoPhoneSurface(page, "/services/13yarn");
-  await expect(page.getByTestId("service-detail-page")).toBeVisible({ timeout: 20_000 });
+  await gotoPhoneSurface(page, "/therapy-compass/search?q=CBT&run=1");
+  await expect(page.getByRole("heading", { name: "Therapy", exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("chrome-safe-area-top")).toBeVisible();
 
-  const initial = await readGeometry(page);
-  expect(initial.headerHidden, "header visible at the top").toBe(false);
+  const initial = await page.evaluate(() => {
+    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const main = document.getElementById("main-content");
+    const safeAreaTopPx = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
+    );
+    return {
+      headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
+      safeAreaHeight: safeArea?.getBoundingClientRect().height ?? -1,
+      mainTop: main?.getBoundingClientRect().top ?? -1,
+      safeAreaTopPx,
+    };
+  });
+  expect(initial.headerHidden, "header starts visible").toBe(false);
+  expect(initial.safeAreaHeight, "visible header owns the simulated OS inset").toBeGreaterThanOrEqual(
+    initial.safeAreaTopPx - 1,
+  );
+  expect(initial.mainTop, "visible header and Therapy nav remain in flow").toBeGreaterThan(initial.safeAreaTopPx);
 
-  await dragScrollBy(page, Math.max(initial.maxOffset, 240), 24);
+  await dragScrollBy(page, 720, 24);
   await page.waitForTimeout(500);
 
   const afterHide = await page.evaluate(() => {
     const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
     const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
     const main = document.getElementById("main-content");
-    const servicePage = document.querySelector<HTMLElement>('[data-testid="service-detail-page"]');
     const safeRect = safeArea?.getBoundingClientRect();
     const mainRect = main?.getBoundingClientRect();
-    const rootStyles = getComputedStyle(document.documentElement);
-    const safeAreaTopPx = Number.parseFloat(rootStyles.getPropertyValue("--safe-area-top")) || 0;
-    // Geometry proof (not hit-testing): service cards may sit above the main
-    // box in document coordinates after scroll, but their visible paint is
-    // clipped to #main-content, which must start at/below the safe-area band.
-    const visibleServiceTop = servicePage ? Math.max(servicePage.getBoundingClientRect().top, mainRect?.top ?? 0) : -1;
     return {
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       safeAreaHeight: safeRect?.height ?? 0,
-      safeAreaTop: safeRect?.top ?? -1,
       mainTop: mainRect?.top ?? -1,
-      visibleServiceTop,
-      safeAreaTopPx,
-      safeAreaZ: safeArea ? getComputedStyle(safeArea).zIndex : "",
+      mainLeft: mainRect?.left ?? -1,
+      mainRight: mainRect?.right ?? -1,
+      viewportWidth: window.innerWidth,
     };
   });
 
-  expect(afterHide.headerHidden, "header collapses after a deliberate descent").toBe(true);
-  expect(afterHide.safeAreaHeight, "safe-area spacer keeps the status-bar band").toBeGreaterThanOrEqual(
-    afterHide.safeAreaTopPx - 1,
+  expect(afterHide.headerHidden, "shared header collapses after a deliberate descent").toBe(true);
+  expect(afterHide.safeAreaHeight, "hidden header releases the opaque status-bar band").toBeLessThanOrEqual(1);
+  expect(afterHide.mainTop, "hidden header lets content reach the physical top edge").toBeLessThanOrEqual(1);
+  expect(afterHide.mainLeft, "phone scroll surface reaches the left edge").toBeCloseTo(0, 0);
+  expect(afterHide.mainRight, "phone scroll surface reaches the right edge").toBeCloseTo(afterHide.viewportWidth, 0);
+
+  await dragScrollBy(page, -720, 24);
+  await page.waitForTimeout(500);
+
+  const afterReveal = await page.evaluate(() => {
+    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const main = document.getElementById("main-content");
+    const safeAreaTopPx = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
+    );
+    return {
+      headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
+      safeAreaHeight: safeArea?.getBoundingClientRect().height ?? -1,
+      mainTop: main?.getBoundingClientRect().top ?? -1,
+      safeAreaTopPx,
+    };
+  });
+
+  expect(afterReveal.headerHidden, "upward scroll reveals the shared header").toBe(false);
+  expect(afterReveal.safeAreaHeight, "revealed header restores the OS inset").toBeGreaterThanOrEqual(
+    afterReveal.safeAreaTopPx - 1,
   );
-  expect(afterHide.safeAreaTop, "safe-area spacer stays pinned to the viewport top").toBeLessThanOrEqual(1);
-  expect(afterHide.mainTop, "scrollport starts below the status-bar inset").toBeGreaterThanOrEqual(
-    afterHide.safeAreaTopPx - 1,
+  expect(afterReveal.mainTop, "revealed header restores its complete flow height").toBeGreaterThan(
+    afterReveal.safeAreaTopPx,
   );
-  expect(afterHide.visibleServiceTop, "service content stays below the status-bar inset").toBeGreaterThanOrEqual(
-    afterHide.safeAreaTopPx - 1,
-  );
-  expect(
-    Number.parseInt(afterHide.safeAreaZ, 10),
-    "safe-area spacer stacks above collapsing chrome",
-  ).toBeGreaterThanOrEqual(32);
 });

@@ -1784,10 +1784,11 @@ export function MasterSearchHeader({
         // No backdrop-filter on the header itself: it would form a backdrop
         // root and starve the .edge-glass-header-backdrop scrim (the single
         // source of the bar's frost) of the real page behind it.
-        // Collapse hosts own the OS top inset via the always-on
-        // `chrome-safe-area-top` spacer outside the 0fr row, so this bar only
-        // needs its aesthetic 0.5rem pad. Overlay hosts still paint the inset
-        // themselves (answer mode keeps an equivalent reserve on <main>).
+        // Collapse hosts own the OS top inset via `chrome-safe-area-top`, so
+        // this bar only needs its aesthetic 0.5rem pad. On phones that spacer
+        // releases with hidden chrome; wider sticky hosts keep it pinned.
+        // Overlay hosts still paint the inset themselves (answer mode keeps an
+        // equivalent reserve on <main>).
         "edge-glass-header universal-header z-30 py-2 text-[color:var(--text)]",
         hideStrategy === "collapse" ? "pt-2" : "pt-[max(0.5rem,var(--safe-area-top))]",
         // Collapse hosts keep the top bar above an internally scrolling <main>,
@@ -2032,8 +2033,8 @@ export function MasterSearchHeader({
     // tree via `position: fixed`; hero composers portal out.
     //
     // Above the phone breakpoint a `wide: "sticky"` host scrolls the document,
-    // so an outer sticky stack pins its chrome below the always-on safe-area
-    // spacer. Tablet search remains in that stack; desktop result search portals
+    // so an outer sticky stack pins its chrome below the wide safe-area spacer.
+    // Tablet search remains in that stack; desktop result search portals
     // into page flow, so the stack contains only the top bar there. Return a fragment (never a
     // wrapping block): GlobalSearchShell uses `sm:contents` on the chrome
     // parent so sticky can travel against the viewport.
@@ -2084,10 +2085,16 @@ export function MasterSearchHeader({
         aria-hidden="true"
         data-testid="chrome-safe-area-top"
         className={cn(
-          // relative + z above the collapsing header: the 0fr row still lets
-          // header#search's box extend upward into this band for layout, and
-          // without a higher stack the status-bar fill can lose to that paint.
-          "relative z-[32] h-[var(--safe-area-top)] shrink-0 bg-[color:var(--background)]",
+          // Visible phone chrome owns the OS inset. Hidden phone chrome must
+          // release it so the scroll surface reaches the physical viewport
+          // edge instead of leaving an opaque status-bar band. Match the
+          // header row's timing to avoid a one-frame gap during hide/reveal.
+          // sm+ keeps its pinned inset because the sticky [bar | search] stack
+          // is a separate wide-layout contract.
+          "relative z-[32] shrink-0 bg-[color:var(--background)] max-sm:transition-[height] motion-reduce:transition-none sm:h-[var(--safe-area-top)]",
+          headerChromeHidden
+            ? "max-sm:h-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+            : "max-sm:h-[var(--safe-area-top)] max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
           sticksAbovePhones && "sm:sticky sm:top-0",
         )}
       />

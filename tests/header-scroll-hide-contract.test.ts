@@ -105,7 +105,7 @@ describe("shared header hide/reveal wiring", () => {
     // nowhere to stick. `contents` removes that box on GlobalSearchShell.
     expect(shellSource).toContain('className={mobileChromeVisible ? "sm:contents" : "hidden lg:contents"}');
     expect(shellSource).not.toContain('mobileChromeVisible ? undefined : "hidden lg:block"');
-    // Sticky pins the outer [top bar | search] stack below the always-on
+    // Sticky pins the outer [top bar | search] stack below the wide-layout
     // safe-area spacer. Translating that whole stack would take the search
     // field off-screen. Overlay hosts still use max-sm:-translate-y-full —
     // strip that before asserting sticky collapse does not revive the sm:
@@ -116,14 +116,17 @@ describe("shared header hide/reveal wiring", () => {
     expect(headerSource).not.toContain('sticksAbovePhones && headerChromeHidden && "sm:-translate-y-full"');
   });
 
-  it("keeps the OS top safe-area outside the collapse hide", () => {
-    // Releasing the status-bar inset with the chrome lets scrolled text paint
-    // under the system clock/signal icons on notched phones (service detail).
+  it("releases the phone top safe-area with hidden chrome while retaining the wide inset", () => {
+    // A fixed phone safe-area sibling survives the 0fr header collapse as an
+    // opaque band. It must share the hidden state, while sm+ sticky chrome keeps
+    // its safe-area offset independently.
     expect(headerSource).toContain('data-testid="chrome-safe-area-top"');
-    expect(headerSource).toContain("h-[var(--safe-area-top)]");
-    expect(headerSource).toContain("relative z-[32] h-[var(--safe-area-top)]");
+    expect(headerSource).toContain('headerChromeHidden\n            ? "max-sm:h-0');
+    expect(headerSource).toContain(': "max-sm:h-[var(--safe-area-top)]');
+    expect(headerSource).toContain("sm:h-[var(--safe-area-top)]");
+    expect(headerSource).toContain("max-sm:transition-[height]");
     expect(headerSource).toContain('hideStrategy === "collapse" ? "pt-2" : "pt-[max(0.5rem,var(--safe-area-top))]"');
-    expect(behaviourDocSource).toContain("OS top safe-area band");
+    expect(behaviourDocSource).toContain("`h-0` while hidden");
   });
 
   it("keeps the header out of sticky positioning wherever its row collapses", () => {
@@ -135,6 +138,9 @@ describe("shared header hide/reveal wiring", () => {
     // Sticky hosts now collapse only the top-bar row (still `display: grid`), so
     // the budget correctly charges that height; non-grid wrappers stay at 0.
     expect(hookSource).toContain('window.getComputedStyle(collapse).display === "grid"');
+    expect(hookSource).toContain("document.querySelector('[data-testid=\"chrome-safe-area-top\"]')");
+    expect(hookSource).toContain("window.matchMedia(phoneMediaQuery).matches");
+    expect(hookSource).toContain("headerRelease + phoneSafeAreaRelease + reserveRelease");
   });
 
   it("rebases the reporter when a host swaps its scroll geometry", () => {
@@ -160,7 +166,7 @@ describe("shared header hide/reveal wiring", () => {
     expect(behaviourDocSource).toContain("Page chrome that must match the top bar portals into the collapse host");
     expect(behaviourDocSource).toContain("Do not double-sticky tablet search inside an outer sticky stack");
     expect(behaviourDocSource).toContain("desktop-page-search-composer-slot");
-    expect(behaviourDocSource).toContain("Keep `chrome-safe-area-top` outside the hide mechanism");
+    expect(behaviourDocSource).toContain("Release the phone top inset with hidden chrome");
     expect(behaviourDocSource).toContain(
       "Collapse-everywhere hosts still drop their own sticky search offset while the top bar is hidden",
     );
