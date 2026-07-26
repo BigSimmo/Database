@@ -1385,6 +1385,8 @@ summary::-webkit-details-marker {
   .edge-glass-header,
   .universal-header {
     background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .edge-glass-header-backdrop,
