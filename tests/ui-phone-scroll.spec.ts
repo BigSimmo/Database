@@ -546,6 +546,18 @@ test("phone portaled addon focus pins the universal collapse owner during scroll
   expect(
     await page.getByTestId("chrome-safe-area-top").evaluate((element) => element.getBoundingClientRect().height),
   ).toBeGreaterThan(1);
+
+  await backLink.press("Enter");
+  await expect(page).toHaveURL(/\/differentials(?:\?.*)?$/);
+  await expect(page.locator("#main-content").first()).toBeVisible();
+  await addPhoneScrollRunway(page);
+  await dragScrollBy(page, 720, 24);
+  await page.waitForTimeout(500);
+
+  await expect(collapse, "removing a focused addon clears the pin on the destination route").toHaveAttribute(
+    "data-scroll-hidden",
+    "true",
+  );
 });
 
 test("phone header hide and reveal animate monotonically without a geometry jump", async ({ page }) => {

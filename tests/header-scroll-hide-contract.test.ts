@@ -105,8 +105,12 @@ describe("shared header hide/reveal wiring", () => {
       'export const phoneHeaderCollapseAddonSlotId = "phone-header-collapse-addon-slot"',
     );
     expect(headerSource).toContain("phoneHeaderCollapseAddonSlotId");
-    expect(headerSource).toContain('addonHost.addEventListener("focusin", handleFocusIn)');
-    expect(headerSource).toContain('addonHost.addEventListener("focusout", handleFocusOut)');
+    expect(headerSource).toContain("setPhoneHeaderCollapseAddonHost");
+    expect(headerSource).toContain('addonHost.addEventListener("focusin", scheduleFocusSync)');
+    expect(headerSource).toContain('addonHost.addEventListener("focusout", scheduleFocusSync)');
+    expect(headerSource).toContain("observer.observe(addonHost, { childList: true, subtree: true })");
+    expect(headerSource).toContain("addonHost.contains(document.activeElement)");
+    expect(headerSource).toContain("queueMicrotask(() => setHeaderChromeFocused(false))");
     expect(headerSource).not.toContain("headerCollapseAddonSlotId?: string");
     expect(headerSource).toContain('data-testid="header-collapse-addon"');
     expect(headerSource).toContain('className="w-full min-w-0 max-w-full empty:hidden"');
@@ -122,7 +126,8 @@ describe("shared header hide/reveal wiring", () => {
 
     // One subtree is moved before paint on phones; sm+ and missing-host
     // fallbacks remain in normal flow. The observer survives shell remounts;
-    // the real DOM addon host owns portaled focus forwarding above.
+    // the tracked real DOM addon host owns portaled focus forwarding and
+    // observes focused-child removal above.
     expect(phoneHeaderPortalSource).toContain("useLayoutEffect");
     expect(phoneHeaderPortalSource).toContain("createPortal(children, phoneHost)");
     expect(phoneHeaderPortalSource).toContain("phoneHeaderCollapseAddonSlotId");
