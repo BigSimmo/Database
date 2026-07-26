@@ -38,6 +38,13 @@ describe("run-heavy lock holders stay async", () => {
     expect(source).toContain("forceLockRelease");
     expect(source).toContain("await runNpmScript()");
   });
+
+  it("keeps Vitest async so shared-lease heartbeats can fire", () => {
+    const source = readFileSync(path.join(repositoryRoot, "scripts/run-vitest.mjs"), "utf8");
+    expect(source).toContain('import { spawn } from "node:child_process"');
+    expect(source).not.toContain("spawnSync");
+    expect(source).toContain("await runVitest()");
+  });
 });
 
 describe("eval-retrieval parallelization", () => {

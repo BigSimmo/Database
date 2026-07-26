@@ -16,10 +16,12 @@ const script = args[1];
 const rawForwarded = args.slice(2);
 const forceLockRelease = rawForwarded.includes("--force-lock-release");
 const forwarded = rawForwarded.filter((argument) => argument !== "--force-lock-release");
+const mode = script === "typecheck:internal" ? "shared" : "exclusive";
 const lock = acquireHeavyRunLock({
   projectRoot,
   command: `npm run ${script}`,
   forceLockRelease,
+  mode,
 });
 
 function runNpmScript() {
