@@ -8,6 +8,7 @@ import {
   featuredFactsheets,
 } from "@/components/factsheets/factsheets-data";
 import { factsheetCategoryGlyph, factsheetGlyph } from "@/components/factsheets/factsheets-icons";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
@@ -29,7 +30,7 @@ export function FactsheetsHomePage() {
         />
 
         {/* The universal composer portals itself into this slot on the mode home (hero placement). */}
-        <div
+        <DesktopComposerPortalSlot
           id={modeHomeDesktopComposerSlotId}
           className="mode-home-composer-slot hidden w-full px-4 sm:px-0 [&:not(:empty)]:block"
         />

@@ -122,9 +122,9 @@ export function ServicesHomePage({ defaultServiceSlug = null }: { defaultService
   return (
     <ModeHomeMain
       testId="services-home"
-      // Seeded homes are content-rich and can clip when centered on phone;
-      // loading/empty notices stay short — keep those vertically centred.
-      contentAlign={hasRegistryRecords ? "startOnPhone" : "center"}
+      // Keep loading on startOnPhone so the seeded registry does not jump from
+      // center → top when records arrive. Confirmed empty/error notices stay centred.
+      contentAlign={registry.status === "loading" || hasRegistryRecords ? "startOnPhone" : "center"}
     >
       <ModeHomeTemplate
         testId="services-home-template"

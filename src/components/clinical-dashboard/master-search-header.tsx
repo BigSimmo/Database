@@ -70,6 +70,7 @@ import { appModeIcons } from "@/lib/app-mode-icons";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
+import { desktopComposerSlotReadyAttr, isDesktopComposerSlotReady } from "@/lib/mode-home-composer";
 import { tagSearchText } from "@/lib/document-tags";
 
 // Shared between the composer input's aria-describedby and the rendered
@@ -361,12 +362,8 @@ export function MasterSearchHeader({
   // paths also refresh from the live query so the first tap still picks Sheet.
   const [usesPhoneSearchLayout, setUsesPhoneSearchLayout] = useState(false);
   const [desktopComposerPortalActive, setDesktopComposerPortalActive] = useState(false);
-  // True once the requested page/hero portal is conclusively unavailable — the media query
-  // does not match, or the slot never appeared after the retry budget. While a
-  // slot id is present and this is false the inline composer stays suppressed
-  // (no flash while the portal mounts); once it flips true the inline composer
-  // renders, so the search can never vanish from the page at any width.
-  const [desktopComposerPortalFallback, setDesktopComposerPortalFallback] = useState(false);
+  // The default/inline composer stays mounted until the portal host is attached.
+  // Dual composers may coexist briefly during handoff; search never vanishes.
   // Phone-only hide-on-scroll: never hide while a header-owned surface is open
   // or while focus sits inside the header chrome (keyboard users must not tab
   // into invisible controls).
@@ -999,7 +996,6 @@ export function MasterSearchHeader({
       queueMicrotask(() => {
         if (cancelled) return;
         setDesktopComposerPortalActive(false);
-        setDesktopComposerPortalFallback(false);
         setDesktopComposerPortalHost(null);
       });
       return () => {
@@ -1035,36 +1031,38 @@ export function MasterSearchHeader({
     // compositing, which stalled portal activation for seconds and made the
     // hero composer flake out of the mode-home slot. A microtask-driven sync
     // settles the portal on the same tick the slot mounts, no frame required.
+    //
+    // Ready-gate: page-owned slots mark `data-composer-slot-ready` only after
+    // their React segment hydrates. Adopting the slot before that injects a
+    // display:contents host into still-unhydrated RSC HTML (React #418).
     const syncTarget = () => {
       if (retryTimeout !== null) {
         window.clearTimeout(retryTimeout);
         retryTimeout = null;
       }
       const slot = mediaQuery.matches ? document.getElementById(composerSlotId) : null;
-      if (slot) {
+      if (slot && isDesktopComposerSlotReady(slot)) {
         portalRetryCount = 0;
         if (host.parentNode !== slot) slot.appendChild(host);
         setDesktopComposerPortalHost(host);
         setDesktopComposerPortalActive(true);
-        setDesktopComposerPortalFallback(false);
       } else {
         host.parentNode?.removeChild(host);
         setDesktopComposerPortalActive(false);
         if (mediaQuery.matches && portalRetryCount < 24) {
           portalRetryCount += 1;
           retryTimeout = window.setTimeout(syncTarget, Math.min(40 * portalRetryCount, 400));
-        } else {
-          // The composer belongs inline at this width, or the slot never
-          // appeared within the retry budget: release the inline fallback so
-          // the search cannot vanish. The MutationObserver keeps watching, so
-          // a slot that shows up later still reclaims the portal.
-          setDesktopComposerPortalFallback(true);
         }
       }
     };
 
     const observer = new MutationObserver(syncTarget);
-    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: [desktopComposerSlotReadyAttr],
+    });
     syncTarget();
     mediaQuery.addEventListener("change", syncTarget);
     return () => {
@@ -1073,7 +1071,6 @@ export function MasterSearchHeader({
       mediaQuery.removeEventListener("change", syncTarget);
       host.parentNode?.removeChild(host);
       setDesktopComposerPortalActive(false);
-      setDesktopComposerPortalFallback(false);
       setDesktopComposerPortalHost(null);
     };
   }, [desktopHomeComposerSlotId, desktopPageComposerSlotId, heroComposerBreakpoint]);
@@ -2009,14 +2006,13 @@ export function MasterSearchHeader({
     </header>
   );
 
-  const composerPortalRequested = desktopHomeComposerSlotId ?? desktopPageComposerSlotId;
   const portalPlacement = desktopHomeComposerSlotId ? "desktop-home" : "desktop-page";
   const searchComposer = searchComposerVisible ? (
     <>
-      {(desktopComposerPortalActive && desktopComposerPortalHost) ||
-      (composerPortalRequested && !desktopComposerPortalFallback)
-        ? null
-        : renderSearchComposer("default")}
+      {/* Keep the default composer visible until the portal host is actually
+          attached. Suppressing on slotId alone left a null gap while the
+          mode-home/page slot remounted or MutationObserver rebound. */}
+      {desktopComposerPortalActive && desktopComposerPortalHost ? null : renderSearchComposer("default")}
       {desktopComposerPortalActive && desktopComposerPortalHost
         ? createPortal(renderSearchComposer(portalPlacement), desktopComposerPortalHost)
         : null}
