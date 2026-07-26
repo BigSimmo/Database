@@ -659,17 +659,21 @@ export function CalculatorsSearchPage() {
       {activeCalc ? null : (
         <div
           data-testid="calculators-phone-dock"
+          data-scroll-hidden={dockHidden ? "true" : undefined}
           onFocusCapture={() => setDockFocused(true)}
           onBlurCapture={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDockFocused(false);
           }}
           className={cn(
-            "fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--surface-glass)] px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-3 backdrop-blur-md transition-transform duration-200 ease-out motion-reduce:transition-none sm:hidden",
-            dockHidden ? "translate-y-full" : "translate-y-0",
+            "answer-footer-search-dock answer-footer-search-edge fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-3 transition-[transform,opacity] motion-reduce:transition-none sm:hidden",
+            dockHidden
+              ? "pointer-events-none duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+              : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
           )}
           aria-hidden={dockHidden}
           inert={dockHidden || undefined}
         >
+          <div className="answer-footer-search-backdrop" aria-hidden="true" />
           <CalculatorComposer
             query={query}
             onQuery={setQuery}

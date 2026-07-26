@@ -98,13 +98,13 @@ async function blockExternalRequests(page: Page) {
   });
 }
 
-async function gotoPhoneSurface(page: Page, path: string) {
+async function gotoPhoneSurface(page: Page, path: string, safeAreaBottom = 34) {
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expect(page.locator("#main-content").first()).toBeVisible({ timeout: 15_000 });
   // Simulate installed-PWA safe-area insets (the repo routes env() through
   // these vars precisely so Chromium tests can exercise them).
   await page.addStyleTag({
-    content: ":root{--safe-area-top:59px !important;--safe-area-bottom:34px !important;}",
+    content: `:root{--safe-area-top:59px !important;--safe-area-bottom:${safeAreaBottom}px !important;}`,
   });
   // Let hydration, fonts, and the composer/portal layout settle.
   await page.waitForTimeout(700);
@@ -200,16 +200,14 @@ test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
 });
 
-test("phone chrome has an opaque header, one edge-to-edge footer, and releases both edges when hidden", async ({
+test("phone chrome keeps an opaque header and a soft-glass Services footer that fully releases when hidden", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
-  // A submitted Forms search is a stable GlobalSearchShell result surface: it
-  // renders the compact bottom dock and has enough content to exercise the
-  // shared header/footer hide signal. Its legacy backdrop remains optional;
-  // when present, the phone paint contract requires CSS to hide it.
-  await gotoPhoneSurface(page, "/forms?q=Form&run=1&focus=1");
+  // A submitted Services search is a stable GlobalSearchShell result surface.
+  // Its exaggerated bottom inset catches paint that only leaks through a notch.
+  await gotoPhoneSurface(page, "/services?q=clinic&run=1&focus=1", 112);
   await expect(page.locator("form.answer-footer-search-dock")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("global-search-input")).not.toBeFocused({ timeout: 5_000 });
 
@@ -225,6 +223,11 @@ test("phone chrome has an opaque header, one edge-to-edge footer, and releases b
       headerBackdropFilter: header ? getComputedStyle(header).backdropFilter : "",
       headerBackdropDisplay: headerBackdrop ? getComputedStyle(headerBackdrop).display : "missing",
       dockBackdropDisplay: dockBackdrop ? getComputedStyle(dockBackdrop).display : "missing",
+      dockBackground: dock ? getComputedStyle(dock).backgroundColor : "",
+      dockBackdropPosition: dockBackdrop ? getComputedStyle(dockBackdrop).position : "missing",
+      dockBackdropPaint: dockBackdrop ? getComputedStyle(dockBackdrop).backgroundImage : "",
+      dockBackdropFilter: dockBackdrop ? getComputedStyle(dockBackdrop).backdropFilter : "",
+      dockBackdropPointerEvents: dockBackdrop ? getComputedStyle(dockBackdrop).pointerEvents : "",
       dockLeft: dockRect?.left ?? -1,
       dockRight: dockRect?.right ?? -1,
       dockBottom: dockRect?.bottom ?? -1,
@@ -235,7 +238,14 @@ test("phone chrome has an opaque header, one edge-to-edge footer, and releases b
   expect(visible.headerBackground).toMatch(/^rgb\(/);
   expect(visible.headerBackdropFilter).toBe("none");
   expect(visible.headerBackdropDisplay).toBe("none");
-  expect(["missing", "none"]).toContain(visible.dockBackdropDisplay);
+  expect(visible.dockBackground).toBe("rgba(0, 0, 0, 0)");
+  expect(visible.dockBackdropDisplay).toBe("block");
+  expect(visible.dockBackdropPosition).toBe("absolute");
+  expect(visible.dockBackdropPaint).toContain("gradient");
+  // The runner may emulate reduced transparency; the fallback deliberately
+  // removes blur but keeps this translucent gradient instead of a solid slab.
+  expect(["none", "blur(2px) saturate(1.3)"]).toContain(visible.dockBackdropFilter);
+  expect(visible.dockBackdropPointerEvents).toBe("none");
   expect(visible.dockLeft).toBeCloseTo(0, 0);
   expect(visible.dockRight).toBeCloseTo(phoneViewport.width, 0);
   expect(visible.dockBottom).toBeCloseTo(phoneViewport.height, 0);
@@ -245,19 +255,25 @@ test("phone chrome has an opaque header, one edge-to-edge footer, and releases b
   await dragScrollBy(page, Math.min(geometry.maxOffset, 500), 24);
   await expect(page.getByTestId("universal-header-collapse")).toHaveAttribute("data-scroll-hidden", "true");
   await expect(page.locator(".answer-footer-search-dock")).toHaveAttribute("data-scroll-hidden", "true");
+  await page.waitForTimeout(300);
 
   const hidden = await page.evaluate(() => {
     const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
     const dock = document.querySelector<HTMLElement>(".answer-footer-search-dock");
+    const backdrop = dock?.querySelector<HTMLElement>(".answer-footer-search-backdrop");
     const main = document.getElementById("main-content");
     return {
       collapseHeight: collapse?.getBoundingClientRect().height ?? -1,
       dockTop: dock?.getBoundingClientRect().top ?? -1,
+      dockOpacity: dock ? getComputedStyle(dock).opacity : "",
+      backdropTop: backdrop?.getBoundingClientRect().top ?? -1,
       reserve: main ? getComputedStyle(main).getPropertyValue("--mobile-composer-reserve").trim() : "",
     };
   });
   expect(hidden.collapseHeight).toBeLessThanOrEqual(1);
   expect(hidden.dockTop).toBeGreaterThanOrEqual(phoneViewport.height - 1);
+  expect(hidden.dockOpacity).toBe("0");
+  expect(hidden.backdropTop).toBeGreaterThanOrEqual(phoneViewport.height - 1);
   expect(hidden.reserve).toBe("0rem");
 });
 
