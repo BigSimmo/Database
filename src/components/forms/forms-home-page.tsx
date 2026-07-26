@@ -22,24 +22,30 @@ import {
   type ModeHomePill,
 } from "@/components/mode-home-template";
 import { appModeHomeHref } from "@/lib/app-modes";
-import { defaultFormSlug } from "@/lib/forms";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-registry-records";
 
-const taskCards: ModeHomeAction[] = [
-  {
-    title: "Find a form",
-    description: "Title, purpose, or workflow detail.",
-    icon: Search,
-    href: appModeHomeHref("forms", { focus: true }),
-  },
-  {
-    title: "Readiness checks",
-    description: "Review status, source, and local confirmation.",
-    icon: ClipboardCheck,
-    href: `/forms/${defaultFormSlug() ?? ""}`,
-  },
-  {
+// The default form slug is computed server-side (app/forms/page.tsx) and passed
+// as a prop: a direct `@/lib/forms` value import here would compile the full
+// forms catalog into this client route chunk.
+function buildTaskCards(defaultFormSlug: string | null): ModeHomeAction[] {
+  const cards: ModeHomeAction[] = [
+    {
+      title: "Find a form",
+      description: "Title, purpose, or workflow detail.",
+      icon: Search,
+      href: appModeHomeHref("forms", { focus: true }),
+    },
+  ];
+  if (defaultFormSlug) {
+    cards.push({
+      title: "Readiness checks",
+      description: "Review status, source, and local confirmation.",
+      icon: ClipboardCheck,
+      href: `/forms/${defaultFormSlug}`,
+    });
+  }
+  cards.push({
     title: "Check source status",
     description: "Find records that still need local confirmation.",
     icon: ShieldAlert,
@@ -48,8 +54,9 @@ const taskCards: ModeHomeAction[] = [
       focus: true,
       run: true,
     }),
-  },
-];
+  });
+  return cards;
+}
 
 const commonTasks: ModeHomePill[] = [
   {
@@ -74,7 +81,8 @@ const commonTasks: ModeHomePill[] = [
   },
 ];
 
-export function FormsHomePage() {
+export function FormsHomePage({ defaultFormSlug = null }: { defaultFormSlug?: string | null }) {
+  const taskCards = buildTaskCards(defaultFormSlug);
   const registry = useRegistryRecords("form");
   const verifiedCount = countVerifiedRegistryRecords(registry);
   const registryReady = registry.status === "ready";
@@ -111,9 +119,9 @@ export function FormsHomePage() {
   return (
     <ModeHomeMain
       testId="forms-home"
-      // Seeded homes are content-rich and can clip when centered on phone;
-      // loading/empty notices stay short — keep those vertically centred.
-      contentAlign={hasRegistryRecords ? "startOnPhone" : "center"}
+      // Keep loading on startOnPhone so the seeded registry does not jump from
+      // center → top when records arrive. Confirmed empty/error notices stay centred.
+      contentAlign={registry.status === "loading" || hasRegistryRecords ? "startOnPhone" : "center"}
     >
       <ModeHomeTemplate
         testId="forms-home-template"

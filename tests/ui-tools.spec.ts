@@ -1948,7 +1948,9 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 });
 
     await expect(page.getByRole("button", { name: "Mode Differentials" })).toBeVisible();
-    await expect(page.getByTestId("differential-presentation-page")).toBeVisible();
+    await expect(
+      page.getByTestId("mobile-composer-reserve-pad").getByTestId("differential-presentation-page"),
+    ).toBeVisible();
     await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();
     await expect(
       page
@@ -1989,8 +1991,15 @@ test.describe("Clinical KB tools launcher", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials/presentations");
+    await expect(page).toHaveURL(/\/differentials\/presentations\/acute-confusion-encephalopathy/, { timeout: 30_000 });
 
-    await expect(page.getByTestId("differential-presentation-page")).toBeVisible({ timeout: 30_000 });
+    // Scope to the live shell scrollport: Next may briefly retain a hidden
+    // streaming `S:` clone of the page root under CI load, which would make a
+    // document-wide getByTestId strict-mode fail.
+    const presentationPage = page
+      .getByTestId("mobile-composer-reserve-pad")
+      .getByTestId("differential-presentation-page");
+    await expect(presentationPage).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("link", { name: "Back to differentials" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Compare", exact: true })).toHaveAttribute("aria-current", "page");
     await expect(page.getByRole("heading", { level: 1, name: workflow.title })).toBeVisible();

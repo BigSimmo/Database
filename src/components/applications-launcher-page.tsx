@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
 import {
   MobileResultFilterControl,
@@ -787,7 +788,7 @@ export function ApplicationsLauncherWorkspace({
         />
 
         {desktopComposerSlotId ? (
-          <div
+          <DesktopComposerPortalSlot
             id={desktopComposerSlotId}
             className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
           />

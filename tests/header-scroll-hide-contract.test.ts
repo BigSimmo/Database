@@ -21,6 +21,9 @@ const hookSource = read("src/components/clinical-dashboard/use-hide-on-scroll.ts
 const headerSource = read("src/components/clinical-dashboard/master-search-header.tsx");
 const shellSource = read("src/components/clinical-dashboard/global-search-shell.tsx");
 const dashboardSource = read("src/components/ClinicalDashboard.tsx");
+const dashboardResultComposerSlotSource = read(
+  "src/components/clinical-dashboard/dashboard-desktop-result-composer-slot.tsx",
+);
 const composerSlotSource = read("src/lib/mode-home-composer.ts");
 const behaviourDocSource = read("docs/search-chrome-behaviour.md");
 
@@ -28,7 +31,9 @@ describe("shared header hide/reveal wiring", () => {
   it("widens both app shells past the phone media gate", () => {
     // Second argument is `allowAllBreakpoints`; leaving it off is what pinned
     // hide-on-scroll to phones.
-    expect(shellSource).toContain("useScrollHideReporter(false, true)");
+    // GlobalSearchShell also passes pathname as resetKey so shared mode homes
+    // do not inherit a collapsed top bar across routes.
+    expect(shellSource).toContain("useScrollHideReporter(false, true, pathname)");
     expect(dashboardSource).toContain("useScrollHideReporter(false, true, searchMode)");
     expect(hookSource).toContain("export function useScrollHideReporter(disabled = false, allowAllBreakpoints = false");
   });
@@ -62,9 +67,12 @@ describe("shared header hide/reveal wiring", () => {
       '"document-mobile-search-edge universal-top-search-edge relative z-20 mx-auto w-full max-w-3xl px-4 py-3 lg:max-w-4xl"',
     );
     expect(shellSource).toContain('data-testid="desktop-page-search-composer-slot"');
-    expect(dashboardSource).toContain('data-testid="desktop-page-search-composer-slot"');
     expect(shellSource).toContain('className="hidden lg:block lg:empty:hidden"');
-    expect(dashboardSource).toContain('className="hidden lg:block lg:empty:hidden"');
+    // Dashboard result slot lives in a budget-extracted helper so ClinicalDashboard
+    // stays under the maintainability no-growth ceiling.
+    expect(dashboardSource).toContain("DashboardDesktopResultComposerSlot");
+    expect(dashboardResultComposerSlotSource).toContain('data-testid="desktop-page-search-composer-slot"');
+    expect(dashboardResultComposerSlotSource).toContain('className="hidden lg:block lg:empty:hidden"');
     expect(behaviourDocSource).toContain("Desktop search is page-owned");
   });
 
