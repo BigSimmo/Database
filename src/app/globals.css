@@ -427,130 +427,134 @@
   color-scheme: dark;
 }
 
-/* Reset and base document styles */
-* {
-  box-sizing: border-box;
-}
-
-html {
-  min-width: 320px;
-  min-height: 100%;
-  min-height: 100svh;
-  min-height: 100dvh;
-  background-color: var(--background);
-  overflow-x: clip;
-  overscroll-behavior-x: none;
-  scroll-padding-top: calc(4rem + env(safe-area-inset-top));
-}
-
-/*
- * Interface density scales the rem baseline so every rem-based size shifts
- * together. "Comfortable" is the browser default (16px) and sets no attribute,
- * so the untouched default experience is unchanged. The attribute is applied on
- * <html> before first paint (layout.tsx inline script) and kept in sync by
- * useAppPreferences. The unlayered 16px mobile input floor above still wins for
- * form controls so iOS never zooms.
- */
-html[data-density="compact"] {
-  font-size: 15px;
-}
-
-html[data-density="spacious"] {
-  font-size: 17px;
-}
-
-body {
-  min-height: 100%;
-  min-height: 100svh;
-  min-height: 100dvh;
-  background: var(--background);
-  color: var(--text);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
-  font-feature-settings:
-    "liga" 1,
-    "calt" 1,
-    "ss01" 1;
-  text-rendering: optimizeLegibility;
-  overflow-x: clip;
-  overscroll-behavior-x: none;
-}
-
-/* Interactive element defaults */
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-/*
- * iOS Safari zooms the viewport when a focused form control renders below 16px.
- * This rule is intentionally unlayered so it wins over Tailwind's layered
- * text-* utilities, giving every control a 16px floor on small screens
- * (search field, scope filter, PDF page input) without per-call-site edits.
- */
-@media (max-width: 640px) {
-  input,
-  select,
-  textarea {
-    font-size: 16px;
+@layer base {
+  /* Reset and base document styles */
+  * {
+    box-sizing: border-box;
   }
-}
-
-button,
-a,
-summary,
-input,
-textarea,
-select {
-  outline: none;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* One focus owner per interaction. Buttons and links use a single external
-   outline; form fields draw the same outline inside their own box so scroll
-   containers and sheets cannot clip it at an edge. Keeping these unlayered is
-   intentional: it prevents component-level `focus:ring-*` utilities from
-   stacking a second halo on top of the shared treatment. */
-:where(button, a, summary, input[type="checkbox"], input[type="radio"], input[type="range"]):focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-:where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus-visible {
-  box-shadow: var(--shadow-inset);
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
-}
-
-button,
-a,
-summary {
-  transition-property: color, background-color, border-color, opacity, box-shadow, transform;
-  transition-duration: var(--duration-fast);
-  transition-timing-function: var(--ease-out-soft);
-}
-
-/* Tactile press only on button-like controls. Applying it to every `a` nudged
-   inline body/citation links down 1px on tap, which reads oddly for text links. */
-button:active,
-summary:active {
-  transform: translateY(1px);
-}
-
-summary::-webkit-details-marker {
-  display: none;
-}
-
-::selection {
-  background: var(--primary-soft);
-  color: var(--primary-strong);
-}
-
-.dark ::selection {
-  background: var(--primary-soft);
-  color: #ecfeff;
+  
+  html {
+    min-width: 320px;
+    min-height: 100%;
+    min-height: 100svh;
+    min-height: 100dvh;
+    background-color: var(--background);
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+    scroll-padding-top: calc(4rem + env(safe-area-inset-top));
+  }
+  
+  /*
+   * Interface density scales the rem baseline so every rem-based size shifts
+   * together. "Comfortable" is the browser default (16px) and sets no attribute,
+   * so the untouched default experience is unchanged. The attribute is applied on
+   * <html> before first paint (layout.tsx inline script) and kept in sync by
+   * useAppPreferences. The unlayered 16px mobile input floor above still wins for
+   * form controls so iOS never zooms.
+   */
+  html[data-density="compact"] {
+    font-size: 15px;
+  }
+  
+  html[data-density="spacious"] {
+    font-size: 17px;
+  }
+  
+  body {
+    min-height: 100%;
+    min-height: 100svh;
+    min-height: 100dvh;
+    background: var(--background);
+    color: var(--text);
+    font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+    font-feature-settings:
+      "liga" 1,
+      "calt" 1,
+      "ss01" 1;
+    text-rendering: optimizeLegibility;
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+  }
+  
+  /* Interactive element defaults */
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+  
+  /*
+   * iOS Safari zooms the viewport when a focused form control renders below 16px.
+   * This rule is intentionally unlayered so it wins over Tailwind's layered
+   * text-* utilities, giving every control a 16px floor on small screens
+   * (search field, scope filter, PDF page input) without per-call-site edits.
+   */
+  @media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+  
+  button,
+  a,
+  summary,
+  input,
+  textarea,
+  select {
+    outline: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* One focus owner per interaction. Buttons and links use a single external
+     outline; form fields draw the same outline inside their own box so scroll
+     containers and sheets cannot clip it at an edge. Keeping these unlayered is
+     intentional: it prevents component-level `focus:ring-*` utilities from
+     stacking a second halo on top of the shared treatment. */
+  :where(button, a, summary, input[type="checkbox"], input[type="radio"], input[type="range"]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select):focus-visible {
+    box-shadow: var(--shadow-inset);
+    outline: 2px solid var(--focus);
+    outline-offset: -2px;
+  }
+  
+  button,
+  a,
+  summary {
+    transition-property: color, background-color, border-color, opacity, box-shadow, transform;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-out-soft);
+  }
+  
+  /* Tactile press only on button-like controls. Applying it to every `a` nudged
+     inline body/citation links down 1px on tap, which reads oddly for text links. */
+  button:active,
+  summary:active {
+    transform: translateY(1px);
+  }
+  
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  
+  ::selection {
+    background: var(--primary-soft);
+    color: var(--primary-strong);
+  }
+  
+  .dark ::selection {
+    background: var(--primary-soft);
+    color: #ecfeff;
+  }
+  
+  
 }
 
 /*

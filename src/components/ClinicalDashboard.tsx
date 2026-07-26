@@ -54,7 +54,10 @@ import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setu
 import { useEventCallback } from "@/components/clinical-dashboard/use-event-callback";
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
-import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
+const SettingsDialog = dynamic(
+  () => import("@/components/clinical-dashboard/settings-dialog").then((m) => m.SettingsDialog),
+  { ssr: false },
+);
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import {
@@ -240,19 +243,14 @@ import {
 const documentPageSize = 150;
 const activeIndexingPollFallbackMs = 5_000;
 const indexingWorkDetailsPollMs = 15_000;
-const stagedDashboardExtraction = {
-  answerSurface: true,
-} as const;
+const stagedDashboardExtraction = { answerSurface: true } as const;
 type RefreshOptions = {
   includeSetup?: boolean;
   includeDashboardData?: boolean;
   includeAdministrationData?: boolean;
   includeDocumentMeta?: boolean;
 };
-type PollHint = {
-  active?: boolean;
-  pollAfterMs?: number | null;
-};
+type PollHint = { active?: boolean; pollAfterMs?: number | null };
 type SetupStatusPayload = {
   demoMode?: boolean;
   checks?: SetupCheck[];

@@ -1,0 +1,49 @@
+name: Cross-Browser Playwright Matrix
+
+on:
+  schedule:
+    - cron: "0 5 * * 0" # Sunday at 5:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: playwright-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  browser-matrix:
+    name: Playwright Tests (${{ matrix.project }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, firefox, webkit]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup UI e2e environment
+        uses: ./.github/actions/setup-ui-e2e
+
+      - name: Run Playwright suite
+        run: node scripts/run-playwright.mjs --project=${{ matrix.project }}
+
+      - name: Classify exact failed test identities
+        if: failure()
+        run: node scripts/classify-playwright-failures.mjs
+
+      - name: Upload browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: playwright-${{ matrix.project }}-diagnostics-${{ github.run_id }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore

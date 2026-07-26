@@ -173,32 +173,14 @@ function buildSummaryCards(service: CatalogService): ServiceSummaryCard[] {
 
   const bestUse = cleanField(service.best_use_indication) ?? cleanField(service.discharge_planning_usefulness);
   if (bestUse) {
-<<<<<<< ours
-<<<<<<< ours
-    cards.push({
-      id: "best-use",
-      label: "Best use",
-      title: bestUse,
-      detail: cleanField(service.patient_group) ?? cleanField(service.sections[0]) ?? "Clinical fit and referral priority",
-=======
     const title = compactBestUseTitle(bestUse);
     cards.push({
       id: "best-use",
       label: "Best use",
-=======
-    const title = compactBestUseTitle(bestUse);
-    cards.push({
-      id: "best-use",
-      label: "Best use",
->>>>>>> theirs
       title,
       detail:
         compactBestUseTitle(cleanField(service.patient_group) ?? cleanField(service.sections[0]) ?? "") ||
         (title === bestUse ? "Clinical fit and referral priority" : bestUse),
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
     });
   }
 

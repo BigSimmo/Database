@@ -30,6 +30,9 @@ const baseMetadata: Metadata = {
   applicationName: "Clinical KB",
   title: "Clinical KB",
   description: "Private medical guideline RAG knowledge base",
+  alternates: {
+    canonical: "/",
+  },
   appleWebApp: {
     capable: true,
     title: "Clinical KB",

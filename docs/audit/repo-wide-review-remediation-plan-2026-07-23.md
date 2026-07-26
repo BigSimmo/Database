@@ -1,6 +1,3 @@
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
 # Repository-wide review remediation plan — 2026-07-23
 
 ## Goal
@@ -25,11 +22,6 @@ Resolve the outstanding issues from the repository-wide review sweep with the sm
 2. Run `node scripts/check-node-engine.cjs`.
 3. Run `npm ci` only after Node 24 is active.
 4. Confirm dependency/tool presence:
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
 # Repository-wide review remediation completion plan — 2026-07-24
 
 ## Objective
@@ -73,20 +65,10 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 2. Run `node scripts/check-node-engine.cjs`.
 3. Run `npm ci` without changing package manager or lockfile.
 4. Confirm:
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
    - `node -v && npm -v`
    - `test -f node_modules/typescript/bin/tsc`
    - `test -f node_modules/next/dist/bin/next`
    - `test -d node_modules/next/dist/docs`
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
 5. Read only the relevant installed Next docs before any Next/config code change.
 
 **Verification**
@@ -134,11 +116,6 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 
 1. In `.github/workflows/pr-policy.yml`, add `"release/**"` to `pull_request_target.branches` so PR Policy mirrors CI PR branches.
 2. In `scripts/check-github-action-pins.mjs`, extend discovery to include:
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
 5. Before any Next/framework code change, read the relevant installed guide in `node_modules/next/dist/docs/`.
 
 **Verification ladder**
@@ -194,20 +171,10 @@ Complete every outstanding finding from the 2026-07-19 repository-wide review sw
 
 1. Add `"release/**"` to PR Policy `pull_request_target.branches`.
 2. Extend checker discovery to include workflow YAML plus composite action definitions:
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
    - `.github/workflows/*.yml`
    - `.github/workflows/*.yaml`
    - `.github/actions/**/action.yml`
    - `.github/actions/**/action.yaml`
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
 3. Add a self-test or fixture to prove unpinned external `uses:` inside a composite action fails the checker.
 
 **Verification**
@@ -294,11 +261,6 @@ Run only after Node 24, dependencies, and focused checks are clean:
 ## Approval-required follow-up gates
 
 Ask before running any of these:
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
 3. Add a self-test that would fail if an unpinned external `uses:` in a composite action is ignored.
 
 **Focused proof**
@@ -405,13 +367,6 @@ Run after all batches are complete under Node 24 with dependencies installed:
 ## Provider-backed approval gates
 
 Do not run these without explicit confirmation:
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
 
 - `npm run check:supabase-project`
 - `npm run check:production-readiness`
@@ -420,9 +375,6 @@ Do not run these without explicit confirmation:
 - `npm run eval:quality -- --rag-only`
 - `npm run verify:release`
 
-<<<<<<< ours
-<<<<<<< ours
-<<<<<<< ours
 ## Recommended execution order
 
 1. Batch 0 — prerequisites.
@@ -434,11 +386,6 @@ Do not run these without explicit confirmation:
 7. Final handoff gate.
 
 This order fixes the highest clinical/governance risk first, avoids formatting noise during logic review, and keeps provider-backed uncertainty outside local development until explicit approval is given.
-=======
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs
 ## Recommended PR split
 
 1. PR A: Batch 0 docs/prerequisite proof only if environment setup requires repo documentation; otherwise no PR.
@@ -449,10 +396,3 @@ This order fixes the highest clinical/governance risk first, avoids formatting n
 6. PR F: Batch 5 formatting-only cleanup.
 
 This split keeps clinical behavior, CI governance, UI polish, npm config, and formatting isolated so regressions are easier to detect and revert.
-<<<<<<< ours
-<<<<<<< ours
->>>>>>> theirs
-=======
->>>>>>> theirs
-=======
->>>>>>> theirs

@@ -1,18 +1,17 @@
-Clinical Guide
+# Clinical KB
 
-Purpose: Clinical Guide is a local clinical knowledge-base interface for searching indexed source documents, reviewing evidence, and drafting source-backed clinical answers.
+> Private medical guideline RAG knowledge base.
 
-Agent / codebase orientation: docs/codebase-index.md (module map, APIs, Supabase, worker). Route index: docs/site-map.md.
+This is a medical knowledge retrieval system containing authoritative clinical guidelines, pathways, and therapeutic references.
 
-Key routes:
-- / opens the main dashboard. Use ?mode=answer, ?mode=documents, ?mode=tools, ?mode=differentials, or ?mode=prescribing to choose the workspace. ?mode=favourites redirects to /favourites.
-- /documents/search opens the documents search command centre after submitting a documents-mode query.
-- /documents/:id opens an indexed source document.
-- /services opens source-backed service records.
-- /forms opens source-backed forms.
-- /favourites opens saved clinical work.
-- /differentials opens differential-diagnosis support.
+## Capabilities
 
-Authentication caveat: Private indexed documents, source files, and clinical answer generation can require a signed-in session or local no-auth development mode. Public static files do not imply access to private source content.
+- Advanced Retrieval-Augmented Generation (RAG) for medical queries
+- Evidence-based answers grounded in official sources
+- Differential diagnosis comparisons
+- Medical pathway extraction
 
-Clinical-content guidance: Treat generated answers as review aids. For clinical claims, rely on cited source evidence from the indexed library and verify source status, dates, and local governance before use.
+## APIs and Tools
+
+If you are an agent, you can interact with the Clinical KB via its structured API endpoints.
+Please refer to the source codebase for detailed route specifications.
