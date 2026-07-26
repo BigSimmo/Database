@@ -326,6 +326,27 @@ describe("computeScrollHideUpdate", () => {
     });
   });
 
+  it("keeps combined header and page-dock chrome visible with only 96px of post-collapse runway", () => {
+    // Calculator at 390x844 with an installed-PWA inset: 72px collapsing
+    // header + 59px top inset + 200px page-owned dock reserve. The shell and
+    // calculator reporters schedule independently, so a 96px tail is not
+    // enough for both animated releases without a scrollTop clamp.
+    const collapseBudget = 72 + 59 + 200;
+    expect(
+      computeScrollHideUpdate({
+        offset: 2_323,
+        lastOffset: 2_299,
+        maxOffset: 2_750,
+        collapseBudget,
+        collapseKind: "in-flow",
+        combinedChrome: true,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 96,
+      }).hidden,
+    ).toBe(false);
+  });
+
   it("allows a reserve-only overlay to hide when its post-collapse range retains deliberate hide intent", () => {
     // Measured compact Answer result at 390x844 without synthetic content:
     // 159px visible range - 120px reserve = 39px after hiding. A fixed overlay
@@ -481,6 +502,20 @@ describe("computeScrollHideUpdate", () => {
         offset: 100,
         lastOffset: 80,
         maxOffset: 266,
+        currentlyHidden: false,
+        direction: "down",
+        directionTravel: 80,
+      }).hidden,
+    ).toBe(true);
+  });
+
+  it("does not apply combined-phone runway slack to a zero-budget reporter", () => {
+    expect(
+      computeScrollHideUpdate({
+        offset: 100,
+        lastOffset: 80,
+        maxOffset: 200,
+        collapseBudget: 0,
         currentlyHidden: false,
         direction: "down",
         directionTravel: 80,

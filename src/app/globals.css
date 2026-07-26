@@ -863,22 +863,22 @@ summary::-webkit-details-marker {
 }
 
 .answer-footer-search-dock .answer-footer-search-backdrop {
-  position: fixed;
+  position: absolute;
   inset-inline: 0;
   bottom: 0;
   top: auto;
   z-index: 0;
   height: var(--footer-scrim-height);
   overflow: hidden;
-  /* Bottom of the scrim must reach near-opaque so the safe-area band under the
-     pill reads as continuous dock chrome (edge-to-edge), not a white strip. */
+  /* The safe-area tint stays visibly translucent: this is localized glass
+     around the pill, never a second opaque footer surface. */
   background: linear-gradient(
     180deg,
     transparent 0%,
     color-mix(in srgb, var(--background) 12%, transparent) 32%,
     color-mix(in srgb, var(--background) 48%, transparent) 62%,
-    color-mix(in srgb, var(--background) 82%, transparent) 84%,
-    var(--background) 100%
+    color-mix(in srgb, var(--background) 64%, transparent) 84%,
+    color-mix(in srgb, var(--background) 72%, transparent) 100%
   );
   backdrop-filter: blur(2px) saturate(130%);
   mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 55%) 28%, black 52%, black 100%);
@@ -925,7 +925,7 @@ summary::-webkit-details-marker {
       transparent 0%,
       color-mix(in srgb, var(--background) 45%, transparent) 36%,
       color-mix(in srgb, var(--background) 82%, transparent) 68%,
-      var(--background) 100%
+      color-mix(in srgb, var(--background) 88%, transparent) 100%
     );
   }
 
@@ -970,7 +970,7 @@ summary::-webkit-details-marker {
       transparent 0%,
       color-mix(in srgb, var(--background) 50%, transparent) 36%,
       color-mix(in srgb, var(--background) 86%, transparent) 72%,
-      var(--background) 100%
+      color-mix(in srgb, var(--background) 90%, transparent) 100%
     );
   }
 
@@ -1831,9 +1831,8 @@ summary::-webkit-details-marker {
       0 8px 22px rgb(16 24 40 / 8%);
   }
 
-  /* Edge-to-edge phone dock: one full-width footer surface flush to the
-     viewport. The pill is the only translucent layer; the dock itself paints
-     the safe-area/home-indicator region. Never add a non-zero bottom offset. */
+  /* Edge-to-edge phone dock: the form remains transparent while its localized
+     child backdrop tints the pill and safe area. Never add a bottom offset. */
   .answer-footer-search-dock.answer-footer-search-edge,
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge,
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge {
@@ -1846,7 +1845,7 @@ summary::-webkit-details-marker {
     padding-inline: max(0.75rem, var(--safe-area-left)) max(0.75rem, var(--safe-area-right));
     padding-top: 0.5rem;
     padding-bottom: max(0.5rem, var(--safe-area-bottom));
-    background: var(--surface);
+    background: transparent;
   }
 
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge.document-mobile-search-compact,
@@ -1864,6 +1863,7 @@ summary::-webkit-details-marker {
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-scroll-hidden="true"],
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-scroll-hidden="true"] {
     transform: translateY(calc(100% + var(--safe-area-bottom)));
+    opacity: 0;
     pointer-events: none;
   }
 
@@ -1886,11 +1886,13 @@ summary::-webkit-details-marker {
      that gap. translateY-only: this form centres with mx-auto, not translateX. */
   .document-viewer-composer[data-scroll-hidden="true"] {
     transform: translateY(calc(100% + max(0.75rem, var(--safe-area-bottom))));
+    opacity: 0;
     pointer-events: none;
   }
 
   .answer-footer-search-dock .answer-footer-search-backdrop {
-    display: none;
+    display: block;
+    position: absolute;
   }
 
   .answer-footer-search-dock .answer-footer-search-pill {
@@ -2681,12 +2683,23 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     will-change: padding-bottom;
     transition: padding-bottom 240ms var(--ease-out-soft);
   }
+  /* A page-owned reserve changes scroll height below the current viewport.
+     Suspend browser anchoring only for that transition so Chrome cannot turn
+     the intended padding release into a synthetic upward scroll/reveal loop. */
+  #main-content:has([data-reserve-owner][data-reserve-transitioning="true"]) {
+    overflow-anchor: none;
+  }
+  [data-reserve-owner][data-reserve-transitioning="true"] {
+    will-change: padding-bottom;
+    transition: padding-bottom 240ms var(--ease-out-soft);
+  }
 }
 
 @media (max-width: 639px) and (prefers-reduced-motion: reduce) {
   #main-content[data-reserve-transitioning="true"],
   #main-content[data-reserve-transitioning="true"] [data-testid="mobile-composer-reserve-pad"],
-  [data-testid="document-viewer-content"][data-reserve-transitioning="true"] {
+  [data-testid="document-viewer-content"][data-reserve-transitioning="true"],
+  [data-reserve-owner][data-reserve-transitioning="true"] {
     transition: none;
   }
 }

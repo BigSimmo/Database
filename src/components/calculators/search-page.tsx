@@ -20,7 +20,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
-import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { useHideOnScroll, useReserveTransitionMarker } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
 import { chatComposerInput, chatComposerShellBase, chatSendButton, cn, eyebrowText } from "@/components/ui-primitives";
 
@@ -518,6 +518,20 @@ export function CalculatorsSearchPage() {
   // focused input off-screen or mark it aria-hidden while still tabbable.
   const [dockFocused, setDockFocused] = useState(false);
   const dockHidden = footerHidden && !dockFocused;
+  const reserveTransitioning = useReserveTransitionMarker(dockHidden, activeCalc);
+  useEffect(() => {
+    if (!activeCalc) return undefined;
+    let cancelled = false;
+    // Submitting a focused dock input unmounts the dock before React is
+    // guaranteed to dispatch blur. Clear the latch after teardown so the dock
+    // can resume hide-on-scroll when the calculator sheet closes.
+    queueMicrotask(() => {
+      if (!cancelled) setDockFocused(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeCalc]);
 
   const compact = density === "compact";
 
@@ -535,9 +549,15 @@ export function CalculatorsSearchPage() {
       <SearchResultsLayout
         testId="calculators-search-page"
         resultsLabel="Calculators"
+        reserveOwner="calculator"
+        reserveHiddenPad="0rem"
+        reserveTransitioning={reserveTransitioning}
         // Page-owned phone dock: shell composer is hidden, so clear space here.
         // Collapse with the dock on scroll-hide so content reaches the viewport edge.
-        className={cn(!dockHidden && !activeCalc && "max-sm:pb-[calc(5.5rem+var(--safe-area-bottom))]")}
+        className={cn(
+          !dockHidden && !activeCalc && "max-sm:pb-[calc(5.5rem+var(--safe-area-bottom))]",
+          dockHidden && "max-sm:pb-0",
+        )}
         header={
           <div className="grid gap-3">
             {/* Desktop: universal-style composer at the top, matching the site-wide
@@ -659,17 +679,21 @@ export function CalculatorsSearchPage() {
       {activeCalc ? null : (
         <div
           data-testid="calculators-phone-dock"
+          data-scroll-hidden={dockHidden ? "true" : undefined}
           onFocusCapture={() => setDockFocused(true)}
           onBlurCapture={(event) => {
             if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDockFocused(false);
           }}
           className={cn(
-            "fixed inset-x-0 bottom-0 z-40 border-t border-[color:var(--border)] bg-[color:var(--surface-glass)] px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-3 backdrop-blur-md transition-transform duration-200 ease-out motion-reduce:transition-none sm:hidden",
-            dockHidden ? "translate-y-full" : "translate-y-0",
+            "answer-footer-search-dock answer-footer-search-edge fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-3 transition-[transform,opacity] motion-reduce:transition-none sm:hidden",
+            dockHidden
+              ? "pointer-events-none duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+              : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
           )}
           aria-hidden={dockHidden}
           inert={dockHidden || undefined}
         >
+          <div className="answer-footer-search-backdrop" aria-hidden="true" />
           <CalculatorComposer
             query={query}
             onQuery={setQuery}

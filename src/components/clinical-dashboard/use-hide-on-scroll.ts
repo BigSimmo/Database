@@ -39,7 +39,13 @@ const bottomClampTolerance = 1;
 // bottom" on short pages (phone mode homes after #964). The slack keeps a
 // margin past the reveal threshold so the post-collapse position cannot sit
 // within one deliberate micro-drag of a reveal.
-const collapseRunwaySlack = 16;
+// A 96px tail is the smallest reliable phone runway for the two independently
+// scheduled chrome owners (the in-flow header and a page-owned dock) to finish
+// their 240ms releases without the browser clamping scrollTop mid-gesture.
+// Keep this larger than the 12px reveal threshold: that threshold protects a
+// single owner, while this protects the combined release.
+const collapseRunwaySlack = 96;
+const singleOwnerRunwaySlack = 16;
 
 type ScrollDirection = "down" | "up" | null;
 export interface ScrollMetrics {
@@ -53,6 +59,8 @@ export interface ScrollMetrics {
    * Omitted by consumers whose chrome does not change scroll geometry.
    */
   collapseBudget?: number;
+  /** True when an in-flow header and a separate reserve owner collapse together. */
+  combinedChrome?: boolean;
   /**
    * A fixed-viewport overlay only removes tail clearance; it does not collapse
    * an in-flow header or resize the scrollport. That path can safely hide when
@@ -69,6 +77,7 @@ export function computeScrollHideUpdate(params: {
   maxOffset?: number;
   previousMaxOffset?: number;
   collapseBudget?: number;
+  combinedChrome?: boolean;
   collapseKind?: "in-flow" | "reserve-only";
   sourceChanged?: boolean;
   currentlyHidden: boolean;
@@ -86,6 +95,7 @@ export function computeScrollHideUpdate(params: {
     maxOffset,
     previousMaxOffset,
     collapseBudget,
+    combinedChrome = false,
     collapseKind,
     sourceChanged = false,
     currentlyHidden,
@@ -169,11 +179,12 @@ export function computeScrollHideUpdate(params: {
     // refuse when the current offset would not fit the post-collapse range —
     // otherwise a near-bottom hide clamps the page under the finger even when
     // the resulting range itself is long enough for deliberate intent.
+    const inFlowRunwaySlack = combinedChrome ? collapseRunwaySlack : singleOwnerRunwaySlack;
     const collapseHasSafeRunway =
       collapseKind === "reserve-only"
         ? postCollapseMaxOffset >= effectiveHideActivationOffset + hideIntentDistance &&
           offset <= postCollapseMaxOffset + bottomClampTolerance
-        : runwayAfterCollapse > revealIntentDistance + collapseRunwaySlack;
+        : runwayAfterCollapse > revealIntentDistance + inFlowRunwaySlack;
     hidden = travelPastActivation >= hideIntentDistance && collapseHasSafeRunway;
   } else if (currentlyHidden && nextDirection === "up" && nextDirectionTravel >= revealIntentDistance) {
     hidden = false;
@@ -196,15 +207,17 @@ export function computeScrollHideUpdate(params: {
  * `chrome-safe-area-top` for its phone inset
  * (absent under the overlay strategy, which does not affect geometry and so
  * contributes 0), `mobile-composer-reserve-pad` for the shell reserve,
- * `document-viewer-content` for DocumentViewer's own clearance (its hidden
- * `pb-3` equals the shared 0.75rem hidden reserve), falling back to the
- * scroller's own padding exactly like tests/playwright-scroll.ts. Call from
+ * `document-viewer-content` for DocumentViewer's own clearance, and any
+ * named `[data-reserve-owner]` page-owned clearance. A named owner declares
+ * its post-hide padding with `data-reserve-hidden-pad`; otherwise the shared
+ * hidden reserve applies. Falling back to the scroller's own padding exactly
+ * like tests/playwright-scroll.ts. Call from
  * inside a scroll handler, where layout is already flushed. The returned kind
  * distinguishes in-flow collapse from a fixed overlay that only sheds reserve.
  */
 export function readChromeCollapseMetrics(
   scroller: HTMLElement,
-): Pick<ScrollMetrics, "collapseBudget" | "collapseKind"> {
+): Pick<ScrollMetrics, "collapseBudget" | "collapseKind" | "combinedChrome"> {
   const collapse = document.querySelector('[data-testid="universal-header-collapse"]');
   // The 1fr -> 0fr grid IS the collapse mechanism, so the wrapper only hands
   // layout back while it is a grid at the current width. Where it sticks and
@@ -224,18 +237,31 @@ export function readChromeCollapseMetrics(
       : 0;
   const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
   const hiddenPadPx = mobileComposerHiddenReserveRem * rootFontSize;
+  const hiddenPadFor = (element: HTMLElement) => {
+    const declared = element.dataset.reserveHiddenPad;
+    if (!declared) return hiddenPadPx;
+    const value = Number.parseFloat(declared);
+    if (!Number.isFinite(value)) return hiddenPadPx;
+    return declared.endsWith("rem") ? value * rootFontSize : value;
+  };
   const padRelease = (element: Element | null): number => {
     if (!(element instanceof HTMLElement)) return 0;
     const paddingBottom = Number.parseFloat(window.getComputedStyle(element).paddingBottom);
-    return Number.isFinite(paddingBottom) ? Math.max(0, paddingBottom - hiddenPadPx) : 0;
+    return Number.isFinite(paddingBottom) ? Math.max(0, paddingBottom - hiddenPadFor(element)) : 0;
   };
   const reservePad = scroller.querySelector('[data-testid="mobile-composer-reserve-pad"]');
   const viewerPad = scroller.querySelector('[data-testid="document-viewer-content"]');
+  const namedReservePads = [...scroller.querySelectorAll("[data-reserve-owner]")];
   const reserveRelease =
-    reservePad || viewerPad ? padRelease(reservePad) + padRelease(viewerPad) : padRelease(scroller);
+    reservePad || viewerPad || namedReservePads.length
+      ? padRelease(reservePad) +
+        padRelease(viewerPad) +
+        namedReservePads.reduce((total, element) => total + padRelease(element), 0)
+      : padRelease(scroller);
   return {
     collapseBudget: headerRelease + phoneSafeAreaRelease + reserveRelease,
     collapseKind: collapse instanceof HTMLElement ? "in-flow" : reserveRelease > 0 ? "reserve-only" : undefined,
+    combinedChrome: headerRelease > 0 && reserveRelease > 0,
   };
 }
 
@@ -307,13 +333,14 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
 
   const reportScroll = useCallback(
     (report: number | ScrollMetrics) => {
-      const { offset, maxOffset, collapseBudget, collapseKind, source } =
+      const { offset, maxOffset, collapseBudget, collapseKind, combinedChrome, source } =
         typeof report === "number"
           ? {
               offset: report,
               maxOffset: undefined,
               collapseBudget: undefined,
               collapseKind: undefined,
+              combinedChrome: undefined,
               source: undefined,
             }
           : report;
@@ -341,6 +368,7 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
         previousMaxOffset,
         collapseBudget,
         collapseKind,
+        combinedChrome,
         sourceChanged,
         currentlyHidden: hiddenRef.current,
         direction: directionRef.current,

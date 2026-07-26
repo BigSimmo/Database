@@ -1552,7 +1552,7 @@ export function MasterSearchHeader({
           showFooterSearchChips && "flex flex-col items-center gap-2.5",
           shouldHideBottomOnScroll &&
             cn(
-              "max-sm:transition-transform motion-reduce:transition-none",
+              "max-sm:transition-[transform,opacity] motion-reduce:transition-none",
               bottomComposerHidden
                 ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
                 : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
