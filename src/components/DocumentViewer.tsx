@@ -20,10 +20,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
-import {
-  useHideOnScroll,
-  useReserveTransitionMarker,
-} from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { useHideOnScroll, useReserveTransitionMarker } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { AnswerProgressStepper } from "@/components/clinical-dashboard/answer-status";
 import type { TimedAnswerProgressUpdate } from "@/components/clinical-dashboard/answer-progress";
 import { readAnswerStream } from "@/components/clinical-dashboard/search-utils";
