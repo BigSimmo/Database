@@ -244,7 +244,10 @@ test.describe("previously uncovered production routes", () => {
           .getByRole("button", { name: "Anxiety in outpatient care", exact: true });
         await expect(search).toBeEnabled();
         await search.click();
-        await expect(currentPage.getByRole("heading", { name: "Therapy", level: 1, exact: true })).toBeVisible();
+        await expect(
+          currentPage.getByRole("heading", { name: "Anxiety in outpatient care", level: 1, exact: true }),
+        ).toBeVisible();
+        await expect(currentPage.getByTestId("search-query-ribbon")).toBeVisible();
         const nav = currentPage.getByRole("navigation", { name: "Therapy sections" });
         // Phone: section nav portals into the header collapse host (outside
         // .tc-root). Read canvas colour from the workspace root still in the

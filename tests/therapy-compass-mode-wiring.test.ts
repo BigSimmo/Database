@@ -25,7 +25,7 @@ const therapyMetadataFiles = [
 ];
 
 describe("Therapy Compass production-mode wiring", () => {
-  it("uses Therapy for user-facing mode copy, search heading, and page metadata", () => {
+  it("uses Therapy for user-facing mode copy, search results ribbon, and page metadata", () => {
     const appModesSrc = readFileSync(new URL("../src/lib/app-modes.ts", import.meta.url), "utf8");
     const homeSrc = readFileSync(
       new URL("../src/components/therapy-compass/screens/home-screen.tsx", import.meta.url),
@@ -47,8 +47,13 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(appModesSrc).toContain('label: "Therapy"');
     expect(appModesSrc).toContain('submitAriaLabel: "Open Therapy"');
     expect(homeSrc).toContain('title="Therapy"');
-    expect(searchSrc).toContain('className="tc-screens-search-screen-002">Therapy</h1>');
+    // Search route owns filters/results only; the results ribbon is the page h1.
+    expect(searchSrc).toContain("SearchResultsHeaderBand");
+    expect(searchSrc).toContain("headingLevel={1}");
+    expect(searchSrc).not.toContain("Search therapies");
+    expect(searchSrc).not.toContain("Find source-grounded therapy records");
     expect(workspaceSrc).toContain("Therapy could not load");
+    // Therapy stays out of the six-item sidebar; mode discovery is via Tools/search.
     expect(sidebarSrc).not.toContain('id: "therapy-compass"');
     expect(appModesSrc).not.toContain("Therapy mode");
     expect(homeSrc).not.toContain("Therapy mode");
