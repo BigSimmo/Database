@@ -152,6 +152,67 @@ test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
 });
 
+test("phone chrome has an opaque header, one edge-to-edge footer, and releases both edges when hidden", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  // A submitted Forms search is a stable GlobalSearchShell result surface: it
+  // renders the compact bottom dock and has enough content to exercise the
+  // shared header/footer hide signal. Its legacy backdrop remains optional;
+  // when present, the phone paint contract requires CSS to hide it.
+  await gotoPhoneSurface(page, "/forms?q=Form&run=1&focus=1");
+  await expect(page.locator("form.answer-footer-search-dock")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("global-search-input")).not.toBeFocused({ timeout: 5_000 });
+
+  const visible = await page.evaluate(() => {
+    const header = document.querySelector<HTMLElement>("header#search");
+    const headerBackdrop = document.querySelector<HTMLElement>(".edge-glass-header-backdrop");
+    const dock = document.querySelector<HTMLElement>(".answer-footer-search-dock");
+    const dockBackdrop = dock?.querySelector<HTMLElement>(".answer-footer-search-backdrop");
+    const pill = dock?.querySelector<HTMLElement>(".answer-footer-search-pill");
+    const dockRect = dock?.getBoundingClientRect();
+    return {
+      headerBackground: header ? getComputedStyle(header).backgroundColor : "",
+      headerBackdropFilter: header ? getComputedStyle(header).backdropFilter : "",
+      headerBackdropDisplay: headerBackdrop ? getComputedStyle(headerBackdrop).display : "missing",
+      dockBackdropDisplay: dockBackdrop ? getComputedStyle(dockBackdrop).display : "missing",
+      dockLeft: dockRect?.left ?? -1,
+      dockRight: dockRect?.right ?? -1,
+      dockBottom: dockRect?.bottom ?? -1,
+      pillBackground: pill ? getComputedStyle(pill).backgroundColor : "",
+    };
+  });
+
+  expect(visible.headerBackground).toMatch(/^rgb\(/);
+  expect(visible.headerBackdropFilter).toBe("none");
+  expect(visible.headerBackdropDisplay).toBe("none");
+  expect(["missing", "none"]).toContain(visible.dockBackdropDisplay);
+  expect(visible.dockLeft).toBeCloseTo(0, 0);
+  expect(visible.dockRight).toBeCloseTo(phoneViewport.width, 0);
+  expect(visible.dockBottom).toBeCloseTo(phoneViewport.height, 0);
+  expect(visible.pillBackground).toMatch(/(?:^rgba\([^)]+,\s*0\.92\)|\/ 0\.92\))/);
+
+  const geometry = await readGeometry(page);
+  await dragScrollBy(page, Math.min(geometry.maxOffset, 500), 24);
+  await expect(page.getByTestId("universal-header-collapse")).toHaveAttribute("data-scroll-hidden", "true");
+  await expect(page.locator(".answer-footer-search-dock")).toHaveAttribute("data-scroll-hidden", "true");
+
+  const hidden = await page.evaluate(() => {
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const dock = document.querySelector<HTMLElement>(".answer-footer-search-dock");
+    const main = document.getElementById("main-content");
+    return {
+      collapseHeight: collapse?.getBoundingClientRect().height ?? -1,
+      dockTop: dock?.getBoundingClientRect().top ?? -1,
+      reserve: main ? getComputedStyle(main).getPropertyValue("--mobile-composer-reserve").trim() : "",
+    };
+  });
+  expect(hidden.collapseHeight).toBeLessThanOrEqual(1);
+  expect(hidden.dockTop).toBeGreaterThanOrEqual(phoneViewport.height - 1);
+  expect(hidden.reserve).toBe("0rem");
+});
+
 for (const route of [...modeHomeRoutes, ...dashboardRoutes, ...longRoutes]) {
   test(`phone scroll stays smooth and bottom-stable on ${route}`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
