@@ -30,12 +30,24 @@ const interactionSchema = z
     title: z.string().trim().max(240).optional(),
     queryClass: z.string().trim().max(80).optional(),
     crossMode: crossModeTargetSchema.optional(),
-    citationTelemetry: z.object({
-      provenance: z.string().optional(),
-      source_strength: z.string().optional(),
-      similarity: z.number().optional(),
-      document_status: z.string().optional(),
-    }).optional(),
+    citationTelemetry: z
+      .object({
+        provenance: z
+          .enum([
+            "model_selected",
+            "section_selected",
+            "exact_quote",
+            "deterministic_support",
+            "review_only",
+            "retrieval_only",
+          ])
+          .optional(),
+        source_strength: z.enum(["strong", "moderate", "limited"]).optional(),
+        similarity: z.number().min(0).max(1).optional(),
+        document_status: z.string().trim().max(80).optional(),
+      })
+      .strict()
+      .optional(),
   })
   .refine((body) => Boolean(body.documentId || body.crossMode), {
     message: "Either documentId or a crossMode target is required.",

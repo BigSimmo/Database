@@ -327,7 +327,8 @@ describe("detectConflictsOrGaps — cross-source withholding-threshold disagreem
     const found = conflicts(results);
     expect(found).toHaveLength(1);
     expect(found[0].message).toMatch(/ANC/);
-    expect(found[0].message).toMatch(/0\.2 vs 1\.5/);
+    expect(found[0].message).toMatch(/0\.2/);
+    expect(found[0].message).toMatch(/1\.5/);
     expect(found[0].source_chunk_ids).toEqual(expect.arrayContaining(["real", "poisoned"]));
   });
 
@@ -382,5 +383,28 @@ describe("detectConflictsOrGaps — cross-source withholding-threshold disagreem
       }),
     ];
     expect(conflicts(bandedSingleDoc)).toEqual([]);
+  });
+
+  it("flags opposite comparator directions at the same numeric threshold", () => {
+    const results = [
+      result({
+        id: "above",
+        document_id: "doc-above",
+        content: "Withhold treatment when QTc exceeds 500 ms and arrange urgent review.",
+      }),
+      result({
+        id: "below",
+        document_id: "doc-below",
+        title: "Local ward note",
+        content: "Withhold treatment when QTc is below 500 ms pending specialist advice.",
+      }),
+    ];
+
+    const found = conflicts(results);
+    expect(found).toHaveLength(1);
+    expect(found[0].message).toMatch(/QTc/);
+    expect(found[0].message).toMatch(/</);
+    expect(found[0].message).toMatch(/>/);
+    expect(found[0].source_chunk_ids).toEqual(expect.arrayContaining(["above", "below"]));
   });
 });

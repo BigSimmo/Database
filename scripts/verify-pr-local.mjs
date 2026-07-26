@@ -7,7 +7,9 @@ import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 
 const isWindows = process.platform === "win32";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const baseScripts = ["check:runtime", "format:changed", "lint", "typecheck", "test", "check:locality-metadata"];
+// Keep live Supabase audits (e.g. check:locality-metadata) out of the
+// unconditional local gate — they need explicit provider confirmation.
+const baseScripts = ["check:runtime", "format:changed", "lint", "typecheck", "test"];
 
 function parseArgs(args) {
   const options = { dryRun: false, extended: false, files: undefined };
