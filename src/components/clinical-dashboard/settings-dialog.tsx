@@ -28,6 +28,7 @@ import {
   Trash2,
   UserRound,
   X,
+  ArrowLeft,
   type LucideIcon,
 } from "lucide-react";
 

@@ -847,7 +847,7 @@ function DocumentSearchResultsPanelImpl({
   onAnswerFromDocument: (documentId: string) => void;
   onOpenRecentDocuments: () => void;
   onOpenLibrary: () => void;
-  onOpenSourcePdf: (href: string) => void;
+  onOpenSourcePdf: () => void;
   onTagSearch: (tag: SmartDocumentTag | SmartDocumentTagFacet) => void;
   onSearch?: (query: string) => void;
   showHome?: boolean;

@@ -1,6 +1,12 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn(), back: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/",
+}));
 
 import PrivacyPage from "@/app/privacy/page";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
