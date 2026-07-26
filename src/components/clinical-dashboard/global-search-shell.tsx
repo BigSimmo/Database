@@ -31,7 +31,11 @@ import {
   resolveMobileComposerReserve,
   resolveShellVisibleMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
-import { readChromeCollapseBudget, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import {
+  readChromeCollapseMetrics,
+  useDocumentScrollHideReporter,
+  useScrollHideReporter,
+} from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import {
@@ -53,7 +57,11 @@ import {
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { isInformationPage } from "@/lib/information-pages";
-import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import {
+  differentialsMobileCompareAddonSlotId,
+  modeHomeDesktopComposerSlotId,
+  therapyHeaderCollapseAddonSlotId,
+} from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import { shouldRenderClinicalDashboard, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
 import type { SearchScopeFilters } from "@/lib/search-scope";
@@ -215,12 +223,17 @@ function GlobalStandaloneSearchShellClient({
   const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
   const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
-  const phoneScrollHide = useScrollHideReporter();
-  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
+  // The header hides at every breakpoint; only the phone bottom dock stays
+  // phone-gated (MasterSearchHeader keeps that behind its own phone layout
+  // check). #main-content is the scrollport on phones and the document is the
+  // scrollport above them, so both sources feed the same reporter.
+  const chromeScrollHide = useScrollHideReporter(false, true);
+  const reportChromeScrollHideRef = useRef(chromeScrollHide.reportScroll);
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
+  useDocumentScrollHideReporter(chromeScrollHide.reportScroll);
   useEffect(() => {
-    reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
-  }, [phoneScrollHide.reportScroll]);
+    reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
+  }, [chromeScrollHide.reportScroll]);
   const visibleShellModes = useMemo(() => {
     const modes = visibleAppModeDefinitions();
     if (!availableModeIds?.length) return modes;
@@ -360,6 +373,15 @@ function GlobalStandaloneSearchShellClient({
   }
 
   useEffect(() => {
+    // Submitted result views must not keep the dock focused. Composer focus
+    // pins both chrome edges (keyboard safety), which is what left Forms /
+    // services search stuck with a visible header + bottom white rail while
+    // scrolling results. Match ClinicalDashboard: focus only the empty/home
+    // composer, and blur once a run=1 result view is showing.
+    if (hasSubmittedModeSearch) {
+      if (document.activeElement === inputRef.current) inputRef.current?.blur();
+      return undefined;
+    }
     if (!requestedFocus) return undefined;
     const focusInput = () => {
       // The focus=1 hydration retry (rAF + 300ms) can land after a user/test opens
@@ -384,7 +406,7 @@ function GlobalStandaloneSearchShellClient({
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
     };
-  }, [pathname, requestedFocus, searchParamString]);
+  }, [pathname, requestedFocus, searchParamString, hasSubmittedModeSearch]);
 
   // Recent queries are owner-scoped session state (2026-07-13 audit, finding 4):
   // the legacy unscoped localStorage value could resurface another account's
@@ -477,7 +499,9 @@ function GlobalStandaloneSearchShellClient({
     navigateToMode(searchMode, {
       query: trimmedQuery || undefined,
       run: Boolean(trimmedQuery),
-      focus: true,
+      // Running a search must not carry focus into the result dock — that pin
+      // disables hide-on-scroll for both chrome edges.
+      focus: !trimmedQuery,
     });
   }
 
@@ -507,7 +531,7 @@ function GlobalStandaloneSearchShellClient({
 
   function pickRecentQuery(recentQuery: string) {
     setMobileMenuOpen(false);
-    navigateToMode(searchMode, { query: recentQuery, focus: true, run: true });
+    navigateToMode(searchMode, { query: recentQuery, focus: false, run: true });
   }
 
   function crossModeSearch(mode: AppModeId, crossQuery: string) {
@@ -522,15 +546,21 @@ function GlobalStandaloneSearchShellClient({
     setCommandScopes([]);
     setSearchMode(mode);
     setMobileMenuOpen(false);
-    navigateToMode(mode, { query: crossQuery, focus: true, run: true });
+    navigateToMode(mode, { query: crossQuery, focus: false, run: true });
   }
 
   function handleMainScroll(event: UIEvent<HTMLDivElement>) {
     const target = event.currentTarget;
-    phoneScrollHide.reportScroll({
+    // Scrolling the result canvas while the dock input is focused (user
+    // retapped the pill) must release the focus pin before the hide reporter
+    // runs; otherwise both chrome edges stay locked for the whole session.
+    if (target.scrollTop > 8 && inputRef.current && document.activeElement === inputRef.current) {
+      inputRef.current.blur();
+    }
+    chromeScrollHide.reportScroll({
       offset: target.scrollTop,
       maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
-      collapseBudget: readChromeCollapseBudget(target),
+      ...readChromeCollapseMetrics(target),
       source: target,
     });
   }
@@ -550,12 +580,15 @@ function GlobalStandaloneSearchShellClient({
       const target = event.target;
       if (!(target instanceof HTMLElement) || !main.contains(target)) return;
       if (target.scrollHeight <= target.clientHeight + 1) return;
-      reportPhoneScrollHideRef.current({
+      if (target.scrollTop > 8 && inputRef.current && document.activeElement === inputRef.current) {
+        inputRef.current.blur();
+      }
+      reportChromeScrollHideRef.current({
         offset: target.scrollTop,
         maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
         // Collapsing chrome releases layout into nested scrollers too (their
         // flex height cap grows with the shell), so the same budget applies.
-        collapseBudget: readChromeCollapseBudget(main),
+        ...readChromeCollapseMetrics(main),
         source: target,
       });
     };
@@ -623,7 +656,13 @@ function GlobalStandaloneSearchShellClient({
       ) : null}
 
       <div className="flex min-w-0 flex-col max-sm:h-full max-sm:min-h-0 max-sm:overflow-hidden sm:min-h-dvh">
-        <div className={mobileChromeVisible ? undefined : "hidden lg:block"}>
+        {/*
+          `contents` above the phone breakpoint: the chrome wrapper pins itself
+          to the viewport top there, and a plain block here would be a
+          header-height containing block that leaves that sticky rule no travel
+          (the header then just scrolled off the page with the content).
+        */}
+        <div className={mobileChromeVisible ? "sm:contents" : "hidden lg:contents"}>
           <MasterSearchHeader
             demoMode={clientDemoMode}
             documents={[]}
@@ -695,6 +734,13 @@ function GlobalStandaloneSearchShellClient({
             mobileBottomSearchAddonSlotId={
               differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
             }
+            // Therapy non-home screens portal their section strip into the
+            // collapsing top-bar track so it hides/reveals with the header.
+            headerCollapseAddonSlotId={
+              pathname.startsWith("/therapy-compass") && pathname !== "/therapy-compass"
+                ? therapyHeaderCollapseAddonSlotId
+                : undefined
+            }
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
@@ -703,11 +749,14 @@ function GlobalStandaloneSearchShellClient({
             // scrolls with the content, matching the answer home rather than
             // docking to the bottom edge.
             heroComposerBreakpoint="all"
-            // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
-            // collapses the header/composer to hand space back to content.
-            hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
+            // Phones: #main-content owns vertical scroll, so hide-on-scroll
+            // collapses the top bar to hand space back to content.
+            // Tablet/desktop: the document scrolls, so an outer sticky stack
+            // pins [top bar | search] and only the top-bar row collapses —
+            // translating the whole stack would take the search field with it.
+            hideOnScroll={{ strategy: "collapse", wide: "sticky", scrollHidden: chromeScrollHide.hidden }}
             onBottomComposerHiddenChange={setBottomComposerHidden}
-            queryInputAutoFocus={searchParams.get("focus") === "1"}
+            queryInputAutoFocus={requestedFocus && !hasSubmittedModeSearch}
           />
         </div>
 

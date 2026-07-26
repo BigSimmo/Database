@@ -1847,18 +1847,21 @@ summary::-webkit-details-marker {
   }
 
   /* Must beat the edge-to-edge dock rule above (transform: none) so scroll-hide
-     actually slides the bar off-screen once data-scroll-hidden is set. */
+     actually slides the bar off-screen once data-scroll-hidden is set.
+     Use --safe-area-bottom (not env() alone) so Playwright/PWA inset simulation
+     and the visible dock's padding-bottom clear the same distance — otherwise
+     a white safe-area rail can peep after hide on simulated/notched phones. */
   .answer-footer-search-dock.answer-footer-search-edge[data-scroll-hidden="true"],
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-scroll-hidden="true"],
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-scroll-hidden="true"] {
-    transform: translateY(calc(100% + env(safe-area-inset-bottom)));
+    transform: translateY(calc(100% + var(--safe-area-bottom)));
     pointer-events: none;
   }
 
   /* Compare addon adds in-flow chrome above the pill; clear a little extra so
      the Compare bar does not leave a 1px/subpixel peep on the viewport edge. */
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-footer-addon="differentials-compare"][data-scroll-hidden="true"] {
-    transform: translateY(calc(100% + 0.75rem + env(safe-area-inset-bottom)));
+    transform: translateY(calc(100% + 0.75rem + var(--safe-area-bottom)));
   }
 
   /* Document viewer owns its floating composer (not the shared dock). Lift it

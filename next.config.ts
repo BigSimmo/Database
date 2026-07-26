@@ -49,12 +49,17 @@ const nextConfig: NextConfig = {
   },
   poweredByHeader: false,
   images: {
+    // Explicit responsive breakpoints for next/image. Leave minimumCacheTTL at
+    // Next's default (60s): a day-long floor can retain optimizer output past
+    // signed-URL lifetimes if a private preview ever omits `unoptimized`.
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [32, 48, 64, 96, 128, 256, 384],
     // Prefer AVIF (~20-30% smaller than WebP), falling back to WebP, for any
     // next/image output.
     formats: ["image/avif", "image/webp"],
     // Private signed document/image previews opt out of the optimizer at the
-    // component level (`SignedImage` sets `unoptimized`). Do not rely on
-    // `minimumCacheTTL` as an expiry cap for bearer URLs: it is a lower bound,
+    // component level (`SignedImage` sets `unoptimized`). Do not raise
+    // `minimumCacheTTL` as a "safety" cap for bearer URLs: it is a lower bound,
     // and stale-while-revalidate can keep serving private bytes past the
     // signed-URL lifetime without re-entering the authenticated signed-URL route.
     // Permit optimizing other Supabase Storage URLs through next/image when a
