@@ -537,7 +537,10 @@ export function CalculatorsSearchPage() {
         resultsLabel="Calculators"
         // Page-owned phone dock: shell composer is hidden, so clear space here.
         // Collapse with the dock on scroll-hide so content reaches the viewport edge.
-        className={cn(!dockHidden && !activeCalc && "max-sm:pb-[calc(5.5rem+var(--safe-area-bottom))]")}
+        className={cn(
+          !dockHidden && !activeCalc && "max-sm:pb-[calc(5.5rem+var(--safe-area-bottom))]",
+          dockHidden && "max-sm:pb-0",
+        )}
         header={
           <div className="grid gap-3">
             {/* Desktop: universal-style composer at the top, matching the site-wide

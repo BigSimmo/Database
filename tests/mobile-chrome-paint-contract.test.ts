@@ -26,4 +26,22 @@ describe("mobile chrome paint baseline", () => {
       /\.answer-footer-search-dock \.answer-footer-search-pill[\s\S]*?color-mix\(in srgb, var\(--surface\) 92%, transparent\)/,
     );
   });
+
+  it("keeps every footer-glass fallback terminal translucent", () => {
+    const footerBackdropStart = globalStylesSource.indexOf(
+      ".answer-footer-search-dock .answer-footer-search-backdrop {",
+    );
+    const supportsFallbackStart = globalStylesSource.indexOf("@supports not ((backdrop-filter: blur(1px))");
+    const reducedTransparencyStart = globalStylesSource.indexOf("@media (prefers-reduced-transparency: reduce)");
+    const footerBackdropSource = globalStylesSource.slice(footerBackdropStart, supportsFallbackStart);
+    const supportsFallbackSource = globalStylesSource.slice(supportsFallbackStart, reducedTransparencyStart);
+    const reducedTransparencySource = globalStylesSource.slice(reducedTransparencyStart);
+
+    expect(footerBackdropSource).toContain("color-mix(in srgb, var(--background) 72%, transparent) 100%");
+    expect(supportsFallbackSource).toContain("color-mix(in srgb, var(--background) 88%, transparent) 100%");
+    expect(reducedTransparencySource).toContain("color-mix(in srgb, var(--background) 90%, transparent) 100%");
+    expect(`${footerBackdropSource}\n${supportsFallbackSource}\n${reducedTransparencySource}`).not.toContain(
+      "var(--background) 100%",
+    );
+  });
 });

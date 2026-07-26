@@ -228,6 +228,9 @@ test("phone chrome keeps an opaque header and a soft-glass Services footer that 
       dockBackdropPaint: dockBackdrop ? getComputedStyle(dockBackdrop).backgroundImage : "",
       dockBackdropFilter: dockBackdrop ? getComputedStyle(dockBackdrop).backdropFilter : "",
       dockBackdropPointerEvents: dockBackdrop ? getComputedStyle(dockBackdrop).pointerEvents : "",
+      dockBackdropHasTranslucentStop: dockBackdrop
+        ? /transparent|\/\s*(?:0?\.)\d+/.test(getComputedStyle(dockBackdrop).backgroundImage)
+        : false,
       dockLeft: dockRect?.left ?? -1,
       dockRight: dockRect?.right ?? -1,
       dockBottom: dockRect?.bottom ?? -1,
@@ -242,6 +245,7 @@ test("phone chrome keeps an opaque header and a soft-glass Services footer that 
   expect(visible.dockBackdropDisplay).toBe("block");
   expect(visible.dockBackdropPosition).toBe("absolute");
   expect(visible.dockBackdropPaint).toContain("gradient");
+  expect(visible.dockBackdropHasTranslucentStop).toBe(true);
   // The runner may emulate reduced transparency; the fallback deliberately
   // removes blur but keeps this translucent gradient instead of a solid slab.
   expect(["none", "blur(2px) saturate(1.3)"]).toContain(visible.dockBackdropFilter);
@@ -275,6 +279,64 @@ test("phone chrome keeps an opaque header and a soft-glass Services footer that 
   expect(hidden.dockOpacity).toBe("0");
   expect(hidden.backdropTop).toBeGreaterThanOrEqual(phoneViewport.height - 1);
   expect(hidden.reserve).toBe("0rem");
+});
+
+test("calculators page-owned phone dock uses localized glass and releases its reserve when hidden", async ({
+  page,
+}) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/calculators", 112);
+
+  const dock = page.getByTestId("calculators-phone-dock");
+  const pageSurface = page.getByTestId("calculators-search-page");
+  await expect(dock).toBeVisible();
+
+  const visible = await dock.evaluate((element) => {
+    const backdrop = element.querySelector<HTMLElement>(".answer-footer-search-backdrop");
+    const dockRect = element.getBoundingClientRect();
+    const backdropStyle = backdrop ? getComputedStyle(backdrop) : null;
+    return {
+      background: getComputedStyle(element).backgroundColor,
+      left: dockRect.left,
+      right: dockRect.right,
+      bottom: dockRect.bottom,
+      backdropDisplay: backdropStyle?.display ?? "missing",
+      backdropPosition: backdropStyle?.position ?? "missing",
+      backdropPaint: backdropStyle?.backgroundImage ?? "",
+      backdropHasTranslucentStop: /transparent|\/\s*(?:0?\.)\d+/.test(backdropStyle?.backgroundImage ?? ""),
+    };
+  });
+  expect(visible.background).toBe("rgba(0, 0, 0, 0)");
+  expect(visible.left).toBeCloseTo(0, 0);
+  expect(visible.right).toBeCloseTo(phoneViewport.width, 0);
+  expect(visible.bottom).toBeCloseTo(phoneViewport.height, 0);
+  expect(visible.backdropDisplay).toBe("block");
+  expect(visible.backdropPosition).toBe("absolute");
+  expect(visible.backdropPaint).toContain("gradient");
+  expect(visible.backdropHasTranslucentStop).toBe(true);
+  await expect
+    .poll(async () =>
+      Number.parseFloat(await pageSurface.evaluate((element) => getComputedStyle(element).paddingBottom)),
+    )
+    .toBeGreaterThan(112);
+
+  const geometry = await readGeometry(page);
+  await dragScrollBy(page, Math.min(Math.max(geometry.maxOffset, 500), 900), 24);
+  await expect(dock).toHaveAttribute("data-scroll-hidden", "true");
+  await page.waitForTimeout(300);
+
+  const hidden = await dock.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { opacity: getComputedStyle(element).opacity, top: rect.top, viewportHeight: window.innerHeight };
+  });
+  expect(hidden.opacity).toBe("0");
+  expect(hidden.top).toBeGreaterThanOrEqual(hidden.viewportHeight - 1);
+  await expect
+    .poll(async () =>
+      Number.parseFloat(await pageSurface.evaluate((element) => getComputedStyle(element).paddingBottom)),
+    )
+    .toBeLessThanOrEqual(1);
 });
 
 for (const route of [...modeHomeRoutes, ...dashboardRoutes, ...longRoutes]) {
