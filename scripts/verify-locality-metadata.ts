@@ -1,8 +1,5 @@
 import * as nextEnv from "@next/env";
-import {
-  auditSourceAuthorityDocuments,
-  type SourceAuthorityDocument,
-} from "@/lib/source-authority-metadata";
+import { auditSourceAuthorityDocuments, type SourceAuthorityDocument } from "@/lib/source-authority-metadata";
 
 const loadEnvConfig =
   nextEnv.loadEnvConfig ??

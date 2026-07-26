@@ -509,14 +509,14 @@ const THRESHOLD_PARAMETERS: ThresholdParameter[] = [
     key: "egfr",
     label: "Renal function (eGFR/CrCl)",
     pattern: /\b(?:egfr|crcl|creatinine clearance|glomerular filtration rate)\b/i,
-  }
+  },
 ];
 
 // A threshold parameter within a short window of a comparator and a numeric value.
 // Group 1 = parameter, group 2 = comparator phrase, group 3 = number.
 const THRESHOLD_SPAN_PATTERN = new RegExp(
   `\\b(anc|absolute neutrophil count|neutrophils?|wbc|white (?:blood )?cell(?: count)?|leu[ck]ocytes?|platelets?|lithium(?: serum)? levels?|serum lithium|li\\+? levels?|qtc|qt interval|clozapine dose|clozapine(?=[^.\\n;]{0,40}?\\d+(?:\\.\\d+)?\\s*mg)|egfr|crcl|creatinine clearance|glomerular filtration rate)\\b[^.\\n;]{0,48}?(<|>|≤|≥|<=|>=|less than|greater than|below|above|under|over|lower than|higher than|fall(?:s|ing)? below|drops? below|exceeds?)\\s*(\\d+(?:\\.\\d+)?)`,
-  "gi"
+  "gi",
 );
 
 type ThresholdComparator = "lt" | "gt" | "unknown";
@@ -656,9 +656,7 @@ function detectThresholdDisagreements(results: SearchResult[]): ConflictOrGap[] 
         const observation = observations.find(
           (candidate) => thresholdObservationKey(candidate.value, candidate.comparator) === key,
         );
-        return observation
-          ? formatThresholdObservation(observation.value, observation.comparator)
-          : key;
+        return observation ? formatThresholdObservation(observation.value, observation.comparator) : key;
       })
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     conflicts.push({
