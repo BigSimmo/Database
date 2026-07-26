@@ -34,6 +34,7 @@ import {
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
 import { canCompareServices, serviceNavigatorMetrics } from "@/lib/service-navigator-metrics";
@@ -624,7 +625,7 @@ export function ServicesNavigatorPage() {
       resultsLabel="Referral services"
       header={
         <>
-          <div
+          <DesktopComposerPortalSlot
             id={modeHomeDesktopComposerSlotId}
             className="mode-home-composer-slot hidden w-full min-w-0 [&:not(:empty)]:block"
           />

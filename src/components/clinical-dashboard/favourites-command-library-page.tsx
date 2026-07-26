@@ -47,6 +47,7 @@ import { useSearchCommand } from "@/components/clinical-dashboard/search-command
 import { favouriteMatchesCommandScopes } from "@/lib/search-command-surface";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { canAccessFavouritesMode } from "@/lib/app-modes";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { useAuthSession } from "@/lib/supabase/client";
 import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/universal-search-also-matches";
@@ -1185,7 +1186,7 @@ export function FavouritesCommandLibraryPage({ query = "", demoMode }: { query?:
               </p>
             ) : null}
 
-            <div
+            <DesktopComposerPortalSlot
               id={modeHomeDesktopComposerSlotId}
               className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
             />

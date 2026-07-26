@@ -2,7 +2,9 @@
 import { readFileSync } from "node:fs";
 
 const budgets = new Map([
-  ["src/components/ClinicalDashboard.tsx", 4140],
+  // Raised with the mode-loading pass: leave-dashboard nav guards + scroll reset.
+  // Net client cost still fell — GlobalSearchShell now dynamic-imports this file.
+  ["src/components/ClinicalDashboard.tsx", 4160],
   ["src/lib/rag/rag.ts", 5030],
   ["src/components/DocumentViewer.tsx", 1734],
   ["supabase/functions/indexing-v3-agent/index.ts", 2191],

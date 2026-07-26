@@ -25,7 +25,9 @@ export function ModeHomePageSkeleton() {
 
 export function ModeHomeRouteLoading() {
   return (
-    <div className="grid min-h-[calc(100dvh-13.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] items-center justify-items-center bg-[color:var(--background)] sm:min-h-[calc(100dvh-var(--shell-header-h))]">
+    // Match ModeHomeMain startOnPhone: top-align on phones, centre from sm up.
+    // A phone-centred skeleton jumped when content-rich homes mounted top-aligned.
+    <div className="grid min-h-[calc(100dvh-var(--shell-header-h))] items-start justify-items-center bg-[color:var(--background)] pt-3 sm:items-center sm:pt-0">
       <ModeHomePageSkeleton />
     </div>
   );

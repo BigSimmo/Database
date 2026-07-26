@@ -52,6 +52,7 @@ import { useEventCallback } from "@/components/clinical-dashboard/use-event-call
 import { AuthPanel } from "@/components/clinical-dashboard/auth-panel";
 import { buildMobileSectionFabState, MobileSectionFab, ToolsHub } from "@/components/clinical-dashboard/dashboard-nav";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
+import { useSidebarColumnTransitionReady } from "@/components/clinical-dashboard/use-sidebar-column-transition";
 import * as SidebarDialogs from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
 import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
 import {
@@ -86,7 +87,11 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
 import { focusComposerInput as scheduleComposerFocus } from "@/components/clinical-dashboard/focus-composer-input";
-import { readChromeCollapseMetrics, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import {
+  readChromeCollapseMetrics,
+  useReserveTransitionMarker,
+  useScrollHideReporter,
+} from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   answerReferencesDocument,
@@ -158,6 +163,7 @@ import {
   type AppModeId,
   type AppModeSearchKind,
 } from "@/lib/app-modes";
+import { isDashboardModeHref } from "@/lib/search-route-ownership";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import {
   privateScopeReadyForRoute,
@@ -168,7 +174,11 @@ import {
   type PrivateScopeRestorationStatus,
   type SearchNavigationContext,
 } from "@/lib/search-navigation-context";
-import { persistPrivateSearchScope, restorePrivateSearchScope } from "@/lib/private-search-scope";
+import {
+  persistPrivateSearchScope,
+  removePrivateScopeRefFromUrl,
+  restorePrivateSearchScope,
+} from "@/lib/private-search-scope";
 import { parseApiErrorResponse } from "@/lib/api-client-error";
 import { answerLifecycleReducer, initialAnswerLifecycle } from "@/lib/answer-lifecycle";
 import { useDeferredRegistrySearch } from "@/components/clinical-dashboard/use-deferred-registry-search";
@@ -201,6 +211,7 @@ import type {
   DocumentLabel,
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
+import { DashboardDesktopResultComposerSlot } from "@/components/clinical-dashboard/dashboard-desktop-result-composer-slot";
 import {
   desktopPageComposerSlotId,
   differentialsMobileCompareAddonSlotId,
@@ -354,6 +365,7 @@ export function ClinicalDashboard({
   // mode swaps <main>'s header reserve, so it also rebases the reporter.
   const chromeScrollHide = useScrollHideReporter(false, true, searchMode);
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
+  const reserveTransitioning = useReserveTransitionMarker(bottomComposerHidden, searchMode);
   const reportChromeScrollHideRef = useRef(chromeScrollHide.reportScroll);
   reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
@@ -510,6 +522,7 @@ export function ClinicalDashboard({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
+  const sidebarColumnTransitionReady = useSidebarColumnTransitionReady();
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
   const documentsDrawerReturnFocusRef = useRef<HTMLElement | null>(null);
   const [documentScopeOpen, setDocumentScopeOpen] = useState(false);
@@ -2311,6 +2324,20 @@ export function ClinicalDashboard({
       openAccountSetup("favourites");
       return;
     }
+    const href = appModeHomeHref(mode, {
+      query: crossQuery,
+      focus: true,
+      run: true,
+      queryMode,
+      scopeFilters,
+    });
+    // Leaving the dashboard shell: navigate only — eager setSearchMode flipped
+    // overlay/hero/dock chrome for a frame before ClinicalDashboard unmounted.
+    if (!isDashboardModeHref(href)) {
+      modeChangeFromUiRef.current = true;
+      router.push(href);
+      return;
+    }
     modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setCommandScopes([]);
@@ -2333,7 +2360,10 @@ export function ClinicalDashboard({
       setMedicationSearchQuery(crossQuery);
     }
     setSearchMode(mode);
-    router.push(appModeHomeHref(mode, { query: crossQuery, focus: true, run: true, queryMode, scopeFilters }));
+    router.push(href);
+    window.requestAnimationFrame(() => {
+      mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() });
+    });
   }
 
   async function submitAnswerFeedback(feedbackType: AnswerFeedbackType) {
@@ -2602,6 +2632,15 @@ export function ClinicalDashboard({
       openAccountSetup("favourites");
       return;
     }
+    const href = appModeHomeHref(mode, { queryMode, scopeFilters });
+    // Leaving the dashboard shell (e.g. Answer → Services): navigate without
+    // rewriting local chrome first. Eager setSearchMode flipped overlay/hero
+    // and reserved dock padding for a frame before ClinicalDashboard unmounted.
+    if (!isDashboardModeHref(href)) {
+      modeChangeFromUiRef.current = true;
+      router.push(href);
+      return;
+    }
     modeChangeFromUiRef.current = true;
     if (mode === "differentials") clearDifferentialModeResultState();
     setQuery("");
@@ -2621,7 +2660,12 @@ export function ClinicalDashboard({
     setSourceGovernanceWarnings([]);
     setDocumentMatches([]);
     setSearchMode(mode);
-    router.push(appModeHomeHref(mode, { queryMode, scopeFilters }));
+    router.push(href);
+    // Dashboard-internal mode flips keep the same scroller; jump to top so
+    // Answer ↔ Documents does not inherit a mid-page offset + collapsed chrome.
+    window.requestAnimationFrame(() => {
+      mainRef.current?.scrollTo({ top: 0, behavior: resolveScrollBehavior() });
+    });
   }
 
   function focusComposerInput(retainTarget = false) {
@@ -3251,13 +3295,6 @@ export function ClinicalDashboard({
     [priorAnswerTurns, latestAnswerQuery],
   );
 
-  function removePrivateScopeRefFromUrl() {
-    const params = new URLSearchParams(window.location.search);
-    params.delete("scopeRef");
-    const next = params.toString();
-    window.history.replaceState(null, "", `${window.location.pathname}${next ? `?${next}` : ""}`);
-  }
-
   function reselectUnavailablePrivateScope() {
     removePrivateScopeRefFromUrl();
     setPrivateScopeStatus("none");
@@ -3279,7 +3316,8 @@ export function ClinicalDashboard({
         appBackdrop,
         // Phone: fixed inset-0 (not 100dvh) — matches GlobalSearchShell; avoids Safari toolbar dead band.
         "mobile-app-shell flex flex-col overflow-hidden text-[color:var(--text)] max-sm:fixed max-sm:inset-0 max-sm:h-auto max-sm:min-h-0 max-sm:overflow-hidden md:grid md:grid-cols-[5.25rem_minmax(0,1fr)] md:overflow-hidden",
-        "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
+        sidebarColumnTransitionReady &&
+          "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
         sidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]",
       )}
       style={
@@ -3391,6 +3429,7 @@ export function ClinicalDashboard({
           // prettier-ignore
           onScroll={handleMainScroll}
           data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
+          data-reserve-transitioning={reserveTransitioning ? "true" : undefined}
           className={cn(
             "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
             // Answer view: the glass header is absolute over this scroll container,
@@ -3479,13 +3518,7 @@ export function ClinicalDashboard({
                     : "pb-8 sm:pb-10 lg:pb-12",
               )}
             >
-              {desktopResultComposerSlotId ? (
-                <div
-                  id={desktopResultComposerSlotId}
-                  data-testid="desktop-page-search-composer-slot"
-                  className="hidden lg:block lg:empty:hidden"
-                />
-              ) : null}
+              <DashboardDesktopResultComposerSlot slotId={desktopResultComposerSlotId} />
               {actionNotice && (
                 <InlineNotice tone={actionNotice.tone} onDismiss={() => setActionNotice(null)} animated>
                   {actionNotice.message}

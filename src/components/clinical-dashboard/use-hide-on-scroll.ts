@@ -256,6 +256,36 @@ function useScrollHideActive(disabled = false, allowAllBreakpoints = false) {
   return (allowAllBreakpoints || isPhone) && !disabled;
 }
 
+/** Matches phone reserve padding transition duration in `globals.css`. */
+export const reserveTransitionMs = 240;
+
+/**
+ * Keeps a short-lived transition marker active through both composer hide and
+ * reveal so reserve padding can animate in both directions. Route/mode geometry
+ * changes (via `resetKey`) clear the marker immediately so those flips snap.
+ */
+export function useReserveTransitionMarker(hidden: boolean, resetKey?: unknown) {
+  const [transitioning, setTransitioning] = useState(false);
+  const previousHiddenRef = useRef(hidden);
+  const previousResetKeyRef = useRef(resetKey);
+
+  useEffect(() => {
+    if (resetKey !== previousResetKeyRef.current) {
+      previousResetKeyRef.current = resetKey;
+      previousHiddenRef.current = hidden;
+      setTransitioning(false);
+      return;
+    }
+    if (hidden === previousHiddenRef.current) return;
+    previousHiddenRef.current = hidden;
+    setTransitioning(true);
+    const timer = window.setTimeout(() => setTransitioning(false), reserveTransitionMs);
+    return () => window.clearTimeout(timer);
+  }, [hidden, resetKey]);
+
+  return transitioning;
+}
+
 /**
  * Imperative scroll-offset reporter for hosts that already own a React `onScroll`
  * handler on the scrolling element (for example ClinicalDashboard `<main>`).
@@ -355,7 +385,20 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
     return () => window.cancelAnimationFrame(frame);
   }, [allowAllBreakpoints, resetKey]);
 
-  return { hidden: active && hidden, reportScroll };
+  // Shared shell keeps this reporter across namespaced mode homes. Without an
+  // explicit reset, a scrolled/collapsed phone surface carries scrollTop +
+  // hidden chrome into the next mode and reads as a stuck mid-page resize.
+  const reset = useCallback(() => {
+    hiddenRef.current = false;
+    lastOffsetRef.current = 0;
+    directionRef.current = null;
+    directionTravelRef.current = 0;
+    scrollSourceRef.current = null;
+    hasScrollSourceRef.current = false;
+    setHidden(false);
+  }, []);
+
+  return { hidden: active && hidden, reportScroll, reset };
 }
 
 /**

@@ -20,8 +20,17 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
-import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
+import { PdfPreviewLoading } from "@/components/document-viewer/pdf-preview-loading";
+import {
+  getDefaultPdfViewerMode,
+  getInitialPdfViewerMode,
+  pdfViewerModeNativeValue,
+  pdfViewerModeStorageKey,
+  pdfViewerModeValue,
+  pdfViewerNativeModeBreakpoint,
+} from "@/components/document-viewer/pdf-viewer-mode";
+import { useDocumentViewerChromeScroll } from "@/components/clinical-dashboard/use-document-viewer-chrome-scroll";
 import { AnswerProgressStepper } from "@/components/clinical-dashboard/answer-status";
 import type { TimedAnswerProgressUpdate } from "@/components/clinical-dashboard/answer-progress";
 import { readAnswerStream } from "@/components/clinical-dashboard/search-utils";
@@ -103,30 +112,7 @@ const NativePdfEmbed = dynamic(
   { ssr: false, loading: () => <PdfPreviewLoading /> },
 );
 
-function PdfPreviewLoading() {
-  return (
-    <div
-      aria-busy="true"
-      aria-live="polite"
-      className="grid min-h-64 place-items-center bg-[color:var(--surface-inset)] p-5 text-center text-sm text-[color:var(--text-muted)] sm:min-h-72"
-    >
-      Loading PDF reader…
-    </div>
-  );
-}
-
 const secondaryButton = floatingControl;
-const pdfViewerModeStorageKey = "clinical-kb:pdf-viewer-mode";
-const pdfViewerNativeModeBreakpoint = 820;
-const pdfViewerModeValue = {
-  native: "native",
-  canvas: "canvas",
-} as const;
-const pdfViewerModeNativeValue = pdfViewerModeValue.native;
-
-function getDefaultPdfViewerMode(): boolean {
-  return false;
-}
 
 type SignedUrlResponsePayload = {
   url?: string;
@@ -154,33 +140,6 @@ async function requestSignedUrlPayload(
   if (response.status === 401) options.onUnauthorized();
   if (!response.ok) throw new Error(payload?.error || options.errorMessage);
   return payload;
-}
-
-function getInitialPdfViewerMode() {
-  if (typeof window === "undefined") {
-    return {
-      useNativePdfViewer: getDefaultPdfViewerMode(),
-      hasExplicitPdfViewerMode: false,
-    };
-  }
-
-  try {
-    const savedMode = window.localStorage.getItem(pdfViewerModeStorageKey);
-    if (savedMode === pdfViewerModeNativeValue) {
-      return { useNativePdfViewer: true, hasExplicitPdfViewerMode: true };
-    }
-
-    if (savedMode === pdfViewerModeValue.canvas) {
-      return { useNativePdfViewer: false, hasExplicitPdfViewerMode: true };
-    }
-  } catch {
-    // window.localStorage may be unavailable in strict or private-browser contexts.
-  }
-
-  return {
-    useNativePdfViewer: getDefaultPdfViewerMode(),
-    hasExplicitPdfViewerMode: false,
-  };
 }
 
 function rowsById<T extends { id: string }>(incoming: T[]) {
@@ -327,11 +286,14 @@ export function DocumentViewer({
       observer.disconnect();
     };
   }, []);
-  const scrollHidden = useHideOnScroll({
-    ...(shellScrollContainer ? { scrollContainer: shellScrollContainer } : {}),
-    resetKey: `${documentId}:${activePage}:${activeChunkId ?? ""}`,
-  });
-  const composerScrollHidden = scrollHidden && !mobileActionsOpen && !composerChromeFocused;
+  const { composerScrollHidden, reserveTransitioning } = useDocumentViewerChromeScroll(
+    shellScrollContainer,
+    documentId,
+    activePage,
+    activeChunkId,
+    mobileActionsOpen,
+    composerChromeFocused,
+  );
   const [useNativePdfViewer, setUseNativePdfViewer] = useState(getDefaultPdfViewerMode);
   const [hasExplicitPdfViewerMode, setHasExplicitPdfViewerMode] = useState(false);
   const [viewerModeInitialized, setViewerModeInitialized] = useState(false);
@@ -1246,6 +1208,7 @@ export function DocumentViewer({
       <section
         data-testid="document-viewer-content"
         data-scroll-hidden={composerScrollHidden ? "true" : undefined}
+        data-reserve-transitioning={reserveTransitioning ? "true" : undefined}
         className={cn(
           "mx-auto grid max-w-[1440px] gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
           // The visible fixed composer needs endpoint clearance. Once hidden,

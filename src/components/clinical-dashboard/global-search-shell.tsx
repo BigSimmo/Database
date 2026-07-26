@@ -8,12 +8,15 @@ import {
   type UIEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 
-import { ClinicalDashboard } from "@/components/ClinicalDashboard";
+import dynamic from "next/dynamic";
+
 import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
@@ -34,10 +37,12 @@ import {
 import {
   readChromeCollapseMetrics,
   useDocumentScrollHideReporter,
+  useReserveTransitionMarker,
   useScrollHideReporter,
 } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
+import { useSidebarColumnTransitionReady } from "@/components/clinical-dashboard/use-sidebar-column-transition";
 import {
   loadSettingsDialog,
   prefetchAccountDialog,
@@ -45,7 +50,6 @@ import {
   SidebarSettingsDialog,
 } from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
 import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
-import { ClientHydrationBoundary } from "@/components/client-hydration-boundary";
 import { cn } from "@/components/ui-primitives";
 import {
   appModeHomeHref,
@@ -54,16 +58,29 @@ import {
   visibleAppModeDefinitions,
   type AppModeId,
 } from "@/lib/app-modes";
+
+// Namespaced mode homes share this client shell but never render the dashboard
+// body — keep ClinicalDashboard out of their parse/eval path until `/` needs it.
+const ClinicalDashboard = dynamic(
+  () => import("@/components/ClinicalDashboard").then((mod) => ({ default: mod.ClinicalDashboard })),
+  { ssr: true, loading: () => <ModeHomeRouteLoading /> },
+);
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
 import { isInformationPage } from "@/lib/information-pages";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import {
   desktopPageComposerSlotId,
   differentialsMobileCompareAddonSlotId,
   modeHomeDesktopComposerSlotId,
 } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
-import { shouldRenderClinicalDashboard, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
+import {
+  isAlwaysStandaloneShellPath,
+  isStandaloneModeHomePath,
+  shouldRenderClinicalDashboard,
+  shouldRenderDashboardSearch,
+} from "@/lib/search-route-ownership";
 import type { SearchScopeFilters } from "@/lib/search-scope";
 import { useAuthSession } from "@/lib/supabase/client";
 import type { ClinicalQueryMode } from "@/lib/types";
@@ -97,6 +114,20 @@ type GlobalSearchShellProps = {
 };
 
 export function GlobalSearchShell(props: GlobalSearchShellProps) {
+  const pathname = usePathname() ?? "/";
+
+  // Pathname-only gate: never wrap always-standalone routes in the outer
+  // useSearchParams Suspense. That nested the route segment (loading.tsx + page)
+  // inside an incomplete streaming `S:` boundary and left a persistent hidden
+  // duplicate page-root data-testid under CI load.
+  if (isAlwaysStandaloneShellPath(pathname)) {
+    return (
+      <PatientProfileProvider>
+        <GlobalStandaloneSearchShellClient {...props} />
+      </PatientProfileProvider>
+    );
+  }
+
   return (
     <Suspense
       fallback={
@@ -114,13 +145,15 @@ export function GlobalSearchShell(props: GlobalSearchShellProps) {
         )
       }
     >
-      <GlobalSearchShellClient {...props} />
+      <PatientProfileProvider>
+        <GlobalSearchShellDashboardGate {...props} />
+      </PatientProfileProvider>
     </Suspense>
   );
 }
 
-function GlobalSearchShellClient(props: GlobalSearchShellProps) {
-  const pathname = usePathname();
+function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
+  const pathname = usePathname() ?? "/";
   const router = useRouter();
   const searchParams = useSearchParams();
   const landingPreferenceAppliedRef = useRef(false);
@@ -157,23 +190,55 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
     pathname,
   });
 
-  // Wrap both render paths so the patient-considerations profile is shared
-  // between the prescribing workspace (ClinicalDashboard) and the medication
-  // detail pages (standalone shell), backed by sessionStorage across navigation.
-  return (
-    <PatientProfileProvider>
-      {rendersClinicalDashboard ? (
-        <ClinicalDashboard
-          initialSearchMode={resolvedSearchMode}
-          initialQuery={requestedQuery}
-          focusSearch={searchParams.get("focus") === "1"}
-          autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
-        />
-      ) : (
-        <GlobalStandaloneSearchShellClient {...props} />
-      )}
-    </PatientProfileProvider>
+  if (rendersClinicalDashboard) {
+    return (
+      <ClinicalDashboard
+        initialSearchMode={resolvedSearchMode}
+        initialQuery={requestedQuery}
+        focusSearch={searchParams.get("focus") === "1"}
+        autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
+      />
+    );
+  }
+
+  return <GlobalStandaloneSearchShellClient {...props} />;
+}
+
+function subscribeNoop() {
+  return () => undefined;
+}
+
+/**
+ * Isolates `useSearchParams()` so the standalone shell body (and route children)
+ * are not descendants of that Suspense boundary. Client-only via
+ * useSyncExternalStore so SSR never calls `useSearchParams` on always-standalone
+ * routes (avoids an outer incomplete `S:` boundary wrapping the page segment).
+ */
+function ShellSearchParamsBridge({ onParamString }: { onParamString: (value: string) => void }) {
+  const ready = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
   );
+  if (!ready) return null;
+  return <ShellSearchParamsBridgeInner onParamString={onParamString} />;
+}
+
+function ShellSearchParamsBridgeInner({ onParamString }: { onParamString: (value: string) => void }) {
+  const searchParams = useSearchParams();
+  const paramString = searchParams.toString();
+  useLayoutEffect(() => {
+    onParamString(paramString);
+  }, [onParamString, paramString]);
+  return null;
+}
+
+function readInitialBrowserSubmittedSearchParamString(): string {
+  if (typeof window === "undefined") return "";
+  const search = window.location.search.startsWith("?") ? window.location.search.slice(1) : window.location.search;
+  const params = new URLSearchParams(search);
+  const query = (params.get("q") ?? params.get("query") ?? "").trim();
+  return params.get("run") === "1" && query ? search : "";
 }
 
 export function infoPageBackHref(pathname: string): string | null {
@@ -208,7 +273,30 @@ function isToolDetailWithFooterSearch(pathname: string): boolean {
   );
 }
 
-function GlobalStandaloneSearchShellClient({
+function GlobalStandaloneSearchShellClient(props: GlobalSearchShellProps) {
+  // Empty until the bridge resolves — matches SSR/hydration, then syncs. Keeps
+  // `{children}` outside the useSearchParams Suspense (no nested S: page clone).
+  const [searchParamString, setSearchParamString] = useState("");
+  // Hard loads of always-standalone submitted routes need the browser query
+  // before the Suspense-delayed bridge hydrates, otherwise the shell briefly
+  // paints the mode-home hero before snapping to the submitted bottom dock.
+  const browserSearchParamString = useSyncExternalStore(
+    subscribeNoop,
+    readInitialBrowserSubmittedSearchParamString,
+    () => "",
+  );
+  const effectiveSearchParamString = searchParamString || browserSearchParamString;
+  return (
+    <>
+      <Suspense fallback={null}>
+        <ShellSearchParamsBridge onParamString={setSearchParamString} />
+      </Suspense>
+      <GlobalStandaloneSearchShellBody {...props} searchParamString={effectiveSearchParamString} />
+    </>
+  );
+}
+
+function GlobalStandaloneSearchShellBody({
   children,
   initialMode = "answer",
   availableModeIds,
@@ -217,23 +305,39 @@ function GlobalStandaloneSearchShellClient({
   hideDesktopSidebar = false,
   chromeVisible = true,
   mobileChromeVisible = true,
-}: GlobalSearchShellProps) {
+  searchParamString,
+}: GlobalSearchShellProps & { searchParamString: string }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const pathname = usePathname() ?? "/";
+  const searchParams = useMemo(() => new URLSearchParams(searchParamString), [searchParamString]);
   const inputRef = useRef<HTMLInputElement>(null);
   const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
   // The header hides at every breakpoint; only the phone bottom dock stays
   // phone-gated (MasterSearchHeader keeps that behind its own phone layout
   // check). #main-content is the scrollport on phones and the document is the
   // scrollport above them, so both sources feed the same reporter.
-  const chromeScrollHide = useScrollHideReporter(false, true);
+  // resetKey=pathname clears carried-over hide state across shared mode homes.
+  const chromeScrollHide = useScrollHideReporter(false, true, pathname);
   const reportChromeScrollHideRef = useRef(chromeScrollHide.reportScroll);
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
+  const [bottomComposerHiddenPathname, setBottomComposerHiddenPathname] = useState(pathname);
+  // Render-time reset (not an effect): pathname-only mode homes share one scroller,
+  // so a carried-over hidden dock pad would open the next mode mid-collapse.
+  if (pathname !== bottomComposerHiddenPathname) {
+    setBottomComposerHiddenPathname(pathname);
+    setBottomComposerHidden(false);
+  }
+  const reserveTransitioning = useReserveTransitionMarker(bottomComposerHidden, pathname);
   useDocumentScrollHideReporter(chromeScrollHide.reportScroll);
   useEffect(() => {
     reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
   }, [chromeScrollHide.reportScroll]);
+  // Mode homes share one shell scroller. Reset scroll when the route changes so
+  // /services → /dsm does not open mid-page with a stuck offset.
+  useEffect(() => {
+    const main = document.getElementById("main-content");
+    if (main instanceof HTMLElement) main.scrollTop = 0;
+  }, [pathname]);
   const visibleShellModes = useMemo(() => {
     const modes = visibleAppModeDefinitions();
     if (!availableModeIds?.length) return modes;
@@ -248,7 +352,6 @@ function GlobalStandaloneSearchShellClient({
   const currentUrlHasQuery = searchParams.has("q") || searchParams.has("query");
   const requestedQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
   const requestedMode = searchParams.get("mode");
-  const searchParamString = searchParams.toString();
   // Mode resolved from the URL (?mode=), falling back to this shell's default when
   // the param is missing, unknown, or not offered here. Seeds the initial mode and
   // re-syncs it after a navigation.
@@ -274,6 +377,7 @@ function GlobalStandaloneSearchShellClient({
   );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useSidebarCollapsed();
+  const sidebarColumnTransitionReady = useSidebarColumnTransitionReady();
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [recentQueries, setRecentQueries] = useState<string[]>([]);
@@ -309,19 +413,10 @@ function GlobalStandaloneSearchShellClient({
     mode: resolvedSearchMode,
     pathname,
   });
-  const isStandaloneModeHome =
-    !hasSubmittedModeSearch &&
-    !rendersDashboardSearch &&
-    ((searchMode === "services" && pathname === "/services") ||
-      (searchMode === "forms" && pathname === "/forms") ||
-      (searchMode === "favourites" && pathname === "/favourites") ||
-      (searchMode === "differentials" && pathname === "/differentials") ||
-      (searchMode === "dsm" && pathname === "/dsm") ||
-      (searchMode === "specifiers" && pathname === "/specifiers") ||
-      (searchMode === "formulation" && pathname === "/formulation") ||
-      (searchMode === "factsheets" && pathname === "/factsheets") ||
-      (searchMode === "therapy-compass" && pathname === "/therapy-compass") ||
-      (searchMode === "tools" && pathname === "/tools"));
+  // Pathname-only: do not require searchMode === route. changeMode used to set
+  // searchMode before router.push landed, which made isStandaloneModeHome false
+  // for one frame (dock reserve + 200ms padding transition = choppy resize).
+  const isStandaloneModeHome = !hasSubmittedModeSearch && !rendersDashboardSearch && isStandaloneModeHomePath(pathname);
   const isDifferentialPresentationWorkflow = pathname.startsWith("/differentials/presentations");
   const shouldShowDesktopSidebar = !hideDesktopSidebar;
   const effectiveSidebarCollapsed = isDifferentialPresentationWorkflow ? true : sidebarCollapsed;
@@ -515,17 +610,18 @@ function GlobalStandaloneSearchShellClient({
     }
     setQuery("");
     setCommandScopes([]);
-    setSearchMode(mode);
     setMobileMenuOpen(false);
+    // Let the URL sync (render-time) own searchMode. Optimistic setSearchMode
+    // before pathname updates was the namespaced mode-switch reserve flip.
     navigateToMode(mode);
   }
 
   function startNewAnswerChat() {
     setQuery("");
     setMobileMenuOpen(false);
-    setSearchMode("answer");
     setQueryMode("auto");
     setScopeFilters({});
+    // URL sync sets searchMode after navigation; avoid eager chrome thrash.
     router.push(appModeHomeHref("answer", { focus: true }));
   }
 
@@ -544,7 +640,6 @@ function GlobalStandaloneSearchShellClient({
     }
     setQuery(crossQuery);
     setCommandScopes([]);
-    setSearchMode(mode);
     setMobileMenuOpen(false);
     navigateToMode(mode, { query: crossQuery, focus: false, run: true });
   }
@@ -621,6 +716,9 @@ function GlobalStandaloneSearchShellClient({
         // viewport through the whole transition, so content stays edge to edge.
         "sm:min-h-dvh max-sm:fixed max-sm:inset-0 max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
+        shouldShowDesktopSidebar &&
+          sidebarColumnTransitionReady &&
+          "motion-safe:transition-[grid-template-columns] motion-safe:duration-200 motion-safe:ease-out",
         shouldShowDesktopSidebar &&
           (effectiveSidebarCollapsed ? "lg:grid-cols-[5.25rem_minmax(0,1fr)]" : "lg:grid-cols-[20rem_minmax(0,1fr)]"),
       )}
@@ -762,6 +860,7 @@ function GlobalStandaloneSearchShellClient({
           tabIndex={-1}
           onScroll={handleMainScroll}
           data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
+          data-reserve-transitioning={reserveTransitioning ? "true" : undefined}
           className={cn(
             // sm+ uses overflow-x-clip (not hidden): hidden forces overflow-y to
             // auto, which turns #main-content into the sticky scrollport while the
@@ -790,17 +889,15 @@ function GlobalStandaloneSearchShellClient({
           */}
           <div data-testid="mobile-composer-reserve-pad" className="max-sm:pb-[var(--mobile-composer-reserve)]">
             {shouldShowSearchComposer && !isStandaloneModeHome ? (
-              <div
+              <DesktopComposerPortalSlot
                 id={desktopPageComposerSlotId}
                 data-testid="desktop-page-search-composer-slot"
                 className="hidden lg:block lg:empty:hidden"
               />
             ) : null}
-            <ClientHydrationBoundary
-              fallback={<div className="min-h-[calc(100dvh-var(--shell-header-h))] overflow-x-hidden" aria-hidden />}
-            >
-              <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
-            </ClientHydrationBoundary>
+            {/* Paint RSC mode-home HTML immediately. A ClientHydrationBoundary here
+                blanked every standalone mode until JS mounted (hard-load LCP hit). */}
+            <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
           </div>
         </div>
       </div>
