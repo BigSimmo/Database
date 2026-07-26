@@ -13,7 +13,7 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 
 | Script                                                                                     | Role                                                                                                        |
 | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `run-heavy.mjs`                                                                            | Serializes heavy jobs behind a cross-process lock (`test-run-lock.mjs`) so builds/tests don't oversubscribe |
+| `run-heavy.mjs`                                                                            | Acquires shared/exclusive cross-worktree leases (`test-run-lock.mjs`) so focused checks can overlap safely  |
 | `run-tsx.mjs`, `run-vitest.mjs`, `run-playwright.mjs`, `run-eval-safe.mjs`                 | Typed/test/e2e/eval entrypoint wrappers                                                                     |
 | `dev-free-port.mjs`, `ensure-local-server.mjs`                                             | Project-stable localhost port selection + background server ensure                                          |
 | `check-node-engine.cjs`, `install-git-hooks.mjs`, `guard-push.mjs`, `guard-next-build.mjs` | Install/preflight guards                                                                                    |

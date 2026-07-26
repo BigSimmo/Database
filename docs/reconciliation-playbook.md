@@ -92,7 +92,7 @@ merges, old review refs, and intentionally retained branches.
 ## Efficient verification
 
 - Start with the smallest focused test, then widen once.
-- Run one heavyweight Database command at a time across all worktrees.
+- Let the repository coordinator admit verification: up to two focused Vitest/typecheck leases may overlap across different worktrees, while full suites, coverage, lint, builds, and browser runs remain exclusive.
 - If a wrapper appears stalled, inspect its lock/process/artifact status before retrying or stopping.
 - Never rerun an unchanged passing gate.
 - Record a timeout or interrupted suite as incomplete. Re-run only the smallest unresolved portion

@@ -51,6 +51,8 @@ describe("standalone TSX server-only compatibility", () => {
     const runner = readFileSync(new URL("../scripts/run-vitest.mjs", import.meta.url), "utf8");
     const config = readFileSync(new URL("../vitest.config.mts", import.meta.url), "utf8");
     expect(runner).toContain("acquireHeavyRunLock");
+    expect(runner).toContain("vitestLeaseMode");
+    expect(runner).toContain("VITEST_MAX_WORKERS: String(sharedWorkers)");
     expect(runner).not.toContain("taskkill");
     // Workers stay bounded to a finite default (tunable via VITEST_MAX_WORKERS) so a
     // parallel run can never spawn unlimited workers and thrash the host.
@@ -58,5 +60,6 @@ describe("standalone TSX server-only compatibility", () => {
       /maxWorkers:\s*process\.env\.VITEST_MAX_WORKERS\s*\?\s*Number\(process\.env\.VITEST_MAX_WORKERS\)\s*:\s*\d+/,
     );
     expect(config).toContain("testTimeout: 30_000");
+    expect(config).toContain("cacheDir: vitestCacheDirectory(process.cwd())");
   });
 });
