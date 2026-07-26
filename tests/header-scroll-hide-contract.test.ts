@@ -104,7 +104,11 @@ describe("shared header hide/reveal wiring", () => {
     expect(composerSlotSource).toContain(
       'export const phoneHeaderCollapseAddonSlotId = "phone-header-collapse-addon-slot"',
     );
+    expect(composerSlotSource).toContain(
+      'export const phoneHeaderCollapsePortalFocusEvent = "phone-header-collapse-portal-focus"',
+    );
     expect(headerSource).toContain("phoneHeaderCollapseAddonSlotId");
+    expect(headerSource).toContain("document.addEventListener(phoneHeaderCollapsePortalFocusEvent, handlePortalFocus)");
     expect(headerSource).not.toContain("headerCollapseAddonSlotId?: string");
     expect(headerSource).toContain('data-testid="header-collapse-addon"');
     expect(headerSource).toContain('className="w-full min-w-0 max-w-full empty:hidden"');
@@ -119,9 +123,14 @@ describe("shared header hide/reveal wiring", () => {
     expect(addonHostIdx).toBeLessThan(collapsingClose);
 
     // One subtree is moved before paint on phones; sm+ and missing-host
-    // fallbacks remain in normal flow. The observer survives shell remounts.
+    // fallbacks remain in normal flow. The observer survives shell remounts,
+    // and portaled focus is forwarded because React portal focus events follow
+    // the source tree rather than the collapse host.
     expect(phoneHeaderPortalSource).toContain("useLayoutEffect");
-    expect(phoneHeaderPortalSource).toContain("createPortal(children, phoneHost)");
+    expect(phoneHeaderPortalSource).toContain("createPortal(");
+    expect(phoneHeaderPortalSource).toContain("onFocusCapture={() => reportPortalFocus(true)}");
+    expect(phoneHeaderPortalSource).toContain("onBlurCapture=");
+    expect(phoneHeaderPortalSource).toContain("phoneHeaderCollapsePortalFocusEvent");
     expect(phoneHeaderPortalSource).toContain("phoneHeaderCollapseAddonSlotId");
     expect(phoneHeaderPortalSource).toContain('window.matchMedia("(max-width: 639px)")');
     expect(phoneHeaderPortalSource).toContain("new MutationObserver(sync)");
