@@ -157,10 +157,13 @@ test("phone chrome has an opaque header, one edge-to-edge footer, and releases b
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
-  // /formulation/worry is a non-home GlobalSearchShell route, so the bottom dock
-  // renders. Its legacy backdrop is optional on this surface; when present, the
-  // phone paint contract requires CSS to hide it.
-  await gotoPhoneSurface(page, "/formulation/worry");
+  // A submitted Forms search is a stable GlobalSearchShell result surface: it
+  // renders the compact bottom dock and has enough content to exercise the
+  // shared header/footer hide signal. Its legacy backdrop remains optional;
+  // when present, the phone paint contract requires CSS to hide it.
+  await gotoPhoneSurface(page, "/forms?q=Form&run=1&focus=1");
+  await expect(page.locator("form.answer-footer-search-dock")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("global-search-input")).not.toBeFocused({ timeout: 5_000 });
 
   const visible = await page.evaluate(() => {
     const header = document.querySelector<HTMLElement>("header#search");
