@@ -5,14 +5,14 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
+  useRef,
   type FocusEvent as ReactFocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import {
   Check,
@@ -305,6 +305,7 @@ export function MasterSearchHeader({
   // Hosts pass the precomputed session decision in canAccessFavourites (auth || demo).
   // Do not OR demoMode again here — that would reopen Favourites when props diverge.
   const router = useRouter();
+  const pathname = usePathname();
   const visibleAppModeOptions = visibleAppModeDefinitionsForSession({
     authenticated: canAccessFavourites,
     demoMode: false,
@@ -363,11 +364,15 @@ export function MasterSearchHeader({
   // into invisible controls).
   const [headerChromeFocused, setHeaderChromeFocused] = useState(false);
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
-  const phoneHeaderCollapseAddonRef = useRef<HTMLDivElement | null>(null);
+  const [phoneHeaderCollapseAddonHost, setPhoneHeaderCollapseAddonHost] = useState<HTMLDivElement | null>(null);
+  const setPhoneHeaderCollapseAddonRef = useCallback((node: HTMLDivElement | null) => {
+    setPhoneHeaderCollapseAddonHost(node);
+  }, []);
   const internalScrollHidden = useHideOnScroll({
     disabled: !hideOnScroll || hideOnScroll.scrollHidden !== undefined,
   });
   const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
+  const headerCollapseOwnsPhoneAddonFocus = hideOnScroll?.strategy === "collapse";
   // Mode homes portal the composer into the hero slot. With "all" the hero owns
   // every width (the answer home keeps its in-flow pill on phones); "sm-up"
   // hero hosts hand phones the bottom dock instead.
@@ -411,12 +416,23 @@ export function MasterSearchHeader({
   }, [phoneBottomSearchDockActive, hideOnScrollEnabled]);
 
   useEffect(() => {
-    const addonHost = phoneHeaderCollapseAddonRef.current;
-    if (!addonHost || !hideOnScrollEnabled) return undefined;
+    const addonHost = phoneHeaderCollapseAddonHost;
+    const clearHeaderFocus = () => setHeaderChromeFocused(false);
+    if (!addonHost || !hideOnScrollEnabled || !headerCollapseOwnsPhoneAddonFocus) {
+      queueMicrotask(clearHeaderFocus);
+      return undefined;
+    }
 
     // React portal focus events follow the source React tree, not the portal
     // host's synthetic-event ancestry. Listen at the real DOM host so focused
     // page-owned controls pin the same collapse track as the universal bar.
+    const hostContainsActiveElement = () => {
+      const activeElement = document.activeElement;
+      return activeElement instanceof Node && addonHost.contains(activeElement);
+    };
+    const clearIfFocusLeftHost = () => {
+      if (!hostContainsActiveElement()) setHeaderChromeFocused(false);
+    };
     const handleFocusIn = () => setHeaderChromeFocused(true);
     const handleFocusOut = (event: FocusEvent) => {
       const nextTarget = event.relatedTarget;
@@ -424,14 +440,19 @@ export function MasterSearchHeader({
         setHeaderChromeFocused(false);
       }
     };
+    queueMicrotask(() => setHeaderChromeFocused(hostContainsActiveElement()));
+    const observer = new MutationObserver(clearIfFocusLeftHost);
+    observer.observe(addonHost, { childList: true, subtree: true });
 
     addonHost.addEventListener("focusin", handleFocusIn);
     addonHost.addEventListener("focusout", handleFocusOut);
     return () => {
       addonHost.removeEventListener("focusin", handleFocusIn);
       addonHost.removeEventListener("focusout", handleFocusOut);
+      observer.disconnect();
+      queueMicrotask(clearHeaderFocus);
     };
-  }, [hideOnScrollEnabled]);
+  }, [headerCollapseOwnsPhoneAddonFocus, hideOnScrollEnabled, pathname, phoneHeaderCollapseAddonHost]);
 
   useEffect(() => {
     onBottomComposerHiddenChange?.(bottomComposerHidden);
@@ -2088,7 +2109,7 @@ export function MasterSearchHeader({
         >
           {topBar}
           <div
-            ref={phoneHeaderCollapseAddonRef}
+            ref={setPhoneHeaderCollapseAddonRef}
             id={phoneHeaderCollapseAddonSlotId}
             data-testid="header-collapse-addon"
             className="w-full min-w-0 max-w-full empty:hidden"
