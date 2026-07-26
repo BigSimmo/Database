@@ -50,30 +50,30 @@ Structured map for AI agents and onboarding. For live routes, see `docs/site-map
 
 ### Product pages (`src/app/`)
 
-| Route                                                                                                     | File                                       |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `/`                                                                                                       | `src/app/(search-app)/page.tsx`            |
-| Shared mode-home route group (`/(search-app)`)                                                            | `src/app/(search-app)/`                    |
-| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                       | `src/app/(search-app)/` shared shell group |
-| `/applications`                                                                                           | `src/app/applications/route.ts`            |
-| `/differentials`, `/diagnoses`, `/presentations`                                                          | `src/app/(search-app)/differentials/`      |
-| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/(search-app)/dsm/`                |
-| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                      | `src/app/(search-app)/documents/`          |
-| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                 | `src/app/(search-app)/factsheets/`         |
-| `/favourites`                                                                                             | `src/app/(search-app)/favourites/page.tsx` |
-| `/forms`, `/forms/[slug]`                                                                                 | `src/app/(search-app)/forms/`              |
-| `/medications`, `/medications/[slug]`                                                                     | `src/app/(search-app)/medications/`        |
-| `/privacy`                                                                                                | `src/app/privacy/page.tsx`                 |
-| `/reference/colour-coding`                                                                                | `src/app/reference/`                       |
-| `/safety-plan`                                                                                            | `src/app/safety-plan/page.tsx`             |
-| `/calculators`                                                                                            | `src/app/(search-app)/calculators/page.tsx`|
-| `/services`, `/services/[slug]`                                                                           | `src/app/(search-app)/services/`           |
-| `/therapy-compass`                                                                                        | `src/app/(search-app)/therapy-compass/`    |
-| `/tools`                                                                                                  | `src/app/(search-app)/tools/`              |
-| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`      | `src/app/(search-app)/specifiers/`         |
-| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map` | `src/app/(search-app)/formulation/`        |
-| `/mockups/*`                                                                                              | `src/app/mockups/` (404 in production)     |
-| `/auth/callback`                                                                                          | `src/app/auth/callback/route.ts`           |
+| Route                                                                                                     | File                                        |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `/`                                                                                                       | `src/app/(search-app)/page.tsx`             |
+| Shared mode-home route group (`/(search-app)`)                                                            | `src/app/(search-app)/`                     |
+| Mode homes (`/services`, `/dsm`, `/documents/…`, …)                                                       | `src/app/(search-app)/` shared shell group  |
+| `/applications`                                                                                           | `src/app/applications/route.ts`             |
+| `/differentials`, `/diagnoses`, `/presentations`                                                          | `src/app/(search-app)/differentials/`       |
+| `/dsm`, `/dsm/search`, `/dsm/compare`, `/dsm/diagnoses/[slug]`                                            | `src/app/(search-app)/dsm/`                 |
+| `/documents/search`, `/source`, `/evidence`, `/[id]`                                                      | `src/app/(search-app)/documents/`           |
+| `/factsheets`, `/factsheets/search`, `/factsheets/[slug]`                                                 | `src/app/(search-app)/factsheets/`          |
+| `/favourites`                                                                                             | `src/app/(search-app)/favourites/page.tsx`  |
+| `/forms`, `/forms/[slug]`                                                                                 | `src/app/(search-app)/forms/`               |
+| `/medications`, `/medications/[slug]`                                                                     | `src/app/(search-app)/medications/`         |
+| `/privacy`                                                                                                | `src/app/privacy/page.tsx`                  |
+| `/reference/colour-coding`                                                                                | `src/app/reference/`                        |
+| `/safety-plan`                                                                                            | `src/app/safety-plan/page.tsx`              |
+| `/calculators`                                                                                            | `src/app/(search-app)/calculators/page.tsx` |
+| `/services`, `/services/[slug]`                                                                           | `src/app/(search-app)/services/`            |
+| `/therapy-compass`                                                                                        | `src/app/(search-app)/therapy-compass/`     |
+| `/tools`                                                                                                  | `src/app/(search-app)/tools/`               |
+| `/specifiers`, `/specifiers/[slug]`, `/specifiers/builder`, `/specifiers/compare`, `/specifiers/map`      | `src/app/(search-app)/specifiers/`          |
+| `/formulation`, `/formulation/[slug]`, `/formulation/builder`, `/formulation/compare`, `/formulation/map` | `src/app/(search-app)/formulation/`         |
+| `/mockups/*`                                                                                              | `src/app/mockups/` (404 in production)      |
+| `/auth/callback`                                                                                          | `src/app/auth/callback/route.ts`            |
 
 ### API routes (`src/app/api/`)
 
