@@ -14,7 +14,7 @@
  * zero so content can paint all the way to the viewport edge once the dock is
  * invisible. The rem number is exported separately so the scroll-hide
  * collapse budget
- * (use-hide-on-scroll's readChromeCollapseBudget) measures against the same
+ * (use-hide-on-scroll's readChromeCollapseMetrics) measures against the same
  * value; tests/mobile-composer-reserve.test.ts pins the pair together.
  */
 export const mobileComposerHiddenReserveRem = 0;
@@ -24,19 +24,20 @@ export const mobileComposerHiddenReserve = "0rem";
 export const mobileComposerIdleReserve = "2rem";
 
 /** Differentials Compare selected bar + compact search pill. */
-export const mobileComposerDifferentialsCompareReserve = "calc(12.5rem + var(--safe-area-bottom))";
+export const mobileComposerDifferentialsCompareReserve =
+  "calc(12.5rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))";
 
 // Every phone dock is the compact single-row pill (mode homes and result views
 // alike); only the answer dock with a follow-up chip row is taller. The answer
 // values are derived from the dock constants so the pairs cannot silently
 // diverge — master-search-header's compact styling assumes they stay equal.
-const shellCompactSingleRowReserve = "calc(5.5rem + var(--safe-area-bottom))";
-const dashboardCompactSingleRowReserve = "calc(5rem + var(--safe-area-bottom))";
+const shellCompactSingleRowReserve = "calc(5.5rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))";
+const dashboardCompactSingleRowReserve = "calc(5rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))";
 
 export const mobileComposerVisibleReserve = {
   shellAnswer: shellCompactSingleRowReserve,
   shellDock: shellCompactSingleRowReserve,
-  dashboardAnswerWithFollowUps: "calc(7.5rem + var(--safe-area-bottom))",
+  dashboardAnswerWithFollowUps: "calc(7.5rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))",
   dashboardAnswer: dashboardCompactSingleRowReserve,
   dashboardDock: dashboardCompactSingleRowReserve,
   differentialsCompare: mobileComposerDifferentialsCompareReserve,

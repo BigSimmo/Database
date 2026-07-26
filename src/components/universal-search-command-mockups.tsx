@@ -611,7 +611,7 @@ function SmartDropdown({
         id={listboxId}
         role="listbox"
         aria-label={`${mode.label} search suggestions`}
-        className="max-h-[26rem] overflow-y-auto p-2"
+        className="max-h-[calc(100dvh-5rem)] sm:max-h-[26rem] overflow-y-auto p-2"
       >
         {sections.map((section) =>
           section.items.length ? (

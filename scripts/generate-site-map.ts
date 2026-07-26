@@ -122,7 +122,7 @@ const apiDescriptions: Record<string, string> = {
   "/api/ingestion/jobs": "Ingestion job collection.",
   "/api/ingestion/jobs/[id]/retry": "Retry ingestion job.",
   "/api/ingestion/quality": "Ingestion quality reporting.",
-  "/api/jobs": "Job state.",
+  "/api/jobs": "Administrator/ops job listing (not a client product API; see docs/api-jobs-ops-surface.md).",
   "/api/local-project-id": "Local project identity guard.",
   "/api/registry/records": "Registry record collection.",
   "/api/registry/records/[slug]": "Registry record detail.",
@@ -372,7 +372,7 @@ function renderModePageIndex() {
       mode: "Tools",
       home: appModeHomeHref("tools"),
       search: appModeHomeHref("tools", { query: "medications", focus: true, run: true }),
-      detail: "Tool launcher and detail panels inside dashboard tools mode (`/?mode=tools`).",
+      detail: "Canonical Tools launcher at `/tools` (PT-11). `/?mode=tools` remains a dashboard-mode alias.",
     },
   ]);
 }

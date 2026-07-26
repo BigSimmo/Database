@@ -15,11 +15,9 @@ import {
 
 import dynamic from "next/dynamic";
 
-import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { clearLegacyRecentQueries, demoRecentQueryOwnerId, loadRecentQueries } from "@/lib/recent-query-storage";
 import { PatientProfileProvider } from "@/components/clinical-dashboard/patient-profile-context";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
-import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 import {
   ClinicalDesktopSidebar,
   ClinicalMobileSidebar,
@@ -34,11 +32,21 @@ import {
   resolveMobileComposerReserve,
   resolveShellVisibleMobileComposerReserve,
 } from "@/components/clinical-dashboard/mobile-composer-reserve";
-import { readChromeCollapseBudget, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import {
+  readChromeCollapseMetrics,
+  useDocumentScrollHideReporter,
+  useScrollHideReporter,
+} from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { useSidebarCollapsed } from "@/components/clinical-dashboard/use-sidebar-collapsed";
 import { useSidebarColumnTransitionReady } from "@/components/clinical-dashboard/use-sidebar-column-transition";
-import { useTheme } from "@/components/clinical-dashboard/use-theme";
+import {
+  loadSettingsDialog,
+  prefetchAccountDialog,
+  SidebarAccountSetupDialog,
+  SidebarSettingsDialog,
+} from "@/components/clinical-dashboard/lazy-sidebar-dialogs";
+import { useSettingsGuideFlow } from "@/components/clinical-dashboard/use-settings-guide-flow";
 import { cn } from "@/components/ui-primitives";
 import {
   appModeHomeHref,
@@ -56,7 +64,12 @@ const ClinicalDashboard = dynamic(
 );
 import { isLocalNoAuthMode, resolveClientDemoMode } from "@/lib/client-env";
 import { documentsSearchHref } from "@/lib/document-flow-routes";
-import { differentialsMobileCompareAddonSlotId, modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
+import { isInformationPage } from "@/lib/information-pages";
+import {
+  differentialsMobileCompareAddonSlotId,
+  modeHomeDesktopComposerSlotId,
+  therapyHeaderCollapseAddonSlotId,
+} from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import {
   isStandaloneModeHomePath,
@@ -78,7 +91,6 @@ const mockupQueryModeOptions: Array<{ value: ClinicalQueryMode; label: string }>
 ];
 // Re-apply focus shortly after the first frame to survive initial hydration remounts.
 const focusHydrationRetryDelayMs = 300;
-
 type GlobalSearchShellProps = {
   children: ReactNode;
   initialMode?: AppModeId;
@@ -176,63 +188,28 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
   );
 }
 
-function isInformationPage(pathname: string): boolean {
-  // Services detail: /services/[slug]
-  if (pathname.startsWith("/services/") && pathname !== "/services") return true;
+export function infoPageBackHref(pathname: string): string | null {
+  if (pathname.startsWith("/services/")) return appModeHomeHref("services");
+  if (pathname.startsWith("/forms/")) return appModeHomeHref("forms");
+  if (pathname.startsWith("/medications/")) return appModeHomeHref("prescribing");
+  if (pathname.startsWith("/differentials/")) return appModeHomeHref("differentials");
+  if (pathname.startsWith("/dsm/")) return appModeHomeHref("dsm");
+  if (pathname.startsWith("/specifiers/")) return appModeHomeHref("specifiers");
+  if (pathname.startsWith("/formulation/")) return appModeHomeHref("formulation");
+  if (pathname.startsWith("/therapy-compass/")) return appModeHomeHref("therapy-compass");
+  if (pathname.startsWith("/factsheets/")) return appModeHomeHref("factsheets");
+  if (pathname.startsWith("/documents/")) return documentsSearchHref();
+  return null;
+}
 
-  // Forms detail: /forms/[slug]
-  if (pathname.startsWith("/forms/") && pathname !== "/forms") return true;
-
-  // Medications detail: /medications/[slug]
-  if (pathname.startsWith("/medications/") && pathname !== "/medications") return true;
-
-  // Psychiatric specifier detail: /specifiers/[slug]
-  if (
-    pathname.startsWith("/specifiers/") &&
-    pathname !== "/specifiers" &&
-    pathname !== "/specifiers/builder" &&
-    pathname !== "/specifiers/compare" &&
-    pathname !== "/specifiers/map"
-  )
-    return true;
-
-  // Clinical formulation detail: /formulation/[slug]
-  if (
-    pathname.startsWith("/formulation/") &&
-    pathname !== "/formulation" &&
-    pathname !== "/formulation/builder" &&
-    pathname !== "/formulation/compare" &&
-    pathname !== "/formulation/map"
-  )
-    return true;
-
-  // Factsheets detail: /factsheets/[slug]
-  if (pathname.startsWith("/factsheets/") && pathname !== "/factsheets" && pathname !== "/factsheets/search")
-    return true;
-
-  // Therapy compass detail: /therapy-compass/[slug]/brief or /therapy-compass/[slug]/sheet
-  if (
-    pathname.startsWith("/therapy-compass/") &&
-    pathname !== "/therapy-compass" &&
-    pathname !== "/therapy-compass/compare" &&
-    pathname !== "/therapy-compass/pathways" &&
-    pathname !== "/therapy-compass/recommend" &&
-    pathname !== "/therapy-compass/review" &&
-    pathname !== "/therapy-compass/search"
-  )
-    return true;
-
-  // Differential diagnosis detail: /differentials/diagnoses/[slug] or /differentials/presentations/[slug]
-  if (pathname.startsWith("/differentials/diagnoses/") || pathname.startsWith("/differentials/presentations/"))
-    return true;
-
-  // DSM-5 Diagnosis detail: /dsm/diagnoses/[slug] or /dsm/diagnoses/[slug]/differentials or /dsm/compare
-  if (pathname.startsWith("/dsm/diagnoses/")) return true;
-
-  // Document detail: /documents/[id] (excluding /documents/search)
-  if (pathname.startsWith("/documents/") && pathname !== "/documents/search") return true;
-
-  return false;
+/** Stable in-app back target for non-info mobile back (e.g. submitted differential search). */
+export function mobileBackHref(pathname: string, searchMode: string, hasQuery: boolean): string | null {
+  const infoHref = infoPageBackHref(pathname);
+  if (infoHref) return infoHref;
+  if (pathname === "/differentials" && searchMode === "differentials" && hasQuery) {
+    return appModeHomeHref("differentials", { focus: true });
+  }
+  return null;
 }
 
 function isToolDetailWithFooterSearch(pathname: string): boolean {
@@ -258,9 +235,13 @@ function GlobalStandaloneSearchShellClient({
   const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
   const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
-  const phoneScrollHide = useScrollHideReporter();
-  const reportPhoneScrollHideRef = useRef(phoneScrollHide.reportScroll);
-  const resetPhoneScrollHideRef = useRef(phoneScrollHide.reset);
+  // The header hides at every breakpoint; only the phone bottom dock stays
+  // phone-gated (MasterSearchHeader keeps that behind its own phone layout
+  // check). #main-content is the scrollport on phones and the document is the
+  // scrollport above them, so both sources feed the same reporter.
+  // resetKey=pathname clears carried-over hide state across shared mode homes.
+  const chromeScrollHide = useScrollHideReporter(false, true, pathname);
+  const reportChromeScrollHideRef = useRef(chromeScrollHide.reportScroll);
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
   const [bottomComposerHiddenPathname, setBottomComposerHiddenPathname] = useState(pathname);
   // Render-time reset (not an effect): pathname-only mode homes share one scroller,
@@ -269,14 +250,13 @@ function GlobalStandaloneSearchShellClient({
     setBottomComposerHiddenPathname(pathname);
     setBottomComposerHidden(false);
   }
+  useDocumentScrollHideReporter(chromeScrollHide.reportScroll);
   useEffect(() => {
-    reportPhoneScrollHideRef.current = phoneScrollHide.reportScroll;
-    resetPhoneScrollHideRef.current = phoneScrollHide.reset;
-  }, [phoneScrollHide.reportScroll, phoneScrollHide.reset]);
-  // Mode homes share one shell scroller. Reset scroll + collapsed chrome when
-  // the route changes so /services → /dsm does not open mid-page with a hidden header.
+    reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
+  }, [chromeScrollHide.reportScroll]);
+  // Mode homes share one shell scroller. Reset scroll when the route changes so
+  // /services → /dsm does not open mid-page with a stuck offset.
   useEffect(() => {
-    resetPhoneScrollHideRef.current();
     const main = document.getElementById("main-content");
     if (main instanceof HTMLElement) main.scrollTop = 0;
   }, [pathname]);
@@ -340,7 +320,6 @@ function GlobalStandaloneSearchShellClient({
     }),
     [query, searchMode, commandScopes, removeCommandScope, clearCommandScopes],
   );
-  const { theme, toggleTheme } = useTheme();
   const auth = useAuthSession();
   const sidebarIdentity = useMemo(() => deriveSidebarIdentity(auth.session?.user.email), [auth.session?.user.email]);
   const hasSubmittedModeSearch = requestedRun && requestedQuery.length > 0;
@@ -412,6 +391,15 @@ function GlobalStandaloneSearchShellClient({
   }
 
   useEffect(() => {
+    // Submitted result views must not keep the dock focused. Composer focus
+    // pins both chrome edges (keyboard safety), which is what left Forms /
+    // services search stuck with a visible header + bottom white rail while
+    // scrolling results. Match ClinicalDashboard: focus only the empty/home
+    // composer, and blur once a run=1 result view is showing.
+    if (hasSubmittedModeSearch) {
+      if (document.activeElement === inputRef.current) inputRef.current?.blur();
+      return undefined;
+    }
     if (!requestedFocus) return undefined;
     const focusInput = () => {
       // The focus=1 hydration retry (rAF + 300ms) can land after a user/test opens
@@ -420,6 +408,10 @@ function GlobalStandaloneSearchShellClient({
       // Guard both: open menu DOM (activeElement is often <body> mid-transition) and
       // any intentional focus already moved off the composer.
       if (document.getElementById("app-mode-menu")) return;
+      // Do not reclaim composer focus while a modal Sheet is open (Sources /
+      // Guide / filters). The focus=1 hydration retry otherwise races sheet
+      // autofocus and can leave the Find field unfocused in UI smoke.
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       const active = document.activeElement;
       if (active instanceof HTMLElement && active !== document.body && active !== inputRef.current) {
         return;
@@ -432,7 +424,7 @@ function GlobalStandaloneSearchShellClient({
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timeout);
     };
-  }, [pathname, requestedFocus, searchParamString]);
+  }, [pathname, requestedFocus, searchParamString, hasSubmittedModeSearch]);
 
   // Recent queries are owner-scoped session state (2026-07-13 audit, finding 4):
   // the legacy unscoped localStorage value could resurface another account's
@@ -462,7 +454,7 @@ function GlobalStandaloneSearchShellClient({
   }, [recentQueriesOwnerId]);
 
   function prefetchApplications() {
-    router.prefetch("/?mode=tools");
+    router.prefetch("/tools");
     if (favouritesAccessible) router.prefetch("/favourites");
     router.prefetch("/differentials");
     router.prefetch("/dsm");
@@ -497,6 +489,20 @@ function GlobalStandaloneSearchShellClient({
     openAccountSetup("default");
   }
 
+  const {
+    settingsInitialFocus,
+    openGuideFromSettings,
+    closeGuideWithRestore,
+    openSettingsWithDefaultFocus,
+    openAccountProfileWithDefaultFocus,
+  } = useSettingsGuideFlow({
+    openGuide,
+    closeGuide: () => setGuideOpen(false),
+    openSettings,
+    openAccountProfile,
+    setSettingsOpen,
+  });
+
   function navigateToMode(mode: AppModeId, options: SearchNavigationOptions = {}) {
     const nextOptions = { queryMode, scopeFilters, ...options };
     if (mode === "documents" && options.query?.trim()) {
@@ -511,7 +517,9 @@ function GlobalStandaloneSearchShellClient({
     navigateToMode(searchMode, {
       query: trimmedQuery || undefined,
       run: Boolean(trimmedQuery),
-      focus: true,
+      // Running a search must not carry focus into the result dock — that pin
+      // disables hide-on-scroll for both chrome edges.
+      focus: !trimmedQuery,
     });
   }
 
@@ -542,7 +550,7 @@ function GlobalStandaloneSearchShellClient({
 
   function pickRecentQuery(recentQuery: string) {
     setMobileMenuOpen(false);
-    navigateToMode(searchMode, { query: recentQuery, focus: true, run: true });
+    navigateToMode(searchMode, { query: recentQuery, focus: false, run: true });
   }
 
   function crossModeSearch(mode: AppModeId, crossQuery: string) {
@@ -556,15 +564,21 @@ function GlobalStandaloneSearchShellClient({
     setQuery(crossQuery);
     setCommandScopes([]);
     setMobileMenuOpen(false);
-    navigateToMode(mode, { query: crossQuery, focus: true, run: true });
+    navigateToMode(mode, { query: crossQuery, focus: false, run: true });
   }
 
   function handleMainScroll(event: UIEvent<HTMLDivElement>) {
     const target = event.currentTarget;
-    phoneScrollHide.reportScroll({
+    // Scrolling the result canvas while the dock input is focused (user
+    // retapped the pill) must release the focus pin before the hide reporter
+    // runs; otherwise both chrome edges stay locked for the whole session.
+    if (target.scrollTop > 8 && inputRef.current && document.activeElement === inputRef.current) {
+      inputRef.current.blur();
+    }
+    chromeScrollHide.reportScroll({
       offset: target.scrollTop,
       maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
-      collapseBudget: readChromeCollapseBudget(target),
+      ...readChromeCollapseMetrics(target),
       source: target,
     });
   }
@@ -584,12 +598,15 @@ function GlobalStandaloneSearchShellClient({
       const target = event.target;
       if (!(target instanceof HTMLElement) || !main.contains(target)) return;
       if (target.scrollHeight <= target.clientHeight + 1) return;
-      reportPhoneScrollHideRef.current({
+      if (target.scrollTop > 8 && inputRef.current && document.activeElement === inputRef.current) {
+        inputRef.current.blur();
+      }
+      reportChromeScrollHideRef.current({
         offset: target.scrollTop,
         maxOffset: Math.max(0, target.scrollHeight - target.clientHeight),
         // Collapsing chrome releases layout into nested scrollers too (their
         // flex height cap grows with the shell), so the same budget applies.
-        collapseBudget: readChromeCollapseBudget(main),
+        ...readChromeCollapseMetrics(main),
         source: target,
       });
     };
@@ -649,11 +666,10 @@ function GlobalStandaloneSearchShellClient({
               onCollapsedChange={setSidebarCollapsed}
               onNewChat={startNewAnswerChat}
               onPickRecent={pickRecentQuery}
-              onOpenGuide={openGuide}
-              onOpenSettings={openSettings}
-              onOpenAccount={openAccountProfile}
-              theme={theme}
-              onToggleTheme={toggleTheme}
+              onOpenSettings={openSettingsWithDefaultFocus}
+              onOpenAccount={openAccountProfileWithDefaultFocus}
+              onPrefetchSettings={loadSettingsDialog}
+              onPrefetchAccount={prefetchAccountDialog}
               onPrefetchApplications={prefetchApplications}
             />
           </div>
@@ -661,7 +677,13 @@ function GlobalStandaloneSearchShellClient({
       ) : null}
 
       <div className="flex min-w-0 flex-col max-sm:h-full max-sm:min-h-0 max-sm:overflow-hidden sm:min-h-dvh">
-        <div className={mobileChromeVisible ? undefined : "hidden lg:block"}>
+        {/*
+          `contents` above the phone breakpoint: the chrome wrapper pins itself
+          to the viewport top there, and a plain block here would be a
+          header-height containing block that leaves that sticky rule no travel
+          (the header then just scrolled off the page with the content).
+        */}
+        <div className={mobileChromeVisible ? "sm:contents" : "hidden lg:contents"}>
           <MasterSearchHeader
             demoMode={clientDemoMode}
             documents={[]}
@@ -705,34 +727,18 @@ function GlobalStandaloneSearchShellClient({
                   : "menu"
             }
             onMobileBack={() => {
-              if (isInfoPage) {
-                if (pathname.startsWith("/services/")) {
-                  router.push("/services");
-                } else if (pathname.startsWith("/forms/")) {
-                  router.push("/forms");
-                } else if (pathname.startsWith("/medications/")) {
-                  router.push("/?mode=prescribing");
-                } else if (pathname.startsWith("/differentials/")) {
-                  router.push("/differentials");
-                } else if (pathname.startsWith("/dsm/")) {
-                  router.push("/dsm");
-                } else if (pathname.startsWith("/specifiers/")) {
-                  router.push("/specifiers");
-                } else if (pathname.startsWith("/formulation/")) {
-                  router.push("/formulation");
-                } else if (pathname.startsWith("/therapy-compass/")) {
-                  router.push("/therapy-compass");
-                } else if (pathname.startsWith("/factsheets/")) {
-                  router.push("/factsheets");
-                } else if (pathname.startsWith("/documents/")) {
-                  router.push("/documents/search");
-                } else {
-                  router.back();
-                }
-              } else {
+              const fallbackHref = mobileBackHref(pathname, searchMode, Boolean(requestedQuery));
+              if (fallbackHref) {
+                if (!isInfoPage) setQuery("");
+                router.push(fallbackHref);
+                return;
+              }
+              if (!isInfoPage) {
                 setQuery("");
                 navigateToMode(searchMode, { focus: true });
+                return;
               }
+              router.back();
             }}
             queryModeOptions={mockupQueryModeOptions}
             queryInputRef={inputRef}
@@ -749,6 +755,13 @@ function GlobalStandaloneSearchShellClient({
             mobileBottomSearchAddonSlotId={
               differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
             }
+            // Therapy non-home screens portal their section strip into the
+            // collapsing top-bar track so it hides/reveals with the header.
+            headerCollapseAddonSlotId={
+              pathname.startsWith("/therapy-compass") && pathname !== "/therapy-compass"
+                ? therapyHeaderCollapseAddonSlotId
+                : undefined
+            }
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}
             desktopHomeComposerSlotId={isStandaloneModeHome ? modeHomeDesktopComposerSlotId : undefined}
@@ -757,11 +770,14 @@ function GlobalStandaloneSearchShellClient({
             // scrolls with the content, matching the answer home rather than
             // docking to the bottom edge.
             heroComposerBreakpoint="all"
-            // Phone-only: #main-content owns vertical scroll, so hide-on-scroll
-            // collapses the header/composer to hand space back to content.
-            hideOnScroll={{ strategy: "collapse", scrollHidden: phoneScrollHide.hidden }}
+            // Phones: #main-content owns vertical scroll, so hide-on-scroll
+            // collapses the top bar to hand space back to content.
+            // Tablet/desktop: the document scrolls, so an outer sticky stack
+            // pins [top bar | search] and only the top-bar row collapses —
+            // translating the whole stack would take the search field with it.
+            hideOnScroll={{ strategy: "collapse", wide: "sticky", scrollHidden: chromeScrollHide.hidden }}
             onBottomComposerHiddenChange={setBottomComposerHidden}
-            queryInputAutoFocus={searchParams.get("focus") === "1"}
+            queryInputAutoFocus={requestedFocus && !hasSubmittedModeSearch}
           />
         </div>
 
@@ -805,15 +821,16 @@ function GlobalStandaloneSearchShellClient({
         </div>
       </div>
 
-      <GuideDialog open={guideOpen} onClose={() => setGuideOpen(false)} />
-      <SettingsDialog
+      <GuideDialog open={guideOpen} onClose={closeGuideWithRestore} />
+      <SidebarSettingsDialog
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         identity={sidebarIdentity}
         onSignOut={auth.signOut}
-        onOpenGuide={openGuide}
+        onOpenGuide={openGuideFromSettings}
+        initialFocus={settingsInitialFocus}
       />
-      <AccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
+      <SidebarAccountSetupDialog open={accountSetupOpen} onClose={closeAccountSetup} intent={accountSetupIntent} />
       <ClinicalMobileSidebar
         open={mobileMenuOpen}
         // The workflow header keeps its menu trigger past md, so the drawer
@@ -826,11 +843,10 @@ function GlobalStandaloneSearchShellClient({
         onOpenChange={setMobileMenuOpen}
         onNewChat={startNewAnswerChat}
         onPickRecent={pickRecentQuery}
-        onOpenGuide={openGuide}
-        onOpenSettings={openSettings}
-        onOpenAccount={openAccountProfile}
-        theme={theme}
-        onToggleTheme={toggleTheme}
+        onOpenSettings={openSettingsWithDefaultFocus}
+        onOpenAccount={openAccountProfileWithDefaultFocus}
+        onPrefetchSettings={loadSettingsDialog}
+        onPrefetchAccount={prefetchAccountDialog}
         onPrefetchApplications={prefetchApplications}
       />
     </div>

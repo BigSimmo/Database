@@ -87,7 +87,7 @@ function SheetSection({
         )}
         {derived.flags.length > 0 ? (
           <span
-            className="grid size-8 shrink-0 place-items-center rounded-md border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
+            className="relative grid size-8 shrink-0 place-items-center rounded-md border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)] before:absolute before:-inset-2 before:content-['']"
             title="Safety flag triggered"
           >
             <AlertTriangle className="size-icon-sm" aria-hidden="true" />
@@ -95,7 +95,7 @@ function SheetSection({
         ) : null}
         <span
           className={cn(
-            "grid size-8 shrink-0 place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-soft)] transition",
+            "relative grid size-8 shrink-0 place-items-center rounded-md border border-[color:var(--border)] text-[color:var(--text-soft)] transition before:absolute before:-inset-2 before:content-['']",
             open && "rotate-180",
           )}
         >
@@ -160,9 +160,7 @@ export function CalculatorsBedsideSheetMockup() {
               <ClipboardList className="size-icon-md" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <h1 className="truncate text-lg font-extrabold leading-tight text-[color:var(--text-heading)]">
-                Assessment sheet
-              </h1>
+              <h1 className="truncate text-lg font-extrabold text-[color:var(--text-heading)]">Assessment sheet</h1>
               <p className="truncate text-2xs font-semibold text-[color:var(--text-soft)]">
                 Run several scales in one review — a summary builds as you go.
               </p>
@@ -170,7 +168,7 @@ export function CalculatorsBedsideSheetMockup() {
           </div>
           <nav
             aria-label="Jump to calculator"
-            className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%_-_1.5rem),transparent)]"
           >
             {calculators.map((calc) => {
               const derived = deriveCalculator(calc, session[calc.id] ?? {});
@@ -234,7 +232,7 @@ export function CalculatorsBedsideSheetMockup() {
             </button>
           </div>
           {startedCalcs.length ? (
-            <div className="flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex gap-1.5 overflow-x-auto overscroll-x-contain pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,black_calc(100%_-_1.5rem),transparent)]">
               {startedCalcs.map(({ calc, derived }) => (
                 <a
                   key={calc.id}

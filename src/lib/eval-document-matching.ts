@@ -32,13 +32,9 @@ const clinicalDocumentAliases: Record<string, string[]> = {
   AdmissionCommunityPts: [
     "Admission of Community Patients",
     "Admission Community Patients",
-    // Ground-truth widening (user-approved 2026-07-21, eval baseline run #57 triage): the live
-    // corpus carries several legitimately on-point admission policies; the NMHS
-    // admission-to-discharge pair satisfies the admission expectation for the
-    // admission-discharge comparison cases. Deliberately EXCLUDES discharge-only documents
-    // (they must not satisfy the admission slot) and the HITH programme policy (too narrow).
-    "Admission to Discharge for Community Mental Health",
-    "Admission to Discharge for Mental Health Inpatients",
+    // Deliberately EXCLUDES admission-to-discharge and discharge-only documents. Those titles
+    // remain on the Discharge alias list; listing them here too let one retrieved source fill
+    // both comparison slots and make allHit true (#030). Keep this side admission-only.
   ],
   AgitationArousalPharmaMgt: [
     "Agitation and Arousal Pharmacological Management",
@@ -62,6 +58,8 @@ const clinicalDocumentAliases: Record<string, string[]> = {
   ],
   CommunityHomeVisit: ["Community Home Visit", "Home Visit", "Community Visits"],
   Discharge: [
+    // Admission-to-discharge titles are Discharge-slot only (#030). Do not re-add them under
+    // AdmissionCommunityPts — a single dual-listed doc would false-pass multi-slot coverage.
     "Admission to Discharge for Mental Health Inpatients",
     "Admission to Discharge for Community Mental Health",
     "Referral Admission and Discharge Mental Health Hospital in the Home",
@@ -116,17 +114,43 @@ export function expectedFileCoverage(
   sources: Array<Pick<SearchResult, "file_name" | "title">>,
   limit = 3,
 ): ExpectedFileCoverage {
-  const topFiles = sources.slice(0, limit).map(resultDocumentText);
-  const matchedFiles = expectedFiles.filter((expected) =>
-    documentExpectationAlternatives(expected).some((alternative) =>
-      topFiles.some((file) => file.includes(alternative)),
-    ),
-  );
+  // Distinct source identities (#030): dedupe the window by document text, because one
+  // physical document appears many times in answer.citations (one entry per chunk). Matching
+  // on positions alone would let the same document fill every expected slot.
+  const topFiles = Array.from(new Set(sources.slice(0, limit).map(resultDocumentText)));
+  const candidateSourcesByExpectation = expectedFiles.map((expected) => {
+    const alternatives = documentExpectationAlternatives(expected);
+    return topFiles.reduce<number[]>((indexes, file, index) => {
+      if (alternatives.some((alternative) => file.includes(alternative))) indexes.push(index);
+      return indexes;
+    }, []);
+  });
+
+  // Maximum bipartite matching (Kuhn's augmenting path) rather than first-come assignment:
+  // a combo-titled document that matches two expectations must not consume the only source a
+  // narrower expectation could have used, which would make coverage depend on expectedFiles order.
+  const expectationBySource = new Map<number, number>();
+  const claimSource = (expectationIndex: number, visitedSources: Set<number>): boolean => {
+    for (const sourceIndex of candidateSourcesByExpectation[expectationIndex]) {
+      if (visitedSources.has(sourceIndex)) continue;
+      visitedSources.add(sourceIndex);
+      const holder = expectationBySource.get(sourceIndex);
+      if (holder === undefined || claimSource(holder, visitedSources)) {
+        expectationBySource.set(sourceIndex, expectationIndex);
+        return true;
+      }
+    }
+    return false;
+  };
+  expectedFiles.forEach((_, expectationIndex) => claimSource(expectationIndex, new Set()));
+
+  const matchedExpectations = new Set(expectationBySource.values());
+  const matchedFiles = expectedFiles.filter((_, index) => matchedExpectations.has(index));
 
   return {
     expectedFiles,
     matchedFiles,
-    missingFiles: expectedFiles.filter((expected) => !matchedFiles.includes(expected)),
+    missingFiles: expectedFiles.filter((_, index) => !matchedExpectations.has(index)),
     anyHit: matchedFiles.length > 0,
     allHit: expectedFiles.length > 0 && matchedFiles.length === expectedFiles.length,
   };

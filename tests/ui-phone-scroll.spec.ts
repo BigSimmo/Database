@@ -82,6 +82,7 @@ interface ScrollGeometry {
   headerHidden: boolean;
   docScrollableExcess: number;
   horizontalOverflow: number;
+  reserveTransitionDuration: string;
 }
 
 function readGeometry(page: Page): Promise<ScrollGeometry> {
@@ -89,12 +90,14 @@ function readGeometry(page: Page): Promise<ScrollGeometry> {
     const main = document.getElementById("main-content");
     const header = document.querySelector('[data-testid="universal-header-collapse"]');
     const doc = document.documentElement;
+    const reserveHost = main?.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]') ?? main;
     return {
       scrollTop: main?.scrollTop ?? 0,
       maxOffset: main ? Math.max(0, main.scrollHeight - main.clientHeight) : 0,
       headerHidden: header?.getAttribute("data-scroll-hidden") === "true",
       docScrollableExcess: doc.scrollHeight - doc.clientHeight,
       horizontalOverflow: Math.max(doc.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
+      reserveTransitionDuration: reserveHost ? getComputedStyle(reserveHost).transitionDuration : "",
     };
   });
 }
@@ -163,6 +166,7 @@ for (const route of [...modeHomeRoutes, ...dashboardRoutes, ...longRoutes]) {
     expect(initial.horizontalOverflow, "no horizontal overflow").toBeLessThanOrEqual(2);
     expect(initial.scrollTop).toBe(0);
     expect(initial.headerHidden, "header visible at the top").toBe(false);
+    expect(initial.reserveTransitionDuration, "phone reserve transition remains exercised").toContain("0.2s");
 
     // Drag to the bottom in deliberate 24px steps, then let transitions settle.
     await dragScrollBy(page, initial.maxOffset + 400, 24);
@@ -229,4 +233,109 @@ test("phone scroll stays smooth on /formulation at 430x932", async ({ page }) =>
   const atBottom = await readGeometry(page);
   expect(Math.abs(atBottom.scrollTop - atBottom.maxOffset)).toBeLessThanOrEqual(2);
   expect(await readFlipCount(page)).toBeLessThanOrEqual(1);
+});
+
+/**
+ * Forms/services search used to keep focus=1 after submit. Composer focus
+ * pins both chrome edges, so neither header nor the bottom dock (white
+ * safe-area rail) could hide while scrolling results.
+ */
+test("phone forms search hides header and footer after submit without stale focus", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/forms?q=Form&run=1&focus=1");
+  await expect(page.locator("form.answer-footer-search-dock")).toBeVisible({ timeout: 20_000 });
+
+  // Stale focus=1 on a submitted result view must not win — the shell blurs.
+  const input = page.getByTestId("global-search-input");
+  await expect(input).not.toBeFocused({ timeout: 5_000 });
+
+  const initial = await readGeometry(page);
+  expect(initial.headerHidden, "header visible at the top").toBe(false);
+
+  await dragScrollBy(page, Math.min(Math.max(initial.maxOffset, 240), 800), 24);
+  await page.waitForTimeout(500);
+
+  const afterHide = await page.evaluate(() => {
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const dock = document.querySelector<HTMLElement>("form.answer-footer-search-dock");
+    const reserve = document.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
+    const dockRect = dock?.getBoundingClientRect();
+    return {
+      headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
+      dockHidden: dock?.getAttribute("data-scroll-hidden") === "true",
+      reservePb: reserve ? getComputedStyle(reserve).paddingBottom : "",
+      dockTop: dockRect?.top ?? -1,
+      viewportHeight: window.innerHeight,
+      inputFocused: document.activeElement?.getAttribute("data-testid") === "global-search-input",
+    };
+  });
+
+  expect(afterHide.inputFocused, "scroll must not leave the dock focused").toBe(false);
+  expect(afterHide.headerHidden, "header hides on forms result scroll").toBe(true);
+  expect(afterHide.dockHidden, "footer dock hides on forms result scroll").toBe(true);
+  expect(afterHide.dockTop, "hidden dock clears the viewport bottom").toBeGreaterThanOrEqual(
+    afterHide.viewportHeight - 1,
+  );
+  expect(Number.parseFloat(afterHide.reservePb) || 0, "hidden reserve releases the bottom rail").toBeLessThanOrEqual(1);
+});
+
+/**
+ * Status-bar safe-area guard: collapsing the phone header must reclaim the
+ * chrome controls, never the OS top inset. Without the always-on
+ * `chrome-safe-area-top` spacer, service-detail text painted under the
+ * system clock/signal icons after a deliberate scroll-hide.
+ */
+test("phone service detail keeps content below the status-bar inset after header hide", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/services/13yarn");
+  await expect(page.getByTestId("service-detail-page")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("chrome-safe-area-top")).toBeVisible();
+
+  const initial = await readGeometry(page);
+  expect(initial.headerHidden, "header visible at the top").toBe(false);
+
+  await dragScrollBy(page, Math.max(initial.maxOffset, 240), 24);
+  await page.waitForTimeout(500);
+
+  const afterHide = await page.evaluate(() => {
+    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const main = document.getElementById("main-content");
+    const servicePage = document.querySelector<HTMLElement>('[data-testid="service-detail-page"]');
+    const safeRect = safeArea?.getBoundingClientRect();
+    const mainRect = main?.getBoundingClientRect();
+    const rootStyles = getComputedStyle(document.documentElement);
+    const safeAreaTopPx = Number.parseFloat(rootStyles.getPropertyValue("--safe-area-top")) || 0;
+    // Geometry proof (not hit-testing): service cards may sit above the main
+    // box in document coordinates after scroll, but their visible paint is
+    // clipped to #main-content, which must start at/below the safe-area band.
+    const visibleServiceTop = servicePage ? Math.max(servicePage.getBoundingClientRect().top, mainRect?.top ?? 0) : -1;
+    return {
+      headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
+      safeAreaHeight: safeRect?.height ?? 0,
+      safeAreaTop: safeRect?.top ?? -1,
+      mainTop: mainRect?.top ?? -1,
+      visibleServiceTop,
+      safeAreaTopPx,
+      safeAreaZ: safeArea ? getComputedStyle(safeArea).zIndex : "",
+    };
+  });
+
+  expect(afterHide.headerHidden, "header collapses after a deliberate descent").toBe(true);
+  expect(afterHide.safeAreaHeight, "safe-area spacer keeps the status-bar band").toBeGreaterThanOrEqual(
+    afterHide.safeAreaTopPx - 1,
+  );
+  expect(afterHide.safeAreaTop, "safe-area spacer stays pinned to the viewport top").toBeLessThanOrEqual(1);
+  expect(afterHide.mainTop, "scrollport starts below the status-bar inset").toBeGreaterThanOrEqual(
+    afterHide.safeAreaTopPx - 1,
+  );
+  expect(afterHide.visibleServiceTop, "service content stays below the status-bar inset").toBeGreaterThanOrEqual(
+    afterHide.safeAreaTopPx - 1,
+  );
+  expect(
+    Number.parseInt(afterHide.safeAreaZ, 10),
+    "safe-area spacer stacks above collapsing chrome",
+  ).toBeGreaterThanOrEqual(32);
 });

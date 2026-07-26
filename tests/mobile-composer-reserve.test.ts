@@ -23,7 +23,7 @@ describe("mobile composer reserve contract", () => {
   it("collapses to zero hidden pad without Safari toolbar safe-area", () => {
     expect(mobileComposerHiddenReserve).toBe("0rem");
     expect(mobileComposerHiddenReserveRem).toBe(0);
-    // The rem number feeds readChromeCollapseBudget's px math; it must stay
+    // The rem number feeds readChromeCollapseMetrics' px math; it must stay
     // equal to the CSS string above or the collapse budget silently drifts.
     expect(`${mobileComposerHiddenReserveRem}rem`).toBe(mobileComposerHiddenReserve);
     expect(resolveMobileComposerReserve(true, mobileComposerVisibleReserve.shellAnswer)).toBe(
@@ -108,7 +108,12 @@ describe("mobile composer reserve contract", () => {
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
     expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
-    expect(dashboard).toContain("const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId);");
+    expect(dashboard).toContain(
+      'const heroComposerBreakpoint = showDesktopHomeComposer || showAnswerHome ? "all" : "sm-up";',
+    );
+    expect(dashboard).toContain(
+      'const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
+    );
     expect(dashboard).not.toContain("const heroOwnsPhoneComposer = showDesktopHomeComposer || showAnswerHome;");
     // Prescribing leaves MedicationHome as soon as the draft query is non-empty;
     // keep the hero slot (and idle phone reserve) only while that home mounts.
@@ -123,6 +128,12 @@ describe("mobile composer reserve contract", () => {
     expect(header).toContain(
       'const heroComposerOwnsPhones = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
     );
+    // focus=1 is entry-only: after any mode submit (or run=1 bootstrap) autofocus
+    // must not re-pin the phone dock and block hide-on-scroll.
+    expect(dashboard).toContain("const shouldAutoFocusComposer = focusSearch && !modeSearchSubmitted;");
+    expect(dashboard).toContain('if (shouldFocusComposer && params.get("run") !== "1") focusComposerInput(true);');
+    expect(header).toContain("composerChromeFocused && phoneBottomSearchDockActive && hideOnScrollEnabled");
+    expect(header).toContain("queueMicrotask(() => {");
     expect(
       resolveDashboardVisibleMobileComposerReserve({
         searchMode: "answer",
@@ -150,12 +161,15 @@ describe("mobile composer reserve contract", () => {
     ).toBe(mobileComposerVisibleReserve.dashboardAnswerWithFollowUps);
     expect(mobileComposerVisibleReserve.dashboardAnswer).toContain("var(--safe-area-bottom)");
     expect(mobileComposerVisibleReserve.dashboardAnswerWithFollowUps).toContain("var(--safe-area-bottom)");
+    expect(mobileComposerVisibleReserve.dashboardAnswer).toContain("var(--keyboard-height, 0px)");
+    expect(mobileComposerVisibleReserve.dashboardAnswerWithFollowUps).toContain("var(--keyboard-height, 0px)");
   });
 
   it("keeps differentials compare clearance shared across hosts", () => {
     expect(mobileComposerVisibleReserve.differentialsCompare).toBe(mobileComposerDifferentialsCompareReserve);
     expect(mobileComposerDifferentialsCompareReserve).toContain("12.5rem");
     expect(mobileComposerDifferentialsCompareReserve).toContain("var(--safe-area-bottom)");
+    expect(mobileComposerDifferentialsCompareReserve).toContain("var(--keyboard-height, 0px)");
     expect(mobileComposerDifferentialsCompareReserve).not.toContain("env(safe-area-inset-bottom)");
     expect(
       resolveDashboardVisibleMobileComposerReserve({

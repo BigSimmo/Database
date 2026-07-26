@@ -313,6 +313,13 @@ async function globalSearchComposerMetrics(page: Page, homeTestId?: string) {
       const formRect = form.getBoundingClientRect();
       const homeRect = home?.getBoundingClientRect();
       const style = window.getComputedStyle(form);
+      // Sticky-stack hosts (`wide: "sticky"`) keep the composer `relative` inside
+      // an outer sticky [top bar | search] wrapper — do not require the form itself
+      // to be `position: sticky`.
+      let stickyAncestor = style.position === "sticky";
+      for (let node: HTMLElement | null = form.parentElement; node && !stickyAncestor; node = node.parentElement) {
+        if (window.getComputedStyle(node).position === "sticky") stickyAncestor = true;
+      }
 
       return {
         formLeft: formRect.left,
@@ -326,6 +333,7 @@ async function globalSearchComposerMetrics(page: Page, homeTestId?: string) {
         homeRight: homeRect?.right ?? null,
         homeCenterX: homeRect ? homeRect.left + homeRect.width / 2 : null,
         position: style.position,
+        stickyAncestor,
         viewportWidth: window.innerWidth,
         viewportHeight: window.innerHeight,
         pillClassName: pill?.className?.toString() ?? "",
@@ -930,7 +938,12 @@ test.describe("Clinical KB tools launcher", () => {
             expect(metrics?.formBottom ?? 0).toBeGreaterThanOrEqual(viewport.height - 2);
           }
         } else {
-          expect(metrics?.position).toBe("sticky");
+          // Sticky-stack shells pin via an outer wrapper; collapse-everywhere hosts
+          // still self-sticky the form. Either keeps the composer in the top band.
+          expect(
+            metrics?.position === "sticky" || metrics?.stickyAncestor,
+            `${route.path} at ${viewport.name} should stick via the form or its sticky stack`,
+          ).toBe(true);
           expect(metrics?.formCenterY ?? viewport.height).toBeLessThan(viewport.height * 0.25);
           await expect(page.locator(".answer-footer-search-chip:visible")).toHaveCount(0);
         }
@@ -964,6 +977,33 @@ test.describe("Clinical KB tools launcher", () => {
       "href",
       "/services/13yarn",
     );
+    await expectNoPageHorizontalOverflow(page);
+  });
+
+  test("services referral header and best-use guidance stay actionable", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
+
+    // Eyebrow copy is "Referral matches"; the H1 is "{n} referral match(es)".
+    await expect(page.getByText("Referral matches", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: /\d+\s+referral match(?:es)?/i })).toBeVisible();
+    await expect(
+      page.getByText("Prioritised for crisis support, culturally safe access, and phone referral."),
+    ).toBeVisible();
+    await expect(page.getByRole("group", { name: "Quick service filters" })).toBeVisible();
+    await expect(page.getByText("Quick filters")).toBeVisible();
+
+    const culturallySafe = page.getByRole("button", { name: "Culturally safe" });
+    await expect(culturallySafe).toBeVisible();
+    await waitForReactEventHandler(culturallySafe);
+    await culturallySafe.click();
+    await expect(page).toHaveURL(/q=Aboriginal\+Torres\+Strait\+Islander/);
+    await expect(page.getByText("Aboriginal and Torres Strait Islander-specific").first()).toBeVisible();
+
+    await page.getByTestId("service-search-result-13yarn").getByRole("link", { name: "Open 13YARN" }).click();
+    await expect(page).toHaveURL(/\/services\/13yarn$/);
+    await expect(page.getByText("Best use").first()).toBeVisible();
+    await expect(page.getByText(/crisis support/i).first()).toBeVisible();
     await expectNoPageHorizontalOverflow(page);
   });
 
@@ -1231,8 +1271,15 @@ test.describe("Clinical KB tools launcher", () => {
 
     await scrollPrimarySurface(page, 60);
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
+    // Resting edge docks may use translateY(calc(-1 * var(--keyboard-height))) with
+    // height 0, which computes to an identity matrix rather than "none".
     await expect
-      .poll(async () => dock.evaluate((node) => window.getComputedStyle(node).transform === "none"))
+      .poll(async () =>
+        dock.evaluate((node) => {
+          const transform = window.getComputedStyle(node).transform;
+          return transform === "none" || transform === "matrix(1, 0, 0, 1, 0, 0)";
+        }),
+      )
       .toBe(true);
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeGreaterThan(112);
   });
@@ -1982,7 +2029,7 @@ test.describe("Clinical KB service detail page", () => {
       const copyContactButton = servicePage.getByRole("button", { name: "Copy contact" }).last();
       await expect(servicePage).toBeVisible();
       await expect(servicePage.getByRole("heading", { level: 1, name: "13YARN" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Back to services" })).toBeVisible();
+      await expect(servicePage.getByRole("link", { name: "Services" })).toBeVisible();
       await expect(servicePage.getByRole("button", { name: "Save service" })).toBeVisible();
       await expect(copyContactButton).toBeVisible();
       await expect(servicePage.getByRole("link", { name: "Call" })).toHaveAttribute("href", "tel:139276");
@@ -2076,7 +2123,7 @@ test.describe("Clinical KB service detail page", () => {
     await servicePage.getByRole("button", { name: "Copy contact" }).last().click();
     await expect(page.getByRole("status")).toContainText("Contact copied");
 
-    await page.getByRole("button", { name: "Back to services" }).click();
+    await servicePage.getByRole("link", { name: "Services" }).click();
     await expect(page).toHaveURL(/\/services(?:\?|$)/);
   });
 });
