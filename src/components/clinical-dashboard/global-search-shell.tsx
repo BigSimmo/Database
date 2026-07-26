@@ -8,6 +8,7 @@ import {
   type UIEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -75,6 +76,7 @@ import {
 } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import {
+  isAlwaysStandaloneShellPath,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
   shouldRenderDashboardSearch,
@@ -112,6 +114,20 @@ type GlobalSearchShellProps = {
 };
 
 export function GlobalSearchShell(props: GlobalSearchShellProps) {
+  const pathname = usePathname() ?? "/";
+
+  // Pathname-only gate: never wrap always-standalone routes in the outer
+  // useSearchParams Suspense. That nested the route segment (loading.tsx + page)
+  // inside an incomplete streaming `S:` boundary and left a persistent hidden
+  // duplicate page-root data-testid under CI load.
+  if (isAlwaysStandaloneShellPath(pathname)) {
+    return (
+      <PatientProfileProvider>
+        <GlobalStandaloneSearchShellClient {...props} />
+      </PatientProfileProvider>
+    );
+  }
+
   return (
     <Suspense
       fallback={
@@ -129,13 +145,15 @@ export function GlobalSearchShell(props: GlobalSearchShellProps) {
         )
       }
     >
-      <GlobalSearchShellClient {...props} />
+      <PatientProfileProvider>
+        <GlobalSearchShellDashboardGate {...props} />
+      </PatientProfileProvider>
     </Suspense>
   );
 }
 
-function GlobalSearchShellClient(props: GlobalSearchShellProps) {
-  const pathname = usePathname();
+function GlobalSearchShellDashboardGate(props: GlobalSearchShellProps) {
+  const pathname = usePathname() ?? "/";
   const router = useRouter();
   const searchParams = useSearchParams();
   const landingPreferenceAppliedRef = useRef(false);
@@ -172,23 +190,44 @@ function GlobalSearchShellClient(props: GlobalSearchShellProps) {
     pathname,
   });
 
-  // Wrap both render paths so the patient-considerations profile is shared
-  // between the prescribing workspace (ClinicalDashboard) and the medication
-  // detail pages (standalone shell), backed by sessionStorage across navigation.
-  return (
-    <PatientProfileProvider>
-      {rendersClinicalDashboard ? (
-        <ClinicalDashboard
-          initialSearchMode={resolvedSearchMode}
-          initialQuery={requestedQuery}
-          focusSearch={searchParams.get("focus") === "1"}
-          autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
-        />
-      ) : (
-        <GlobalStandaloneSearchShellClient {...props} />
-      )}
-    </PatientProfileProvider>
-  );
+  if (rendersClinicalDashboard) {
+    return (
+      <ClinicalDashboard
+        initialSearchMode={resolvedSearchMode}
+        initialQuery={requestedQuery}
+        focusSearch={searchParams.get("focus") === "1"}
+        autoRunSearch={pathname === "/" ? hasSubmittedModeSearch : true}
+      />
+    );
+  }
+
+  return <GlobalStandaloneSearchShellClient {...props} />;
+}
+
+/**
+ * Isolates `useSearchParams()` so the standalone shell body (and route children)
+ * are not descendants of that Suspense boundary. Mount-gated so SSR never calls
+ * `useSearchParams` on always-standalone routes (avoids an outer incomplete `S:`
+ * boundary wrapping the page segment).
+ */
+function ShellSearchParamsBridge({ onParamString }: { onParamString: (value: string) => void }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted) return null;
+  return <ShellSearchParamsBridgeInner onParamString={onParamString} />;
+}
+
+function ShellSearchParamsBridgeInner({ onParamString }: { onParamString: (value: string) => void }) {
+  const searchParams = useSearchParams();
+  const paramString = searchParams.toString();
+  const onParamStringRef = useRef(onParamString);
+  onParamStringRef.current = onParamString;
+  useLayoutEffect(() => {
+    onParamStringRef.current(paramString);
+  }, [paramString]);
+  return null;
 }
 
 export function infoPageBackHref(pathname: string): string | null {
@@ -223,7 +262,21 @@ function isToolDetailWithFooterSearch(pathname: string): boolean {
   );
 }
 
-function GlobalStandaloneSearchShellClient({
+function GlobalStandaloneSearchShellClient(props: GlobalSearchShellProps) {
+  // Empty until the bridge resolves — matches SSR/hydration, then syncs. Keeps
+  // `{children}` outside the useSearchParams Suspense (no nested S: page clone).
+  const [searchParamString, setSearchParamString] = useState("");
+  return (
+    <>
+      <Suspense fallback={null}>
+        <ShellSearchParamsBridge onParamString={setSearchParamString} />
+      </Suspense>
+      <GlobalStandaloneSearchShellBody {...props} searchParamString={searchParamString} />
+    </>
+  );
+}
+
+function GlobalStandaloneSearchShellBody({
   children,
   initialMode = "answer",
   availableModeIds,
@@ -232,10 +285,11 @@ function GlobalStandaloneSearchShellClient({
   hideDesktopSidebar = false,
   chromeVisible = true,
   mobileChromeVisible = true,
-}: GlobalSearchShellProps) {
+  searchParamString,
+}: GlobalSearchShellProps & { searchParamString: string }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const pathname = usePathname() ?? "/";
+  const searchParams = useMemo(() => new URLSearchParams(searchParamString), [searchParamString]);
   const inputRef = useRef<HTMLInputElement>(null);
   const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
   // The header hides at every breakpoint; only the phone bottom dock stays
@@ -278,7 +332,6 @@ function GlobalStandaloneSearchShellClient({
   const currentUrlHasQuery = searchParams.has("q") || searchParams.has("query");
   const requestedQuery = (searchParams.get("q") ?? searchParams.get("query") ?? "").trim();
   const requestedMode = searchParams.get("mode");
-  const searchParamString = searchParams.toString();
   // Mode resolved from the URL (?mode=), falling back to this shell's default when
   // the param is missing, unknown, or not offered here. Seeds the initial mode and
   // re-syncs it after a navigation.

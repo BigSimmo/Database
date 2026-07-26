@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  isAlwaysStandaloneShellPath,
   isDashboardModeHref,
   isStandaloneModeHomePath,
   shouldRenderClinicalDashboard,
@@ -68,6 +69,17 @@ describe("shared-search route ownership", () => {
     expect(isStandaloneModeHomePath("/")).toBe(false);
     expect(isStandaloneModeHomePath("/services/crisis")).toBe(false);
     expect(isStandaloneModeHomePath("/dsm/search")).toBe(false);
+  });
+
+  it("marks route-owned namespaced paths as always-standalone shell (no searchParams gate)", () => {
+    expect(isAlwaysStandaloneShellPath("/forms")).toBe(true);
+    expect(isAlwaysStandaloneShellPath("/favourites")).toBe(true);
+    expect(isAlwaysStandaloneShellPath("/differentials/presentations/acute-confusion-encephalopathy")).toBe(true);
+    expect(isAlwaysStandaloneShellPath("/medications/acamprosate")).toBe(true);
+    // `/` and documents/tools may still need searchParams for the dashboard gate.
+    expect(isAlwaysStandaloneShellPath("/")).toBe(false);
+    expect(isAlwaysStandaloneShellPath("/documents/search")).toBe(false);
+    expect(isAlwaysStandaloneShellPath("/tools")).toBe(false);
   });
 
   it("classifies dashboard mode hrefs without parsing the destination page", () => {

@@ -39,6 +39,30 @@ export function isStandaloneModeHomePath(pathname: string): boolean {
   return standaloneModeHomePaths.has(pathname);
 }
 
+/**
+ * Pathnames that never mount ClinicalDashboard, regardless of `?mode=` / `?run=`.
+ * Used to keep `{children}` out of a `useSearchParams()` Suspense boundary so the
+ * route segment is not streamed as a nested incomplete `S:` template inside the
+ * shell boundary (duplicate page-root `data-testid`s under CI load).
+ */
+const alwaysStandaloneShellPathPrefixes = [
+  "/services",
+  "/forms",
+  "/favourites",
+  "/differentials",
+  "/dsm",
+  "/specifiers",
+  "/formulation",
+  "/factsheets",
+  "/therapy-compass",
+  "/medications",
+  "/calculators",
+] as const;
+
+export function isAlwaysStandaloneShellPath(pathname: string): boolean {
+  return alwaysStandaloneShellPathPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 /** Dashboard-owned hrefs stay on `/` with `?mode=`, or the submitted documents search route. */
 export function isDashboardModeHref(href: string): boolean {
   if (href === "/" || href.startsWith("/?")) return true;

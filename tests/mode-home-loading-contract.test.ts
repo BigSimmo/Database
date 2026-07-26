@@ -38,6 +38,29 @@ describe("mode-home loading contract", () => {
     expect(shellSource).toContain("SearchCommandProvider value={searchCommandContextValue}>{children}");
   });
 
+  it("keeps route children outside useSearchParams Suspense on standalone shells", () => {
+    const shellSource = readFileSync(
+      join(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
+      "utf8",
+    );
+    const ownershipSource = readFileSync(join(process.cwd(), "src/lib/search-route-ownership.ts"), "utf8");
+    expect(ownershipSource).toContain("export function isAlwaysStandaloneShellPath");
+    // Outer shell skips the useSearchParams Suspense for always-standalone paths.
+    expect(shellSource).toMatch(
+      /export function GlobalSearchShell[\s\S]*?if \(isAlwaysStandaloneShellPath\(pathname\)\) \{[\s\S]*?GlobalStandaloneSearchShellClient/,
+    );
+    expect(shellSource).toContain("ShellSearchParamsBridge");
+    // Bridge is the only Suspense child that may call useSearchParams in the
+    // standalone path; the body that renders {children} must not.
+    expect(shellSource).toMatch(
+      /function GlobalStandaloneSearchShellClient[\s\S]*?<Suspense fallback=\{null\}>[\s\S]*?ShellSearchParamsBridge/,
+    );
+    expect(shellSource).toMatch(
+      /function GlobalStandaloneSearchShellBody[\s\S]*?SearchCommandProvider value=\{searchCommandContextValue\}>\{children\}/,
+    );
+    expect(shellSource).not.toMatch(/function GlobalStandaloneSearchShellBody[\s\S]*?useSearchParams\(\)/);
+  });
+
   it("lazy-loads ClinicalDashboard so namespaced homes skip its module graph", () => {
     const shellSource = readFileSync(
       join(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
