@@ -112,10 +112,11 @@ describe("shared-search route ownership", () => {
       resolve(process.cwd(), "src/components/clinical-dashboard/global-search-shell.tsx"),
       "utf8",
     );
-    expect(shellSource).toContain("function readInitialBrowserSearchParamString()");
+    expect(shellSource).toContain("function readInitialBrowserSubmittedSearchParamString()");
     expect(shellSource).toContain("window.location.search.slice(1)");
+    expect(shellSource).toContain('params.get("run") === "1" && query ? search : ""');
     expect(shellSource).toMatch(
-      /useSyncExternalStore\(subscribeNoop, readInitialBrowserSearchParamString, \(\) => ""\)/,
+      /useSyncExternalStore\(\s*subscribeNoop,\s*readInitialBrowserSubmittedSearchParamString,\s*\(\) => "",\s*\)/,
     );
     expect(shellSource).toContain("searchParamString || browserSearchParamString");
   });

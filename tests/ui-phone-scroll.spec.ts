@@ -81,6 +81,7 @@ interface ScrollGeometry {
   maxOffset: number;
   headerHidden: boolean;
   bottomComposerHidden: boolean;
+  reserveTransitioning: boolean;
   docScrollableExcess: number;
   horizontalOverflow: number;
   reserveTransitionDuration: string;
@@ -97,6 +98,7 @@ function readGeometry(page: Page): Promise<ScrollGeometry> {
       maxOffset: main ? Math.max(0, main.scrollHeight - main.clientHeight) : 0,
       headerHidden: header?.getAttribute("data-scroll-hidden") === "true",
       bottomComposerHidden: main?.getAttribute("data-bottom-composer-hidden") === "true",
+      reserveTransitioning: main?.getAttribute("data-reserve-transitioning") === "true",
       docScrollableExcess: doc.scrollHeight - doc.clientHeight,
       horizontalOverflow: Math.max(doc.scrollWidth, document.body?.scrollWidth ?? 0) - window.innerWidth,
       reserveTransitionDuration: reserveHost ? getComputedStyle(reserveHost).transitionDuration : "",
@@ -246,7 +248,8 @@ for (const route of [...modeHomeRoutes, ...dashboardRoutes, ...longRoutes]) {
       Math.abs(atBottom.scrollTop - atBottom.maxOffset),
       "settled scroll sits on the true bottom edge",
     ).toBeLessThanOrEqual(2);
-    if (atBottom.bottomComposerHidden) {
+    const hasBottomDock = (await page.locator("form.answer-footer-search-dock").count()) > 0;
+    if (atBottom.bottomComposerHidden && atBottom.reserveTransitioning && hasBottomDock) {
       expect(atBottom.reserveTransitionDuration, "scroll-hide reserve transition remains exercised").toContain("0.24s");
     }
     // At most one chrome transition on a pure descent (hide, when the page is

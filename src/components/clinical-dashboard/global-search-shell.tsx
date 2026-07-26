@@ -234,9 +234,12 @@ function ShellSearchParamsBridgeInner({ onParamString }: { onParamString: (value
   return null;
 }
 
-function readInitialBrowserSearchParamString(): string {
+function readInitialBrowserSubmittedSearchParamString(): string {
   if (typeof window === "undefined") return "";
-  return window.location.search.startsWith("?") ? window.location.search.slice(1) : window.location.search;
+  const search = window.location.search.startsWith("?") ? window.location.search.slice(1) : window.location.search;
+  const params = new URLSearchParams(search);
+  const query = (params.get("q") ?? params.get("query") ?? "").trim();
+  return params.get("run") === "1" && query ? search : "";
 }
 
 export function infoPageBackHref(pathname: string): string | null {
@@ -278,7 +281,11 @@ function GlobalStandaloneSearchShellClient(props: GlobalSearchShellProps) {
   // Hard loads of always-standalone submitted routes need the browser query
   // before the Suspense-delayed bridge hydrates, otherwise the shell briefly
   // paints the mode-home hero before snapping to the submitted bottom dock.
-  const browserSearchParamString = useSyncExternalStore(subscribeNoop, readInitialBrowserSearchParamString, () => "");
+  const browserSearchParamString = useSyncExternalStore(
+    subscribeNoop,
+    readInitialBrowserSubmittedSearchParamString,
+    () => "",
+  );
   const effectiveSearchParamString = searchParamString || browserSearchParamString;
   return (
     <>
