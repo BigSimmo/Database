@@ -520,26 +520,32 @@ for (const { name, route, selector } of pageOwnedHeaderRoutes) {
   });
 }
 
-test("phone focused portaled header control pins the shared collapse owner", async ({ page }) => {
+test("phone portaled addon focus pins the universal collapse owner during scroll", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize({ width: 320, height: 720 });
   await gotoPhoneSurface(page, "/differentials/diagnoses/delirium");
 
   const collapse = page.getByTestId("universal-header-collapse");
-  const backLink = page.getByRole("link", { name: "Back to differentials" });
+  const addon = page.getByTestId("header-collapse-addon");
+  const backLink = addon.getByRole("link", { name: "Back to differentials" });
   await expect(backLink).toBeVisible({ timeout: 20_000 });
-  await backLink.focus();
-  await expect(backLink).toBeFocused();
   await addPhoneScrollRunway(page);
 
+  await backLink.focus();
+  await expect(backLink).toBeFocused();
   await dragScrollBy(page, 720, 24);
   await page.waitForTimeout(500);
 
-  await expect(backLink, "focused portaled control remains available after scrolling").toBeFocused();
-  await expect(backLink).toBeVisible();
-  await expect(collapse, "focused addon pins the shared header instead of being clipped").not.toHaveAttribute(
+  await expect(backLink, "focused addon control keeps keyboard focus").toBeFocused();
+  await expect(backLink, "focused addon control remains visible").toBeVisible();
+  await expect(collapse, "focused portaled addon keeps the header visible").not.toHaveAttribute(
     "data-scroll-hidden",
+    "true",
   );
+  expect(await collapse.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThan(1);
+  expect(
+    await page.getByTestId("chrome-safe-area-top").evaluate((element) => element.getBoundingClientRect().height),
+  ).toBeGreaterThan(1);
 });
 
 test("phone header hide and reveal animate monotonically without a geometry jump", async ({ page }) => {
