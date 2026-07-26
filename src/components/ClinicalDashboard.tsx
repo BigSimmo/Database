@@ -3057,10 +3057,11 @@ export function ClinicalDashboard({
             !modeSearchSubmitted &&
             !(query.trim() && documentMatches.length > 0)))));
   const desktopHomeComposerSlotId = showDesktopHomeComposer ? modeHomeDesktopComposerSlotId : undefined;
-  // Only the answer home keeps the in-flow hero pill on phones ("all"). Every
-  // other mode home (documents, prescribing, differentials, tools, favourites)
-  // uses "sm-up" so phones get the compact bottom dock instead of the hero slot.
-  const heroComposerBreakpoint = showAnswerHome ? "all" : "sm-up";
+  // Any mounted mode home (answer, documents, prescribing, differentials, tools,
+  // favourites) keeps the in-flow hero pill on phones ("all") per the
+  // page-ownership contract. Only result/submitted views fall back to "sm-up"
+  // so phones get the compact bottom dock.
+  const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";
   const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";
   const hasMobileBottomSearch = searchMode !== "answer" && !heroOwnsPhoneComposer;
   // Favourites and Tools are content-rich hubs: they share the centred hero but
