@@ -139,7 +139,6 @@ describe("MobileEvidenceSheetContent tabs (jsdom)", () => {
   });
 });
 
-
 describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
   it("does not expose raw table evidence suppressed by the render model", () => {
     const answerWithRawTable: RagAnswer = {
@@ -376,4 +375,3 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
     expect(screen.queryByText("monthly when stable")).not.toBeInTheDocument();
   });
 });
-

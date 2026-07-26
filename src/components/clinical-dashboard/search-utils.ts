@@ -318,11 +318,7 @@ export function classifyAnswerError(error: unknown): AnswerErrorKind {
  */
 export function generateQuerySuggestions(query: string): string[] {
   if (!query || query.trim() === "") {
-    return [
-      "Check for spelling errors",
-      "Try broader search terms",
-      "Remove strict filters",
-    ];
+    return ["Check for spelling errors", "Try broader search terms", "Remove strict filters"];
   }
 
   const suggestions: string[] = [];
