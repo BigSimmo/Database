@@ -398,7 +398,7 @@ function RightRail({
           ))}
         </div>
         <button
-          className="mt-4 inline-flex min-h-tap scroll-mt-40 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:scroll-mt-44"
+          className="mt-4 inline-flex min-h-tap scroll-mt-40 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:scroll-mt-44 lg:scroll-mt-20"
           type="button"
           onClick={() => setShowChecklistDetails((current) => !current)}
           disabled={selected.length === 0}

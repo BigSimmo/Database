@@ -6,8 +6,8 @@ import { describe, expect, it } from "vitest";
  * Static contract for the shared top-bar hide/reveal.
  *
  * The top bar (mode / new chat) hides on scroll down and returns on scroll up at
- * every breakpoint, while the search field stays on tablet/desktop and the
- * bottom search dock stays phone-only. Getting that right depends on wiring no
+ * every breakpoint, while the search field stays pinned on tablets and belongs
+ * to normal page flow on desktop. The bottom search dock stays phone-only. Getting that right depends on wiring no
  * runtime unit test can see: which scroll source feeds the reporter, whether
  * only `header#search` is inside the collapse row, and whether sticky hosts pin
  * an outer [top bar | search] stack instead of translating the search away.
@@ -21,6 +21,7 @@ const hookSource = read("src/components/clinical-dashboard/use-hide-on-scroll.ts
 const headerSource = read("src/components/clinical-dashboard/master-search-header.tsx");
 const shellSource = read("src/components/clinical-dashboard/global-search-shell.tsx");
 const dashboardSource = read("src/components/ClinicalDashboard.tsx");
+const composerSlotSource = read("src/lib/mode-home-composer.ts");
 const behaviourDocSource = read("docs/search-chrome-behaviour.md");
 
 describe("shared header hide/reveal wiring", () => {
@@ -49,6 +50,24 @@ describe("shared header hide/reveal wiring", () => {
     // dvh-tall and overflow-hidden), so the released top-bar strip goes to the
     // content.
     expect(dashboardSource).toContain('{ strategy: "collapse", wide: "collapse"');
+  });
+
+  it("moves submitted search composers into normal page flow on desktop only", () => {
+    expect(composerSlotSource).toContain(
+      'export const desktopPageComposerSlotId = "desktop-page-search-composer-slot"',
+    );
+    expect(headerSource).toContain('const desktopPageComposerMediaQuery = "(min-width: 1024px)"');
+    expect(headerSource).toContain("desktopHomeComposerSlotId ?? desktopPageComposerSlotId");
+    expect(headerSource).toContain('placement: "default" | "desktop-home" | "desktop-page"');
+    expect(headerSource).toContain("data-composer-placement={placement}");
+    expect(headerSource).toContain(
+      '"document-mobile-search-edge universal-top-search-edge relative z-20 mx-auto w-full max-w-3xl px-4 py-3 lg:max-w-4xl"',
+    );
+    expect(shellSource).toContain('data-testid="desktop-page-search-composer-slot"');
+    expect(dashboardSource).toContain('data-testid="desktop-page-search-composer-slot"');
+    expect(shellSource).toContain('className="hidden lg:block lg:empty:hidden"');
+    expect(dashboardSource).toContain('className="hidden lg:block lg:empty:hidden"');
+    expect(behaviourDocSource).toContain("Desktop search is page-owned");
   });
 
   it("collapses only the top bar and keeps the search composer outside that row", () => {
@@ -137,12 +156,12 @@ describe("shared header hide/reveal wiring", () => {
     expect(headerSource).toContain("const usesPhoneFooterDock = usesBottomComposerPlacement && usesPhoneSearchLayout;");
   });
 
-  it("documents that tablet/desktop search stays while the top bar hides", () => {
-    expect(behaviourDocSource).toContain("Hide the top bar, not the search field, above phones");
+  it("documents tablet pinning and desktop page ownership independently from the top bar", () => {
+    expect(behaviourDocSource).toContain("Hide the top bar, not the search field");
     expect(behaviourDocSource).toContain("Top-bar hide/reveal is cross-breakpoint");
     expect(behaviourDocSource).toContain("Page chrome that must match the top bar portals into the collapse host");
-    expect(behaviourDocSource).toContain("Do not double-sticky the search inside an outer sticky stack");
-    expect(behaviourDocSource).toContain("Pinned search can cover wide side rails");
+    expect(behaviourDocSource).toContain("Do not double-sticky tablet search inside an outer sticky stack");
+    expect(behaviourDocSource).toContain("desktop-page-search-composer-slot");
     expect(behaviourDocSource).toContain("Keep `chrome-safe-area-top` outside the hide mechanism");
     expect(behaviourDocSource).toContain(
       "Collapse-everywhere hosts still drop their own sticky search offset while the top bar is hidden",
@@ -167,9 +186,7 @@ describe("shared header hide/reveal wiring", () => {
     expect(headerSource).toContain("const stickySearchOwnedByOuterStack = sticksAbovePhones");
     // Bare `fixed` must not remain on sticky-stack composers (cascade fight).
     expect(headerSource).toMatch(/stickySearchOwnedByOuterStack\s*\?\s*"relative"/);
-    expect(headerSource).toContain(
-      'stickySearchOwnedByOuterStack\n                            ? "relative"\n                            : cn("fixed"',
-    );
+    expect(headerSource).toMatch(/stickySearchOwnedByOuterStack\s*\?\s*"relative"\s*:\s*cn\("fixed"/);
     expect(headerSource).toContain('stickySearchOwnedByOuterStack ? "relative z-20" : cn("sticky z-20"');
     // Dashboard collapse-everywhere composers still drop the 4.75rem clearance.
     expect(headerSource).toContain("const stickySearchClearsTopBar");
