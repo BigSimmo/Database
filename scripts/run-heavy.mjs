@@ -14,7 +14,7 @@ if (args[0] !== "--npm-script" || !args[1]) {
 
 const script = args[1];
 const forwarded = args.slice(2);
-const lock = acquireHeavyRunLock({ projectRoot, command: `npm run ${script}` });
+const lock = await acquireHeavyRunLock({ projectRoot, command: `npm run ${script}` });
 let exitCode = 1;
 try {
   const npmExecPath = process.env.npm_execpath;

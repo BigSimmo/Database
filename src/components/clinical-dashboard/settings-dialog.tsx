@@ -50,7 +50,6 @@ import {
   fieldControlWithIcon,
   fieldIcon,
   floatingControl,
-  IconButton,
   InlineNotice,
   primaryControl,
   toggleThumbSurface,
@@ -261,19 +260,7 @@ export function SettingsDialog({
     return () => window.cancelAnimationFrame(focusFrame);
   }, [emailEntryOpen]);
 
-<<<<<<< ours
   const backButton = <NavigationBackButton onClick={onClose} label="Back from settings" />;
-=======
-  const backButton = (
-    <IconButton
-      label="Back from settings"
-      icon={ArrowLeft}
-      onClick={onClose}
-      className="rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] lg:border-transparent lg:bg-transparent lg:shadow-none"
-      iconClassName="size-icon-lg"
-    />
-  );
->>>>>>> theirs
 
   const closeButton = (
     <button

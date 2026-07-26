@@ -74,15 +74,18 @@ function lockIsOldEnoughToRecover(lockPath, now = Date.now()) {
  *   baseDirectory?: string;
  *   repositoryIdentity?: string;
  *   processId?: number;
+ *   timeoutMs?: number;
  * }} options
+ * @returns {Promise<{ path: string, owner: any, environment: Record<string, string>, reentrant: boolean, release: () => void }>}
  */
-export function acquireHeavyRunLock({
+export async function acquireHeavyRunLock({
   projectRoot,
   command = process.argv.join(" "),
   environment = process.env,
   baseDirectory,
   repositoryIdentity = resolveRepositoryIdentity(projectRoot),
   processId = process.pid,
+  timeoutMs = 30_000,
 }) {
   if (!projectRoot) throw new Error("projectRoot is required for the Database heavyweight-run lock.");
   const lockPath = lockPathFor(repositoryIdentity, baseDirectory);
@@ -101,7 +104,9 @@ export function acquireHeavyRunLock({
   }
 
   mkdirSync(path.dirname(lockPath), { recursive: true });
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  const startTime = Date.now();
+
+  while (true) {
     try {
       mkdirSync(lockPath);
       const token = randomUUID();
@@ -134,18 +139,30 @@ export function acquireHeavyRunLock({
     } catch (error) {
       if (error?.code !== "EEXIST") throw error;
       const owner = readOwner(lockPath);
+
       if (owner && processIsAlive(owner.pid)) {
+        if (Date.now() - startTime < timeoutMs) {
+          // Wait 500ms before retrying
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          continue;
+        }
+
         throw new Error(
           `Another Database heavyweight command is active (PID ${owner.pid}, worktree ${owner.worktree ?? "unknown"}, started ${owner.startedAt ?? "unknown"}): ${redactSensitiveText(owner.command ?? "unknown command")}`,
         );
       }
       if (!owner && !lockIsOldEnoughToRecover(lockPath)) {
+        if (Date.now() - startTime < timeoutMs) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          continue;
+        }
         throw new Error(`A Database heavyweight lock is being initialized at ${lockPath}; retry after it settles.`);
       }
+
+      // Clean up stale lock and retry immediately
       rmSync(lockPath, { recursive: true, force: true });
     }
   }
-  throw new Error(`Could not acquire the Database heavyweight-run lock at ${lockPath}.`);
 }
 
 export const testRunLockInternals = {

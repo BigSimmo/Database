@@ -575,14 +575,16 @@ function clinicalNotesAvailableTabs(sections: ClinicalDetailSection[]) {
 }
 
 /**
-<<<<<<< ours
-=======
  * Align clinical-notes inputs with the fail-closed render model: when an answer
  * is not explicitly source-backed, strip structured clinical payloads so the
  * notes sheet cannot reconstruct actionable monitoring/escalation/comparison
  * content from untrusted sections, quotes, or documentBreakdown (visual
  * evidence is passed separately).
  */
+function isAnswerSourceBacked(answer: RagAnswer): boolean {
+  return Boolean(answer.grounded) && answer.relevance?.isSourceBacked === true;
+}
+
 function trustGatedAnswerForClinicalNotes(
   answer: RagAnswer,
   visualEvidence: VisualEvidenceCard[] = answer.visualEvidence ?? [],
@@ -608,18 +610,26 @@ function trustGatedAnswerForClinicalNotes(
 }
 
 /**
->>>>>>> theirs
  * Builds the non-empty clinical detail sections used by the clinical notes view.
  *
  * @param answer - The answer from which to derive clinical detail sections.
  * @param viewMode - Selects the standard or high-yield section set.
  * @returns The sorted clinical detail sections with display-ready items.
  */
-function clinicalNotesDetailSectionsForAnswer(answer: RagAnswer, viewMode: AnswerViewMode) {
+function clinicalNotesDetailSectionsForAnswer(
+  answer: RagAnswer,
+  viewMode: AnswerViewMode,
+  visualEvidence?: VisualEvidenceCard[],
+) {
+  const gatedAnswer = trustGatedAnswerForClinicalNotes(answer, visualEvidence);
   const sections =
-    viewMode === "high_yield" ? buildHighYieldClinicalOutputSections(answer) : buildClinicalOutputSections(answer);
-  const primaryAnswer = plainAnswerText(answer.answer, { preformatted: isPreformattedGroundedAnswer(answer) });
-  const keepVerifySource = answer.answerQualityTier === "source_only" || answer.grounded === false;
+    viewMode === "high_yield"
+      ? buildHighYieldClinicalOutputSections(gatedAnswer)
+      : buildClinicalOutputSections(gatedAnswer);
+  const primaryAnswer = plainAnswerText(gatedAnswer.answer, {
+    preformatted: isPreformattedGroundedAnswer(gatedAnswer),
+  });
+  const keepVerifySource = gatedAnswer.answerQualityTier === "source_only" || gatedAnswer.grounded === false;
   return sortClinicalDetailSections(
     sections
       .filter((section) => (keepVerifySource || section.id !== "verify-source") && section.id !== "bottom-line")
@@ -646,6 +656,7 @@ export function ClinicalNotesChecklistPanel({
   copied,
   onCopy,
   onOpenTables,
+  visualEvidence,
 }: {
   answer: RagAnswer;
   viewMode: AnswerViewMode;
@@ -655,8 +666,10 @@ export function ClinicalNotesChecklistPanel({
   copied: boolean;
   onCopy: () => void;
   onOpenTables?: () => void;
+  visualEvidence?: VisualEvidenceCard[];
 }) {
-  const detailSections = clinicalNotesDetailSectionsForAnswer(answer, viewMode);
+  const gatedAnswer = trustGatedAnswerForClinicalNotes(answer, visualEvidence);
+  const detailSections = clinicalNotesDetailSectionsForAnswer(gatedAnswer, viewMode, visualEvidence);
   const tabs = clinicalNotesAvailableTabs(detailSections);
   const defaultTab = tabs.find((tab) => tab.id === "actions")?.id ?? tabs[0]?.id ?? "actions";
   const [requestedTab, setRequestedTab] = useState<ClinicalNotesTabId>(defaultTab);
@@ -666,14 +679,19 @@ export function ClinicalNotesChecklistPanel({
   const notesPanelId = `${tabBaseId}-panel`;
   const activeTab = tabs.some((tab) => tab.id === requestedTab) ? requestedTab : defaultTab;
   const rows = clinicalNotesRowsForTab(detailSections, activeTab, sourceLinks, bestSource);
-  const tableEvidenceCount = clinicalNotesTableEvidenceCount(answer);
+  const tableEvidenceCount = clinicalNotesTableEvidenceCount(gatedAnswer);
   const [added, setAdded] = useState(false);
   const warningRows = clinicalNotesRowsForTab(detailSections, "safety", sourceLinks, bestSource);
   const warningCount = warningRows.filter((row) => row.tone === "warn").length || warningRows.length;
 
   if (!tabs.length || rows.length === 0) {
     return (
-      <ClinicalOutputPanel answer={answer} showLead={false} viewMode={viewMode} evidenceMapRows={evidenceMapRows} />
+      <ClinicalOutputPanel
+        answer={gatedAnswer}
+        showLead={false}
+        viewMode={viewMode}
+        evidenceMapRows={evidenceMapRows}
+      />
     );
   }
 

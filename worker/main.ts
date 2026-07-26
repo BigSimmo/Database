@@ -1061,7 +1061,8 @@ async function uploadAndCaptionImages(
     const { task, classificationCacheHit } = resolved;
     const { candidate, index, image, perceptualHash, imageHash, nearbyText, tableMetadata, contextHash } = task;
     let classification = redactImageClassification(resolved.classification);
-    const retainedWithoutCaptioning = task.presetClassification?.skip_reason === "retained for document view without captioning";
+    const retainedWithoutCaptioning =
+      task.presetClassification?.skip_reason === "retained for document view without captioning";
     const policyAssessment = assessClinicalImageUse({
       imageType: classification.image_type,
       searchable: classification.searchable,

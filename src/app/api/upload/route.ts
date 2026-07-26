@@ -225,9 +225,9 @@ export async function POST(request: Request) {
       content_hash: contentHash,
       metadata: {
         source_title: title,
-        publisher_code: null,
-        publisher: null,
-        jurisdiction: "Australia/WA",
+        publisher_code: canonicalAuthority ? (identityAuthority.code ?? canonicalAuthority.codes[0] ?? null) : null,
+        publisher: canonicalAuthority?.publisher ?? null,
+        jurisdiction: canonicalAuthority?.jurisdictions[0] ?? "Australia/WA",
         version: null,
         publication_date: null,
         review_date: null,
@@ -246,37 +246,8 @@ export async function POST(request: Request) {
         max_upload_mb: env.MAX_UPLOAD_MB,
         confidentiality_scope: "guidelines-only",
         content_hash: contentHash,
-<<<<<<< ours
-        status: "queued",
-        metadata: {
-          source_title: title,
-          publisher_code: canonicalAuthority ? (identityAuthority.code ?? canonicalAuthority.codes[0] ?? null) : null,
-          publisher: canonicalAuthority?.publisher ?? null,
-          jurisdiction: canonicalAuthority?.jurisdictions[0] ?? "Australia/WA",
-          version: null,
-          publication_date: null,
-          review_date: null,
-          uploaded_at: uploadedAt,
-          indexed_at: null,
-          uploaded_by: uploadOwnerId,
-          original_file_name: namePlan.originalFileName,
-          original_title: namePlan.originalTitle,
-          smart_title_base: namePlan.baseTitle,
-          smart_title_group_key: namePlan.duplicateGroupKey,
-          smart_title_duplicate_index: namePlan.duplicateIndex,
-          smart_title_duplicate_reason: namePlan.duplicateReason,
-          document_status: "unknown",
-          clinical_validation_status: "unverified",
-          extraction_quality: "unknown",
-          max_upload_mb: env.MAX_UPLOAD_MB,
-          confidentiality_scope: "guidelines-only",
-          content_hash: contentHash,
-        },
-      })
-      .select()
-      .single();
-=======
       },
+      status: "queued",
     };
 
     assertUploadNotAborted(request);
@@ -287,7 +258,6 @@ export async function POST(request: Request) {
         p_max_attempts: env.WORKER_MAX_ATTEMPTS,
       },
     );
->>>>>>> theirs
 
     if (uploadRecordError) {
       if (isContentHashDuplicateError(uploadRecordError)) {

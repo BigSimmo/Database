@@ -69,7 +69,10 @@ function readScope(files) {
 
 function selectedScripts(scope, extended) {
   const scripts = [...baseScripts];
-  if (scope.build_changed) scripts.push("build");
+  if (scope.build_changed) {
+    scripts.push("build");
+    scripts.push("check:bundle-budget");
+  }
   // Full unit testing already includes every offline RAG contract suite.
   if (!scope.docs_only) scripts.push("check:rag:fixtures");
   if (extended && scope.ui_changed) scripts.push("verify:ui");
@@ -91,7 +94,7 @@ if (options.dryRun) {
   process.exit(0);
 }
 
-const lock = acquireHeavyRunLock({ projectRoot, command: "npm run verify:pr-local" });
+const lock = await acquireHeavyRunLock({ projectRoot, command: "npm run verify:pr-local" });
 let exitCode = 0;
 try {
   for (const script of scripts) {

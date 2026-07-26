@@ -44,7 +44,7 @@ describe("child process results", () => {
 });
 
 describe("repository-wide heavyweight lock", () => {
-  it("uses a workspace-local identity only when a packaged build context has no Git metadata", () => {
+  it("uses a workspace-local identity only when a packaged build context has no Git metadata", async () => {
     const projectRoot = temporaryDirectory("clinical-kb-no-git-");
     const baseDirectory = temporaryDirectory("clinical-kb-no-git-lock-");
     writeFileSync(
@@ -52,7 +52,7 @@ describe("repository-wide heavyweight lock", () => {
       JSON.stringify({ name: "prompt-for-codex-medical-knowledge-base" }),
     );
 
-    const lock = acquireHeavyRunLock({ projectRoot, baseDirectory, environment: {}, command: "docker build" });
+    const lock = await acquireHeavyRunLock({ projectRoot, baseDirectory, environment: {}, command: "docker build" });
     const expectedIdentity = path.resolve(projectRoot);
     expect(lock.owner.repositoryIdentity).toBe(
       process.platform === "win32" ? expectedIdentity.toLowerCase() : expectedIdentity,
@@ -60,10 +60,10 @@ describe("repository-wide heavyweight lock", () => {
     lock.release();
   });
 
-  it("blocks another worktree but permits a nested child with the owner token", () => {
+  it("blocks another worktree but permits a nested child with the owner token", async () => {
     const baseDirectory = temporaryDirectory("clinical-kb-lock-");
     const repositoryIdentity = path.join(baseDirectory, "shared.git");
-    const first = acquireHeavyRunLock({
+    const first = await acquireHeavyRunLock({
       projectRoot: path.join(baseDirectory, "worktree-a"),
       repositoryIdentity,
       baseDirectory,
@@ -71,17 +71,18 @@ describe("repository-wide heavyweight lock", () => {
       command: "first",
     });
 
-    expect(() =>
+    await expect(() =>
       acquireHeavyRunLock({
         projectRoot: path.join(baseDirectory, "worktree-b"),
         repositoryIdentity,
         baseDirectory,
         environment: {},
         command: "second",
+        timeoutMs: 100,
       }),
-    ).toThrow(/Another Database heavyweight command is active/);
+    ).rejects.toThrow(/Another Database heavyweight command is active/);
 
-    const nested = acquireHeavyRunLock({
+    const nested = await acquireHeavyRunLock({
       projectRoot: path.join(baseDirectory, "worktree-b"),
       repositoryIdentity,
       baseDirectory,
@@ -93,10 +94,10 @@ describe("repository-wide heavyweight lock", () => {
     first.release();
   });
 
-  it("recovers a dead owner without allowing the old token to release the replacement", () => {
+  it("recovers a dead owner without allowing the old token to release the replacement", async () => {
     const baseDirectory = temporaryDirectory("clinical-kb-stale-lock-");
     const repositoryIdentity = path.join(baseDirectory, "shared.git");
-    const stale = acquireHeavyRunLock({
+    const stale = await acquireHeavyRunLock({
       projectRoot: path.join(baseDirectory, "worktree-a"),
       repositoryIdentity,
       baseDirectory,
@@ -104,12 +105,13 @@ describe("repository-wide heavyweight lock", () => {
       processId: 2_147_483_647,
       command: "dead",
     });
-    const replacement = acquireHeavyRunLock({
+    const replacement = await acquireHeavyRunLock({
       projectRoot: path.join(baseDirectory, "worktree-b"),
       repositoryIdentity,
       baseDirectory,
       environment: {},
       command: "replacement",
+      timeoutMs: 100, // Should be quick to recover dead owner
     });
 
     stale.release();
@@ -117,12 +119,12 @@ describe("repository-wide heavyweight lock", () => {
     replacement.release();
   });
 
-  it("never persists or repeats credentials embedded in a command", () => {
+  it("never persists or repeats credentials embedded in a command", async () => {
     const baseDirectory = temporaryDirectory("clinical-kb-secret-lock-");
     const repositoryIdentity = path.join(baseDirectory, "shared.git");
     const exposed = ["crsr", "example_worker_credential_123456789"].join("_");
     const openAiExample = ["sk", "example-secret-123456"].join("-");
-    const first = acquireHeavyRunLock({
+    const first = await acquireHeavyRunLock({
       projectRoot: path.join(baseDirectory, "worktree-a"),
       repositoryIdentity,
       baseDirectory,
@@ -135,15 +137,16 @@ describe("repository-wide heavyweight lock", () => {
       expect(ownerText).not.toContain(exposed);
       expect(ownerText).not.toContain(openAiExample);
       expect(ownerText).toContain("[REDACTED]");
-      expect(() =>
+      await expect(() =>
         acquireHeavyRunLock({
           projectRoot: path.join(baseDirectory, "worktree-b"),
           repositoryIdentity,
           baseDirectory,
           environment: {},
           command: "second",
+          timeoutMs: 100,
         }),
-      ).toThrow(/\[REDACTED\]/);
+      ).rejects.toThrow(/\[REDACTED\]/);
     } finally {
       first.release();
     }

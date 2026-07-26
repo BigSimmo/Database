@@ -42,3 +42,18 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
+
+export function expectToAnnounce(expected: string | RegExp) {
+  const liveRegions = document.querySelectorAll(
+    '[aria-live="assertive"], [aria-live="polite"], [role="alert"], [role="status"]',
+  );
+  const announcements = Array.from(liveRegions).map((el) => el.textContent || "");
+
+  const matched = announcements.some((msg) =>
+    typeof expected === "string" ? msg.includes(expected) : expected.test(msg),
+  );
+
+  if (!matched) {
+    throw new Error(`Expected announcement matching ${expected}, but found: ${announcements.join(", ") || "none"}`);
+  }
+}

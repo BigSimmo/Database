@@ -11,6 +11,8 @@ export default defineConfig({
     timeout: 10_000,
   },
   reporter: "list",
+  snapshotPathTemplate: "{testDir}/__snapshots__/{testFilePath}/{arg}{ext}",
+  outputDir: "test-results/visual-artifacts",
   use: {
     baseURL,
     trace: "retain-on-failure",

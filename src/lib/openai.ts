@@ -86,6 +86,10 @@ export function createOpenAIClient() {
   return openAIClient;
 }
 
+export function setMockOpenAIClient(client: unknown) {
+  openAIClient = client as OpenAI;
+}
+
 function normalizeQueryEmbeddingText(text: string) {
   return text.normalize("NFKC").replace(/\s+/g, " ").trim().toLowerCase();
 }

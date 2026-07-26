@@ -2,7 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { Search } from "lucide-react";
 import { describe, expect, it } from "vitest";
 
-import { AsyncButton, EmptyState } from "@/components/ui-primitives";
+import { AsyncButton, EmptyState, InlineNotice } from "@/components/ui-primitives";
+import { expectToAnnounce } from "./setup/jsdom.setup";
 
 describe("EmptyState", () => {
   it("keeps recovery actions inside an announced state surface", () => {
@@ -26,6 +27,19 @@ describe("EmptyState", () => {
     render(<EmptyState title="Answer unavailable" body="Please try again." live="assertive" />);
 
     expect(screen.getByRole("alert")).toHaveTextContent("Answer unavailable");
+    expectToAnnounce("Answer unavailable");
+  });
+});
+
+describe("InlineNotice", () => {
+  it("announces politely for success tone", () => {
+    render(<InlineNotice tone="success">Document imported successfully</InlineNotice>);
+    expectToAnnounce("Document imported successfully");
+  });
+
+  it("announces assertively for danger tone", () => {
+    render(<InlineNotice tone="danger">Failed to parse document</InlineNotice>);
+    expectToAnnounce("Failed to parse document");
   });
 });
 

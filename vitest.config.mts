@@ -28,6 +28,9 @@ const config = {
           functions: 43,
           lines: 50,
         },
+        "src/lib/rag/**/*.ts": { statements: 60, branches: 55, functions: 60, lines: 60 },
+        "src/lib/auth/**/*.ts": { statements: 75, branches: 70, functions: 75, lines: 75 },
+        "src/lib/clinical/**/*.ts": { statements: 70, branches: 65, functions: 70, lines: 70 },
       },
     },
     // Two projects run under one `npm run test` invocation. `extends: true` makes

@@ -53,7 +53,7 @@ const relativeTsConfigPath = `${relativeRunRoot}/tsconfig.json`;
 
 let lock;
 try {
-  lock = acquireHeavyRunLock({ projectRoot, command: `playwright ${playwrightArgs.join(" ")}` });
+  lock = await acquireHeavyRunLock({ projectRoot, command: `playwright ${playwrightArgs.join(" ")}` });
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);

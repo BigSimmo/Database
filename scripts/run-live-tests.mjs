@@ -20,7 +20,7 @@ try {
   process.exit(1);
 }
 
-const lock = acquireHeavyRunLock({ projectRoot, command: "vitest live provider tests" });
+const lock = await acquireHeavyRunLock({ projectRoot, command: "vitest live provider tests" });
 let exitCode = 1;
 try {
   const result = spawnSync(process.execPath, [vitestBin, "run", ...process.argv.slice(2)], {

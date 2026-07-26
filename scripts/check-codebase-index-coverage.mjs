@@ -9,9 +9,8 @@
  * staling it. This checks that each top-level directory the index organizes around
  * is referenced somewhere in it.
  *
- * Granularity is deliberately top-level directories (route groups + src/lib module
- * dirs), not every file — the index maps modules by theme, so per-file coverage
- * would be pure noise.
+ * This checks that each route (`page.tsx` or `route.ts`) and top-level `src/lib`
+ * module is referenced somewhere in it.
  *
  * Run: `npm run docs:check-index`. Blocking — runs in `verify:cheap:internal` and in
  * CI (`.github/workflows/ci.yml`, the "Codebase index coverage" step). Exit 1 on gaps.
@@ -36,8 +35,8 @@ function dirsIn(relativeDir) {
 }
 
 export function coverageCandidates(kind, name) {
-  if (kind === "api") return [`/api/${name}`];
-  if (kind === "route") return [`/${name}`];
+  if (kind === "api") return [`/api/${name}`.replace(/\/$/, "")];
+  if (kind === "route") return [`/${name}`.replace(/\/$/, "") || "/"];
   return [`${name}/`, `src/lib/${name}/`];
 }
 
@@ -68,6 +67,9 @@ function codeSpans(text) {
 
 function candidateMatches(span, candidate) {
   const normalized = candidate.toLowerCase();
+  if (span.endsWith("/*")) {
+    return normalized.startsWith(span.slice(0, -2));
+  }
   if (normalized.endsWith("/")) return span.startsWith(normalized);
   return span === normalized || span.startsWith(`${normalized}/`);
 }
@@ -103,14 +105,39 @@ export function schemaTableGaps(indexText, schemaText) {
   };
 }
 
+function walkRoutes(dir, baseRoute = "") {
+  const entries = readdirSync(path.join(repoRoot, dir), { withFileTypes: true });
+  const routes = [];
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      const isRouteGroup = entry.name.startsWith("(") && entry.name.endsWith(")");
+      const nextRoute = isRouteGroup ? baseRoute : `${baseRoute}${entry.name}/`;
+      routes.push(...walkRoutes(path.join(dir, entry.name), nextRoute));
+    } else if (entry.name === "page.tsx" || entry.name === "route.ts") {
+      // route paths in Next.js don't have trailing slash in the index typically
+      routes.push(baseRoute.slice(0, -1) || "");
+    }
+  }
+  return routes;
+}
+
 function discoverGroups() {
   const groups = [];
   for (const name of dirsIn("src/lib")) groups.push({ kind: "lib", dir: "src/lib", name });
-  for (const name of dirsIn("src/app")) {
-    if (name === "api") continue;
-    groups.push({ kind: "route", dir: "src/app", name });
+
+  // Recursively find routes in src/app (excluding src/app/api)
+  const appRoutes = walkRoutes("src/app");
+  for (const route of appRoutes) {
+    if (route.startsWith("api") || route.startsWith("api/")) continue;
+    groups.push({ kind: "route", dir: "src/app", name: route });
   }
-  for (const name of dirsIn("src/app/api")) groups.push({ kind: "api", dir: "src/app/api", name });
+
+  // Recursively find API routes in src/app/api
+  const apiRoutes = walkRoutes("src/app/api");
+  for (const route of apiRoutes) {
+    groups.push({ kind: "api", dir: "src/app/api", name: route.replace(/^api\/?/, "") });
+  }
+
   return groups;
 }
 
