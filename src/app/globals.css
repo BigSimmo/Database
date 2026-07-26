@@ -1845,18 +1845,21 @@ summary::-webkit-details-marker {
   }
 
   /* Must beat the edge-to-edge dock rule above (transform: none) so scroll-hide
-     actually slides the bar off-screen once data-scroll-hidden is set. */
+     actually slides the bar off-screen once data-scroll-hidden is set.
+     Use --safe-area-bottom (not env() alone) so Playwright/PWA inset simulation
+     and the visible dock's padding-bottom clear the same distance — otherwise
+     a white safe-area rail can peep after hide on simulated/notched phones. */
   .answer-footer-search-dock.answer-footer-search-edge[data-scroll-hidden="true"],
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-scroll-hidden="true"],
   .answer-footer-search-dock.dashboard-composer-edge.answer-footer-search-edge[data-scroll-hidden="true"] {
-    transform: translateY(calc(100% + env(safe-area-inset-bottom)));
+    transform: translateY(calc(100% + var(--safe-area-bottom)));
     pointer-events: none;
   }
 
   /* Compare addon adds in-flow chrome above the pill; clear a little extra so
      the Compare bar does not leave a 1px/subpixel peep on the viewport edge. */
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-footer-addon="differentials-compare"][data-scroll-hidden="true"] {
-    transform: translateY(calc(100% + 0.75rem + env(safe-area-inset-bottom)));
+    transform: translateY(calc(100% + 0.75rem + var(--safe-area-bottom)));
   }
 
   /* Document viewer owns its floating composer (not the shared dock). Lift it
@@ -2688,5 +2691,35 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   [data-testid="document-viewer-content"],
   [data-testid="document-viewer-content"][data-scroll-hidden="true"] {
     transition: none;
+  }
+}
+
+/* Theme switch micro-interaction (Improvement 2.2) */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *:before,
+html.theme-transitioning *:after {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke !important;
+  transition-duration: 200ms !important;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transitioning,
+  html.theme-transitioning *,
+  html.theme-transitioning *:before,
+  html.theme-transitioning *:after {
+    transition: none !important;
+  }
+}
+
+/* Windows High Contrast / Forced Colors Compatibility (Improvement 2.3) */
+@media (forced-colors: active) {
+  :root,
+  .dark {
+    --border: CanvasText;
+    --border-lux: CanvasText;
+    --border-strong: CanvasText;
+    --focus: Highlight;
   }
 }

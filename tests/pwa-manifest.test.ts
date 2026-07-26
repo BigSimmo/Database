@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import manifest from "../src/app/manifest";
-import { APP_THEME_COLORS, DEFAULT_THEME } from "../src/lib/theme";
 
 describe("PWA manifest and public bootstrap resources", () => {
   const appManifest = manifest();
@@ -16,10 +15,12 @@ describe("PWA manifest and public bootstrap resources", () => {
       display: "standalone",
       lang: "en-AU",
       dir: "ltr",
-      background_color: APP_THEME_COLORS[DEFAULT_THEME],
-      theme_color: APP_THEME_COLORS[DEFAULT_THEME],
       prefer_related_applications: false,
     });
+    // Theme colours stay on viewport.themeColor / meta theme-color so light/dark
+    // can update at runtime; a static PWA manifest colour would lock install chrome.
+    expect(appManifest).not.toHaveProperty("background_color");
+    expect(appManifest).not.toHaveProperty("theme_color");
     expect(appManifest.name).toBeTruthy();
     expect(appManifest.short_name).toBeTruthy();
     expect(appManifest.description).toBeTruthy();
@@ -107,5 +108,21 @@ describe("PWA manifest and public bootstrap resources", () => {
     expect(nextConfig).toContain('{ key: "Service-Worker-Allowed", value: "/" }');
     expect(nextConfig).toContain('source: "/offline.html"');
     expect(nextConfig).toContain('{ key: "X-Robots-Tag", value: "noindex, nofollow" }');
+  });
+
+  it("keeps unversioned PWA icon routes revalidatable and avoids a day-long image TTL floor", () => {
+    const iconsRoute = readFileSync(join(process.cwd(), "src/app/icons/[variant]/route.tsx"), "utf8");
+    const nextConfig = readFileSync(join(process.cwd(), "next.config.ts"), "utf8");
+
+    expect(iconsRoute).toContain("public, max-age=86400, stale-while-revalidate=604800");
+    expect(iconsRoute).not.toMatch(/max-age=31536000,\s*immutable/);
+    expect(nextConfig).not.toMatch(/minimumCacheTTL:\s*86400/);
+  });
+
+  it("keeps the themed favicon markers that check:assets guards without SVGO", () => {
+    const icon = readFileSync(join(process.cwd(), "src/app/icon.svg"), "utf8");
+    expect(icon).toContain("prefers-color-scheme: dark");
+    expect(icon).toContain("<style>");
+    expect(icon).toContain("viewBox=");
   });
 });
