@@ -185,6 +185,7 @@ export function MasterSearchHeader({
   desktopHomeComposerSlotId,
   heroComposerBreakpoint = "all",
   mobileBottomSearchAddonSlotId,
+  headerCollapseAddonSlotId,
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
@@ -249,6 +250,12 @@ export function MasterSearchHeader({
   heroComposerBreakpoint?: "all" | "sm-up";
   /** Mobile/tablet slot rendered above the search pill for page-specific composer addons. */
   mobileBottomSearchAddonSlotId?: string;
+  /**
+   * Optional host rendered inside the collapsing top-bar track (after `header#search`)
+   * for page chrome that must hide/reveal with the universal top bar — e.g. Therapy
+   * section nav on phones. Keep search composers out of this slot.
+   */
+  headerCollapseAddonSlotId?: string;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
   /** Phone-only hide-on-scroll for the universal header and bottom search dock.
@@ -270,14 +277,15 @@ export function MasterSearchHeader({
      * Collapse-only: how the chrome hides above the phone breakpoint. Omitting
      * it keeps the hide/reveal phone-only.
      *
-     * "collapse" releases the header's layout row at every width — for hosts
+     * "collapse" releases the top bar's layout row at every width — for hosts
      * whose scrollport is an internal element at every width (ClinicalDashboard's
      * `<main>`), where the released strip goes straight to the content.
      *
-     * "sticky" pins the chrome to the viewport top and slides it away instead —
-     * for hosts that hand scrolling back to the document above the phone
-     * breakpoint (GlobalSearchShell), where releasing flow space would jump the
-     * page under the reader.
+     * "sticky" pins an outer stack (top bar + search) to the viewport top above
+     * phones and still collapses only the top-bar row inside that stack — for
+     * hosts that hand scrolling back to the document (GlobalSearchShell). The
+     * search composer must stay outside the collapsing row so tablet/desktop
+     * keep a usable search field.
      */
     wide?: "collapse" | "sticky";
     /** Parent-owned hidden state for hosts that report scroll via React `onScroll`. */
@@ -1374,12 +1382,24 @@ export function MasterSearchHeader({
     );
   }
 
+  const hideStrategy = hideOnScroll?.strategy;
+  // Overlay hosts that opt into all breakpoints take the header fully out of
+  // flow (absolute over the scrolling <main>, which reserves matching top
+  // padding) so content frosts under the glass bar at every width.
+  const overlayAllBreakpoints = hideStrategy === "overlay" && Boolean(hideOnScroll?.allBreakpoints);
+  const wideCollapseBehaviour = hideStrategy === "collapse" ? hideOnScroll?.wide : undefined;
+  // Collapse hosts whose scrollport is internal at every width release the
+  // header row at every width too; hosts that hand scrolling back to the
+  // document above the phone breakpoint stick and translate there instead.
+  const collapsesAtEveryWidth = wideCollapseBehaviour === "collapse";
+  const sticksAbovePhones = wideCollapseBehaviour === "sticky";
+
   function renderSearchComposer(placement: "default" | "desktop-home") {
     const isDesktopHomeComposer = placement === "desktop-home";
     const usesAnswerFooterStyle = isAnswerFooterComposer && !isDesktopHomeComposer;
     const usesMobileBottomStyle = isMobileBottomComposer && !isDesktopHomeComposer;
     const usesBottomComposerPlacement = usesAnswerFooterStyle || (usesMobileBottomStyle && usesPhoneSearchLayout);
-    // In-flow result composers (tablet+) share the footer chip layout so the
+    // Sticky-top result composers (tablet+) share the footer chip layout so the
     // pill + chip row looks identical across homes, results, and the answer dock.
     const usesFooterChipLayout = usesBottomComposerPlacement || isDesktopHomeComposer || usesMobileBottomStyle;
     // Keep footer suggestion chips on tablet/desktop; phones reach the same actions via "+".
@@ -1411,6 +1431,18 @@ export function MasterSearchHeader({
     const showsComposerPrivacyNotice = usesPhoneSearchLayout ? isDesktopHomeComposer : true;
 
     const commandSurfacePlacement = usesBottomComposerPlacement ? "bottom-dock" : "inline";
+    // Search sits outside the collapsing top-bar row. Sticky hosts already pin an
+    // outer [top bar | search] stack, so the composer must stay in normal flow
+    // inside that stack — a second sticky + top offset would overlay page
+    // controls once the top bar collapses. Collapse-everywhere hosts have no
+    // outer stack, so their composer keeps its own sticky and drops the top-bar
+    // clearance while the bar is hidden.
+    const stickySearchOwnedByOuterStack = sticksAbovePhones;
+    const stickySearchClearsTopBar = !(hideStrategy === "collapse" && headerChromeHidden);
+    const stickySearchTopClass = stickySearchClearsTopBar
+      ? "top-[calc(4.75rem+env(safe-area-inset-top))] sm:top-[calc(4.75rem+env(safe-area-inset-top))]"
+      : "top-0 sm:top-0";
+    const stickySearchPositionClass = cn("sm:sticky", stickySearchTopClass);
 
     return (
       <form
@@ -1453,14 +1485,20 @@ export function MasterSearchHeader({
                     usesPhoneFooterDock
                       ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
                       : cn(
-                          // Tablet/desktop results: in-flow under the top bar, not sticky.
-                          // Sticky-under-header pulled the search into the chrome strip;
-                          // page-anchored keeps only mode/new-chat in the sticky header.
-                          "document-mobile-search-edge universal-top-search-edge fixed z-40 mx-auto max-w-3xl sm:static sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
-                          isHeroDesktopComposer ? "sm:hidden" : null,
+                          "document-mobile-search-edge universal-top-search-edge z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
+                          // Sticky-stack hosts already pin [top bar | search]. Never
+                          // leave a `fixed`/`sticky` composer in that stack — it
+                          // overlays page controls (Services decision rail).
+                          stickySearchOwnedByOuterStack
+                            ? "relative"
+                            : cn("fixed", isHeroDesktopComposer ? "sm:hidden" : stickySearchPositionClass),
+                          stickySearchOwnedByOuterStack && isHeroDesktopComposer && "sm:hidden",
                         ),
                   )
-                : "universal-top-search-edge relative z-20 mx-auto box-border w-full px-3 py-3 sm:px-4",
+                : cn(
+                    "universal-top-search-edge mx-auto box-border w-full px-3 py-3 sm:px-4",
+                    stickySearchOwnedByOuterStack ? "relative z-20" : cn("sticky z-20", stickySearchTopClass),
+                  ),
           usesBottomComposerPlacement && "answer-footer-search-edge",
           usesPhoneFooterDock && "answer-footer-search-dock",
           usesCompactMobileBottomStyle && "document-mobile-search-compact",
@@ -1705,17 +1743,6 @@ export function MasterSearchHeader({
     );
   }
 
-  const hideStrategy = hideOnScroll?.strategy;
-  // Overlay hosts that opt into all breakpoints take the header fully out of
-  // flow (absolute over the scrolling <main>, which reserves matching top
-  // padding) so content frosts under the glass bar at every width.
-  const overlayAllBreakpoints = hideStrategy === "overlay" && Boolean(hideOnScroll?.allBreakpoints);
-  const wideCollapseBehaviour = hideStrategy === "collapse" ? hideOnScroll?.wide : undefined;
-  // Collapse hosts whose scrollport is internal at every width release the
-  // header row at every width too; hosts that hand scrolling back to the
-  // document above the phone breakpoint stick and translate there instead.
-  const collapsesAtEveryWidth = wideCollapseBehaviour === "collapse";
-  const sticksAbovePhones = wideCollapseBehaviour === "sticky";
   const chromeFocusProps = hideOnScroll
     ? {
         onFocusCapture: () => setHeaderChromeFocused(true),
@@ -1733,10 +1760,11 @@ export function MasterSearchHeader({
       }
     : undefined;
 
-  // Top bar only — mode, new chat, etc. The search composer is intentionally
-  // outside the sticky/collapse chrome so tablet/desktop results keep the
-  // pill page-anchored (scrolls with content) rather than glued under the bar.
-  const headerChrome = (
+  // Top bar only (mode / new chat / menu). The search composer is intentionally
+  // NOT part of this node: on tablet/desktop hide-on-scroll must reclaim the top
+  // bar without taking the search field with it. Phone bottom docks are fixed and
+  // escape any collapse wrapper; hero composers portal out of this tree.
+  const topBar = (
     <header
       id="search"
       data-scroll-hidden={hideStrategy === "overlay" && headerChromeHidden ? "true" : undefined}
@@ -1744,18 +1772,20 @@ export function MasterSearchHeader({
         // No backdrop-filter on the header itself: it would form a backdrop
         // root and starve the .edge-glass-header-backdrop scrim (the single
         // source of the bar's frost) of the real page behind it.
-        "edge-glass-header universal-header z-30 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] text-[color:var(--text)]",
-        // Collapse hosts keep the header above an internally scrolling <main>,
+        // Collapse hosts own the OS top inset via the always-on
+        // `chrome-safe-area-top` spacer outside the 0fr row, so this bar only
+        // needs its aesthetic 0.5rem pad. Overlay hosts still paint the inset
+        // themselves (answer mode keeps an equivalent reserve on <main>).
+        "edge-glass-header universal-header z-30 py-2 text-[color:var(--text)]",
+        hideStrategy === "collapse" ? "pt-2" : "pt-[max(0.5rem,var(--safe-area-top))]",
+        // Collapse hosts keep the top bar above an internally scrolling <main>,
         // so sticky is unnecessary wherever the row collapses and fights the
-        // 0fr grid by pinning the bar inside the viewport. Where the chrome
-        // sticks instead, the pinning belongs to the collapse wrapper: this
-        // <header> sits inside two header-height boxes, which leaves a sticky
-        // rule here zero travel — the bar simply scrolled off with the page
-        // and only came back at scroll top. All-breakpoints overlay hosts take
-        // the header out of flow entirely (absolute over the padded <main>) —
-        // sticky would be inert there because the scroll container is <main>,
-        // not an ancestor of the header. Legacy overlay hosts keep sticky
-        // (they ride document scroll) and translate away with no layout shift.
+        // 0fr grid by pinning the bar inside the viewport. Sticky hosts pin an
+        // outer stack (top bar + search) instead; this <header> stays relative
+        // inside that stack. All-breakpoints overlay hosts take the bar out of
+        // flow entirely (absolute over the padded <main>). Legacy overlay hosts
+        // keep sticky (they ride document scroll) and translate away with no
+        // layout shift.
         hideStrategy === "collapse"
           ? sticksAbovePhones || collapsesAtEveryWidth
             ? "relative"
@@ -1967,7 +1997,7 @@ export function MasterSearchHeader({
     </header>
   );
 
-  const searchComposerBlock = searchComposerVisible ? (
+  const searchComposer = searchComposerVisible ? (
     <>
       {(desktopHomeComposerActive && desktopHomeComposerHost) ||
       (desktopHomeComposerSlotId && !desktopHomeComposerFallback)
@@ -1980,80 +2010,100 @@ export function MasterSearchHeader({
   ) : null;
 
   if (hideStrategy === "collapse") {
-    // Collapse hide-on-scroll: the host renders the header above an internally
-    // scrolling element, so hiding must also release the header's layout space.
-    // A 1fr -> 0fr grid row animates the collapse without any height
-    // measurement; the bottom-anchored inner track makes the chrome slide up
-    // out of the viewport top.
+    // Collapse hide-on-scroll applies to the TOP BAR only (mode / new chat). The
+    // search composer stays a sibling so tablet/desktop keep a usable search
+    // field while the top bar hides. A 1fr -> 0fr grid row animates the collapse
+    // without height measurement; the bottom-anchored inner track slides the
+    // top bar up out of the viewport. Fixed-position phone docks escape this
+    // tree via `position: fixed`; hero composers portal out.
     //
-    // Only the top bar lives inside this wrapper. In-flow tablet/desktop search
-    // composers stay outside so they remain page-anchored and scroll with the
-    // content; fixed phone docks / answer footers and hero-portaled composers
-    // never needed the wrapper either.
-    //
-    // Above the phone breakpoint a `wide: "sticky"` host scrolls the document
-    // instead, so this wrapper — not the <header> inside it, which has no
-    // sticky travel within its header-height parents — pins to the viewport top
-    // and translates away. Releasing the row there would pull the whole page up
-    // by the header height mid-scroll; translating leaves the geometry alone.
+    // Above the phone breakpoint a `wide: "sticky"` host scrolls the document,
+    // so an outer sticky stack pins [top bar | search] below the always-on
+    // safe-area spacer. Only the top-bar row collapses — translating the whole
+    // stack would take the search field with it. Return a fragment (never a
+    // wrapping block): GlobalSearchShell uses `sm:contents` on the chrome
+    // parent so sticky can travel against the viewport.
+    const collapsingTopBar = (
+      <div
+        data-scroll-hidden={headerChromeHidden ? "true" : undefined}
+        data-testid="universal-header-collapse"
+        className={cn(
+          "motion-reduce:transition-none",
+          collapsesAtEveryWidth || sticksAbovePhones
+            ? cn(
+                "grid transition-[grid-template-rows]",
+                headerChromeHidden
+                  ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                headerChromeHidden ? "[grid-template-rows:0fr]" : "[grid-template-rows:1fr]",
+              )
+            : cn(
+                "max-sm:grid max-sm:transition-[grid-template-rows]",
+                headerChromeHidden
+                  ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                  : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
+                headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
+              ),
+        )}
+        {...chromeFocusProps}
+      >
+        <div
+          className={cn(
+            "max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
+            (collapsesAtEveryWidth || sticksAbovePhones) && "sm:flex sm:min-h-0 sm:flex-col sm:justify-end",
+            // Clip only while hiding so the edge-glass-header gradient that
+            // extends below the header keeps painting when the chrome is shown.
+            headerChromeHidden && "max-sm:overflow-hidden",
+            (collapsesAtEveryWidth || sticksAbovePhones) && headerChromeHidden && "sm:overflow-hidden",
+          )}
+        >
+          {topBar}
+          {headerCollapseAddonSlotId ? (
+            <div id={headerCollapseAddonSlotId} data-testid="header-collapse-addon" className="w-full empty:hidden" />
+          ) : null}
+        </div>
+      </div>
+    );
+
+    const chromeSafeAreaTop = (
+      <div
+        aria-hidden="true"
+        data-testid="chrome-safe-area-top"
+        className={cn(
+          // relative + z above the collapsing header: the 0fr row still lets
+          // header#search's box extend upward into this band for layout, and
+          // without a higher stack the status-bar fill can lose to that paint.
+          "relative z-[32] h-[var(--safe-area-top)] shrink-0 bg-[color:var(--background)]",
+          sticksAbovePhones && "sm:sticky sm:top-0",
+        )}
+      />
+    );
+
+    if (sticksAbovePhones) {
+      return (
+        <>
+          {chromeSafeAreaTop}
+          <div className="sm:sticky sm:top-[var(--safe-area-top)] sm:z-30">
+            {collapsingTopBar}
+            {searchComposer}
+          </div>
+        </>
+      );
+    }
+
     return (
       <>
-        <div
-          data-scroll-hidden={headerChromeHidden ? "true" : undefined}
-          data-testid="universal-header-collapse"
-          className={cn(
-            "motion-reduce:transition-none",
-            collapsesAtEveryWidth
-              ? cn(
-                  "grid transition-[grid-template-rows]",
-                  headerChromeHidden
-                    ? "duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                  headerChromeHidden ? "[grid-template-rows:0fr]" : "[grid-template-rows:1fr]",
-                )
-              : cn(
-                  "max-sm:grid max-sm:transition-[grid-template-rows]",
-                  headerChromeHidden
-                    ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                    : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
-                  headerChromeHidden ? "max-sm:[grid-template-rows:0fr]" : "max-sm:[grid-template-rows:1fr]",
-                  sticksAbovePhones &&
-                    cn(
-                      "sm:sticky sm:top-0 sm:z-30 sm:transition-transform",
-                      headerChromeHidden
-                        ? "sm:duration-[240ms] sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-                        : "sm:duration-200 sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
-                    ),
-                  // Transform only while hidden: a standing transform would make
-                  // this wrapper the containing block for the fixed-position menus
-                  // rendered inside the header.
-                  sticksAbovePhones && headerChromeHidden && "sm:-translate-y-full",
-                ),
-          )}
-          {...chromeFocusProps}
-        >
-          <div
-            className={cn(
-              "max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
-              collapsesAtEveryWidth && "sm:flex sm:min-h-0 sm:flex-col sm:justify-end",
-              // Clip only while hiding so the edge-glass-header gradient that
-              // extends below the header keeps painting when the chrome is shown.
-              headerChromeHidden && "max-sm:overflow-hidden",
-              collapsesAtEveryWidth && headerChromeHidden && "sm:overflow-hidden",
-            )}
-          >
-            {headerChrome}
-          </div>
-        </div>
-        {searchComposerBlock}
+        {chromeSafeAreaTop}
+        {collapsingTopBar}
+        {searchComposer}
       </>
     );
   }
 
   return (
     <>
-      {headerChrome}
-      {searchComposerBlock}
+      {topBar}
+      {searchComposer}
     </>
   );
 }
