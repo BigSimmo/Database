@@ -5,12 +5,14 @@ import type { ClinicalSourceMetadata } from "@/lib/types";
 const knownStatuses = new Set(["current", "review_due", "outdated", "unknown"]);
 const knownValidation = new Set(["unverified", "locally_reviewed", "approved"]);
 const knownExtraction = new Set(["good", "partial", "poor", "unknown"]);
+const knownSourceKinds = new Set(["document", "registry_record"]);
+const knownRegistryRecordKinds = new Set(["service", "form", "medication", "differential"]);
 
 function stringOrNull(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function enumOrDefault<T extends string>(value: unknown, allowed: Set<string>, fallback: T, field: string): T {
+function enumOrDefault<T extends string | null>(value: unknown, allowed: Set<string>, fallback: T, field: string): T {
   if (typeof value === "string" && allowed.has(value)) return value as T;
   // A present-but-unrecognized string is a real data-entry defect (typo, renamed
   // enum, malformed ingest) that would otherwise collapse into the fallback and be
@@ -28,8 +30,8 @@ export function normalizeSourceMetadata(input: unknown): ClinicalSourceMetadata 
   const value = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
 
   return {
-    source_kind: stringOrNull(value.source_kind),
-    registry_record_kind: stringOrNull(value.registry_record_kind),
+    source_kind: enumOrDefault(value.source_kind, knownSourceKinds, null, "source_kind"),
+    registry_record_kind: enumOrDefault(value.registry_record_kind, knownRegistryRecordKinds, null, "registry_record_kind"),
     registry_record_subkind: stringOrNull(value.registry_record_subkind),
     registry_record_id: stringOrNull(value.registry_record_id),
     registry_record_slug: stringOrNull(value.registry_record_slug),

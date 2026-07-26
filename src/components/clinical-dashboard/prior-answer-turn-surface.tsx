@@ -85,6 +85,7 @@ export function PriorAnswerTurnSurface({
           <>
             <NaturalLanguageAnswer
               text={turn.answer.answer}
+              query={turn.query}
               preformatted={turnPreformatted}
               sourceCount={sourceCount}
               sourceOnly={turn.answer.answerQualityTier === "source_only"}

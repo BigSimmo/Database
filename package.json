@@ -114,6 +114,7 @@
     "check:migration-role": "node scripts/check-hosted-migration-role.mjs",
     "check:function-grants": "node scripts/check-function-grants.mjs",
     "check:owner-scope": "node scripts/check-owner-scope-api.mjs",
+    "check:locality-metadata": "node scripts/run-tsx.mjs scripts/verify-locality-metadata.ts",
     "recover:ingestion": "node scripts/run-tsx.mjs scripts/recover-ingestion-queue.ts",
     "registry:seed": "node scripts/run-tsx.mjs scripts/seed-registry-records.ts",
     "registry:embed": "node scripts/run-tsx.mjs scripts/embed-registry-records.ts",

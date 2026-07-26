@@ -1,4 +1,4 @@
-import { normalizeExtractedGlyphs, stripClassificationBanner } from "@/lib/source-text-sanitizer";
+import { normalizeExtractedGlyphs, stripClassificationBanner, readableWhitespace } from "@/lib/source-text-sanitizer";
 import { registryCorpusDetailHref } from "@/lib/registry-corpus-links";
 import type { Citation, CitationProvenance, SearchResult } from "@/lib/types";
 
@@ -8,10 +8,9 @@ import type { Citation, CitationProvenance, SearchResult } from "@/lib/types";
 // label — keeps mobile/compact labels consistent with the cleaned titles
 // rendered elsewhere (cleanDisplayTitle).
 function cleanCitationTitle(value: string) {
-  return stripClassificationBanner(normalizeExtractedGlyphs(value))
+  return readableWhitespace(stripClassificationBanner(normalizeExtractedGlyphs(value)))
     .replace(/^Synthetic\s+/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/\n/g, " "); // ensure single line
 }
 
 export function citationFromResult(result: SearchResult, provenance: CitationProvenance = "retrieval_only"): Citation {
@@ -125,10 +124,11 @@ export function compactCitations(results: SearchResult[], limit = 6, provenance:
   const citations: Citation[] = [];
 
   for (const result of results) {
-    const key = `${result.document_id}:${result.page_number}:${result.chunk_index}`;
+    const citation = citationFromResult(result, provenance);
+    const key = citationIdentity(citation);
     if (seen.has(key)) continue;
     seen.add(key);
-    citations.push(citationFromResult(result, provenance));
+    citations.push(citation);
     if (citations.length >= limit) break;
   }
 

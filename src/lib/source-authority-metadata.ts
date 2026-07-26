@@ -63,12 +63,19 @@ const registeredCodes = sourceAuthorityRegistry
 
 const caseSensitiveIdentityCodes = new Set(["WHO"]);
 
+const compiledRegisteredCodes = registeredCodes.map((candidate) => {
+  const flags = caseSensitiveIdentityCodes.has(candidate.code) ? "" : "i";
+  const pattern = new RegExp(`(?:^|[^A-Za-z0-9])${escapeRegExp(candidate.code)}(?=$|[^A-Za-z0-9])`, flags);
+  return { ...candidate, pattern };
+});
+
 function authorityMatchesInField(field: string) {
-  return registeredCodes.filter((candidate) => {
-    const flags = caseSensitiveIdentityCodes.has(candidate.code) ? "" : "i";
-    const token = new RegExp(`(?:^|[^A-Za-z0-9])${escapeRegExp(candidate.code)}(?=$|[^A-Za-z0-9])`, flags);
-    return token.test(field);
-  });
+  return compiledRegisteredCodes
+    .filter((candidate) => {
+      candidate.pattern.lastIndex = 0;
+      return candidate.pattern.test(field);
+    })
+    .map(({ pattern, ...rest }) => rest);
 }
 
 function preferredIdentityMatches(identity: SourceAuthorityDocumentIdentity) {

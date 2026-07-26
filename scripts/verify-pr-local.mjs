@@ -7,7 +7,7 @@ import { acquireHeavyRunLock } from "./test-run-lock.mjs";
 
 const isWindows = process.platform === "win32";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const baseScripts = ["check:runtime", "format:changed", "lint", "typecheck", "test"];
+const baseScripts = ["check:runtime", "format:changed", "lint", "typecheck", "test", "check:locality-metadata"];
 
 function parseArgs(args) {
   const options = { dryRun: false, extended: false, files: undefined };

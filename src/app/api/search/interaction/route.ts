@@ -30,6 +30,12 @@ const interactionSchema = z
     title: z.string().trim().max(240).optional(),
     queryClass: z.string().trim().max(80).optional(),
     crossMode: crossModeTargetSchema.optional(),
+    citationTelemetry: z.object({
+      provenance: z.string().optional(),
+      source_strength: z.string().optional(),
+      similarity: z.number().optional(),
+      document_status: z.string().optional(),
+    }).optional(),
   })
   .refine((body) => Boolean(body.documentId || body.crossMode), {
     message: "Either documentId or a crossMode target is required.",
@@ -154,6 +160,7 @@ export async function POST(request: Request) {
       metadata: {
         interaction: "source_open",
         ...queryPrivacyMetadata(body.query),
+        ...(body.citationTelemetry && { citation_telemetry: body.citationTelemetry }),
       },
     });
     if (insertError) throw new Error(insertError.message);

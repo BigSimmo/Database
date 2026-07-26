@@ -488,13 +488,33 @@ const THRESHOLD_PARAMETERS: ThresholdParameter[] = [
     pattern: /\b(?:wbc|white (?:blood )?cell(?: count)?|leu[ck]ocytes?)\b/i,
   },
   { key: "platelet", label: "platelet count", pattern: /\bplatelets?\b/i },
+  {
+    key: "lithium",
+    label: "Lithium serum level",
+    pattern: /\b(?:lithium(?: serum)? levels?|serum lithium|li\+? levels?)\b/i,
+  },
+  {
+    key: "qtc",
+    label: "QTc interval",
+    pattern: /\b(?:qtc|qt interval)\b/i,
+  },
+  {
+    key: "clozapine_dose",
+    label: "Clozapine dose",
+    pattern: /\b(?:clozapine dose|clozapine.*?mg(?:\/(?:day|d))?)\b/i,
+  },
+  {
+    key: "egfr",
+    label: "Renal function (eGFR/CrCl)",
+    pattern: /\b(?:egfr|crcl|creatinine clearance|glomerular filtration rate)\b/i,
+  }
 ];
 
-// A threshold parameter within a short window of a "below" comparator and a
-// numeric value. Only "below"-type comparators (a floor for stopping therapy)
-// are matched — an upper ceiling is a different clinical statement.
-const THRESHOLD_SPAN_PATTERN =
-  /\b(anc|absolute neutrophil count|neutrophils?|wbc|white (?:blood )?cell(?: count)?|leu[ck]ocytes?|platelets?)\b[^.\n;]{0,32}?(?:<|≤|<=|less than|below|under|lower than|fall(?:s|ing)? below|drops? below)\s*(\d+(?:\.\d+)?)/gi;
+// A threshold parameter within a short window of a comparator and a numeric value.
+const THRESHOLD_SPAN_PATTERN = new RegExp(
+  `\\b(anc|absolute neutrophil count|neutrophils?|wbc|white (?:blood )?cell(?: count)?|leu[ck]ocytes?|platelets?|lithium(?: serum)? levels?|serum lithium|li\\+? levels?|qtc|qt interval|clozapine dose|egfr|crcl|creatinine clearance|glomerular filtration rate)\\b[^.\\n;]{0,48}?(?:<|>|≤|≥|<=|>=|less than|greater than|below|above|under|over|lower than|higher than|fall(?:s|ing)? below|drops? below|exceeds?)\\s*(\\d+(?:\\.\\d+)?)`,
+  "gi"
+);
 
 function thresholdParameterFor(raw: string): ThresholdParameter | undefined {
   return THRESHOLD_PARAMETERS.find((parameter) => parameter.pattern.test(raw));
