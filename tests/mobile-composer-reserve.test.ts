@@ -4,7 +4,9 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  isCalculatorsOwnedRoute,
   isDocumentViewerOwnedRoute,
+  isPageOwnedComposerRoute,
   mobileComposerDifferentialsCompareReserve,
   mobileComposerHiddenReserve,
   mobileComposerHiddenReserveRem,
@@ -195,5 +197,23 @@ describe("mobile composer reserve contract", () => {
     expect(isDocumentViewerOwnedRoute("/documents/search")).toBe(false);
     expect(isDocumentViewerOwnedRoute("/documents")).toBe(false);
     expect(isDocumentViewerOwnedRoute("/forms")).toBe(false);
+  });
+
+  it("classifies calculators as a page-owned composer route", () => {
+    expect(isCalculatorsOwnedRoute("/calculators")).toBe(true);
+    expect(isCalculatorsOwnedRoute("/calculators/phq-9")).toBe(true);
+    expect(isCalculatorsOwnedRoute("/tools")).toBe(false);
+    expect(isPageOwnedComposerRoute("/calculators")).toBe(true);
+    expect(isPageOwnedComposerRoute("/documents/source")).toBe(true);
+    expect(isPageOwnedComposerRoute("/tools")).toBe(false);
+    expect(
+      resolveShellVisibleMobileComposerReserve({
+        shouldShowSearchComposer: false,
+        pageOwnedComposerRoute: true,
+        isStandaloneModeHome: false,
+        searchMode: "tools",
+        differentialsCompareAddonActive: false,
+      }),
+    ).toBe(mobileComposerHiddenReserve);
   });
 });
