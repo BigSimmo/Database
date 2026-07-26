@@ -203,7 +203,7 @@ describe.runIf(hasPyMuPDF)("Python PDF table extraction", () => {
 });
 
 describe.runIf(hasPyMuPDF)("Python extractor fallback", () => {
-  it("rejects cleanly if the python process dies with SIGKILL", async () => {
+  it.skipIf(process.platform === "win32")("rejects cleanly if the python process dies with SIGKILL", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-extractor-test-"));
     try {
       const pdfPath = path.join(root, "table.pdf");
