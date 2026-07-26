@@ -247,9 +247,7 @@ for (const route of [...modeHomeRoutes, ...dashboardRoutes, ...longRoutes]) {
       "settled scroll sits on the true bottom edge",
     ).toBeLessThanOrEqual(2);
     if (atBottom.bottomComposerHidden) {
-      expect(atBottom.reserveTransitionDuration, "scroll-hide reserve transition remains exercised").toContain(
-        "0.24s",
-      );
+      expect(atBottom.reserveTransitionDuration, "scroll-hide reserve transition remains exercised").toContain("0.24s");
     }
     // At most one chrome transition on a pure descent (hide, when the page is
     // long enough to afford it) — more means hide/reveal oscillation.

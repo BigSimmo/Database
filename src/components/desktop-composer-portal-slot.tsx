@@ -2,10 +2,7 @@
 
 import { useEffect, useRef, type ComponentPropsWithoutRef } from "react";
 
-import {
-  desktopComposerSlotReadyAttr,
-  desktopComposerSlotReadyValue,
-} from "@/lib/mode-home-composer";
+import { desktopComposerSlotReadyAttr, desktopComposerSlotReadyValue } from "@/lib/mode-home-composer";
 
 type DesktopComposerPortalSlotProps = {
   id: string;

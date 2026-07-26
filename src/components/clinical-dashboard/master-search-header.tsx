@@ -70,10 +70,7 @@ import { appModeIcons } from "@/lib/app-mode-icons";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
-import {
-  desktopComposerSlotReadyAttr,
-  isDesktopComposerSlotReady,
-} from "@/lib/mode-home-composer";
+import { desktopComposerSlotReadyAttr, isDesktopComposerSlotReady } from "@/lib/mode-home-composer";
 import { tagSearchText } from "@/lib/document-tags";
 
 // Shared between the composer input's aria-describedby and the rendered
