@@ -67,7 +67,11 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
-import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
+import {
+  phoneHeaderCollapseAddonSlotId,
+  phoneHeaderCollapsePortalFocusEvent,
+  type PhoneHeaderCollapsePortalFocusDetail,
+} from "@/lib/mode-home-composer";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
@@ -408,6 +412,16 @@ export function MasterSearchHeader({
       if (!hideOnScrollEnabled) setHeaderChromeFocused(false);
     });
   }, [phoneBottomSearchDockActive, hideOnScrollEnabled]);
+
+  useEffect(() => {
+    if (!hideOnScrollEnabled) return undefined;
+    const handlePortalFocus = (event: Event) => {
+      const detail = (event as CustomEvent<PhoneHeaderCollapsePortalFocusDetail>).detail;
+      setHeaderChromeFocused(Boolean(detail?.focused));
+    };
+    document.addEventListener(phoneHeaderCollapsePortalFocusEvent, handlePortalFocus);
+    return () => document.removeEventListener(phoneHeaderCollapsePortalFocusEvent, handlePortalFocus);
+  }, [hideOnScrollEnabled]);
 
   useEffect(() => {
     onBottomComposerHiddenChange?.(bottomComposerHidden);

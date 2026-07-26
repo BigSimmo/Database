@@ -18,3 +18,9 @@ export const differentialsMobileCompareAddonSlotId = "differentials-mobile-compa
  * release, focus pinning, transition timing, and collapse-budget measurement.
  */
 export const phoneHeaderCollapseAddonSlotId = "phone-header-collapse-addon-slot";
+
+export const phoneHeaderCollapsePortalFocusEvent = "phone-header-collapse-portal-focus";
+
+export type PhoneHeaderCollapsePortalFocusDetail = {
+  focused: boolean;
+};
