@@ -931,7 +931,9 @@ test.describe("Clinical KB tools launcher", () => {
     await gotoLauncher(page, "/services?q=13YARN&focus=1&run=1");
 
     await expect(page.getByRole("heading", { level: 1, name: /referral matches/i })).toBeVisible();
-    await expect(page.getByText("Prioritised for crisis support, culturally safe access, and phone referral.")).toBeVisible();
+    await expect(
+      page.getByText("Prioritised for crisis support, culturally safe access, and phone referral."),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Advanced service filters" })).toBeDisabled();
     await expect(page.getByText("Advanced service filters are coming soon.")).toHaveCount(1);
 

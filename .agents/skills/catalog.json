@@ -3,7 +3,7 @@
   "categories": [
     {
       "name": "Everyday",
-      "skills": ["skills", "plan", "run", "test", "fix", "review", "task", "handover", "health", "audit", "export", "prompt-perfector"]
+      "skills": ["skills", "plan", "run", "test", "fix", "review", "task", "handover", "health", "audit", "export"]
     },
     {
       "name": "Clinical and app",

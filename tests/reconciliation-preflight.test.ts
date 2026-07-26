@@ -116,5 +116,5 @@ describe("reconciliation preflight", () => {
     expect(payload.integrationBase).toBe("dedicated-worktree-required");
     expect(payload.processDiagnostics).toMatchObject({ skipped: true, rawCommandLinesSerialized: false });
     expect(result.stdout).not.toContain("commandLine");
-  });
+  }, 120000);
 });

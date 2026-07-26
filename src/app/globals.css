@@ -2,6 +2,13 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+:root {
+  /* Spring Easing Tokens */
+  --ease-spring-snappy: cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  --ease-spring-soft: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-fluid: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /*
  * Design tokens that generate Tailwind utilities.
  * Colour ramps and per-theme values live in :root / .dark below and are
@@ -691,6 +698,23 @@ summary::-webkit-details-marker {
    source is what made Lightning CSS drop the whole property group — the
    historical tint-only-glass bug — and a guard test now rejects hand-authored
    -webkit-backdrop-filter declarations. */
+@supports (animation-timeline: scroll()) {
+  .edge-glass-header-backdrop {
+    animation: header-frost-fade linear both;
+    animation-timeline: scroll(root block);
+    animation-range: 0px 80px;
+  }
+}
+
+@keyframes header-frost-fade {
+  from {
+    backdrop-filter: blur(0px) saturate(100%);
+  }
+  to {
+    backdrop-filter: blur(14px) saturate(135%);
+  }
+}
+
 .edge-glass-header-backdrop {
   pointer-events: none;
   position: absolute;
@@ -2126,6 +2150,27 @@ html[data-motion="reduced"] .pwa-notice-card {
   }
 }
 
+.mobile-bottom-sheet,
+.action-tray-container {
+  will-change: transform;
+}
+
+@keyframes cascade-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-item {
+  animation: cascade-fade-up 220ms var(--ease-out-fluid, cubic-bezier(0.16, 1, 0.3, 1)) both;
+  animation-delay: calc(var(--stagger-index, 0) * 35ms);
+}
+
 @keyframes pop-in {
   from {
     opacity: 0;
@@ -2267,7 +2312,25 @@ html[data-motion="reduced"] .pwa-notice-card {
 
   /* Premium Skeleton Shimmer animation with custom easing */
   .animate-skeleton-shimmer {
-    animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    position: relative;
+    overflow: hidden;
+    background: var(--surface-subtle);
+    contain: strict;
+  }
+
+  .animate-skeleton-shimmer::after {
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--surface) 60%, transparent) 50%,
+      transparent 100%
+    );
+    animation: shimmer-sweep 1.6s infinite var(--ease-out-fluid, cubic-bezier(0.16, 1, 0.3, 1));
+    will-change: transform;
+    content: "";
   }
 
   /* Premium Double-Ring Focus style */
@@ -2372,13 +2435,9 @@ html[data-motion="reduced"] .pwa-notice-card {
   }
 }
 
-@keyframes skeleton-pulse {
-  0%,
+@keyframes shimmer-sweep {
   100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
+    transform: translateX(100%);
   }
 }
 
@@ -2396,6 +2455,10 @@ html[data-motion="reduced"] .pwa-notice-card {
   .source-capsule-hit:hover .source-capsule-face,
   .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
     transform: none !important;
+  }
+
+  .stagger-item {
+    animation: none !important;
   }
 }
 
@@ -2417,6 +2480,10 @@ html[data-motion="reduced"] *::after {
 html[data-motion="reduced"] .source-capsule-hit:hover .source-capsule-face,
 html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .source-capsule-face {
   transform: none !important;
+}
+
+html[data-motion="reduced"] .stagger-item {
+  animation: none !important;
 }
 
 @media (forced-colors: active) {
@@ -2624,6 +2691,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
    #main-content padding; DocumentViewer animates its own content pad. */
 @media (max-width: 639px) {
   #main-content {
+    contain: layout;
     transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   #main-content[data-bottom-composer-hidden="true"] {
@@ -2636,6 +2704,7 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
     transition: padding-bottom 240ms cubic-bezier(0.4, 0, 0.2, 1);
   }
   [data-testid="document-viewer-content"] {
+    contain: layout;
     transition: padding-bottom 200ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   [data-testid="document-viewer-content"][data-scroll-hidden="true"] {

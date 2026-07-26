@@ -1411,7 +1411,16 @@ export function DocumentViewer({
                       type="button"
                       onClick={() => {
                         setHasExplicitPdfViewerMode(true);
-                        setUseNativePdfViewer((current) => !current);
+                        const toggle = () => setUseNativePdfViewer((current) => !current);
+                        if (
+                          "startViewTransition" in document &&
+                          !window.matchMedia("(prefers-reduced-motion: reduce)").matches &&
+                          window.document.documentElement.getAttribute("data-motion") !== "reduced"
+                        ) {
+                          window.document.startViewTransition(toggle);
+                        } else {
+                          toggle();
+                        }
                       }}
                       aria-label={
                         useNativePdfViewer

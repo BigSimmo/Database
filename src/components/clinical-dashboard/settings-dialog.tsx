@@ -2,6 +2,7 @@
 
 import { type FormEvent, type ReactNode, type UIEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeft,
   Bell,
   BookOpen,
   Check,
@@ -33,7 +34,7 @@ import {
 
 import { type SidebarIdentity } from "@/components/clinical-dashboard/ClinicalSidebar";
 import { useAccountData } from "@/components/account-data-provider";
-import { NavigationBackButton } from "@/components/navigation-back-button";
+
 import { useTheme } from "@/components/clinical-dashboard/use-theme";
 import {
   ANSWER_STYLE_OPTIONS,
@@ -261,9 +262,6 @@ export function SettingsDialog({
     return () => window.cancelAnimationFrame(focusFrame);
   }, [emailEntryOpen]);
 
-<<<<<<< ours
-  const backButton = <NavigationBackButton onClick={onClose} label="Back from settings" />;
-=======
   const backButton = (
     <IconButton
       label="Back from settings"
@@ -273,7 +271,6 @@ export function SettingsDialog({
       iconClassName="size-icon-lg"
     />
   );
->>>>>>> theirs
 
   const closeButton = (
     <button
