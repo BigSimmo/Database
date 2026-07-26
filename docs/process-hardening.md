@@ -23,9 +23,8 @@ The reusable procedure is [`docs/reconciliation-playbook.md`](reconciliation-pla
 - Candidate filtering is cheap-first: owner/open-PR/review-ledger/ancestry before patch comparison;
   `merge-tree` remains a last resort. This avoids repeating the slow all-ref sweep that dominated the
   historical reconciliation.
-- Heavy verification remains serialized. Inspect the lock/process/artifact state before retrying,
-  never rerun an unchanged pass, and record interrupted aggregate suites as incomplete.
-- `scripts/test-run-lock.mjs` redacts credential-bearing command text before it reaches `owner.json`
+- Heavy verification uses resource-aware admission: two focused Vitest/read-only typecheck leases may overlap across different worktrees, while full suites, coverage, lint, builds, and browser runs remain exclusive. Inspect coordinator/process/artifact state before retrying, never rerun an unchanged pass, and record interrupted aggregate suites as incomplete.
+- `scripts/test-run-lock.mjs` redacts credential-bearing command text before it reaches coordinator metadata
   or a contention error. `scripts/run-eval-safe.mjs` uses command lines only inside its workspace
   filter and serializes PID/parent/start metadata only.
 
