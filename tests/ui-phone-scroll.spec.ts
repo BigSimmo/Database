@@ -200,14 +200,14 @@ test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
 });
 
-test("phone chrome keeps an opaque header and a soft-glass Services footer that fully releases when hidden", async ({
+test("phone chrome keeps an opaque header and a light edge-to-edge Therapy footer that fully releases when hidden", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
-  // A submitted Services search is a stable GlobalSearchShell result surface.
-  // Its exaggerated bottom inset catches paint that only leaks through a notch.
-  await gotoPhoneSurface(page, "/services?q=clinic&run=1&focus=1", 112);
+  // The user's failing surface is a submitted Therapy search. Its exaggerated
+  // bottom inset catches paint that only leaks through a notched-phone safe area.
+  await gotoPhoneSurface(page, "/therapy-compass/search?q=CBT&run=1", 112);
   await expect(page.locator("form.answer-footer-search-dock")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("global-search-input")).not.toBeFocused({ timeout: 5_000 });
 
@@ -218,6 +218,20 @@ test("phone chrome keeps an opaque header and a soft-glass Services footer that 
     const dockBackdrop = dock?.querySelector<HTMLElement>(".answer-footer-search-backdrop");
     const pill = dock?.querySelector<HTMLElement>(".answer-footer-search-pill");
     const dockRect = dock?.getBoundingClientRect();
+    const backdropPaint = dockBackdrop ? getComputedStyle(dockBackdrop).backgroundImage : "";
+    const readMaskImage = (element: Element, pseudo?: string) => {
+      const style = getComputedStyle(element, pseudo);
+      return style.maskImage !== "none" ? style.maskImage : style.getPropertyValue("-webkit-mask-image");
+    };
+    const backdropMask = dockBackdrop ? readMaskImage(dockBackdrop) : "";
+    const backdropBeforeMask = dockBackdrop ? readMaskImage(dockBackdrop, "::before") : "";
+    const backdropAfterMask = dockBackdrop ? readMaskImage(dockBackdrop, "::after") : "";
+    const paintAlphaValues = [
+      ...[...backdropPaint.matchAll(/\/\s*(0(?:\.\d+)?|1(?:\.0+)?)\)/g)].map((match) => Number(match[1])),
+      ...[...backdropPaint.matchAll(/rgba\([^)]*,\s*(0(?:\.\d+)?|1(?:\.0+)?)\)/g)].map((match) => Number(match[1])),
+    ];
+    const hasTransparentTerminal = (paint: string) =>
+      /rgba\(0,\s*0,\s*0,\s*0\)(?: 100%)?\)$/.test(paint) || /transparent(?: 100%)?\)$/.test(paint);
     return {
       headerBackground: header ? getComputedStyle(header).backgroundColor : "",
       headerBackdropFilter: header ? getComputedStyle(header).backdropFilter : "",
@@ -225,12 +239,17 @@ test("phone chrome keeps an opaque header and a soft-glass Services footer that 
       dockBackdropDisplay: dockBackdrop ? getComputedStyle(dockBackdrop).display : "missing",
       dockBackground: dock ? getComputedStyle(dock).backgroundColor : "",
       dockBackdropPosition: dockBackdrop ? getComputedStyle(dockBackdrop).position : "missing",
-      dockBackdropPaint: dockBackdrop ? getComputedStyle(dockBackdrop).backgroundImage : "",
+      dockBackdropPaint: backdropPaint,
       dockBackdropFilter: dockBackdrop ? getComputedStyle(dockBackdrop).backdropFilter : "",
       dockBackdropPointerEvents: dockBackdrop ? getComputedStyle(dockBackdrop).pointerEvents : "",
       dockBackdropHasTranslucentStop: dockBackdrop
         ? /transparent|\/\s*(?:0?\.)\d+/.test(getComputedStyle(dockBackdrop).backgroundImage)
         : false,
+      dockBackdropMaxAlpha: paintAlphaValues.length > 0 ? Math.max(...paintAlphaValues) : 1,
+      dockBackdropTerminalTransparent: hasTransparentTerminal(backdropPaint),
+      dockBackdropMaskTerminalTransparent: hasTransparentTerminal(backdropMask),
+      dockBackdropBeforeMaskTerminalTransparent: hasTransparentTerminal(backdropBeforeMask),
+      dockBackdropAfterMaskTerminalTransparent: hasTransparentTerminal(backdropAfterMask),
       dockLeft: dockRect?.left ?? -1,
       dockRight: dockRect?.right ?? -1,
       dockBottom: dockRect?.bottom ?? -1,
@@ -246,6 +265,11 @@ test("phone chrome keeps an opaque header and a soft-glass Services footer that 
   expect(visible.dockBackdropPosition).toBe("absolute");
   expect(visible.dockBackdropPaint).toContain("gradient");
   expect(visible.dockBackdropHasTranslucentStop).toBe(true);
+  expect(visible.dockBackdropMaxAlpha).toBeLessThanOrEqual(0.52);
+  expect(visible.dockBackdropTerminalTransparent).toBe(true);
+  expect(visible.dockBackdropMaskTerminalTransparent).toBe(true);
+  expect(visible.dockBackdropBeforeMaskTerminalTransparent).toBe(true);
+  expect(visible.dockBackdropAfterMaskTerminalTransparent).toBe(true);
   // The runner may emulate reduced transparency; the fallback deliberately
   // removes blur but keeps this translucent gradient instead of a solid slab.
   expect(["none", "blur(2px) saturate(1.3)"]).toContain(visible.dockBackdropFilter);
@@ -253,7 +277,7 @@ test("phone chrome keeps an opaque header and a soft-glass Services footer that 
   expect(visible.dockLeft).toBeCloseTo(0, 0);
   expect(visible.dockRight).toBeCloseTo(phoneViewport.width, 0);
   expect(visible.dockBottom).toBeCloseTo(phoneViewport.height, 0);
-  expect(visible.pillBackground).toMatch(/(?:^rgba\([^)]+,\s*0\.92\)|\/ 0\.92\))/);
+  expect(visible.pillBackground).toMatch(/(?:^rgba\([^)]+,\s*0\.88\)|\/ 0\.88\))/);
 
   const geometry = await readGeometry(page);
   await dragScrollBy(page, Math.min(geometry.maxOffset, 500), 24);
@@ -271,6 +295,8 @@ test("phone chrome keeps an opaque header and a soft-glass Services footer that 
       dockTop: dock?.getBoundingClientRect().top ?? -1,
       dockOpacity: dock ? getComputedStyle(dock).opacity : "",
       backdropTop: backdrop?.getBoundingClientRect().top ?? -1,
+      backdropOpacity: backdrop ? getComputedStyle(backdrop).opacity : "",
+      backdropVisibility: backdrop ? getComputedStyle(backdrop).visibility : "",
       reserve: main ? getComputedStyle(main).getPropertyValue("--mobile-composer-reserve").trim() : "",
     };
   });
@@ -278,6 +304,8 @@ test("phone chrome keeps an opaque header and a soft-glass Services footer that 
   expect(hidden.dockTop).toBeGreaterThanOrEqual(phoneViewport.height - 1);
   expect(hidden.dockOpacity).toBe("0");
   expect(hidden.backdropTop).toBeGreaterThanOrEqual(phoneViewport.height - 1);
+  expect(hidden.backdropOpacity).toBe("0");
+  expect(hidden.backdropVisibility).toBe("hidden");
   expect(hidden.reserve).toBe("0rem");
 });
 

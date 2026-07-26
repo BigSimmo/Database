@@ -31,11 +31,14 @@ describe("mobile chrome paint baseline", () => {
       /\.answer-footer-search-dock\.answer-footer-search-edge\[data-scroll-hidden="true"\][\s\S]*?opacity: 0;[\s\S]*?pointer-events: none/,
     );
     expect(phoneStyles).toMatch(
-      /\.answer-footer-search-dock \.answer-footer-search-pill[\s\S]*?color-mix\(in srgb, var\(--surface\) 92%, transparent\)/,
+      /\.answer-footer-search-dock \.answer-footer-search-pill[\s\S]*?color-mix\(in srgb, var\(--surface\) 88%, transparent\)/,
+    );
+    expect(phoneStyles).toMatch(
+      /\.answer-footer-search-dock\[data-scroll-hidden="true"\] \.answer-footer-search-backdrop[\s\S]*?opacity: 0;[\s\S]*?visibility: hidden;[\s\S]*?transition-delay: 0ms, 240ms/,
     );
   });
 
-  it("keeps every footer-glass fallback terminal translucent", () => {
+  it("keeps every footer-glass variant localized with a fully transparent physical edge", () => {
     const footerBackdropStart = globalStylesSource.indexOf(
       ".answer-footer-search-dock .answer-footer-search-backdrop {",
     );
@@ -45,12 +48,13 @@ describe("mobile chrome paint baseline", () => {
     const supportsFallbackSource = globalStylesSource.slice(supportsFallbackStart, reducedTransparencyStart);
     const reducedTransparencySource = globalStylesSource.slice(reducedTransparencyStart);
 
-    expect(footerBackdropSource).toContain("color-mix(in srgb, var(--background) 72%, transparent) 100%");
-    expect(supportsFallbackSource).toContain("color-mix(in srgb, var(--background) 88%, transparent) 100%");
-    expect(reducedTransparencySource).toContain("color-mix(in srgb, var(--background) 90%, transparent) 100%");
-    expect(`${footerBackdropSource}\n${supportsFallbackSource}\n${reducedTransparencySource}`).not.toContain(
-      "var(--background) 100%",
-    );
+    expect(footerBackdropSource).toContain("color-mix(in srgb, var(--background) 28%, transparent) 58%");
+    expect(supportsFallbackSource).toContain("color-mix(in srgb, var(--background) 38%, transparent) 62%");
+    expect(reducedTransparencySource).toContain("color-mix(in srgb, var(--background) 52%, transparent) 62%");
+    for (const variant of [footerBackdropSource, supportsFallbackSource, reducedTransparencySource]) {
+      expect(variant).toContain("transparent 100%");
+      expect(variant).not.toMatch(/color-mix\([^\n]+\) 100%/);
+    }
   });
 
   it("registers the calculator page reserve with the shared hide and transition contracts", () => {
