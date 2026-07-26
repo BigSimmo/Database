@@ -73,7 +73,6 @@ import {
   desktopPageComposerSlotId,
   differentialsMobileCompareAddonSlotId,
   modeHomeDesktopComposerSlotId,
-  therapyHeaderCollapseAddonSlotId,
 } from "@/lib/mode-home-composer";
 import { readSearchNavigationContext, type SearchNavigationOptions } from "@/lib/search-navigation-context";
 import {
@@ -832,13 +831,6 @@ function GlobalStandaloneSearchShellBody({
             mobileBottomSearchVariant="compact"
             mobileBottomSearchAddonSlotId={
               differentialsCompareAddonActive ? differentialsMobileCompareAddonSlotId : undefined
-            }
-            // Therapy non-home screens portal their section strip into the
-            // collapsing top-bar track so it hides/reveals with the header.
-            headerCollapseAddonSlotId={
-              pathname.startsWith("/therapy-compass") && pathname !== "/therapy-compass"
-                ? therapyHeaderCollapseAddonSlotId
-                : undefined
             }
             desktopSearchPlacement={desktopSearchPlacement === "hero" && isStandaloneModeHome ? "hero" : "default"}
             searchComposerVisible={shouldShowSearchComposer}

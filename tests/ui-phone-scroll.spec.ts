@@ -48,6 +48,40 @@ const longRoutes = [
   "/documents/11111111-1111-4111-8111-111111111111?page=1",
 ];
 
+const appModeHeaderRoutes = [
+  { mode: "Answer", route: "/?mode=answer" },
+  { mode: "Documents", route: "/?mode=documents" },
+  { mode: "Services", route: "/services" },
+  { mode: "Forms", route: "/forms" },
+  { mode: "Favourites", route: "/favourites" },
+  { mode: "Differentials", route: "/differentials" },
+  { mode: "DSM", route: "/dsm" },
+  { mode: "Specifiers", route: "/specifiers" },
+  { mode: "Formulation", route: "/formulation" },
+  { mode: "Medication", route: "/?mode=prescribing" },
+  { mode: "Tools", route: "/tools" },
+  { mode: "Therapy", route: "/therapy-compass" },
+  { mode: "Factsheets", route: "/factsheets" },
+];
+
+const pageOwnedHeaderRoutes = [
+  {
+    name: "Therapy section navigation",
+    route: "/therapy-compass/search?q=CBT&run=1",
+    selector: '[data-testid="therapy-compass-section-nav"]',
+  },
+  {
+    name: "document navigation",
+    route: "/documents/11111111-1111-4111-8111-111111111111?page=1",
+    selector: "header",
+  },
+  {
+    name: "differential detail navigation",
+    route: "/differentials/diagnoses/delirium",
+    selector: '[data-testid="differential-detail-header"]',
+  },
+];
+
 const phoneViewport = { width: 390, height: 844 };
 
 async function blockExternalRequests(page: Page) {
@@ -74,6 +108,20 @@ async function gotoPhoneSurface(page: Page, path: string) {
   });
   // Let hydration, fonts, and the composer/portal layout settle.
   await page.waitForTimeout(700);
+}
+
+async function addPhoneScrollRunway(page: Page) {
+  await page.evaluate(() => {
+    const main = document.getElementById("main-content");
+    if (!main) throw new Error("addPhoneScrollRunway: #main-content was not rendered");
+    const filler = document.createElement("div");
+    filler.dataset.testid = "phone-header-scroll-runway";
+    filler.setAttribute("aria-hidden", "true");
+    filler.style.height = "1600px";
+    filler.style.pointerEvents = "none";
+    main.append(filler);
+  });
+  await page.waitForTimeout(50);
 }
 
 interface ScrollGeometry {
@@ -347,62 +395,351 @@ test("phone forms search hides header and footer after submit without stale focu
   expect(Number.parseFloat(afterHide.reservePb) || 0, "hidden reserve releases the bottom rail").toBeLessThanOrEqual(1);
 });
 
-/**
- * Status-bar safe-area guard: collapsing the phone header must reclaim the
- * chrome controls, never the OS top inset. Without the always-on
- * `chrome-safe-area-top` spacer, service-detail text painted under the
- * system clock/signal icons after a deliberate scroll-hide.
- */
-test("phone service detail keeps content below the status-bar inset after header hide", async ({ page }) => {
+for (const { mode, route } of appModeHeaderRoutes) {
+  test(`phone ${mode} mode releases the complete top edge without oscillation`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.setViewportSize(phoneViewport);
+    await gotoPhoneSurface(page, route);
+    await addPhoneScrollRunway(page);
+    await installFlipCounter(page);
+
+    const initial = await page.evaluate(() => {
+      const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+      const header = document.querySelector<HTMLElement>("header#search");
+      const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+      const main = document.getElementById("main-content");
+      const safeAreaTopPx = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
+      );
+      return {
+        usesCollapse: Boolean(collapse),
+        hidden: (collapse ?? header)?.getAttribute("data-scroll-hidden") === "true",
+        safeAreaHeight: safeArea?.getBoundingClientRect().height ?? 0,
+        safeAreaTopPx,
+        mainTop: main?.getBoundingClientRect().top ?? -1,
+      };
+    });
+    expect(initial.hidden, "header starts visible").toBe(false);
+    if (initial.usesCollapse) {
+      expect(initial.safeAreaHeight, "visible collapse header owns the top inset").toBeGreaterThanOrEqual(
+        initial.safeAreaTopPx - 1,
+      );
+      expect(initial.mainTop, "visible collapse header remains in flow").toBeGreaterThan(initial.safeAreaTopPx);
+    }
+
+    await dragScrollBy(page, 720, 24);
+    await page.waitForTimeout(500);
+
+    const hidden = await page.evaluate(() => {
+      const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+      const header = document.querySelector<HTMLElement>("header#search");
+      const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+      const main = document.getElementById("main-content");
+      const mainRect = main?.getBoundingClientRect();
+      return {
+        usesCollapse: Boolean(collapse),
+        hidden: (collapse ?? header)?.getAttribute("data-scroll-hidden") === "true",
+        collapseHeight: collapse?.getBoundingClientRect().height ?? 0,
+        safeAreaHeight: safeArea?.getBoundingClientRect().height ?? 0,
+        headerBottom: header?.getBoundingClientRect().bottom ?? -1,
+        mainTop: mainRect?.top ?? -1,
+        mainLeft: mainRect?.left ?? -1,
+        mainRight: mainRect?.right ?? -1,
+        viewportWidth: window.innerWidth,
+      };
+    });
+    expect(hidden.hidden, "one deliberate descent hides the header").toBe(true);
+    if (hidden.usesCollapse) {
+      expect(hidden.collapseHeight, "all collapsed header rows release their height").toBeLessThanOrEqual(1);
+      expect(hidden.safeAreaHeight, "hidden header releases the top safe area").toBeLessThanOrEqual(1);
+    } else {
+      expect(hidden.headerBottom, "overlay header clears the viewport top").toBeLessThanOrEqual(1);
+    }
+    expect(hidden.mainTop, "content reaches the physical top edge").toBeLessThanOrEqual(1);
+    expect(hidden.mainLeft, "content reaches the left edge").toBeCloseTo(0, 0);
+    expect(hidden.mainRight, "content reaches the right edge").toBeCloseTo(hidden.viewportWidth, 0);
+    expect(await readFlipCount(page), "descent produces one stable hide transition").toBe(1);
+
+    await page.waitForTimeout(350);
+    expect(await readFlipCount(page), "resting after hide cannot oscillate").toBe(1);
+
+    await dragScrollBy(page, -48, 8);
+    await page.waitForTimeout(500);
+    const revealed = await page.evaluate(() => {
+      const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+      const header = document.querySelector<HTMLElement>("header#search");
+      const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+      return {
+        hidden: (collapse ?? header)?.getAttribute("data-scroll-hidden") === "true",
+        safeAreaHeight: safeArea?.getBoundingClientRect().height ?? 0,
+        safeAreaTopPx: Number.parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
+        ),
+      };
+    });
+    expect(revealed.hidden, "one deliberate upward gesture reveals the header").toBe(false);
+    if (hidden.usesCollapse) {
+      expect(revealed.safeAreaHeight, "revealed header restores the top inset").toBeGreaterThanOrEqual(
+        revealed.safeAreaTopPx - 1,
+      );
+    }
+    expect(await readFlipCount(page), "hide and reveal remain a single symmetric cycle").toBe(2);
+  });
+}
+
+for (const { name, route, selector } of pageOwnedHeaderRoutes) {
+  test(`phone ${name} uses the universal collapse owner`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.setViewportSize({ width: 320, height: 720 });
+    await gotoPhoneSurface(page, route);
+
+    const collapse = page.getByTestId("universal-header-collapse");
+    const addon = page.getByTestId("header-collapse-addon");
+    const pageHeader = page.locator(selector).first();
+    await expect(pageHeader).toBeVisible({ timeout: 20_000 });
+    await expect(
+      addon.locator(selector).first(),
+      "phone page header is portaled into the one collapse track",
+    ).toBeVisible();
+    const pageHeaderBox = await pageHeader.boundingBox();
+    expect(pageHeaderBox).not.toBeNull();
+    expect(pageHeaderBox!.x, "page header cannot overflow the viewport left edge").toBeGreaterThanOrEqual(0);
+    expect(pageHeaderBox!.x + pageHeaderBox!.width, "page header cannot expand past the viewport").toBeLessThanOrEqual(
+      320,
+    );
+    await addPhoneScrollRunway(page);
+
+    await dragScrollBy(page, 720, 24);
+    await page.waitForTimeout(500);
+
+    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+    expect(await collapse.evaluate((element) => element.getBoundingClientRect().height)).toBeLessThanOrEqual(1);
+    expect(
+      await page.getByTestId("chrome-safe-area-top").evaluate((element) => element.getBoundingClientRect().height),
+    ).toBeLessThanOrEqual(1);
+  });
+}
+
+test("phone portaled addon focus pins the universal collapse owner during scroll", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize({ width: 320, height: 720 });
+  await gotoPhoneSurface(page, "/differentials/diagnoses/delirium");
+
+  const collapse = page.getByTestId("universal-header-collapse");
+  const addon = page.getByTestId("header-collapse-addon");
+  const backLink = addon.getByRole("link", { name: "Back to differentials" });
+  await expect(backLink).toBeVisible({ timeout: 20_000 });
+  await addPhoneScrollRunway(page);
+
+  await backLink.focus();
+  await expect(backLink).toBeFocused();
+  await dragScrollBy(page, 720, 24);
+  await page.waitForTimeout(500);
+
+  await expect(backLink, "focused addon control keeps keyboard focus").toBeFocused();
+  await expect(backLink, "focused addon control remains visible").toBeVisible();
+  await expect(collapse, "focused portaled addon keeps the header visible").not.toHaveAttribute(
+    "data-scroll-hidden",
+    "true",
+  );
+  expect(await collapse.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThan(1);
+  expect(
+    await page.getByTestId("chrome-safe-area-top").evaluate((element) => element.getBoundingClientRect().height),
+  ).toBeGreaterThan(1);
+});
+
+test("phone portaled addon focus clears when its focused control navigates away", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize({ width: 320, height: 720 });
+  await gotoPhoneSurface(page, "/differentials/diagnoses/delirium");
+
+  const addon = page.getByTestId("header-collapse-addon");
+  const backLink = addon.getByRole("link", { name: "Back to differentials" });
+  await expect(backLink).toBeVisible({ timeout: 20_000 });
+  await backLink.focus();
+  await expect(backLink).toBeFocused();
+
+  await backLink.press("Enter");
+  await expect(page).toHaveURL(/\/differentials(?:$|\?)/, { timeout: 20_000 });
+  await expect(page.getByTestId("differentials-home")).toBeVisible({ timeout: 20_000 });
+  await addPhoneScrollRunway(page);
+
+  await dragScrollBy(page, 720, 24);
+  await page.waitForTimeout(500);
+
+  await expect(
+    page.getByTestId("universal-header-collapse"),
+    "removed focused addon control cannot leave the shared header pinned",
+  ).toHaveAttribute("data-scroll-hidden", "true");
+});
+
+test("phone header hide and reveal animate monotonically without a geometry jump", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
-  await gotoPhoneSurface(page, "/services/13yarn");
-  await expect(page.getByTestId("service-detail-page")).toBeVisible({ timeout: 20_000 });
+  await gotoPhoneSurface(page, "/therapy-compass/search?q=CBT&run=1");
+  await addPhoneScrollRunway(page);
+
+  const hideFrames = await page.evaluate(async () => {
+    const main = document.getElementById("main-content");
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+    if (!main || !collapse || !safeArea) throw new Error("phone collapse geometry was not rendered");
+    const frames: Array<{ hidden: boolean; chromeHeight: number; mainTop: number; scrollTop: number }> = [];
+    for (let frame = 0; frame < 55; frame += 1) {
+      if (frame < 20) {
+        main.scrollTop += 8;
+        main.dispatchEvent(new Event("scroll", { bubbles: true }));
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+      frames.push({
+        hidden: collapse.getAttribute("data-scroll-hidden") === "true",
+        chromeHeight: collapse.getBoundingClientRect().height + safeArea.getBoundingClientRect().height,
+        mainTop: main.getBoundingClientRect().top,
+        scrollTop: main.scrollTop,
+      });
+    }
+    return frames;
+  });
+
+  const firstHiddenFrame = hideFrames.findIndex((frame) => frame.hidden);
+  expect(firstHiddenFrame, "the stepped descent triggers hide").toBeGreaterThan(-1);
+  const hiding = hideFrames.slice(firstHiddenFrame);
+  expect(
+    new Set(hiding.map((frame) => Math.round(frame.chromeHeight))).size,
+    "hide has intermediate frames",
+  ).toBeGreaterThan(3);
+  for (let index = 1; index < hiding.length; index += 1) {
+    expect(hiding[index].chromeHeight, "chrome height never reverses during hide").toBeLessThanOrEqual(
+      hiding[index - 1].chromeHeight + 1,
+    );
+    expect(hiding[index].mainTop, "content edge never reverses during hide").toBeLessThanOrEqual(
+      hiding[index - 1].mainTop + 1,
+    );
+    expect(hiding[index].scrollTop, "downward intent remains monotonic during hide").toBeGreaterThanOrEqual(
+      hiding[index - 1].scrollTop - 1,
+    );
+  }
+  expect(hiding.at(-1)?.chromeHeight ?? -1, "hide settles at zero chrome height").toBeLessThanOrEqual(1);
+
+  const revealFrames = await page.evaluate(async () => {
+    const main = document.getElementById("main-content");
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+    if (!main || !collapse || !safeArea) throw new Error("phone collapse geometry was not rendered");
+    const frames: Array<{ hidden: boolean; chromeHeight: number; mainTop: number; scrollTop: number }> = [];
+    for (let frame = 0; frame < 45; frame += 1) {
+      if (frame < 6) {
+        main.scrollTop -= 8;
+        main.dispatchEvent(new Event("scroll", { bubbles: true }));
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+      frames.push({
+        hidden: collapse.getAttribute("data-scroll-hidden") === "true",
+        chromeHeight: collapse.getBoundingClientRect().height + safeArea.getBoundingClientRect().height,
+        mainTop: main.getBoundingClientRect().top,
+        scrollTop: main.scrollTop,
+      });
+    }
+    return frames;
+  });
+
+  const firstRevealedFrame = revealFrames.findIndex((frame) => !frame.hidden);
+  expect(firstRevealedFrame, "the upward gesture triggers reveal").toBeGreaterThan(-1);
+  const revealing = revealFrames.slice(firstRevealedFrame);
+  expect(
+    new Set(revealing.map((frame) => Math.round(frame.chromeHeight))).size,
+    "reveal has intermediate frames",
+  ).toBeGreaterThan(3);
+  for (let index = 1; index < revealing.length; index += 1) {
+    expect(revealing[index].chromeHeight, "chrome height never reverses during reveal").toBeGreaterThanOrEqual(
+      revealing[index - 1].chromeHeight - 1,
+    );
+    expect(revealing[index].mainTop, "content edge never reverses during reveal").toBeGreaterThanOrEqual(
+      revealing[index - 1].mainTop - 1,
+    );
+    expect(revealing[index].scrollTop, "upward intent remains monotonic during reveal").toBeLessThanOrEqual(
+      revealing[index - 1].scrollTop + 1,
+    );
+  }
+  expect(revealing.at(-1)?.chromeHeight ?? 0, "reveal restores the full phone chrome").toBeGreaterThan(100);
+});
+
+/** Phone edge-to-edge guard for the shared header on Therapy results. */
+test("phone shared header releases its top safe-area band after hide", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/therapy-compass/search?q=CBT&run=1");
+  await expect(page.getByTestId("therapy-compass-section-nav")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("chrome-safe-area-top")).toBeVisible();
 
-  const initial = await readGeometry(page);
-  expect(initial.headerHidden, "header visible at the top").toBe(false);
+  const initial = await page.evaluate(() => {
+    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const main = document.getElementById("main-content");
+    const safeAreaTopPx = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
+    );
+    return {
+      headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
+      safeAreaHeight: safeArea?.getBoundingClientRect().height ?? -1,
+      mainTop: main?.getBoundingClientRect().top ?? -1,
+      safeAreaTopPx,
+    };
+  });
+  expect(initial.headerHidden, "header starts visible").toBe(false);
+  expect(initial.safeAreaHeight, "visible header owns the simulated OS inset").toBeGreaterThanOrEqual(
+    initial.safeAreaTopPx - 1,
+  );
+  expect(initial.mainTop, "visible header and Therapy nav remain in flow").toBeGreaterThan(initial.safeAreaTopPx);
 
-  await dragScrollBy(page, Math.max(initial.maxOffset, 240), 24);
+  await dragScrollBy(page, 720, 24);
   await page.waitForTimeout(500);
 
   const afterHide = await page.evaluate(() => {
     const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
     const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
     const main = document.getElementById("main-content");
-    const servicePage = document.querySelector<HTMLElement>('[data-testid="service-detail-page"]');
     const safeRect = safeArea?.getBoundingClientRect();
     const mainRect = main?.getBoundingClientRect();
-    const rootStyles = getComputedStyle(document.documentElement);
-    const safeAreaTopPx = Number.parseFloat(rootStyles.getPropertyValue("--safe-area-top")) || 0;
-    // Geometry proof (not hit-testing): service cards may sit above the main
-    // box in document coordinates after scroll, but their visible paint is
-    // clipped to #main-content, which must start at/below the safe-area band.
-    const visibleServiceTop = servicePage ? Math.max(servicePage.getBoundingClientRect().top, mainRect?.top ?? 0) : -1;
     return {
       headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
       safeAreaHeight: safeRect?.height ?? 0,
-      safeAreaTop: safeRect?.top ?? -1,
       mainTop: mainRect?.top ?? -1,
-      visibleServiceTop,
-      safeAreaTopPx,
-      safeAreaZ: safeArea ? getComputedStyle(safeArea).zIndex : "",
+      mainLeft: mainRect?.left ?? -1,
+      mainRight: mainRect?.right ?? -1,
+      viewportWidth: window.innerWidth,
     };
   });
 
-  expect(afterHide.headerHidden, "header collapses after a deliberate descent").toBe(true);
-  expect(afterHide.safeAreaHeight, "safe-area spacer keeps the status-bar band").toBeGreaterThanOrEqual(
-    afterHide.safeAreaTopPx - 1,
+  expect(afterHide.headerHidden, "shared header collapses after a deliberate descent").toBe(true);
+  expect(afterHide.safeAreaHeight, "hidden header releases the opaque status-bar band").toBeLessThanOrEqual(1);
+  expect(afterHide.mainTop, "hidden header lets content reach the physical top edge").toBeLessThanOrEqual(1);
+  expect(afterHide.mainLeft, "phone scroll surface reaches the left edge").toBeCloseTo(0, 0);
+  expect(afterHide.mainRight, "phone scroll surface reaches the right edge").toBeCloseTo(afterHide.viewportWidth, 0);
+
+  await dragScrollBy(page, -720, 24);
+  await page.waitForTimeout(500);
+
+  const afterReveal = await page.evaluate(() => {
+    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const main = document.getElementById("main-content");
+    const safeAreaTopPx = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
+    );
+    return {
+      headerHidden: collapse?.getAttribute("data-scroll-hidden") === "true",
+      safeAreaHeight: safeArea?.getBoundingClientRect().height ?? -1,
+      mainTop: main?.getBoundingClientRect().top ?? -1,
+      safeAreaTopPx,
+    };
+  });
+
+  expect(afterReveal.headerHidden, "upward scroll reveals the shared header").toBe(false);
+  expect(afterReveal.safeAreaHeight, "revealed header restores the OS inset").toBeGreaterThanOrEqual(
+    afterReveal.safeAreaTopPx - 1,
   );
-  expect(afterHide.safeAreaTop, "safe-area spacer stays pinned to the viewport top").toBeLessThanOrEqual(1);
-  expect(afterHide.mainTop, "scrollport starts below the status-bar inset").toBeGreaterThanOrEqual(
-    afterHide.safeAreaTopPx - 1,
+  expect(afterReveal.mainTop, "revealed header restores its complete flow height").toBeGreaterThan(
+    afterReveal.safeAreaTopPx,
   );
-  expect(afterHide.visibleServiceTop, "service content stays below the status-bar inset").toBeGreaterThanOrEqual(
-    afterHide.safeAreaTopPx - 1,
-  );
-  expect(
-    Number.parseInt(afterHide.safeAreaZ, 10),
-    "safe-area spacer stacks above collapsing chrome",
-  ).toBeGreaterThanOrEqual(32);
 });

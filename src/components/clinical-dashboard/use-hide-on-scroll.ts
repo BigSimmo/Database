@@ -190,8 +190,10 @@ export function computeScrollHideUpdate(params: {
 /**
  * Measures how much layout (px) the chrome would release into the given
  * scroller if hide-on-scroll fired right now: the in-flow collapsible header
- * strip plus every visible dock-clearance pad above its hidden size. Reads the
- * documented DOM contracts — `universal-header-collapse` for the header
+ * strip, the phone-only top safe-area that hides with it, plus every visible
+ * dock-clearance pad above its hidden size. Reads the documented DOM contracts
+ * — `universal-header-collapse` for the header,
+ * `chrome-safe-area-top` for its phone inset
  * (absent under the overlay strategy, which does not affect geometry and so
  * contributes 0), `mobile-composer-reserve-pad` for the shell reserve,
  * `document-viewer-content` for DocumentViewer's own clearance (its hidden
@@ -212,6 +214,14 @@ export function readChromeCollapseMetrics(
     collapse instanceof HTMLElement && window.getComputedStyle(collapse).display === "grid"
       ? collapse.getBoundingClientRect().height
       : 0;
+  const safeAreaTop = document.querySelector('[data-testid="chrome-safe-area-top"]');
+  // Phone collapse now releases the status-bar spacer with the top bar. Charge
+  // that real geometry before allowing a hide or short pages clamp and bounce
+  // between states at the bottom. sm+ keeps this spacer, so it contributes 0.
+  const phoneSafeAreaRelease =
+    headerRelease > 0 && window.matchMedia(phoneMediaQuery).matches && safeAreaTop instanceof HTMLElement
+      ? safeAreaTop.getBoundingClientRect().height
+      : 0;
   const rootFontSize = Number.parseFloat(window.getComputedStyle(document.documentElement).fontSize) || 16;
   const hiddenPadPx = mobileComposerHiddenReserveRem * rootFontSize;
   const padRelease = (element: Element | null): number => {
@@ -224,7 +234,7 @@ export function readChromeCollapseMetrics(
   const reserveRelease =
     reservePad || viewerPad ? padRelease(reservePad) + padRelease(viewerPad) : padRelease(scroller);
   return {
-    collapseBudget: headerRelease + reserveRelease,
+    collapseBudget: headerRelease + phoneSafeAreaRelease + reserveRelease,
     collapseKind: collapse instanceof HTMLElement ? "in-flow" : reserveRelease > 0 ? "reserve-only" : undefined,
   };
 }

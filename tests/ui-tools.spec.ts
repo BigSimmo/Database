@@ -2073,7 +2073,9 @@ test.describe("Clinical KB service detail page", () => {
     await page.setViewportSize({ width: 390, height: 820 });
     await gotoLauncher(page, "/services/city-east-community-mental-health-service");
 
-    const servicePage = page.getByTestId("service-detail-page");
+    // Scope to the live shell scrollport: Next may briefly retain a hidden
+    // streaming `S:` clone of the page root under CI load.
+    const servicePage = page.getByTestId("mobile-composer-reserve-pad").getByTestId("service-detail-page");
     const footer = servicePage.getByText("Information accuracy may vary. Confirm locally before use.");
     const scrollport = page.locator("#main-content");
     const dock = page.locator("form.answer-footer-search-dock, form.answer-footer-search-edge").first();

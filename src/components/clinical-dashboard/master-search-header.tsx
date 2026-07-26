@@ -67,6 +67,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
+import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
@@ -187,7 +188,6 @@ export function MasterSearchHeader({
   desktopPageComposerSlotId,
   heroComposerBreakpoint = "all",
   mobileBottomSearchAddonSlotId,
-  headerCollapseAddonSlotId,
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
@@ -255,12 +255,6 @@ export function MasterSearchHeader({
   heroComposerBreakpoint?: "all" | "sm-up";
   /** Mobile/tablet slot rendered above the search pill for page-specific composer addons. */
   mobileBottomSearchAddonSlotId?: string;
-  /**
-   * Optional host rendered inside the collapsing top-bar track (after `header#search`)
-   * for page chrome that must hide/reveal with the universal top bar — e.g. Therapy
-   * section nav on phones. Keep search composers out of this slot.
-   */
-  headerCollapseAddonSlotId?: string;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
   /** Phone-only hide-on-scroll for the universal header and bottom search dock.
@@ -369,10 +363,15 @@ export function MasterSearchHeader({
   // into invisible controls).
   const [headerChromeFocused, setHeaderChromeFocused] = useState(false);
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
+  const [phoneHeaderCollapseAddonHost, setPhoneHeaderCollapseAddonHost] = useState<HTMLDivElement | null>(null);
+  const setPhoneHeaderCollapseAddonRef = useCallback((node: HTMLDivElement | null) => {
+    setPhoneHeaderCollapseAddonHost(node);
+  }, []);
   const internalScrollHidden = useHideOnScroll({
     disabled: !hideOnScroll || hideOnScroll.scrollHidden !== undefined,
   });
   const scrollHidden = hideOnScroll?.scrollHidden !== undefined ? hideOnScroll.scrollHidden : internalScrollHidden;
+  const headerCollapseOwnsPhoneAddonFocus = hideOnScroll?.strategy === "collapse";
   // Mode homes portal the composer into the hero slot. With "all" the hero owns
   // every width (the answer home keeps its in-flow pill on phones); "sm-up"
   // hero hosts hand phones the bottom dock instead.
@@ -414,6 +413,45 @@ export function MasterSearchHeader({
       if (!hideOnScrollEnabled) setHeaderChromeFocused(false);
     });
   }, [phoneBottomSearchDockActive, hideOnScrollEnabled]);
+
+  useEffect(() => {
+    const addonHost = phoneHeaderCollapseAddonHost;
+    const clearHeaderFocus = () => setHeaderChromeFocused(false);
+    if (!addonHost || !hideOnScrollEnabled || !headerCollapseOwnsPhoneAddonFocus) {
+      queueMicrotask(clearHeaderFocus);
+      return undefined;
+    }
+
+    // React portal focus events follow the source React tree, not the portal
+    // host's synthetic-event ancestry. Listen at the real DOM host so focused
+    // page-owned controls pin the same collapse track as the universal bar.
+    const hostContainsActiveElement = () => {
+      const activeElement = document.activeElement;
+      return activeElement instanceof Node && addonHost.contains(activeElement);
+    };
+    const clearIfFocusLeftHost = () => {
+      if (!hostContainsActiveElement()) setHeaderChromeFocused(false);
+    };
+    const handleFocusIn = () => setHeaderChromeFocused(true);
+    const handleFocusOut = (event: FocusEvent) => {
+      const nextTarget = event.relatedTarget;
+      if (!(nextTarget instanceof Node) || !addonHost.contains(nextTarget)) {
+        setHeaderChromeFocused(false);
+      }
+    };
+    queueMicrotask(() => setHeaderChromeFocused(hostContainsActiveElement()));
+    const observer = new MutationObserver(clearIfFocusLeftHost);
+    observer.observe(addonHost, { childList: true, subtree: true });
+
+    addonHost.addEventListener("focusin", handleFocusIn);
+    addonHost.addEventListener("focusout", handleFocusOut);
+    return () => {
+      addonHost.removeEventListener("focusin", handleFocusIn);
+      addonHost.removeEventListener("focusout", handleFocusOut);
+      observer.disconnect();
+      queueMicrotask(clearHeaderFocus);
+    };
+  }, [headerCollapseOwnsPhoneAddonFocus, hideOnScrollEnabled, phoneHeaderCollapseAddonHost]);
 
   useEffect(() => {
     onBottomComposerHiddenChange?.(bottomComposerHidden);
@@ -1781,10 +1819,11 @@ export function MasterSearchHeader({
         // No backdrop-filter on the header itself: it would form a backdrop
         // root and starve the .edge-glass-header-backdrop scrim (the single
         // source of the bar's frost) of the real page behind it.
-        // Collapse hosts own the OS top inset via the always-on
-        // `chrome-safe-area-top` spacer outside the 0fr row, so this bar only
-        // needs its aesthetic 0.5rem pad. Overlay hosts still paint the inset
-        // themselves (answer mode keeps an equivalent reserve on <main>).
+        // Collapse hosts own the OS top inset via `chrome-safe-area-top`, so
+        // this bar only needs its aesthetic 0.5rem pad. On phones that spacer
+        // releases with hidden chrome; wider sticky hosts keep it pinned.
+        // Overlay hosts still paint the inset themselves (answer mode keeps an
+        // equivalent reserve on <main>).
         "edge-glass-header universal-header z-30 py-2 text-[color:var(--text)]",
         hideStrategy === "collapse" ? "pt-2" : "pt-[max(0.5rem,var(--safe-area-top))]",
         // Collapse hosts keep the top bar above an internally scrolling <main>,
@@ -2028,8 +2067,8 @@ export function MasterSearchHeader({
     // tree via `position: fixed`; hero composers portal out.
     //
     // Above the phone breakpoint a `wide: "sticky"` host scrolls the document,
-    // so an outer sticky stack pins its chrome below the always-on safe-area
-    // spacer. Tablet search remains in that stack; desktop result search portals
+    // so an outer sticky stack pins its chrome below the wide safe-area spacer.
+    // Tablet search remains in that stack; desktop result search portals
     // into page flow, so the stack contains only the top bar there. Return a fragment (never a
     // wrapping block): GlobalSearchShell uses `sm:contents` on the chrome
     // parent so sticky can travel against the viewport.
@@ -2059,7 +2098,7 @@ export function MasterSearchHeader({
       >
         <div
           className={cn(
-            "max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
+            "w-full min-w-0 max-w-full max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
             (collapsesAtEveryWidth || sticksAbovePhones) && "sm:flex sm:min-h-0 sm:flex-col sm:justify-end",
             // Clip only while hiding so the edge-glass-header gradient that
             // extends below the header keeps painting when the chrome is shown.
@@ -2068,9 +2107,12 @@ export function MasterSearchHeader({
           )}
         >
           {topBar}
-          {headerCollapseAddonSlotId ? (
-            <div id={headerCollapseAddonSlotId} data-testid="header-collapse-addon" className="w-full empty:hidden" />
-          ) : null}
+          <div
+            ref={setPhoneHeaderCollapseAddonRef}
+            id={phoneHeaderCollapseAddonSlotId}
+            data-testid="header-collapse-addon"
+            className="w-full min-w-0 max-w-full empty:hidden"
+          />
         </div>
       </div>
     );
@@ -2080,10 +2122,16 @@ export function MasterSearchHeader({
         aria-hidden="true"
         data-testid="chrome-safe-area-top"
         className={cn(
-          // relative + z above the collapsing header: the 0fr row still lets
-          // header#search's box extend upward into this band for layout, and
-          // without a higher stack the status-bar fill can lose to that paint.
-          "relative z-[32] h-[var(--safe-area-top)] shrink-0 bg-[color:var(--background)]",
+          // Visible phone chrome owns the OS inset. Hidden phone chrome must
+          // release it so the scroll surface reaches the physical viewport
+          // edge instead of leaving an opaque status-bar band. Match the
+          // header row's timing to avoid a one-frame gap during hide/reveal.
+          // sm+ keeps its pinned inset because the sticky [bar | search] stack
+          // is a separate wide-layout contract.
+          "relative z-[32] shrink-0 bg-[color:var(--background)] max-sm:transition-[height] motion-reduce:transition-none sm:h-[var(--safe-area-top)]",
+          headerChromeHidden
+            ? "max-sm:h-0 max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+            : "max-sm:h-[var(--safe-area-top)] max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
           sticksAbovePhones && "sm:sticky sm:top-0",
         )}
       />

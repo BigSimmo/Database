@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
+import { isStandaloneModeHomePath, shouldRenderDashboardSearch } from "@/lib/search-route-ownership";
 
 // Guards the two production-mode wiring invariants for Therapy Compass. Both were
 // real breakages caught in review when the mockup was promoted to a live mode.
@@ -139,6 +139,6 @@ describe("Therapy Compass production-mode wiring", () => {
     expect(homeSrc).toContain("desktopComposerSlotId={modeHomeDesktopComposerSlotId}");
     // Mode homes are pathname-gated so optimistic searchMode cannot flip hero→dock mid-nav.
     expect(shellSrc).toContain("isStandaloneModeHomePath(pathname)");
-    expect(shellSrc).toContain('"/therapy-compass"');
+    expect(isStandaloneModeHomePath("/therapy-compass")).toBe(true);
   });
 });
