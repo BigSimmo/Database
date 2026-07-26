@@ -307,7 +307,13 @@ async function globalSearchComposerMetrics(page: Page, homeTestId?: string) {
     .evaluate((input, homeTestId) => {
       const form = input.closest("form");
       const pill = input.closest(".answer-footer-search-pill");
-      const home = homeTestId ? document.querySelector(`[data-testid="${homeTestId}"]`) : null;
+      const home = homeTestId
+        ? [...document.querySelectorAll(`[data-testid="${homeTestId}"]`)].find((candidate) => {
+            const rect = candidate.getBoundingClientRect();
+            const style = window.getComputedStyle(candidate);
+            return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+          })
+        : null;
       if (!form) return null;
 
       const formRect = form.getBoundingClientRect();
@@ -837,12 +843,13 @@ test.describe("Clinical KB tools launcher", () => {
         await mockAnswerDashboardApi(page);
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
         await gotoLauncher(page, home.path);
-        await expect(page.getByTestId(home.testId)).toBeVisible();
+        const homeRoot = page.locator(`[data-testid="${home.testId}"]:visible`).last();
+        await expect(homeRoot).toBeVisible();
         await expect(visibleGlobalSearchInput(page)).toHaveCount(1);
 
         // From the tablet breakpoint up the composer is portaled into the hero
         // (inside the mode-home container) rather than floated over the heading.
-        const heroSearch = page.getByTestId(home.testId).getByTestId("global-search-input");
+        const heroSearch = homeRoot.getByTestId("global-search-input");
         await expect(heroSearch).toBeVisible();
 
         const searchBox = await heroSearch.boundingBox();
@@ -850,7 +857,8 @@ test.describe("Clinical KB tools launcher", () => {
         // "Medication" hero title is otherwise a substring of the answer
         // section's sr-only "Medication matches" heading (strict-mode clash).
         const headingBox = await page
-          .getByTestId(home.testId)
+          .locator(`[data-testid="${home.testId}"]:visible`)
+          .last()
           .getByRole("heading", { level: home.headingLevel, name: home.heading, exact: true })
           .boundingBox();
         expect(searchBox).not.toBeNull();
@@ -2043,7 +2051,7 @@ test.describe("Clinical KB service detail page", () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await gotoLauncher(page, "/services/13yarn");
 
-      const servicePage = page.getByTestId("service-detail-page");
+      const servicePage = page.locator('[data-testid="service-detail-page"]:visible').last();
       const copyContactButton = servicePage.getByRole("button", { name: "Copy contact" }).last();
       await expect(servicePage).toBeVisible();
       await expect(servicePage.getByRole("heading", { level: 1, name: "13YARN" })).toBeVisible();
