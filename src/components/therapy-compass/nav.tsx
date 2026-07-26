@@ -1,35 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-
-import { therapyHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
+import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
 
 import { useTcBindings } from "./bindings";
-
-// Matches phoneSearchLayoutMediaQuery in master-search-header.tsx and
-// phoneMediaQuery in use-hide-on-scroll.ts — the shared phone/tablet seam.
-const phoneCollapseMediaQuery = "(max-width: 639px)";
 
 /** Core Therapy destinations for non-home screens. */
 export function TherapyCompassNav() {
   const b = useTcBindings();
-  const [phoneHost, setPhoneHost] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    const phoneMedia = window.matchMedia(phoneCollapseMediaQuery);
-    const sync = () => {
-      setPhoneHost(phoneMedia.matches ? document.getElementById(therapyHeaderCollapseAddonSlotId) : null);
-    };
-    sync();
-    phoneMedia.addEventListener("change", sync);
-    const observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => {
-      phoneMedia.removeEventListener("change", sync);
-      observer.disconnect();
-    };
-  }, []);
 
   const navShell = (
     <div className="tc-topnav tc-no-print tc-nav-001" data-testid="therapy-compass-section-nav">
@@ -187,6 +164,5 @@ export function TherapyCompassNav() {
 
   // Phones: portal into the collapsing top-bar track so the strip hides/reveals
   // with the universal header. sm+: keep in-flow sticky inside the workspace.
-  if (phoneHost) return createPortal(navShell, phoneHost);
-  return navShell;
+  return <PhoneHeaderCollapsePortal>{navShell}</PhoneHeaderCollapsePortal>;
 }

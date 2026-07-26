@@ -55,7 +55,7 @@ describe("Therapy Compass responsive contract", () => {
     const navShellRule = therapyCssSource.match(/\.tc-root \.tc-nav-001\s*\{([^}]*)\}/)?.[1] ?? "";
     const navScrollerRule = therapyCssSource.match(/\.tc-root \.tc-nav-007\s*\{([^}]*)\}/)?.[1] ?? "";
     const portaledNavRule =
-      therapyCssSource.match(/#therapy-header-collapse-addon-slot \.tc-nav-001\s*\{([^}]*)\}/)?.[1] ?? "";
+      therapyCssSource.match(/#phone-header-collapse-addon-slot \.tc-nav-001\s*\{([^}]*)\}/)?.[1] ?? "";
 
     expect(rootRule).toContain("background: var(--background);");
     expect(workspaceRule).toContain("background: var(--background);");
@@ -74,11 +74,9 @@ describe("Therapy Compass responsive contract", () => {
 
   it("portals the section nav into the header collapse host on phones", () => {
     expect(modeHomeComposerSource).toContain(
-      'export const therapyHeaderCollapseAddonSlotId = "therapy-header-collapse-addon-slot"',
+      'export const phoneHeaderCollapseAddonSlotId = "phone-header-collapse-addon-slot"',
     );
-    expect(therapyNavSource).toContain("createPortal");
-    expect(therapyNavSource).toContain("therapyHeaderCollapseAddonSlotId");
-    expect(therapyNavSource).toContain('"(max-width: 639px)"');
+    expect(therapyNavSource).toContain("PhoneHeaderCollapsePortal");
     expect(therapyNavSource).toContain('data-testid="therapy-compass-section-nav"');
   });
 

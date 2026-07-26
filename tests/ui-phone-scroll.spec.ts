@@ -48,6 +48,40 @@ const longRoutes = [
   "/documents/11111111-1111-4111-8111-111111111111?page=1",
 ];
 
+const appModeHeaderRoutes = [
+  { mode: "Answer", route: "/?mode=answer" },
+  { mode: "Documents", route: "/?mode=documents" },
+  { mode: "Services", route: "/services" },
+  { mode: "Forms", route: "/forms" },
+  { mode: "Favourites", route: "/favourites" },
+  { mode: "Differentials", route: "/differentials" },
+  { mode: "DSM", route: "/dsm" },
+  { mode: "Specifiers", route: "/specifiers" },
+  { mode: "Formulation", route: "/formulation" },
+  { mode: "Medication", route: "/?mode=prescribing" },
+  { mode: "Tools", route: "/tools" },
+  { mode: "Therapy", route: "/therapy-compass" },
+  { mode: "Factsheets", route: "/factsheets" },
+];
+
+const pageOwnedHeaderRoutes = [
+  {
+    name: "Therapy section navigation",
+    route: "/therapy-compass/search?q=CBT&run=1",
+    selector: '[data-testid="therapy-compass-section-nav"]',
+  },
+  {
+    name: "document navigation",
+    route: "/documents/11111111-1111-4111-8111-111111111111?page=1",
+    selector: "header",
+  },
+  {
+    name: "differential detail navigation",
+    route: "/differentials/diagnoses/delirium",
+    selector: '[data-testid="differential-detail-header"]',
+  },
+];
+
 const phoneViewport = { width: 390, height: 844 };
 
 async function blockExternalRequests(page: Page) {
@@ -74,6 +108,20 @@ async function gotoPhoneSurface(page: Page, path: string) {
   });
   // Let hydration, fonts, and the composer/portal layout settle.
   await page.waitForTimeout(700);
+}
+
+async function addPhoneScrollRunway(page: Page) {
+  await page.evaluate(() => {
+    const main = document.getElementById("main-content");
+    if (!main) throw new Error("addPhoneScrollRunway: #main-content was not rendered");
+    const filler = document.createElement("div");
+    filler.dataset.testid = "phone-header-scroll-runway";
+    filler.setAttribute("aria-hidden", "true");
+    filler.style.height = "1600px";
+    filler.style.pointerEvents = "none";
+    main.append(filler);
+  });
+  await page.waitForTimeout(50);
 }
 
 interface ScrollGeometry {
@@ -341,12 +389,228 @@ test("phone forms search hides header and footer after submit without stale focu
   expect(Number.parseFloat(afterHide.reservePb) || 0, "hidden reserve releases the bottom rail").toBeLessThanOrEqual(1);
 });
 
+for (const { mode, route } of appModeHeaderRoutes) {
+  test(`phone ${mode} mode releases the complete top edge without oscillation`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.setViewportSize(phoneViewport);
+    await gotoPhoneSurface(page, route);
+    await addPhoneScrollRunway(page);
+    await installFlipCounter(page);
+
+    const initial = await page.evaluate(() => {
+      const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+      const header = document.querySelector<HTMLElement>("header#search");
+      const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+      const main = document.getElementById("main-content");
+      const safeAreaTopPx = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
+      );
+      return {
+        usesCollapse: Boolean(collapse),
+        hidden: (collapse ?? header)?.getAttribute("data-scroll-hidden") === "true",
+        safeAreaHeight: safeArea?.getBoundingClientRect().height ?? 0,
+        safeAreaTopPx,
+        mainTop: main?.getBoundingClientRect().top ?? -1,
+      };
+    });
+    expect(initial.hidden, "header starts visible").toBe(false);
+    if (initial.usesCollapse) {
+      expect(initial.safeAreaHeight, "visible collapse header owns the top inset").toBeGreaterThanOrEqual(
+        initial.safeAreaTopPx - 1,
+      );
+      expect(initial.mainTop, "visible collapse header remains in flow").toBeGreaterThan(initial.safeAreaTopPx);
+    }
+
+    await dragScrollBy(page, 720, 24);
+    await page.waitForTimeout(500);
+
+    const hidden = await page.evaluate(() => {
+      const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+      const header = document.querySelector<HTMLElement>("header#search");
+      const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+      const main = document.getElementById("main-content");
+      const mainRect = main?.getBoundingClientRect();
+      return {
+        usesCollapse: Boolean(collapse),
+        hidden: (collapse ?? header)?.getAttribute("data-scroll-hidden") === "true",
+        collapseHeight: collapse?.getBoundingClientRect().height ?? 0,
+        safeAreaHeight: safeArea?.getBoundingClientRect().height ?? 0,
+        headerBottom: header?.getBoundingClientRect().bottom ?? -1,
+        mainTop: mainRect?.top ?? -1,
+        mainLeft: mainRect?.left ?? -1,
+        mainRight: mainRect?.right ?? -1,
+        viewportWidth: window.innerWidth,
+      };
+    });
+    expect(hidden.hidden, "one deliberate descent hides the header").toBe(true);
+    if (hidden.usesCollapse) {
+      expect(hidden.collapseHeight, "all collapsed header rows release their height").toBeLessThanOrEqual(1);
+      expect(hidden.safeAreaHeight, "hidden header releases the top safe area").toBeLessThanOrEqual(1);
+    } else {
+      expect(hidden.headerBottom, "overlay header clears the viewport top").toBeLessThanOrEqual(1);
+    }
+    expect(hidden.mainTop, "content reaches the physical top edge").toBeLessThanOrEqual(1);
+    expect(hidden.mainLeft, "content reaches the left edge").toBeCloseTo(0, 0);
+    expect(hidden.mainRight, "content reaches the right edge").toBeCloseTo(hidden.viewportWidth, 0);
+    expect(await readFlipCount(page), "descent produces one stable hide transition").toBe(1);
+
+    await page.waitForTimeout(350);
+    expect(await readFlipCount(page), "resting after hide cannot oscillate").toBe(1);
+
+    await dragScrollBy(page, -48, 8);
+    await page.waitForTimeout(500);
+    const revealed = await page.evaluate(() => {
+      const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+      const header = document.querySelector<HTMLElement>("header#search");
+      const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+      return {
+        hidden: (collapse ?? header)?.getAttribute("data-scroll-hidden") === "true",
+        safeAreaHeight: safeArea?.getBoundingClientRect().height ?? 0,
+        safeAreaTopPx: Number.parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue("--safe-area-top"),
+        ),
+      };
+    });
+    expect(revealed.hidden, "one deliberate upward gesture reveals the header").toBe(false);
+    if (hidden.usesCollapse) {
+      expect(revealed.safeAreaHeight, "revealed header restores the top inset").toBeGreaterThanOrEqual(
+        revealed.safeAreaTopPx - 1,
+      );
+    }
+    expect(await readFlipCount(page), "hide and reveal remain a single symmetric cycle").toBe(2);
+  });
+}
+
+for (const { name, route, selector } of pageOwnedHeaderRoutes) {
+  test(`phone ${name} uses the universal collapse owner`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.setViewportSize({ width: 320, height: 720 });
+    await gotoPhoneSurface(page, route);
+
+    const collapse = page.getByTestId("universal-header-collapse");
+    const addon = page.getByTestId("header-collapse-addon");
+    const pageHeader = page.locator(selector).first();
+    await expect(pageHeader).toBeVisible({ timeout: 20_000 });
+    await expect(
+      addon.locator(selector).first(),
+      "phone page header is portaled into the one collapse track",
+    ).toBeVisible();
+    const pageHeaderBox = await pageHeader.boundingBox();
+    expect(pageHeaderBox).not.toBeNull();
+    expect(pageHeaderBox!.x, "page header cannot overflow the viewport left edge").toBeGreaterThanOrEqual(0);
+    expect(pageHeaderBox!.x + pageHeaderBox!.width, "page header cannot expand past the viewport").toBeLessThanOrEqual(
+      320,
+    );
+    await addPhoneScrollRunway(page);
+
+    await dragScrollBy(page, 720, 24);
+    await page.waitForTimeout(500);
+
+    await expect(collapse).toHaveAttribute("data-scroll-hidden", "true");
+    expect(await collapse.evaluate((element) => element.getBoundingClientRect().height)).toBeLessThanOrEqual(1);
+    expect(
+      await page.getByTestId("chrome-safe-area-top").evaluate((element) => element.getBoundingClientRect().height),
+    ).toBeLessThanOrEqual(1);
+  });
+}
+
+test("phone header hide and reveal animate monotonically without a geometry jump", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.setViewportSize(phoneViewport);
+  await gotoPhoneSurface(page, "/therapy-compass/search?q=CBT&run=1");
+  await addPhoneScrollRunway(page);
+
+  const hideFrames = await page.evaluate(async () => {
+    const main = document.getElementById("main-content");
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+    if (!main || !collapse || !safeArea) throw new Error("phone collapse geometry was not rendered");
+    const frames: Array<{ hidden: boolean; chromeHeight: number; mainTop: number; scrollTop: number }> = [];
+    for (let frame = 0; frame < 55; frame += 1) {
+      if (frame < 20) {
+        main.scrollTop += 8;
+        main.dispatchEvent(new Event("scroll", { bubbles: true }));
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+      frames.push({
+        hidden: collapse.getAttribute("data-scroll-hidden") === "true",
+        chromeHeight: collapse.getBoundingClientRect().height + safeArea.getBoundingClientRect().height,
+        mainTop: main.getBoundingClientRect().top,
+        scrollTop: main.scrollTop,
+      });
+    }
+    return frames;
+  });
+
+  const firstHiddenFrame = hideFrames.findIndex((frame) => frame.hidden);
+  expect(firstHiddenFrame, "the stepped descent triggers hide").toBeGreaterThan(-1);
+  const hiding = hideFrames.slice(firstHiddenFrame);
+  expect(
+    new Set(hiding.map((frame) => Math.round(frame.chromeHeight))).size,
+    "hide has intermediate frames",
+  ).toBeGreaterThan(3);
+  for (let index = 1; index < hiding.length; index += 1) {
+    expect(hiding[index].chromeHeight, "chrome height never reverses during hide").toBeLessThanOrEqual(
+      hiding[index - 1].chromeHeight + 1,
+    );
+    expect(hiding[index].mainTop, "content edge never reverses during hide").toBeLessThanOrEqual(
+      hiding[index - 1].mainTop + 1,
+    );
+    expect(hiding[index].scrollTop, "downward intent remains monotonic during hide").toBeGreaterThanOrEqual(
+      hiding[index - 1].scrollTop - 1,
+    );
+  }
+  expect(hiding.at(-1)?.chromeHeight ?? -1, "hide settles at zero chrome height").toBeLessThanOrEqual(1);
+
+  const revealFrames = await page.evaluate(async () => {
+    const main = document.getElementById("main-content");
+    const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+    const safeArea = document.querySelector<HTMLElement>('[data-testid="chrome-safe-area-top"]');
+    if (!main || !collapse || !safeArea) throw new Error("phone collapse geometry was not rendered");
+    const frames: Array<{ hidden: boolean; chromeHeight: number; mainTop: number; scrollTop: number }> = [];
+    for (let frame = 0; frame < 45; frame += 1) {
+      if (frame < 6) {
+        main.scrollTop -= 8;
+        main.dispatchEvent(new Event("scroll", { bubbles: true }));
+      }
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
+      frames.push({
+        hidden: collapse.getAttribute("data-scroll-hidden") === "true",
+        chromeHeight: collapse.getBoundingClientRect().height + safeArea.getBoundingClientRect().height,
+        mainTop: main.getBoundingClientRect().top,
+        scrollTop: main.scrollTop,
+      });
+    }
+    return frames;
+  });
+
+  const firstRevealedFrame = revealFrames.findIndex((frame) => !frame.hidden);
+  expect(firstRevealedFrame, "the upward gesture triggers reveal").toBeGreaterThan(-1);
+  const revealing = revealFrames.slice(firstRevealedFrame);
+  expect(
+    new Set(revealing.map((frame) => Math.round(frame.chromeHeight))).size,
+    "reveal has intermediate frames",
+  ).toBeGreaterThan(3);
+  for (let index = 1; index < revealing.length; index += 1) {
+    expect(revealing[index].chromeHeight, "chrome height never reverses during reveal").toBeGreaterThanOrEqual(
+      revealing[index - 1].chromeHeight - 1,
+    );
+    expect(revealing[index].mainTop, "content edge never reverses during reveal").toBeGreaterThanOrEqual(
+      revealing[index - 1].mainTop - 1,
+    );
+    expect(revealing[index].scrollTop, "upward intent remains monotonic during reveal").toBeLessThanOrEqual(
+      revealing[index - 1].scrollTop + 1,
+    );
+  }
+  expect(revealing.at(-1)?.chromeHeight ?? 0, "reveal restores the full phone chrome").toBeGreaterThan(100);
+});
+
 /** Phone edge-to-edge guard for the shared header on Therapy results. */
 test("phone shared header releases its top safe-area band after hide", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.setViewportSize(phoneViewport);
   await gotoPhoneSurface(page, "/therapy-compass/search?q=CBT&run=1");
-  await expect(page.getByRole("heading", { name: "Therapy", exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("therapy-compass-section-nav")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId("chrome-safe-area-top")).toBeVisible();
 
   const initial = await page.evaluate(() => {

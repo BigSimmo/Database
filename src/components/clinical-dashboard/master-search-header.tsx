@@ -67,6 +67,7 @@ import {
   type AppModeId,
 } from "@/lib/app-modes";
 import { appModeIcons } from "@/lib/app-mode-icons";
+import { phoneHeaderCollapseAddonSlotId } from "@/lib/mode-home-composer";
 import { resolveScrollBehavior } from "@/lib/scroll-behavior";
 import type { ClinicalDocument, ClinicalQueryMode } from "@/lib/types";
 import { type SearchScopeFilters } from "@/lib/search-scope";
@@ -186,7 +187,6 @@ export function MasterSearchHeader({
   desktopPageComposerSlotId,
   heroComposerBreakpoint = "all",
   mobileBottomSearchAddonSlotId,
-  headerCollapseAddonSlotId,
   mobileLeadingAction = "menu",
   onMobileBack,
   hideOnScroll,
@@ -254,12 +254,6 @@ export function MasterSearchHeader({
   heroComposerBreakpoint?: "all" | "sm-up";
   /** Mobile/tablet slot rendered above the search pill for page-specific composer addons. */
   mobileBottomSearchAddonSlotId?: string;
-  /**
-   * Optional host rendered inside the collapsing top-bar track (after `header#search`)
-   * for page chrome that must hide/reveal with the universal top bar — e.g. Therapy
-   * section nav on phones. Keep search composers out of this slot.
-   */
-  headerCollapseAddonSlotId?: string;
   mobileLeadingAction?: "menu" | "back";
   onMobileBack?: () => void;
   /** Phone-only hide-on-scroll for the universal header and bottom search dock.
@@ -2064,7 +2058,7 @@ export function MasterSearchHeader({
       >
         <div
           className={cn(
-            "max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
+            "w-full min-w-0 max-w-full max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end",
             (collapsesAtEveryWidth || sticksAbovePhones) && "sm:flex sm:min-h-0 sm:flex-col sm:justify-end",
             // Clip only while hiding so the edge-glass-header gradient that
             // extends below the header keeps painting when the chrome is shown.
@@ -2073,9 +2067,11 @@ export function MasterSearchHeader({
           )}
         >
           {topBar}
-          {headerCollapseAddonSlotId ? (
-            <div id={headerCollapseAddonSlotId} data-testid="header-collapse-addon" className="w-full empty:hidden" />
-          ) : null}
+          <div
+            id={phoneHeaderCollapseAddonSlotId}
+            data-testid="header-collapse-addon"
+            className="w-full min-w-0 max-w-full empty:hidden"
+          />
         </div>
       </div>
     );

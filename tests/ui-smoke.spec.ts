@@ -3558,7 +3558,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // Exercise the independent actions sheet last. Its portal/focus teardown
     // causes a deferred root commit in Firefox; no subsequent target should be
     // selected against the pre-teardown layout.
-    await page.getByRole("button", { name: "Open document actions" }).first().click();
+    const openDocumentActions = page.getByRole("button", { name: "Open document actions" }).first();
+    await page.locator("#main-content").evaluate((element) => {
+      element.scrollTop = 0;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect(openDocumentActions).toBeInViewport();
+    await openDocumentActions.click();
     const documentActions = page.getByRole("dialog", { name: "This document" });
     await expect(documentActions).toBeVisible();
     await tapOutsideActiveSurface(page);

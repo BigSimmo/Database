@@ -5,7 +5,8 @@ export const desktopPageComposerSlotId = "desktop-page-search-composer-slot";
 export const differentialsMobileCompareAddonSlotId = "differentials-mobile-compare-addon-slot";
 
 /**
- * Host inside `universal-header-collapse` for Therapy section nav on phones.
- * Portaled chrome here hides/reveals with the top bar on the shared scroll signal.
+ * The one page-owned phone navigation host inside `universal-header-collapse`.
+ * Portaled chrome here shares the universal header's scroll signal, safe-area
+ * release, focus pinning, transition timing, and collapse-budget measurement.
  */
-export const therapyHeaderCollapseAddonSlotId = "therapy-header-collapse-addon-slot";
+export const phoneHeaderCollapseAddonSlotId = "phone-header-collapse-addon-slot";

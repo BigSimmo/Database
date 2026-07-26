@@ -1053,7 +1053,7 @@
 
 /* Portaled under the universal header on phones: the collapse row owns
    stacking/hide, so sticky would fight the shared chrome geometry. */
-#therapy-header-collapse-addon-slot .tc-nav-001 {
+#phone-header-collapse-addon-slot .tc-nav-001 {
   position: relative;
   top: auto;
   z-index: auto;

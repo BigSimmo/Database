@@ -22,6 +22,10 @@ const headerSource = read("src/components/clinical-dashboard/master-search-heade
 const shellSource = read("src/components/clinical-dashboard/global-search-shell.tsx");
 const dashboardSource = read("src/components/ClinicalDashboard.tsx");
 const composerSlotSource = read("src/lib/mode-home-composer.ts");
+const phoneHeaderPortalSource = read("src/components/clinical-dashboard/phone-header-collapse-portal.tsx");
+const therapyNavSource = read("src/components/therapy-compass/nav.tsx");
+const documentViewerSource = read("src/components/DocumentViewer.tsx");
+const differentialDetailSource = read("src/components/differentials/differential-detail-page.tsx");
 const behaviourDocSource = read("docs/search-chrome-behaviour.md");
 
 describe("shared header hide/reveal wiring", () => {
@@ -78,26 +82,49 @@ describe("shared header hide/reveal wiring", () => {
     // The collapse testid must sit on the top-bar wrapper, not a joint stack.
     const collapseIdx = headerSource.indexOf('data-testid="universal-header-collapse"');
     const topBarCloseIdx = headerSource.indexOf("{topBar}", collapseIdx);
-    const addonIdx = headerSource.indexOf("headerCollapseAddonSlotId", topBarCloseIdx);
+    const addonIdx = headerSource.indexOf('data-testid="header-collapse-addon"', topBarCloseIdx);
     const composerIdx = headerSource.indexOf("{searchComposer}", collapseIdx);
     expect(collapseIdx).toBeGreaterThan(-1);
     expect(topBarCloseIdx).toBeGreaterThan(collapseIdx);
-    // Optional page chrome (Therapy section nav) may sit after the top bar
-    // inside the collapse row; the search composer must stay outside it.
+    // Page-owned phone navigation may sit after the top bar inside the
+    // collapse row; the search composer must stay outside it.
     expect(addonIdx).toBeGreaterThan(topBarCloseIdx);
     expect(composerIdx).toBeGreaterThan(addonIdx);
   });
 
-  it("hosts Therapy section nav inside the collapse row on non-home therapy routes", () => {
-    expect(shellSource).toContain("therapyHeaderCollapseAddonSlotId");
-    expect(shellSource).toContain('pathname.startsWith("/therapy-compass") && pathname !== "/therapy-compass"');
+  it("provides one generic collapse host for every production phone header", () => {
+    expect(composerSlotSource).toContain(
+      'export const phoneHeaderCollapseAddonSlotId = "phone-header-collapse-addon-slot"',
+    );
+    expect(headerSource).toContain("phoneHeaderCollapseAddonSlotId");
+    expect(headerSource).not.toContain("headerCollapseAddonSlotId?: string");
     expect(headerSource).toContain('data-testid="header-collapse-addon"');
+    expect(headerSource).toContain('className="w-full min-w-0 max-w-full empty:hidden"');
+    expect(headerSource).toContain(
+      '"w-full min-w-0 max-w-full max-sm:flex max-sm:min-h-0 max-sm:flex-col max-sm:justify-end"',
+    );
     // Addon host must be declared inside collapsingTopBar, not beside search.
     const collapseIdx = headerSource.indexOf('data-testid="universal-header-collapse"');
     const addonHostIdx = headerSource.indexOf('data-testid="header-collapse-addon"', collapseIdx);
     const collapsingClose = headerSource.indexOf("if (sticksAbovePhones)", collapseIdx);
     expect(addonHostIdx).toBeGreaterThan(collapseIdx);
     expect(addonHostIdx).toBeLessThan(collapsingClose);
+
+    // One subtree is moved before paint on phones; sm+ and missing-host
+    // fallbacks remain in normal flow. The observer survives shell remounts.
+    expect(phoneHeaderPortalSource).toContain("useLayoutEffect");
+    expect(phoneHeaderPortalSource).toContain("createPortal(children, phoneHost)");
+    expect(phoneHeaderPortalSource).toContain("phoneHeaderCollapseAddonSlotId");
+    expect(phoneHeaderPortalSource).toContain('window.matchMedia("(max-width: 639px)")');
+    expect(phoneHeaderPortalSource).toContain("new MutationObserver(sync)");
+
+    expect(therapyNavSource).toContain("<PhoneHeaderCollapsePortal>");
+    expect(documentViewerSource).toContain("<PhoneHeaderCollapsePortal>");
+    expect(documentViewerSource).toContain('<header className="edge-glass-header');
+    expect(documentViewerSource).toContain("max-sm:pt-2");
+    expect(differentialDetailSource).toContain("<PhoneHeaderCollapsePortal>");
+    expect(differentialDetailSource).toContain('data-testid="differential-detail-header"');
+    expect(differentialDetailSource).toContain("max-sm:static sm:sticky sm:top-0");
   });
 
   it("gives the sticky chrome stack real travel against the viewport", () => {
@@ -163,7 +190,8 @@ describe("shared header hide/reveal wiring", () => {
   it("documents tablet pinning and desktop page ownership independently from the top bar", () => {
     expect(behaviourDocSource).toContain("Hide the top bar, not the search field");
     expect(behaviourDocSource).toContain("Top-bar hide/reveal is cross-breakpoint");
-    expect(behaviourDocSource).toContain("Page chrome that must match the top bar portals into the collapse host");
+    expect(behaviourDocSource).toContain("Every production phone navigation header has one collapse owner");
+    expect(behaviourDocSource).toContain("One transition, no jump");
     expect(behaviourDocSource).toContain("Do not double-sticky tablet search inside an outer sticky stack");
     expect(behaviourDocSource).toContain("desktop-page-search-composer-slot");
     expect(behaviourDocSource).toContain("Release the phone top inset with hidden chrome");

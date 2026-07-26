@@ -21,6 +21,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
 import { AnswerProgressStepper } from "@/components/clinical-dashboard/answer-status";
 import type { TimedAnswerProgressUpdate } from "@/components/clinical-dashboard/answer-progress";
 import { readAnswerStream } from "@/components/clinical-dashboard/search-utils";
@@ -1093,42 +1094,41 @@ export function DocumentViewer({
       tabIndex={-1}
       className={cn(appBackdrop, "min-h-[100dvh] overflow-x-clip text-[color:var(--text)] focus:outline-none")}
     >
-      <header className="edge-glass-header z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-[var(--shadow-tight)] backdrop-blur-xl sm:sticky sm:top-0">
-        <div className="mx-auto flex h-12 min-w-0 max-w-[1440px] items-center gap-2">
-          <Link
-            href={documentHomeHref}
-            className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-            aria-label="Back to documents"
-          >
-            <ArrowLeft aria-hidden="true" className="h-5 w-5 shrink-0" />
-            <span className="hidden sm:inline">Documents</span>
-          </Link>
-
-          <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text)] sm:text-base">
-            {headerTitle}
-          </h1>
-
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+      <PhoneHeaderCollapsePortal>
+        <header className="edge-glass-header z-30 border-b border-[color:var(--border)] py-2 shadow-[var(--shadow-tight)] backdrop-blur-xl max-sm:pt-2 sm:sticky sm:top-0 sm:pt-[max(0.5rem,env(safe-area-inset-top))]">
+          <div className="mx-auto flex h-12 min-w-0 max-w-[1440px] items-center gap-2">
             <Link
-              href={scopedDocumentHref}
-              className="hidden h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] min-[380px]:grid"
-              aria-label="Add this document to scope"
-              title={headerSubtitle}
+              href={documentHomeHref}
+              className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+              aria-label="Back to documents"
             >
-              <Target aria-hidden="true" className="h-5 w-5" />
+              <ArrowLeft aria-hidden="true" className="h-5 w-5 shrink-0" />
+              <span className="hidden sm:inline">Documents</span>
             </Link>
-            <button
-              type="button"
-              onClick={() => setMobileActionsOpen(true)}
-              className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-              aria-label="Open document actions"
-            >
-              <Plus aria-hidden="true" className="h-5 w-5" />
-            </button>
+            <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text)] sm:text-base">
+              {headerTitle}
+            </h1>
+            <div className="ml-auto flex shrink-0 items-center gap-1.5">
+              <Link
+                href={scopedDocumentHref}
+                className="hidden h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] min-[380px]:grid"
+                aria-label="Add this document to scope"
+                title={headerSubtitle}
+              >
+                <Target aria-hidden="true" className="h-5 w-5" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setMobileActionsOpen(true)}
+                className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                aria-label="Open document actions"
+              >
+                <Plus aria-hidden="true" className="h-5 w-5" />
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
-
+        </header>
+      </PhoneHeaderCollapsePortal>
       {readyDocument ? (
         <Sheet
           open={mobileActionsOpen}
