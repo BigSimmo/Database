@@ -32,6 +32,21 @@ public/therapy-compass-data/
 docs/branch-review-ledger.md
 docs/archive/
 
+# Design-scratch mockup routes/components — keep out of @Codebase discovery.
+# Do not use a repo-wide *mockup* glob: tests/env-mockups-gate and
+# tests/production-mockup-boundary must stay indexed.
+src/app/mockups/
+mockups/
+# note: src/components/calculators/ is production (promoted from mockups) — keep indexed
+src/components/favourites-page-mockups/
+src/components/settings-search-mockups/
+src/components/tools-page-mockups/
+src/components/*mockups.tsx
+src/components/clinical-dashboard/global-mockup-search-shell.tsx
+
+# One-off Codex review prompt dumps (not product code)
+codex-cloud-review/
+
 # Generated schema-drift inventory (large JSON)
 supabase/drift-manifest.json
 

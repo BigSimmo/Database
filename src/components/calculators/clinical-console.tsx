@@ -181,7 +181,7 @@ export function CalculatorsClinicalConsoleMockup() {
         <main className="grid min-w-0 content-start gap-4">
           <section className="grid gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-inset)]">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <h2 className="text-lg font-extrabold text-[color:var(--text-heading)]">{calc.abbrev}</h2>
+              <h2 className="text-lg font-extrabold tabular-nums text-[color:var(--text-heading)]">{calc.abbrev}</h2>
               <span className="text-sm-minus font-semibold text-[color:var(--text-soft)]">{calc.name}</span>
             </div>
             <p className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-2 rounded-md border border-[color:var(--info-border)] bg-[color:var(--info-soft)] p-2.5 text-sm-minus font-semibold leading-5 text-[color:var(--info)]">
