@@ -211,7 +211,7 @@ import type {
   DocumentLabel,
 } from "@/lib/types";
 import type { SearchScopeFilters } from "@/lib/search-scope";
-import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
+import { DashboardDesktopResultComposerSlot } from "@/components/clinical-dashboard/dashboard-desktop-result-composer-slot";
 import {
   desktopPageComposerSlotId,
   differentialsMobileCompareAddonSlotId,
@@ -3518,13 +3518,7 @@ export function ClinicalDashboard({
                     : "pb-8 sm:pb-10 lg:pb-12",
               )}
             >
-              {desktopResultComposerSlotId ? (
-                <DesktopComposerPortalSlot
-                  id={desktopResultComposerSlotId}
-                  data-testid="desktop-page-search-composer-slot"
-                  className="hidden lg:block lg:empty:hidden"
-                />
-              ) : null}
+              <DashboardDesktopResultComposerSlot slotId={desktopResultComposerSlotId} />
               {actionNotice && (
                 <InlineNotice tone={actionNotice.tone} onDismiss={() => setActionNotice(null)} animated>
                   {actionNotice.message}
