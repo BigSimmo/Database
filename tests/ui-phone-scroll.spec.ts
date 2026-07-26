@@ -159,8 +159,8 @@ test("phone chrome has an opaque header, one edge-to-edge footer, and releases b
   await page.setViewportSize(phoneViewport);
   // /formulation/worry is a non-home GlobalSearchShell route: heroOwnsPhoneComposer
   // is false here so the bottom dock IS rendered and the backdrop is present in
-  // the DOM (CSS hides it). /?mode=documents in its home state sets
-  // heroOwnsPhoneComposer=true and omits the dock entirely.
+  // the DOM (CSS hides it). /?mode=documents in its home state uses "sm-up"
+  // (making heroOwnsPhoneComposer false on phones), so the dock and backdrop render.
   await gotoPhoneSurface(page, "/formulation/worry");
 
   const visible = await page.evaluate(() => {
@@ -187,7 +187,7 @@ test("phone chrome has an opaque header, one edge-to-edge footer, and releases b
   expect(visible.dockLeft).toBeCloseTo(0, 0);
   expect(visible.dockRight).toBeCloseTo(phoneViewport.width, 0);
   expect(visible.dockBottom).toBeCloseTo(phoneViewport.height, 0);
-  expect(visible.pillBackground).toMatch(/(?:^rgba\(|\/ 0\.92\))/);
+  expect(visible.pillBackground).toMatch(/(?:^rgba\([^)]+,\s*0\.92\)|\/ 0\.92\))/);
 
   const geometry = await readGeometry(page);
   await dragScrollBy(page, Math.min(geometry.maxOffset, 500), 24);
