@@ -870,19 +870,39 @@ summary::-webkit-details-marker {
   z-index: 0;
   height: var(--footer-scrim-height);
   overflow: hidden;
-  /* The safe-area tint stays visibly translucent: this is localized glass
-     around the pill, never a second opaque footer surface. */
+  /* Localized glass only: tint around the pill, then return to true zero at
+     the physical edge. A high terminal tint reads as an opaque safe-area bar
+     on light pages even though color-mix technically contains transparency. */
   background: linear-gradient(
     180deg,
     transparent 0%,
-    color-mix(in srgb, var(--background) 12%, transparent) 32%,
-    color-mix(in srgb, var(--background) 48%, transparent) 62%,
-    color-mix(in srgb, var(--background) 64%, transparent) 84%,
-    color-mix(in srgb, var(--background) 72%, transparent) 100%
+    color-mix(in srgb, var(--background) 8%, transparent) 30%,
+    color-mix(in srgb, var(--background) 28%, transparent) 58%,
+    color-mix(in srgb, var(--background) 18%, transparent) 78%,
+    transparent 100%
   );
   backdrop-filter: blur(2px) saturate(130%);
-  mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 55%) 28%, black 52%, black 100%);
-  -webkit-mask-image: linear-gradient(180deg, rgb(0 0 0 / 20%) 0%, rgb(0 0 0 / 55%) 28%, black 52%, black 100%);
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgb(0 0 0 / 32%) 26%,
+    black 50%,
+    rgb(0 0 0 / 45%) 78%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgb(0 0 0 / 32%) 26%,
+    black 50%,
+    rgb(0 0 0 / 45%) 78%,
+    transparent 100%
+  );
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 180ms var(--ease-out-soft),
+    visibility 0s linear;
 }
 
 .answer-footer-search-dock .answer-footer-search-backdrop::before,
@@ -894,22 +914,43 @@ summary::-webkit-details-marker {
 }
 
 .answer-footer-search-dock .answer-footer-search-backdrop::before {
-  backdrop-filter: blur(8px) saturate(130%);
-  mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 35%) 20%, black 45%, black 80%, transparent 100%);
+  backdrop-filter: blur(6px) saturate(125%);
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    rgb(0 0 0 / 30%) 24%,
+    black 48%,
+    rgb(0 0 0 / 40%) 72%,
+    transparent 100%
+  );
   -webkit-mask-image: linear-gradient(
     180deg,
     transparent 0%,
-    rgb(0 0 0 / 35%) 20%,
-    black 45%,
-    black 80%,
+    rgb(0 0 0 / 30%) 24%,
+    black 48%,
+    rgb(0 0 0 / 40%) 72%,
     transparent 100%
   );
 }
 
 .answer-footer-search-dock .answer-footer-search-backdrop::after {
-  backdrop-filter: blur(22px) saturate(140%);
-  mask-image: linear-gradient(180deg, transparent 0%, transparent 50%, black 68%, black 100%);
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, transparent 50%, black 68%, black 100%);
+  backdrop-filter: blur(12px) saturate(130%);
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 46%,
+    black 64%,
+    rgb(0 0 0 / 35%) 80%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 46%,
+    black 64%,
+    rgb(0 0 0 / 35%) 80%,
+    transparent 100%
+  );
 }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
@@ -923,9 +964,10 @@ summary::-webkit-details-marker {
     background: linear-gradient(
       180deg,
       transparent 0%,
-      color-mix(in srgb, var(--background) 45%, transparent) 36%,
-      color-mix(in srgb, var(--background) 82%, transparent) 68%,
-      color-mix(in srgb, var(--background) 88%, transparent) 100%
+      color-mix(in srgb, var(--background) 16%, transparent) 34%,
+      color-mix(in srgb, var(--background) 38%, transparent) 62%,
+      color-mix(in srgb, var(--background) 20%, transparent) 80%,
+      transparent 100%
     );
   }
 
@@ -968,9 +1010,10 @@ summary::-webkit-details-marker {
     background: linear-gradient(
       180deg,
       transparent 0%,
-      color-mix(in srgb, var(--background) 50%, transparent) 36%,
-      color-mix(in srgb, var(--background) 86%, transparent) 72%,
-      color-mix(in srgb, var(--background) 90%, transparent) 100%
+      color-mix(in srgb, var(--background) 24%, transparent) 34%,
+      color-mix(in srgb, var(--background) 52%, transparent) 62%,
+      color-mix(in srgb, var(--background) 32%, transparent) 80%,
+      transparent 100%
     );
   }
 
@@ -1867,6 +1910,16 @@ summary::-webkit-details-marker {
     pointer-events: none;
   }
 
+  /* WebKit can retain a backdrop-filter compositor layer after its translated
+     parent reaches opacity: 0. Fade the scrim with the dock, then make that
+     paint layer non-rendering at the end of the hide transition. Visibility
+     becomes visible immediately on reveal, so the reverse path stays smooth. */
+  .answer-footer-search-dock[data-scroll-hidden="true"] .answer-footer-search-backdrop {
+    opacity: 0;
+    visibility: hidden;
+    transition-delay: 0ms, 240ms;
+  }
+
   /* Compare addon adds in-flow chrome above the pill; clear a little extra so
      the Compare bar does not leave a 1px/subpixel peep on the viewport edge. */
   .answer-footer-search-dock.document-mobile-search-edge.answer-footer-search-edge[data-footer-addon="differentials-compare"][data-scroll-hidden="true"] {
@@ -1897,7 +1950,7 @@ summary::-webkit-details-marker {
 
   .answer-footer-search-dock .answer-footer-search-pill {
     border-color: var(--border-strong);
-    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
     box-shadow:
       0 -1px 0 color-mix(in srgb, var(--border) 60%, transparent),
       0 1px 3px rgb(16 24 40 / 5%);
@@ -1926,6 +1979,18 @@ summary::-webkit-details-marker {
       0 0 0 3px color-mix(in srgb, var(--clinical-accent) 10%, transparent),
       0 -1px 0 color-mix(in srgb, var(--border) 60%, transparent),
       0 2px 8px rgb(16 24 40 / 8%);
+  }
+}
+
+@media (max-width: 639px) and (prefers-reduced-motion: reduce) {
+  .answer-footer-search-dock[data-scroll-hidden="true"] .answer-footer-search-backdrop {
+    transition-delay: 0ms;
+  }
+}
+
+@media (max-width: 639px) {
+  html[data-motion="reduced"] .answer-footer-search-dock[data-scroll-hidden="true"] .answer-footer-search-backdrop {
+    transition-delay: 0ms;
   }
 }
 
