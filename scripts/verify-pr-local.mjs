@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { childProcessExitCode } from "./child-process-result.mjs";
 
 const isWindows = process.platform === "win32";
+// Live Supabase audits (check:locality-metadata) stay out of this unconditional gate.
 const baseScripts = ["check:runtime", "format:changed", "lint", "typecheck", "test"];
 
 function parseArgs(args) {
