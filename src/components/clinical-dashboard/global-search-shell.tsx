@@ -35,6 +35,7 @@ import {
 import {
   readChromeCollapseMetrics,
   useDocumentScrollHideReporter,
+  useReserveTransitionMarker,
   useScrollHideReporter,
 } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
@@ -252,6 +253,7 @@ function GlobalStandaloneSearchShellClient({
     setBottomComposerHiddenPathname(pathname);
     setBottomComposerHidden(false);
   }
+  const reserveTransitioning = useReserveTransitionMarker(bottomComposerHidden, pathname);
   useDocumentScrollHideReporter(chromeScrollHide.reportScroll);
   useEffect(() => {
     reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
@@ -792,6 +794,7 @@ function GlobalStandaloneSearchShellClient({
           tabIndex={-1}
           onScroll={handleMainScroll}
           data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
+          data-reserve-transitioning={reserveTransitioning ? "true" : undefined}
           className={cn(
             // sm+ uses overflow-x-clip (not hidden): hidden forces overflow-y to
             // auto, which turns #main-content into the sticky scrollport while the

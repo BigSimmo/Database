@@ -87,7 +87,11 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
 import { focusComposerInput as scheduleComposerFocus } from "@/components/clinical-dashboard/focus-composer-input";
-import { readChromeCollapseMetrics, useScrollHideReporter } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import {
+  readChromeCollapseMetrics,
+  useReserveTransitionMarker,
+  useScrollHideReporter,
+} from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   answerReferencesDocument,
@@ -361,6 +365,7 @@ export function ClinicalDashboard({
   // mode swaps <main>'s header reserve, so it also rebases the reporter.
   const chromeScrollHide = useScrollHideReporter(false, true, searchMode);
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
+  const reserveTransitioning = useReserveTransitionMarker(bottomComposerHidden, searchMode);
   const reportChromeScrollHideRef = useRef(chromeScrollHide.reportScroll);
   reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
@@ -3424,6 +3429,7 @@ export function ClinicalDashboard({
           // prettier-ignore
           onScroll={handleMainScroll}
           data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
+          data-reserve-transitioning={reserveTransitioning ? "true" : undefined}
           className={cn(
             "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)]",
             // Answer view: the glass header is absolute over this scroll container,

@@ -165,13 +165,15 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(documentViewerSource).toContain("max-sm:duration-[240ms]");
     expect(documentViewerSource).toContain("max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]");
     expect(globalStylesSource).toContain("@media (max-width: 639px) and (prefers-reduced-motion: reduce)");
-    expect(globalStylesSource).toContain('#main-content[data-bottom-composer-hidden="true"]');
+    expect(globalStylesSource).toContain('#main-content[data-reserve-transitioning="true"]');
     expect(globalStylesSource).toContain('[data-testid="mobile-composer-reserve-pad"]');
-    // Mode/route reserve flips must snap; only scroll-hide animates padding.
+    // Mode/route reserve flips must snap; scroll hide/reveal animates via marker.
     expect(globalStylesSource).not.toMatch(
       /#main-content\s*\{\s*will-change: padding-bottom;\s*transition: padding-bottom 200ms/,
     );
     expect(globalStylesSource).toContain("transition: padding-bottom 240ms var(--ease-out-soft)");
+    expect(globalSearchShellSource).toContain("useReserveTransitionMarker");
+    expect(clinicalDashboardSource).toContain("useReserveTransitionMarker");
     expect(globalStylesSource).toContain("--phone-dock-differentials-compare-clearance: 12.5rem");
     expect(globalStylesSource).toContain("var(--phone-dock-differentials-compare-clearance)");
     // Child pages must not stack a second dock-sized safe-area pad under the

@@ -74,8 +74,11 @@ describe("shared-search route ownership", () => {
     expect(isDashboardModeHref("/")).toBe(true);
     expect(isDashboardModeHref("/?mode=answer")).toBe(true);
     expect(isDashboardModeHref("/?mode=documents&focus=1")).toBe(true);
+    expect(isDashboardModeHref("/documents/search")).toBe(true);
+    expect(isDashboardModeHref("/documents/search?q=lithium&run=1")).toBe(true);
     expect(isDashboardModeHref("/services")).toBe(false);
     expect(isDashboardModeHref("/differentials?q=mania&run=1")).toBe(false);
+    expect(isDashboardModeHref("/documents/searching")).toBe(false);
   });
 
   it("keeps shell mode-home detection pathname-gated (no searchMode∧pathname AND)", () => {

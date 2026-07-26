@@ -29,30 +29,33 @@ import { countVerifiedRegistryRecords, useRegistryRecords } from "@/lib/use-regi
 // as a prop: a direct `@/lib/forms` value import here would compile the full
 // forms catalog into this client route chunk.
 function buildTaskCards(defaultFormSlug: string | null): ModeHomeAction[] {
-  return [
+  const cards: ModeHomeAction[] = [
     {
       title: "Find a form",
       description: "Title, purpose, or workflow detail.",
       icon: Search,
       href: appModeHomeHref("forms", { focus: true }),
     },
-    {
+  ];
+  if (defaultFormSlug) {
+    cards.push({
       title: "Readiness checks",
       description: "Review status, source, and local confirmation.",
       icon: ClipboardCheck,
-      href: `/forms/${defaultFormSlug ?? ""}`,
-    },
-    {
-      title: "Check source status",
-      description: "Find records that still need local confirmation.",
-      icon: ShieldAlert,
-      href: appModeHomeHref("forms", {
-        query: "local confirmation required",
-        focus: true,
-        run: true,
-      }),
-    },
-  ];
+      href: `/forms/${defaultFormSlug}`,
+    });
+  }
+  cards.push({
+    title: "Check source status",
+    description: "Find records that still need local confirmation.",
+    icon: ShieldAlert,
+    href: appModeHomeHref("forms", {
+      query: "local confirmation required",
+      focus: true,
+      run: true,
+    }),
+  });
+  return cards;
 }
 
 const commonTasks: ModeHomePill[] = [

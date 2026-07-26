@@ -39,9 +39,13 @@ export function isStandaloneModeHomePath(pathname: string): boolean {
   return standaloneModeHomePaths.has(pathname);
 }
 
-/** Dashboard-owned hrefs stay on `/` with `?mode=`; everything else leaves the dashboard shell. */
+/** Dashboard-owned hrefs stay on `/` with `?mode=`, or the submitted documents search route. */
 export function isDashboardModeHref(href: string): boolean {
-  return href === "/" || href.startsWith("/?");
+  if (href === "/" || href.startsWith("/?")) return true;
+  // Submitted document searches still render ClinicalDashboard; treat them as
+  // in-shell so cross-mode navigation can sync searchMode/query before push.
+  const path = href.split(/[?#]/, 1)[0] ?? href;
+  return path === "/documents/search";
 }
 
 export function shouldRenderDashboardSearch({

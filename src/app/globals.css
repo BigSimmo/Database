@@ -2664,29 +2664,29 @@ html[data-motion="reduced"] .source-capsule-hit[aria-expanded="true"]:hover .sou
   }
 }
 
-/* Phone reserve padding animates only while the bottom composer is
-   scroll-hidden. Mode/route flips of --mobile-composer-reserve (hero ↔ dock)
-   must snap — a 200ms padding transition there reads as a choppy screen resize.
-   DocumentViewer keeps its own Tailwind duration classes on scroll-hide. */
+/* Phone reserve padding animates while the short-lived reserve-transition
+   marker is active (hide and reveal). Mode/route flips of
+   --mobile-composer-reserve (hero ↔ dock) must snap — those clear the marker
+   immediately. DocumentViewer keeps its own Tailwind duration classes. */
 @media (max-width: 639px) {
-  #main-content[data-bottom-composer-hidden="true"] {
+  #main-content[data-reserve-transitioning="true"] {
     will-change: padding-bottom;
     transition: padding-bottom 240ms var(--ease-out-soft);
   }
-  #main-content[data-bottom-composer-hidden="true"] [data-testid="mobile-composer-reserve-pad"] {
+  #main-content[data-reserve-transitioning="true"] [data-testid="mobile-composer-reserve-pad"] {
     will-change: padding-bottom;
     transition: padding-bottom 240ms var(--ease-out-soft);
   }
-  [data-testid="document-viewer-content"][data-scroll-hidden="true"] {
+  [data-testid="document-viewer-content"][data-reserve-transitioning="true"] {
     will-change: padding-bottom;
     transition: padding-bottom 240ms var(--ease-out-soft);
   }
 }
 
 @media (max-width: 639px) and (prefers-reduced-motion: reduce) {
-  #main-content[data-bottom-composer-hidden="true"],
-  #main-content[data-bottom-composer-hidden="true"] [data-testid="mobile-composer-reserve-pad"],
-  [data-testid="document-viewer-content"][data-scroll-hidden="true"] {
+  #main-content[data-reserve-transitioning="true"],
+  #main-content[data-reserve-transitioning="true"] [data-testid="mobile-composer-reserve-pad"],
+  [data-testid="document-viewer-content"][data-reserve-transitioning="true"] {
     transition: none;
   }
 }
