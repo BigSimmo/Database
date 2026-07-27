@@ -153,6 +153,18 @@ const STEPS: StepDef[] = [
   },
 ];
 
+/**
+ * A step counts as complete when it has entries — and for the two contact steps,
+ * only when every listed contact also has a reach method (the secondary field).
+ * This stops a plan being finalised or shared with support/crisis contacts that
+ * have a name but no phone or way to reach them in a crisis.
+ */
+function isStepComplete(step: StepDef, rows: Entry[]): boolean {
+  if (rows.length === 0) return false;
+  if (step.kind === "contact") return rows.every((row) => (row.secondary ?? "").trim() !== "");
+  return true;
+}
+
 const SEED: Record<StepKey, Entry[]> = {
   warning: [
     { id: "w1", primary: "Not sleeping for a couple of nights" },
@@ -475,7 +487,7 @@ export function PatientSafetyPlan() {
     });
   }, []);
 
-  const filledSteps = useMemo(() => STEPS.filter((step) => entries[step.key].length > 0).length, [entries]);
+  const filledSteps = useMemo(() => STEPS.filter((step) => isStepComplete(step, entries[step.key])).length, [entries]);
   const ready = filledSteps === STEPS.length;
   // Working plan content is browser-tab only and never persisted. Treat any
   // entered step/reason/date as dirty so the header back control cannot discard
@@ -491,6 +503,7 @@ export function PatientSafetyPlan() {
 
   const planText = useMemo(() => {
     const lines: string[] = [
+      ...(ready ? [] : ["*** DRAFT — INCOMPLETE SAFETY PLAN, NOT FOR PATIENT HANDOVER ***", ""]),
       "MY SAFETY PLAN",
       "Name (add after export): ____________________",
       planDate ? `Date: ${planDate}` : "",
@@ -514,7 +527,7 @@ export function PatientSafetyPlan() {
     lines.push("In an emergency: call 000 or go to your nearest Emergency Department.");
     lines.push("24/7 support: Lifeline 13 11 14 · Suicide Call Back Service 1300 659 467.");
     return lines.filter((line, index, all) => !(line === "" && all[index - 1] === "")).join("\n");
-  }, [entries, planDate, reasons]);
+  }, [entries, planDate, ready, reasons]);
 
   const copyPlan = async () => {
     try {
@@ -596,7 +609,7 @@ export function PatientSafetyPlan() {
                       key={step.key}
                       className={cn(
                         "h-1.5 w-6 rounded-full transition-colors",
-                        entries[step.key].length
+                        isStepComplete(step, entries[step.key])
                           ? "bg-[color:var(--clinical-accent)]"
                           : "bg-[color:var(--surface-inset)] ring-1 ring-inset ring-[color:var(--border)]",
                       )}
@@ -844,6 +857,15 @@ export function PatientSafetyPlan() {
 
           {/* The plan document */}
           <article className="grid content-start gap-5 rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-5 shadow-[var(--shadow-lux)] sm:p-6">
+            {ready ? null : (
+              <p
+                role="note"
+                className="rounded-lg border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-sm-minus font-bold leading-5 text-[color:var(--warning)]"
+              >
+                Draft — this plan is incomplete. Finish every step, and give each contact a way to reach them, before
+                giving it to a patient.
+              </p>
+            )}
             <header className="grid gap-2 border-b border-[color:var(--border)] pb-4">
               <div className="flex items-center gap-2 text-[color:var(--clinical-accent)]">
                 <Heart className="size-icon-md" aria-hidden="true" />
