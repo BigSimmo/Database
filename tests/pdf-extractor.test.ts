@@ -224,4 +224,26 @@ describe.runIf(hasPyMuPDF)("Python extractor fallback", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it.skipIf(process.platform === "win32")("rejects cleanly when the python process exits with code 137", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "clinical-kb-extractor-test-"));
+    try {
+      const pdfPath = path.join(root, "table.pdf");
+      const scriptPath = path.join(root, "exit_137.py");
+
+      await mkdir(root, { recursive: true });
+      await writeSyntheticTablePdf(pdfPath);
+
+      // OOM killer often surfaces as exit code 137 with no Node signal.
+      await writeFile(scriptPath, "import sys\nsys.exit(137)\n");
+
+      const pdfBuffer = await readFile(pdfPath);
+
+      await expect(extractPdf(pdfBuffer, { scriptPathOverride: scriptPath })).rejects.toThrow(
+        /PDF extractor exited with code 137/,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
