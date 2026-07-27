@@ -36,6 +36,7 @@ This repo uses one shared search experience across the global shell, dashboard r
 19. `ClinicalDashboard` must stay out of the shared shell's static import graph (dynamic import) so namespaced mode routes do not parse the dashboard module.
 20. Browser-mode phones keep `.phone-viewport-shell` in normal flow and use the document as the vertical scroll owner. This is required for Safari to minimize its own browser chrome; do not restore a fixed/inset root or a phone `overflow-y: auto` canvas.
 21. Installed standalone phones use the same normal-flow root with the final `display-mode: standalone` `100vh` bound and an internal `.phone-scroll-surface`. Keep that override after the browser contract; do not substitute `svh`, `dvh`, `visualViewport.height`, or a fixed root on this WebKit workaround path. Every phone footer uses `.phone-footer-layer`: fixed to the viewport in browser tabs and absolute to the positioned 100vh frame in standalone, so the composer and its backdrop share the repaired PWA edge. Page-owned footer layers must render through `PhoneFooterLayerPortal`; `PhoneFooterLayerFrame` provides a frame-scoped, paint-free host after the scroll surface. An absolute footer left inside `.phone-scroll-surface` still scrolls and clips with that surface.
+22. Safari's status bar, collapsing address bar, and pixels outside `window.innerHeight` are native browser/system controls. Do not use negative safe-area overscan, a fixed app root, synthetic document padding, or an opaque viewport slab to make CSS appear to own those pixels. Acceptance is no contrasting **app-owned** band around the native controls, with a matching opaque root canvas. Use the labelled physical-device matrix in [phone-chrome-physical-acceptance.md](phone-chrome-physical-acceptance.md).
 
 ## Results band (`SearchResultsHeaderBand`)
 
@@ -101,6 +102,8 @@ Rules that keep this working:
 
 Coverage: `tests/header-scroll-hide-contract.test.ts` (wiring), `tests/use-hide-on-scroll.test.ts` (decision logic), `tests/ui-chrome-scroll.spec.ts` (tablet pinned-search behaviour and desktop page-flow search plus top-bar hide/reveal), `tests/ui-phone-scroll.spec.ts` (phone scroll geometry), `tests/ui-therapy-nav-scroll.spec.ts` (Therapy section nav hide/reveal with the top bar).
 
+Run `npm run verify:phone-chrome` for phone-chrome work. For executable changes its classifier checks installed/lock parity first, runs focused static contracts and only the browser/PWA owners and route journeys implicated by the changed files, then escalates to `npm run verify:ui` automatically for shared chrome foundations. Documentation-only scopes run only documentation guards. Use `-- --dry-run` to inspect the plan, `-- --files <comma-separated paths>` for an explicit scope, and `-- --full=always|never` only for a deliberate override.
+
 ## Change checklist
 
 Before changing search bar behaviour:
@@ -110,5 +113,6 @@ Before changing search bar behaviour:
 - Update the reserve helper and CSS token together when changing clearances.
 - Add or update a focused static contract test for new constants or exceptions.
 - For visual/scroll changes, run the relevant phone-scroll/overlap Playwright coverage through `npm run ensure` and `npm run verify:ui` when the environment supports the repo runtime.
+- Complete [the physical iPhone checklist](phone-chrome-physical-acceptance.md) for shared safe-area/ownership changes; local Chromium cannot certify Safari or cold-launch PWA physical paint.
 - For hide-on-scroll changes, re-read "Scroll hide/reveal" and prove the reveal at tablet and desktop, not just the hide.
 - If a new route has a page-owned composer, document it here and add it to the route/search coverage rather than relying on comments in a component.

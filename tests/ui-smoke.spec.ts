@@ -4,6 +4,7 @@ import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import {
   appendPrimaryScrollSpacer,
   readMobileComposerReservePx,
+  readPrimaryScrollAndDomGeometry,
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
@@ -138,6 +139,10 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
   const questionInput = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible');
   const submitAnswer = page.locator('[aria-label="Generate source-backed answer"]:visible');
 
+  // Production HTML can be visible before React owns the controlled input.
+  // Filling during that gap is immediately overwritten by hydration and leaves
+  // the submit button disabled, so establish the live handler boundary first.
+  await waitForReactEventHandler(questionInput, "onChange");
   await expect(async () => {
     // A production navigation can briefly overlap or replace the server-rendered
     // composer. Require one settled React owner before filling so the new client
@@ -4031,11 +4036,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(generatedSummary).not.toContainText("**");
     await expect(generatedSummary.locator("strong").filter({ hasText: "clozapine" })).toHaveCount(1);
 
-    const summaryBox = await generatedSummary.boundingBox();
-    const previewBox = await page.getByTestId("pdf-preview").boundingBox();
-    expect(summaryBox).not.toBeNull();
-    expect(previewBox).not.toBeNull();
-    expect(summaryBox!.y).toBeLessThan(previewBox!.y);
+    // The generated answer deliberately smooth-scrolls into view. Read both
+    // boxes in one browser evaluation so viewport motion cannot corrupt their
+    // relative order between independent Playwright round trips.
+    const answerGeometry = await readPrimaryScrollAndDomGeometry(page, {
+      summary: '[data-testid="generated-clinical-summary"]',
+      preview: '[data-testid="pdf-preview"]',
+    });
+    expect(answerGeometry.nodes.summary.count).toBe(1);
+    expect(answerGeometry.nodes.preview.count).toBe(1);
+    expect(answerGeometry.nodes.summary.rect).not.toBeNull();
+    expect(answerGeometry.nodes.preview.rect).not.toBeNull();
+    expect(answerGeometry.nodes.summary.rect!.top).toBeLessThan(answerGeometry.nodes.preview.rect!.top);
     expect(answerRequests).toEqual([
       {
         query: "How is clozapine monitored?",
