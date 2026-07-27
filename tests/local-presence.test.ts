@@ -7,6 +7,7 @@ import {
   lengthBucket,
   mergeFillIntoEnvLocal,
   parseEnvFile,
+  presenceEnvForMode,
   REPORT_ONLY_KEYS,
   resolveTargetRoot,
 } from "../scripts/check-local-presence.mjs";
@@ -15,6 +16,20 @@ describe("check-local-presence", () => {
   it("accepts an explicit checkout root for cross-worktree inspection", () => {
     expect(resolveTargetRoot(["--root", process.cwd()])).toBe(process.cwd());
     expect(() => resolveTargetRoot(["--root"])).toThrow("--root requires a checkout path");
+  });
+
+  it("does not let caller-only secrets suppress persistent --root fill gaps", () => {
+    const processOnly = Object.fromEntries(
+      FILLABLE_LOCAL_SECRETS.map(({ name }) => [name, "caller-only-secret-that-must-not-count-as-persisted"]),
+    );
+    const merged = { ...processOnly };
+    const fromFiles = {};
+
+    const reportAssessment = assessLocalPresence(presenceEnvForMode({ fill: false, merged, fromFiles }));
+    const fillAssessment = assessLocalPresence(presenceEnvForMode({ fill: true, merged, fromFiles }));
+
+    expect(reportAssessment.fillable.every((row) => row.status === "ok")).toBe(true);
+    expect(fillAssessment.fillable.every((row) => row.status === "gap")).toBe(true);
   });
 
   it("parses env assignments without exposing values in helpers", () => {

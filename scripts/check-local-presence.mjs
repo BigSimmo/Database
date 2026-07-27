@@ -117,6 +117,11 @@ export function loadLocalEnv({ cwd = defaultRoot, processEnv = process.env } = {
   return { merged, filesPresent, fromFiles };
 }
 
+/** Fill mode must persist file gaps even when the invoking shell has temporary overrides. */
+export function presenceEnvForMode({ fill, merged, fromFiles }) {
+  return fill ? fromFiles : merged;
+}
+
 export function extractUrlRef(url) {
   if (!isPresent(url)) return null;
   try {
@@ -324,8 +329,9 @@ function main() {
     console.error(`STOP: ${error.message}`);
     process.exit(1);
   }
-  const { merged, filesPresent } = loadLocalEnv({ cwd: targetRoot });
-  const assessment = assessLocalPresence(merged);
+  const { merged, filesPresent, fromFiles } = loadLocalEnv({ cwd: targetRoot });
+  const assessment = assessLocalPresence(presenceEnvForMode({ fill, merged, fromFiles }));
+  assessment.identity = classifyProjectIdentity(merged);
 
   printPresenceReport({ filesPresent, assessment });
 
