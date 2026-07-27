@@ -212,7 +212,9 @@ export async function runPythonPdfExtractor(
       }
       if (signal || code === 137) {
         finish(() =>
-          reject(new PdfExtractorProcessError(stderr || `PDF extractor exited with code ${code} (${signal || "SIGKILL"})`)),
+          reject(
+            new PdfExtractorProcessError(stderr || `PDF extractor exited with code ${code} (${signal || "SIGKILL"})`),
+          ),
         );
         return;
       }
