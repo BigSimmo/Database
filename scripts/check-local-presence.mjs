@@ -9,13 +9,15 @@
  *
  *   npm run check:local-presence
  *   npm run check:local-presence -- --fill
+ *   npm run check:local-presence -- --root C:\path\to\checkout [--fill]
  */
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const defaultRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const EXPECTED_PACKAGE_NAME = "prompt-for-codex-medical-knowledge-base";
 
 /** Local-only secrets this tool may generate into `.env.local`. */
 export const FILLABLE_LOCAL_SECRETS = [
@@ -97,7 +99,7 @@ export function parseEnvFile(text) {
   return out;
 }
 
-export function loadLocalEnv({ cwd = root, processEnv = process.env } = {}) {
+export function loadLocalEnv({ cwd = defaultRoot, processEnv = process.env } = {}) {
   const fromFiles = {};
   const filesPresent = [];
   for (const name of ENV_FILES) {
@@ -114,6 +116,16 @@ export function loadLocalEnv({ cwd = root, processEnv = process.env } = {}) {
     }
   }
   return { merged, filesPresent, fromFiles };
+}
+
+/** Fill mode uses file-only state for writable gaps but preserves merged report-only/identity truth. */
+export function assessPresenceForMode({ fill, merged, fromFiles }) {
+  const mergedAssessment = assessLocalPresence(merged);
+  if (!fill) return mergedAssessment;
+  return {
+    ...mergedAssessment,
+    fillable: assessLocalPresence(fromFiles).fillable,
+  };
 }
 
 export function extractUrlRef(url) {
@@ -241,6 +253,28 @@ export function generateLocalSecret(bytes = 32) {
   return randomBytes(bytes).toString("hex");
 }
 
+export function resolveTargetRoot(argv = process.argv.slice(2)) {
+  const index = argv.indexOf("--root");
+  if (index === -1) return defaultRoot;
+  const value = argv[index + 1];
+  if (!value || value.startsWith("--")) throw new Error("--root requires a checkout path");
+  const resolved = path.resolve(value);
+  const packagePath = path.join(resolved, "package.json");
+  if (!existsSync(packagePath)) {
+    throw new Error(`--root is not a repository checkout: ${resolved}`);
+  }
+  let packageName;
+  try {
+    packageName = JSON.parse(readFileSync(packagePath, "utf8")).name;
+  } catch {
+    throw new Error(`--root has an unreadable package.json: ${resolved}`);
+  }
+  if (packageName !== EXPECTED_PACKAGE_NAME) {
+    throw new Error(`--root is not a Database checkout: ${resolved}`);
+  }
+  return resolved;
+}
+
 /**
  * Merge fillable gaps into `.env.local` text. Skips keys that already meet
  * minLength. For present-but-too-short keys, removes stale KEY=value lines
@@ -304,8 +338,15 @@ function printPresenceReport({ filesPresent, assessment }) {
 
 function main() {
   const fill = process.argv.includes("--fill");
-  const { merged, filesPresent } = loadLocalEnv();
-  const assessment = assessLocalPresence(merged);
+  let targetRoot;
+  try {
+    targetRoot = resolveTargetRoot();
+  } catch (error) {
+    console.error(`STOP: ${error.message}`);
+    process.exit(1);
+  }
+  const { merged, filesPresent, fromFiles } = loadLocalEnv({ cwd: targetRoot });
+  const assessment = assessPresenceForMode({ fill, merged, fromFiles });
 
   printPresenceReport({ filesPresent, assessment });
 
@@ -336,7 +377,7 @@ function main() {
     return;
   }
 
-  const envLocalPath = path.join(root, ".env.local");
+  const envLocalPath = path.join(targetRoot, ".env.local");
   const existingText = existsSync(envLocalPath) ? readFileSync(envLocalPath, "utf8") : "";
   const { text, filled } = mergeFillIntoEnvLocal(existingText, gaps);
   writeFileSync(envLocalPath, text, { encoding: "utf8", mode: 0o600 });
