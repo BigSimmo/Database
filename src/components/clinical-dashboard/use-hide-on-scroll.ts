@@ -284,6 +284,10 @@ function useScrollHideActive(disabled = false, allowAllBreakpoints = false) {
 
 /** Matches phone reserve padding transition duration in `globals.css`. */
 export const reserveTransitionMs = 240;
+// React flips the marker from an effect, while the browser starts/finishes the
+// CSS transition on animation frames. Keep anchoring suspended for a few frames
+// past the nominal duration so the final subpixel settles before it is restored.
+const reserveTransitionSettleMs = 64;
 
 /**
  * Keeps a short-lived transition marker active through both composer hide and
@@ -305,7 +309,7 @@ export function useReserveTransitionMarker(hidden: boolean, resetKey?: unknown) 
     if (hidden === previousHiddenRef.current) return;
     previousHiddenRef.current = hidden;
     setTransitioning(true);
-    const timer = window.setTimeout(() => setTransitioning(false), reserveTransitionMs);
+    const timer = window.setTimeout(() => setTransitioning(false), reserveTransitionMs + reserveTransitionSettleMs);
     return () => window.clearTimeout(timer);
   }, [hidden, resetKey]);
 
@@ -430,15 +434,17 @@ export function useScrollHideReporter(disabled = false, allowAllBreakpoints = fa
 }
 
 /**
- * Feeds document scroll into a {@link useScrollHideReporter} for hosts whose
- * page scrolls the document above the phone breakpoint — GlobalSearchShell,
- * where `#main-content` is the scrollport only on phones and its `onScroll`
- * therefore never fires on tablet/desktop. Self-gating: while the document
- * cannot scroll (the phone shell is viewport-bounded and overflow-clipped) no
- * scroll event arrives,
- * so the internal scroller stays the single source at that width.
+ * Feeds document scroll into a {@link useScrollHideReporter}. Phone browser
+ * tabs deliberately use the document as their scroll owner so Safari can
+ * minimize its browser chrome; installed standalone mode keeps the bounded
+ * inner app scroller and therefore does not emit document scroll events.
+ * Tablet/desktop document scrolling still has no collapsing-layout cost.
  */
-export function useDocumentScrollHideReporter(reportScroll: (metrics: ScrollMetrics) => void) {
+export function useDocumentScrollHideReporter(
+  reportScroll: (metrics: ScrollMetrics) => void,
+  collapseMetricsRoot?: HTMLElement | null,
+  focusInputRef?: RefObject<HTMLInputElement | null>,
+) {
   useEffect(() => {
     let frame = 0;
 
@@ -447,12 +453,25 @@ export function useDocumentScrollHideReporter(reportScroll: (metrics: ScrollMetr
       const scrollingElement = document.scrollingElement ?? document.documentElement;
       const maxOffset = Math.max(0, scrollingElement.scrollHeight - window.innerHeight);
       if (maxOffset <= 0) return;
+      const offset = window.scrollY;
+      if (
+        window.matchMedia(phoneMediaQuery).matches &&
+        offset > topRevealOffset &&
+        focusInputRef?.current &&
+        document.activeElement === focusInputRef.current
+      ) {
+        focusInputRef.current.blur();
+      }
       reportScroll({
-        offset: window.scrollY,
+        offset,
         maxOffset,
-        // Chrome that sticks to the viewport and translates away releases no
-        // document layout, so there is no runway to protect here.
-        collapseBudget: 0,
+        ...(window.matchMedia(phoneMediaQuery).matches && collapseMetricsRoot
+          ? readChromeCollapseMetrics(collapseMetricsRoot)
+          : {
+              // Wide chrome sticks to the viewport and translates away, so it
+              // releases no document layout and needs no protected runway.
+              collapseBudget: 0,
+            }),
         source: window,
       });
     };
@@ -467,7 +486,7 @@ export function useDocumentScrollHideReporter(reportScroll: (metrics: ScrollMetr
       window.removeEventListener("scroll", onScroll);
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [reportScroll]);
+  }, [collapseMetricsRoot, focusInputRef, reportScroll]);
 }
 
 interface UseHideOnScrollOptions {
@@ -478,6 +497,10 @@ interface UseHideOnScrollOptions {
   containerRef?: RefObject<HTMLElement | null>;
   /** Resolved scroll container; preferred over containerRef when the host sets it via callback ref. */
   scrollContainer?: HTMLElement | null;
+  /** Layout root used to measure collapse cost when the document owns scrolling. */
+  documentCollapseRootRef?: RefObject<HTMLElement | null>;
+  /** Resolved layout root; preferred when the host tracks a remounting shell element in state. */
+  documentCollapseRoot?: HTMLElement | null;
   /** Disables the behavior entirely (state resets to visible). */
   disabled?: boolean;
   /** Resets hidden state when the host changes navigation context without remounting. */
@@ -494,6 +517,8 @@ interface UseHideOnScrollOptions {
 export function useHideOnScroll({
   containerRef,
   scrollContainer = null,
+  documentCollapseRootRef,
+  documentCollapseRoot = null,
   disabled = false,
   resetKey,
 }: UseHideOnScrollOptions): boolean {
@@ -525,9 +550,11 @@ export function useHideOnScroll({
         };
       }
       const scrollingElement = document.scrollingElement ?? document.documentElement;
+      const collapseRoot = documentCollapseRoot ?? documentCollapseRootRef?.current;
       return {
         offset: window.scrollY,
         maxOffset: Math.max(0, scrollingElement.scrollHeight - window.innerHeight),
+        ...(collapseRoot ? readChromeCollapseMetrics(collapseRoot) : {}),
         source: window,
       };
     };
@@ -574,7 +601,7 @@ export function useHideOnScroll({
       if (frame) window.cancelAnimationFrame(frame);
       if (attachFrame) window.cancelAnimationFrame(attachFrame);
     };
-  }, [active, containerRef, scrollContainer, reportScroll]);
+  }, [active, containerRef, documentCollapseRoot, documentCollapseRootRef, scrollContainer, reportScroll]);
 
   return hidden;
 }

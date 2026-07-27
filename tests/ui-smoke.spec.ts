@@ -1,7 +1,13 @@
 import type { Route } from "playwright-core";
 import { expect, test, type Locator, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
-import { readMobileComposerReservePx, scrollPrimarySurface } from "./playwright-scroll";
+import {
+  appendPrimaryScrollSpacer,
+  readMobileComposerReservePx,
+  readPrimaryScrollAndDomGeometry,
+  readPrimaryScrollGeometry,
+  scrollPrimarySurface,
+} from "./playwright-scroll";
 import { answerThreadStorageKey } from "../src/lib/answer-thread-storage";
 import { documentSummaryQuestion } from "../src/lib/answer-contract";
 import { demoAnswer, demoDocuments, demoSummary, getDemoDocument, getDemoDocumentPayload } from "../src/lib/demo-data";
@@ -130,10 +136,21 @@ async function isVisibleWithoutThrow(locator: Locator) {
 }
 
 async function fillVisibleQuestionInput(page: Page, value: string) {
-  const questionInput = visibleQuestionInput(page);
-  const submitAnswer = visibleAnswerSubmitButton(page);
+  const questionInput = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible');
+  const submitAnswer = page.locator('[aria-label="Generate source-backed answer"]:visible');
 
+  // Production HTML can be visible before React owns the controlled input.
+  // Filling during that gap is immediately overwritten by hydration and leaves
+  // the submit button disabled, so establish the live handler boundary first.
+  await waitForReactEventHandler(questionInput, "onChange");
   await expect(async () => {
+    // A production navigation can briefly overlap or replace the server-rendered
+    // composer. Require one settled React owner before filling so the new client
+    // tree cannot discard the value and leave submit disabled.
+    await expect(questionInput).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await expect(submitAnswer).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await waitForReactEventHandler(questionInput, "onChange");
+    await waitForReactEventHandler(questionInput.locator("xpath=ancestor::form[1]"), "onSubmit");
     await expect(submitAnswer).toHaveAttribute("title", /Enter a clinical question|Generate a source-backed answer/, {
       timeout: uiAssertionTimeoutMs,
     });
@@ -141,7 +158,7 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
     await questionInput.fill(value);
     await expect(questionInput).toHaveValue(value, { timeout: uiAssertionTimeoutMs });
     await expect(submitAnswer).toBeEnabled({ timeout: uiAssertionTimeoutMs });
-  }).toPass({ timeout: 15_000 });
+  }).toPass({ timeout: uiAssertionTimeoutMs });
 
   return questionInput;
 }
@@ -712,17 +729,21 @@ async function scrollMobileTableExpandClearOfFooter(page: Page, clinicalTable: L
   await clinicalTable.scrollIntoViewIfNeeded();
   await page.evaluate(() => {
     const expand = document.querySelector('[data-testid="table-expand-button"]');
-    const scrollContainer = document.querySelector("main#main-content");
+    const main = document.querySelector<HTMLElement>("main#main-content");
     const footer = document.querySelector(
       ".answer-footer-search-dock, .dashboard-composer-edge.answer-footer-search-edge",
     );
-    if (!expand || !scrollContainer) return;
+    if (!expand || !main) return;
+    const mainOverflowY = window.getComputedStyle(main).overflowY;
+    const mainOwnsScroll =
+      ["auto", "scroll", "overlay"].includes(mainOverflowY) && main.scrollHeight > main.clientHeight;
     for (let attempt = 0; attempt < 6; attempt += 1) {
       const expandRect = expand.getBoundingClientRect();
       const footerTop = footer?.getBoundingClientRect().top ?? window.innerHeight;
       const currentOverlap = expandRect.bottom - footerTop + 24;
       if (currentOverlap <= 0) break;
-      scrollContainer.scrollTop += currentOverlap;
+      if (mainOwnsScroll) main.scrollTop += currentOverlap;
+      else window.scrollBy({ top: currentOverlap, behavior: "auto" });
     }
   });
 }
@@ -846,11 +867,33 @@ async function expectAccountSettingsSurface(settings: Locator) {
   await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "Clinical defaults", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "App preferences", exact: true })).toBeVisible();
-  await expect(settings.getByTestId("settings-row-profile")).toBeVisible();
+  await expect(settings.getByTestId("settings-account-card")).toBeVisible();
+  await expect(settings.getByTestId("settings-row-profile")).toHaveCount(0);
   await expect(settings.getByTestId("settings-row-jurisdiction")).toBeVisible();
   await expect(settings.getByTestId("settings-row-answer-style")).toBeVisible();
   await expect(settings.getByTestId("settings-row-appearance")).toBeVisible();
+  await expect(settings.getByText("Saved on this device; not yet used in answers.")).toHaveCount(1);
   await expect(settings).not.toContainText(/admin|database|storage|source review|import pipeline/i);
+}
+
+async function expectMobileSettingsLayout(settings: Locator) {
+  const jurisdictionRow = settings.getByTestId("settings-row-jurisdiction");
+  const label = jurisdictionRow.getByText("Jurisdiction", { exact: true });
+  const control = jurisdictionRow.getByRole("combobox");
+  const [rowBox, labelBox, controlBox] = await Promise.all([
+    jurisdictionRow.boundingBox(),
+    label.boundingBox(),
+    control.boundingBox(),
+  ]);
+
+  expect(rowBox).not.toBeNull();
+  expect(labelBox).not.toBeNull();
+  expect(controlBox).not.toBeNull();
+  expect(controlBox!.y).toBeGreaterThanOrEqual(labelBox!.y + labelBox!.height + 8);
+  expect(controlBox!.x).toBeGreaterThanOrEqual(rowBox!.x);
+  expect(controlBox!.x + controlBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width);
+  await expect(settings.getByRole("button", { name: "Close settings" })).toBeVisible();
+  await expect(settings.getByRole("button", { name: "Back from settings" })).toHaveCount(0);
 }
 
 async function expectAccountSetupSurface(setup: Locator) {
@@ -1249,7 +1292,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectAccountSetupSurface(setup);
   });
 
-  test("account settings uses a fullscreen settings page below desktop and closes from X and Escape", async ({
+  test("account settings stays readable at narrow phone widths and closes from its single control or Escape", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 820 });
@@ -1275,10 +1318,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(settingsBox!.y).toBeLessThanOrEqual(fullscreenTolerance);
     expect(settingsBox!.width + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.width);
     expect(settingsBox!.height + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.height);
+    await expectMobileSettingsLayout(settings);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 430, height: 820 });
+    await expectMobileSettingsLayout(settings);
     await expectNoPageHorizontalOverflow(page);
 
     await settings.getByRole("button", { name: "Close settings" }).click();
     await expect(settings).toBeHidden();
+    await page.setViewportSize({ width: 390, height: 820 });
 
     const escapeMenu = await openMobileClinicalGuideMenu(page);
     await escapeMenu.getByRole("button", { name: "Settings", exact: true }).click();
@@ -1992,14 +2041,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // final, settled layout — replaces a fixed 400ms sleep.
     await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
 
+    const scrollGeometry = await readPrimaryScrollGeometry(page);
     const geo = await page.evaluate(() => {
-      const main = document.querySelector("main#main-content");
       const header = document.querySelector("header");
       const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
       const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
       return {
-        scrollHeight: main?.scrollHeight ?? 0,
-        clientHeight: main?.clientHeight ?? 0,
         headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
         surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
         alsoMatchesHeight: alsoMatches ? Math.ceil(alsoMatches.getBoundingClientRect().height) : 0,
@@ -2009,7 +2056,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // matches are real content below the answer, so their compact panel may account
     // for the overflow; the old viewport floor created much more empty scroll.
     const permittedOverflow = geo.alsoMatchesHeight > 0 ? geo.alsoMatchesHeight + 24 : 4;
-    expect(geo.scrollHeight - geo.clientHeight).toBeLessThanOrEqual(permittedOverflow);
+    expect(scrollGeometry.owner).toBe("document");
+    expect(scrollGeometry.maxScrollTop).toBeLessThanOrEqual(permittedOverflow);
     // Top-aligned: the answer sits just under the header, not pushed toward the dock
     // (a bottom-anchor regression would push surfaceTop far down the viewport).
     expect(geo.surfaceTop - geo.headerBottom).toBeGreaterThanOrEqual(0);
@@ -2054,34 +2102,34 @@ test.describe("Clinical KB UI smoke coverage", () => {
       .poll(async () => main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)))
       .toBeGreaterThan(200);
 
+    const scrollGeometry = await readPrimaryScrollGeometry(page);
     const geo = await page.evaluate(() => {
       const main = document.querySelector("main#main-content");
       const header = document.querySelector("header");
       const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
       return {
-        scrollHeight: main?.scrollHeight ?? 0,
-        clientHeight: main?.clientHeight ?? 0,
-        mainBottom: main ? Math.round(main.getBoundingClientRect().bottom) : 0,
         mainMarginBottom: main ? Number.parseFloat(window.getComputedStyle(main).marginBottom) : -1,
         mainPaddingBottom: main ? Number.parseFloat(window.getComputedStyle(main).paddingBottom) : 0,
-        viewportHeight: window.innerHeight,
         headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
         surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
       };
     });
-    // A long answer overflows and scrolls, still top-aligned under the header.
-    expect(geo.scrollHeight).toBeGreaterThan(geo.clientHeight + 40);
+    // Browser phones intentionally scroll the document so Safari can minimize
+    // its browser chrome. The long answer still overflows that active owner and
+    // remains top-aligned under the overlaid header.
+    expect(scrollGeometry.owner).toBe("document");
+    expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight + 40);
     expect(geo.surfaceTop - geo.headerBottom).toBeLessThanOrEqual(160);
-    // The scrollport itself remains edge-to-edge. Its content padding—not an
-    // outer margin—keeps the answer endpoint clear of the visible composer and
-    // Safari toolbar.
+    // Content padding—not an outer margin—keeps the answer endpoint clear of
+    // the visible composer and Safari toolbar at the active viewport edge.
     const composerInputTop = await visibleQuestionInput(page).evaluate((el) =>
       Math.round(el.getBoundingClientRect().top),
     );
     expect(geo.mainMarginBottom).toBe(0);
-    expect(Math.abs(geo.mainBottom - geo.viewportHeight)).toBeLessThanOrEqual(1);
+    expect(scrollGeometry.viewportTop).toBe(0);
+    expect(Math.abs(scrollGeometry.viewportBottom - scrollGeometry.clientHeight)).toBeLessThanOrEqual(1);
     expect(geo.mainPaddingBottom).toBeGreaterThan(112);
-    expect(geo.mainPaddingBottom + 4).toBeGreaterThanOrEqual(geo.mainBottom - composerInputTop);
+    expect(geo.mainPaddingBottom + 4).toBeGreaterThanOrEqual(scrollGeometry.viewportBottom - composerInputTop);
 
     // Once the fixed dock is actually hidden, release both the composer and
     // Safari toolbar reserve. The scrollport dimensions stay stable while its
@@ -2089,10 +2137,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // immediately reappearing as a false upward gesture. Do not compare total
     // scrollHeight here because universal matches can finish streaming while
     // this test moves the scrollport.
-    const scrollGeometryBeforeHide = await main.evaluate((el) => ({
-      clientHeight: el.clientHeight,
-      paddingBottom: Number.parseFloat(window.getComputedStyle(el).paddingBottom),
-    }));
+    const scrollGeometryBeforeHide = {
+      ...(await readPrimaryScrollGeometry(page)),
+      paddingBottom: await main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)),
+    };
     // WebKit retains focus on the submitted composer more aggressively than
     // Chromium. Move focus to the scroll surface to model the user dismissing
     // the composer before scrolling; focused composer chrome must stay visible.
@@ -2108,11 +2156,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect
       .poll(async () => main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)))
       .toBeLessThanOrEqual(13);
-    const scrollGeometryAfterHide = await main.evaluate((el) => ({
-      clientHeight: el.clientHeight,
-      scrollHeight: el.scrollHeight,
-      paddingBottom: Number.parseFloat(window.getComputedStyle(el).paddingBottom),
-    }));
+    const scrollGeometryAfterHide = {
+      ...(await readPrimaryScrollGeometry(page)),
+      paddingBottom: await main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)),
+    };
     expect(scrollGeometryBeforeHide.paddingBottom).toBeGreaterThan(200);
     expect(scrollGeometryAfterHide.clientHeight).toBe(scrollGeometryBeforeHide.clientHeight);
     expect(scrollGeometryAfterHide.scrollHeight).toBeGreaterThan(scrollGeometryAfterHide.clientHeight);
@@ -2160,14 +2207,19 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // pinned for keyboard safety, so retaining focus here permanently disables
     // the ordinary touch-scroll hide path.
     await expect(input).not.toBeFocused();
-    const geometry = await main.evaluate((node) => {
+    const scrollGeometry = await readPrimaryScrollGeometry(page);
+    const collapseBudget = await main.evaluate((node) => {
       const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
-      const maxOffset = node.scrollHeight - node.clientHeight;
-      const collapseBudget =
-        (collapse?.getBoundingClientRect().height ?? 0) +
-        Number.parseFloat(window.getComputedStyle(node).paddingBottom);
-      return { maxOffset, collapseBudget, postCollapseMaxOffset: Math.max(0, maxOffset - collapseBudget) };
+      return (
+        (collapse?.getBoundingClientRect().height ?? 0) + Number.parseFloat(window.getComputedStyle(node).paddingBottom)
+      );
     });
+    const geometry = {
+      maxOffset: scrollGeometry.maxScrollTop,
+      collapseBudget,
+      postCollapseMaxOffset: Math.max(0, scrollGeometry.maxScrollTop - collapseBudget),
+    };
+    expect(scrollGeometry.owner).toBe("document");
     // Pin the unmodified short-result geometry. Its 39px post-collapse range
     // clears top-reveal + hide-intent distance (32px), but not the 72px in-flow
     // activation band; synthetic tail content would hide this distinction.
@@ -3559,10 +3611,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // causes a deferred root commit in Firefox; no subsequent target should be
     // selected against the pre-teardown layout.
     const openDocumentActions = page.getByRole("button", { name: "Open document actions" }).first();
-    await page.locator("#main-content").evaluate((element) => {
-      element.scrollTop = 0;
-      element.dispatchEvent(new Event("scroll", { bubbles: true }));
-    });
+    await scrollPrimarySurface(page, 0);
     await expect(openDocumentActions).toBeInViewport();
     await openDocumentActions.click();
     const documentActions = page.getByRole("dialog", { name: "This document" });
@@ -3692,23 +3741,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const header = page.locator("header.universal-header");
     await expect(header).toBeVisible();
     await expect(header).not.toHaveAttribute("data-scroll-hidden", "true");
-    // Answer mode takes the header out of flow (absolute over <main>) so
-    // content frosts under the glass bar; <main> must reserve the header's
-    // exact height as top padding or short answers regain phantom scroll.
-    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("absolute");
+    // Browser-mode phones attach the overlay to the visual viewport so Safari
+    // can use document scrolling. Installed standalone mode uses the compiled
+    // absolute-to-frame override covered by the dedicated PWA contract test.
+    await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("fixed");
     const main = page.locator("main#main-content");
     const reserve = await main.evaluate((node) => Number.parseFloat(window.getComputedStyle(node).paddingTop));
     const headerHeight = await header.evaluate((node) => node.getBoundingClientRect().height);
     expect(Math.abs(reserve - headerHeight)).toBeLessThanOrEqual(2);
 
-    await waitForReactEventHandler(main, "onScroll");
-    await main.evaluate((node) => {
-      const spacer = document.createElement("div");
-      spacer.setAttribute("data-testid", "header-hide-scroll-spacer");
-      spacer.style.height = "2000px";
-      node.appendChild(spacer);
-    });
-    // Step scroll down so the dashboard main listener sees deliberate movement.
+    await appendPrimaryScrollSpacer(page, { heightPx: 2000, testId: "header-hide-scroll-spacer" });
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
+    // Step the active document owner so the dashboard reporter sees deliberate movement.
     for (const offset of [40, 80, 120, 160, 200]) {
       await scrollPrimarySurface(page, offset);
     }
@@ -3746,17 +3790,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     const alert = page.getByTestId("private-scope-unavailable");
     await expect(alert).toBeVisible({ timeout: 15000 });
 
-    const main = page.locator("#main-content");
-    await waitForReactEventHandler(main, "onScroll");
-    await main.evaluate((node) => {
-      const spacer = document.createElement("div");
-      spacer.style.height = "2000px";
-      node.appendChild(spacer);
-    });
+    await appendPrimaryScrollSpacer(page, { heightPx: 2000 });
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
     for (const offset of [80, 160, 260, 380]) {
-      await main.evaluate((node, top) => {
-        node.scrollTop = top;
-      }, offset);
+      await scrollPrimarySurface(page, offset);
     }
 
     // Sticky inside <main>: the recovery actions must remain on-screen (they
@@ -3808,16 +3845,10 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect.poll(async () => header.evaluate((node) => window.getComputedStyle(node).position)).toBe("relative");
 
     const main = page.locator("main#main-content");
-    await waitForReactEventHandler(main, "onScroll");
-    await main.evaluate((node) => {
-      const spacer = document.createElement("div");
-      spacer.style.height = "2000px";
-      node.appendChild(spacer);
-    });
+    await appendPrimaryScrollSpacer(page, { heightPx: 2000 });
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
     for (const offset of [40, 80, 120, 160, 200]) {
-      await main.evaluate((node, top) => {
-        node.scrollTop = top;
-      }, offset);
+      await scrollPrimarySurface(page, offset);
     }
 
     await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
@@ -3854,18 +3885,12 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // -budget gate refuses to START a hide at the bottom edge (that is the
     // #964 "locks to the bottom" trap), so hide with runway remaining first,
     // then ride the clamp to the bottom while hidden.
-    await main.evaluate((node) => {
-      node.scrollTop = 0;
-    });
+    await scrollPrimarySurface(page, 0);
     await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
-    const visibleMaxOffset = await main.evaluate((node) => node.scrollHeight - node.clientHeight);
-    await main.evaluate((node, top) => {
-      node.scrollTop = top;
-    }, visibleMaxOffset - 400);
+    const visibleMaxOffset = (await readPrimaryScrollGeometry(page)).maxScrollTop;
+    await scrollPrimarySurface(page, visibleMaxOffset - 400);
     await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
-    await main.evaluate((node) => {
-      node.scrollTop = node.scrollHeight - node.clientHeight;
-    });
+    await scrollPrimarySurface(page, "end");
     await expect(collapseHost).toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => collapseHost.getAttribute("data-scroll-hidden"), { timeout: 1_000 }).toBe("true");
     // The hidden attribute flips before the 240ms grid-row transition has
@@ -3884,7 +3909,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // write can coalesce into the trailing bottom-clamp evaluation and be
     // rebased away as geometry feedback. A real drag always emits follow-up
     // events, and the second step is a clean upward delta past reveal intent.
-    const settledBottomOffset = await main.evaluate((node) => node.scrollTop);
+    const settledBottomOffset = (await readPrimaryScrollGeometry(page)).scrollTop;
     for (const rise of [24, 48]) {
       await scrollPrimarySurface(page, Math.max(0, settledBottomOffset - rise));
     }
@@ -3923,14 +3948,8 @@ test.describe("Clinical KB UI smoke coverage", () => {
       )
       .toBeGreaterThan(250);
 
-    await waitForReactEventHandler(main, "onScroll");
-    await page.evaluate(() => {
-      const main = window.document.getElementById("main-content");
-      const spacer = window.document.createElement("div");
-      spacer.setAttribute("data-testid", "composer-hide-scroll-spacer");
-      spacer.style.height = "2000px";
-      (main ?? window.document.body).appendChild(spacer);
-    });
+    await appendPrimaryScrollSpacer(page, { heightPx: 2000, testId: "composer-hide-scroll-spacer" });
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
 
     // Hide on deliberate scroll down past the activation offset. The chunk
     // deep-link effect can finish late in Chromium and move the scrollport once
@@ -4013,11 +4032,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(generatedSummary).not.toContainText("**");
     await expect(generatedSummary.locator("strong").filter({ hasText: "clozapine" })).toHaveCount(1);
 
-    const summaryBox = await generatedSummary.boundingBox();
-    const previewBox = await page.getByTestId("pdf-preview").boundingBox();
-    expect(summaryBox).not.toBeNull();
-    expect(previewBox).not.toBeNull();
-    expect(summaryBox!.y).toBeLessThan(previewBox!.y);
+    // The generated answer deliberately smooth-scrolls into view. Read both
+    // boxes in one browser evaluation so viewport motion cannot corrupt their
+    // relative order between independent Playwright round trips.
+    const answerGeometry = await readPrimaryScrollAndDomGeometry(page, {
+      summary: '[data-testid="generated-clinical-summary"]',
+      preview: '[data-testid="pdf-preview"]',
+    });
+    expect(answerGeometry.nodes.summary.count).toBe(1);
+    expect(answerGeometry.nodes.preview.count).toBe(1);
+    expect(answerGeometry.nodes.summary.rect).not.toBeNull();
+    expect(answerGeometry.nodes.preview.rect).not.toBeNull();
+    expect(answerGeometry.nodes.summary.rect!.top).toBeLessThan(answerGeometry.nodes.preview.rect!.top);
     expect(answerRequests).toEqual([
       {
         query: "How is clozapine monitored?",

@@ -3,10 +3,11 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-// A11Y-FOCUS-01 (WCAG 2.4.11 — focus not obscured). On phones the composer docks
-// over the #main-content scrollport, so the scroll container must reserve
-// scroll-padding-bottom = the dock height; otherwise the browser scrolls a
-// below-fold Tab target to rest underneath the fixed dock. This reservation only
+// A11Y-FOCUS-01 (WCAG 2.4.11 — focus not obscured). Browser phones scroll the
+// document so Safari can collapse its own toolbar; installed PWAs keep
+// #main-content as their bounded scrollport. Focus targets therefore use an
+// inherited scroll-margin while the standalone surface retains scroll-padding.
+// This reservation only
 // renders in specific app states (answer-with-content, and every non-answer view)
 // that are impractical to reach deterministically in a browser test, so it is
 // pinned at the source instead — the repo's established pattern for phone
@@ -34,13 +35,23 @@ function mainContentOpeningTag(dashboardSource: string): string {
 
 describe("dashboard scroll-padding keeps keyboard focus clear of fixed chrome", () => {
   const dashboard = source("src/components/ClinicalDashboard.tsx");
+  const globalStyles = source("src/app/globals.css");
   const mainContentTag = mainContentOpeningTag(dashboard);
 
-  it("keeps the reservation on the #main-content scroll container", () => {
-    // The scrollport (overflow-y-auto) and the scroll-padding must be the same
-    // element — padding on a non-scrolling ancestor would not move focus targets.
+  it("marks #main-content as the adaptive phone scroll surface", () => {
     expect(mainContentTag).not.toBe("");
-    expect(mainContentTag).toContain("overflow-y-auto");
+    expect(mainContentTag).toContain("phone-scroll-surface");
+    expect(globalStyles).toMatch(/\.phone-scroll-surface\s*\{[\s\S]*?overflow-y:\s*visible;/);
+    expect(globalStyles).toMatch(
+      /@media \(max-width: 639px\) and \(display-mode: standalone\)[\s\S]*?\.phone-scroll-surface\s*\{[\s\S]*?overflow-y:\s*auto;/,
+    );
+  });
+
+  it("gives focused phone controls clearance in either active scroll owner", () => {
+    expect(globalStyles).toContain(".phone-scroll-surface");
+    expect(globalStyles).toContain("scroll-margin-block-start:");
+    expect(globalStyles).toContain("--phone-focus-bottom-clearance");
+    expect(globalStyles).toContain("var(--mobile-composer-reserve, 0rem)");
   });
 
   it("reserves scroll-padding-bottom in both mobile composer dock branches", () => {
