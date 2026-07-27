@@ -173,7 +173,10 @@ export function SearchResultsHeaderBand({
                 onClick={() => command?.onRemoveScope(scope.id)}
                 aria-label={`Remove ${scope.label} filter`}
                 className={cn(
-                  "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] hover:border-[color:var(--border-strong)] sm:min-h-10",
+                  // Hover deepens the chip's own accent rather than swapping to the
+                  // neutral border the surface controls use — an accent-soft chip
+                  // going grey on hover reads as losing its active state.
+                  "inline-flex min-h-tap shrink-0 max-w-[12rem] items-center gap-1 rounded-full border border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] px-3 text-xs font-bold text-[color:var(--clinical-accent)] hover:border-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] sm:min-h-10",
                   focusRing,
                 )}
               >
