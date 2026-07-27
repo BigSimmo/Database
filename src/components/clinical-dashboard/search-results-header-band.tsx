@@ -37,10 +37,23 @@ function useRailOverflow<Element extends HTMLElement>() {
     const node = ref.current;
     if (!node || typeof ResizeObserver === "undefined") return;
     measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(node);
-    for (const child of Array.from(node.children)) observer.observe(child);
-    return () => observer.disconnect();
+    const resizeObserver = new ResizeObserver(measure);
+    resizeObserver.observe(node);
+    for (const child of Array.from(node.children)) resizeObserver.observe(child);
+    // Child add/remove (scope chips, utility controls) can change scrollWidth without
+    // resizing the rail box; keep the fade mask honest when the child list mutates.
+    const mutationObserver =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(() => {
+            measure();
+            for (const child of Array.from(node.children)) resizeObserver.observe(child);
+          });
+    mutationObserver?.observe(node, { childList: true });
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver?.disconnect();
+    };
   }, [measure]);
 
   return { ref, overflowing } as const;
