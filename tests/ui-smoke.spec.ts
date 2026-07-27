@@ -4,6 +4,7 @@ import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import {
   appendPrimaryScrollSpacer,
   readMobileComposerReservePx,
+  readPrimaryScrollAndDomGeometry,
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
@@ -3992,11 +3993,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(generatedSummary).not.toContainText("**");
     await expect(generatedSummary.locator("strong").filter({ hasText: "clozapine" })).toHaveCount(1);
 
-    const summaryBox = await generatedSummary.boundingBox();
-    const previewBox = await page.getByTestId("pdf-preview").boundingBox();
-    expect(summaryBox).not.toBeNull();
-    expect(previewBox).not.toBeNull();
-    expect(summaryBox!.y).toBeLessThan(previewBox!.y);
+    // The generated answer deliberately smooth-scrolls into view. Read both
+    // boxes in one browser evaluation so viewport motion cannot corrupt their
+    // relative order between independent Playwright round trips.
+    const answerGeometry = await readPrimaryScrollAndDomGeometry(page, {
+      summary: '[data-testid="generated-clinical-summary"]',
+      preview: '[data-testid="pdf-preview"]',
+    });
+    expect(answerGeometry.nodes.summary.count).toBe(1);
+    expect(answerGeometry.nodes.preview.count).toBe(1);
+    expect(answerGeometry.nodes.summary.rect).not.toBeNull();
+    expect(answerGeometry.nodes.preview.rect).not.toBeNull();
+    expect(answerGeometry.nodes.summary.rect!.top).toBeLessThan(answerGeometry.nodes.preview.rect!.top);
     expect(answerRequests).toEqual([
       {
         query: "How is clozapine monitored?",

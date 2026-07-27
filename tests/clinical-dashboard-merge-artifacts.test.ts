@@ -29,6 +29,10 @@ const globalSearchShellSource = readFileSync(
   "utf8",
 );
 const clinicalDashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+const dashboardChromeCoordinatorSource = readFileSync(
+  resolve(process.cwd(), "src/components/clinical-dashboard/use-dashboard-chrome-coordinator.ts"),
+  "utf8",
+);
 const documentViewerSource = readFileSync(resolve(process.cwd(), "src/components/DocumentViewer.tsx"), "utf8");
 const globalStylesSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
 const uiPrimitivesSource = readFileSync(resolve(process.cwd(), "src/components/ui-primitives.tsx"), "utf8");
@@ -226,7 +230,8 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     );
     expect(globalStylesSource).toContain("transition: padding-bottom 240ms var(--ease-out-soft)");
     expect(globalSearchShellSource).toContain("useReserveTransitionMarker");
-    expect(clinicalDashboardSource).toContain("useReserveTransitionMarker");
+    expect(clinicalDashboardSource).toContain("useDashboardChromeCoordinator(searchMode)");
+    expect(dashboardChromeCoordinatorSource).toContain("useReserveTransitionMarker");
     expect(globalStylesSource).toContain("--phone-dock-differentials-compare-clearance: 12.5rem");
     expect(globalStylesSource).toContain("var(--phone-dock-differentials-compare-clearance)");
     // Child pages must not stack a second dock-sized safe-area pad under the

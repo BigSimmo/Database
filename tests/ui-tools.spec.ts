@@ -15,6 +15,7 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
+import { expectSingleSettledOwner } from "./playwright-settlement";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -654,9 +655,10 @@ test.describe("Clinical KB tools launcher", () => {
       // Production hydration can briefly overlap the outgoing server tree and
       // the settled client tree. Require the DOM to converge to one owner
       // before using strict locators; duplicate settled homes still fail.
-      await expect(homeSurface).toHaveCount(1, { timeout: 15_000 });
-      await expect(homeSurface).toBeVisible();
-      await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
+      await expectSingleSettledOwner(homeSurface, { message: `${home.path} home owner` });
+      await expectSingleSettledOwner(page.getByTestId("global-search-input"), {
+        message: `${home.path} composer owner`,
+      });
 
       // The composer sits in the middle of the hero (in-flow) at phone width too,
       // not docked to the bottom edge: it renders inside the mode-home composer
