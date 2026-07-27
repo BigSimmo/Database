@@ -7,6 +7,8 @@ import {
   clinicalRankExplanation,
   expandClinicalQuery,
   hasDoseEvidenceSupport,
+  hasForeignThresholdLabel,
+  hasMedicationMonitoringSubjectEvidence,
   hasNumericOrTableEvidence,
   hasStructuredThresholdEvidence,
   medicationMonitoringQuerySubjectTokens,
@@ -35,12 +37,129 @@ function result(overrides: Partial<SearchResult>): SearchResult {
 }
 
 describe("clinical search query normalization", () => {
+  it("does not mistake a determiner before a categorical range for a foreign subject", () => {
+    expect(
+      hasForeignThresholdLabel(
+        "what clozapine monitoring action is needed for red range blood results",
+        "If blood results return in the red range, clozapine therapy must be discontinued immediately.",
+      ),
+    ).toBe(false);
+  });
+
+  it("recognizes plural foreign threshold labels", () => {
+    expect(
+      hasForeignThresholdLabel(
+        "What lithium level range is used for maintenance monitoring?",
+        "Blood glucose target levels: Maintenance range is 3.0-15.0 mmol/L.",
+      ),
+    ).toBe(true);
+    expect(
+      hasForeignThresholdLabel(
+        "What lithium level range is used for maintenance monitoring?",
+        "TSH reference ranges: Maintenance range is 0.4-4.0 mIU/L.",
+      ),
+    ).toBe(true);
+  });
+
+  it.each([
+    ["Lithicarb", "TSH is 0.4 to 4.0 mmol/L."],
+    ["Quilonum SR", "Serum sodium is 130 to 145 mmol/L."],
+    ["Lithicarb", "Blood glucose is 3.0 to 15.0 mmol/L."],
+  ])("recognizes an assigned foreign analyte for a %s level query", (brand, evidence) => {
+    expect(hasForeignThresholdLabel(`What ${brand} level range is used for maintenance monitoring?`, evidence)).toBe(
+      true,
+    );
+  });
+
+  it.each([
+    ["What FBC threshold should withhold clozapine?", "ANC is 1.5 × 10⁹/L."],
+    ["What thyroid level is used for monitoring?", "TSH is 4.0 mIU/L."],
+  ])("keeps equivalent assigned analyte labels in scope: %s", (query, evidence) => {
+    expect(hasForeignThresholdLabel(query, evidence)).toBe(false);
+  });
+
+  it("does not mistake local monitoring grammar or analyte aliases for foreign labels", () => {
+    expect(
+      hasForeignThresholdLabel(
+        "What monitoring is required for lithium therapy?",
+        "Lithium monitoring requires serum levels and renal and thyroid function tests.",
+      ),
+    ).toBe(false);
+    expect(
+      hasForeignThresholdLabel(
+        "What ANC and FBC thresholds apply to clozapine?",
+        "Clozapine ANC and FBC monitoring for neutrophil thresholds.",
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps a valid medication row when a separate row names another medication", () => {
+    expect(
+      hasMedicationMonitoringSubjectEvidence(
+        "What lithium level range is used for maintenance monitoring?",
+        result({
+          title: "Lithium Therapy",
+          content: "Lithium maintenance range is 0.6 to 0.8 mmol/L. Valproate therapeutic range is 50 to 100 mg/L.",
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not grant subject support from a generic medication sentence beside foreign-only monitoring evidence", () => {
+    expect(
+      hasMedicationMonitoringSubjectEvidence(
+        "What lithium level range is used for maintenance monitoring?",
+        result({
+          title: "Lithium Therapy",
+          content: "Lithium guidance. Valproate therapeutic range is 50 to 100 mg/L.",
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it.each([
+    [
+      "What monitoring is required for lithium therapy?",
+      "Lithium therapy is ongoing. Monitor renal and thyroid function every six months.",
+    ],
+    ["What FBC threshold should withhold clozapine?", "Red FBC results require action. Clozapine should be withheld."],
+    [
+      "What monitoring is required for lithium therapy?",
+      "Lithium therapy is ongoing. The patient should have renal and thyroid function checked every six months.",
+    ],
+    [
+      "What FBC threshold should discontinue clozapine?",
+      "Red FBC results require action. Clozapine should be discontinued.",
+    ],
+  ])("binds an adjacent subject sentence to its monitoring atom: %s", (query, content) => {
+    expect(hasMedicationMonitoringSubjectEvidence(query, result({ content }))).toBe(true);
+  });
+
+  it.each([
+    "Methotrexate monitoring requires renal tests every six months. Lithium guidance.",
+    "Lithium guidance. Methotrexate monitoring requires renal tests every six months.",
+    "Lithium therapy is ongoing. Check methotrexate renal tests every six months.",
+  ])("does not bind an unrecognized foreign medication across sentence adjacency", (content) => {
+    expect(
+      hasMedicationMonitoringSubjectEvidence("What monitoring is required for lithium therapy?", result({ content })),
+    ).toBe(false);
+  });
+
   it("keeps only the medication subject for monitoring questions", () => {
     expect(medicationMonitoringQuerySubjectTokens("What monitoring is required for lithium therapy?")).toEqual([
       "lithium",
     ]);
     expect(medicationMonitoringQuerySubjectTokens("What monitoring escalation is required?")).toEqual([]);
   });
+
+  it.each(["Lithicarb", "Quilonum SR", "lithium carbonate"])(
+    "canonicalizes %s to the lithium monitoring subject",
+    (medication) => {
+      expect(
+        medicationMonitoringQuerySubjectTokens(`What ${medication} level range is used for maintenance monitoring?`),
+      ).toEqual(["lithium"]);
+    },
+  );
 
   it("classifies common RAG query shapes for routing and observability", () => {
     expect(classifyRagQuery("Find the NOCC document").queryClass).toBe("document_lookup");
@@ -58,6 +177,9 @@ describe("clinical search query normalization", () => {
     expect(classifyRagQuery("What are NOCC requirements?").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What assessment documentation is required?").queryClass).toBe("document_lookup");
     expect(classifyRagQuery("What ANC threshold should stop clozapine?").queryClass).toBe("table_threshold");
+    expect(classifyRagQuery("What is the target concentration for lithium?").queryClass).toBe("table_threshold");
+    expect(classifyRagQuery("What is the therapeutic concentration for lithium?").queryClass).toBe("table_threshold");
+    expect(classifyRagQuery("What is the trough concentration for lithium?").queryClass).toBe("table_threshold");
     expect(classifyRagQuery("How are long acting injectable medications managed?").queryClass).toBe(
       "medication_dose_risk",
     );
@@ -194,6 +316,13 @@ describe("clinical search query normalization", () => {
     expect(buildClinicalTextSearchQuery("How are active community patients in ED managed?")).toBe(
       "active community pt ed",
     );
+  });
+
+  it("keeps clozapine blood-action thresholds precise without changing routine monitoring queries", () => {
+    expect(buildClinicalTextSearchQuery("What FBC threshold should withhold clozapine?")).toBe(
+      "clozapine wbc neutrophils red range stop",
+    );
+    expect(buildClinicalTextSearchQuery("When should clozapine blood monitoring occur?")).toBe("clozapine monitoring");
   });
 
   it("keeps patient property as a document title phrase", () => {

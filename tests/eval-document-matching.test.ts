@@ -25,14 +25,14 @@ describe("eval document matching wide-tier aliases", () => {
 
     const coverage = expectedFileCoverage(["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"], [dualListedDoc], 5);
 
-    // A single retrieved source may hit Discharge, but must not make allHit true
-    // by also filling the Admission slot via overlapping wide-tier aliases.
+    // A single retrieved source may fill either slot, but maximum matching must not assign
+    // that same document to both expectations through the overlapping wide-tier aliases.
     expect(coverage.allHit).toBe(false);
-    expect(coverage.matchedFiles).toEqual(["MHSP.Discharge.pdf"]);
-    expect(coverage.missingFiles).toEqual(["MHSP.AdmissionCommunityPts.pdf"]);
+    expect(coverage.matchedFiles).toHaveLength(1);
+    expect(coverage.missingFiles).toHaveLength(1);
   });
 
-  it("keeps AdmissionCommunityPts and Discharge wide-tier alias values disjoint", () => {
+  it("limits the AdmissionCommunityPts and Discharge overlap to the two approved dual-title policies", () => {
     const admission = new Set(
       documentExpectationAlternatives("MHSP.AdmissionCommunityPts.pdf").filter(
         (name) => name !== normalizedDocumentName("MHSP.AdmissionCommunityPts.pdf"),
@@ -42,7 +42,34 @@ describe("eval document matching wide-tier aliases", () => {
       (name) => name !== normalizedDocumentName("MHSP.Discharge.pdf"),
     );
 
-    expect(discharge.filter((name) => admission.has(name))).toEqual([]);
+    expect(discharge.filter((name) => admission.has(name)).sort()).toEqual(
+      ["Admission to Discharge for Community Mental Health", "Admission to Discharge for Mental Health Inpatients"]
+        .map(normalizedDocumentName)
+        .sort(),
+    );
+  });
+
+  it("uses a dual-title policy for admission only when a distinct discharge source is also present", () => {
+    const coverage = expectedFileCoverage(
+      ["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"],
+      [
+        {
+          title: "Admission to Discharge for Community Mental Health",
+          file_name: "Admission to Discharge for Community Mental Health (NMHS).pdf",
+        },
+        {
+          title: "Discharge Planning for Community Patients",
+          file_name: "Discharge Planning for Community Patients (NMHS).pdf",
+        },
+      ],
+      5,
+    );
+
+    expect(coverage).toMatchObject({
+      matchedFiles: ["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"],
+      missingFiles: [],
+      allHit: true,
+    });
   });
 
   it("still matches admission-only and discharge-only documents on their own slots", () => {
@@ -104,6 +131,29 @@ describe("eval document matching wide-tier aliases", () => {
     expect(coverage.matchedFiles).toHaveLength(1);
   });
 
+  it("deduplicates title variants by document_id before matching overlapping aliases", () => {
+    const coverage = expectedFileCoverage(
+      ["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"],
+      [
+        {
+          document_id: "one-dual-policy",
+          title: "Admission to Discharge for Community Mental Health",
+          file_name: "Admission to Discharge for Community Mental Health (NMHS).pdf",
+        },
+        {
+          document_id: "one-dual-policy",
+          title: "Discharge Planning for Community Patients",
+          file_name: "Admission to Discharge for Community Mental Health (NMHS).pdf",
+        },
+      ],
+      5,
+    );
+
+    expect(coverage.allHit).toBe(false);
+    expect(coverage.matchedFiles).toHaveLength(1);
+    expect(coverage.missingFiles).toHaveLength(1);
+  });
+
   it("assigns sources optimally so coverage does not depend on expectedFiles order", () => {
     // The combo document matches both expectations; the narrower one matches only Lithium.
     // Whichever order the expectations arrive in, both slots are satisfiable by distinct docs.
@@ -116,10 +166,14 @@ describe("eval document matching wide-tier aliases", () => {
     expect(expectedFileCoverage(["CG.MHSP.Metformin.pdf", "CG.MHSP.Lithium.pdf"], sources, 5).allHit).toBe(true);
   });
 
-  it("keeps the alias values of every multi-slot case's expectations pairwise disjoint", () => {
-    // Generalizes the admission/discharge check above to every multi-slot case, including any
-    // added later. A value listed under two slots of the same case is the #030 defect: it lets
-    // one document stand in for two independent sources.
+  it("keeps every multi-slot alias overlap either absent or explicitly approved", () => {
+    // #080 deliberately restores two dual-title admission/discharge aliases now that maximum
+    // matching requires distinct document identities. No other multi-slot overlap is allowed.
+    const approvedAdmissionDischargeOverlaps = new Set(
+      ["Admission to Discharge for Community Mental Health", "Admission to Discharge for Mental Health Inpatients"].map(
+        normalizedDocumentName,
+      ),
+    );
     const overlaps = multiSlotCases.flatMap((evalCase) => {
       const found: string[] = [];
       for (let i = 0; i < evalCase.expectedFiles.length; i += 1) {
@@ -127,6 +181,14 @@ describe("eval document matching wide-tier aliases", () => {
           const left = new Set(aliasValuesFor(evalCase.expectedFiles[i]));
           const shared = aliasValuesFor(evalCase.expectedFiles[j]).filter((value) => left.has(value));
           for (const value of shared) {
+            const pair = new Set([evalCase.expectedFiles[i], evalCase.expectedFiles[j]]);
+            if (
+              pair.has("MHSP.AdmissionCommunityPts.pdf") &&
+              pair.has("MHSP.Discharge.pdf") &&
+              approvedAdmissionDischargeOverlaps.has(value)
+            ) {
+              continue;
+            }
             found.push(
               `${evalCase.id}: "${value}" is listed under both ${evalCase.expectedFiles[i]} and ${evalCase.expectedFiles[j]}`,
             );
