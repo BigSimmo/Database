@@ -29,6 +29,8 @@ import { GuideDialog } from "@/components/clinical-dashboard/dashboard-shell";
 import { landingModeForPreference, readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
+import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
+import { useActiveScrollOwner } from "@/components/clinical-dashboard/use-active-scroll-owner";
 import {
   isPageOwnedComposerRoute,
   resolveMobileComposerReserve,
@@ -314,8 +316,9 @@ function GlobalStandaloneSearchShellBody({
   const [mainElement, setMainElement] = useState<HTMLDivElement | null>(null);
   // The header hides at every breakpoint; only the phone bottom dock stays
   // phone-gated (MasterSearchHeader keeps that behind its own phone layout
-  // check). #main-content is the scrollport on phones and the document is the
-  // scrollport above them, so both sources feed the same reporter.
+  // check). Browser phones and sm+ use document scrolling; standalone phones
+  // keep #main-content as the bounded app scroller, so both sources feed one
+  // reporter.
   // resetKey=pathname clears carried-over hide state across shared mode homes.
   const chromeScrollHide = useScrollHideReporter(false, true, pathname);
   const reportChromeScrollHideRef = useRef(chromeScrollHide.reportScroll);
@@ -328,7 +331,9 @@ function GlobalStandaloneSearchShellBody({
     setBottomComposerHidden(false);
   }
   const reserveTransitioning = useReserveTransitionMarker(bottomComposerHidden, pathname);
-  useDocumentScrollHideReporter(chromeScrollHide.reportScroll);
+  const chromeTransitioning = useReserveTransitionMarker(chromeScrollHide.hidden, pathname);
+  const activeScrollOwner = useActiveScrollOwner(mainElement, pathname);
+  useDocumentScrollHideReporter(chromeScrollHide.reportScroll, mainElement, inputRef);
   useEffect(() => {
     reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
   }, [chromeScrollHide.reportScroll]);
@@ -337,6 +342,7 @@ function GlobalStandaloneSearchShellBody({
   useEffect(() => {
     const main = document.getElementById("main-content");
     if (main instanceof HTMLElement) main.scrollTop = 0;
+    window.scrollTo(0, 0);
   }, [pathname]);
   const visibleShellModes = useMemo(() => {
     const modes = visibleAppModeDefinitions();
@@ -709,11 +715,10 @@ function GlobalStandaloneSearchShellBody({
   return (
     <div
       className={cn(
-        // Keep the phone shell viewport-bounded without making the whole app a
-        // viewport-sized fixed layer. Physical iOS can paint a bottom gap under
-        // fixed inset shells while reporting correct geometry; the shared
-        // in-flow contract still bounds #main-content for internal scrolling.
-        "phone-viewport-shell sm:min-h-dvh max-sm:overflow-hidden bg-[color:var(--background)] text-[color:var(--text)]",
+        // Browser phones stay in normal flow so Safari sees document scrolling
+        // and can minimize its own chrome. Standalone mode is bounded by the
+        // shared display-mode contract without returning to a fixed root.
+        "phone-viewport-shell sm:min-h-dvh bg-[color:var(--background)] text-[color:var(--text)]",
         shouldShowDesktopSidebar && "md:grid md:grid-cols-[5.25rem_minmax(0,1fr)]",
         shouldShowDesktopSidebar &&
           sidebarColumnTransitionReady &&
@@ -752,14 +757,17 @@ function GlobalStandaloneSearchShellBody({
         </div>
       ) : null}
 
-      <div className="flex min-w-0 flex-col max-sm:h-full max-sm:min-h-0 max-sm:overflow-hidden sm:min-h-dvh">
+      <PhoneFooterLayerFrame
+        className="phone-viewport-frame flex min-w-0 flex-col sm:min-h-dvh"
+        scrollHidden={chromeScrollHide.hidden}
+      >
         {/*
-          `contents` above the phone breakpoint: the chrome wrapper pins itself
-          to the viewport top there, and a plain block here would be a
-          header-height containing block that leaves that sticky rule no travel
-          (the header then just scrolled off the page with the content).
+          `contents` at every visible breakpoint: the chrome wrapper pins itself
+          to the viewport top, and a plain block here would be a header-height
+          containing block that leaves that sticky rule no travel (the header
+          then reports revealed while remaining above the viewport).
         */}
-        <div className={mobileChromeVisible ? "sm:contents" : "hidden lg:contents"}>
+        <div className={mobileChromeVisible ? "contents" : "hidden lg:contents"}>
           <MasterSearchHeader
             demoMode={clientDemoMode}
             documents={[]}
@@ -860,15 +868,25 @@ function GlobalStandaloneSearchShellBody({
           onScroll={handleMainScroll}
           data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
           data-reserve-transitioning={reserveTransitioning ? "true" : undefined}
+          data-chrome-transitioning={chromeTransitioning ? "true" : undefined}
+          data-phone-scroll-owner={activeScrollOwner}
+          data-phone-footer-owner={
+            isStandaloneModeHome
+              ? "hero"
+              : isPageOwnedComposerRoute(pathname)
+                ? "page"
+                : shouldShowSearchComposer
+                  ? "shell"
+                  : "none"
+          }
+          data-phone-composer-reserve={mobileComposerReserve}
+          data-phone-chrome-transition={reserveTransitioning || chromeTransitioning ? "active" : "idle"}
           className={cn(
-            // sm+ uses overflow-x-clip (not hidden): hidden forces overflow-y to
-            // auto, which turns #main-content into the sticky scrollport while the
-            // window does the actual scrolling — silently disabling every
-            // position:sticky descendant (e.g. the document viewer rail).
-            // Phone: keep a block formatting scrollport (not a column flex). A
-            // flex-1 child overflowed past a sibling spacer without extending
-            // scrollHeight, which parked long pages under the visible dock.
-            "min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:min-h-0 max-sm:flex-1 max-sm:overflow-x-hidden max-sm:overflow-y-auto max-sm:overscroll-contain max-sm:[-webkit-overflow-scrolling:touch] sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:overflow-x-clip",
+            // Browser phones use overflow-x: clip so CSS cannot silently turn
+            // overflow-y: visible into an element scroller. Standalone mode
+            // overrides this semantic surface to the bounded app scrollport.
+            // sm+ keeps document ownership for sticky page descendants.
+            "phone-scroll-surface min-w-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] max-sm:flex-1 sm:min-h-[calc(100dvh-var(--shell-header-h))] sm:overflow-x-clip",
             // sm+: static desktop clearance; use var(--safe-area-bottom) so tests
             // can simulate insets without depending on env() in Chromium.
             !reservesFloatingComposer
@@ -899,7 +917,7 @@ function GlobalStandaloneSearchShellBody({
             <SearchCommandProvider value={searchCommandContextValue}>{children}</SearchCommandProvider>
           </div>
         </div>
-      </div>
+      </PhoneFooterLayerFrame>
 
       <GuideDialog open={guideOpen} onClose={closeGuideWithRestore} />
       <SidebarSettingsDialog

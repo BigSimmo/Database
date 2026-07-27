@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Route } from "playwright/test";
+import { expect, test, type Locator, type Page, type Route } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 
 // Cross-entity universal typeahead in the command surface. The universal endpoint is
@@ -86,7 +86,9 @@ async function fulfillUniversalSearch(route: Route, response: typeof universalPa
 
 async function mockUniversalSearch(page: Page) {
   await page.route(/\/api\/search\/universal(?:\?.*)?$/, async (route) => {
-    const mode = new URL(route.request().url()).searchParams.get("mode") ?? "documents";
+    const requestUrl = new URL(route.request().url());
+    const mode = requestUrl.searchParams.get("mode") ?? "documents";
+    const query = requestUrl.searchParams.get("q") ?? "";
     const preferredByMode: Record<string, string[]> = {
       answer: ["documents"],
       documents: ["documents"],
@@ -102,6 +104,7 @@ async function mockUniversalSearch(page: Page) {
     const responseOrder = universalPayload.groups.map((group) => group.kind);
     await fulfillUniversalSearch(route, {
       ...universalPayload,
+      query,
       contextMode: mode,
       preferredDomains,
       domainOrder: [...preferredDomains, ...responseOrder.filter((domain) => !preferredDomains.includes(domain))],
@@ -109,10 +112,33 @@ async function mockUniversalSearch(page: Page) {
   });
 }
 
+async function waitForReactChangeHandler(locator: Locator) {
+  await expect
+    .poll(
+      async () =>
+        locator.evaluate((element) => {
+          const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
+          if (!propsKey) return false;
+          const props = (element as unknown as Record<string, Record<string, unknown>>)[propsKey];
+          return typeof props?.onChange === "function";
+        }),
+      { timeout: 15_000 },
+    )
+    .toBe(true);
+}
+
 async function openComposer(page: Page, href = "/?mode=documents&focus=1") {
   await page.goto(href, { waitUntil: "domcontentloaded" });
-  const input = page.getByTestId("global-search-input").first();
+  // Do not hide a transient server/client overlap with `.first()`. Wait for one
+  // settled composer and its React handler so a hydration replacement cannot
+  // discard the subsequent fill while the full browser suite is under load.
+  const input = page.getByTestId("global-search-input");
+  await expect(input).toHaveCount(1, { timeout: 15_000 });
+  await expect(input).toBeVisible();
+  await expect(input).toBeEnabled();
+  await waitForReactChangeHandler(input);
   await input.click();
+  await expect(input).toBeFocused();
   return input;
 }
 

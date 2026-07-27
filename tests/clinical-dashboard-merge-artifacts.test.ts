@@ -29,6 +29,10 @@ const globalSearchShellSource = readFileSync(
   "utf8",
 );
 const clinicalDashboardSource = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+const dashboardChromeCoordinatorSource = readFileSync(
+  resolve(process.cwd(), "src/components/clinical-dashboard/use-dashboard-chrome-coordinator.ts"),
+  "utf8",
+);
 const documentViewerSource = readFileSync(resolve(process.cwd(), "src/components/DocumentViewer.tsx"), "utf8");
 const globalStylesSource = readFileSync(resolve(process.cwd(), "src/app/globals.css"), "utf8");
 const uiPrimitivesSource = readFileSync(resolve(process.cwd(), "src/components/ui-primitives.tsx"), "utf8");
@@ -64,6 +68,20 @@ const mobileComposerReserveSource = readFileSync(
 );
 
 type FoundDeclaration = { source: string };
+
+function cssBlock(source: string, marker: string) {
+  const markerIndex = source.indexOf(marker);
+  if (markerIndex < 0) return "";
+  const openIndex = source.indexOf("{", markerIndex);
+  if (openIndex < 0) return "";
+  let depth = 0;
+  for (let index = openIndex; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}") depth -= 1;
+    if (depth === 0) return source.slice(markerIndex, index + 1);
+  }
+  return "";
+}
 
 function findFunctionDeclaration(name: string): FoundDeclaration | null {
   for (const file of scannedFiles) {
@@ -118,14 +136,45 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     expect(globalStylesSource).not.toMatch(/^\s*-webkit-backdrop-filter\s*:/m);
   });
 
-  it("keeps shared phone shells out of the iOS fixed-viewport compositor path", () => {
+  it("keeps browser phone shells in document flow and standalone shells bounded", () => {
     expect(globalSearchShellSource).toContain('"phone-viewport-shell sm:min-h-dvh');
     expect(clinicalDashboardSource).toContain('"mobile-app-shell phone-viewport-shell flex');
-    expect(globalSearchShellSource).not.toContain("max-sm:fixed max-sm:inset-0");
-    expect(clinicalDashboardSource).not.toContain("max-sm:fixed max-sm:inset-0");
-    expect(globalStylesSource).toContain(".phone-viewport-shell {");
-    expect(globalStylesSource).toContain("position: relative;");
-    expect(globalStylesSource).toContain("height: 100dvh;");
+    const browserMediaBlock = cssBlock(
+      globalStylesSource,
+      "@media (max-width: 639px) {\n    .mobile-app-shell,\n    .phone-viewport-shell",
+    );
+    const standaloneMediaBlock = cssBlock(
+      globalStylesSource,
+      "@media (max-width: 639px) and (display-mode: standalone)",
+    );
+    const phoneShellBlocks = [...browserMediaBlock.matchAll(/\.phone-viewport-shell\s*\{[\s\S]*?\}/g)].map(
+      ([block]) => block,
+    );
+    const browserPhoneShellSizingBlock = phoneShellBlocks.find((block) => block.includes("min-height: 100svh;"));
+    const browserPhoneShellPositionBlock = phoneShellBlocks.find((block) => block.includes("position: relative;"));
+    const standalonePhoneShellBlock = standaloneMediaBlock.match(/\.phone-viewport-shell\s*\{[\s\S]*?\}/)?.[0];
+    const browserScrollBlock = browserMediaBlock.match(/\.phone-scroll-surface\s*\{[\s\S]*?\}/)?.[0];
+    const standaloneScrollBlock = standaloneMediaBlock.match(/\.phone-scroll-surface\s*\{[\s\S]*?\}/)?.[0];
+    const browserFooterBlock = browserMediaBlock.match(/\.phone-footer-layer\s*\{[\s\S]*?\}/)?.[0];
+    const standaloneFooterBlock = standaloneMediaBlock.match(/\.phone-footer-layer\s*\{[\s\S]*?\}/)?.[0];
+
+    expect(browserMediaBlock).not.toBe("");
+    expect(standaloneMediaBlock).not.toBe("");
+    expect(browserPhoneShellSizingBlock).toContain("height: auto;");
+    expect(browserPhoneShellPositionBlock).toContain("overflow: visible;");
+    expect(browserPhoneShellPositionBlock).not.toContain("position: fixed;");
+    expect(browserScrollBlock).toContain("overflow-y: visible;");
+    expect(browserFooterBlock).toContain("position: fixed;");
+
+    expect(standalonePhoneShellBlock).toContain("min-height: 100vh;");
+    expect(standalonePhoneShellBlock).toContain("height: 100vh;");
+    expect(standalonePhoneShellBlock).toContain("overflow: hidden;");
+    expect(standaloneScrollBlock).toContain("overflow-x: hidden;");
+    expect(standaloneScrollBlock).toContain("overscroll-behavior-y: contain;");
+    expect(standaloneFooterBlock).toContain("position: absolute;");
+    expect(browserMediaBlock).toContain('.phone-scroll-surface[data-chrome-transitioning="true"]');
+    expect(browserMediaBlock).toContain('.phone-scroll-surface[data-reserve-transitioning="true"]');
+    expect(browserMediaBlock).toContain('.phone-scroll-surface:has([data-reserve-transitioning="true"])');
   });
 
   it("releases the Safari toolbar reserve only after phone composers hide", () => {
@@ -167,9 +216,7 @@ describe("ClinicalDashboard merge-artifact guards", () => {
 
     expect(documentViewerSource).toContain('data-testid="document-viewer-content"');
     expect(documentViewerSource).toContain('"max-sm:pb-0"');
-    expect(documentViewerSource).toContain(
-      '"max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]"',
-    );
+    expect(documentViewerSource).toContain("max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]");
     // Hidden document content must not reintroduce Safari toolbar inset padding.
     expect(documentViewerSource).not.toMatch(/composerScrollHidden\s*\?\s*["']max-sm:pb-\[calc\([^"']*safe-area/);
     expect(documentViewerSource).toContain("max-sm:duration-[240ms]");
@@ -183,7 +230,8 @@ describe("ClinicalDashboard merge-artifact guards", () => {
     );
     expect(globalStylesSource).toContain("transition: padding-bottom 240ms var(--ease-out-soft)");
     expect(globalSearchShellSource).toContain("useReserveTransitionMarker");
-    expect(clinicalDashboardSource).toContain("useReserveTransitionMarker");
+    expect(clinicalDashboardSource).toContain("useDashboardChromeCoordinator(searchMode)");
+    expect(dashboardChromeCoordinatorSource).toContain("useReserveTransitionMarker");
     expect(globalStylesSource).toContain("--phone-dock-differentials-compare-clearance: 12.5rem");
     expect(globalStylesSource).toContain("var(--phone-dock-differentials-compare-clearance)");
     // Child pages must not stack a second dock-sized safe-area pad under the

@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type TestInfo } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
+import { readPrimaryScrollGeometry } from "./playwright-scroll";
 
 const axeWcagTags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"];
 const axeBlockingImpacts = new Set(["critical", "serious"]);
@@ -118,24 +119,26 @@ test("keeps mobile search, domain filtering, record actions, and universal chrom
   await expectNoBlockingAxeViolations(page, testInfo);
 });
 
-test("keeps long mobile formulation pages inside the app scrollport", async ({ page }) => {
+test("keeps long mobile formulation pages inside the active app scroll surface", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await gotoApp(page, "/formulation/builder?mechanism=rumination&template=5Ps");
 
   await expect(page.getByRole("heading", { name: "Build a formulation that can be tested" })).toBeVisible();
 
-  const geometry = await page.evaluate(() => {
-    const main = document.getElementById("main-content");
+  const scrollGeometry = await readPrimaryScrollGeometry(page);
+  const mainGeometry = await page.locator("#main-content").evaluate((main) => {
+    const rect = main.getBoundingClientRect();
     return {
-      documentClientHeight: document.documentElement.clientHeight,
-      documentScrollHeight: document.documentElement.scrollHeight,
-      mainClientHeight: main?.clientHeight ?? 0,
-      mainScrollHeight: main?.scrollHeight ?? 0,
+      bottom: rect.bottom,
+      overflowY: window.getComputedStyle(main).overflowY,
+      viewportHeight: window.innerHeight,
     };
   });
 
-  expect(geometry.documentScrollHeight - geometry.documentClientHeight).toBeLessThanOrEqual(2);
-  expect(geometry.mainScrollHeight).toBeGreaterThan(geometry.mainClientHeight + 40);
+  expect(scrollGeometry.owner).toBe("document");
+  expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight + 40);
+  expect(mainGeometry.overflowY).toBe("visible");
+  expect(mainGeometry.bottom).toBeGreaterThanOrEqual(mainGeometry.viewportHeight - 1);
 });
 
 test("keeps unavailable builder navigation natively disabled without fading its text", async ({ page }, testInfo) => {
