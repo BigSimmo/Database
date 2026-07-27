@@ -130,6 +130,15 @@ describe("golden retrieval eval helpers", () => {
     expect(evaluated.ndcgAt10).toBe(1);
     expect(evaluated.requiredSignalCoverageAt10).toBe(1);
     expect(evaluated.irrelevantSourceRateAt10).toBe(0.5);
+    expect(evaluated.topResults[0]).toMatchObject({
+      relevanceGrade: 3,
+      matchedDeclaredSignals: ["document:ClozapinePresAdminMonitor", "content:anc", "table_evidence"],
+    });
+    expect(evaluated.topResults[1]).toMatchObject({ relevanceGrade: 0, matchedDeclaredSignals: [] });
+    expect(JSON.parse(JSON.stringify(evaluated)).topResults[0]).toMatchObject({
+      relevanceGrade: 3,
+      matchedDeclaredSignals: ["document:ClozapinePresAdminMonitor", "content:anc", "table_evidence"],
+    });
     expect(summarizeGoldenRetrievalResults([evaluated])).toMatchObject({
       signal_metric_case_count: 1,
       ndcg_at_10: 1,
@@ -214,6 +223,10 @@ describe("golden retrieval eval helpers", () => {
     expect(evaluated.declaredSignalCount).toBe(2);
     expect(evaluated.requiredSignalCoverageAt10).toBe(1);
     expect(evaluated.ndcgAt10).toBe(1);
+    expect(evaluated.topResults[0]).toMatchObject({
+      relevanceGrade: 2,
+      matchedDeclaredSignals: ["content:fbc OR full blood count", "table_evidence"],
+    });
   });
 
   it("uses explicit neutral values for cases with no declared retrieval signals", () => {
@@ -236,6 +249,7 @@ describe("golden retrieval eval helpers", () => {
     expect(evaluated.ndcgAt10).toBe(1);
     expect(evaluated.requiredSignalCoverageAt10).toBe(1);
     expect(evaluated.irrelevantSourceRateAt10).toBe(0);
+    expect(evaluated.topResults[0]).toMatchObject({ relevanceGrade: null, matchedDeclaredSignals: [] });
 
     const summary = summarizeGoldenRetrievalResults([evaluated]);
     expect(summary.signal_metric_case_count).toBe(0);

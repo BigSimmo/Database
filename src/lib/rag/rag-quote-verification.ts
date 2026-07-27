@@ -1,5 +1,10 @@
 import { allowedChunkMap, citationFromResult as resultCitation, compactCitations } from "@/lib/citations";
+import { adjacentLabelledNumericBandConflicts, textReferencesAdjacentBandConflict } from "@/lib/answer-verification";
 import { safeRecord, sanitizeStructuredText } from "@/lib/rag/rag-answer-text";
+import {
+  sourceDirectlySupportsAnswerText,
+  sourceLabelledNumericBandConflictsAffectingText,
+} from "@/lib/rag/rag-claim-support";
 import { appendRoutingReason } from "@/lib/rag/rag-routing";
 import { sourceTextForClinicalProse } from "@/lib/source-text-sanitizer";
 import type { ConflictOrGap, QuoteCard, RagAnswer, SearchResult } from "@/lib/types";
@@ -94,16 +99,44 @@ export function sanitizeConflictsOrGaps(items: ConflictOrGap[] | undefined, resu
     .filter((item) => !item.source_chunk_ids || item.source_chunk_ids.length > 0);
 }
 
-export function enrichGroundedReviewCitations(answer: RagAnswer, results: SearchResult[], minCitations = 2): RagAnswer {
+export function enrichGroundedReviewCitations(
+  answer: RagAnswer,
+  results: SearchResult[],
+  minCitations = 2,
+  query?: string,
+): RagAnswer {
+  const targetCitationCount = Math.min(2, minCitations);
   if (!answer.grounded || answer.confidence === "unsupported") return answer;
-  if (answer.citations.length >= minCitations) return answer;
+  if (answer.citations.length >= targetCitationCount) return answer;
   if ((answer.unverifiedNumericTokens?.length ?? 0) > 0 || answer.faithfulnessWarning) return answer;
 
+  const resultById = new Map(results.map((result) => [result.id, result]));
+  const adjacentBandConflicts = adjacentLabelledNumericBandConflicts(results);
+  const modelSelected = answer.citations.filter((citation) => citation.provenance === "model_selected");
+  if (modelSelected.length === 0) return answer;
+  if (
+    modelSelected.some((citation) => {
+      const source = resultById.get(citation.chunk_id);
+      return !source || !sourceDirectlySupportsAnswerText(answer.answer, source);
+    })
+  ) {
+    return answer;
+  }
+
   const existing = new Set(answer.citations.map((citation) => citation.chunk_id));
-  const verifiedQuoteIds = new Set((answer.quoteCards ?? []).map((quote) => quote.chunk_id));
-  const additional = compactCitations(results)
-    .filter((citation) => verifiedQuoteIds.has(citation.chunk_id) && !existing.has(citation.chunk_id))
-    .slice(0, minCitations - answer.citations.length);
+  const additional = compactCitations(results, results.length, "deterministic_support")
+    .filter((citation) => {
+      if (existing.has(citation.chunk_id)) return false;
+      const source = resultById.get(citation.chunk_id);
+      if (!source) return false;
+      const metadata = source.source_metadata;
+      if (metadata?.document_status !== "current" || metadata.extraction_quality !== "good") return false;
+      if (source.indexing_quality && source.indexing_quality.extraction_quality !== "good") return false;
+      if (sourceLabelledNumericBandConflictsAffectingText(source, answer.answer, query).length > 0) return false;
+      if (textReferencesAdjacentBandConflict(answer.answer, source.id, adjacentBandConflicts, query)) return false;
+      return sourceDirectlySupportsAnswerText(answer.answer, source);
+    })
+    .slice(0, Math.min(1, targetCitationCount - answer.citations.length));
   if (additional.length === 0) return answer;
 
   return {
