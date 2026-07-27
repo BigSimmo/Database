@@ -8,9 +8,15 @@ import {
   mergeFillIntoEnvLocal,
   parseEnvFile,
   REPORT_ONLY_KEYS,
+  resolveTargetRoot,
 } from "../scripts/check-local-presence.mjs";
 
 describe("check-local-presence", () => {
+  it("accepts an explicit checkout root for cross-worktree inspection", () => {
+    expect(resolveTargetRoot(["--root", process.cwd()])).toBe(process.cwd());
+    expect(() => resolveTargetRoot(["--root"])).toThrow("--root requires a checkout path");
+  });
+
   it("parses env assignments without exposing values in helpers", () => {
     const parsed = parseEnvFile(
       ["# comment", 'RAG_QUERY_HASH_SECRET="abc"', "OPENAI_API_KEY=xyz", "not valid", ""].join("\n"),
