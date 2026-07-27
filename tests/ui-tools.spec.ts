@@ -1570,17 +1570,19 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(typeSelect).toHaveValue("diagnosis");
     await typeSelect.selectOption("all");
 
+    // Sort is a segmented group and the page filter is a select; they sit side by
+    // side at matched tap height, and the pair itself never scrolls internally --
+    // any overflow belongs to the utility rail that owns it.
     const mobilePair = page.getByTestId("search-query-ribbon-mobile-control-pair");
     const pairMetrics = await mobilePair.evaluate((element) => ({
       width: element.getBoundingClientRect().width,
       scrollWidth: element.scrollWidth,
-      controlHeights: Array.from(element.querySelectorAll("label")).map(
-        (label) => label.getBoundingClientRect().height,
-      ),
+      controlHeights: Array.from(element.children).map((child) => child.getBoundingClientRect().height),
     }));
     expect(pairMetrics.scrollWidth).toBeLessThanOrEqual(pairMetrics.width + 1);
     expect(pairMetrics.controlHeights).toHaveLength(2);
     expect(Math.abs(pairMetrics.controlHeights[0] - pairMetrics.controlHeights[1])).toBeLessThanOrEqual(1);
+    expect(Math.min(...pairMetrics.controlHeights)).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
@@ -1670,17 +1672,19 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(typeSelect).toHaveValue("presentation");
     await typeSelect.selectOption("all");
 
+    // Sort is a segmented group and the page filter is a select; they sit side by
+    // side at matched tap height, and the pair itself never scrolls internally --
+    // any overflow belongs to the utility rail that owns it.
     const mobilePair = page.getByTestId("search-query-ribbon-mobile-control-pair");
     const pairMetrics = await mobilePair.evaluate((element) => ({
       width: element.getBoundingClientRect().width,
       scrollWidth: element.scrollWidth,
-      controlHeights: Array.from(element.querySelectorAll("label")).map(
-        (label) => label.getBoundingClientRect().height,
-      ),
+      controlHeights: Array.from(element.children).map((child) => child.getBoundingClientRect().height),
     }));
     expect(pairMetrics.scrollWidth).toBeLessThanOrEqual(pairMetrics.width + 1);
     expect(pairMetrics.controlHeights).toHaveLength(2);
     expect(Math.abs(pairMetrics.controlHeights[0] - pairMetrics.controlHeights[1])).toBeLessThanOrEqual(1);
+    expect(Math.min(...pairMetrics.controlHeights)).toBeGreaterThanOrEqual(43);
 
     const emergentBadge = page.getByTestId("differential-status-badge").first();
     await expect(emergentBadge).toBeVisible();
