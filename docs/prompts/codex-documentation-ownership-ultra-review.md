@@ -475,6 +475,12 @@ Never commit or push.
 
 After the lead coordinator synthesises findings and runs first-pass validation, spawn three fresh read-only reviewer agents in parallel.
 
+If fresh reviewer subagents are unavailable:
+
+- Perform the same three reviewer lanes sequentially after the first-pass synthesis
+- Explicitly report that independent parallel verification was unavailable
+- Do not describe the sequential pass as independent verification, and do not omit any lane
+
 ## Reviewer 1 — Accuracy and command-fidelity reviewer
 
 Review:
