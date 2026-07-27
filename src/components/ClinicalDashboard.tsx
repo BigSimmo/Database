@@ -89,12 +89,7 @@ import { UniversalSearchAlsoMatches } from "@/components/clinical-dashboard/univ
 import { FavouritesGuestGate } from "@/components/clinical-dashboard/favourites-guest-gate";
 import { useDashboardShellActions } from "@/components/clinical-dashboard/use-dashboard-shell-actions";
 import { focusComposerInput as scheduleComposerFocus } from "@/components/clinical-dashboard/focus-composer-input";
-import {
-  readChromeCollapseMetrics,
-  useDocumentScrollHideReporter,
-  useReserveTransitionMarker,
-  useScrollHideReporter,
-} from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { useDashboardChromeCoordinator } from "@/components/clinical-dashboard/use-dashboard-chrome-coordinator";
 import { SearchCommandProvider } from "@/components/clinical-dashboard/search-command-context";
 import {
   answerReferencesDocument,
@@ -325,13 +320,6 @@ export function ClinicalDashboard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [initialSearchNavigationContext] = useState(() => readSearchNavigationContext(searchParams));
-  const mainRef = useRef<HTMLElement>(null);
-  const [mainScrollRoot, setMainScrollRoot] = useState<HTMLElement | null>(null);
-  const assignMainRef = useCallback((node: HTMLElement | null) => {
-    mainRef.current = node;
-    setMainScrollRoot(node);
-  }, []);
-  const composerInputRef = useRef<HTMLInputElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
   const navSyncLockRef = useRef<number | null>(null);
   const autoRunSearchSignatureRef = useRef<string | null>(null);
@@ -363,15 +351,21 @@ export function ClinicalDashboard({
   const [answerThreadBootstrapped, setAnswerThreadBootstrapped] = useState(false);
   const [query, setQuery] = useState(initialQuery);
   const [searchMode, setSearchMode] = useState<AppModeId>(initialSearchMode);
-  // The header hides at every breakpoint in every mode (answer mode through the
-  // all-breakpoints glass overlay, the rest through the collapse row). Switching
-  // mode swaps <main>'s header reserve, so it also rebases the reporter.
-  const chromeScrollHide = useScrollHideReporter(false, true, searchMode);
-  const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
-  const reserveTransitioning = useReserveTransitionMarker(bottomComposerHidden, searchMode);
-  const chromeTransitioning = useReserveTransitionMarker(chromeScrollHide.hidden, searchMode);
-  const reportChromeScrollHide = useEventCallback(chromeScrollHide.reportScroll);
-  useDocumentScrollHideReporter(chromeScrollHide.reportScroll, mainScrollRoot, composerInputRef);
+  const {
+    activeScrollOwner,
+    assignMainRef,
+    bottomComposerHidden,
+    chromeScrollHidden,
+    chromeTransitioning,
+    composerInputRef,
+    mainRef,
+    reserveTransitioning,
+    setBottomComposerHidden,
+  } = useDashboardChromeCoordinator(searchMode);
+  const focusComposerInput = useCallback(
+    (retainTarget = false) => scheduleComposerFocus(composerInputRef, retainTarget),
+    [composerInputRef],
+  );
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
     Boolean(autoRunSearch && initialQuery.trim() && initialSearchMode !== "tools"),
   );
@@ -447,7 +441,7 @@ export function ClinicalDashboard({
     window.requestAnimationFrame(() => {
       scrollSurface(mainRef.current, "end");
     });
-  }, [answer]);
+  }, [answer, mainRef]);
   const resetAnswerThread = useCallback(() => {
     setPriorAnswerTurns([]);
     setLatestAnswerQuery(null);
@@ -522,6 +516,41 @@ export function ClinicalDashboard({
   const [pendingFeedback, setPendingFeedback] = useState<AnswerFeedbackType | null>(null);
   const [actionNotice, setActionNotice] = useState<{ tone: "success" | "warning"; message: string } | null>(null);
   const [activeHash, setActiveHash] = useState("#search");
+  const navigateMobileSection = useCallback(
+    (href: string, options: { updateHistory?: boolean } = {}) => {
+      const shouldUpdateHistory = options.updateHistory ?? true;
+      const main = mainRef.current;
+      if (!main) return;
+
+      if (navSyncLockRef.current !== null) {
+        window.clearTimeout(navSyncLockRef.current);
+      }
+
+      if (href === "#search") {
+        setActiveHash(href);
+        scrollSurface(main, 0);
+        if (shouldUpdateHistory) window.history.replaceState(null, "", href);
+        navSyncLockRef.current = window.setTimeout(() => {
+          navSyncLockRef.current = null;
+        }, 350);
+        return;
+      }
+
+      const target = document.querySelector<HTMLElement>(href);
+      if (!target) return;
+      setActiveHash(href);
+      const targetTop = target.getBoundingClientRect().top;
+      const top = ownsVerticalScroll(main)
+        ? main.scrollTop + targetTop - main.getBoundingClientRect().top - 8
+        : window.scrollY + targetTop - 8;
+      scrollSurface(main, top);
+      if (shouldUpdateHistory) window.history.replaceState(null, "", href);
+      navSyncLockRef.current = window.setTimeout(() => {
+        navSyncLockRef.current = null;
+      }, 350);
+    },
+    [mainRef],
+  );
   const [guideOpen, setGuideOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -1528,7 +1557,7 @@ export function ClinicalDashboard({
     focusComposerInput(true);
     const timeout = window.setTimeout(() => focusComposerInput(true), 500);
     return () => window.clearTimeout(timeout);
-  }, [shouldAutoFocusComposer]);
+  }, [composerInputRef, focusComposerInput, shouldAutoFocusComposer]);
 
   // Abort any in-flight answer/library search if the dashboard unmounts.
   useEffect(() => {
@@ -1568,7 +1597,7 @@ export function ClinicalDashboard({
       if (shouldFocusComposer) focusComposerInput(true);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [searchParams, clearDifferentialModeResultState]);
+  }, [searchParams, clearDifferentialModeResultState, focusComposerInput]);
 
   useEffect(() => {
     if (urlSearchBootstrappedRef.current) return;
@@ -1589,7 +1618,7 @@ export function ClinicalDashboard({
       if (shouldFocusComposer && params.get("run") !== "1") focusComposerInput(true);
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [clearDifferentialModeResultState]);
+  }, [clearDifferentialModeResultState, focusComposerInput]);
 
   const executeSearchRef = useRef(executeSearch);
   executeSearchRef.current = executeSearch;
@@ -1645,7 +1674,7 @@ export function ClinicalDashboard({
     updateHash();
     window.addEventListener("hashchange", updateHash);
     return () => window.removeEventListener("hashchange", updateHash);
-  }, []);
+  }, [navigateMobileSection]);
 
   useEffect(() => {
     return () => {
@@ -2671,10 +2700,6 @@ export function ClinicalDashboard({
     });
   }
 
-  function focusComposerInput(retainTarget = false) {
-    scheduleComposerFocus(composerInputRef, retainTarget);
-  }
-
   function stageAnswerFollowUpDraft(draft: string) {
     setQuery(draft);
     focusComposerInput();
@@ -2775,39 +2800,6 @@ export function ClinicalDashboard({
     });
   }
 
-  function navigateMobileSection(href: string, options: { updateHistory?: boolean } = {}) {
-    const shouldUpdateHistory = options.updateHistory ?? true;
-    const main = mainRef.current;
-    if (!main) return;
-
-    if (navSyncLockRef.current !== null) {
-      window.clearTimeout(navSyncLockRef.current);
-    }
-
-    if (href === "#search") {
-      setActiveHash(href);
-      scrollSurface(main, 0);
-      if (shouldUpdateHistory) window.history.replaceState(null, "", href);
-      navSyncLockRef.current = window.setTimeout(() => {
-        navSyncLockRef.current = null;
-      }, 350);
-      return;
-    }
-
-    const target = document.querySelector<HTMLElement>(href);
-    if (!target) return;
-    setActiveHash(href);
-    const targetTop = target.getBoundingClientRect().top;
-    const top = ownsVerticalScroll(main)
-      ? main.scrollTop + targetTop - main.getBoundingClientRect().top - 8
-      : window.scrollY + targetTop - 8;
-    scrollSurface(main, top);
-    if (shouldUpdateHistory) window.history.replaceState(null, "", href);
-    navSyncLockRef.current = window.setTimeout(() => {
-      navSyncLockRef.current = null;
-    }, 350);
-  }
-
   const syncActiveSectionFromScroll = useCallback(() => {
     const main = mainRef.current;
     if (!main) return;
@@ -2835,7 +2827,7 @@ export function ClinicalDashboard({
         .filter((item): item is { section: string; distance: number } => Boolean(item))
         .sort((a, b) => a.distance - b.distance)[0]?.section ?? "#search";
     setActiveHash((active) => (active === current ? active : current));
-  }, []);
+  }, [mainRef]);
 
   const scheduleActiveSectionSync = useCallback(() => {
     if (scrollFrameRef.current !== null) return;
@@ -2853,32 +2845,6 @@ export function ClinicalDashboard({
     window.addEventListener("scroll", scheduleActiveSectionSync, { passive: true });
     return () => window.removeEventListener("scroll", scheduleActiveSectionSync);
   }, [scheduleActiveSectionSync]);
-
-  useEffect(() => {
-    const main = mainScrollRoot;
-    if (!main) return undefined;
-
-    let frame = 0;
-    const onScroll = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        reportChromeScrollHide({
-          offset: main.scrollTop,
-          maxOffset: Math.max(0, main.scrollHeight - main.clientHeight),
-          ...readChromeCollapseMetrics(main),
-          source: main,
-        });
-      });
-    };
-
-    onScroll();
-    main.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      main.removeEventListener("scroll", onScroll);
-      if (frame) window.cancelAnimationFrame(frame);
-    };
-  }, [mainScrollRoot, reportChromeScrollHide]);
 
   async function copyText(action: string, text: string) {
     let copied = false;
@@ -3351,7 +3317,10 @@ export function ClinicalDashboard({
         onPrefetchApplications={prefetchApplications}
         showAccountLibrary={favouritesAccessible}
       />
-      <PhoneFooterLayerFrame className="phone-viewport-frame relative flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
+      <PhoneFooterLayerFrame
+        className="phone-viewport-frame relative flex min-h-0 min-w-0 flex-1 flex-col md:h-full"
+        scrollHidden={chromeScrollHidden}
+      >
         <MasterSearchHeader
           demoMode={clientDemoMode}
           documents={documents}
@@ -3421,8 +3390,8 @@ export function ClinicalDashboard({
           // document and bounded app scrollports feed the shared hide reporter.
           hideOnScroll={
             searchMode === "answer"
-              ? { strategy: "overlay", allBreakpoints: true, scrollHidden: chromeScrollHide.hidden }
-              : { strategy: "collapse", wide: "collapse", scrollHidden: chromeScrollHide.hidden }
+              ? { strategy: "overlay", allBreakpoints: true, scrollHidden: chromeScrollHidden }
+              : { strategy: "collapse", wide: "collapse", scrollHidden: chromeScrollHidden }
           }
           onBottomComposerHiddenChange={setBottomComposerHidden}
         />
@@ -3436,6 +3405,12 @@ export function ClinicalDashboard({
           data-bottom-composer-hidden={bottomComposerHidden ? "true" : undefined}
           data-reserve-transitioning={reserveTransitioning ? "true" : undefined}
           data-chrome-transitioning={chromeTransitioning ? "true" : undefined}
+          data-phone-scroll-owner={activeScrollOwner}
+          data-phone-footer-owner={
+            heroOwnsPhoneComposer ? "hero" : searchMode === "answer" || hasMobileBottomSearch ? "dashboard" : "none"
+          }
+          data-phone-composer-reserve={mobileComposerReserve}
+          data-phone-chrome-transition={reserveTransitioning || chromeTransitioning ? "active" : "idle"}
           className={cn(
             "phone-scroll-surface min-h-0 flex-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[color:var(--focus)] sm:overflow-x-hidden sm:overflow-y-auto sm:overscroll-contain sm:[-webkit-overflow-scrolling:touch]",
             // Answer view: the glass header is absolute over this surface, so

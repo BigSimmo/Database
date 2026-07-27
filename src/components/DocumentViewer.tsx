@@ -21,6 +21,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
 import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
+import { useActiveScrollOwner } from "@/components/clinical-dashboard/use-active-scroll-owner";
 import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
 import { PdfPreviewLoading } from "@/components/document-viewer/pdf-preview-loading";
 import {
@@ -295,6 +296,7 @@ export function DocumentViewer({
     mobileActionsOpen,
     composerChromeFocused,
   );
+  const activeScrollOwner = useActiveScrollOwner(shellScrollContainer, documentId);
   const [useNativePdfViewer, setUseNativePdfViewer] = useState(getDefaultPdfViewerMode);
   const [hasExplicitPdfViewerMode, setHasExplicitPdfViewerMode] = useState(false);
   const [viewerModeInitialized, setViewerModeInitialized] = useState(false);
@@ -1210,6 +1212,12 @@ export function DocumentViewer({
         data-testid="document-viewer-content"
         data-scroll-hidden={composerScrollHidden ? "true" : undefined}
         data-reserve-transitioning={reserveTransitioning ? "true" : undefined}
+        data-phone-scroll-owner={activeScrollOwner}
+        data-phone-footer-owner={readyDocument ? "document-viewer" : "none"}
+        data-phone-composer-reserve={
+          composerScrollHidden ? "0rem" : "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))"
+        }
+        data-phone-chrome-transition={reserveTransitioning ? "active" : "idle"}
         className={cn(
           "mx-auto grid max-w-[1440px] gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
           // The visible fixed composer needs endpoint clearance. Once hidden,
