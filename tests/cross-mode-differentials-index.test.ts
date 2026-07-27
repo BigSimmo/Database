@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import { crossModeDifferentialCatalog } from "@/lib/cross-mode-differentials";
@@ -29,6 +32,22 @@ describe("cross-mode differentials precomputed index", () => {
     // JSON round-trip the live side so an undefined field (omitted by JSON) compares
     // equal to the committed index rather than tripping on present-vs-absent keys.
     expect(crossModeDifferentialCatalog()).toEqual(JSON.parse(JSON.stringify(live)));
+  });
+
+  it("does not statically import the heavy differentials module (keeps the lazy chunk small)", () => {
+    // The value-equality test above stays green regardless of HOW the catalog is
+    // produced, so it cannot catch a regression that re-adds a static
+    // `import … from "@/lib/differentials"` (or the raw snapshot) — which would put
+    // the ~1.2 MB snapshot back into the lazily-loaded cross-mode chunk. Guard the
+    // import graph directly: cross-mode-differentials.ts must only pull the
+    // precomputed index.
+    const source = readFileSync(
+      fileURLToPath(new URL("../src/lib/cross-mode-differentials.ts", import.meta.url)),
+      "utf8",
+    );
+    expect(source).not.toMatch(/from\s+["']@\/lib\/differentials["']/);
+    expect(source).not.toMatch(/differentials-snapshot/);
+    expect(source).toMatch(/cross-mode-differentials-index\.json/);
   });
 
   it("carries the full catalogue and drops bare-number aliases", () => {

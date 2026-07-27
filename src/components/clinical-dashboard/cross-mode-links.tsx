@@ -143,8 +143,9 @@ export function CrossModeLinksSection({
   const medications = useMedicationCatalog(undefined, { enabled, fields: "index" });
   const [differentials, setDifferentials] = useState<CrossModeDifferentialCatalog | null>(null);
   useEffect(() => {
-    // Dynamic import keeps the 1.2 MB differentials snapshot out of the
-    // dashboard bundle; the catalog is loaded once per session.
+    // Dynamic import keeps the cross-mode catalog out of the dashboard bundle.
+    // cross-mode-differentials.ts now loads a precomputed ~53 KB index (not the
+    // full ~1.2 MB differentials snapshot); the catalog is loaded once per session.
     if (!enabled || differentials) return;
     let cancelled = false;
     import("@/lib/cross-mode-differentials").then((module) => {
