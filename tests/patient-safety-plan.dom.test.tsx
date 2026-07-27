@@ -52,4 +52,21 @@ describe("PatientSafetyPlan — incomplete-plan draft guard", () => {
     // A contact with no reach method leaves the plan incomplete → draft again.
     expect(screen.getByText(draftPattern)).toBeTruthy();
   });
+
+  it("marks copied text as a draft when the plan is incomplete", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(<PatientSafetyPlan />);
+    expect(screen.getByText(draftPattern)).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /^Copy$/ }));
+    expect(writeText).toHaveBeenCalled();
+    const copied = String(writeText.mock.calls[0]?.[0] ?? "");
+    expect(copied).toMatch(/\*\*\* DRAFT — INCOMPLETE SAFETY PLAN, NOT FOR PATIENT HANDOVER \*\*\*/);
+  });
 });

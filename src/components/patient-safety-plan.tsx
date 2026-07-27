@@ -347,7 +347,7 @@ function StepBuilderCard({
   onDraftDirtyChange: (dirty: boolean) => void;
 }) {
   const Icon = def.icon;
-  const filled = entries.length > 0;
+  const filled = isStepComplete(def, entries);
 
   return (
     <section
