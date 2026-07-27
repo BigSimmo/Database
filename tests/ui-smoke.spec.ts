@@ -135,10 +135,17 @@ async function isVisibleWithoutThrow(locator: Locator) {
 }
 
 async function fillVisibleQuestionInput(page: Page, value: string) {
-  const questionInput = visibleQuestionInput(page);
-  const submitAnswer = visibleAnswerSubmitButton(page);
+  const questionInput = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible');
+  const submitAnswer = page.locator('[aria-label="Generate source-backed answer"]:visible');
 
   await expect(async () => {
+    // A production navigation can briefly overlap or replace the server-rendered
+    // composer. Require one settled React owner before filling so the new client
+    // tree cannot discard the value and leave submit disabled.
+    await expect(questionInput).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await expect(submitAnswer).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await waitForReactEventHandler(questionInput, "onChange");
+    await waitForReactEventHandler(questionInput.locator("xpath=ancestor::form[1]"), "onSubmit");
     await expect(submitAnswer).toHaveAttribute("title", /Enter a clinical question|Generate a source-backed answer/, {
       timeout: uiAssertionTimeoutMs,
     });
@@ -146,7 +153,7 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
     await questionInput.fill(value);
     await expect(questionInput).toHaveValue(value, { timeout: uiAssertionTimeoutMs });
     await expect(submitAnswer).toBeEnabled({ timeout: uiAssertionTimeoutMs });
-  }).toPass({ timeout: 15_000 });
+  }).toPass({ timeout: uiAssertionTimeoutMs });
 
   return questionInput;
 }
