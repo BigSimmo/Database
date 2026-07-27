@@ -292,13 +292,23 @@ test.describe("universal search typeahead", () => {
     ).toBe(true);
   });
 
-  test("shows submitted cross-mode matches on phones outside hidden desktop headers", async ({ page }) => {
+  test("loads submitted cross-mode matches on phones only after expansion", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
+    const universalRequests: string[] = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === "/api/search/universal") universalRequests.push(request.url());
+    });
     await mockUniversalSearch(page);
     await page.goto("/forms?q=acamprosate&run=1", { waitUntil: "domcontentloaded" });
 
-    await expect(page.getByTestId("universal-also-matches")).toBeVisible();
-    await expect(page.getByTestId("universal-also-matches")).toHaveCount(1);
+    const alsoMatches = page.getByTestId("universal-also-matches");
+    await expect(alsoMatches).toBeVisible();
+    await expect(alsoMatches).toHaveCount(1);
+    expect(universalRequests).toHaveLength(0);
+
+    await alsoMatches.getByRole("button", { name: /Also matches in other modes/ }).click();
+    await expect.poll(() => universalRequests.length).toBe(1);
+    await expect(alsoMatches.getByRole("link", { name: "Acamprosate", exact: true })).toBeVisible();
   });
 
   test("shows submitted cross-mode matches once for Favourites and after a Tools search", async ({ page }) => {
