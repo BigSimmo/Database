@@ -428,8 +428,9 @@ function ProgressNavigator() {
           </button>
           <button
             type="button"
-            onClick={() => setIndex((value) => (value + 1) % sections.length)}
-            className="min-w-0 flex-1 text-left"
+            onClick={() => setIndex((value) => Math.min(sections.length - 1, value + 1))}
+            disabled={index === sections.length - 1}
+            className="min-w-0 flex-1 text-left disabled:opacity-50"
           >
             <span className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.15em] text-[#7f8b89]">
               <span>
