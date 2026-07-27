@@ -1526,11 +1526,11 @@ export function MasterSearchHeader({
             : isDesktopPageComposer
               ? "document-mobile-search-edge universal-top-search-edge relative z-20 mx-auto w-full max-w-3xl px-4 py-3 lg:max-w-4xl"
               : usesAnswerFooterStyle
-                ? "floating-composer-edge dashboard-composer-edge fixed bottom-0 z-40 mx-auto max-w-3xl lg:max-w-4xl"
+                ? "phone-footer-layer floating-composer-edge dashboard-composer-edge bottom-0 z-40 mx-auto max-w-3xl sm:fixed lg:max-w-4xl"
                 : usesMobileBottomStyle
                   ? cn(
                       usesPhoneFooterDock
-                        ? "document-mobile-search-edge universal-top-search-edge fixed z-40 w-full"
+                        ? "phone-footer-layer document-mobile-search-edge universal-top-search-edge z-40 w-full sm:fixed"
                         : cn(
                             "document-mobile-search-edge universal-top-search-edge z-40 mx-auto max-w-3xl sm:z-20 sm:w-full sm:px-4 sm:py-3 lg:max-w-4xl",
                             // Sticky-stack hosts already pin [top bar | search]. Never
@@ -1839,7 +1839,7 @@ export function MasterSearchHeader({
             ? "relative"
             : "max-sm:relative sm:sticky sm:top-0"
           : overlayAllBreakpoints
-            ? "absolute inset-x-0 top-0"
+            ? "phone-overlay-header sm:absolute sm:inset-x-0 sm:top-0"
             : "sticky top-0",
         // Overlay hide-on-scroll: a plain translate reveals the content already
         // flowing beneath it. No transform is applied while visible so the
@@ -2063,15 +2063,16 @@ export function MasterSearchHeader({
     // search composer stays a sibling so tablet/desktop keep a usable search
     // field while the top bar hides. A 1fr -> 0fr grid row animates the collapse
     // without height measurement; the bottom-anchored inner track slides the
-    // top bar up out of the viewport. Fixed-position phone docks escape this
-    // tree via `position: fixed`; hero composers portal out.
+    // top bar up out of the viewport. Phone footer layers escape its geometry:
+    // viewport-fixed in browser tabs, shell-absolute in standalone; hero
+    // composers portal out.
     //
     // Above the phone breakpoint a `wide: "sticky"` host scrolls the document,
     // so an outer sticky stack pins its chrome below the wide safe-area spacer.
     // Tablet search remains in that stack; desktop result search portals
-    // into page flow, so the stack contains only the top bar there. Return a fragment (never a
-    // wrapping block): GlobalSearchShell uses `sm:contents` on the chrome
-    // parent so sticky can travel against the viewport.
+    // into page flow, so the stack contains only the top bar there. The host
+    // ancestor uses `display: contents`, allowing this semantic sticky owner to
+    // travel against the browser viewport and become static in standalone.
     const collapsingTopBar = (
       <div
         data-scroll-hidden={headerChromeHidden ? "true" : undefined}
@@ -2139,22 +2140,22 @@ export function MasterSearchHeader({
 
     if (sticksAbovePhones) {
       return (
-        <>
+        <div className="phone-sticky-header-stack sm:contents">
           {chromeSafeAreaTop}
           <div className="sm:sticky sm:top-[var(--safe-area-top)] sm:z-30">
             {collapsingTopBar}
             {searchComposer}
           </div>
-        </>
+        </div>
       );
     }
 
     return (
-      <>
+      <div className="phone-sticky-header-stack sm:contents">
         {chromeSafeAreaTop}
         {collapsingTopBar}
         {searchComposer}
-      </>
+      </div>
     );
   }
 

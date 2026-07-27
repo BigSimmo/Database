@@ -2332,23 +2332,121 @@ html[data-motion="reduced"] .pwa-notice-card {
   }
 
   /*
-   * Phone search surfaces keep #main-content as their only scrollport. The
-   * shared shell pins to the live viewport with physical insets instead of a
-   * 100vh/svh/dvh height: Safari can resolve those units lazily while browser
-   * chrome changes, leaving an unpainted bottom band. `inset: 0` tracks both
-   * Safari tabs and freshly launched standalone PWAs without clamping scroll.
+   * Safari only collapses its browser chrome for document scrolling, so phone
+   * browser tabs keep the shared shell in normal flow and let the document own
+   * vertical scrolling. `overflow-x: clip` prevents horizontal spill without
+   * turning `overflow-y: visible` into an implicit element scrollport.
+   *
+   * Installed iOS web apps do not have collapsible browser chrome and can
+   * under-report svh/dvh. Their final override therefore uses the established
+   * 100vh standalone workaround, still in normal flow, with a bounded inner
+   * scroll surface. Controls alone consume safe-area padding; hidden chrome
+   * never adds a content-facing reserve here.
    */
   @media (max-width: 639px) {
     .mobile-app-shell,
     .phone-viewport-shell {
-      min-height: 0;
+      min-height: 100svh;
       height: auto;
     }
 
     .phone-viewport-shell {
+      position: relative;
+      inset: auto;
+      width: 100%;
+      overflow: visible;
+    }
+
+    .phone-viewport-frame {
+      min-height: 100svh;
+      height: auto;
+      overflow: visible;
+    }
+
+    .phone-scroll-surface {
+      overflow-x: clip;
+      overflow-y: visible;
+    }
+
+    .phone-sticky-header-stack {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+    }
+
+    .phone-footer-layer {
       position: fixed;
-      inset: 0;
-      width: auto;
+    }
+
+    .phone-overlay-header {
+      position: fixed;
+      inset-inline: 0;
+      top: 0;
+      width: 100%;
+    }
+
+    html:has([data-chrome-transitioning="true"]),
+    html:has([data-reserve-transitioning="true"]),
+    html:has([data-chrome-transitioning="true"]) body,
+    html:has([data-reserve-transitioning="true"]) body,
+    .phone-scroll-surface[data-chrome-transitioning="true"],
+    .phone-scroll-surface[data-reserve-transitioning="true"],
+    .phone-scroll-surface:has([data-reserve-transitioning="true"]) {
+      overflow-anchor: none;
+    }
+
+    /* Browser tabs scroll the document, while installed PWAs scroll this
+       surface. Focus targets therefore own their clearance via scroll-margin,
+       which follows whichever ancestor is the active scroller. Keep the
+       scroll-padding utilities on the surface as the standalone enhancement. */
+    .phone-scroll-surface
+      :where(
+        a[href],
+        button,
+        input,
+        select,
+        textarea,
+        [contenteditable="true"],
+        [tabindex]:not([tabindex="-1"])
+      ):focus {
+      scroll-margin-block-start: calc(4.5rem + max(0.5rem, var(--safe-area-top)));
+      scroll-margin-block-end: var(--phone-focus-bottom-clearance, var(--mobile-composer-reserve, 0rem));
+    }
+  }
+
+  @media (max-width: 639px) and (display-mode: standalone) {
+    .mobile-app-shell,
+    .phone-viewport-shell {
+      min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .phone-viewport-frame {
+      position: relative;
+      min-height: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .phone-scroll-surface {
+      min-height: 0;
+      overflow-x: hidden;
+      overflow-y: auto;
+      overscroll-behavior-y: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .phone-overlay-header {
+      position: absolute;
+    }
+
+    .phone-sticky-header-stack {
+      position: static;
+    }
+
+    .phone-footer-layer {
+      position: absolute;
     }
   }
 
