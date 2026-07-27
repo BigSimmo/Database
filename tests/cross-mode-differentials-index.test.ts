@@ -116,8 +116,7 @@ describe("cross-mode differentials precomputed index", () => {
       return chain.join(" -> ");
     };
 
-    const isForbidden = (path: string): boolean =>
-      forbiddenPaths.has(path) || path.endsWith(snapshotSuffix);
+    const isForbidden = (path: string): boolean => forbiddenPaths.has(path) || path.endsWith(snapshotSuffix);
 
     const cameFrom = new Map<string, string>([[entryPath, ""]]);
     const queue = [entryPath];
