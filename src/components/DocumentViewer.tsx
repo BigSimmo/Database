@@ -258,6 +258,7 @@ export function DocumentViewer({
   const signedUrlRefreshCountRef = useRef(0);
   const sourceSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [sourceSearch, setSourceSearch] = useState("");
+  const sourceSearchInputRef = useRef<HTMLInputElement>(null);
   const [documentSearchState, setDocumentSearchState] = useState<{
     query: string;
     results: DocumentSearchResult[];
@@ -272,7 +273,6 @@ export function DocumentViewer({
   const [isOnline, setIsOnline] = useState(true);
   const [localProjectReady, setLocalProjectReady] = useState(true);
   const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
-  // Phone-only hide-on-scroll for the bottom composer: never hide while the
   const [composerChromeFocused, setComposerChromeFocused] = useState(false);
   const [shellScrollContainer, setShellScrollContainer] = useState<HTMLElement | null>(null);
   useEffect(() => {
@@ -1141,9 +1141,8 @@ export function DocumentViewer({
                 type="button"
                 onClick={() => {
                   setMobileActionsOpen(false);
-                  window.requestAnimationFrame(() => {
-                    window.requestAnimationFrame(() => sourceSearchInputRef.current?.focus());
-                  });
+                  setSourceSearch(documentDisplayTitle(readyDocument));
+                  sourceSearchInputRef.current?.focus();
                 }}
                 className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
               >
@@ -1711,6 +1710,7 @@ export function DocumentViewer({
                 value={sourceSearch}
                 onChange={(event) => setSourceSearch(event.target.value)}
                 placeholder="Search within this document..."
+                ref={sourceSearchInputRef}
                 className="min-h-tap min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
               />
             </label>
