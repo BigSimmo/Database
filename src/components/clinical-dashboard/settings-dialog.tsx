@@ -531,11 +531,7 @@ export function SettingsDialog({
               noteId="settings-clinical-defaults-note"
             >
               <SettingsGroup>
-                <SettingsField
-                  icon={Globe2}
-                  label="Jurisdiction"
-                  htmlFor="settings-jurisdiction"
-                >
+                <SettingsField icon={Globe2} label="Jurisdiction" htmlFor="settings-jurisdiction">
                   <SettingsSelect
                     id="settings-jurisdiction"
                     describedBy="settings-clinical-defaults-note"
@@ -544,11 +540,7 @@ export function SettingsDialog({
                     options={JURISDICTION_OPTIONS}
                   />
                 </SettingsField>
-                <SettingsField
-                  icon={CircleUserRound}
-                  label="Default population"
-                  htmlFor="settings-population"
-                >
+                <SettingsField icon={CircleUserRound} label="Default population" htmlFor="settings-population">
                   <SettingsSelect
                     id="settings-population"
                     describedBy="settings-clinical-defaults-note"
@@ -594,12 +586,7 @@ export function SettingsDialog({
                     options={APPEARANCE_OPTIONS}
                   />
                 </SettingsField>
-                <SettingsField
-                  icon={SettingsIcon}
-                  label="Interface density"
-                  labelId="settings-density-label"
-                  stacked
-                >
+                <SettingsField icon={SettingsIcon} label="Interface density" labelId="settings-density-label" stacked>
                   <SegmentedControl
                     ariaLabelledBy="settings-density-label"
                     value={preferences.density}
@@ -607,12 +594,7 @@ export function SettingsDialog({
                     options={DENSITY_OPTIONS}
                   />
                 </SettingsField>
-                <SettingsField
-                  icon={PanelTop}
-                  label="Default landing view"
-                  labelId="settings-landing-label"
-                  stacked
-                >
+                <SettingsField icon={PanelTop} label="Default landing view" labelId="settings-landing-label" stacked>
                   <SegmentedControl
                     ariaLabelledBy="settings-landing-label"
                     value={preferences.landing}

@@ -34,11 +34,7 @@ const CLINICAL_NOTE = "Saved on this device; not yet used in answers.";
 const NOTIFICATIONS_NOTE = "Saved on this device; notifications are not available yet.";
 const NOT_YET_ACTIVE_TEXT = "Not active yet";
 
-const CLINICAL_ROWS = [
-  "settings-row-jurisdiction",
-  "settings-row-default-population",
-  "settings-row-answer-style",
-];
+const CLINICAL_ROWS = ["settings-row-jurisdiction", "settings-row-default-population", "settings-row-answer-style"];
 
 const NOTIFICATION_ROWS = [
   "settings-row-guideline-updates",
@@ -75,7 +71,9 @@ describe("settings dialog inert-preference honesty markers", () => {
     expect(screen.getAllByText(CLINICAL_NOTE)).toHaveLength(1);
     expect(screen.getAllByText(NOTIFICATIONS_NOTE)).toHaveLength(1);
     expect(screen.getAllByText(NOT_YET_ACTIVE_TEXT)).toHaveLength(1);
-    expect(within(screen.getByTestId("settings-row-saved-protocols-on-home")).getByText(NOT_YET_ACTIVE_TEXT)).toBeVisible();
+    expect(
+      within(screen.getByTestId("settings-row-saved-protocols-on-home")).getByText(NOT_YET_ACTIVE_TEXT),
+    ).toBeVisible();
   });
 
   it("keeps the functional appearance, density, and motion rows unmarked", () => {
