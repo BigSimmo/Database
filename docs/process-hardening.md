@@ -45,16 +45,21 @@ gates. Run the standalone manual/nightly workflow and attach a recent green evid
 artifact before release; see
 [`docs/staging-tenancy-release-evidence.md`](staging-tenancy-release-evidence.md).
 
-## Open PR branch sync (active)
+## Open PR branch sync (operator-only)
 
 - **Problem:** landing one PR advances `main` and leaves the rest of a large open
   queue behind. GitHub then marks many heads `CONFLICTING`/`DIRTY` even when the
   merge tree is clean, which stalls squash auto-merge and creates endless manual
   re-sync churn.
-- **Mitigation:** `.github/workflows/pr-branch-sync.yml` updates open same-repo PR
-  branches from `main` after every push to `main`. Local dry-run/apply helpers:
-  `npm run sync:pr-branches` / `npm run sync:pr-branches:apply`. Opt out with
+- **Mitigation:** automatic `GITHUB_TOKEN` branch mutation was retired after repeated
+  `github-actions[bot]` heads left CI, SAST, and secret-scan runs awaiting approval. Use the local
+  helper deliberately: `npm run sync:pr-branches` is report-only and
+  `npm run sync:pr-branches:apply` verifies and uses the current human/operator `gh` identity,
+  refusing missing or bot identities. Opt out with
   `hold`, `do-not-merge`, or `skip-branch-sync`.
+- **Guardrail:** `npm run check:github-actions` rejects workflow-authored GitHub
+  `update-branch` calls. Do not weaken required checks or widen approval for untrusted actors to
+  remove queue friction; change this policy only with a separately reviewed authentication model.
 - **Operator rule:** prefer clearing the open queue (merge or close) over keeping
   dozens of long-lived feature branches that all touch shared docs like the
   branch-review ledger.

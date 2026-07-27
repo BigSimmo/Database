@@ -405,11 +405,14 @@ staleness, not an unresolvable content fight, and it blocks squash auto-merge.
 
 Durable mitigations in this repo:
 
-- `.github/workflows/pr-branch-sync.yml` runs on every push to `main` (and on
-  `workflow_dispatch`) and calls GitHub's update-branch API for every open
-  same-repo PR that is behind `main`. Opt out per PR with labels `hold`,
-  `do-not-merge`, or `skip-branch-sync`, or a `WIP` / `do not merge` title.
-- Local/operator dry-run: `npm run sync:pr-branches`. Apply: `npm run sync:pr-branches:apply`.
+- Automatic `GITHUB_TOKEN` branch updates are prohibited: bot-authored heads
+  leave required checks awaiting approval. `npm run check:github-actions`
+  guards this policy.
+- Local/operator dry-run: `npm run sync:pr-branches`. Apply with the current
+  human/operator `gh` identity: `npm run sync:pr-branches:apply`; the helper
+  refuses missing or bot identities. Opt out per PR
+  with labels `hold`, `do-not-merge`, or `skip-branch-sync`, or a `WIP` /
+  `do not merge` title.
 - Prefer fewer long-lived open PRs; land or close queue items rather than
   repeatedly re-merging `main` by hand.
 - `docs/branch-review-ledger.md` stays append-only with the `union` merge driver;
@@ -417,7 +420,8 @@ Durable mitigations in this repo:
 
 When diagnosing "merge conflicts on every PR", first compare `behind_by` and
 `git merge-tree --write-tree origin/main <tip>`. If the tree merge is clean,
-sync the branch (workflow, `update-branch`, or `git merge origin/main` + push)
+sync the branch with an explicitly authenticated human/operator `update-branch`
+call or `git merge origin/main` + push
 instead of rewriting product code.
 
 <!-- END:pr-branch-sync -->
@@ -444,8 +448,8 @@ Hard guardrails (never, even during a sweep):
 - Never run provider-backed gates: `eval:rag`, `eval:quality`, `eval:retrieval:quality`, `verify:release`, `check:supabase-project`, `test:live`, or anything else that touches live Supabase/OpenAI.
 - Respect the `skip-codex-review` label as a full per-PR opt-out.
 - Preserve unrelated staged, unstaged, and untracked work; never commit secrets.
-- Resolve branch drift with `git merge origin/main` only; skip and report non-trivial conflicts instead of guessing.
-- Before treating GitHub `DIRTY`/`CONFLICTING` as a real conflict, confirm with `git merge-tree` (see "## Open PR branch sync (anti-churn)"). Prefer the hosted `pr-branch-sync` workflow / update-branch API when the token can write; otherwise merge `origin/main` in a worktree and push.
+- Resolve branch drift only with an explicitly authenticated update-branch call or `git merge origin/main`; skip and report non-trivial conflicts instead of guessing.
+- Before treating GitHub `DIRTY`/`CONFLICTING` as a real conflict, confirm with `git merge-tree` (see "## Open PR branch sync (anti-churn)"). Use the update-branch API only through the explicitly authenticated human/operator identity; otherwise merge `origin/main` in a worktree and push.
 
 Procedure: in Claude Code sessions, invoke the `run-pr` skill (`.claude/skills/run-pr/SKILL.md`) — it is the canonical detailed procedure. In sessions without GitHub MCP write tooling, degrade to read-only diagnosis and a per-PR report; do not attempt pushes or thread resolution through other means.
 

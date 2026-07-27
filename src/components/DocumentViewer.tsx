@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
+import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
 import { PdfPreviewLoading } from "@/components/document-viewer/pdf-preview-loading";
 import {
@@ -1216,7 +1217,7 @@ export function DocumentViewer({
           // beneath its translucent toolbar instead of showing a blank band.
           composerScrollHidden
             ? "max-sm:pb-0"
-            : "max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]",
+            : "max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))] max-sm:[--phone-focus-bottom-clearance:calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]",
         )}
       >
         {downloadError ? (
@@ -1642,54 +1643,56 @@ export function DocumentViewer({
         </aside>
       </section>
       {readyDocument ? (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (canSummarizeDocument) void summarize();
-          }}
-          data-scroll-hidden={composerScrollHidden ? "true" : undefined}
-          onFocusCapture={() => setComposerChromeFocused(true)}
-          onBlurCapture={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setComposerChromeFocused(false);
-          }}
-          className={cn(
-            glassOverlaySurface,
-            "document-viewer-composer floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-[transform,opacity] motion-reduce:transition-none",
-            composerScrollHidden
-              ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-              : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
-          )}
-        >
-          <button
-            type="button"
-            onClick={() => setMobileActionsOpen(true)}
-            className="grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-            aria-label="Open document actions"
-          >
-            <Plus aria-hidden="true" className="h-5 w-5" />
-          </button>
-          <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
-            <span className="sr-only">Search or answer from this document</span>
-            <input
-              value={sourceSearch}
-              onChange={(event) => setSourceSearch(event.target.value)}
-              placeholder="Search or answer from this document..."
-              className="min-h-tap min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={!canSummarizeDocument}
-            className="grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Answer from this document"
-          >
-            {loadingSummary ? (
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send aria-hidden="true" className="h-4 w-4" />
+        <PhoneFooterLayerPortal>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (canSummarizeDocument) void summarize();
+            }}
+            data-scroll-hidden={composerScrollHidden ? "true" : undefined}
+            onFocusCapture={() => setComposerChromeFocused(true)}
+            onBlurCapture={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setComposerChromeFocused(false);
+            }}
+            className={cn(
+              glassOverlaySurface,
+              "phone-footer-layer document-viewer-composer floating-composer-edge dashboard-composer-edge z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-[transform,opacity] motion-reduce:transition-none sm:fixed",
+              composerScrollHidden
+                ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
             )}
-          </button>
-        </form>
+          >
+            <button
+              type="button"
+              onClick={() => setMobileActionsOpen(true)}
+              className="grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+              aria-label="Open document actions"
+            >
+              <Plus aria-hidden="true" className="h-5 w-5" />
+            </button>
+            <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
+              <span className="sr-only">Search or answer from this document</span>
+              <input
+                value={sourceSearch}
+                onChange={(event) => setSourceSearch(event.target.value)}
+                placeholder="Search or answer from this document..."
+                className="min-h-tap min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={!canSummarizeDocument}
+              className="grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Answer from this document"
+            >
+              {loadingSummary ? (
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send aria-hidden="true" className="h-4 w-4" />
+              )}
+            </button>
+          </form>
+        </PhoneFooterLayerPortal>
       ) : null}
     </main>
   );

@@ -19,6 +19,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
+import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import { useHideOnScroll, useReserveTransitionMarker } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
@@ -504,16 +505,17 @@ export function CalculatorsSearchPage() {
 
   // Hide the bottom composer dock on scroll-down in lockstep with the shell's
   // top header, using the same hook (identical thresholds, phone-only, inert on
-  // desktop). On phones the shell's #main-content owns vertical scroll
-  // (max-sm:overflow-y-auto) and drives the header hide; the inner
-  // searchPageShell <main> has no vertical overflow, so it never scrolls. Point
-  // the hook at #main-content so the dock reacts to the same scroll events. The
-  // hook polls the ref until the shell element resolves.
+  // desktop). Browser phones scroll the document so Safari can minimize its
+  // chrome; standalone mode keeps #main-content as its bounded scroller. Feed
+  // both possible owners and combine them so this page-owned dock follows the
+  // same active source as the shell header.
   const scrollContainerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     scrollContainerRef.current = document.querySelector<HTMLElement>("#main-content");
   }, []);
-  const footerHidden = useHideOnScroll({ containerRef: scrollContainerRef });
+  const innerFooterHidden = useHideOnScroll({ containerRef: scrollContainerRef });
+  const documentFooterHidden = useHideOnScroll({ documentCollapseRootRef: scrollContainerRef });
+  const footerHidden = innerFooterHidden || documentFooterHidden;
   // Keep the phone dock visible while focused so scroll-hide cannot slide a
   // focused input off-screen or mark it aria-hidden while still tabbable.
   const [dockFocused, setDockFocused] = useState(false);
@@ -553,7 +555,9 @@ export function CalculatorsSearchPage() {
         // Page-owned phone dock: shell composer is hidden, so clear space here.
         // Collapse with the dock on scroll-hide so content reaches the viewport edge.
         className={cn(
-          !dockHidden && !activeCalc && "max-sm:pb-[calc(5.5rem+var(--safe-area-bottom))]",
+          !dockHidden &&
+            !activeCalc &&
+            "max-sm:pb-[calc(5.5rem+var(--safe-area-bottom))] max-sm:[--phone-focus-bottom-clearance:calc(9rem+var(--safe-area-bottom))]",
           dockHidden && "max-sm:pb-0",
         )}
         header={
@@ -675,31 +679,33 @@ export function CalculatorsSearchPage() {
           placement, and slides away on scroll-down in lockstep with the header.
           Hidden while a calculator sheet is open. */}
       {activeCalc ? null : (
-        <div
-          data-testid="calculators-phone-dock"
-          data-scroll-hidden={dockHidden ? "true" : undefined}
-          onFocusCapture={() => setDockFocused(true)}
-          onBlurCapture={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDockFocused(false);
-          }}
-          className={cn(
-            "answer-footer-search-dock answer-footer-search-edge fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-3 transition-[transform,opacity] motion-reduce:transition-none sm:hidden",
-            dockHidden
-              ? "pointer-events-none duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
-              : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-          )}
-          aria-hidden={dockHidden}
-          inert={dockHidden || undefined}
-        >
-          <div className="answer-footer-search-backdrop" aria-hidden="true" />
-          <CalculatorComposer
-            query={query}
-            onQuery={setQuery}
-            onReset={resetSearch}
-            onSubmit={submitSearch}
-            variant="compact"
-          />
-        </div>
+        <PhoneFooterLayerPortal>
+          <div
+            data-testid="calculators-phone-dock"
+            data-scroll-hidden={dockHidden ? "true" : undefined}
+            onFocusCapture={() => setDockFocused(true)}
+            onBlurCapture={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDockFocused(false);
+            }}
+            className={cn(
+              "phone-footer-layer answer-footer-search-dock answer-footer-search-edge inset-x-0 bottom-0 z-40 px-3 pb-[calc(0.75rem+var(--safe-area-bottom))] pt-3 transition-[transform,opacity] motion-reduce:transition-none sm:hidden",
+              dockHidden
+                ? "pointer-events-none duration-[240ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+                : "duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            )}
+            aria-hidden={dockHidden}
+            inert={dockHidden || undefined}
+          >
+            <div className="answer-footer-search-backdrop" aria-hidden="true" />
+            <CalculatorComposer
+              query={query}
+              onQuery={setQuery}
+              onReset={resetSearch}
+              onSubmit={submitSearch}
+              variant="compact"
+            />
+          </div>
+        </PhoneFooterLayerPortal>
       )}
 
       {activeCalc ? (
