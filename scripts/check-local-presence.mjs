@@ -17,6 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const defaultRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const EXPECTED_PACKAGE_NAME = "prompt-for-codex-medical-knowledge-base";
 
 /** Local-only secrets this tool may generate into `.env.local`. */
 export const FILLABLE_LOCAL_SECRETS = [
@@ -117,9 +118,14 @@ export function loadLocalEnv({ cwd = defaultRoot, processEnv = process.env } = {
   return { merged, filesPresent, fromFiles };
 }
 
-/** Fill mode must persist file gaps even when the invoking shell has temporary overrides. */
-export function presenceEnvForMode({ fill, merged, fromFiles }) {
-  return fill ? fromFiles : merged;
+/** Fill mode uses file-only state for writable gaps but preserves merged report-only/identity truth. */
+export function assessPresenceForMode({ fill, merged, fromFiles }) {
+  const mergedAssessment = assessLocalPresence(merged);
+  if (!fill) return mergedAssessment;
+  return {
+    ...mergedAssessment,
+    fillable: assessLocalPresence(fromFiles).fillable,
+  };
 }
 
 export function extractUrlRef(url) {
@@ -253,8 +259,18 @@ export function resolveTargetRoot(argv = process.argv.slice(2)) {
   const value = argv[index + 1];
   if (!value || value.startsWith("--")) throw new Error("--root requires a checkout path");
   const resolved = path.resolve(value);
-  if (!existsSync(path.join(resolved, "package.json"))) {
+  const packagePath = path.join(resolved, "package.json");
+  if (!existsSync(packagePath)) {
     throw new Error(`--root is not a repository checkout: ${resolved}`);
+  }
+  let packageName;
+  try {
+    packageName = JSON.parse(readFileSync(packagePath, "utf8")).name;
+  } catch {
+    throw new Error(`--root has an unreadable package.json: ${resolved}`);
+  }
+  if (packageName !== EXPECTED_PACKAGE_NAME) {
+    throw new Error(`--root is not a Database checkout: ${resolved}`);
   }
   return resolved;
 }
@@ -330,8 +346,7 @@ function main() {
     process.exit(1);
   }
   const { merged, filesPresent, fromFiles } = loadLocalEnv({ cwd: targetRoot });
-  const assessment = assessLocalPresence(presenceEnvForMode({ fill, merged, fromFiles }));
-  assessment.identity = classifyProjectIdentity(merged);
+  const assessment = assessPresenceForMode({ fill, merged, fromFiles });
 
   printPresenceReport({ filesPresent, assessment });
 

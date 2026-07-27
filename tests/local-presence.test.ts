@@ -1,13 +1,16 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
   assessLocalPresence,
+  assessPresenceForMode,
   classifyProjectIdentity,
   FILLABLE_LOCAL_SECRETS,
   lengthBucket,
   mergeFillIntoEnvLocal,
   parseEnvFile,
-  presenceEnvForMode,
   REPORT_ONLY_KEYS,
   resolveTargetRoot,
 } from "../scripts/check-local-presence.mjs";
@@ -18,18 +21,32 @@ describe("check-local-presence", () => {
     expect(() => resolveTargetRoot(["--root"])).toThrow("--root requires a checkout path");
   });
 
+  it("rejects an unrelated Node project as a fill target", () => {
+    const unrelatedRoot = mkdtempSync(path.join(tmpdir(), "local-presence-unrelated-"));
+    try {
+      writeFileSync(path.join(unrelatedRoot, "package.json"), JSON.stringify({ name: "unrelated-project" }));
+      expect(() => resolveTargetRoot(["--root", unrelatedRoot])).toThrow("--root is not a Database checkout");
+    } finally {
+      rmSync(unrelatedRoot, { recursive: true, force: true });
+    }
+  });
+
   it("does not let caller-only secrets suppress persistent --root fill gaps", () => {
-    const processOnly = Object.fromEntries(
-      FILLABLE_LOCAL_SECRETS.map(({ name }) => [name, "caller-only-secret-that-must-not-count-as-persisted"]),
-    );
+    const processOnly = {
+      ...Object.fromEntries(
+        FILLABLE_LOCAL_SECRETS.map(({ name }) => [name, "caller-only-secret-that-must-not-count-as-persisted"]),
+      ),
+      OPENAI_API_KEY: "caller-only-provider-key",
+    };
     const merged = { ...processOnly };
     const fromFiles = {};
 
-    const reportAssessment = assessLocalPresence(presenceEnvForMode({ fill: false, merged, fromFiles }));
-    const fillAssessment = assessLocalPresence(presenceEnvForMode({ fill: true, merged, fromFiles }));
+    const reportAssessment = assessPresenceForMode({ fill: false, merged, fromFiles });
+    const fillAssessment = assessPresenceForMode({ fill: true, merged, fromFiles });
 
     expect(reportAssessment.fillable.every((row) => row.status === "ok")).toBe(true);
     expect(fillAssessment.fillable.every((row) => row.status === "gap")).toBe(true);
+    expect(fillAssessment.reportOnly.find((row) => row.name === "OPENAI_API_KEY")?.status).toBe("ok");
   });
 
   it("parses env assignments without exposing values in helpers", () => {
