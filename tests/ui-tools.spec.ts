@@ -1079,7 +1079,10 @@ test.describe("Clinical KB tools launcher", () => {
     await gotoLauncher(page, "/forms?q=transport%20forms&focus=1&run=1");
 
     const results = page.getByTestId("form-search-results");
-    const visibleSort = page.locator('select[aria-label="Sort results"]:visible');
+    // Sort is a segmented group; the persisted order reads off aria-pressed rather
+    // than a select value, including after history navigation.
+    const visibleSort = page.locator('[role="group"][aria-label="Sort results"]:visible');
+    const sortOption = (name: string) => visibleSort.getByRole("button", { name });
     const expectedAlphaFirstTestId = `form-search-result-${
       sortResultItems(rankFormRecords(formRecords, "transport forms"), "alpha", (match) => match.service.title)[0]
         ?.service.slug
@@ -1089,7 +1092,7 @@ test.describe("Clinical KB tools launcher", () => {
       "form-search-result-transport-crisis-form",
     );
 
-    await visibleSort.selectOption("alpha");
+    await sortOption("A–Z").click();
     await expect(page).toHaveURL(/\bsort=alpha\b/);
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
@@ -1097,14 +1100,14 @@ test.describe("Clinical KB tools launcher", () => {
     );
 
     await page.goBack();
-    await expect(visibleSort).toHaveValue("relevance");
+    await expect(sortOption("Relevance")).toHaveAttribute("aria-pressed", "true");
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
       "form-search-result-transport-crisis-form",
     );
 
     await page.goForward();
-    await expect(visibleSort).toHaveValue("alpha");
+    await expect(sortOption("A–Z")).toHaveAttribute("aria-pressed", "true");
     await expect(results.locator('article[data-testid^="form-search-result-"]').first()).toHaveAttribute(
       "data-testid",
       expectedAlphaFirstTestId,

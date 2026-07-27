@@ -3256,9 +3256,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
       await mobileTypeFilter.selectOption("all");
     }
 
-    await queryRibbon.getByLabel("Sort results").selectOption("alpha");
+    // Sort is a segmented group of pressed buttons, not a select: the active order
+    // is readable without opening anything.
+    const documentSort = queryRibbon.getByRole("group", { name: "Sort results" });
+    await documentSort.getByRole("button", { name: "A–Z" }).click();
     await expect(page).toHaveURL(/[?&]sort=alpha/);
-    await queryRibbon.getByLabel("Sort results").selectOption("relevance");
+    await expect(documentSort.getByRole("button", { name: "A–Z" })).toHaveAttribute("aria-pressed", "true");
+    await documentSort.getByRole("button", { name: "Relevance" }).click();
 
     const openDocumentLink = documentResults
       .getByRole("link", { name: /Open Synthetic lithium monitoring protocol/i })
