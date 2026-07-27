@@ -1,16 +1,54 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
   assessLocalPresence,
+  assessPresenceForMode,
   classifyProjectIdentity,
   FILLABLE_LOCAL_SECRETS,
   lengthBucket,
   mergeFillIntoEnvLocal,
   parseEnvFile,
   REPORT_ONLY_KEYS,
+  resolveTargetRoot,
 } from "../scripts/check-local-presence.mjs";
 
 describe("check-local-presence", () => {
+  it("accepts an explicit checkout root for cross-worktree inspection", () => {
+    expect(resolveTargetRoot(["--root", process.cwd()])).toBe(process.cwd());
+    expect(() => resolveTargetRoot(["--root"])).toThrow("--root requires a checkout path");
+  });
+
+  it("rejects an unrelated Node project as a fill target", () => {
+    const unrelatedRoot = mkdtempSync(path.join(tmpdir(), "local-presence-unrelated-"));
+    try {
+      writeFileSync(path.join(unrelatedRoot, "package.json"), JSON.stringify({ name: "unrelated-project" }));
+      expect(() => resolveTargetRoot(["--root", unrelatedRoot])).toThrow("--root is not a Database checkout");
+    } finally {
+      rmSync(unrelatedRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("does not let caller-only secrets suppress persistent --root fill gaps", () => {
+    const processOnly = {
+      ...Object.fromEntries(
+        FILLABLE_LOCAL_SECRETS.map(({ name }) => [name, "caller-only-secret-that-must-not-count-as-persisted"]),
+      ),
+      OPENAI_API_KEY: "caller-only-provider-key",
+    };
+    const merged = { ...processOnly };
+    const fromFiles = {};
+
+    const reportAssessment = assessPresenceForMode({ fill: false, merged, fromFiles });
+    const fillAssessment = assessPresenceForMode({ fill: true, merged, fromFiles });
+
+    expect(reportAssessment.fillable.every((row) => row.status === "ok")).toBe(true);
+    expect(fillAssessment.fillable.every((row) => row.status === "gap")).toBe(true);
+    expect(fillAssessment.reportOnly.find((row) => row.name === "OPENAI_API_KEY")?.status).toBe("ok");
+  });
+
   it("parses env assignments without exposing values in helpers", () => {
     const parsed = parseEnvFile(
       ["# comment", 'RAG_QUERY_HASH_SECRET="abc"', "OPENAI_API_KEY=xyz", "not valid", ""].join("\n"),
