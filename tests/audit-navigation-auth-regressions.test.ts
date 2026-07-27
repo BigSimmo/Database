@@ -115,22 +115,14 @@ describe("audit navigation and auth regressions", () => {
     expect(masterSearchHeaderSource).toContain("setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());");
   });
 
-  it("prefetches mode homes when the mode menu opens", () => {
+  it("defines prefetchModeHomes from visible mode home hrefs", () => {
+    // Call-site wiring for both menu-open paths is covered behaviorally in
+    // tests/mode-menu-prefetch.dom.test.tsx (mock router.prefetch + toggle/keyboard).
     expect(masterSearchHeaderSource).toContain("function prefetchModeHomes()");
     expect(masterSearchHeaderSource).toContain(
       "new Set(visibleAppModeOptions.map((mode) => appModeHomeHref(mode.id)))",
     );
     expect(masterSearchHeaderSource).toContain("for (const href of hrefs) router.prefetch(href)");
-    // Both menu-open helpers must prefetch before opening. Counting bare
-    // `prefetchModeHomes();` alone can pass with one live call + one leftover string.
-    const openModeMenuWithFocus = masterSearchHeaderSource.match(
-      /function openModeMenuWithFocus\([\s\S]*?prefetchModeHomes\(\);[\s\S]*?setModeMenuOpen\(true\);/,
-    );
-    const toggleModeMenu = masterSearchHeaderSource.match(
-      /function toggleModeMenu\([\s\S]*?prefetchModeHomes\(\);[\s\S]*?setModeMenuOpen\(true\);/,
-    );
-    expect(openModeMenuWithFocus).not.toBeNull();
-    expect(toggleModeMenu).not.toBeNull();
   });
 
   it("gates private polling and mutations on local readiness plus authenticated status", () => {
