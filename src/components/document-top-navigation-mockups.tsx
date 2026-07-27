@@ -113,7 +113,7 @@ function MiniGlobalHeader({ device }: { device: PreviewDevice }) {
         phone ? "h-12 gap-2" : "h-14 gap-3 sm:px-4",
       )}
     >
-      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[0.6rem] bg-[color:var(--text-heading)] text-[10px] font-black tracking-[-0.04em] text-[color:var(--surface)]">
+      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-[0.6rem] bg-[color:var(--text-heading)] text-3xs font-black tracking-[-0.04em] text-[color:var(--surface)]">
         KB
       </span>
       <span
@@ -225,14 +225,14 @@ function DocumentIdentity({ device }: { device: PreviewDevice }) {
       <span aria-hidden="true" className={cn("mx-2 h-7 w-px bg-[color:var(--border)]", phone && "mx-1")} />
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[10px] font-bold uppercase tracking-[0.11em] text-[color:var(--clinical-accent)]">
+        <p className="truncate text-3xs font-bold uppercase tracking-[0.11em] text-[color:var(--clinical-accent)]">
           NICE · Clinical guideline
         </p>
         <h3
           title={documentTitle}
           className={cn(
             "truncate font-semibold tracking-[-0.01em] text-[color:var(--text-heading)]",
-            phone ? "text-[0.8125rem]" : "mt-0.5 text-sm sm:text-[0.9375rem]",
+            phone ? "text-sm-minus" : "mt-0.5 text-sm sm:text-base-minus",
           )}
         >
           {documentTitle}
@@ -304,15 +304,15 @@ function SectionNav({
             )}
           >
             {concept === "index" ? (
-              <span className="nums text-[9px] font-black tracking-[0.1em] opacity-60">
+              <span className="nums text-3xs font-black tracking-[0.1em] opacity-60">
                 {String(index + 1).padStart(2, "0")}
               </span>
             ) : (
               <Icon aria-hidden="true" className={cn("h-4 w-4 shrink-0", tablet && "hidden min-[700px]:block")} />
             )}
-            <span className={cn("truncate font-bold", phone ? "text-[10px]" : "text-xs")}>{section.label}</span>
+            <span className={cn("truncate font-bold", phone ? "text-3xs" : "text-xs")}>{section.label}</span>
             {!phone && !tablet && concept !== "folder" ? (
-              <span className="hidden truncate text-[10px] font-medium text-[color:var(--text-soft)] xl:block">
+              <span className="hidden truncate text-3xs font-medium text-[color:var(--text-soft)] xl:block">
                 {section.detail}
               </span>
             ) : null}
@@ -356,14 +356,14 @@ function DocumentCanvas({ sectionId, device }: { sectionId: SectionId; device: P
             <Icon aria-hidden="true" className="h-4 w-4" />
           </span>
           <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[color:var(--clinical-accent)]">
+            <p className="text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--clinical-accent)]">
               {section.eyebrow}
             </p>
             <h4 className="mt-0.5 font-semibold text-[color:var(--text-heading)]">{section.label}</h4>
             <p className="mt-1 text-xs leading-5 text-[color:var(--text-muted)]">{section.description}</p>
           </div>
         </div>
-        <div className="mt-4 flex items-center gap-2 border-t border-[color:var(--border)] pt-3 text-[10px] font-bold text-[color:var(--text-soft)]">
+        <div className="mt-4 flex items-center gap-2 border-t border-[color:var(--border)] pt-3 text-3xs font-bold text-[color:var(--text-soft)]">
           <Check aria-hidden="true" className="h-3.5 w-3.5 text-[color:var(--clinical-accent)]" />
           {section.detail} · source linked
         </div>
@@ -371,7 +371,7 @@ function DocumentCanvas({ sectionId, device }: { sectionId: SectionId; device: P
 
       {phone ? null : (
         <aside className="rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3">
-          <div className="flex items-center justify-between text-[10px] font-bold text-[color:var(--text-muted)]">
+          <div className="flex items-center justify-between text-3xs font-bold text-[color:var(--text-muted)]">
             <span>Position</span>
             <span className="nums">12 / 84</span>
           </div>
@@ -395,7 +395,7 @@ function ResponsivePreview({ concept, device }: { concept: ConceptId; device: Pr
 
   return (
     <div className={cn("min-w-0", width)}>
-      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{label}</p>
+      <p className="mb-2 text-3xs font-black uppercase tracking-[0.12em] text-[color:var(--text-soft)]">{label}</p>
       <article
         id={`${concept}-${device}-preview`}
         data-concept={concept}
@@ -418,7 +418,7 @@ function ConceptShowcase({ concept, number }: { concept: (typeof concepts)[numbe
     <section className="border-t border-[color:var(--border)] pt-8 sm:pt-10" aria-labelledby={`${concept.id}-title`}>
       <div className="mb-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,34rem)] lg:items-end">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[color:var(--clinical-accent)]">
+          <p className="text-3xs font-black uppercase tracking-[0.14em] text-[color:var(--clinical-accent)]">
             Direction {String(number).padStart(2, "0")} · {concept.verdict}
           </p>
           <h2
@@ -449,7 +449,7 @@ export function DocumentTopNavigationMockups() {
     <main className="min-h-dvh bg-[color:var(--background)] px-3 pb-16 pt-7 text-[color:var(--text)] sm:px-6 sm:pt-10 lg:px-8">
       <div className="mx-auto max-w-[1440px]">
         <header className="max-w-4xl">
-          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[color:var(--clinical-accent)]">
+          <p className="text-3xs font-black uppercase tracking-[0.16em] text-[color:var(--clinical-accent)]">
             Documents · Navigation study
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-[-0.035em] text-[color:var(--text-heading)] sm:text-4xl">
