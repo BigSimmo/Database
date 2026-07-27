@@ -115,6 +115,15 @@ describe("audit navigation and auth regressions", () => {
     expect(masterSearchHeaderSource).toContain("setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());");
   });
 
+  it("prefetches mode homes when the mode menu opens", () => {
+    expect(masterSearchHeaderSource).toContain("function prefetchModeHomes()");
+    expect(masterSearchHeaderSource).toContain(
+      "new Set(visibleAppModeOptions.map((mode) => appModeHomeHref(mode.id)))",
+    );
+    expect(masterSearchHeaderSource).toContain("for (const href of hrefs) router.prefetch(href)");
+    expect(masterSearchHeaderSource.match(/prefetchModeHomes\(\);/g)).toHaveLength(2);
+  });
+
   it("gates private polling and mutations on local readiness plus authenticated status", () => {
     const uploadReadOnlyContract = sourceSegment(
       clinicalDashboardSource,

@@ -61,6 +61,7 @@ import { Sheet } from "@/components/ui/sheet";
 import {
   appModeDefinition,
   appModeDefinitions,
+  appModeHomeHref,
   appModeSearchConfig,
   isSearchableAppMode,
   visibleAppModeDefinitionsForSession,
@@ -817,6 +818,15 @@ export function MasterSearchHeader({
     if (mode) selectAppMode(mode);
   }
 
+  function prefetchModeHomes() {
+    // Mode options are buttons (rather than Links), so Next cannot discover and
+    // prefetch their destinations automatically. Opening the menu is a strong
+    // navigation-intent signal; warm each distinct home while the user scans the
+    // choices so the subsequent router.push can use the cached RSC payload.
+    const hrefs = new Set(visibleAppModeOptions.map((mode) => appModeHomeHref(mode.id)));
+    for (const href of hrefs) router.prefetch(href);
+  }
+
   const selectedModeIndex = Math.max(
     0,
     visibleAppModeOptions.findIndex((mode) => mode.id === selectedAppMode.id),
@@ -852,6 +862,7 @@ export function MasterSearchHeader({
 
   function openModeMenuWithFocus(index: number) {
     closeModeSurfaces();
+    prefetchModeHomes();
     const nextIndex = (index + visibleAppModeOptions.length) % visibleAppModeOptions.length;
     const phoneLayout = currentUsesPhoneSearchLayout();
     setUsesPhoneSearchLayout(phoneLayout);
@@ -870,6 +881,7 @@ export function MasterSearchHeader({
       setModeMenuOpen(false);
       return;
     }
+    prefetchModeHomes();
     setUsesPhoneSearchLayout(currentUsesPhoneSearchLayout());
     setModeMenuFocusIndex(selectedModeIndex);
     setModeMenuOpen(true);
