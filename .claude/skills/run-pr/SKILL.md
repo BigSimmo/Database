@@ -71,11 +71,12 @@ required checks, unresolved-thread count, and behind/ahead relative to `main`.
 
 ### Step 2 — branch drift first (so CI fixes target the merged state)
 
-- Hosted mitigation: `.github/workflows/pr-branch-sync.yml` updates open PR branches
-  after each push to `main`. Do not treat a fresh `DIRTY` state as a product bug until
+- Automatic `GITHUB_TOKEN` branch mutation is prohibited because bot-authored heads leave
+  required checks awaiting approval. Do not treat a fresh `DIRTY` state as a product bug until
   you confirm the tip is still behind or `git merge-tree` reports real conflicts.
-- Behind `main` but cleanly mergeable, with no local checkout otherwise needed →
-  `mcp__github__update_pull_request_branch` (or `npm run sync:pr-branches:apply` /
+- Behind `main` but cleanly mergeable, with no local checkout otherwise needed → use the current
+  explicitly authenticated user via `mcp__github__update_pull_request_branch` (or
+  `npm run sync:pr-branches:apply`, which refuses bot identities, or
   `gh api .../update-branch`), then re-fetch.
 - Conflicting (`mergeable_state: dirty`), or the branch is being checked out anyway →
   classify with `git merge-tree --write-tree origin/main <tip>` first. If clean, merge
