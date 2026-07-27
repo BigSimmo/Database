@@ -4,6 +4,7 @@ import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import {
   appendPrimaryScrollSpacer,
   readMobileComposerReservePx,
+  readPrimaryScrollAndDomGeometry,
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
@@ -135,10 +136,21 @@ async function isVisibleWithoutThrow(locator: Locator) {
 }
 
 async function fillVisibleQuestionInput(page: Page, value: string) {
-  const questionInput = visibleQuestionInput(page);
-  const submitAnswer = visibleAnswerSubmitButton(page);
+  const questionInput = page.locator('[aria-label^="Search indexed guidelines by question or keyword"]:visible');
+  const submitAnswer = page.locator('[aria-label="Generate source-backed answer"]:visible');
 
+  // Production HTML can be visible before React owns the controlled input.
+  // Filling during that gap is immediately overwritten by hydration and leaves
+  // the submit button disabled, so establish the live handler boundary first.
+  await waitForReactEventHandler(questionInput, "onChange");
   await expect(async () => {
+    // A production navigation can briefly overlap or replace the server-rendered
+    // composer. Require one settled React owner before filling so the new client
+    // tree cannot discard the value and leave submit disabled.
+    await expect(questionInput).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await expect(submitAnswer).toHaveCount(1, { timeout: uiAssertionTimeoutMs });
+    await waitForReactEventHandler(questionInput, "onChange");
+    await waitForReactEventHandler(questionInput.locator("xpath=ancestor::form[1]"), "onSubmit");
     await expect(submitAnswer).toHaveAttribute("title", /Enter a clinical question|Generate a source-backed answer/, {
       timeout: uiAssertionTimeoutMs,
     });
@@ -146,7 +158,7 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
     await questionInput.fill(value);
     await expect(questionInput).toHaveValue(value, { timeout: uiAssertionTimeoutMs });
     await expect(submitAnswer).toBeEnabled({ timeout: uiAssertionTimeoutMs });
-  }).toPass({ timeout: 15_000 });
+  }).toPass({ timeout: uiAssertionTimeoutMs });
 
   return questionInput;
 }
@@ -855,11 +867,33 @@ async function expectAccountSettingsSurface(settings: Locator) {
   await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "Clinical defaults", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "App preferences", exact: true })).toBeVisible();
-  await expect(settings.getByTestId("settings-row-profile")).toBeVisible();
+  await expect(settings.getByTestId("settings-account-card")).toBeVisible();
+  await expect(settings.getByTestId("settings-row-profile")).toHaveCount(0);
   await expect(settings.getByTestId("settings-row-jurisdiction")).toBeVisible();
   await expect(settings.getByTestId("settings-row-answer-style")).toBeVisible();
   await expect(settings.getByTestId("settings-row-appearance")).toBeVisible();
+  await expect(settings.getByText("Saved on this device; not yet used in answers.")).toHaveCount(1);
   await expect(settings).not.toContainText(/admin|database|storage|source review|import pipeline/i);
+}
+
+async function expectMobileSettingsLayout(settings: Locator) {
+  const jurisdictionRow = settings.getByTestId("settings-row-jurisdiction");
+  const label = jurisdictionRow.getByText("Jurisdiction", { exact: true });
+  const control = jurisdictionRow.getByRole("combobox");
+  const [rowBox, labelBox, controlBox] = await Promise.all([
+    jurisdictionRow.boundingBox(),
+    label.boundingBox(),
+    control.boundingBox(),
+  ]);
+
+  expect(rowBox).not.toBeNull();
+  expect(labelBox).not.toBeNull();
+  expect(controlBox).not.toBeNull();
+  expect(controlBox!.y).toBeGreaterThanOrEqual(labelBox!.y + labelBox!.height + 8);
+  expect(controlBox!.x).toBeGreaterThanOrEqual(rowBox!.x);
+  expect(controlBox!.x + controlBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width);
+  await expect(settings.getByRole("button", { name: "Close settings" })).toBeVisible();
+  await expect(settings.getByRole("button", { name: "Back from settings" })).toHaveCount(0);
 }
 
 async function expectAccountSetupSurface(setup: Locator) {
@@ -1258,7 +1292,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectAccountSetupSurface(setup);
   });
 
-  test("account settings uses a fullscreen settings page below desktop and closes from X and Escape", async ({
+  test("account settings stays readable at narrow phone widths and closes from its single control or Escape", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 820 });
@@ -1284,10 +1318,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(settingsBox!.y).toBeLessThanOrEqual(fullscreenTolerance);
     expect(settingsBox!.width + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.width);
     expect(settingsBox!.height + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.height);
+    await expectMobileSettingsLayout(settings);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 430, height: 820 });
+    await expectMobileSettingsLayout(settings);
     await expectNoPageHorizontalOverflow(page);
 
     await settings.getByRole("button", { name: "Close settings" }).click();
     await expect(settings).toBeHidden();
+    await page.setViewportSize({ width: 390, height: 820 });
 
     const escapeMenu = await openMobileClinicalGuideMenu(page);
     await escapeMenu.getByRole("button", { name: "Settings", exact: true }).click();
@@ -3992,11 +4032,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expect(generatedSummary).not.toContainText("**");
     await expect(generatedSummary.locator("strong").filter({ hasText: "clozapine" })).toHaveCount(1);
 
-    const summaryBox = await generatedSummary.boundingBox();
-    const previewBox = await page.getByTestId("pdf-preview").boundingBox();
-    expect(summaryBox).not.toBeNull();
-    expect(previewBox).not.toBeNull();
-    expect(summaryBox!.y).toBeLessThan(previewBox!.y);
+    // The generated answer deliberately smooth-scrolls into view. Read both
+    // boxes in one browser evaluation so viewport motion cannot corrupt their
+    // relative order between independent Playwright round trips.
+    const answerGeometry = await readPrimaryScrollAndDomGeometry(page, {
+      summary: '[data-testid="generated-clinical-summary"]',
+      preview: '[data-testid="pdf-preview"]',
+    });
+    expect(answerGeometry.nodes.summary.count).toBe(1);
+    expect(answerGeometry.nodes.preview.count).toBe(1);
+    expect(answerGeometry.nodes.summary.rect).not.toBeNull();
+    expect(answerGeometry.nodes.preview.rect).not.toBeNull();
+    expect(answerGeometry.nodes.summary.rect!.top).toBeLessThan(answerGeometry.nodes.preview.rect!.top);
     expect(answerRequests).toEqual([
       {
         query: "How is clozapine monitored?",

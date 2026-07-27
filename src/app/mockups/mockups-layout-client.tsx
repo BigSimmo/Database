@@ -10,6 +10,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
   const isToolsPageMockup = pathname.startsWith("/mockups/tools-");
   const isFavouritesPageMockup = pathname.startsWith("/mockups/favourites-");
   const isDocumentSearchMockup = pathname.startsWith("/mockups/document-search");
+  const isDocumentTopNavigationMockup = pathname === "/mockups/document-top-navigation";
   const isSourceOverlayRedesignMockup = pathname === "/mockups/document-search/source-overlays";
   const isStandaloneDocumentFlow = pathname === "/mockups/document-search";
   const isUniversalSearchRedesignMockup = pathname === "/mockups/universal-search-redesign";
@@ -27,7 +28,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
           ? "tools"
           : isFavouritesPageMockup
             ? "favourites"
-            : isDocumentSearchMockup
+            : isDocumentSearchMockup || isDocumentTopNavigationMockup
               ? "documents"
               : "answer"
       }
@@ -35,6 +36,7 @@ export function MockupsLayoutClient({ children }: { children: ReactNode }) {
         !isToolsPageMockup &&
         !isFavouritesPageMockup &&
         !isStandaloneDocumentFlow &&
+        !isDocumentTopNavigationMockup &&
         !isUniversalSearchRedesignMockup &&
         !isCalculatorsSearchPageMockup
       }
