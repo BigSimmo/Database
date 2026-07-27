@@ -7,6 +7,12 @@ prod branch) and `docs/capacity-review.md` §4 (the soak test that validates it)
 Staging is two independent tiers: a **staging Supabase project** (data) and a
 **staging app host** (compute). Do the data tier first — the app needs it.
 
+> **Current state (verified 2026-07-27):** Supabase project `ikoiolksxqxfxgiyqpnu`
+> and the Railway staging app already exist and are healthy. The app is in offline-provider mode,
+> the staging corpus is empty, and `search_schema_health()` passes. Do not create replacements.
+> The remaining data-tier work is to apply the 23 repository migrations after
+> `20260719055623`, then repeat the identity, indexing, health, and empty-data-boundary proof.
+
 The identity guard is already staging-aware (`src/lib/supabase/project.ts`): it
 accepts a second project **only** when you explicitly declare it via
 `SUPABASE_STAGING_PROJECT_REF` + `SUPABASE_STAGING_PROJECT_NAME`, and it refuses
@@ -29,6 +35,11 @@ those vars are unset.
    supabase link --project-ref <staging-ref>
    supabase db push          # applies supabase/migrations/* → matches schema.sql
    ```
+
+   Preserve the repository migration versions exactly. Do not replay the missing chain through a
+   helper that records new timestamps, because that would make staging history diverge while
+   appearing current. If the staging database credential is unavailable, stop and retain the
+   migration gap as operator debt instead of substituting a different apply mechanism.
 
    Then confirm health: `npm run check:indexing` (runs `search_schema_health()`
    over the hybrid RPCs) should report ok.
