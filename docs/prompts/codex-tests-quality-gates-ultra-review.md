@@ -332,7 +332,7 @@ Do not alter unrelated user work.
 Build an evidence-backed model:
 
 | Risk area | Intended proof | Local command | CI enforcement | Offline/provider | Gap | Evidence |
-|---|---|---|---|---|---|---|
+| --------- | -------------- | ------------- | -------------- | ---------------- | --- | -------- |
 
 Cover at least:
 
@@ -403,7 +403,7 @@ Derive commands from the repository. Prefer this order:
 For every check record:
 
 | Check | Command | Result | Pre-existing | New signal | Provider gated | Evidence |
-|---|---|---|---|---|---|---|
+| ----- | ------- | ------ | ------------ | ---------- | -------------- | -------- |
 
 Statuses:
 
@@ -628,7 +628,7 @@ Ranked defect-escape paths and the gate that should have blocked each.
 ## 8. Flake and mute debt
 
 | Item | Type | Owner/expiry if any | Escape risk | Evidence |
-|---|---|---|---|---|
+| ---- | ---- | ------------------- | ----------- | -------- |
 
 ## 9. Reviewer findings
 

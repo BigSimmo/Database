@@ -183,9 +183,9 @@ test("phone chrome has an opaque header, one edge-to-edge footer, and releases b
 
   const collapseBox = await page.getByTestId("universal-header-collapse").boundingBox();
   const dockBox = await page.locator(".answer-footer-search-dock").boundingBox();
-  const reserve = await page.locator("#main-content").evaluate((main) =>
-    getComputedStyle(main).getPropertyValue("--mobile-composer-reserve").trim(),
-  );
+  const reserve = await page
+    .locator("#main-content")
+    .evaluate((main) => getComputedStyle(main).getPropertyValue("--mobile-composer-reserve").trim());
 
   expect(collapseBox?.height ?? 0).toBeLessThanOrEqual(1);
   expect(dockBox?.y ?? -1).toBeGreaterThanOrEqual(phoneViewport.height - 1);

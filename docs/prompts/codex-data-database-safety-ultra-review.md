@@ -329,7 +329,7 @@ Do not alter unrelated user work.
 Build an evidence-backed model:
 
 | Data domain | Stores | Writers | Readers | Trust boundary | Tenancy key | Destructive ops | Backup/restore path | Evidence |
-|---|---|---|---|---|---|---|---|---|
+| ----------- | ------ | ------- | ------- | -------------- | ----------- | --------------- | ------------------- | -------- |
 
 Cover at least:
 
@@ -401,7 +401,7 @@ Derive commands from the repository. Prefer this order:
 For every check record:
 
 | Check | Command | Result | Pre-existing | New signal | Provider gated | Evidence |
-|---|---|---|---|---|---|---|
+| ----- | ------- | ------ | ------------ | ---------- | -------------- | -------- |
 
 Statuses:
 
@@ -625,7 +625,7 @@ Commands run, results, pre-existing failures, blocked checks, and checks not run
 ## 7. Scenario matrix
 
 | Scenario | Current behaviour | Gap | Impact | Evidence |
-|---|---|---|---|---|
+| -------- | ----------------- | --- | ------ | -------- |
 
 ## 8. Migration and RLS summary
 

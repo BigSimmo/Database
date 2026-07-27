@@ -320,7 +320,7 @@ Do not alter unrelated user work.
 Build an evidence-backed model:
 
 | Concern | Source of truth | Competing docs | Owner signal | Integrity gate | Drift risk | Evidence |
-|---|---|---|---|---|---|---|
+| ------- | --------------- | -------------- | ------------ | -------------- | ---------- | -------- |
 
 Cover at least:
 
@@ -393,7 +393,7 @@ Derive commands from the repository. Prefer this order:
 For every check record:
 
 | Check | Command | Result | Pre-existing | New signal | Provider gated | Evidence |
-|---|---|---|---|---|---|---|
+| ----- | ------- | ------ | ------------ | ---------- | -------------- | -------- |
 
 Statuses:
 
@@ -614,12 +614,12 @@ Commands run, results, pre-existing failures, blocked checks, and checks not run
 ## 7. Ownership map
 
 | Domain | Current owner signal | Gap | Evidence |
-|---|---|---|---|
+| ------ | -------------------- | --- | -------- |
 
 ## 8. Scenario matrix
 
 | Reader/agent task | What docs say | What repo does | Risk | Evidence |
-|---|---|---|---|---|
+| ----------------- | ------------- | -------------- | ---- | -------- |
 
 ## 9. Reviewer findings
 
