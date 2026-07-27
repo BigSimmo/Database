@@ -20,7 +20,11 @@ async function expectNoHorizontalOverflow(page: Page) {
 
 async function expectNavigationContract(preview: Locator) {
   const navigation = preview.getByRole("navigation", { name: "Document page sections" });
-  await expect(navigation.getByRole("button")).toHaveText(expectedSections);
+  const buttons = navigation.getByRole("button");
+  await expect(buttons).toHaveCount(expectedSections.length);
+  for (const [index, section] of expectedSections.entries()) {
+    await expect(buttons.nth(index)).toHaveAccessibleName(new RegExp(`\\b${section}\\b`));
+  }
   await expect(navigation.getByRole("button", { name: "Summary" })).toHaveAttribute("aria-current", "page");
   await expect(preview.getByTestId("mock-global-header")).toBeVisible();
 }

@@ -71,3 +71,13 @@ export function restorePrivateSearchScope(
     return { kind: "unavailable", reason: "invalid" };
   }
 }
+
+/** Drop a restored private-scope ref from the current URL without a navigation. */
+export function removePrivateScopeRefFromUrl(
+  location: Pick<Location, "pathname" | "search" | "hash"> = window.location,
+) {
+  const params = new URLSearchParams(location.search);
+  params.delete("scopeRef");
+  const next = params.toString();
+  window.history.replaceState(null, "", `${location.pathname}${next ? `?${next}` : ""}${location.hash}`);
+}

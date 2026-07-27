@@ -1,4 +1,4 @@
--- Medical RAG Knowledge Base schema.
+﻿-- Medical RAG Knowledge Base schema.
 -- Run this in the Supabase SQL editor or with the Supabase CLI.
 -- Tables are RLS protected; the local Next.js API and worker use the service role.
 --
@@ -3476,7 +3476,7 @@ grant execute on function public.purge_expired_rag_query_misses(integer) to serv
 do $$
 begin
   execute format('alter database %I set app.ingestion_worker_base_url = %L',
-                 current_database(), '[REDACTED]');
+                 current_database(), 'https://sjrfecxgysukkwxsowpy.supabase.co');
 exception
   when insufficient_privilege then
     raise notice 'Skipping ALTER DATABASE SET app.ingestion_worker_base_url (insufficient privilege on hosted Supabase).';
@@ -3506,7 +3506,7 @@ begin
 
   v_base_url := coalesce(
     nullif(current_setting('app.ingestion_worker_base_url', true), ''),
-    '[REDACTED]'
+    'https://sjrfecxgysukkwxsowpy.supabase.co'
   );
 
   select "net"."http_post"(
@@ -5816,6 +5816,78 @@ $$;
 
 revoke execute on function public.request_indexing_v3_enrichment(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.request_indexing_v3_enrichment(uuid, uuid) to service_role;
+
+
+-- Atomically create an uploaded document row and its initial ingestion job.
+-- The upload route has already stored the object and validated owner/file metadata;
+-- this RPC closes the process-crash window between `documents.insert` and
+-- `ingestion_jobs.insert` by doing both database writes in one transaction.
+create or replace function public.create_uploaded_document_with_ingestion_job(
+  p_document jsonb,
+  p_max_attempts integer
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_document public.documents%rowtype;
+  v_job public.ingestion_jobs%rowtype;
+begin
+  insert into public.documents (
+    id,
+    owner_id,
+    title,
+    description,
+    file_name,
+    file_type,
+    file_size,
+    storage_path,
+    content_hash,
+    status,
+    metadata
+  ) values (
+    (p_document->>'id')::uuid,
+    (p_document->>'owner_id')::uuid,
+    p_document->>'title',
+    nullif(p_document->>'description', ''),
+    p_document->>'file_name',
+    p_document->>'file_type',
+    coalesce((p_document->>'file_size')::bigint, 0),
+    p_document->>'storage_path',
+    nullif(p_document->>'content_hash', ''),
+    'queued',
+    coalesce(p_document->'metadata', '{}'::jsonb)
+  )
+  returning * into v_document;
+
+  insert into public.ingestion_jobs (
+    document_id,
+    batch_id,
+    status,
+    stage,
+    progress,
+    max_attempts
+  ) values (
+    v_document.id,
+    null,
+    'pending',
+    'queued',
+    0,
+    p_max_attempts
+  )
+  returning * into v_job;
+
+  return jsonb_build_object(
+    'document', to_jsonb(v_document),
+    'job', to_jsonb(v_job)
+  );
+end;
+$$;
+
+revoke execute on function public.create_uploaded_document_with_ingestion_job(jsonb, integer) from public, anon, authenticated;
+grant execute on function public.create_uploaded_document_with_ingestion_job(jsonb, integer) to service_role;
 
 
 create table if not exists public.rag_visual_eval_cases (
@@ -9063,3 +9135,13 @@ begin
   end if;
 end;
 $$;
+
+-- Explicit function revokes (ISSUE-05)
+revoke execute on function public.detect_legacy_ivfflat_indexes() from public, anon, authenticated;
+revoke execute on function public.document_summary_text(uuid) from public, anon, authenticated;
+revoke execute on function public.search_document_chunks(uuid, text, integer, uuid) from public, anon, authenticated;
+revoke execute on function public.set_document_embedding_field_content_hash() from public, anon, authenticated;
+grant execute on function public.detect_legacy_ivfflat_indexes() to service_role;
+grant execute on function public.document_summary_text(uuid) to service_role;
+grant execute on function public.search_document_chunks(uuid, text, integer, uuid) to service_role;
+grant execute on function public.set_document_embedding_field_content_hash() to service_role;

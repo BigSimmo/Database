@@ -22,6 +22,13 @@ const labelTypes = [
 const sourceStatusValues = ["current", "review_due", "outdated", "unknown"] as const;
 const validationStatusValues = ["unverified", "locally_reviewed", "approved"] as const;
 const documentScopeQueryPageSize = 1000;
+// PostgREST/Supabase silently caps a single response at 1,000 rows. Label loads must
+// page deterministically or later-page matches are dropped from scoped search (#075).
+const labelScopeDocumentBatchSize = 200;
+const labelScopeQueryPageSize = 1000;
+// Hard stop so a stuck PostgREST page that always returns a full page cannot loop forever.
+// 100 pages × 1,000 rows is far above realistic label volume for a 200-document batch.
+const labelScopeMaxPagesPerDocumentBatch = 100;
 
 export const searchScopeFiltersSchema = z
   .object({
@@ -78,6 +85,7 @@ type ScopeDocumentRow = {
 };
 
 type ScopeLabelRow = {
+  id: string;
   document_id: string;
   label: string;
   label_type: DocumentLabelType;
@@ -161,6 +169,45 @@ function labelMatches(labels: ScopeLabelRow[], type: DocumentLabelType, requeste
   if (!hasValues(requested)) return true;
   const wanted = new Set(requested!.map(normalizeFilterText));
   return labels.some((label) => label.label_type === type && wanted.has(normalizeFilterText(label.label)));
+}
+
+async function loadScopeLabels(args: {
+  supabase: SupabaseClient;
+  candidateIds: string[];
+  signal?: AbortSignal;
+}): Promise<ScopeLabelRow[]> {
+  const rows: ScopeLabelRow[] = [];
+
+  for (let start = 0; start < args.candidateIds.length; start += labelScopeDocumentBatchSize) {
+    const documentIdBatch = args.candidateIds.slice(start, start + labelScopeDocumentBatchSize);
+    for (let offset = 0, pageIndex = 0; ; offset += labelScopeQueryPageSize, pageIndex += 1) {
+      if (pageIndex >= labelScopeMaxPagesPerDocumentBatch) {
+        throw new Error(
+          `Scope label enumeration exceeded ${labelScopeMaxPagesPerDocumentBatch * labelScopeQueryPageSize} rows for a ${documentIdBatch.length}-document batch; narrow the filters.`,
+        );
+      }
+      let labelQuery = args.supabase
+        .from("document_labels")
+        .select("id,document_id,label,label_type")
+        .in("document_id", documentIdBatch)
+        .in("label_type", [...labelTypes])
+        // Stable total order so LIMIT/OFFSET pages neither skip nor duplicate rows.
+        .order("document_id", { ascending: true })
+        .order("label_type", { ascending: true })
+        .order("label", { ascending: true })
+        .order("id", { ascending: true })
+        .range(offset, offset + labelScopeQueryPageSize - 1);
+      if (args.signal) labelQuery = labelQuery.abortSignal(args.signal);
+
+      const { data, error } = await labelQuery;
+      if (error) throw new Error(error.message);
+      const page = (data ?? []) as ScopeLabelRow[];
+      rows.push(...page);
+      if (page.length < labelScopeQueryPageSize) break;
+    }
+  }
+
+  return rows;
 }
 
 function isLocalSource(metadata: ClinicalSourceMetadata) {
@@ -326,15 +373,14 @@ export async function resolveSearchScope(args: {
     hasValues(filters.labelTypesAny);
   let labelsByDocument = new Map<string, ScopeLabelRow[]>();
   if (needsLabels) {
-    const { data: labelRows, error: labelError } = await args.supabase
-      .from("document_labels")
-      .select("document_id,label,label_type")
-      .in("document_id", candidateIds)
-      .in("label_type", [...labelTypes]);
-    if (labelError) throw new Error(labelError.message);
+    const labelRows = await loadScopeLabels({ supabase: args.supabase, candidateIds, signal: args.signal });
     labelsByDocument = new Map();
-    for (const label of (labelRows ?? []) as ScopeLabelRow[]) {
-      labelsByDocument.set(label.document_id, [...(labelsByDocument.get(label.document_id) ?? []), label]);
+    for (const label of labelRows) {
+      // Append in place: paging past the 1,000-row cap means this loop now sees the full label
+      // set, and rebuilding each document's array per row is quadratic in that volume.
+      const documentLabels = labelsByDocument.get(label.document_id);
+      if (documentLabels) documentLabels.push(label);
+      else labelsByDocument.set(label.document_id, [label]);
     }
   }
 

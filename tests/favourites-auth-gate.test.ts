@@ -28,19 +28,25 @@ describe("favourites auth gate", () => {
     expect(sidebar).toContain("Your library");
     expect(sidebar).toContain('aria-label="Your library"');
     expect(sidebar).toContain("showAccountLibrary");
-    expect(sidebar).toContain("primarySidebarToolIds");
+    expect(sidebar).toContain("const visibleSidebarToolItems = sidebarToolItems");
     expect(sidebar).not.toMatch(/const sidebarToolItems = \[[\s\S]*\{ id: "favourites", label: "Favourites"/);
 
-    // Constrain to the Set initializer so later activeMode/href mentions of
-    // specialist modes (e.g. differentials) do not false-fail the exclusion check.
-    const primarySidebarInitializer = sidebar.match(
-      /const primarySidebarToolIds = new Set<\(typeof sidebarToolItems\)\[number\]\["id"\]>\(\[([\s\S]*?)\]\);/,
-    )?.[1];
-    expect(primarySidebarInitializer).toBeTruthy();
-    const primarySidebarIds = [...(primarySidebarInitializer ?? "").matchAll(/"([^"]+)"/g)].map((match) => match[1]);
-    expect(primarySidebarIds).toEqual(["answer", "documents", "services", "forms", "tools", "therapy-compass"]);
-    for (const excludedId of ["differentials", "dsm", "specifiers", "formulation", "prescribing", "factsheets"]) {
-      expect(primarySidebarIds).not.toContain(excludedId);
+    // The persistent rail is the six-item canonical list only; Favourites stays
+    // in Your library, and specialist catalogues stay out of the rail source.
+    const sidebarToolInitializer = sidebar.match(/const sidebarToolItems = \[([\s\S]*?)\] as const;/)?.[1];
+    expect(sidebarToolInitializer).toBeTruthy();
+    const sidebarToolIds = [...(sidebarToolInitializer ?? "").matchAll(/id: "([^"]+)"/g)].map((match) => match[1]);
+    expect(sidebarToolIds).toEqual(["answer", "documents", "services", "prescribing", "factsheets", "tools"]);
+    for (const excludedId of [
+      "differentials",
+      "dsm",
+      "specifiers",
+      "formulation",
+      "forms",
+      "therapy-compass",
+      "favourites",
+    ]) {
+      expect(sidebarToolIds).not.toContain(excludedId);
     }
 
     expect(shell).toContain("showAccountLibrary={favouritesAccessible}");

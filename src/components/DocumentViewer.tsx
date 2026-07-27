@@ -20,7 +20,19 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { documentDisplayTitle } from "@/components/DocumentOrganizationBadges";
-import { useHideOnScroll } from "@/components/clinical-dashboard/use-hide-on-scroll";
+import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
+import { useActiveScrollOwner } from "@/components/clinical-dashboard/use-active-scroll-owner";
+import { PhoneHeaderCollapsePortal } from "@/components/clinical-dashboard/phone-header-collapse-portal";
+import { PdfPreviewLoading } from "@/components/document-viewer/pdf-preview-loading";
+import {
+  getDefaultPdfViewerMode,
+  getInitialPdfViewerMode,
+  pdfViewerModeNativeValue,
+  pdfViewerModeStorageKey,
+  pdfViewerModeValue,
+  pdfViewerNativeModeBreakpoint,
+} from "@/components/document-viewer/pdf-viewer-mode";
+import { useDocumentViewerChromeScroll } from "@/components/clinical-dashboard/use-document-viewer-chrome-scroll";
 import { AnswerProgressStepper } from "@/components/clinical-dashboard/answer-status";
 import type { TimedAnswerProgressUpdate } from "@/components/clinical-dashboard/answer-progress";
 import { readAnswerStream } from "@/components/clinical-dashboard/search-utils";
@@ -102,30 +114,7 @@ const NativePdfEmbed = dynamic(
   { ssr: false, loading: () => <PdfPreviewLoading /> },
 );
 
-function PdfPreviewLoading() {
-  return (
-    <div
-      aria-busy="true"
-      aria-live="polite"
-      className="grid min-h-64 place-items-center bg-[color:var(--surface-inset)] p-5 text-center text-sm text-[color:var(--text-muted)] sm:min-h-72"
-    >
-      Loading PDF reader…
-    </div>
-  );
-}
-
 const secondaryButton = floatingControl;
-const pdfViewerModeStorageKey = "clinical-kb:pdf-viewer-mode";
-const pdfViewerNativeModeBreakpoint = 820;
-const pdfViewerModeValue = {
-  native: "native",
-  canvas: "canvas",
-} as const;
-const pdfViewerModeNativeValue = pdfViewerModeValue.native;
-
-function getDefaultPdfViewerMode(): boolean {
-  return false;
-}
 
 type SignedUrlResponsePayload = {
   url?: string;
@@ -153,33 +142,6 @@ async function requestSignedUrlPayload(
   if (response.status === 401) options.onUnauthorized();
   if (!response.ok) throw new Error(payload?.error || options.errorMessage);
   return payload;
-}
-
-function getInitialPdfViewerMode() {
-  if (typeof window === "undefined") {
-    return {
-      useNativePdfViewer: getDefaultPdfViewerMode(),
-      hasExplicitPdfViewerMode: false,
-    };
-  }
-
-  try {
-    const savedMode = window.localStorage.getItem(pdfViewerModeStorageKey);
-    if (savedMode === pdfViewerModeNativeValue) {
-      return { useNativePdfViewer: true, hasExplicitPdfViewerMode: true };
-    }
-
-    if (savedMode === pdfViewerModeValue.canvas) {
-      return { useNativePdfViewer: false, hasExplicitPdfViewerMode: true };
-    }
-  } catch {
-    // window.localStorage may be unavailable in strict or private-browser contexts.
-  }
-
-  return {
-    useNativePdfViewer: getDefaultPdfViewerMode(),
-    hasExplicitPdfViewerMode: false,
-  };
 }
 
 function rowsById<T extends { id: string }>(incoming: T[]) {
@@ -326,11 +288,15 @@ export function DocumentViewer({
       observer.disconnect();
     };
   }, []);
-  const scrollHidden = useHideOnScroll({
-    ...(shellScrollContainer ? { scrollContainer: shellScrollContainer } : {}),
-    resetKey: `${documentId}:${activePage}:${activeChunkId ?? ""}`,
-  });
-  const composerScrollHidden = scrollHidden && !mobileActionsOpen && !composerChromeFocused;
+  const { composerScrollHidden, reserveTransitioning } = useDocumentViewerChromeScroll(
+    shellScrollContainer,
+    documentId,
+    activePage,
+    activeChunkId,
+    mobileActionsOpen,
+    composerChromeFocused,
+  );
+  const activeScrollOwner = useActiveScrollOwner(shellScrollContainer, documentId);
   const [useNativePdfViewer, setUseNativePdfViewer] = useState(getDefaultPdfViewerMode);
   const [hasExplicitPdfViewerMode, setHasExplicitPdfViewerMode] = useState(false);
   const [viewerModeInitialized, setViewerModeInitialized] = useState(false);
@@ -1093,42 +1059,41 @@ export function DocumentViewer({
       tabIndex={-1}
       className={cn(appBackdrop, "min-h-[100dvh] overflow-x-clip text-[color:var(--text)] focus:outline-none")}
     >
-      <header className="edge-glass-header z-30 border-b border-[color:var(--border)] py-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-[var(--shadow-tight)] backdrop-blur-xl sm:sticky sm:top-0">
-        <div className="mx-auto flex h-12 min-w-0 max-w-[1440px] items-center gap-2">
-          <Link
-            href={documentHomeHref}
-            className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-            aria-label="Back to documents"
-          >
-            <ArrowLeft aria-hidden="true" className="h-5 w-5 shrink-0" />
-            <span className="hidden sm:inline">Documents</span>
-          </Link>
-
-          <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text)] sm:text-base">
-            {headerTitle}
-          </h1>
-
-          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+      <PhoneHeaderCollapsePortal>
+        <header className="edge-glass-header z-30 border-b border-[color:var(--border)] py-2 shadow-[var(--shadow-tight)] backdrop-blur-xl max-sm:pt-2 sm:sticky sm:top-0 sm:pt-[max(0.5rem,env(safe-area-inset-top))]">
+          <div className="mx-auto flex h-12 min-w-0 max-w-[1440px] items-center gap-2">
             <Link
-              href={scopedDocumentHref}
-              className="hidden h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] min-[380px]:grid"
-              aria-label="Add this document to scope"
-              title={headerSubtitle}
+              href={documentHomeHref}
+              className="inline-flex min-h-tap shrink-0 items-center gap-1.5 rounded-full pl-1.5 pr-3 text-sm font-semibold text-[color:var(--text-muted)] transition hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+              aria-label="Back to documents"
             >
-              <Target aria-hidden="true" className="h-5 w-5" />
+              <ArrowLeft aria-hidden="true" className="h-5 w-5 shrink-0" />
+              <span className="hidden sm:inline">Documents</span>
             </Link>
-            <button
-              type="button"
-              onClick={() => setMobileActionsOpen(true)}
-              className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-              aria-label="Open document actions"
-            >
-              <Plus aria-hidden="true" className="h-5 w-5" />
-            </button>
+            <h1 className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--text)] sm:text-base">
+              {headerTitle}
+            </h1>
+            <div className="ml-auto flex shrink-0 items-center gap-1.5">
+              <Link
+                href={scopedDocumentHref}
+                className="hidden h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] min-[380px]:grid"
+                aria-label="Add this document to scope"
+                title={headerSubtitle}
+              >
+                <Target aria-hidden="true" className="h-5 w-5" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setMobileActionsOpen(true)}
+                className="grid h-tap w-tap place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+                aria-label="Open document actions"
+              >
+                <Plus aria-hidden="true" className="h-5 w-5" />
+              </button>
+            </div>
           </div>
-        </div>
-      </header>
-
+        </header>
+      </PhoneHeaderCollapsePortal>
       {readyDocument ? (
         <Sheet
           open={mobileActionsOpen}
@@ -1246,12 +1211,21 @@ export function DocumentViewer({
       <section
         data-testid="document-viewer-content"
         data-scroll-hidden={composerScrollHidden ? "true" : undefined}
+        data-reserve-transitioning={reserveTransitioning ? "true" : undefined}
+        data-phone-scroll-owner={activeScrollOwner}
+        data-phone-footer-owner={readyDocument ? "document-viewer" : "none"}
+        data-phone-composer-reserve={
+          composerScrollHidden ? "0rem" : "calc(9rem + var(--safe-area-bottom) + var(--keyboard-height, 0px))"
+        }
+        data-phone-chrome-transition={reserveTransitioning ? "active" : "idle"}
         className={cn(
           "mx-auto grid max-w-[1440px] gap-4 px-3 py-4 sm:gap-5 sm:px-4 sm:py-5 sm:pb-40 lg:grid-cols-[minmax(0,1fr)_480px] lg:items-start lg:px-8",
           // The visible fixed composer needs endpoint clearance. Once hidden,
           // remove all artificial clearance so Safari can paint document content
           // beneath its translucent toolbar instead of showing a blank band.
-          composerScrollHidden ? "max-sm:pb-0" : "max-sm:pb-[calc(9rem+var(--safe-area-bottom))]",
+          composerScrollHidden
+            ? "max-sm:pb-0"
+            : "max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))] max-sm:[--phone-focus-bottom-clearance:calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]",
         )}
       >
         {downloadError ? (
@@ -1677,54 +1651,56 @@ export function DocumentViewer({
         </aside>
       </section>
       {readyDocument ? (
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (canSummarizeDocument) void summarize();
-          }}
-          data-scroll-hidden={composerScrollHidden ? "true" : undefined}
-          onFocusCapture={() => setComposerChromeFocused(true)}
-          onBlurCapture={(event) => {
-            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setComposerChromeFocused(false);
-          }}
-          className={cn(
-            glassOverlaySurface,
-            "document-viewer-composer floating-composer-edge dashboard-composer-edge fixed z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-transform motion-reduce:transition-none",
-            composerScrollHidden
-              ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
-              : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
-          )}
-        >
-          <button
-            type="button"
-            onClick={() => setMobileActionsOpen(true)}
-            className="grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
-            aria-label="Open document actions"
-          >
-            <Plus aria-hidden="true" className="h-5 w-5" />
-          </button>
-          <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
-            <span className="sr-only">Search or answer from this document</span>
-            <input
-              value={sourceSearch}
-              onChange={(event) => setSourceSearch(event.target.value)}
-              placeholder="Search or answer from this document..."
-              className="min-h-tap min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={!canSummarizeDocument}
-            className="grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Answer from this document"
-          >
-            {loadingSummary ? (
-              <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send aria-hidden="true" className="h-4 w-4" />
+        <PhoneFooterLayerPortal>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (canSummarizeDocument) void summarize();
+            }}
+            data-scroll-hidden={composerScrollHidden ? "true" : undefined}
+            onFocusCapture={() => setComposerChromeFocused(true)}
+            onBlurCapture={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setComposerChromeFocused(false);
+            }}
+            className={cn(
+              glassOverlaySurface,
+              "phone-footer-layer document-viewer-composer floating-composer-edge dashboard-composer-edge z-40 mx-auto flex min-h-[56px] max-w-3xl items-center gap-2 rounded-full bg-[color:var(--surface-lux)] px-2 shadow-[var(--shadow-lux)] max-sm:transition-[transform,opacity] motion-reduce:transition-none sm:fixed",
+              composerScrollHidden
+                ? "max-sm:duration-[240ms] max-sm:ease-[cubic-bezier(0.4,0,0.2,1)]"
+                : "max-sm:duration-200 max-sm:ease-[cubic-bezier(0.22,1,0.36,1)]",
             )}
-          </button>
-        </form>
+          >
+            <button
+              type="button"
+              onClick={() => setMobileActionsOpen(true)}
+              className="grid h-tap w-tap shrink-0 place-items-center rounded-full text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)]"
+              aria-label="Open document actions"
+            >
+              <Plus aria-hidden="true" className="h-5 w-5" />
+            </button>
+            <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
+              <span className="sr-only">Search or answer from this document</span>
+              <input
+                value={sourceSearch}
+                onChange={(event) => setSourceSearch(event.target.value)}
+                placeholder="Search or answer from this document..."
+                className="min-h-tap min-w-0 flex-1 bg-transparent px-2 text-base font-medium text-[color:var(--text)] outline-none placeholder:text-[color:var(--text-soft)]"
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={!canSummarizeDocument}
+              className="grid h-tap w-tap shrink-0 place-items-center rounded-full bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-inset),var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Answer from this document"
+            >
+              {loadingSummary ? (
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send aria-hidden="true" className="h-4 w-4" />
+              )}
+            </button>
+          </form>
+        </PhoneFooterLayerPortal>
       ) : null}
     </main>
   );

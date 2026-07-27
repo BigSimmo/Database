@@ -1,7 +1,149 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { activeScopeFilterCount, resolveSearchScope, searchScopeFiltersSchema } from "@/lib/search-scope";
 
+type QueryCall = {
+  table: string;
+  selected?: string;
+  range?: { from: number; to: number };
+  filters: Array<{ column: string; value: unknown }>;
+  inFilters: Array<{ column: string; values: unknown[] }>;
+  orders: string[];
+  abortSignals: AbortSignal[];
+};
+
+type QueryResult = { data: unknown[]; error: { message: string } | null };
+type QueryResolver = (call: QueryCall) => QueryResult;
+
+class QueryBuilder implements PromiseLike<QueryResult> {
+  constructor(
+    private readonly call: QueryCall,
+    private readonly resolver: QueryResolver,
+  ) {}
+
+  select(selected: string) {
+    this.call.selected = selected;
+    return this;
+  }
+
+  eq(column: string, value: unknown) {
+    this.call.filters.push({ column, value });
+    return this;
+  }
+
+  is(column: string, value: unknown) {
+    this.call.filters.push({ column, value });
+    return this;
+  }
+
+  or() {
+    return this;
+  }
+
+  in(column: string, values: unknown[]) {
+    this.call.inFilters.push({ column, values });
+    return this;
+  }
+
+  order(column: string) {
+    this.call.orders.push(column);
+    return this;
+  }
+
+  range(from: number, to: number) {
+    this.call.range = { from, to };
+    return this;
+  }
+
+  abortSignal(signal: AbortSignal) {
+    this.call.abortSignals.push(signal);
+    return this;
+  }
+
+  then<TResult1 = QueryResult, TResult2 = never>(
+    onfulfilled?: ((value: QueryResult) => TResult1 | PromiseLike<TResult1>) | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+  ): PromiseLike<TResult1 | TResult2> {
+    return Promise.resolve(this.resolver(this.call)).then(onfulfilled, onrejected);
+  }
+}
+
+function supabaseMock(resolver: QueryResolver) {
+  const calls: QueryCall[] = [];
+  return {
+    calls,
+    from: vi.fn((table: string) => {
+      const call: QueryCall = { table, filters: [], inFilters: [], orders: [], abortSignals: [] };
+      calls.push(call);
+      return new QueryBuilder(call, resolver);
+    }),
+  };
+}
+
 describe("search scope filters", () => {
+  it("paginates label enumeration beyond the PostgREST 1,000-row cap", async () => {
+    const documentIds = ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"];
+    const documents = documentIds.map((id) => ({ id, metadata: {}, import_batch_id: null }));
+    const labels = Array.from({ length: 1_001 }, (_, index) => ({
+      id: String(index).padStart(4, "0"),
+      document_id: index === 1_000 ? documentIds[1] : documentIds[0],
+      label: index === 1_000 ? "target-service" : `other-service-${index}`,
+      label_type: "service",
+    }));
+    const requestedRanges: Array<[string, number, number]> = [];
+    const requestedOrders: Array<[string, string, boolean]> = [];
+
+    const from = (table: string) => {
+      let start = 0;
+      let end = 999;
+      const builder = {
+        select: () => builder,
+        eq: () => builder,
+        is: () => builder,
+        in: () => builder,
+        or: () => builder,
+        order: (column: string, options?: { ascending?: boolean }) => {
+          requestedOrders.push([table, column, options?.ascending !== false]);
+          return builder;
+        },
+        abortSignal: () => builder,
+        range: (nextStart: number, nextEnd: number) => {
+          start = nextStart;
+          end = nextEnd;
+          requestedRanges.push([table, start, end]);
+          return builder;
+        },
+        then: (resolve: (value: { data: unknown[]; error: null }) => unknown) => {
+          const rows = table === "documents" ? documents : labels;
+          return Promise.resolve(resolve({ data: rows.slice(start, end + 1), error: null }));
+        },
+      };
+      return builder;
+    };
+
+    await expect(
+      resolveSearchScope({
+        supabase: { from } as never,
+        accessScope: { includePublic: true },
+        filters: { services: ["target-service"] },
+      }),
+    ).resolves.toMatchObject({ documentIds: [documentIds[1]], matchedDocumentCount: 1 });
+    expect(requestedRanges.filter(([table]) => table === "document_labels")).toEqual([
+      ["document_labels", 0, 999],
+      ["document_labels", 1_000, 1_999],
+    ]);
+    // loadScopeLabels uses a stable composite order, then id, on every page.
+    expect(requestedOrders.filter(([table]) => table === "document_labels")).toEqual([
+      ["document_labels", "document_id", true],
+      ["document_labels", "label_type", true],
+      ["document_labels", "label", true],
+      ["document_labels", "id", true],
+      ["document_labels", "document_id", true],
+      ["document_labels", "label_type", true],
+      ["document_labels", "label", true],
+      ["document_labels", "id", true],
+    ]);
+  });
+
   it("accepts smart document label filter groups", () => {
     const filters = searchScopeFiltersSchema.parse({
       services: ["mental-health"],
@@ -54,5 +196,167 @@ describe("search scope filters", () => {
       matchedDocumentCount: null,
       summary: "All public documents",
     });
+  });
+
+  it("paginates label rows so later-page label matches are not silently dropped", async () => {
+    const wantedDocumentId = "22222222-2222-4222-8222-222222222222";
+    const supabase = supabaseMock((call) => {
+      if (call.table === "documents") {
+        return {
+          data: [
+            { id: "11111111-1111-4111-8111-111111111111", metadata: {}, import_batch_id: null },
+            { id: wantedDocumentId, metadata: {}, import_batch_id: null },
+          ],
+          error: null,
+        };
+      }
+      if (call.table === "document_labels") {
+        // Reproduce the Supabase 1,000-row response cap: page 0 is full, page 1 holds the match.
+        if (call.range?.from === 0) {
+          return {
+            data: Array.from({ length: 1000 }, (_, index) => ({
+              id: `label-${index.toString().padStart(4, "0")}`,
+              document_id: "11111111-1111-4111-8111-111111111111",
+              label: "other topic",
+              label_type: "topic",
+            })),
+            error: null,
+          };
+        }
+        return {
+          data: [
+            {
+              id: "label-wanted",
+              document_id: wantedDocumentId,
+              label: "clozapine",
+              label_type: "topic",
+            },
+          ],
+          error: null,
+        };
+      }
+      return { data: [], error: null };
+    });
+
+    await expect(
+      resolveSearchScope({
+        supabase: supabase as never,
+        accessScope: { ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", includePublic: false },
+        filters: { topics: ["clozapine"] },
+      }),
+    ).resolves.toMatchObject({
+      documentIds: [wantedDocumentId],
+      matchedDocumentCount: 1,
+    });
+
+    const labelCalls = supabase.calls.filter((call) => call.table === "document_labels");
+    expect(labelCalls.map((call) => call.range)).toEqual([
+      { from: 0, to: 999 },
+      { from: 1000, to: 1999 },
+    ]);
+    expect(labelCalls.every((call) => call.orders.includes("id"))).toBe(true);
+    expect(labelCalls.every((call) => call.selected?.includes("id"))).toBe(true);
+  });
+
+  it("enumerates more than 1,000 distinct labels across pages without truncation", async () => {
+    const documentIds = Array.from({ length: 3 }, (_, index) => `doc-${index.toString().padStart(4, "0")}`);
+    const allLabels = Array.from({ length: 1001 }, (_, index) => ({
+      id: `label-${index.toString().padStart(4, "0")}`,
+      document_id: documentIds[index % documentIds.length]!,
+      label: `topic-${index.toString().padStart(4, "0")}`,
+      label_type: "topic" as const,
+    }));
+    const wantedLabel = allLabels[1000]!;
+
+    const supabase = supabaseMock((call) => {
+      if (call.table === "documents") {
+        return {
+          data: documentIds.map((id) => ({ id, metadata: {}, import_batch_id: null })),
+          error: null,
+        };
+      }
+      if (call.table === "document_labels") {
+        const from = call.range?.from ?? 0;
+        const to = call.range?.to ?? from;
+        return {
+          data: allLabels.slice(from, to + 1),
+          error: null,
+        };
+      }
+      return { data: [], error: null };
+    });
+
+    await expect(
+      resolveSearchScope({
+        supabase: supabase as never,
+        accessScope: { ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", includePublic: false },
+        filters: { topics: [wantedLabel.label] },
+      }),
+    ).resolves.toMatchObject({
+      documentIds: [wantedLabel.document_id],
+      matchedDocumentCount: 1,
+    });
+
+    const labelCalls = supabase.calls.filter((call) => call.table === "document_labels");
+    expect(labelCalls).toHaveLength(2);
+    expect(labelCalls.map((call) => call.range)).toEqual([
+      { from: 0, to: 999 },
+      { from: 1000, to: 1999 },
+    ]);
+  });
+
+  it("propagates caller cancellation to label scope queries", async () => {
+    const controller = new AbortController();
+    const supabase = supabaseMock((call) => {
+      if (call.table === "documents") {
+        return {
+          data: [{ id: "11111111-1111-4111-8111-111111111111", metadata: {}, import_batch_id: null }],
+          error: null,
+        };
+      }
+      return { data: [], error: null };
+    });
+
+    await resolveSearchScope({
+      supabase: supabase as never,
+      accessScope: { ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", includePublic: false },
+      filters: { labelTypesAny: ["topic"] },
+      signal: controller.signal,
+    });
+
+    const labelCall = supabase.calls.find((call) => call.table === "document_labels");
+    expect(labelCall?.abortSignals).toContain(controller.signal);
+  });
+
+  it("fails closed when label pagination exceeds the bounded page budget", async () => {
+    const supabase = supabaseMock((call) => {
+      if (call.table === "documents") {
+        return {
+          data: [{ id: "11111111-1111-4111-8111-111111111111", metadata: {}, import_batch_id: null }],
+          error: null,
+        };
+      }
+      if (call.table === "document_labels") {
+        // Always-full pages simulate a stuck API that would otherwise loop forever.
+        return {
+          data: Array.from({ length: 1000 }, (_, index) => ({
+            id: `label-${(call.range?.from ?? 0) + index}`,
+            document_id: "11111111-1111-4111-8111-111111111111",
+            label: "topic",
+            label_type: "topic",
+          })),
+          error: null,
+        };
+      }
+      return { data: [], error: null };
+    });
+
+    await expect(
+      resolveSearchScope({
+        supabase: supabase as never,
+        accessScope: { ownerId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", includePublic: false },
+        filters: { topics: ["topic"] },
+      }),
+    ).rejects.toThrow(/exceeded .* rows for a 1-document batch/i);
   });
 });

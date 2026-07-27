@@ -50,7 +50,6 @@ import {
   fieldControlWithIcon,
   fieldIcon,
   floatingControl,
-  IconButton,
   InlineNotice,
   primaryControl,
   toggleThumbSurface,
@@ -110,14 +109,17 @@ export function SettingsDialog({
   identity,
   onSignOut,
   onOpenGuide,
+  initialFocus = "close",
 }: {
   open: boolean;
   onClose: () => void;
   identity: SidebarIdentity;
   onSignOut: () => void;
   onOpenGuide: () => void;
+  initialFocus?: "close" | "guide";
 }) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const guideButtonRef = useRef<HTMLButtonElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const settingsEmailInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -161,15 +163,6 @@ export function SettingsDialog({
       preferences.jurisdiction,
     [preferences.jurisdiction],
   );
-  const populationLabel = useMemo(
-    () => POPULATION_OPTIONS.find((option) => option.value === preferences.population)?.label ?? preferences.population,
-    [preferences.population],
-  );
-  const jurisdictionShort = useMemo(
-    () => (preferences.jurisdiction === "national" ? "National" : preferences.jurisdiction.toUpperCase()),
-    [preferences.jurisdiction],
-  );
-
   const refreshDataCounts = useCallback(() => {
     setDataCounts(readDataCounts());
   }, []);
@@ -261,28 +254,16 @@ export function SettingsDialog({
     return () => window.cancelAnimationFrame(focusFrame);
   }, [emailEntryOpen]);
 
-  const backButton = (
-    <IconButton
-      label="Back from settings"
-      icon={ArrowLeft}
-      onClick={onClose}
-      className={cn(
-        floatingControl,
-        "rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] lg:hidden",
-      )}
-      iconClassName="size-icon-lg"
-    />
-  );
-
   const closeButton = (
     <button
       ref={closeButtonRef}
       type="button"
       onClick={onClose}
       aria-label="Close settings"
-      className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:h-10 lg:w-10 lg:border-transparent lg:bg-transparent lg:shadow-none"
+      className="order-first grid size-tap shrink-0 place-items-center rounded-full border border-[color:var(--border)] bg-[color:var(--surface)]/70 text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] transition hover:bg-[color:var(--surface)] hover:text-[color:var(--text-heading)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] lg:order-last lg:h-10 lg:w-10 lg:border-transparent lg:bg-transparent lg:shadow-none"
     >
-      <X aria-hidden="true" className="size-icon-lg" />
+      <ArrowLeft aria-hidden="true" className="size-icon-lg lg:hidden" />
+      <X aria-hidden="true" className="hidden size-icon-lg lg:block" />
     </button>
   );
 
@@ -292,7 +273,7 @@ export function SettingsDialog({
       onClose={onClose}
       closeLabel="Close settings"
       labelledBy="account-settings-title"
-      initialFocusRef={closeButtonRef}
+      initialFocusRef={initialFocus === "guide" ? guideButtonRef : closeButtonRef}
       mobilePlacement="fullscreen"
       contentClassName="w-full max-w-none border-[color:var(--border-lux)] bg-[color:var(--background)] font-sans shadow-none max-lg:!pb-0 lg:max-w-[940px] lg:bg-[color:var(--surface-lux)] lg:shadow-[var(--shadow-lux)]"
       bodyClassName="p-0"
@@ -324,7 +305,7 @@ export function SettingsDialog({
           </nav>
           <p className="mt-auto flex items-center gap-2 px-1 pt-6 text-2xs font-medium leading-4 text-[color:var(--text-soft)]">
             <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-            Preferences stay on this device. No PHI.
+            Stored on this device. No PHI.
           </p>
         </aside>
 
@@ -347,25 +328,16 @@ export function SettingsDialog({
           >
             <div className="edge-glass-header-backdrop lg:hidden" aria-hidden="true" />
             <div className="relative mx-auto flex w-full max-w-[520px] items-center justify-between gap-3 lg:max-w-none">
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                {backButton}
-                <div className="min-w-0">
-                  <h2
-                    id="account-settings-title"
-                    className="truncate text-lg font-semibold leading-tight tracking-normal text-[color:var(--text-heading)] sm:text-xl lg:text-2xl lg:leading-8"
-                  >
-                    Account &amp; app
-                  </h2>
-                  <p className="mt-0.5 truncate text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                    Tune your workspace, clinical defaults, and privacy.
-                  </p>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="hidden min-h-7 items-center rounded-full border border-[color:var(--border-lux)] bg-[color:var(--surface)] px-3 text-xs font-semibold leading-none text-[color:var(--text-muted)] shadow-[var(--shadow-inset)] lg:inline-flex">
-                  Clinician account
-                </span>
-                {closeButton}
+              {closeButton}
+              <div className="order-last min-w-0 flex-1 lg:order-first">
+                <h2
+                  id="account-settings-title"
+                  aria-label="Account & app"
+                  className="truncate text-xl font-semibold leading-tight tracking-[-0.01em] text-[color:var(--text-heading)] lg:text-2xl lg:leading-8"
+                >
+                  <span className="lg:hidden">Settings</span>
+                  <span className="hidden lg:inline">Account &amp; app</span>
+                </h2>
               </div>
             </div>
           </header>
@@ -373,7 +345,10 @@ export function SettingsDialog({
           <div className="mx-auto w-full max-w-[520px] px-4 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-2 lg:max-w-none lg:px-0 lg:pb-8 lg:pt-2">
             {/* Account */}
             <SettingsSection id="account" title="Account">
-              <section className="rounded-[1.35rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3.5 shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:p-4 lg:shadow-[var(--shadow-inset)]">
+              <section
+                data-testid="settings-account-card"
+                className="rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] p-3.5 shadow-[var(--shadow-inset)] lg:bg-[color:var(--surface)] lg:p-4"
+              >
                 <div className="flex items-center gap-3">
                   <span
                     className={cn(
@@ -392,10 +367,10 @@ export function SettingsDialog({
                     <p className="truncate text-base font-semibold leading-6 text-[color:var(--text-heading)]">
                       {identity.displayName}
                     </p>
-                    <p className="truncate text-sm font-medium leading-5 text-[color:var(--text-muted)]">
+                    <p className="text-sm font-medium leading-5 text-[color:var(--text-muted)]">
                       {signedOutAccount
                         ? "Sign in or create an account"
-                        : `Consultant psychiatrist, ${jurisdictionLabel}`}
+                        : `Consultant psychiatrist · ${jurisdictionLabel}`}
                     </p>
                   </div>
                   {signedOutAccount ? (
@@ -530,72 +505,45 @@ export function SettingsDialog({
                     ) : null}
                   </div>
                 ) : (
-                  <SettingsClinicalContextStrip jurisdictionShort={jurisdictionShort} />
-                )}
-              </section>
-
-              {!signedOutAccount ? (
-                <div className="mt-3.5 hidden lg:grid lg:grid-cols-3 lg:gap-3">
-                  <SettingsSummaryTile icon={UserRound} label="Profile" value={identity.displayName} />
-                  <SettingsSummaryTile
-                    icon={Stethoscope}
-                    label="Clinical setup"
-                    value={`${jurisdictionShort}, ${populationLabel.toLowerCase()}`}
-                    emphasized
-                  />
-                  <SettingsSummaryTile
-                    icon={PanelTop}
-                    label="Default view"
-                    value={LANDING_OPTIONS.find((option) => option.value === preferences.landing)?.label ?? "Ask"}
-                  />
-                </div>
-              ) : null}
-
-              <SettingsGroup>
-                <SettingsField icon={UserRound} label="Profile" valueText={identity.displayName} />
-                <SettingsField icon={Stethoscope} label="Clinical role" valueText="Consultant psychiatrist" />
-                {identity.signedIn ? (
-                  <SettingsActionRow
-                    icon={LogOut}
-                    label="Sign out"
-                    actionLabel="Sign out"
+                  <button
+                    type="button"
                     onClick={() => {
                       onSignOut();
                       onClose();
                     }}
-                  />
-                ) : null}
-              </SettingsGroup>
+                    className={cn(
+                      floatingControl,
+                      "mt-3 min-h-10 w-full justify-center gap-2 rounded-lg text-sm lg:w-auto lg:px-4",
+                    )}
+                  >
+                    <LogOut aria-hidden="true" className="h-4 w-4" />
+                    Sign out
+                  </button>
+                )}
+              </section>
             </SettingsSection>
 
             {/* Clinical defaults */}
-            <SettingsSection id="clinical-defaults" title="Clinical defaults">
+            <SettingsSection
+              id="clinical-defaults"
+              title="Clinical defaults"
+              note="Saved on this device; not yet used in answers."
+              noteId="settings-clinical-defaults-note"
+            >
               <SettingsGroup>
-                <SettingsField
-                  icon={Globe2}
-                  label="Jurisdiction"
-                  description="Prioritises guidance relevant to your region."
-                  notYetActive
-                  htmlFor="settings-jurisdiction"
-                >
+                <SettingsField icon={Globe2} label="Jurisdiction" htmlFor="settings-jurisdiction">
                   <SettingsSelect
                     id="settings-jurisdiction"
-                    describedBy={notYetActiveId("settings-jurisdiction")}
+                    describedBy="settings-clinical-defaults-note"
                     value={preferences.jurisdiction}
                     onChange={(value) => setPreference("jurisdiction", value)}
                     options={JURISDICTION_OPTIONS}
                   />
                 </SettingsField>
-                <SettingsField
-                  icon={CircleUserRound}
-                  label="Default population"
-                  description="Frames answers for your usual patient group."
-                  notYetActive
-                  htmlFor="settings-population"
-                >
+                <SettingsField icon={CircleUserRound} label="Default population" htmlFor="settings-population">
                   <SettingsSelect
                     id="settings-population"
-                    describedBy={notYetActiveId("settings-population")}
+                    describedBy="settings-clinical-defaults-note"
                     value={preferences.population}
                     onChange={(value) => setPreference("population", value)}
                     options={POPULATION_OPTIONS}
@@ -607,13 +555,12 @@ export function SettingsDialog({
                   description={
                     ANSWER_STYLE_OPTIONS.find((option) => option.value === preferences.answerStyle)?.description
                   }
-                  notYetActive
                   labelId="settings-answer-style-label"
                   stacked
                 >
                   <SegmentedControl
                     ariaLabelledBy="settings-answer-style-label"
-                    ariaDescribedBy={notYetActiveId("settings-answer-style-label")}
+                    ariaDescribedBy="settings-clinical-defaults-note"
                     value={preferences.answerStyle}
                     onChange={(value) => setPreference("answerStyle", value)}
                     options={ANSWER_STYLE_OPTIONS}
@@ -639,13 +586,7 @@ export function SettingsDialog({
                     options={APPEARANCE_OPTIONS}
                   />
                 </SettingsField>
-                <SettingsField
-                  icon={SettingsIcon}
-                  label="Interface density"
-                  description="Adjusts spacing across the app."
-                  labelId="settings-density-label"
-                  stacked
-                >
+                <SettingsField icon={SettingsIcon} label="Interface density" labelId="settings-density-label" stacked>
                   <SegmentedControl
                     ariaLabelledBy="settings-density-label"
                     value={preferences.density}
@@ -653,13 +594,7 @@ export function SettingsDialog({
                     options={DENSITY_OPTIONS}
                   />
                 </SettingsField>
-                <SettingsField
-                  icon={PanelTop}
-                  label="Default landing view"
-                  description="The mode shown when you open the app."
-                  labelId="settings-landing-label"
-                  stacked
-                >
+                <SettingsField icon={PanelTop} label="Default landing view" labelId="settings-landing-label" stacked>
                   <SegmentedControl
                     ariaLabelledBy="settings-landing-label"
                     value={preferences.landing}
@@ -670,7 +605,6 @@ export function SettingsDialog({
                 <SettingsToggleField
                   icon={Sparkles}
                   label="Reduce motion"
-                  description="Minimise animations and transitions."
                   checked={preferences.motion === "reduced"}
                   onChange={(checked) => setPreference("motion", checked ? "reduced" : "system")}
                 />
@@ -683,7 +617,6 @@ export function SettingsDialog({
                 <SettingsToggleField
                   icon={PanelTop}
                   label="Recent searches on home"
-                  description="Surface your latest questions when you land."
                   checked={preferences.showRecentOnHome}
                   onChange={(checked) => setPreference("showRecentOnHome", checked)}
                 />
@@ -691,14 +624,12 @@ export function SettingsDialog({
                   icon={Sparkles}
                   notYetActive
                   label="Saved protocols on home"
-                  description="Keep pinned protocols within easy reach."
                   checked={preferences.showProtocolsOnHome}
                   onChange={(checked) => setPreference("showProtocolsOnHome", checked)}
                 />
                 <SettingsToggleField
                   icon={BookOpen}
                   label="Compact citations"
-                  description="Show tighter inline source references."
                   checked={preferences.compactCitations}
                   onChange={(checked) => setPreference("compactCitations", checked)}
                 />
@@ -706,31 +637,33 @@ export function SettingsDialog({
             </SettingsSection>
 
             {/* Notifications */}
-            <SettingsSection id="notifications" title="Notifications">
+            <SettingsSection
+              id="notifications"
+              title="Notifications"
+              note="Saved on this device; notifications are not available yet."
+              noteId="settings-notifications-note"
+            >
               <SettingsGroup>
                 <SettingsToggleField
                   icon={Stethoscope}
-                  notYetActive
                   label="Guideline updates"
-                  description="When source guidance you rely on changes."
                   checked={preferences.notifyGuidelineUpdates}
                   onChange={(checked) => setPreference("notifyGuidelineUpdates", checked)}
+                  describedBy="settings-notifications-note"
                 />
                 <SettingsToggleField
                   icon={Sparkles}
-                  notYetActive
                   label="Product news"
-                  description="Occasional updates about new features."
                   checked={preferences.notifyProductNews}
                   onChange={(checked) => setPreference("notifyProductNews", checked)}
+                  describedBy="settings-notifications-note"
                 />
                 <SettingsToggleField
                   icon={Bell}
-                  notYetActive
                   label="Saved item changes"
-                  description="Alerts about items you have saved."
                   checked={preferences.notifySavedChanges}
                   onChange={(checked) => setPreference("notifySavedChanges", checked)}
+                  describedBy="settings-notifications-note"
                 />
               </SettingsGroup>
             </SettingsSection>
@@ -767,7 +700,7 @@ export function SettingsDialog({
                 className="mt-2 flex items-center gap-2 px-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]"
               >
                 <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[color:var(--success)]" />
-                {privacyNotice ?? "Recent searches may be stored in this browser session. Do not enter PHI."}
+                {privacyNotice ?? "Recent searches stay in this browser. Do not enter PHI."}
               </p>
             </SettingsSection>
 
@@ -789,11 +722,12 @@ export function SettingsDialog({
                   Clinical Knowledge Base
                 </p>
                 <p className="mt-1 text-sm font-medium leading-5 text-[color:var(--text-muted)]">
-                  A grounded clinical reference. Every answer cites the source it came from — always confirm against the
-                  primary guideline before acting.
+                  Source-linked clinical reference. Verify primary guidance before acting.
                 </p>
                 <button
+                  ref={guideButtonRef}
                   type="button"
+                  data-settings-guide-trigger
                   onClick={() => {
                     onClose();
                     onOpenGuide();
@@ -802,7 +736,7 @@ export function SettingsDialog({
                   data-testid="settings-row-guide-help"
                 >
                   <BookOpen aria-hidden="true" className="h-4 w-4" />
-                  Open the clinical guide
+                  Guide & help
                 </button>
               </div>
             </SettingsSection>
@@ -813,7 +747,19 @@ export function SettingsDialog({
   );
 }
 
-function SettingsSection({ id, title, children }: { id: SettingsSectionId; title: string; children: ReactNode }) {
+function SettingsSection({
+  id,
+  title,
+  note,
+  noteId,
+  children,
+}: {
+  id: SettingsSectionId;
+  title: string;
+  note?: string;
+  noteId?: string;
+  children: ReactNode;
+}) {
   const headingId = `${sectionDomId(id)}-heading`;
   return (
     <section
@@ -824,10 +770,15 @@ function SettingsSection({ id, title, children }: { id: SettingsSectionId; title
     >
       <h3
         id={headingId}
-        className="mb-2 px-1 text-sm font-semibold leading-5 tracking-normal text-[color:var(--text-heading)]"
+        className={cn("px-1 text-sm font-semibold leading-5 text-[color:var(--text-heading)]", !note && "mb-2")}
       >
         {title}
       </h3>
+      {note ? (
+        <p id={noteId} className="mb-2 mt-0.5 px-1 text-xs font-medium leading-5 text-[color:var(--text-muted)]">
+          {note}
+        </p>
+      ) : null}
       {children}
     </section>
   );
@@ -835,7 +786,7 @@ function SettingsSection({ id, title, children }: { id: SettingsSectionId; title
 
 function SettingsGroup({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-[1.1rem] border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-soft),var(--shadow-inset)] lg:rounded-xl lg:bg-[color:var(--surface)] lg:shadow-[var(--shadow-inset)]">
+    <div className="overflow-hidden rounded-xl border border-[color:var(--border-lux)] bg-[color:var(--surface-lux)] shadow-[var(--shadow-inset)] lg:bg-[color:var(--surface)]">
       {children}
     </div>
   );
@@ -843,7 +794,7 @@ function SettingsGroup({ children }: { children: ReactNode }) {
 
 function IconBadge({ icon: Icon }: { icon: LucideIcon }) {
   return (
-    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
+    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)] shadow-[var(--shadow-inset)]">
       <Icon aria-hidden="true" className="h-4 w-4" />
     </span>
   );
@@ -868,7 +819,7 @@ function NotYetActiveBadge({ id }: { id?: string }) {
       className="mt-1 inline-flex w-fit items-center gap-1 text-2xs font-medium leading-4 text-[color:var(--text-soft)]"
     >
       <span aria-hidden="true" className="h-1 w-1 shrink-0 rounded-full bg-[color:var(--text-soft)]" />
-      Saved for later — not active yet
+      Not active yet
     </span>
   );
 }
@@ -881,7 +832,6 @@ function SettingsField({
   htmlFor,
   labelId,
   stacked = false,
-  notYetActive = false,
   children,
 }: {
   icon: LucideIcon;
@@ -891,7 +841,6 @@ function SettingsField({
   htmlFor?: string;
   labelId?: string;
   stacked?: boolean;
-  notYetActive?: boolean;
   children?: ReactNode;
 }) {
   const LabelTag = htmlFor ? "label" : "span";
@@ -899,8 +848,8 @@ function SettingsField({
     <div
       data-testid={settingsRowTestId(label)}
       className={cn(
-        "flex gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3 last:border-b-0",
-        stacked ? "flex-col" : "flex-col min-[420px]:flex-row min-[420px]:items-center min-[420px]:justify-between",
+        "flex gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3.5 last:border-b-0",
+        stacked ? "flex-col" : "flex-col lg:flex-row lg:items-center lg:justify-between",
       )}
     >
       <div className="flex min-w-0 items-start gap-3">
@@ -916,15 +865,12 @@ function SettingsField({
           {description ? (
             <p className="mt-0.5 text-xs font-medium leading-5 text-[color:var(--text-muted)]">{description}</p>
           ) : null}
-          {notYetActive ? (
-            <NotYetActiveBadge id={notYetActiveId(htmlFor ?? labelId ?? settingsRowTestId(label))} />
-          ) : null}
         </div>
       </div>
       {children ? (
-        <div className={cn(stacked ? "w-full pt-0.5" : "shrink-0")}>{children}</div>
+        <div className={cn(stacked ? "w-full pt-0.5" : "w-full lg:w-auto lg:shrink-0")}>{children}</div>
       ) : valueText ? (
-        <span className="shrink-0 pl-11 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] min-[420px]:pl-0 min-[420px]:text-right">
+        <span className="shrink-0 pl-12 text-sm-minus font-medium leading-5 text-[color:var(--text-muted)] lg:pl-0 lg:text-right">
           {valueText}
         </span>
       ) : null}
@@ -966,7 +912,7 @@ function SegmentedControl<T extends string>({
             aria-checked={checked}
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex min-h-8 flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]",
+              "flex min-h-tap flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-xs font-semibold leading-none transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[color:var(--focus)]",
               checked
                 ? "bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] forced-colors:outline forced-colors:outline-2 forced-colors:[outline-color:Highlight]"
                 : "text-[color:var(--text-muted)] hover:text-[color:var(--text-heading)]",
@@ -995,7 +941,7 @@ function SettingsSelect<T extends string>({
   describedBy?: string;
 }) {
   return (
-    <div className="relative min-[420px]:w-56">
+    <div className="relative w-full lg:w-56">
       <select
         id={id}
         value={value}
@@ -1024,6 +970,7 @@ function SettingsToggleField({
   checked,
   onChange,
   notYetActive = false,
+  describedBy,
 }: {
   icon: LucideIcon;
   label: string;
@@ -1031,11 +978,12 @@ function SettingsToggleField({
   checked: boolean;
   onChange: (checked: boolean) => void;
   notYetActive?: boolean;
+  describedBy?: string;
 }) {
   return (
     <div
       data-testid={settingsRowTestId(label)}
-      className="flex items-center justify-between gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3 last:border-b-0"
+      className="flex items-center justify-between gap-3 border-b border-[color:var(--border)]/70 px-3.5 py-3.5 last:border-b-0"
     >
       <div className="flex min-w-0 items-start gap-3">
         <IconBadge icon={icon} />
@@ -1051,7 +999,7 @@ function SettingsToggleField({
         checked={checked}
         onChange={onChange}
         ariaLabel={label}
-        describedBy={notYetActive ? notYetActiveId(settingsRowTestId(label)) : undefined}
+        describedBy={describedBy ?? (notYetActive ? notYetActiveId(settingsRowTestId(label)) : undefined)}
       />
     </div>
   );
@@ -1198,60 +1146,5 @@ function SettingsProviderRow({
         <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-[color:var(--text-soft)]" />
       ) : null}
     </button>
-  );
-}
-
-function SettingsClinicalContextStrip({ jurisdictionShort }: { jurisdictionShort: string }) {
-  return (
-    <div className="mt-2.5 flex min-h-8 items-center gap-2 rounded-full border border-[color:var(--clinical-accent)]/14 bg-[color:var(--clinical-accent-soft)]/60 px-3 text-xs font-semibold leading-none text-[color:var(--clinical-accent)] lg:hidden">
-      <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-      <span className="min-w-0 truncate">
-        Private<span className="hidden min-[360px]:inline"> workspace</span>{" "}
-        <span className="px-1 text-[color:var(--text-soft)]">·</span> {jurisdictionShort}{" "}
-        <span className="px-1 text-[color:var(--text-soft)]">·</span> No PHI
-      </span>
-    </div>
-  );
-}
-
-function SettingsSummaryTile({
-  icon: Icon,
-  label,
-  value,
-  emphasized = false,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  emphasized?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "min-w-0 rounded-xl border p-3 shadow-[var(--shadow-inset)]",
-        emphasized
-          ? "border-[color:var(--clinical-accent)]/26 bg-[color:var(--clinical-accent-soft)]/72"
-          : "border-[color:var(--border-lux)] bg-[color:var(--surface)]",
-      )}
-    >
-      <div className="flex min-h-[44px] min-w-0 items-center gap-2.5">
-        <span
-          className={cn(
-            "grid h-8 w-8 shrink-0 place-items-center rounded-lg border shadow-[var(--shadow-inset)]",
-            emphasized
-              ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)]"
-              : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
-          )}
-        >
-          <Icon aria-hidden="true" className="h-4 w-4" />
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-xs font-semibold leading-4 text-[color:var(--text-muted)]">{label}</span>
-          <span className="block truncate text-sm-minus font-semibold leading-4 text-[color:var(--text-heading)]">
-            {value}
-          </span>
-        </span>
-      </div>
-    </div>
   );
 }

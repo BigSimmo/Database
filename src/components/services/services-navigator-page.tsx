@@ -26,6 +26,7 @@ import { cn } from "@/components/ui-primitives";
 import { ModeHomeStatusNotice } from "@/components/mode-home-template";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import {
+  MobileResultFilterControl,
   SearchResultsEmptyState,
   SearchResultsHeaderBand,
   SearchResultsSkeleton,
@@ -33,6 +34,7 @@ import {
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { appModeHomeHref } from "@/lib/app-modes";
 import { recordMatchesCommandScopes } from "@/lib/search-command-surface";
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { modeHomeDesktopComposerSlotId } from "@/lib/mode-home-composer";
 import { rankServiceRecords, type ServiceRecord, type ServiceStatusChip } from "@/lib/service-ranker";
 import { canCompareServices, serviceNavigatorMetrics } from "@/lib/service-navigator-metrics";
@@ -335,12 +337,16 @@ function RightRail({
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]">
+      <section
+        data-testid="services-referral-decision"
+        className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-4 shadow-[var(--shadow-tight)]"
+      >
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-lg font-bold text-[color:var(--text-heading)]">Referral decision</h3>
           <button
             className="inline-flex min-h-tap items-center text-xs font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0"
             type="button"
+            data-testid="services-clear-selected"
             onClick={clearSelectedServices}
             disabled={selected.length === 0}
             title={selected.length === 0 ? "No selected services to clear" : "Clear selected services"}
@@ -348,7 +354,9 @@ function RightRail({
             Clear
           </button>
         </div>
-        <p className="mt-3 text-sm font-bold text-[color:var(--text-heading)]">Selected services ({selected.length})</p>
+        <p data-testid="services-selected-count" className="mt-3 text-sm font-bold text-[color:var(--text-heading)]">
+          Selected services ({selected.length})
+        </p>
         <div className="mt-3 grid gap-2">
           {selected.map((service, index) => (
             <button
@@ -391,7 +399,7 @@ function RightRail({
           ))}
         </div>
         <button
-          className="mt-4 inline-flex min-h-tap items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
+          className="mt-4 inline-flex min-h-tap scroll-mt-40 items-center gap-2 text-sm font-bold text-[color:var(--clinical-accent)] hover:text-[color:var(--clinical-accent-hover)] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9 sm:scroll-mt-44 lg:scroll-mt-20"
           type="button"
           onClick={() => setShowChecklistDetails((current) => !current)}
           disabled={selected.length === 0}
@@ -488,8 +496,14 @@ function RightRail({
       <button
         className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[color:var(--clinical-accent)] text-sm font-bold text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)] hover:bg-[color:var(--clinical-accent-hover)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)] disabled:cursor-not-allowed disabled:opacity-50"
         type="button"
+        data-testid="services-compare-selected"
         disabled={!comparisonAvailable}
         title={comparisonAvailable ? "Compare selected services" : "Select at least two services before comparing"}
+        aria-label={
+          comparisonAvailable
+            ? `Compare selected services (${selected.length})`
+            : "Select at least two services before comparing"
+        }
         onClick={() => setShowComparison((current) => !current)}
         aria-expanded={comparisonExpanded}
         aria-controls={comparisonExpanded ? "selected-services-comparison" : undefined}
@@ -600,6 +614,10 @@ export function ServicesNavigatorPage() {
     }
   }
 
+  const activeQuickFilter = serviceQuickFilters.find(
+    (filter) => filter.query.toLowerCase() === query.trim().toLowerCase(),
+  );
+
   return (
     <SearchResultsLayout
       testId="services-navigator"
@@ -607,7 +625,7 @@ export function ServicesNavigatorPage() {
       resultsLabel="Referral services"
       header={
         <>
-          <div
+          <DesktopComposerPortalSlot
             id={modeHomeDesktopComposerSlotId}
             className="mode-home-composer-slot hidden w-full min-w-0 [&:not(:empty)]:block"
           />
@@ -620,6 +638,23 @@ export function ServicesNavigatorPage() {
             sortValue={sortValue}
             onSortChange={setSortValue}
             filterLabel="Quick service filters"
+            mobileControls={
+              <MobileResultFilterControl
+                label="Filter"
+                ariaLabel="Apply a quick service filter"
+                testId="service-quick-filter-select"
+                value={activeQuickFilter?.query ?? "current"}
+                options={[
+                  ...(activeQuickFilter
+                    ? []
+                    : [{ value: "current", label: query.trim() ? "Current search" : "All services", disabled: true }]),
+                  ...serviceQuickFilters.map((filter) => ({ value: filter.query, label: filter.label })),
+                ]}
+                onChange={(value) => {
+                  if (value !== "current") applyServiceQuery(value);
+                }}
+              />
+            }
             filterControls={
               <div className="flex min-w-0 items-center gap-2">
                 <span className="hidden shrink-0 items-center gap-1.5 text-3xs font-extrabold uppercase tracking-[0.1em] text-[color:var(--text-soft)] sm:inline-flex">

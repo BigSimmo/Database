@@ -255,6 +255,7 @@ def save_page_crop(page, rect, output_dir, file_name, source_kind, metadata, bud
 
     image_path = os.path.join(output_dir, file_name)
     dimensions = write_pixmap(pix, image_path, budget)
+    crop_completeness = crop_completeness_score(rect, clipped, page.rect)
     crop_metadata = {
         **metadata,
         "bbox": rect_payload(rect),
@@ -264,6 +265,8 @@ def save_page_crop(page, rect, output_dir, file_name, source_kind, metadata, bud
         "page_rotation": int(page.rotation or 0),
         "render_scale": round(render_scale, 3),
         "render_dpi": round(render_scale * 72),
+        "crop_completeness": crop_completeness,
+        "crop_touches_page_edge": crop_completeness < 0.99,
         "source_regions": [
             {
                 "source_kind": source_kind,
@@ -292,6 +295,22 @@ def expanded_rect(rect, page_rect, x_padding=4, y_padding=4):
         min(rect.y1 + y_padding, page_rect.y1),
     )
 
+
+def table_expanded_rect(rect, page_rect):
+    return expanded_rect(rect, page_rect, x_padding=10, y_padding=18)
+
+
+def crop_completeness_score(requested_rect, clipped_rect, page_rect):
+    requested_area = max(float(requested_rect.width) * float(requested_rect.height), 1.0)
+    clipped_area = max(float(clipped_rect.width) * float(clipped_rect.height), 0.0)
+    score = min(1.0, clipped_area / requested_area)
+    edge_penalty = 0.0
+    tolerance = 1.0
+    if abs(clipped_rect.x0 - page_rect.x0) <= tolerance or abs(clipped_rect.x1 - page_rect.x1) <= tolerance:
+        edge_penalty += 0.04
+    if abs(clipped_rect.y0 - page_rect.y0) <= tolerance or abs(clipped_rect.y1 - page_rect.y1) <= tolerance:
+        edge_penalty += 0.04
+    return round(max(0.0, score - edge_penalty), 3)
 
 # Max gap between a find_tables bbox edge and continuing cell drawings that
 # still belong to the same table. Keeps footers/unrelated blocks from merging in.

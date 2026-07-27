@@ -268,6 +268,59 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expect(modeButton).toHaveAttribute("aria-expanded", "false");
   });
 
+  test("an open sheet deactivates the page behind it and releases it on close", async ({ page }) => {
+    // jsdom cannot enforce `inert`, so the browser is the only place the modal
+    // containment contract (and its release) can actually be proven.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockMinimalDashboardApi(page);
+    await gotoApp(page);
+    await expectDashboardUsable(page);
+
+    const readState = () =>
+      page.evaluate(() => {
+        const marked = Array.from(document.querySelectorAll('[data-sheet-inert="true"]'));
+        const dialog = document.querySelector('[role="dialog"]');
+        const background = marked.flatMap((element) => Array.from(element.querySelectorAll("button, a[href]"))).at(0);
+        let focusRefused: boolean | null = null;
+        if (background instanceof HTMLElement) {
+          const before = document.activeElement;
+          background.focus();
+          focusRefused = document.activeElement !== background;
+          if (before instanceof HTMLElement) before.focus();
+        }
+        return {
+          marked: marked.length,
+          allInert: marked.every((element) => element.hasAttribute("inert")),
+          dialogIsMarked: dialog != null && dialog.closest('[data-sheet-inert="true"]') != null,
+          focusInDialog: dialog != null && document.activeElement != null && dialog.contains(document.activeElement),
+          focusRefused,
+          overflow: document.body.style.overflow,
+        };
+      });
+
+    const modeButton = page.getByRole("button", { name: "Mode Answer", exact: true });
+    await modeButton.click();
+    await expect(page.locator('[role="dialog"]').first()).toBeVisible();
+
+    const open = await readState();
+    expect(open.marked, "background should be deactivated behind the sheet").toBeGreaterThan(0);
+    expect(open.allInert).toBe(true);
+    expect(open.dialogIsMarked, "the sheet itself must stay interactive").toBe(false);
+    expect(open.focusInDialog).toBe(true);
+    expect(open.focusRefused, "the browser must refuse focus into the deactivated background").toBe(true);
+    expect(open.overflow).toBe("hidden");
+
+    await page.keyboard.press("Escape");
+    await expect(page.locator('[role="dialog"]').first()).toBeHidden();
+
+    await expect
+      .poll(async () => (await readState()).marked, { message: "inert markers must be released on close" })
+      .toBe(0);
+    expect(await page.locator("[inert]").count()).toBe(0);
+    await expect(modeButton).toBeFocused();
+    expect((await readState()).overflow).toBe("");
+  });
+
   test("phone privacy link meets the tap target and guests do not poll private ingestion routes", async ({ page }) => {
     const privateIngestionRequests: string[] = [];
     page.on("request", (request) => {
@@ -389,7 +442,7 @@ test.describe("Clinical KB accessibility coverage", () => {
     await expectNoBlockingAxeViolations(page, testInfo, { disableRules: ["color-contrast"] });
   });
 
-  test("differential result types are pressed filters instead of tabs", async ({ page }) => {
+  test("differential result types use an accessible mobile filter instead of tabs", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockMinimalDashboardApi(page);
     await mockDifferentialSearch(page);
@@ -399,24 +452,18 @@ test.describe("Clinical KB accessibility coverage", () => {
     await page.locator('button[aria-label="Search differential presentations"]:visible').click();
     await expect(page.getByTestId("differentials-search-results")).toBeVisible();
 
-    const filterGroup = page.getByRole("group", { name: "Result type", exact: true });
-    await expect(filterGroup).toBeVisible();
-    await expect(filterGroup.getByRole("tab")).toHaveCount(0);
-    const allFilter = filterGroup.getByRole("button", { name: /^All \(\d+\)$/ });
-    const presentationsFilter = filterGroup.getByRole("button", { name: /^Presentations \(\d+\)$/ });
-    const diagnosesFilter = filterGroup.getByRole("button", { name: /^Diagnoses \(\d+\)$/ });
-    await expect(allFilter).toHaveAttribute("aria-pressed", "true");
-    await expect(presentationsFilter).toHaveAttribute("aria-pressed", "false");
+    const filterSelect = page.getByTestId("differential-result-type-select");
+    await expect(filterSelect).toBeVisible();
+    await expect(filterSelect).toHaveAccessibleName("Filter by result type");
+    await expect(filterSelect).toHaveValue("all");
+    await expect(page.getByRole("tab")).toHaveCount(0);
 
-    await presentationsFilter.focus();
-    await page.keyboard.press("Space");
-    await expect(presentationsFilter).toHaveAttribute("aria-pressed", "true");
-    await expect(allFilter).toHaveAttribute("aria-pressed", "false");
-
-    await diagnosesFilter.focus();
-    await page.keyboard.press("Enter");
-    await expect(diagnosesFilter).toHaveAttribute("aria-pressed", "true");
-    await expect(presentationsFilter).toHaveAttribute("aria-pressed", "false");
+    await filterSelect.focus();
+    await expect(filterSelect).toBeFocused();
+    await filterSelect.selectOption("presentation");
+    await expect(filterSelect).toHaveValue("presentation");
+    await filterSelect.selectOption("diagnosis");
+    await expect(filterSelect).toHaveValue("diagnosis");
   });
 
   test("guest upload action exposes the admin boundary and opens Sources", async ({ page }) => {
@@ -469,29 +516,43 @@ test.describe("Clinical KB accessibility coverage", () => {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/therapy-compass/search", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { name: "Therapy", exact: true })).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveAttribute("aria-current", "page");
     const therapyRibbon = page.getByTestId("search-query-ribbon");
-    await expect(therapyRibbon.getByRole("heading", { name: "All" })).toBeVisible();
+    await expect(therapyRibbon.getByRole("heading", { name: "All", level: 1 })).toBeVisible({ timeout: 60_000 });
     await expect(therapyRibbon.getByRole("group", { name: "Filter therapy results" })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Search therapies" })).toHaveCount(0);
+    const therapyTopics = therapyRibbon.getByTestId("therapy-topic-filter-select");
+    const therapyAvailability = therapyRibbon.getByTestId("therapy-availability-filter-select");
+    await expect(therapyTopics).toBeVisible();
+    await expect(therapyTopics).toHaveAccessibleName("Add or remove a therapy topic filter");
+    await expect(therapyAvailability).toBeVisible();
+    await expect(therapyAvailability).toHaveAccessibleName("Change therapy availability filters");
 
-    const searchInput = page.getByRole("textbox", { name: "Search therapies" });
-    await searchInput.focus();
-    const inputFocus = await searchInput.evaluate((element) => {
+    await therapyTopics.focus();
+    const topicsFocus = await therapyTopics.evaluate((element) => {
       const style = getComputedStyle(element);
       return { outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) };
     });
-    expect(inputFocus.outlineStyle).not.toBe("none");
-    expect(inputFocus.outlineWidth).toBeGreaterThanOrEqual(2);
+    expect(topicsFocus.outlineStyle).not.toBe("none");
+    expect(topicsFocus.outlineWidth).toBeGreaterThanOrEqual(2);
 
-    const clearButtonSize = await page
-      .locator('[data-screen-label="Search"]')
-      .getByRole("button", { name: "Clear", exact: true })
-      .evaluate((element) => {
+    await therapyTopics.selectOption("CBT");
+    await expect(therapyTopics.locator('option[value=""]')).toHaveText("1 topics selected");
+    await therapyAvailability.selectOption("reviewed");
+    await expect(therapyAvailability.locator('option[value=""]')).toHaveText("1 more selected");
+
+    for (const control of [therapyTopics, therapyAvailability]) {
+      const controlSize = await control.evaluate((element) => {
         const bounds = element.getBoundingClientRect();
         return { width: bounds.width, height: bounds.height };
       });
-    expect(clearButtonSize.height).toBeGreaterThanOrEqual(44);
+      expect(controlSize.width).toBeGreaterThanOrEqual(44);
+      expect(controlSize.height).toBeGreaterThanOrEqual(44);
+    }
+
+    await therapyAvailability.selectOption("clear");
+    await expect(therapyTopics.locator('option[value=""]')).toHaveText("All topics");
+    await expect(therapyAvailability.locator('option[value=""]')).toHaveText("Any availability");
 
     await expectNoPageHorizontalOverflow(page);
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   Brain,
+  Calculator,
   ChevronRight,
   ClipboardCheck,
   ClipboardList,
@@ -23,8 +24,12 @@ import {
 } from "lucide-react";
 import { type FormEvent, useMemo, useState } from "react";
 
+import { DesktopComposerPortalSlot } from "@/components/desktop-composer-portal-slot";
 import { ModeHomeHero, ModeHomeVerificationFooter } from "@/components/mode-home-template";
-import { SearchResultsHeaderBand } from "@/components/clinical-dashboard/search-results-header-band";
+import {
+  MobileResultFilterControl,
+  SearchResultsHeaderBand,
+} from "@/components/clinical-dashboard/search-results-header-band";
 import { useSearchCommand } from "@/components/clinical-dashboard/search-command-context";
 import { useFavouritesAccess } from "@/components/clinical-dashboard/use-favourites-access";
 import { cn, toneInfo, toneSuccess, toneWarning } from "@/components/ui-primitives";
@@ -92,6 +97,7 @@ const launcherIconById: Record<string, LucideIcon> = {
   forms: FileCheck2,
   "care-plans": ClipboardCheck,
   "safety-plan": ClipboardList,
+  calculators: Calculator,
   monitoring: Waves,
   favourites: Star,
 };
@@ -392,34 +398,15 @@ function FilterTabs({
           );
         })}
       </div>
-      <div
-        className="flex min-w-0 gap-1 overflow-x-auto pb-1 sm:hidden"
-        role="group"
-        aria-label="Filter by tool category"
-      >
-        {mobileFilters.map((filter) => {
-          const active = filter.id === activeFilter || (filter.id === "all" && activeFilter === "saved");
-          return (
-            <button
-              key={filter.id}
-              type="button"
-              id={`launcher-filter-mobile-${filter.id}`}
-              aria-pressed={active}
-              aria-controls="launcher-results-panel"
-              onClick={() => onFilterChange(filter.id)}
-              className={cn(
-                "inline-flex min-h-tap shrink-0 items-center justify-center gap-0.5 whitespace-nowrap rounded-lg border px-2 text-2xs font-bold transition",
-                active
-                  ? "border-[color:var(--clinical-accent)] bg-[color:var(--clinical-accent)] text-[color:var(--clinical-accent-contrast)] shadow-[var(--shadow-tight)]"
-                  : "border-[color:var(--border)] bg-[color:var(--surface-lux)] text-[color:var(--text-muted)]",
-                focusRing,
-              )}
-            >
-              {filter.label}
-            </button>
-          );
-        })}
-      </div>
+      <MobileResultFilterControl
+        label="Category"
+        ariaLabel="Filter by tool category"
+        testId="tool-category-select"
+        className="sm:hidden"
+        value={activeFilter === "more" ? "all" : activeFilter}
+        options={desktopFilters.map((filter) => ({ value: filter.id, label: filter.label }))}
+        onChange={onFilterChange}
+      />
     </>
   );
 }
@@ -801,7 +788,7 @@ export function ApplicationsLauncherWorkspace({
         />
 
         {desktopComposerSlotId ? (
-          <div
+          <DesktopComposerPortalSlot
             id={desktopComposerSlotId}
             className="mode-home-composer-slot hidden w-full max-w-3xl [&:not(:empty)]:block"
           />

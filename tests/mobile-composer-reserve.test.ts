@@ -4,7 +4,9 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  isCalculatorsOwnedRoute,
   isDocumentViewerOwnedRoute,
+  isPageOwnedComposerRoute,
   mobileComposerDifferentialsCompareReserve,
   mobileComposerHiddenReserve,
   mobileComposerHiddenReserveRem,
@@ -23,7 +25,7 @@ describe("mobile composer reserve contract", () => {
   it("collapses to zero hidden pad without Safari toolbar safe-area", () => {
     expect(mobileComposerHiddenReserve).toBe("0rem");
     expect(mobileComposerHiddenReserveRem).toBe(0);
-    // The rem number feeds readChromeCollapseBudget's px math; it must stay
+    // The rem number feeds readChromeCollapseMetrics' px math; it must stay
     // equal to the CSS string above or the collapse budget silently drifts.
     expect(`${mobileComposerHiddenReserveRem}rem`).toBe(mobileComposerHiddenReserve);
     expect(resolveMobileComposerReserve(true, mobileComposerVisibleReserve.shellAnswer)).toBe(
@@ -100,15 +102,19 @@ describe("mobile composer reserve contract", () => {
     ).toBe(mobileComposerIdleReserve);
   });
 
-  it("derives hero phone ownership from the mounted hero slot, not answer-home alone", () => {
-    // Answer-home + !canRunSearch keeps showAnswerHome true while the hero slot
-    // is unset (showDesktopHomeComposer requires !error). Ownership must follow
-    // the slot so the dock reserve stays and the fixed composer cannot cover the
-    // setup/error message.
+  it("derives hero phone ownership from the mounted hero slot; any mode home uses all-widths breakpoint", () => {
+    // Any mounted mode home (answer, documents, prescribing, tools, favourites)
+    // needs "all" (phones keep the in-flow hero pill) per the page-ownership
+    // contract. Only result/submitted views use "sm-up" so phones get the compact
+    // bottom dock. desktopHomeComposerSlotId is undefined on result views, so
+    // heroOwnsPhoneComposer stays false there regardless of the breakpoint value.
     const dashboard = source("src/components/ClinicalDashboard.tsx");
     const header = source("src/components/clinical-dashboard/master-search-header.tsx");
     expect(dashboard).toContain('(activeModeResultKind === "favourites" && favouritesAccessible)');
-    expect(dashboard).toContain("const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId);");
+    expect(dashboard).toContain('const heroComposerBreakpoint = showDesktopHomeComposer ? "all" : "sm-up";');
+    expect(dashboard).toContain(
+      'const heroOwnsPhoneComposer = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
+    );
     expect(dashboard).not.toContain("const heroOwnsPhoneComposer = showDesktopHomeComposer || showAnswerHome;");
     // Prescribing leaves MedicationHome as soon as the draft query is non-empty;
     // keep the hero slot (and idle phone reserve) only while that home mounts.
@@ -123,6 +129,12 @@ describe("mobile composer reserve contract", () => {
     expect(header).toContain(
       'const heroComposerOwnsPhones = Boolean(desktopHomeComposerSlotId) && heroComposerBreakpoint === "all";',
     );
+    // focus=1 is entry-only: after any mode submit (or run=1 bootstrap) autofocus
+    // must not re-pin the phone dock and block hide-on-scroll.
+    expect(dashboard).toContain("const shouldAutoFocusComposer = focusSearch && !modeSearchSubmitted;");
+    expect(dashboard).toContain('if (shouldFocusComposer && params.get("run") !== "1") focusComposerInput(true);');
+    expect(header).toContain("composerChromeFocused && phoneBottomSearchDockActive && hideOnScrollEnabled");
+    expect(header).toContain("queueMicrotask(() => {");
     expect(
       resolveDashboardVisibleMobileComposerReserve({
         searchMode: "answer",
@@ -150,12 +162,15 @@ describe("mobile composer reserve contract", () => {
     ).toBe(mobileComposerVisibleReserve.dashboardAnswerWithFollowUps);
     expect(mobileComposerVisibleReserve.dashboardAnswer).toContain("var(--safe-area-bottom)");
     expect(mobileComposerVisibleReserve.dashboardAnswerWithFollowUps).toContain("var(--safe-area-bottom)");
+    expect(mobileComposerVisibleReserve.dashboardAnswer).toContain("var(--keyboard-height, 0px)");
+    expect(mobileComposerVisibleReserve.dashboardAnswerWithFollowUps).toContain("var(--keyboard-height, 0px)");
   });
 
   it("keeps differentials compare clearance shared across hosts", () => {
     expect(mobileComposerVisibleReserve.differentialsCompare).toBe(mobileComposerDifferentialsCompareReserve);
     expect(mobileComposerDifferentialsCompareReserve).toContain("12.5rem");
     expect(mobileComposerDifferentialsCompareReserve).toContain("var(--safe-area-bottom)");
+    expect(mobileComposerDifferentialsCompareReserve).toContain("var(--keyboard-height, 0px)");
     expect(mobileComposerDifferentialsCompareReserve).not.toContain("env(safe-area-inset-bottom)");
     expect(
       resolveDashboardVisibleMobileComposerReserve({
@@ -182,5 +197,23 @@ describe("mobile composer reserve contract", () => {
     expect(isDocumentViewerOwnedRoute("/documents/search")).toBe(false);
     expect(isDocumentViewerOwnedRoute("/documents")).toBe(false);
     expect(isDocumentViewerOwnedRoute("/forms")).toBe(false);
+  });
+
+  it("classifies calculators as a page-owned composer route", () => {
+    expect(isCalculatorsOwnedRoute("/calculators")).toBe(true);
+    expect(isCalculatorsOwnedRoute("/calculators/phq-9")).toBe(true);
+    expect(isCalculatorsOwnedRoute("/tools")).toBe(false);
+    expect(isPageOwnedComposerRoute("/calculators")).toBe(true);
+    expect(isPageOwnedComposerRoute("/documents/source")).toBe(true);
+    expect(isPageOwnedComposerRoute("/tools")).toBe(false);
+    expect(
+      resolveShellVisibleMobileComposerReserve({
+        shouldShowSearchComposer: false,
+        pageOwnedComposerRoute: true,
+        isStandaloneModeHome: false,
+        searchMode: "tools",
+        differentialsCompareAddonActive: false,
+      }),
+    ).toBe(mobileComposerHiddenReserve);
   });
 });

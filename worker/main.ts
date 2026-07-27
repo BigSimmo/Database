@@ -941,7 +941,11 @@ async function uploadAndCaptionImages(
       width: image.width ?? null,
       height: image.height ?? null,
     });
-    if (lowSignalSkipReason && !["administrative table without clinical facts"].includes(lowSignalSkipReason)) {
+    if (
+      lowSignalSkipReason &&
+      image.sourceKind !== "table_crop" &&
+      !["administrative table without clinical facts"].includes(lowSignalSkipReason)
+    ) {
       skippedImages += 1;
       noteSkippedImage(skipReasons, lowSignalSkipReason);
       continue;
@@ -950,11 +954,49 @@ async function uploadAndCaptionImages(
       image.sourceKind === "table_crop"
         ? nonClinicalTableClassification({ tableMetadata, sourceKind: image.sourceKind })
         : null;
-    if (!presetClassification && !selectedCaptionCandidateIndexes.has(index)) {
+    const retainUncaptionedForDocumentView =
+      ["table_crop", "diagram_crop", "page_region"].includes(image.sourceKind ?? "") &&
+      !selectedCaptionCandidateIndexes.has(index);
+    if (!presetClassification && !selectedCaptionCandidateIndexes.has(index) && !retainUncaptionedForDocumentView) {
       skippedImages += 1;
       noteSkippedImage(skipReasons, "visual intelligence candidate below caption budget");
       continue;
     }
+    const fallbackClassification: ImageClassification | null = retainUncaptionedForDocumentView
+      ? {
+          image_type: image.sourceKind === "table_crop" ? "clinical_table" : "unclear",
+          caption:
+            tableMetadata.tableTitle ||
+            tableMetadata.tableLabel ||
+            (image.sourceKind === "page_region"
+              ? "Document page region retained for review."
+              : "Document image retained for review."),
+          searchable: false,
+          clinical_relevance_score: 0,
+          labels: ["needs-review"],
+          skip_reason: "retained for document view without captioning",
+          clinical_use_class: "ambiguous",
+          clinical_use_reason: "Retained for document viewing without model captioning.",
+          clinical_signal_score: 0,
+          admin_signal_score: 0,
+          structured_visual_profile: deterministicStructuredVisualProfile({
+            imageType: image.sourceKind === "table_crop" ? "clinical_table" : "unclear",
+            caption:
+              tableMetadata.tableTitle ||
+              tableMetadata.tableLabel ||
+              (image.sourceKind === "page_region"
+                ? "Document page region retained for review."
+                : "Document image retained for review."),
+            tableTitle: tableMetadata.tableTitle,
+            tableLabel: tableMetadata.tableLabel,
+            tableTextSnippet: tableMetadata.tableTextSnippet,
+            tableRows: tableMetadata.tableRows as string[][] | null,
+            tableColumns: tableMetadata.tableColumns as string[] | null,
+            metadata: {},
+          }),
+          structured_extraction_confidence: 0.25,
+        }
+      : null;
     captionTasks.push({
       candidate,
       index,
@@ -964,7 +1006,7 @@ async function uploadAndCaptionImages(
       nearbyText,
       tableMetadata,
       contextHash,
-      presetClassification,
+      presetClassification: presetClassification ?? fallbackClassification,
     });
   }
 
@@ -1019,6 +1061,8 @@ async function uploadAndCaptionImages(
     const { task, classificationCacheHit } = resolved;
     const { candidate, index, image, perceptualHash, imageHash, nearbyText, tableMetadata, contextHash } = task;
     let classification = redactImageClassification(resolved.classification);
+    const retainedWithoutCaptioning =
+      task.presetClassification?.skip_reason === "retained for document view without captioning";
     const policyAssessment = assessClinicalImageUse({
       imageType: classification.image_type,
       searchable: classification.searchable,
@@ -1068,12 +1112,15 @@ async function uploadAndCaptionImages(
       image.sourceKind === "table_crop" &&
       ["administrative", "reference"].includes(policyAssessment.clinical_use_class) &&
       classification.image_type !== "logo_decorative";
-    if (classifiedSkipReason && !retainAsAuditTable) {
+    const retainForDocumentView =
+      retainAsAuditTable ||
+      (["table_crop", "diagram_crop", "page_region"].includes(image.sourceKind ?? "") && retainedWithoutCaptioning);
+    if (classifiedSkipReason && !retainAsAuditTable && !retainForDocumentView) {
       skippedImages += 1;
       noteSkippedImage(skipReasons, classifiedSkipReason);
       continue;
     }
-    const persistedSearchable = policyAssessment.searchable;
+    const persistedSearchable = !retainedWithoutCaptioning && policyAssessment.searchable;
     if (persistedSearchable) {
       imageTypeCounts.set(classification.image_type, (imageTypeCounts.get(classification.image_type) ?? 0) + 1);
     }
@@ -1147,7 +1194,7 @@ async function uploadAndCaptionImages(
           visual_budget_class: candidate.captionBudgetClass,
           visual_priority_reasons: candidate.reasons,
           retained_for_audit: retainAsAuditTable || undefined,
-          retained_for_document_view: retainAsAuditTable || undefined,
+          retained_for_document_view: retainForDocumentView || undefined,
           skip_reason: retainAsAuditTable ? classifiedSkipReason : classification.skip_reason,
         }),
       })
@@ -1163,6 +1210,8 @@ async function uploadAndCaptionImages(
       });
     }
     if (!data) throw new Error("Document image insert returned no row.");
+    // View-only retained images stay out of retrieval indexes: insertedImages
+    // feeds document_index_units / embedding fields. searchable=false must not enter.
     if (data.searchable !== false) {
       insertedImages.push({
         id: data.id,
@@ -1612,11 +1661,22 @@ async function processJob(job: JobRow) {
     if (!atomicReindex) await resetDocumentIndex(job.document_id);
     const buffer = await downloadDocument(job.documents.storage_path);
     await updateJobProgress(job.id, { stage: "extracting text/images", progress: 20 });
-    extracted = await extractDocument({
-      buffer,
-      fileName: job.documents.file_name,
-      mimeType: job.documents.file_type,
-    });
+    // Finding #7: Ingestion Worker Heartbeat. Prevent stale locks during long PDF extractions.
+    const heartbeat = setInterval(
+      () => {
+        updateJobProgress(job.id, { stage: "extracting text/images", progress: 20 }).catch(() => {});
+      },
+      Math.min(60_000, jobLeaseHeartbeatMs),
+    );
+    try {
+      extracted = await extractDocument({
+        buffer,
+        fileName: job.documents.file_name,
+        mimeType: job.documents.file_type,
+      });
+    } finally {
+      clearInterval(heartbeat);
+    }
 
     await updateJobProgress(job.id, { stage: "saving pages", progress: 32 });
     const pageRows = buildDocumentPageRows(job.document_id, extracted);
@@ -1936,7 +1996,20 @@ async function main() {
   }
 }
 
-main().catch((error) => {
+main().catch(async (error) => {
   console.error("Clinical KB worker stopped unexpectedly", safeErrorLogDetails(error));
+  if (env.WORKER_FAILURE_WEBHOOK_URL) {
+    try {
+      await fetch(env.WORKER_FAILURE_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: `CRITICAL: Clinical KB worker stopped unexpectedly. Error: ${error instanceof Error ? error.message : String(error)}`,
+        }),
+      });
+    } catch (webhookError) {
+      console.error("Failed to dispatch worker failure webhook", safeErrorLogDetails(webhookError));
+    }
+  }
   process.exitCode = 1;
 });

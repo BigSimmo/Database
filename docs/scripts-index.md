@@ -13,11 +13,13 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 
 | Script                                                                                     | Role                                                                                                        |
 | ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `run-heavy.mjs`                                                                            | Serializes heavy jobs behind a cross-process lock (`test-run-lock.mjs`) so builds/tests don't oversubscribe |
+| `run-heavy.mjs`                                                                            | Acquires shared/exclusive cross-worktree leases (`test-run-lock.mjs`) so focused checks can overlap safely  |
 | `run-tsx.mjs`, `run-vitest.mjs`, `run-playwright.mjs`, `run-eval-safe.mjs`                 | Typed/test/e2e/eval entrypoint wrappers                                                                     |
 | `dev-free-port.mjs`, `ensure-local-server.mjs`                                             | Project-stable localhost port selection + background server ensure                                          |
 | `check-node-engine.cjs`, `install-git-hooks.mjs`, `guard-push.mjs`, `guard-next-build.mjs` | Install/preflight guards                                                                                    |
 | `ci-change-scope.mjs`, `ci-triage.mjs`, `pr-policy.mjs`                                    | CI change classification + PR policy (self-tested via `check:ci-scope`/`check:ci-triage`/`check:pr-policy`) |
+| `check-installed-lock-parity.mjs`, `phone-chrome-plan.mjs`, `verify-phone-chrome.mjs`      | Lock-trust preflight plus change-scoped phone contracts, ownership journeys, and smart full-UI escalation   |
+| `final-merge-audit.mjs`                                                                    | Fail-closed local merge-tree audit; explicit provider mode adds PR/check/thread/tree/deployment proof       |
 | `child-process-result.mjs`, `cli-utils.ts`, `productivity-core.mjs`                        | Shared helpers                                                                                              |
 
 ## Verification gates [live]
@@ -30,6 +32,8 @@ migration has shipped (see `docs/maturity-backlog-workorders.md` L1).
 `check-owner-scope-api.mjs`, `check-client-bundle-secrets.mjs`, `verify-pr-local.mjs`,
 `verify-release-offline.mjs`. `check-gate-manifest.mjs` cross-checks that every gate in the
 `verify:cheap:internal` chain also runs in CI's `static-pr` job, so the two lists can't drift.
+
+For executable phone-chrome changes, use `verify:phone-chrome` before the broad UI gate. It checks installed-lock parity, then selects focused contracts and Playwright owners from the changed paths; shared foundations add `verify:ui` last. Documentation-only scopes run only documentation guards. `audit:final-merge` is local-only unless both `--providers` and `ALLOW_PROVIDER_READS=true` are supplied.
 
 ## Ingestion, indexing & reindex [live]
 

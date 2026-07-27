@@ -9,6 +9,7 @@
   ],
   "project": ["src/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs,cjs}", "worker/**/*.ts", "eslint-rules/**/*.mjs"],
   "ignore": ["src/lib/supabase/database.types.ts", "**/*mockup*", "supabase/functions/**"],
+  "ignoreDependencies": ["tailwindcss"],
   "vitest": { "config": ["vitest.config.mts"] },
   "playwright": false
 }
