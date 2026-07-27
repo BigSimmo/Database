@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "playwright/test";
+import { readPrimaryScrollGeometry } from "./playwright-scroll";
 
 /**
  * Tablet/desktop top-bar hide-and-return, with breakpoint-specific search ownership.
@@ -173,18 +174,23 @@ test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
 });
 
-test("desktop document scrolling does not blur the focused page search", async ({ page }) => {
+test("1024px bounded main scrolling preserves focused page search", async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
-  await page.goto("/forms?q=form%201A&run=1", { waitUntil: "domcontentloaded" });
+  await page.goto("/?mode=prescribing&q=a&run=1", { waitUntil: "domcontentloaded" });
   const input = page.getByTestId("global-search-input");
   await expect(input).toBeVisible({ timeout: 15_000 });
-  await waitForRunway(page, requiredRunway);
+  await expect
+    .poll(async () => (await readPrimaryScrollGeometry(page)).maxScrollTop, { timeout: 20_000 })
+    .toBeGreaterThanOrEqual(requiredRunway);
+  await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("main");
   await input.focus();
   await expect(input).toBeFocused();
 
   await scrollBy(page, 320, 80);
 
-  await expect(input, "tablet/desktop document scrolling must preserve deliberate keyboard focus").toBeFocused();
+  await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("main");
+  await expect.poll(async () => (await readPrimaryScrollGeometry(page)).scrollTop).toBeGreaterThan(0);
+  await expect(input, "bounded desktop main scrolling must preserve deliberate keyboard focus").toBeFocused();
 });
 
 for (const { name: sizeName, viewport } of breakpoints) {

@@ -2001,19 +2001,17 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // final, settled layout — replaces a fixed 400ms sleep.
     await expect(page.getByTestId("answer-streaming")).toHaveCount(0);
 
-    const [scrollGeometry, geo] = await Promise.all([
-      readPrimaryScrollGeometry(page),
-      page.evaluate(() => {
-        const header = document.querySelector("header");
-        const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
-        const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
-        return {
-          headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
-          surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
-          alsoMatchesHeight: alsoMatches ? Math.ceil(alsoMatches.getBoundingClientRect().height) : 0,
-        };
-      }),
-    ]);
+    const scrollGeometry = await readPrimaryScrollGeometry(page);
+    const geo = await page.evaluate(() => {
+      const header = document.querySelector("header");
+      const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
+      const alsoMatches = document.querySelector('[data-testid="universal-also-matches"]');
+      return {
+        headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
+        surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
+        alsoMatchesHeight: alsoMatches ? Math.ceil(alsoMatches.getBoundingClientRect().height) : 0,
+      };
+    });
     // Content-sized section => no unexplained phantom scroll. Submitted universal
     // matches are real content below the answer, so their compact panel may account
     // for the overflow; the old viewport floor created much more empty scroll.
@@ -2064,20 +2062,18 @@ test.describe("Clinical KB UI smoke coverage", () => {
       .poll(async () => main.evaluate((el) => Number.parseFloat(window.getComputedStyle(el).paddingBottom)))
       .toBeGreaterThan(200);
 
-    const [scrollGeometry, geo] = await Promise.all([
-      readPrimaryScrollGeometry(page),
-      page.evaluate(() => {
-        const main = document.querySelector("main#main-content");
-        const header = document.querySelector("header");
-        const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
-        return {
-          mainMarginBottom: main ? Number.parseFloat(window.getComputedStyle(main).marginBottom) : -1,
-          mainPaddingBottom: main ? Number.parseFloat(window.getComputedStyle(main).paddingBottom) : 0,
-          headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
-          surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
-        };
-      }),
-    ]);
+    const scrollGeometry = await readPrimaryScrollGeometry(page);
+    const geo = await page.evaluate(() => {
+      const main = document.querySelector("main#main-content");
+      const header = document.querySelector("header");
+      const surface = document.querySelector('[data-dashboard-stage="answer-surface"]');
+      return {
+        mainMarginBottom: main ? Number.parseFloat(window.getComputedStyle(main).marginBottom) : -1,
+        mainPaddingBottom: main ? Number.parseFloat(window.getComputedStyle(main).paddingBottom) : 0,
+        headerBottom: header ? Math.round(header.getBoundingClientRect().bottom) : 0,
+        surfaceTop: surface ? Math.round(surface.getBoundingClientRect().top) : 0,
+      };
+    });
     // Browser phones intentionally scroll the document so Safari can minimize
     // its browser chrome. The long answer still overflows that active owner and
     // remains top-aligned under the overlaid header.
@@ -2171,16 +2167,13 @@ test.describe("Clinical KB UI smoke coverage", () => {
     // pinned for keyboard safety, so retaining focus here permanently disables
     // the ordinary touch-scroll hide path.
     await expect(input).not.toBeFocused();
-    const [scrollGeometry, collapseBudget] = await Promise.all([
-      readPrimaryScrollGeometry(page),
-      main.evaluate((node) => {
-        const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
-        return (
-          (collapse?.getBoundingClientRect().height ?? 0) +
-          Number.parseFloat(window.getComputedStyle(node).paddingBottom)
-        );
-      }),
-    ]);
+    const scrollGeometry = await readPrimaryScrollGeometry(page);
+    const collapseBudget = await main.evaluate((node) => {
+      const collapse = document.querySelector<HTMLElement>('[data-testid="universal-header-collapse"]');
+      return (
+        (collapse?.getBoundingClientRect().height ?? 0) + Number.parseFloat(window.getComputedStyle(node).paddingBottom)
+      );
+    });
     const geometry = {
       maxOffset: scrollGeometry.maxScrollTop,
       collapseBudget,

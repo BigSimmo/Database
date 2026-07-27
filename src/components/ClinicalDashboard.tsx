@@ -370,8 +370,7 @@ export function ClinicalDashboard({
   const [bottomComposerHidden, setBottomComposerHidden] = useState(false);
   const reserveTransitioning = useReserveTransitionMarker(bottomComposerHidden, searchMode);
   const chromeTransitioning = useReserveTransitionMarker(chromeScrollHide.hidden, searchMode);
-  const reportChromeScrollHideRef = useRef(chromeScrollHide.reportScroll);
-  reportChromeScrollHideRef.current = chromeScrollHide.reportScroll;
+  const reportChromeScrollHide = useEventCallback(chromeScrollHide.reportScroll);
   useDocumentScrollHideReporter(chromeScrollHide.reportScroll, mainScrollRoot, composerInputRef);
   const [modeSearchSubmitted, setModeSearchSubmitted] = useState(() =>
     Boolean(autoRunSearch && initialQuery.trim() && initialSearchMode !== "tools"),
@@ -2864,7 +2863,7 @@ export function ClinicalDashboard({
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         frame = 0;
-        reportChromeScrollHideRef.current({
+        reportChromeScrollHide({
           offset: main.scrollTop,
           maxOffset: Math.max(0, main.scrollHeight - main.clientHeight),
           ...readChromeCollapseMetrics(main),
@@ -2879,7 +2878,7 @@ export function ClinicalDashboard({
       main.removeEventListener("scroll", onScroll);
       if (frame) window.cancelAnimationFrame(frame);
     };
-  }, [mainScrollRoot]);
+  }, [mainScrollRoot, reportChromeScrollHide]);
 
   async function copyText(action: string, text: string) {
     let copied = false;
