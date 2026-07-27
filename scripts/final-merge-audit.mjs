@@ -48,7 +48,7 @@ export function validatePullRequestSnapshot(snapshot, { expectedHead, postMerge 
   const missingRequiredChecks = [...requiredMergeChecks].flatMap(([requiredName, aliases]) =>
     checks.some((check) => aliases.has(normalizeCheckName(check))) ? [] : [requiredName],
   );
-  const unsettledChecks = checks.filter((check) => {
+  const unsettledChecks = requiredChecks.filter((check) => {
     const state = String(check.conclusion ?? check.state ?? check.status ?? "").toUpperCase();
     return !successfulCheckStates.has(state);
   });

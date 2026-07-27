@@ -55,6 +55,18 @@ describe("validatePullRequestSnapshot", () => {
     expect(result.failures).toEqual([]);
   });
 
+  it("does not let a failed advisory check block a successful required aggregate", () => {
+    const result = validatePullRequestSnapshot({
+      ...greenSnapshot,
+      statusCheckRollup: [
+        { name: "PR required", conclusion: "SUCCESS" },
+        { name: "Advisory UI", conclusion: "FAILURE" },
+      ],
+    });
+    expect(result.failures).toEqual([]);
+    expect(result.unsettledChecks).toEqual([]);
+  });
+
   it("uses merged-state semantics for post-merge tree and health audits", () => {
     expect(
       validatePullRequestSnapshot({ ...greenSnapshot, state: "MERGED" }, { expectedHead: "abc123", postMerge: true })
