@@ -121,7 +121,16 @@ describe("audit navigation and auth regressions", () => {
       "new Set(visibleAppModeOptions.map((mode) => appModeHomeHref(mode.id)))",
     );
     expect(masterSearchHeaderSource).toContain("for (const href of hrefs) router.prefetch(href)");
-    expect(masterSearchHeaderSource.match(/prefetchModeHomes\(\);/g)).toHaveLength(2);
+    // Both menu-open helpers must prefetch before opening. Counting bare
+    // `prefetchModeHomes();` alone can pass with one live call + one leftover string.
+    const openModeMenuWithFocus = masterSearchHeaderSource.match(
+      /function openModeMenuWithFocus\([\s\S]*?prefetchModeHomes\(\);[\s\S]*?setModeMenuOpen\(true\);/,
+    );
+    const toggleModeMenu = masterSearchHeaderSource.match(
+      /function toggleModeMenu\([\s\S]*?prefetchModeHomes\(\);[\s\S]*?setModeMenuOpen\(true\);/,
+    );
+    expect(openModeMenuWithFocus).not.toBeNull();
+    expect(toggleModeMenu).not.toBeNull();
   });
 
   it("gates private polling and mutations on local readiness plus authenticated status", () => {
