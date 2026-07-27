@@ -2,6 +2,7 @@ import type { Route } from "playwright-core";
 import { expect, test, type Page } from "playwright/test";
 import { stubZeroTouchPoints } from "./helpers/zero-touch";
 import { loadMedicationSnapshot } from "../src/lib/medication-snapshot";
+import { readPrimaryScrollGeometry } from "./playwright-scroll";
 
 const longTitle =
   "Extremely long synthetic shared-care guideline title covering lithium clozapine perinatal risk ADHD medication review emergency escalation and outpatient monitoring pathways";
@@ -497,19 +498,14 @@ test.describe("Medication responsive stress coverage", () => {
     await page.evaluate(
       () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
     );
-    await expect
-      .poll(async () => {
-        const scrollGeometry = await page.locator("main#main-content").evaluate((main) => ({
-          clientHeight: main.clientHeight,
-          scrollHeight: main.scrollHeight,
-          pageHeight: document.documentElement.scrollHeight,
-          viewportHeight: document.documentElement.clientHeight,
-          keyboardHeight: document.documentElement.style.getPropertyValue("--keyboard-height").trim(),
-        }));
-        expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight);
-        expect(scrollGeometry.keyboardHeight === "" || scrollGeometry.keyboardHeight === "0px").toBe(true);
-        return scrollGeometry.pageHeight - scrollGeometry.viewportHeight;
-      })
-      .toBeLessThanOrEqual(2);
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
+    const scrollGeometry = await readPrimaryScrollGeometry(page);
+    const chromeGeometry = await page.locator("main#main-content").evaluate((main) => ({
+      keyboardHeight: document.documentElement.style.getPropertyValue("--keyboard-height").trim(),
+      overflowY: window.getComputedStyle(main).overflowY,
+    }));
+    expect(scrollGeometry.scrollHeight).toBeGreaterThan(scrollGeometry.clientHeight + 40);
+    expect(chromeGeometry.overflowY).toBe("visible");
+    expect(chromeGeometry.keyboardHeight === "" || chromeGeometry.keyboardHeight === "0px").toBe(true);
   });
 });
