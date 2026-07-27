@@ -34,20 +34,33 @@ describe("cross-mode differentials precomputed index", () => {
     expect(crossModeDifferentialCatalog()).toEqual(JSON.parse(JSON.stringify(live)));
   });
 
-  it("does not statically import the heavy differentials module (keeps the lazy chunk small)", () => {
+  it("only imports the precomputed index — no static, dynamic, or transitive path to the heavy snapshot", () => {
     // The value-equality test above stays green regardless of HOW the catalog is
-    // produced, so it cannot catch a regression that re-adds a static
-    // `import … from "@/lib/differentials"` (or the raw snapshot) — which would put
-    // the ~1.2 MB snapshot back into the lazily-loaded cross-mode chunk. Guard the
-    // import graph directly: cross-mode-differentials.ts must only pull the
-    // precomputed index.
+    // produced, so it cannot catch a regression that reintroduces the ~1.2 MB
+    // snapshot into the lazily-loaded cross-mode chunk. Guard the import graph at
+    // its entry point with an allowlist: cross-mode-differentials.ts may import ONLY
+    // the precomputed index and the (type-only, runtime-erased) catalog type.
+    // Anything else fails — a direct `@/lib/differentials` re-import, a NEW helper
+    // that transitively pulls it, or a dynamic `import()` / `require()` form — because
+    // any such regression must add a new import specifier to THIS file.
     const source = readFileSync(
       fileURLToPath(new URL("../src/lib/cross-mode-differentials.ts", import.meta.url)),
       "utf8",
     );
-    expect(source).not.toMatch(/from\s+["']@\/lib\/differentials["']/);
-    expect(source).not.toMatch(/differentials-snapshot/);
-    expect(source).toMatch(/cross-mode-differentials-index\.json/);
+    const allowed = new Set(["@/data/cross-mode-differentials-index.json", "@/lib/cross-mode-links"]);
+    const specifiers = [
+      /\bfrom\s*["']([^"']+)["']/g, // static: import … from "x"
+      /\bimport\s*\(\s*["']([^"']+)["']/g, // dynamic: import("x")
+      /\brequire\s*\(\s*["']([^"']+)["']/g, // cjs: require("x")
+      /(?:^|\n)\s*import\s+["']([^"']+)["']/g, // side-effect: import "x"
+    ].flatMap((pattern) => [...source.matchAll(pattern)].map((match) => match[1]));
+
+    // Every import specifier must be in the allowlist — so a re-import of
+    // `@/lib/differentials` (or a helper/dynamic form pulling the snapshot) surfaces
+    // as a disallowed specifier and fails here. Comment mentions don't count: only
+    // real `from`/`import()`/`require` specifiers are collected.
+    expect(specifiers.filter((specifier) => !allowed.has(specifier))).toEqual([]);
+    expect(specifiers).toContain("@/data/cross-mode-differentials-index.json");
   });
 
   it("carries the full catalogue and drops bare-number aliases", () => {
