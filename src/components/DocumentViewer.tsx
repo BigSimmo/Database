@@ -253,11 +253,10 @@ export function DocumentViewer({
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [previewAttempt, setPreviewAttempt] = useState(0);
-  // Bounds *consecutive* auto-refreshes of an expired PDF signed URL so a
-  // persistently failing URL can't loop. Reset on document change and on a
-  // successful reload, so a long session that legitimately expires many times
-  // over is never dead-ended — only an unrecoverable URL exhausts the budget.
+  // Cap consecutive expired-PDF signed-URL auto-refreshes; reset on document
+  // change / successful reload so only an unrecoverable URL exhausts the budget.
   const signedUrlRefreshCountRef = useRef(0);
+  const sourceSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [sourceSearch, setSourceSearch] = useState("");
   const [documentSearchState, setDocumentSearchState] = useState<{
     query: string;
@@ -1138,11 +1137,13 @@ export function DocumentViewer({
               </div>
             </section>
             <div className="grid grid-cols-2 gap-2">
-            <button
+              <button
                 type="button"
                 onClick={() => {
                   setMobileActionsOpen(false);
-                  setSourceSearch(documentDisplayTitle(readyDocument));
+                  window.requestAnimationFrame(() => {
+                    window.requestAnimationFrame(() => sourceSearchInputRef.current?.focus());
+                  });
                 }}
                 className={cn(secondaryButton, "min-h-12 justify-start text-xs")}
               >
@@ -1706,6 +1707,7 @@ export function DocumentViewer({
             <label className="relative flex min-w-0 flex-1 items-center overflow-hidden">
               <span className="sr-only">Search within this document</span>
               <input
+                ref={sourceSearchInputRef}
                 value={sourceSearch}
                 onChange={(event) => setSourceSearch(event.target.value)}
                 placeholder="Search within this document..."
