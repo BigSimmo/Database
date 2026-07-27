@@ -1772,8 +1772,12 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials");
 
-    const input = page.locator('input[placeholder="Ask or search a presentation"]:visible').first();
+    const input = page.locator('input[placeholder="Ask or search a presentation"]:visible');
     const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
+    await expect(input).toHaveCount(1, { timeout: 15_000 });
+    await expect(submit).toHaveCount(1, { timeout: 15_000 });
+    await waitForReactEventHandler(input, "onChange");
+    await waitForReactEventHandler(input.locator("xpath=ancestor::form[1]"), "onSubmit");
     await input.fill("acute confusion");
     await expect(submit).toBeEnabled();
     const searchResponse = page.waitForResponse(
@@ -1797,13 +1801,15 @@ test.describe("Clinical KB tools launcher", () => {
     await input.focus();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
-    await scrollPrimarySurface(page, "end");
-    await expect
-      .poll(async () => {
-        const geometry = await readPrimaryScrollGeometry(page);
-        return geometry.maxScrollTop - geometry.scrollTop;
-      })
-      .toBeLessThanOrEqual(1);
+    // The visible dock/reserve can finish its layout commit after the first
+    // endpoint scroll, increasing document height. Treat scrolling to the live
+    // endpoint and measuring it as one retriable action; a persistent clearance
+    // regression still fails this assertion.
+    await expect(async () => {
+      await scrollPrimarySurface(page, "end");
+      const geometry = await readPrimaryScrollGeometry(page);
+      expect(geometry.maxScrollTop - geometry.scrollTop).toBeLessThanOrEqual(1);
+    }).toPass({ timeout: 15_000 });
     expect((await readPrimaryScrollGeometry(page)).owner).toBe("document");
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
