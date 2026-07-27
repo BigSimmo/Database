@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "playwright/test";
 import { resolve } from "node:path";
 
-import { scrollPrimarySurface } from "./playwright-scroll";
+import { appendPrimaryScrollSpacer, readPrimaryScrollGeometry, scrollPrimarySurface } from "./playwright-scroll";
 
 /**
  * Therapy section nav must hide/reveal with the universal top bar on phones.
@@ -49,22 +49,6 @@ async function gotoTherapySearch(page: Page) {
   await page.waitForTimeout(700);
 }
 
-async function waitForMainScrollHandler(page: Page) {
-  const main = page.locator("#main-content");
-  await expect
-    .poll(
-      async () =>
-        main.evaluate((element) => {
-          const propsKey = Object.keys(element).find((key) => key.startsWith("__reactProps$"));
-          if (!propsKey) return false;
-          const props = (element as unknown as Record<string, Record<string, unknown>>)[propsKey];
-          return typeof props?.onScroll === "function";
-        }),
-      { timeout: 15_000 },
-    )
-    .toBe(true);
-}
-
 test.beforeEach(async ({ page }) => {
   await blockExternalRequests(page);
   await installTherapyFixtures(page);
@@ -96,13 +80,11 @@ test("phone Therapy section nav hides and returns with the universal header", as
     )
     .toBe(true);
 
-  await waitForMainScrollHandler(page);
-  await page.locator("#main-content").evaluate((node) => {
-    const spacer = document.createElement("div");
-    spacer.setAttribute("data-testid", "therapy-nav-hide-scroll-spacer");
-    spacer.style.height = "2400px";
-    node.appendChild(spacer);
-  });
+  await appendPrimaryScrollSpacer(page, { heightPx: 2400, testId: "therapy-nav-hide-scroll-spacer" });
+  // Browser-mode phones deliberately leave #main-content in normal flow so
+  // Safari can collapse its own toolbar; the document must drive both chrome
+  // surfaces here. Standalone inner-scroll ownership is covered separately.
+  await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
 
   await expect(collapseHost).not.toHaveAttribute("data-scroll-hidden", "true");
 
