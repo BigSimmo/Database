@@ -19,7 +19,10 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
-import { PhoneFooterLayerPortal } from "@/components/clinical-dashboard/phone-footer-layer-portal";
+import {
+  PhoneFooterLayerPortal,
+  usePhoneFooterLayerScrollHidden,
+} from "@/components/clinical-dashboard/phone-footer-layer-portal";
 import { SearchResultsLayout } from "@/components/clinical-dashboard/search-results-layout";
 import { useHideOnScroll, useReserveTransitionMarker } from "@/components/clinical-dashboard/use-hide-on-scroll";
 import { PrivacyInputNotice } from "@/components/privacy-input-notice";
@@ -503,19 +506,27 @@ export function CalculatorsSearchPage() {
     };
   }, [activeCalc]);
 
-  // Hide the bottom composer dock on scroll-down in lockstep with the shell's
-  // top header, using the same hook (identical thresholds, phone-only, inert on
-  // desktop). Browser phones scroll the document so Safari can minimize its
-  // chrome; standalone mode keeps #main-content as its bounded scroller. Feed
-  // both possible owners and combine them so this page-owned dock follows the
-  // same active source as the shell header.
+  // The viewport frame owns the authoritative hide decision for its header and
+  // every portaled footer. Reuse that signal so slower hydration/RAF scheduling
+  // cannot let independently evaluated header and calculator reporters split.
+  // Keep local reporters only for the shell-less fallback used by isolated
+  // renders; browser phones scroll the document while standalone mode scrolls
+  // #main-content.
+  const frameScrollHidden = usePhoneFooterLayerScrollHidden();
+  const useLocalScrollFallback = frameScrollHidden === undefined;
   const scrollContainerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     scrollContainerRef.current = document.querySelector<HTMLElement>("#main-content");
   }, []);
-  const innerFooterHidden = useHideOnScroll({ containerRef: scrollContainerRef });
-  const documentFooterHidden = useHideOnScroll({ documentCollapseRootRef: scrollContainerRef });
-  const footerHidden = innerFooterHidden || documentFooterHidden;
+  const innerFooterHidden = useHideOnScroll({
+    containerRef: scrollContainerRef,
+    disabled: !useLocalScrollFallback,
+  });
+  const documentFooterHidden = useHideOnScroll({
+    documentCollapseRootRef: scrollContainerRef,
+    disabled: !useLocalScrollFallback,
+  });
+  const footerHidden = frameScrollHidden ?? (innerFooterHidden || documentFooterHidden);
   // Keep the phone dock visible while focused so scroll-hide cannot slide a
   // focused input off-screen or mark it aria-hidden while still tabbable.
   const [dockFocused, setDockFocused] = useState(false);

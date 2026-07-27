@@ -205,7 +205,7 @@ describe("shared header hide/reveal wiring", () => {
   });
 
   it("portals every page-owned phone footer beside the standalone scroller", () => {
-    expect(phoneFooterPortalSource).toContain("PhoneFooterLayerHostContext");
+    expect(phoneFooterPortalSource).toContain("PhoneFooterLayerContext");
     expect(phoneFooterPortalSource).toContain('className="phone-footer-layer-host contents"');
     expect(phoneFooterPortalSource).toContain('data-testid="phone-footer-layer-host"');
     expect(phoneFooterPortalSource).toMatch(/\{children\}[\s\S]*phone-footer-layer-host/);
@@ -219,6 +219,16 @@ describe("shared header hide/reveal wiring", () => {
     expect(documentViewerSource).toContain("<PhoneFooterLayerPortal>");
     expect(differentialPresentationSource).toContain("<PhoneFooterLayerPortal>");
     expect(differentialPresentationSource).toContain('data-testid="differential-presentation-phone-footer"');
+  });
+
+  it("shares the frame's authoritative scroll decision with the calculator footer", () => {
+    expect(phoneFooterPortalSource).toContain("export function usePhoneFooterLayerScrollHidden");
+    expect(shellSource).toContain("scrollHidden={chromeScrollHide.hidden}");
+    expect(dashboardSource).toContain("scrollHidden={chromeScrollHidden}");
+    expect(calculatorSearchSource).toContain("const frameScrollHidden = usePhoneFooterLayerScrollHidden()");
+    expect(calculatorSearchSource).toContain(
+      "const footerHidden = frameScrollHidden ?? (innerFooterHidden || documentFooterHidden)",
+    );
   });
 
   it("releases the phone top safe-area with hidden chrome while retaining the wide inset", () => {

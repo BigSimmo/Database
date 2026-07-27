@@ -3317,7 +3317,10 @@ export function ClinicalDashboard({
         onPrefetchApplications={prefetchApplications}
         showAccountLibrary={favouritesAccessible}
       />
-      <PhoneFooterLayerFrame className="phone-viewport-frame relative flex min-h-0 min-w-0 flex-1 flex-col md:h-full">
+      <PhoneFooterLayerFrame
+        className="phone-viewport-frame relative flex min-h-0 min-w-0 flex-1 flex-col md:h-full"
+        scrollHidden={chromeScrollHidden}
+      >
         <MasterSearchHeader
           demoMode={clientDemoMode}
           documents={documents}

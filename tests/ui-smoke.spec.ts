@@ -139,6 +139,10 @@ async function fillVisibleQuestionInput(page: Page, value: string) {
   const questionInput = visibleQuestionInput(page);
   const submitAnswer = visibleAnswerSubmitButton(page);
 
+  // Production HTML can be visible before React owns the controlled input.
+  // Filling during that gap is immediately overwritten by hydration and leaves
+  // the submit button disabled, so establish the live handler boundary first.
+  await waitForReactEventHandler(questionInput, "onChange");
   await expect(async () => {
     await expect(submitAnswer).toHaveAttribute("title", /Enter a clinical question|Generate a source-backed answer/, {
       timeout: uiAssertionTimeoutMs,

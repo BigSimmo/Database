@@ -757,7 +757,10 @@ function GlobalStandaloneSearchShellBody({
         </div>
       ) : null}
 
-      <PhoneFooterLayerFrame className="phone-viewport-frame flex min-w-0 flex-col sm:min-h-dvh">
+      <PhoneFooterLayerFrame
+        className="phone-viewport-frame flex min-w-0 flex-col sm:min-h-dvh"
+        scrollHidden={chromeScrollHide.hidden}
+      >
         {/*
           `contents` at every visible breakpoint: the chrome wrapper pins itself
           to the viewport top, and a plain block here would be a header-height
