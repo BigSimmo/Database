@@ -1,4 +1,4 @@
-import { extractClinicalValueAtoms, type ClinicalValueAtom } from "@/lib/answer-verification";
+import { applyNumericVerification, extractClinicalValueAtoms, type ClinicalValueAtom } from "@/lib/answer-verification";
 import { SOURCE_BACKED_REVIEW_FALLBACK_REASON } from "@/lib/rag/rag-routing";
 import type { CitationProvenance, EvidenceAssessment, RagAnswer, SearchResult, SupportedClaim } from "@/lib/types";
 
@@ -78,6 +78,8 @@ function cleanText(value: string) {
     .trim();
 }
 
+const maximumAssessedClaimCount = 24;
+
 function splitClaims(value: string) {
   // Preserve model-authored line boundaries until after splitting. Calling
   // cleanText first collapses newlines, which can merge independently cited
@@ -87,16 +89,14 @@ function splitClaims(value: string) {
     .replace(/[*_`#>]/g, "")
     .split(/(?<=[.!?])(?:[ \t]+|\n+)|\n+/)
     .map(cleanText)
-    .filter((claim) => claim.length >= 8)
-    .slice(0, 24);
+    .filter((claim) => claim.length >= 8);
 }
 
 function splitComparisonClaims(value: string) {
   return splitClaims(value)
     .flatMap((claim) => claim.split(/\s*;\s*|\s+(?:whereas|while)\s+/i))
     .map((claim) => claim.trim())
-    .filter((claim) => claim.length >= 8)
-    .slice(0, 24);
+    .filter((claim) => claim.length >= 8);
 }
 
 /**
@@ -352,7 +352,7 @@ function comparisonRows(answer: RagAnswer, claim: string) {
   });
 }
 
-function claimInputs(answer: RagAnswer): ClaimInput[] {
+function claimInputs(answer: RagAnswer): { inputs: ClaimInput[]; unassessedClaims: string[] } {
   const eligibleCitationIds = (answer.citations ?? [])
     .filter((citation) => acceptedProvenance.has(citation.provenance ?? "model_selected"))
     .map((citation) => citation.chunk_id);
@@ -384,11 +384,24 @@ function claimInputs(answer: RagAnswer): ClaimInput[] {
   };
   const split =
     answer.responseMode === "comparison_matrix" && !answer.preformatted ? splitComparisonClaims : splitClaims;
-  const topLevel = split(answer.answer).map((text) => scopedInput(text, eligibleCitationIds, "model_selected"));
-  const sections = (answer.answerSections ?? []).flatMap((section) =>
-    split(section.body).map((text) => scopedInput(text, section.citation_chunk_ids, "section_selected")),
+  const topLevelClaims = split(answer.answer);
+  const topLevel = topLevelClaims
+    .slice(0, maximumAssessedClaimCount)
+    .map((text) => scopedInput(text, eligibleCitationIds, "model_selected"));
+  const sectionSplits = (answer.answerSections ?? []).map((section) => ({
+    claims: split(section.body),
+    chunkIds: section.citation_chunk_ids,
+  }));
+  const sections = sectionSplits.flatMap(({ claims: sectionClaims, chunkIds }) =>
+    sectionClaims.slice(0, maximumAssessedClaimCount).map((text) => scopedInput(text, chunkIds, "section_selected")),
   );
-  return [...topLevel, ...sections];
+  return {
+    inputs: [...topLevel, ...sections],
+    unassessedClaims: [
+      ...topLevelClaims.slice(maximumAssessedClaimCount),
+      ...sectionSplits.flatMap(({ claims: sectionClaims }) => sectionClaims.slice(maximumAssessedClaimCount)),
+    ],
+  };
 }
 
 function claimAssessment(
@@ -459,18 +472,18 @@ export function assessClaimSupport(answer: RagAnswer) {
       (answer.answerSections?.length ?? 0) > 0 &&
       (answer.answerSections ?? []).every((section) => section.kind === "documentation"));
   const sourceBackedReviewAnswer = (answer.routingReason ?? "").includes(SOURCE_BACKED_REVIEW_FALLBACK_REASON);
-  const inputs = claimInputs(answer);
+  const { inputs, unassessedClaims } = claimInputs(answer);
   const claims = inputs.map((input, index) =>
     claimAssessment(input, index, sourceById, Boolean(documentLookupAnswer || sourceBackedReviewAnswer)),
   );
   const evidenceAssessments = Object.fromEntries(
     answer.sources.map((source) => [source.id, evidenceAssessment(source, claims, inputs)]),
   );
-  return { claims, evidenceAssessments };
+  return { claims, evidenceAssessments, unassessedClaims };
 }
 
 export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
-  const { claims, evidenceAssessments } = assessClaimSupport(answer);
+  const { claims, evidenceAssessments, unassessedClaims } = assessClaimSupport(answer);
   if (!answer.grounded || answer.confidence === "unsupported" || answer.responseMode === "evidence_gap") {
     return { ...answer, supportedClaims: claims, evidenceAssessments };
   }
@@ -507,10 +520,14 @@ export function assessAndEnforceClaimSupport(answer: RagAnswer): RagAnswer {
     };
   }
   const routineGap = claims.some((claim) => claim.supportStatus !== "direct");
-  return {
+  const assessedAnswer = {
     ...answer,
     confidence: routineGap && answer.confidence === "high" ? "medium" : answer.confidence,
     supportedClaims: claims,
     evidenceAssessments,
   };
+  const unassessedNumericClaims = unassessedClaims.filter((claim) => extractClinicalValueAtoms(claim).length > 0);
+  return unassessedNumericClaims.length > 0
+    ? applyNumericVerification(assessedAnswer, undefined, { unassessedClaimTexts: unassessedNumericClaims })
+    : assessedAnswer;
 }
