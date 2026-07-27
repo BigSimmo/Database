@@ -9,7 +9,12 @@ import { medicationToSearchResult, rankMedicationRecords } from "../src/lib/medi
 import { sortResultItems } from "../src/lib/result-sort";
 import { serviceRecords } from "../src/lib/services";
 import { openAppModeMenu } from "./playwright-app-mode";
-import { readMobileComposerReservePx, scrollPrimarySurface } from "./playwright-scroll";
+import {
+  appendPrimaryScrollSpacer,
+  readMobileComposerReservePx,
+  readPrimaryScrollGeometry,
+  scrollPrimarySurface,
+} from "./playwright-scroll";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -752,6 +757,7 @@ test.describe("Clinical KB tools launcher", () => {
       await page.setViewportSize({ width: 390, height: 820 });
       await gotoLauncher(page, home.path);
       const homeRegion = page.getByTestId(home.testId);
+      await expect(homeRegion).toHaveCount(1, { timeout: 15_000 });
       await expect(homeRegion).toBeVisible();
 
       const icon = homeRegion.locator(".mode-home-icon").first();
@@ -1232,14 +1238,19 @@ test.describe("Clinical KB tools launcher", () => {
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeGreaterThan(112);
     const visibleMainGeometry = await main.evaluate((node) => {
       const style = window.getComputedStyle(node);
+      const rect = node.getBoundingClientRect();
       return {
-        bottom: Math.round(node.getBoundingClientRect().bottom),
+        bottom: Math.round(rect.bottom),
         marginBottom: Number.parseFloat(style.marginBottom),
+        overflowY: style.overflowY,
+        top: Math.round(rect.top),
         viewportHeight: window.innerHeight,
       };
     });
     expect(visibleMainGeometry.marginBottom).toBe(0);
-    expect(Math.abs(visibleMainGeometry.bottom - visibleMainGeometry.viewportHeight)).toBeLessThanOrEqual(1);
+    expect(visibleMainGeometry.overflowY).toBe("visible");
+    expect(visibleMainGeometry.top).toBeLessThan(visibleMainGeometry.viewportHeight);
+    expect(visibleMainGeometry.bottom).toBeGreaterThanOrEqual(visibleMainGeometry.viewportHeight - 1);
     const transition = await dock.evaluate((node) => {
       const style = window.getComputedStyle(node);
       const durationMs = Math.max(
@@ -1261,18 +1272,10 @@ test.describe("Clinical KB tools launcher", () => {
     await input.blur();
     await expect(dock).not.toHaveAttribute("data-command-open", "true");
 
-    // Inject a spacer to ensure the container is scrollable even with minimal search results
-    await page.evaluate(() => {
-      const container = document.getElementById("main-content");
-      if (container) {
-        const spacer = document.createElement("div");
-        spacer.id = "test-scroll-spacer";
-        spacer.style.height = "2000px";
-        spacer.style.minHeight = "2000px";
-        spacer.style.display = "block";
-        container.appendChild(spacer);
-      }
-    });
+    // Inject content through the resolved owner so the browser document and
+    // standalone-PWA inner scroller exercise the same directional behavior.
+    await appendPrimaryScrollSpacer(page, { heightPx: 2000, testId: "test-scroll-spacer" });
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
 
     // Treat the deliberate scroll and its resulting UI state as one retriable
     // action. Firefox/WebKit can finish the focus=1 hydration effect after the
@@ -1292,14 +1295,17 @@ test.describe("Clinical KB tools launcher", () => {
     await expect.poll(async () => readMobileComposerReservePx(main)).toBeLessThanOrEqual(13);
     const hiddenMainGeometry = await main.evaluate((node) => {
       const style = window.getComputedStyle(node);
+      const rect = node.getBoundingClientRect();
       return {
-        bottom: Math.round(node.getBoundingClientRect().bottom),
+        bottom: Math.round(rect.bottom),
         marginBottom: Number.parseFloat(style.marginBottom),
+        top: Math.round(rect.top),
         viewportHeight: window.innerHeight,
       };
     });
     expect(hiddenMainGeometry.marginBottom).toBe(0);
-    expect(Math.abs(hiddenMainGeometry.bottom - hiddenMainGeometry.viewportHeight)).toBeLessThanOrEqual(1);
+    expect(hiddenMainGeometry.top).toBeLessThan(hiddenMainGeometry.viewportHeight);
+    expect(hiddenMainGeometry.bottom).toBeGreaterThanOrEqual(hiddenMainGeometry.viewportHeight - 1);
 
     await scrollPrimarySurface(page, 60);
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
@@ -1686,9 +1692,10 @@ test.describe("Clinical KB tools launcher", () => {
     expect(badgeMetrics.height).toBeGreaterThanOrEqual(22);
     expect(badgeMetrics.scrollHeight).toBeLessThanOrEqual(badgeMetrics.height + 1);
 
-    // Tall results must be top-aligned: Best Answer stays reachable at scrollTop 0.
-    const mainContent = page.locator("#main-content");
-    await expect.poll(() => mainContent.evaluate((element) => element.scrollTop)).toBe(0);
+    // Tall browser-phone results must be top-aligned in the document owner:
+    // Best Answer stays reachable at scrollTop 0 without a competing inner offset.
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).owner).toBe("document");
+    await expect.poll(async () => (await readPrimaryScrollGeometry(page)).scrollTop).toBe(0);
     const bestAnswer = page.getByTestId("differential-best-answer");
     await expect(bestAnswer).toBeVisible();
     const foldLayout = await bestAnswer.evaluate((best) => {
@@ -1698,7 +1705,6 @@ test.describe("Clinical KB tools launcher", () => {
       const bestRect = best.getBoundingClientRect();
       const headerBottom = header?.getBoundingClientRect().bottom ?? main.getBoundingClientRect().top;
       return {
-        scrollTop: main.scrollTop,
         bestTop: bestRect.top,
         bestBottom: bestRect.bottom,
         headerBottom,
@@ -1706,7 +1712,6 @@ test.describe("Clinical KB tools launcher", () => {
       };
     });
     expect(foldLayout).not.toBeNull();
-    expect(foldLayout!.scrollTop).toBe(0);
     // Best Answer must start in the visible upper fold under the consolidated
     // query, sort, and result-type controls — never clipped above the scrollport.
     expect(foldLayout!.bestTop).toBeGreaterThanOrEqual(foldLayout!.headerBottom - 2);
@@ -1792,7 +1797,14 @@ test.describe("Clinical KB tools launcher", () => {
     await input.focus();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
-    await mainContent.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
+    await scrollPrimarySurface(page, "end");
+    await expect
+      .poll(async () => {
+        const geometry = await readPrimaryScrollGeometry(page);
+        return geometry.maxScrollTop - geometry.scrollTop;
+      })
+      .toBeLessThanOrEqual(1);
+    expect((await readPrimaryScrollGeometry(page)).owner).toBe("document");
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
     const clearance = await page.evaluate(() => {
@@ -1846,17 +1858,8 @@ test.describe("Clinical KB tools launcher", () => {
     const dockHeight = await dock.evaluate((element) => element.getBoundingClientRect().height);
     expect(reservePx).toBeGreaterThanOrEqual(dockHeight);
 
-    // Ensure enough scroll room for hide thresholds even with a short result list.
-    await page.evaluate(() => {
-      const container = document.getElementById("main-content");
-      if (!container) return;
-      const spacer = document.createElement("div");
-      spacer.id = "test-scroll-spacer";
-      spacer.style.height = "2000px";
-      spacer.style.minHeight = "2000px";
-      spacer.style.display = "block";
-      container.appendChild(spacer);
-    });
+    // Ensure enough owner scroll room for hide thresholds even with a short result list.
+    await appendPrimaryScrollSpacer(page, { heightPx: 2000, testId: "test-scroll-spacer" });
 
     // Apply the Safari toolbar simulation after the visible-dock clearance
     // checks above. A collapsed reserve that still includes the toolbar inset
@@ -2092,7 +2095,7 @@ test.describe("Clinical KB service detail page", () => {
     // streaming `S:` clone of the page root under CI load.
     const servicePage = page.getByTestId("mobile-composer-reserve-pad").getByTestId("service-detail-page");
     const footer = servicePage.getByText("Information accuracy may vary. Confirm locally before use.");
-    const scrollport = page.locator("#main-content");
+    const mainContent = page.locator("#main-content");
     const dock = page.locator("form.answer-footer-search-dock, form.answer-footer-search-edge").first();
     const dockInput = visibleGlobalSearchInput(page).first();
     await expect(servicePage).toBeVisible();
@@ -2102,44 +2105,47 @@ test.describe("Clinical KB service detail page", () => {
     await dockInput.focus();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     // The compact dock reserve is 5.5rem (88px) plus any safe-area inset.
-    await expect.poll(async () => readMobileComposerReservePx(scrollport)).toBeGreaterThanOrEqual(80);
-    await scrollport.evaluate((element) => element.scrollTo({ top: element.scrollHeight, behavior: "instant" }));
+    await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThanOrEqual(80);
+    await scrollPrimarySurface(page, "end");
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
     await expect
-      .poll(() => scrollport.evaluate((element) => element.scrollHeight - element.clientHeight - element.scrollTop))
+      .poll(async () => {
+        const geometry = await readPrimaryScrollGeometry(page);
+        return geometry.maxScrollTop - geometry.scrollTop;
+      })
       .toBeLessThanOrEqual(1);
+    const scrollGeometry = await readPrimaryScrollGeometry(page);
 
     const clearance = await footer.evaluate((element) => {
-      const scrollElement = document.querySelector<HTMLElement>("#main-content");
+      const mainElement = document.querySelector<HTMLElement>("#main-content");
       const dockElement = document.querySelector<HTMLElement>(
         "form.answer-footer-search-dock, form.answer-footer-search-edge",
       );
       const servicePage = document.querySelector<HTMLElement>('[data-testid="service-detail-page"]');
-      if (!scrollElement || !dockElement) return null;
-      const scrollStyle = window.getComputedStyle(scrollElement);
-      const pad = scrollElement.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
+      if (!mainElement || !dockElement) return null;
+      const mainStyle = window.getComputedStyle(mainElement);
+      const pad = mainElement.querySelector<HTMLElement>('[data-testid="mobile-composer-reserve-pad"]');
       return {
         footerBottom: element.getBoundingClientRect().bottom,
-        scrollBottom: scrollElement.getBoundingClientRect().bottom,
         dockTop: dockElement.getBoundingClientRect().top,
         dockHeight: dockElement.getBoundingClientRect().height,
         reservePx: pad
           ? Number.parseFloat(window.getComputedStyle(pad).paddingBottom)
-          : Number.parseFloat(scrollStyle.paddingBottom),
-        reserve: scrollStyle.getPropertyValue("--mobile-composer-reserve").trim(),
-        scrollTop: scrollElement.scrollTop,
-        scrollHeight: scrollElement.scrollHeight,
-        clientHeight: scrollElement.clientHeight,
+          : Number.parseFloat(mainStyle.paddingBottom),
+        reserve: mainStyle.getPropertyValue("--mobile-composer-reserve").trim(),
         serviceBottom: servicePage?.getBoundingClientRect().bottom ?? null,
         serviceHeight: servicePage?.getBoundingClientRect().height ?? null,
         scrollHidden: dockElement.getAttribute("data-scroll-hidden"),
       };
     });
 
-    expect(clearance, JSON.stringify(clearance)).not.toBeNull();
-    expect(clearance!.reservePx, JSON.stringify(clearance)).toBeGreaterThanOrEqual(80);
-    expect(clearance!.footerBottom, JSON.stringify(clearance)).toBeLessThanOrEqual(clearance!.dockTop - 8);
+    expect(scrollGeometry.owner).toBe("document");
+    expect(clearance, JSON.stringify({ clearance, scrollGeometry })).not.toBeNull();
+    expect(clearance!.reservePx, JSON.stringify({ clearance, scrollGeometry })).toBeGreaterThanOrEqual(80);
+    expect(clearance!.footerBottom, JSON.stringify({ clearance, scrollGeometry })).toBeLessThanOrEqual(
+      clearance!.dockTop - 8,
+    );
   });
 
   test("service navigator action uses the shared global search route", async ({ page }) => {
@@ -2319,7 +2325,15 @@ test.describe("Responsive layout guards", () => {
     await expect(resultFilter).toBeVisible();
     await expect(resultFilter).toHaveAccessibleName("Filter medication results");
     await expect(bottomDock).toBeVisible();
-    await page.locator("main#main-content").evaluate((main) => main.scrollTo({ top: main.scrollHeight }));
+    await scrollPrimarySurface(page, "end");
+    await expect
+      .poll(async () => {
+        const geometry = await readPrimaryScrollGeometry(page);
+        return geometry.maxScrollTop - geometry.scrollTop;
+      })
+      .toBeLessThanOrEqual(1);
+    expect((await readPrimaryScrollGeometry(page)).owner).toBe("document");
+    await expect(bottomDock).not.toHaveAttribute("data-scroll-hidden", "true");
     const resultBox = await resultCard.boundingBox();
     const dockBox = await bottomDock.boundingBox();
     expect(resultBox).not.toBeNull();

@@ -1,5 +1,5 @@
 .tc-root {
-  min-height: calc(100dvh - var(--shell-header-h));
+  min-height: 0;
   background: var(--background);
   color: var(--text);
 }
@@ -1294,9 +1294,15 @@
   padding: 32px 40px 40px;
 }
 .tc-root .tc-workspace-006 {
-  min-height: calc(100dvh - var(--shell-header-h));
+  min-height: 0;
   background: var(--background);
   color: var(--text);
+}
+@media (min-width: 640px) {
+  .tc-root,
+  .tc-root .tc-workspace-006 {
+    min-height: calc(100dvh - var(--shell-header-h));
+  }
 }
 .tc-root .tc-screens-brief-screen-001 {
   max-width: 1240px;
