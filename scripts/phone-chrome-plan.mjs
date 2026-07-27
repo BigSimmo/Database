@@ -12,6 +12,9 @@ const phoneChromeContractTests = [
   "tests/use-hide-on-scroll.test.ts",
 ];
 
+const phoneChromeBrowserSpecPattern =
+  /^tests\/ui-(?:phone-scroll|smoke|tools|chrome-scroll|therapy-nav-scroll)\.spec\.ts$/;
+
 const patterns = {
   docs: [/^docs\//, /^AGENTS\.md$/],
   infrastructure: [
@@ -129,34 +132,47 @@ export function phoneChromePlan(rawFiles, { fullMode = "auto" } = {}) {
     );
   }
 
-  const focusedBrowserFiles = [];
-  const focusedBrowserPatterns = [];
-  if (runOwnership) {
-    focusedBrowserFiles.push("tests/ui-phone-scroll.spec.ts");
-    focusedBrowserPatterns.push(
-      "phone browser results use document scrolling|document detail header and footer follow Safari document scrolling together|compiled standalone PWA rules bind full-height footer chrome|standalone .* is frame-owned",
+  const changedBrowserFiles = files.filter((file) => phoneChromeBrowserSpecPattern.test(file));
+  const changedBrowserFileSet = new Set(changedBrowserFiles);
+  if (changedBrowserFiles.length > 0) {
+    stages.push(
+      nodeStage("changed-browser", "complete changed phone-chrome browser specs", [
+        "scripts/run-playwright.mjs",
+        ...changedBrowserFiles,
+        "--project=chromium",
+      ]),
     );
   }
-  if (runDashboardJourneys) {
-    focusedBrowserFiles.push("tests/ui-smoke.spec.ts");
-    focusedBrowserPatterns.push(
-      "phone long answer stays scrollable|phone answer result keeps the edge dock|answer glass header overlays main|document viewer bottom composer hides",
-    );
+
+  const focusedBrowserJourneys = [];
+  if (runOwnership && !changedBrowserFileSet.has("tests/ui-phone-scroll.spec.ts")) {
+    focusedBrowserJourneys.push({
+      file: "tests/ui-phone-scroll.spec.ts",
+      pattern:
+        "phone browser results use document scrolling|document detail header and footer follow Safari document scrolling together|compiled standalone PWA rules bind full-height footer chrome|standalone .* is frame-owned",
+    });
   }
-  if (runShellJourneys) {
-    focusedBrowserFiles.push("tests/ui-tools.spec.ts");
-    focusedBrowserPatterns.push(
-      "phone bottom search dock stays edge-to-edge|phone bottom search dock hides while scrolling down",
-    );
+  if (runDashboardJourneys && !changedBrowserFileSet.has("tests/ui-smoke.spec.ts")) {
+    focusedBrowserJourneys.push({
+      file: "tests/ui-smoke.spec.ts",
+      pattern:
+        "phone long answer stays scrollable|phone answer result keeps the edge dock|answer glass header overlays main|document viewer bottom composer hides",
+    });
   }
-  if (focusedBrowserFiles.length > 0) {
+  if (runShellJourneys && !changedBrowserFileSet.has("tests/ui-tools.spec.ts")) {
+    focusedBrowserJourneys.push({
+      file: "tests/ui-tools.spec.ts",
+      pattern: "phone bottom search dock stays edge-to-edge|phone bottom search dock hides while scrolling down",
+    });
+  }
+  if (focusedBrowserJourneys.length > 0) {
     stages.push(
       nodeStage("focused-browser", "browser/PWA ownership matrix and affected phone journeys", [
         "scripts/run-playwright.mjs",
-        ...focusedBrowserFiles,
+        ...focusedBrowserJourneys.map(({ file }) => file),
         "--project=chromium",
         "--grep",
-        focusedBrowserPatterns.join("|"),
+        focusedBrowserJourneys.map(({ pattern }) => pattern).join("|"),
       ]),
     );
   }

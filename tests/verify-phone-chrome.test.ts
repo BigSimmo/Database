@@ -4,6 +4,8 @@ import { phoneChromePlan } from "../scripts/phone-chrome-plan.mjs";
 const ids = (files: string[], fullMode: "auto" | "always" | "never" = "auto") =>
   phoneChromePlan(files, { fullMode }).stages.map((stage) => stage.id);
 
+const stage = (files: string[], id: string) => phoneChromePlan(files).stages.find((candidate) => candidate.id === id);
+
 describe("phoneChromePlan", () => {
   it("keeps documentation-only work out of browser suites", () => {
     expect(ids(["docs/phone-chrome-physical-acceptance.md"])).toEqual(["docs-index", "docs-links"]);
@@ -36,4 +38,13 @@ describe("phoneChromePlan", () => {
     expect(plan.fullSelected).toBe(false);
     expect(plan.notes.join(" ")).toContain("recommended");
   });
+
+  it.each(["tests/ui-phone-scroll.spec.ts", "tests/ui-tools.spec.ts"])(
+    "runs every journey in changed browser spec %s",
+    (file) => {
+      const changedBrowser = stage([file], "changed-browser");
+      expect(changedBrowser?.command.args).toContain(file);
+      expect(changedBrowser?.command.args).not.toContain("--grep");
+    },
+  );
 });
