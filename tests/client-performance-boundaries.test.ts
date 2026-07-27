@@ -23,19 +23,10 @@ describe("fixture-free client performance boundaries", () => {
     expect(dashboard).not.toContain('from "@/lib/differentials"');
   });
 
-  it("keeps the lazy cross-mode differentials catalog on the trimmed precomputed index", () => {
-    // Re-importing @/lib/differentials (or the snapshot/fixtures) here would put the
-    // ~1.2 MB snapshot back into the dynamically loaded cross-mode chunk while the
-    // data-equality gates stay green. Lock the import graph, not just the catalog.
-    const catalogModule = source("src/lib/cross-mode-differentials.ts");
-    const eagerDifferentialsImport =
-      /^[ \t]*import[ \t]+(?!type\b)(?:[^\r\n"']+[ \t]+from[ \t]+)?["']@\/lib\/differentials["'][ \t]*;?/m;
-    expect(catalogModule).toContain('from "@/data/cross-mode-differentials-index.json"');
-    expect(catalogModule).not.toMatch(eagerDifferentialsImport);
-    expect(catalogModule).not.toMatch(/differential-fixtures|differentials-snapshot|loadDifferentialSnapshot/);
-    expect('import { differentialRecords } from "@/lib/differentials";').toMatch(eagerDifferentialsImport);
-    expect('import type { DifferentialRecord } from "@/lib/differentials";').not.toMatch(eagerDifferentialsImport);
-
+  it("keeps the cross-mode links consumer on a dynamic catalog import", () => {
+    // The index-module allowlist lives in tests/cross-mode-differentials-index.test.ts.
+    // This locks the dashboard consumer: a static import would pull the catalog (and
+    // any future regression it reintroduces) into the main dashboard chunk.
     const links = source("src/components/clinical-dashboard/cross-mode-links.tsx");
     expect(links).toContain('import("@/lib/cross-mode-differentials")');
     expect(links).not.toContain('from "@/lib/cross-mode-differentials"');
