@@ -28,6 +28,7 @@ describe("verify-pr-local CLI", () => {
     expect(output).toContain("Changed files: docs/frontend-architecture.md");
     expect(output).toContain("PR-local verification plan (dry run)");
     expect(output).toContain("- npm run check:runtime");
+    expect(output).toContain("- npm run check:installed-lock-parity");
     expect(output).toContain("- npm run format:changed");
     expect(output).toContain("- build skipped");
     expect(output).not.toContain("\n> npm run ");

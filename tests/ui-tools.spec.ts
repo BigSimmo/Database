@@ -15,6 +15,7 @@ import {
   readPrimaryScrollGeometry,
   scrollPrimarySurface,
 } from "./playwright-scroll";
+import { expectSingleSettledOwner } from "./playwright-settlement";
 
 const readySetupChecks = [
   { id: "env", label: ".env.local configured", status: "ready", detail: "Test environment ready." },
@@ -654,9 +655,10 @@ test.describe("Clinical KB tools launcher", () => {
       // Production hydration can briefly overlap the outgoing server tree and
       // the settled client tree. Require the DOM to converge to one owner
       // before using strict locators; duplicate settled homes still fail.
-      await expect(homeSurface).toHaveCount(1, { timeout: 15_000 });
-      await expect(homeSurface).toBeVisible();
-      await expect(visibleGlobalSearchInput(page)).toHaveCount(1, { timeout: 15_000 });
+      await expectSingleSettledOwner(homeSurface, { message: `${home.path} home owner` });
+      await expectSingleSettledOwner(page.getByTestId("global-search-input"), {
+        message: `${home.path} composer owner`,
+      });
 
       // The composer sits in the middle of the hero (in-flow) at phone width too,
       // not docked to the bottom edge: it renders inside the mode-home composer
@@ -1772,8 +1774,12 @@ test.describe("Clinical KB tools launcher", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLauncher(page, "/differentials");
 
-    const input = page.locator('input[placeholder="Ask or search a presentation"]:visible').first();
+    const input = page.locator('input[placeholder="Ask or search a presentation"]:visible');
     const submit = page.locator('button[aria-label="Search differential presentations"]:visible');
+    await expect(input).toHaveCount(1, { timeout: 15_000 });
+    await expect(submit).toHaveCount(1, { timeout: 15_000 });
+    await waitForReactEventHandler(input, "onChange");
+    await waitForReactEventHandler(input.locator("xpath=ancestor::form[1]"), "onSubmit");
     await input.fill("acute confusion");
     await expect(submit).toBeEnabled();
     const searchResponse = page.waitForResponse(
@@ -1792,19 +1798,24 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(compareAction).toContainText("Compare selected");
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
-    // Keep the composer focused while measuring end-of-list clearance so
-    // hide-on-scroll cannot collapse --mobile-composer-reserve mid-check.
+    // Begin with the visible composer reserve. Document scrolling deliberately
+    // blurs the focused composer, and the resulting chrome transition can
+    // change the document range after the first endpoint scroll. Re-issue the
+    // endpoint action while asserting so the position converges with the
+    // settled range instead of polling a stale scrollTop.
     await input.focus();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
-    await scrollPrimarySurface(page, "end");
-    await expect
-      .poll(async () => {
-        const geometry = await readPrimaryScrollGeometry(page);
-        return geometry.maxScrollTop - geometry.scrollTop;
-      })
-      .toBeLessThanOrEqual(1);
-    expect((await readPrimaryScrollGeometry(page)).owner).toBe("document");
+    // The visible dock/reserve can finish its layout commit after the first
+    // endpoint scroll, increasing document height. Treat scrolling to the live
+    // endpoint and measuring it as one retriable action; a persistent clearance
+    // regression still fails this assertion.
+    await expect(async () => {
+      await scrollPrimarySurface(page, "end");
+      const geometry = await readPrimaryScrollGeometry(page);
+      expect(geometry.owner).toBe("document");
+      expect(geometry.maxScrollTop - geometry.scrollTop).toBeLessThanOrEqual(1);
+    }).toPass({ timeout: 15_000 });
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
     const clearance = await page.evaluate(() => {

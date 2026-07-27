@@ -4,7 +4,7 @@ import { childProcessExitCode } from "./child-process-result.mjs";
 
 const isWindows = process.platform === "win32";
 // Live Supabase audits (check:locality-metadata) stay out of this unconditional gate.
-const baseScripts = ["check:runtime", "format:changed", "lint", "typecheck", "test"];
+const baseScripts = ["check:runtime", "check:installed-lock-parity", "format:changed", "lint", "typecheck", "test"];
 
 function parseArgs(args) {
   const options = { dryRun: false, extended: false, files: undefined };

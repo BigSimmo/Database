@@ -187,6 +187,9 @@ jobs:
       - name: Runtime alignment
         run: npm run check:runtime
 
+      - name: Installed dependency parity
+        run: npm run check:installed-lock-parity
+
       - name: GitHub Actions pin check
         run: npm run check:github-actions
 
