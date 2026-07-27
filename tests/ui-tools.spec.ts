@@ -757,6 +757,7 @@ test.describe("Clinical KB tools launcher", () => {
       await page.setViewportSize({ width: 390, height: 820 });
       await gotoLauncher(page, home.path);
       const homeRegion = page.getByTestId(home.testId);
+      await expect(homeRegion).toHaveCount(1, { timeout: 15_000 });
       await expect(homeRegion).toBeVisible();
 
       const icon = homeRegion.locator(".mode-home-icon").first();
