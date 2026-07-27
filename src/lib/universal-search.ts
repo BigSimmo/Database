@@ -127,10 +127,12 @@ type ResolvedSearchArgs = RunUniversalSearchArgs & {
 };
 
 const registryDomainTimeoutMs = 2500;
-// Typeahead documents are lexical-only previews. Cap well below the full retrieval
-// budget so an empty/slow documents domain cannot dominate Promise.all wall time
-// for the federated response (other domains typically finish in tens of ms).
-const documentsDomainTimeoutMs = 750;
+// Typeahead documents are lexical-only previews. Keep federated requests well below the full
+// retrieval budget so an empty/slow documents domain cannot dominate Promise.all wall time.
+// A caller that explicitly requests only documents is doing focused search and can use the
+// prior full budget without delaying any sibling domains.
+const documentsFederatedDomainTimeoutMs = 750;
+const documentsFocusedDomainTimeoutMs = 6000;
 const ownerCatalogueLimit = 500;
 
 // Owner typeahead needs the complete rankable catalogue, but not governance timestamps, IDs,
@@ -519,7 +521,7 @@ const domainAdapters: Record<
   UniversalSearchDomain,
   { run: (args: ResolvedSearchArgs) => Promise<UniversalSearchItem[]>; timeoutMs: number }
 > = {
-  documents: { run: searchDocumentsDomain, timeoutMs: documentsDomainTimeoutMs },
+  documents: { run: searchDocumentsDomain, timeoutMs: documentsFederatedDomainTimeoutMs },
   medications: { run: searchMedicationsDomain, timeoutMs: registryDomainTimeoutMs },
   services: { run: searchServicesDomain, timeoutMs: registryDomainTimeoutMs },
   forms: { run: searchFormsDomain, timeoutMs: registryDomainTimeoutMs },
@@ -666,11 +668,13 @@ export async function runUniversalSearch(args: RunUniversalSearchArgs): Promise<
     requested.map(async (domain): Promise<UniversalSearchGroup> => {
       const domainStartedAt = Date.now();
       const adapter = domainAdapters[domain];
+      const timeoutMs =
+        domain === "documents" && requested.length === 1 ? documentsFocusedDomainTimeoutMs : adapter.timeoutMs;
       let group: UniversalSearchGroup;
       try {
         const items = await withTimeout(
           (signal) => adapter.run({ ...resolved, signal }),
-          adapter.timeoutMs,
+          timeoutMs,
           domain,
           args.signal,
         );
