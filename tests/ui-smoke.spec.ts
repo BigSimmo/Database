@@ -846,11 +846,33 @@ async function expectAccountSettingsSurface(settings: Locator) {
   await expect(settings.getByRole("heading", { name: "Account", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "Clinical defaults", exact: true })).toBeVisible();
   await expect(settings.getByRole("heading", { name: "App preferences", exact: true })).toBeVisible();
-  await expect(settings.getByTestId("settings-row-profile")).toBeVisible();
+  await expect(settings.getByTestId("settings-account-card")).toBeVisible();
+  await expect(settings.getByTestId("settings-row-profile")).toHaveCount(0);
   await expect(settings.getByTestId("settings-row-jurisdiction")).toBeVisible();
   await expect(settings.getByTestId("settings-row-answer-style")).toBeVisible();
   await expect(settings.getByTestId("settings-row-appearance")).toBeVisible();
+  await expect(settings.getByText("Saved on this device; not yet used in answers.")).toHaveCount(1);
   await expect(settings).not.toContainText(/admin|database|storage|source review|import pipeline/i);
+}
+
+async function expectMobileSettingsLayout(settings: Locator) {
+  const jurisdictionRow = settings.getByTestId("settings-row-jurisdiction");
+  const label = jurisdictionRow.getByText("Jurisdiction", { exact: true });
+  const control = jurisdictionRow.getByRole("combobox");
+  const [rowBox, labelBox, controlBox] = await Promise.all([
+    jurisdictionRow.boundingBox(),
+    label.boundingBox(),
+    control.boundingBox(),
+  ]);
+
+  expect(rowBox).not.toBeNull();
+  expect(labelBox).not.toBeNull();
+  expect(controlBox).not.toBeNull();
+  expect(controlBox!.y).toBeGreaterThanOrEqual(labelBox!.y + labelBox!.height + 8);
+  expect(controlBox!.x).toBeGreaterThanOrEqual(rowBox!.x);
+  expect(controlBox!.x + controlBox!.width).toBeLessThanOrEqual(rowBox!.x + rowBox!.width);
+  await expect(settings.getByRole("button", { name: "Close settings" })).toBeVisible();
+  await expect(settings.getByRole("button", { name: "Back from settings" })).toHaveCount(0);
 }
 
 async function expectAccountSetupSurface(setup: Locator) {
@@ -1249,7 +1271,7 @@ test.describe("Clinical KB UI smoke coverage", () => {
     await expectAccountSetupSurface(setup);
   });
 
-  test("account settings uses a fullscreen settings page below desktop and closes from X and Escape", async ({
+  test("account settings stays readable at narrow phone widths and closes from its single control or Escape", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 390, height: 820 });
@@ -1275,10 +1297,16 @@ test.describe("Clinical KB UI smoke coverage", () => {
     expect(settingsBox!.y).toBeLessThanOrEqual(fullscreenTolerance);
     expect(settingsBox!.width + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.width);
     expect(settingsBox!.height + fullscreenTolerance).toBeGreaterThanOrEqual(viewport.height);
+    await expectMobileSettingsLayout(settings);
+    await expectNoPageHorizontalOverflow(page);
+
+    await page.setViewportSize({ width: 430, height: 820 });
+    await expectMobileSettingsLayout(settings);
     await expectNoPageHorizontalOverflow(page);
 
     await settings.getByRole("button", { name: "Close settings" }).click();
     await expect(settings).toBeHidden();
+    await page.setViewportSize({ width: 390, height: 820 });
 
     const escapeMenu = await openMobileClinicalGuideMenu(page);
     await escapeMenu.getByRole("button", { name: "Settings", exact: true }).click();

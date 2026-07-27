@@ -1,14 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-// The settings surface persists several preferences that nothing in the app
-// consumes yet (audit 2026-07-19 P2: inert controls presented as live). Until a
-// preference is actually read somewhere, its row must carry the explicit
-// "Saved for later — not active yet" marker so a clinician never believes
-// answer behavior changed. The functional rows (appearance/density/motion,
-// which drive the html theme/data-density/data-motion hooks) must NOT carry it.
-// When wiring a preference up, remove it from INERT_ROWS here and drop the
-// notYetActive flag from its row in settings-dialog.tsx.
+// Several preferences persist locally but have no behavior consumer yet. Keep
+// that limitation explicit without repeating the same warning in every row:
+// wholly inert sections share one visible, accessible note; an isolated inert
+// row keeps its own concise marker.
 
 vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => ({
@@ -34,17 +30,17 @@ vi.mock("@/components/account-data-provider", () => ({
 
 import { SettingsDialog } from "@/components/clinical-dashboard/settings-dialog";
 
-const NOT_YET_ACTIVE_TEXT = "Saved for later — not active yet";
+const CLINICAL_NOTE = "Saved on this device; not yet used in answers.";
+const NOTIFICATIONS_NOTE = "Saved on this device; notifications are not available yet.";
+const NOT_YET_ACTIVE_TEXT = "Not active yet";
 
-const INERT_ROWS = [
-  // Clinical trio: wiring these into answer generation is provider-eval-gated
-  // (see AGENTS.md confirmation boundary) — they stay marked until that lands.
+const CLINICAL_ROWS = [
   "settings-row-jurisdiction",
   "settings-row-default-population",
   "settings-row-answer-style",
-  // No saved-protocols module exists on the home surface yet.
-  "settings-row-saved-protocols-on-home",
-  // No notification delivery infrastructure exists yet.
+];
+
+const NOTIFICATION_ROWS = [
   "settings-row-guideline-updates",
   "settings-row-product-news",
   "settings-row-saved-item-changes",
@@ -74,15 +70,12 @@ function renderDialog() {
 }
 
 describe("settings dialog inert-preference honesty markers", () => {
-  it("marks every preference no consumer reads as not yet active", () => {
+  it("uses one concise note for each wholly inactive section", () => {
     renderDialog();
-    for (const testId of INERT_ROWS) {
-      const row = screen.getByTestId(testId);
-      expect(within(row).getByText(NOT_YET_ACTIVE_TEXT)).toBeInTheDocument();
-    }
-    // Exactly the inert rows carry the marker — a count drift means a row was
-    // added or wired up without updating this contract.
-    expect(screen.getAllByText(NOT_YET_ACTIVE_TEXT)).toHaveLength(INERT_ROWS.length);
+    expect(screen.getAllByText(CLINICAL_NOTE)).toHaveLength(1);
+    expect(screen.getAllByText(NOTIFICATIONS_NOTE)).toHaveLength(1);
+    expect(screen.getAllByText(NOT_YET_ACTIVE_TEXT)).toHaveLength(1);
+    expect(within(screen.getByTestId("settings-row-saved-protocols-on-home")).getByText(NOT_YET_ACTIVE_TEXT)).toBeVisible();
   });
 
   it("keeps the functional appearance, density, and motion rows unmarked", () => {
@@ -93,20 +86,33 @@ describe("settings dialog inert-preference honesty markers", () => {
     }
   });
 
-  it("announces the inert status to assistive tech from every marked control", () => {
-    // The badge must be part of each control's accessible description, not just
-    // a visual sibling — a screen-reader user focusing the select, radiogroup,
-    // or switch has to hear that the setting is not active yet.
+  it("announces each shared section limitation from its controls", () => {
     renderDialog();
-    for (const testId of INERT_ROWS) {
+    for (const testId of CLINICAL_ROWS) {
       const row = screen.getByTestId(testId);
       const control =
         within(row).queryByRole("combobox") ?? within(row).queryByRole("radiogroup") ?? within(row).getByRole("switch");
       const describedBy = control?.getAttribute("aria-describedby");
-      expect(describedBy, `${testId} control must reference its inert marker`).toBeTruthy();
+      expect(describedBy, `${testId} control must reference the clinical section note`).toBe(
+        "settings-clinical-defaults-note",
+      );
       const description = document.getElementById(describedBy as string);
-      expect(description).toHaveTextContent(NOT_YET_ACTIVE_TEXT);
+      expect(description).toHaveTextContent(CLINICAL_NOTE);
     }
+    for (const testId of NOTIFICATION_ROWS) {
+      const control = within(screen.getByTestId(testId)).getByRole("switch");
+      expect(control).toHaveAttribute("aria-describedby", "settings-notifications-note");
+      expect(document.getElementById("settings-notifications-note")).toHaveTextContent(NOTIFICATIONS_NOTE);
+    }
+  });
+
+  it("keeps the isolated saved-protocol preference tied to its row marker", () => {
+    renderDialog();
+    const row = screen.getByTestId("settings-row-saved-protocols-on-home");
+    const control = within(row).getByRole("switch");
+    const describedBy = control.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy as string)).toHaveTextContent(NOT_YET_ACTIVE_TEXT);
   });
 
   it("does not attach the inert description to functional controls", () => {
