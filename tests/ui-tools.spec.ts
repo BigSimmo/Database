@@ -1794,19 +1794,20 @@ test.describe("Clinical KB tools launcher", () => {
     await expect(compareAction).toContainText("Compare selected");
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
 
-    // Keep the composer focused while measuring end-of-list clearance so
-    // hide-on-scroll cannot collapse --mobile-composer-reserve mid-check.
+    // Begin with the visible composer reserve. Document scrolling deliberately
+    // blurs the focused composer, and the resulting chrome transition can
+    // change the document range after the first endpoint scroll. Re-issue the
+    // endpoint action while asserting so the position converges with the
+    // settled range instead of polling a stale scrollTop.
     await input.focus();
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
-    await scrollPrimarySurface(page, "end");
-    await expect
-      .poll(async () => {
-        const geometry = await readPrimaryScrollGeometry(page);
-        return geometry.maxScrollTop - geometry.scrollTop;
-      })
-      .toBeLessThanOrEqual(1);
-    expect((await readPrimaryScrollGeometry(page)).owner).toBe("document");
+    await expect(async () => {
+      await scrollPrimarySurface(page, "end");
+      const geometry = await readPrimaryScrollGeometry(page);
+      expect(geometry.owner).toBe("document");
+      expect(geometry.maxScrollTop - geometry.scrollTop).toBeLessThanOrEqual(1);
+    }).toPass({ timeout: 10_000 });
     await expect(dock).not.toHaveAttribute("data-scroll-hidden", "true");
     await expect.poll(async () => readMobileComposerReservePx(mainContent)).toBeGreaterThan(180);
     const clearance = await page.evaluate(() => {
