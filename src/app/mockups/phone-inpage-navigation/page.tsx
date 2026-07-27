@@ -74,6 +74,134 @@ function PhoneHeader() {
 }
 
 function ClinicalContent({ active }: { active: SectionLabel }) {
+  const contentMap: Record<
+    SectionLabel,
+    Array<{ icon: typeof Sparkles; label: string; copy: string; variant: "default" | "warning" | "muted" }>
+  > = {
+    Overview: [
+      {
+        icon: Sparkles,
+        label: "Why matched",
+        copy: "Best for adults receiving continuing support after an episode, with a clear focus on triggers and practical problem-solving.",
+        variant: "default",
+      },
+      {
+        icon: HeartPulse,
+        label: "Safety first",
+        copy: "Assess immediate risk, capacity, safeguarding, psychosis, mania and current supports before continuing.",
+        variant: "warning",
+      },
+      {
+        icon: Clock3,
+        label: "Best fit",
+        copy: "Self-harm urges, emotional dysregulation, hopelessness and identifiable high-risk moments.",
+        variant: "muted",
+      },
+    ],
+    "Why matched": [
+      {
+        icon: Compass,
+        label: "Evidence base",
+        copy: "CBT shows strong outcomes in relapse prevention for adults with recurrent depression, particularly when combined with medication.",
+        variant: "default",
+      },
+      {
+        icon: Activity,
+        label: "Key features",
+        copy: "Structured sessions targeting negative thought patterns, behavioral activation, and practical skills for managing early warning signs.",
+        variant: "warning",
+      },
+      {
+        icon: Check,
+        label: "Match criteria",
+        copy: "Patient history indicates recurrent episodes, willingness to engage in homework, and capacity for collaborative goal-setting.",
+        variant: "muted",
+      },
+    ],
+    Safety: [
+      {
+        icon: HeartPulse,
+        label: "Risk assessment",
+        copy: "Check for active suicidal ideation, self-harm urges, acute psychosis, and safeguarding concerns before proceeding.",
+        variant: "default",
+      },
+      {
+        icon: Activity,
+        label: "Capacity check",
+        copy: "Confirm patient can consent to treatment, understands the approach, and has support systems in place.",
+        variant: "warning",
+      },
+      {
+        icon: Bookmark,
+        label: "Crisis plan",
+        copy: "Ensure patient has access to emergency contacts, crisis services, and knows when to seek immediate help.",
+        variant: "muted",
+      },
+    ],
+    "Best fit": [
+      {
+        icon: Compass,
+        label: "Core targets",
+        copy: "Rumination, avoidance behaviors, disrupted routines, social withdrawal, and negative thought cycles.",
+        variant: "default",
+      },
+      {
+        icon: Sparkles,
+        label: "Strengths needed",
+        copy: "Ability to identify thoughts, willingness to try new behaviors, and capacity to engage between sessions.",
+        variant: "warning",
+      },
+      {
+        icon: Clock3,
+        label: "Typical duration",
+        copy: "12-16 sessions over 3-4 months, with possible booster sessions for relapse prevention.",
+        variant: "muted",
+      },
+    ],
+    Protocol: [
+      {
+        icon: Activity,
+        label: "Session structure",
+        copy: "Weekly 50-minute sessions: agenda setting, homework review, new skill teaching, and between-session task planning.",
+        variant: "default",
+      },
+      {
+        icon: FileText,
+        label: "Core components",
+        copy: "Psychoeducation, thought records, behavioral experiments, activity scheduling, and relapse prevention planning.",
+        variant: "warning",
+      },
+      {
+        icon: Check,
+        label: "Progress tracking",
+        copy: "Regular monitoring with validated measures (PHQ-9, GAD-7) and collaborative review of therapy goals.",
+        variant: "muted",
+      },
+    ],
+    "Patient sheet": [
+      {
+        icon: FileText,
+        label: "What to expect",
+        copy: "Active collaboration, homework between sessions, focus on current problems, and learning practical skills you can use long-term.",
+        variant: "default",
+      },
+      {
+        icon: Home,
+        label: "Your role",
+        copy: "Bring specific examples, try new strategies between sessions, give feedback on what works, and practice skills regularly.",
+        variant: "warning",
+      },
+      {
+        icon: Bookmark,
+        label: "Resources",
+        copy: "Session handouts, thought record templates, activity logs, and a personalized relapse prevention plan.",
+        variant: "muted",
+      },
+    ],
+  };
+
+  const blocks = contentMap[active];
+
   return (
     <div className="space-y-3 px-4 pb-24 pt-5">
       <div className="flex items-start justify-between gap-3">
@@ -88,28 +216,33 @@ function ClinicalContent({ active }: { active: SectionLabel }) {
       <section className="overflow-hidden rounded-[22px] border border-[#283033] bg-[#131718]">
         <div className="border-b border-[#283033] p-4">
           <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-[#64d9dc]">
-            <Sparkles className="size-3.5" /> Why matched
+            {(() => {
+              const Icon = blocks[0].icon;
+              return <Icon className="size-3.5" />;
+            })()}{" "}
+            {blocks[0].label}
           </p>
-          <p className="mt-2 text-[13px] leading-5 text-[#b6bfbd]">
-            Best for adults receiving continuing support after an episode, with a clear focus on triggers and practical
-            problem-solving.
-          </p>
+          <p className="mt-2 text-[13px] leading-5 text-[#b6bfbd]">{blocks[0].copy}</p>
         </div>
         <div className="bg-[#342b16] p-4">
           <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-[#f0c65d]">
-            <HeartPulse className="size-3.5" /> Safety first
+            {(() => {
+              const Icon = blocks[1].icon;
+              return <Icon className="size-3.5" />;
+            })()}{" "}
+            {blocks[1].label}
           </p>
-          <p className="mt-2 text-[13px] leading-5 text-[#e1ca91]">
-            Assess immediate risk, capacity, safeguarding, psychosis, mania and current supports before continuing.
-          </p>
+          <p className="mt-2 text-[13px] leading-5 text-[#e1ca91]">{blocks[1].copy}</p>
         </div>
         <div className="border-t border-[#41371d] p-4">
           <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-[#a7b0ae]">
-            <Clock3 className="size-3.5" /> Best fit
+            {(() => {
+              const Icon = blocks[2].icon;
+              return <Icon className="size-3.5" />;
+            })()}{" "}
+            {blocks[2].label}
           </p>
-          <p className="mt-2 text-[13px] leading-5 text-[#b6bfbd]">
-            Self-harm urges, emotional dysregulation, hopelessness and identifiable high-risk moments.
-          </p>
+          <p className="mt-2 text-[13px] leading-5 text-[#b6bfbd]">{blocks[2].copy}</p>
         </div>
       </section>
       <button
