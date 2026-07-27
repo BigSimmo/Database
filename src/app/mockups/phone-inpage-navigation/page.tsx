@@ -32,9 +32,9 @@ type SectionLabel = (typeof sections)[number]["label"];
 function PhoneHeader() {
   return (
     <>
-      <div className="flex h-11 items-center justify-between bg-[#07090a] px-6 text-[13px] font-semibold text-white">
+      <div className="flex h-11 items-center justify-between bg-[#07090a] px-6 text-sm-minus font-semibold text-white">
         <span>11:41</span>
-        <span className="flex items-center gap-1.5 text-[11px]">
+        <span className="flex items-center gap-1.5 text-2xs">
           <span>▮▮▮</span>
           <span>◒</span>
           <span className="rounded bg-white px-1 text-[#07090a]">77</span>
@@ -57,7 +57,7 @@ function PhoneHeader() {
           <span className="grid size-8 place-items-center rounded-full bg-[#55d5d9] text-[#082e32]">
             <Compass className="size-4" />
           </span>
-          <span className="flex-1 text-[15px] font-bold text-white">Therapy</span>
+          <span className="flex-1 text-base-minus font-bold text-white">Therapy</span>
           <ChevronDown className="size-4 text-[#8b9694]" />
         </button>
         <button
@@ -206,43 +206,43 @@ function ClinicalContent({ active }: { active: SectionLabel }) {
     <div className="space-y-3 px-4 pb-24 pt-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#55d5d9]">CBT · clinical guide</p>
+          <p className="text-3xs font-bold uppercase tracking-[0.18em] text-[#55d5d9]">CBT · clinical guide</p>
           <h3 className="mt-1 text-xl font-semibold tracking-[-0.02em] text-white">{active}</h3>
         </div>
-        <span className="rounded-full border border-[#304043] bg-[#152225] px-2.5 py-1 text-[10px] font-semibold text-[#8ce3e5]">
+        <span className="rounded-full border border-[#304043] bg-[#152225] px-2.5 py-1 text-3xs font-semibold text-[#8ce3e5]">
           8 min
         </span>
       </div>
       <section className="overflow-hidden rounded-[22px] border border-[#283033] bg-[#131718]">
         <div className="border-b border-[#283033] p-4">
-          <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-[#64d9dc]">
+          <p className="flex items-center gap-2 text-2xs font-bold uppercase tracking-[0.1em] text-[#64d9dc]">
             {(() => {
               const Icon = blocks[0].icon;
               return <Icon className="size-3.5" />;
             })()}{" "}
             {blocks[0].label}
           </p>
-          <p className="mt-2 text-[13px] leading-5 text-[#b6bfbd]">{blocks[0].copy}</p>
+          <p className="mt-2 text-sm-minus leading-5 text-[#b6bfbd]">{blocks[0].copy}</p>
         </div>
         <div className="bg-[#342b16] p-4">
-          <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-[#f0c65d]">
+          <p className="flex items-center gap-2 text-2xs font-bold uppercase tracking-[0.1em] text-[#f0c65d]">
             {(() => {
               const Icon = blocks[1].icon;
               return <Icon className="size-3.5" />;
             })()}{" "}
             {blocks[1].label}
           </p>
-          <p className="mt-2 text-[13px] leading-5 text-[#e1ca91]">{blocks[1].copy}</p>
+          <p className="mt-2 text-sm-minus leading-5 text-[#e1ca91]">{blocks[1].copy}</p>
         </div>
         <div className="border-t border-[#41371d] p-4">
-          <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-[#a7b0ae]">
+          <p className="flex items-center gap-2 text-2xs font-bold uppercase tracking-[0.1em] text-[#a7b0ae]">
             {(() => {
               const Icon = blocks[2].icon;
               return <Icon className="size-3.5" />;
             })()}{" "}
             {blocks[2].label}
           </p>
-          <p className="mt-2 text-[13px] leading-5 text-[#b6bfbd]">{blocks[2].copy}</p>
+          <p className="mt-2 text-sm-minus leading-5 text-[#b6bfbd]">{blocks[2].copy}</p>
         </div>
       </section>
       <button
@@ -260,12 +260,12 @@ function PhoneFrame({ children, title, kicker }: { children: React.ReactNode; ti
   return (
     <article className="space-y-3">
       <div className="px-1">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#55d5d9]">{kicker}</p>
+        <p className="text-3xs font-bold uppercase tracking-[0.18em] text-[#55d5d9]">{kicker}</p>
         <h2 className="mt-1 text-lg font-semibold text-white">{title}</h2>
       </div>
-      <div className="mx-auto h-[690px] w-full max-w-[390px] overflow-hidden rounded-[34px] border border-[#343b3d] bg-[#0b0e0f] shadow-[0_30px_80px_rgba(0,0,0,.45)] ring-4 ring-[#171b1c]">
+      <div className="mx-auto flex h-[690px] w-full max-w-[390px] flex-col overflow-hidden rounded-[34px] border border-[#343b3d] bg-[#0b0e0f] shadow-[0_30px_80px_rgba(0,0,0,.45)] ring-4 ring-[#171b1c]">
         <PhoneHeader />
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
       </div>
     </article>
   );
@@ -314,18 +314,14 @@ function DropdownNavigator() {
             <ActiveIcon className="size-4" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[10px] font-bold uppercase tracking-[0.14em] text-[#82908e]">
-              Jump to section
-            </span>
+            <span className="block text-3xs font-bold uppercase tracking-[0.14em] text-[#82908e]">Jump to section</span>
             <span className="block truncate text-sm font-semibold text-white">{active}</span>
           </span>
           <ChevronDown className={`size-4 text-[#8ce3e5] transition ${open ? "rotate-180" : ""}`} />
         </button>
         {open ? (
           <div className="absolute left-3 right-3 top-[68px] z-20 overflow-hidden rounded-[22px] border border-[#354044] bg-[#171c1d]/95 p-2 shadow-2xl backdrop-blur-xl">
-            <p className="px-2 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-[#7f8b89]">
-              On this page
-            </p>
+            <p className="px-2 pb-2 pt-1 text-3xs font-bold uppercase tracking-[0.16em] text-[#7f8b89]">On this page</p>
             <div className="grid grid-cols-2 gap-1">
               {sections.map(({ label, icon: Icon }) => (
                 <button
@@ -355,6 +351,8 @@ function PriorityDock() {
   const [active, setActive] = useState<SectionLabel>("Overview");
   const [more, setMore] = useState(false);
   const primary = sections.slice(0, 4);
+  const overflow = sections.slice(4);
+  const overflowActive = overflow.some(({ label }) => label === active);
   return (
     <>
       <nav
@@ -370,7 +368,7 @@ function PriorityDock() {
               setMore(false);
             }}
             aria-current={active === label ? "page" : undefined}
-            className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-semibold ${active === label ? "bg-[#173b3e] text-[#6de1e4]" : "text-[#8f9997]"}`}
+            className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-4xs font-semibold ${active === label ? "bg-[#173b3e] text-[#6de1e4]" : "text-[#8f9997]"}`}
           >
             <Icon className="size-[18px]" />
             {label === "Why matched" ? "Matched" : label}
@@ -380,14 +378,15 @@ function PriorityDock() {
           type="button"
           onClick={() => setMore((value) => !value)}
           aria-expanded={more}
-          className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-semibold ${more ? "bg-[#173b3e] text-[#6de1e4]" : "text-[#8f9997]"}`}
+          aria-current={overflowActive ? "page" : undefined}
+          className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-4xs font-semibold ${more || overflowActive ? "bg-[#173b3e] text-[#6de1e4]" : "text-[#8f9997]"}`}
         >
           <MoreHorizontal className="size-[18px]" />
           More
         </button>
         {more ? (
           <div className="absolute right-2 top-[66px] z-20 w-52 rounded-2xl border border-[#354044] bg-[#171c1d] p-1.5 shadow-2xl">
-            {sections.slice(4).map(({ label, icon: Icon }) => (
+            {overflow.map(({ label, icon: Icon }) => (
               <button
                 key={label}
                 type="button"
@@ -395,7 +394,8 @@ function PriorityDock() {
                   setActive(label);
                   setMore(false);
                 }}
-                className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-xs font-semibold text-[#c0c8c6] hover:bg-white/5"
+                aria-current={active === label ? "page" : undefined}
+                className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-xs font-semibold ${active === label ? "bg-[#173b3e] text-[#6de1e4]" : "text-[#c0c8c6] hover:bg-white/5"}`}
               >
                 <Icon className="size-4 text-[#64d9dc]" />
                 {label}
@@ -432,7 +432,7 @@ function ProgressNavigator() {
             disabled={index === sections.length - 1}
             className="min-w-0 flex-1 text-left disabled:opacity-50"
           >
-            <span className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.15em] text-[#7f8b89]">
+            <span className="flex items-center justify-between text-3xs font-bold uppercase tracking-[0.15em] text-[#7f8b89]">
               <span>
                 Section {index + 1} of {sections.length}
               </span>
