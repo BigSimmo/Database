@@ -324,7 +324,7 @@ Build an evidence-backed model of the highest-value paths:
 For each path capture:
 
 | Path | Entrypoints | Downstream calls | Sync bottlenecks | Cache layers | Timeout/retry policy | Failure degradation | Evidence |
-|---|---|---|---|---|---|---|---|
+| ---- | ----------- | ---------------- | ---------------- | ------------ | -------------------- | ------------------- | -------- |
 
 Mark unknown cells `unverified` rather than guessing.
 
@@ -390,7 +390,7 @@ Derive commands from the repository. Prefer this order:
 For every check record:
 
 | Check | Command | Result | Pre-existing | New signal | Cloud/provider gated | Evidence |
-|---|---|---|---|---|---|---|
+| ----- | ------- | ------ | ------------ | ---------- | -------------------- | -------- |
 
 Statuses:
 
@@ -622,7 +622,7 @@ Ranked likely first bottlenecks under expected concurrent clinician load, each w
 ## 8. Reliability matrix
 
 | Failure mode | Current behaviour | Gap | Detection | Recovery | Evidence |
-|---|---|---|---|---|---|
+| ------------ | ----------------- | --- | --------- | -------- | -------- |
 
 ## 9. Reviewer findings
 

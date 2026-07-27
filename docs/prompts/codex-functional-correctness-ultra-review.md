@@ -343,7 +343,7 @@ Build an evidence-backed model of the highest-value paths:
 For each path capture:
 
 | Path | Entrypoints | Valid inputs | Invalid inputs | Loading/empty/error/success | Mutations | Retry/cancel behaviour | Evidence |
-|---|---|---|---|---|---|---|---|
+| ---- | ----------- | ------------ | -------------- | --------------------------- | --------- | ---------------------- | -------- |
 
 Mark unknown cells `unverified` rather than guessing.
 
@@ -407,7 +407,7 @@ Derive commands from the repository. Prefer this order:
 For every check record:
 
 | Check | Command or repro | Result | Pre-existing | New signal | Provider gated | Evidence |
-|---|---|---|---|---|---|---|
+| ----- | ---------------- | ------ | ------------ | ---------- | -------------- | -------- |
 
 Statuses:
 
@@ -641,7 +641,7 @@ Commands and repros run, results, pre-existing failures, blocked checks, and che
 ## 7. Failure-path matrix
 
 | Failure path | Current behaviour | Gap | User impact | Evidence |
-|---|---|---|---|---|
+| ------------ | ----------------- | --- | ----------- | -------- |
 
 ## 8. Race/retry/cache hotspots
 

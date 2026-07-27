@@ -8,6 +8,9 @@ import { redactSensitiveText } from "./sensitive-text.mjs";
 const tokenEnvironmentKey = "CLINICAL_KB_HEAVY_LOCK_TOKEN";
 const pathEnvironmentKey = "CLINICAL_KB_HEAVY_LOCK_PATH";
 const incompleteLockGraceMs = 30_000;
+const maxLeaseMs = 15 * 60 * 1000;
+const heartbeatStaleMs = 60 * 1000;
+const heartbeatIntervalMs = 10 * 1000;
 
 function processIsAlive(pid) {
   if (!Number.isInteger(pid) || pid <= 0) return false;
@@ -66,6 +69,27 @@ function lockIsOldEnoughToRecover(lockPath, now = Date.now()) {
   }
 }
 
+function lockIsStale(lockPath, owner) {
+  if (!owner) return false;
+
+  if (owner.startedAt) {
+    const started = new Date(owner.startedAt).getTime();
+    if (Date.now() - started >= maxLeaseMs) return true;
+  }
+
+  try {
+    const heartbeatStat = statSync(path.join(lockPath, "heartbeat"));
+    if (Date.now() - heartbeatStat.mtimeMs >= heartbeatStaleMs) return true;
+  } catch {
+    if (owner.startedAt) {
+      const started = new Date(owner.startedAt).getTime();
+      if (Date.now() - started >= heartbeatStaleMs) return true;
+    }
+  }
+
+  return !processIsAlive(owner.pid);
+}
+
 /**
  * @param {{
  *   projectRoot: string;
@@ -115,7 +139,19 @@ export function acquireHeavyRunLock({
         startedAt: new Date().toISOString(),
       };
       writeFileSync(path.join(lockPath, "owner.json"), `${JSON.stringify(owner, null, 2)}\n`, "utf8");
+      writeFileSync(path.join(lockPath, "heartbeat"), "", "utf8");
       let released = false;
+
+      const heartbeatInterval = setInterval(() => {
+        if (released) return;
+        try {
+          writeFileSync(path.join(lockPath, "heartbeat"), "", "utf8");
+        } catch {
+          // ignore
+        }
+      }, heartbeatIntervalMs);
+      heartbeatInterval.unref();
+
       return {
         path: lockPath,
         owner,
@@ -128,13 +164,14 @@ export function acquireHeavyRunLock({
         release() {
           if (released) return;
           released = true;
+          clearInterval(heartbeatInterval);
           if (readOwner(lockPath)?.token === token) rmSync(lockPath, { recursive: true, force: true });
         },
       };
     } catch (error) {
       if (error?.code !== "EEXIST") throw error;
       const owner = readOwner(lockPath);
-      if (owner && processIsAlive(owner.pid)) {
+      if (owner && !lockIsStale(lockPath, owner)) {
         if (attempt < 15) {
           // 15 attempts, approx 30s
           const sleepMs = Math.min(3000, 100 * Math.pow(1.5, attempt));
@@ -166,6 +203,7 @@ export const testRunLockInternals = {
   lockPathFor,
   processIsAlive,
   readOwner,
+  lockIsStale,
   resolveRepositoryIdentity,
   tokenEnvironmentKey,
   pathEnvironmentKey,

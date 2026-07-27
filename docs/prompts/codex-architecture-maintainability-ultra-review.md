@@ -331,7 +331,7 @@ Do not alter unrelated user work.
 Build an evidence-backed comparison:
 
 | Area | Documented intent | Implemented reality | Drift | Evidence |
-|---|---|---|---|---|
+| ---- | ----------------- | ------------------- | ----- | -------- |
 
 Cover at least:
 
@@ -413,7 +413,7 @@ Derive commands from the repository. Prefer this order:
 For every check record:
 
 | Check | Command | Result | Pre-existing | New signal | Provider gated | Evidence |
-|---|---|---|---|---|---|---|
+| ----- | ------- | ------ | ------------ | ---------- | -------------- | -------- |
 
 Statuses:
 
