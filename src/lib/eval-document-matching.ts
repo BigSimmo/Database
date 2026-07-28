@@ -111,17 +111,63 @@ function resultDocumentText(source: Pick<SearchResult, "file_name" | "title">) {
   return normalizedDocumentName(`${source.title} ${source.file_name}`);
 }
 
+type ExpectedFileSource = Pick<SearchResult, "file_name" | "title"> & Partial<Pick<SearchResult, "document_id">>;
+
+function distinctSourceDocuments(sources: ExpectedFileSource[], limit: number) {
+  const documents = new Map<string, string>();
+  sources.slice(0, limit).forEach((source, index) => {
+    const identity =
+      normalizedDocumentName(source.document_id ?? "") ||
+      normalizedDocumentName(source.file_name) ||
+      normalizedDocumentName(source.title) ||
+      `source ${index}`;
+    const text = resultDocumentText(source);
+    const previous = documents.get(identity);
+    documents.set(identity, previous ? `${previous} ${text}` : text);
+  });
+  return [...documents.values()];
+}
+
+// Coverage is a one-to-one assignment, not independent substring checks: a broad alias may
+// match several expectations, but one retrieved document can provide evidence for only one slot.
+// The augmenting-path pass avoids a greedy false miss when a flexible expectation can move to a
+// second source and free the only valid source for a narrower expectation.
+function matchExpectedFilesToDistinctSources(expectedFiles: string[], sourceDocuments: string[]) {
+  const alternatives = expectedFiles.map(documentExpectationAlternatives);
+  const sourceForExpected = Array<number>(expectedFiles.length).fill(-1);
+  const expectedForSource = Array<number>(sourceDocuments.length).fill(-1);
+
+  function assign(expectedIndex: number, visitedSources: Set<number>): boolean {
+    for (let sourceIndex = 0; sourceIndex < sourceDocuments.length; sourceIndex += 1) {
+      if (visitedSources.has(sourceIndex)) continue;
+      if (!alternatives[expectedIndex]?.some((alternative) => sourceDocuments[sourceIndex]?.includes(alternative))) {
+        continue;
+      }
+
+      visitedSources.add(sourceIndex);
+      const currentExpected = expectedForSource[sourceIndex] ?? -1;
+      if (currentExpected !== -1 && !assign(currentExpected, visitedSources)) continue;
+
+      expectedForSource[sourceIndex] = expectedIndex;
+      sourceForExpected[expectedIndex] = sourceIndex;
+      return true;
+    }
+    return false;
+  }
+
+  expectedFiles.forEach((_, expectedIndex) => {
+    assign(expectedIndex, new Set());
+  });
+
+  return expectedFiles.filter((_, expectedIndex) => sourceForExpected[expectedIndex] !== -1);
+}
+
 export function expectedFileCoverage(
   expectedFiles: string[],
-  sources: Array<Pick<SearchResult, "file_name" | "title">>,
+  sources: ExpectedFileSource[],
   limit = 3,
 ): ExpectedFileCoverage {
-  const topFiles = sources.slice(0, limit).map(resultDocumentText);
-  const matchedFiles = expectedFiles.filter((expected) =>
-    documentExpectationAlternatives(expected).some((alternative) =>
-      topFiles.some((file) => file.includes(alternative)),
-    ),
-  );
+  const matchedFiles = matchExpectedFilesToDistinctSources(expectedFiles, distinctSourceDocuments(sources, limit));
 
   return {
     expectedFiles,

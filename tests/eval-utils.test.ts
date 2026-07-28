@@ -54,6 +54,103 @@ describe("RAG eval source identity matching", () => {
     expect(coverage.missingFiles).toEqual(["MHSP.Discharge.pdf"]);
   });
 
+  it("does not let one retrieved document satisfy both sides of a comparison", () => {
+    const coverage = expectedFileCoverage(
+      ["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"],
+      [
+        {
+          title: "Admission to Discharge for Mental Health Inpatients",
+          file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+        },
+      ],
+      5,
+    );
+
+    expect(coverage.matchedFiles).toEqual(["MHSP.AdmissionCommunityPts.pdf"]);
+    expect(coverage.missingFiles).toEqual(["MHSP.Discharge.pdf"]);
+    expect(coverage.anyHit).toBe(true);
+    expect(coverage.allHit).toBe(false);
+  });
+
+  it("finds a complete one-to-one assignment when an overlapping alias has a distinct counterpart", () => {
+    const coverage = expectedFileCoverage(
+      ["MHSP.Discharge.pdf", "MHSP.AdmissionCommunityPts.pdf"],
+      [
+        {
+          title: "Admission to Discharge for Mental Health Inpatients",
+          file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+        },
+        {
+          title: "Discharge Planning for Community Patients",
+          file_name: "Discharge Planning for Community Patients (NMHS).pdf",
+        },
+      ],
+      5,
+    );
+
+    expect(coverage.matchedFiles).toEqual(["MHSP.Discharge.pdf", "MHSP.AdmissionCommunityPts.pdf"]);
+    expect(coverage.missingFiles).toEqual([]);
+    expect(coverage.allHit).toBe(true);
+  });
+
+  it("does not count repeated chunks from one file as distinct expected documents", () => {
+    const repeatedSource = {
+      title: "Admission to Discharge for Mental Health Inpatients",
+      file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+    };
+    const coverage = expectedFileCoverage(
+      ["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"],
+      [repeatedSource, repeatedSource],
+      5,
+    );
+
+    expect(coverage.matchedFiles).toHaveLength(1);
+    expect(coverage.missingFiles).toHaveLength(1);
+    expect(coverage.allHit).toBe(false);
+  });
+
+  it("uses document identity when repeated chunks have different display text", () => {
+    const coverage = expectedFileCoverage(
+      ["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"],
+      [
+        {
+          document_id: "11111111-1111-4111-8111-111111111111",
+          title: "Admission to Discharge for Mental Health Inpatients",
+          file_name: "admission-policy.pdf",
+        },
+        {
+          document_id: "11111111-1111-4111-8111-111111111111",
+          title: "Discharge Planning for Community Patients",
+          file_name: "discharge-policy.pdf",
+        },
+      ],
+      5,
+    );
+
+    expect(coverage.matchedFiles).toEqual(["MHSP.AdmissionCommunityPts.pdf"]);
+    expect(coverage.missingFiles).toEqual(["MHSP.Discharge.pdf"]);
+    expect(coverage.allHit).toBe(false);
+  });
+
+  it("keeps distinct document identities separate even when their display names match", () => {
+    const sharedDisplay = {
+      title: "Admission to Discharge for Mental Health Inpatients",
+      file_name: "Admission to Discharge for Mental Health Inpatients (NMHS).pdf",
+    };
+    const coverage = expectedFileCoverage(
+      ["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"],
+      [
+        { ...sharedDisplay, document_id: "11111111-1111-4111-8111-111111111111" },
+        { ...sharedDisplay, document_id: "22222222-2222-4222-8222-222222222222" },
+      ],
+      5,
+    );
+
+    expect(coverage.matchedFiles).toEqual(["MHSP.AdmissionCommunityPts.pdf", "MHSP.Discharge.pdf"]);
+    expect(coverage.missingFiles).toEqual([]);
+    expect(coverage.allHit).toBe(true);
+  });
+
   it("fails supported clinical eval cases when numeric faithfulness warnings are present", () => {
     const testCase: RagEvalCase = {
       id: "dose-warning",
