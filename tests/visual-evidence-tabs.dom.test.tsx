@@ -216,7 +216,7 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
     const untrusted: RagAnswer = {
       ...answer,
       grounded: true,
-      // Missing relevance.isSourceBacked → fail closed for structured clinical UI.
+      // Missing relevance.isSourceBacked -> fail closed for structured clinical UI.
       answerSections: [
         {
           heading: "Monitoring",
@@ -264,11 +264,41 @@ describe("ClinicalNotesChecklistPanel visual-evidence boundary (jsdom)", () => {
     expect(screen.queryByText("Escalate for tremor, confusion, or ataxia.")).not.toBeInTheDocument();
   });
 
+  it("does not reconstruct clinical notes from untrusted labeled answer text", () => {
+    const untrusted: RagAnswer = {
+      ...answer,
+      grounded: true,
+      // Missing relevance.isSourceBacked -> fail closed for parsed clinical UI.
+      answer: [
+        "Action: Withhold lithium and arrange urgent same-day clinical review.",
+        "Monitoring: Repeat lithium level, renal function, and electrolytes within 24 hours.",
+      ].join("\n"),
+    };
+
+    render(
+      <ClinicalNotesChecklistPanel
+        answer={untrusted}
+        visualEvidence={[]}
+        viewMode="standard"
+        evidenceMapRows={[]}
+        bestSource={null}
+        copied={false}
+        onCopy={vi.fn()}
+        onOpenTables={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText("Withhold lithium and arrange urgent same-day clinical review.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Repeat lithium level, renal function, and electrolytes within 24 hours."),
+    ).not.toBeInTheDocument();
+  });
+
   it("does not render comparison tables from untrusted documentBreakdown", () => {
     const comparisonAnswer: RagAnswer = {
       ...answer,
       grounded: true,
-      // Missing relevance.isSourceBacked → fail closed; documentBreakdown/comparison
+      // Missing relevance.isSourceBacked -> fail closed; documentBreakdown/comparison
       // metadata must not rebuild ClinicalOutputPanel comparison-detail tables.
       responseMode: "comparison_matrix",
       queryClass: "comparison",
