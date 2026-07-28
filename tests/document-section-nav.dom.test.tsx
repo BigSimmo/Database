@@ -1,5 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { renderHook } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -24,7 +23,41 @@ const sections = buildDocumentSectionIndex({
 beforeEach(() => {
   document.body.innerHTML = "";
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
+
+/** jsdom has no IntersectionObserver or layout; the spy needs both to leave its fallback path. */
+function installSectionSpyDomHarness(ids: string[]) {
+  class ImmediateIntersectionObserver {
+    constructor(private readonly callback: IntersectionObserverCallback) {}
+    observe() {
+      this.callback([], this as unknown as IntersectionObserver);
+    }
+    unobserve() {}
+    disconnect() {}
+    takeRecords(): IntersectionObserverEntry[] {
+      return [];
+    }
+  }
+
+  vi.stubGlobal("IntersectionObserver", ImmediateIntersectionObserver);
+
+  ids.forEach((id, index) => {
+    const element = document.getElementById(id);
+    if (!element) return;
+    vi.spyOn(element, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: index * 40,
+      top: index * 40,
+      left: 0,
+      right: 320,
+      bottom: index * 40 + 40,
+      width: 320,
+      height: 40,
+      toJSON: () => ({}),
+    });
+  });
+}
 
 describe("DocumentSectionIndexCard", () => {
   it("renders every section with its count and marks the active one", () => {
@@ -92,22 +125,29 @@ describe("jumpToDocumentSection", () => {
 });
 
 describe("useDocumentSectionSpy", () => {
-  it("never reports a collapsed section as the active one", () => {
+  it("never reports a collapsed section as the active one", async () => {
     document.body.innerHTML = `
       <div id="document-overview"></div>
       <details id="source-summary" name="document-viewer-section"></details>
     `;
     // Both sit at the top of an empty jsdom viewport, so the collapsed summary
     // would win on position alone if the accordion state were ignored.
+    installSectionSpyDomHarness(["document-overview", "source-summary"]);
     const model = sections.filter((section) => ["document-overview", "source-summary"].includes(section.id));
 
     const { result } = renderHook(() => useDocumentSectionSpy(model, true));
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    });
+    expect(result.current.activeId).toBe("document-overview");
     expect(result.current.activeId).not.toBe("source-summary");
   });
 
   it("takes an explicit selection immediately", () => {
     const { result } = renderHook(() => useDocumentSectionSpy(sections, false));
-    result.current.selectSection("source-images");
-    expect(sections.some((section) => section.id === "source-images")).toBe(true);
+    act(() => {
+      result.current.selectSection("source-images");
+    });
+    expect(result.current.activeId).toBe("source-images");
   });
 });
