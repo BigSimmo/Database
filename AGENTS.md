@@ -450,17 +450,19 @@ Run the matching planner command in `docs/productivity-workflows.md` without sid
 
 ## Outstanding-work memory (`/issues`)
 
-`docs/outstanding-issues.md` is the durable, cross-session memory of every outstanding **task**,
-**recommendation**, and **issue** for this repo. Chat context resets between sessions; that file does
-not, so anything worth remembering after a session ends belongs there.
+`docs/outstanding-issues.md` is this repository's single universal task ledger. Its active table keeps
+only evidence-supported work still worth doing and records order, acuity, classification, executor
+capability, timing, effort, dependencies, approvals, success criteria, verification and stopping
+conditions. Completed, stale, duplicate, superseded, speculative and no-longer-recommended claims may
+remain only in its archive/history, never as active work. Do not create a second task ledger.
 
 - When the user types `/issues`, invoke the `issues` skill (`.claude/skills/issues/SKILL.md`): read
-  `docs/outstanding-issues.md` and state the open items back, grouped by priority. A plain `/issues`
+  `docs/outstanding-issues.md` and state the open items back in recommended order. A plain `/issues`
   is read-only — it mutates and commits nothing.
-- `/issues add|done|update|capture …` mutate the ledger; each mutation commits **only**
-  `docs/outstanding-issues.md` (no push unless the user asks or you are already handing off).
-- Proactively offer to `capture` unresolved follow-ups, deferrals, and known risks into the ledger
-  before a session's context is lost — that is what keeps it a memory rather than a stale list.
+- `/issues add|done|update|capture …` mutate the ledger only when requested. Committing, pushing or
+  opening a PR remains a separate Git workflow requiring the usual authorization.
+- Before capture, verify and deduplicate each candidate. Add only work that remains recommended;
+  archive or omit completed, stale, duplicate, superseded, speculative or uneconomic suggestions.
 - A `SessionStart` hook (`.claude/hooks/issues-surface.sh`, wired in `.claude/settings.json`)
   auto-surfaces the open items into context at the start of every session and, on a context reset
   (`compact`/`resume`/`clear`), nudges a `/issues capture`. It is read-only — it never writes the
