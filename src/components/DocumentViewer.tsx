@@ -983,30 +983,20 @@ export function DocumentViewer({
   const selectedPage = pageByNumber.get(activePage) ?? pages[0];
   const selectedChunk = activeChunkId ? chunkById.get(activeChunkId) : undefined;
   const { clinicalImages, auditImages } = partitionViewerImages(images);
-  const documentSections = useMemo(
-    () =>
-      buildDocumentSectionIndex({
-        hasDocument: Boolean(readyDocument),
-        hasStoredSummary: Boolean(document?.summary),
-        pageCount: document?.page_count ?? pages.length,
-        chunkCount: chunks.length,
-        visualCount: clinicalImages.length,
-        hasIndexHealth: Boolean(indexHealth),
-        pinnedPage: selectedChunk?.page_number ?? null,
-        loading: effectiveLoadingDocument,
-      }),
-    [
-      readyDocument,
-      document?.summary,
-      document?.page_count,
-      pages.length,
-      chunks.length,
-      clinicalImages.length,
-      indexHealth,
-      selectedChunk?.page_number,
-      effectiveLoadingDocument,
-    ],
-  );
+  // Built on every render rather than memoised: it is seven objects from values
+  // already in hand, and `clinicalImages` is a fresh array each render, so a
+  // manual dependency list would only be memoization the compiler cannot verify.
+  // Consumers key off the section ids, not this array's identity.
+  const documentSections = buildDocumentSectionIndex({
+    hasDocument: Boolean(readyDocument),
+    hasStoredSummary: Boolean(document?.summary),
+    pageCount: document?.page_count ?? pages.length,
+    chunkCount: chunks.length,
+    visualCount: clinicalImages.length,
+    hasIndexHealth: Boolean(indexHealth),
+    pinnedPage: selectedChunk?.page_number ?? null,
+    loading: effectiveLoadingDocument,
+  });
   const {
     activeId: activeSectionId,
     activeSection,

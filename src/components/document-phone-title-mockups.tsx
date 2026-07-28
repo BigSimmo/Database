@@ -16,7 +16,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useId, useState } from "react";
+import { useId } from "react";
 
 import { cn } from "@/components/ui-primitives";
 
@@ -62,7 +62,8 @@ const approaches: Array<{
     description:
       "The document title replaces the mode chip in the universal header while you are on a document route. The row beneath carries only position and the pane trigger, so it can stay slim.",
     chromeHeight: "92 px of chrome (48 header + 44 section bar)",
-    tradeoff: "Edits shared chrome for one route — the biggest blast radius of the three, and the title loses its back affordance.",
+    tradeoff:
+      "Edits shared chrome for one route — the biggest blast radius of the three, and the title loses its back affordance.",
   },
   {
     id: "sheet",
@@ -71,7 +72,8 @@ const approaches: Array<{
     description:
       "The title row is a single line and never moves. Section navigation is a compact pill that opens a bottom sheet, matching the phone sheet pattern already used for document actions.",
     chromeHeight: "104 px of chrome (48 header + 56 title row)",
-    tradeoff: "The pane is furthest from the header anchor, and the sheet covers the lower half of the document while open.",
+    tradeoff:
+      "The pane is furthest from the header anchor, and the sheet covers the lower half of the document while open.",
   },
 ];
 
