@@ -77,10 +77,15 @@ describe("shared header hide/reveal wiring", () => {
 
   it("drops the DocumentViewer rail offset when the universal top bar hides", () => {
     // Otherwise a dead band the height of the hidden bar stays above the rail.
-    expect(documentViewerSource).toContain('headerHidden ? "lg:top-0" : "lg:top-[69px]"');
+    // When the universal bar is hidden, the rail still clears the page-owned
+    // sticky document header on sm+.
+    expect(read("src/components/document-viewer/document-rail-panels.tsx")).toContain(
+      'headerHidden ? "lg:top-[var(--document-sticky-header-height,0px)]" : "lg:top-[69px]"',
+    );
     expect(read("src/components/document-viewer/use-document-chrome-metrics.ts")).toContain(
       'data-testid="universal-header-collapse"',
     );
+    expect(documentViewerSource).toContain("data-document-sticky-header");
   });
 
   it("measures section anchor offsets from the live collapse row", () => {
@@ -88,7 +93,10 @@ describe("shared header hide/reveal wiring", () => {
     // or hidden entirely.
     expect(documentViewerSource).not.toContain("scroll-mt-24");
     expect(documentViewerSource).toContain("scroll-mt-[var(--document-anchor-offset,6rem)]");
-    expect(read("src/components/document-viewer/use-document-chrome-metrics.ts")).toContain("--document-anchor-offset");
+    const chromeMetricsSource = read("src/components/document-viewer/use-document-chrome-metrics.ts");
+    expect(chromeMetricsSource).toContain("--document-anchor-offset");
+    expect(chromeMetricsSource).toContain("data-document-sticky-header");
+    expect(chromeMetricsSource).toContain('"(max-width: 639px)"');
   });
 
   it("picks the hide mechanism from where each host's scrollport lives", () => {
@@ -182,7 +190,8 @@ describe("shared header hide/reveal wiring", () => {
 
     expect(therapyNavSource).toContain("<PhoneHeaderCollapsePortal>");
     expect(documentViewerSource).toContain("<PhoneHeaderCollapsePortal>");
-    expect(documentViewerSource).toContain('<header className="edge-glass-header');
+    expect(documentViewerSource).toContain("data-document-sticky-header");
+    expect(documentViewerSource).toContain("edge-glass-header");
     expect(documentViewerSource).toContain("max-sm:pt-2");
     expect(differentialDetailSource).toContain("<PhoneHeaderCollapsePortal>");
     expect(differentialDetailSource).toContain('data-testid="differential-detail-header"');
